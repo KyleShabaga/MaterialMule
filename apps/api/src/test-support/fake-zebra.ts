@@ -15,6 +15,8 @@ export interface FakeZebraOptions {
   /** Host status reported to ~HS (e.g. { paperOut: true }). */
   status?: Partial<HostStatus>;
   dropAfterBytes?: number;
+  /** Fixed loopback port; default is any free port. */
+  port?: number;
 }
 
 export class FakeZebraPrinter {
@@ -40,7 +42,10 @@ export class FakeZebraPrinter {
   static async start(options: FakeZebraOptions = {}): Promise<FakeZebraPrinter> {
     const server = createServer();
     const printer = new FakeZebraPrinter(server, options);
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(options.port ?? 0, '127.0.0.1', resolve);
+    });
     return printer;
   }
 

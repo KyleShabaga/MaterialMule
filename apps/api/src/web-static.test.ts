@@ -12,7 +12,8 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
   let dist: string;
 
   beforeAll(async () => {
-    dist = mkdtempSync(join(tmpdir(), 'trapezoid-web-'));
+    // A dot folder, like a worktree under .claude/, must still serve index.html.
+    dist = mkdtempSync(join(tmpdir(), '.trapezoid-web-'));
     mkdirSync(join(dist, 'assets'));
     writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Trapezoid</title>');
     writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("app")');

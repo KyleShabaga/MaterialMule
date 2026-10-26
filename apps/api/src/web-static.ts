@@ -22,6 +22,8 @@ export function serveWebApp(app: INestApplication, directory: string): void {
       next();
       return;
     }
-    response.sendFile(indexHtml);
+    // Relative to `root`: an absolute path is refused when any folder above it starts with a dot
+    // (e.g. a worktree under .claude/), because `send` treats it as a dotfile.
+    response.sendFile('index.html', { root });
   });
 }
