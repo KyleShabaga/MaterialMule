@@ -22,6 +22,8 @@ export function serveWebApp(app: INestApplication, directory: string): void {
       next();
       return;
     }
-    response.sendFile(indexHtml);
+    // Relative to root, so a dot folder above it (e.g. a .claude worktree) isn't treated as a
+    // hidden file and refused.
+    response.sendFile('index.html', { root });
   });
 }
