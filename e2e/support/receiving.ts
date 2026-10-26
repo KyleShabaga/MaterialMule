@@ -65,7 +65,8 @@ export async function chooseReceiver(page: Page, search: string, option: string 
 /** Issued storage unit IDs on the labels step, in unit order. */
 export async function issuedIds(page: Page): Promise<string[]> {
   const list = page.getByRole('list', { name: 'New storage units' });
-  await expect(list).toBeVisible();
+  // Confirmation retries a lost answer after 0.5 s, 1.5 s and 3 s (TRP-T10), so allow for them.
+  await expect(list).toBeVisible({ timeout: 15_000 });
   const ids = await list.getByRole('heading').allTextContents();
   for (const id of ids) expect(id).toMatch(BKT_ID);
   return ids;

@@ -68,6 +68,16 @@ shown as saved) and an expired LAB session, keeping its receiver.
 | D1  | High     | Fixed in this branch   | **The API process exits if a database connection drops mid-query.** pg-pool removes its error listener while a client is checked out, so the client's `'error'` event was unhandled: Node threw `ECONNRESET` as an uncaught exception, which ends the Windows service and every request in flight (the transaction itself rolled back; no data was lost). Trigger: a PostgreSQL restart, network blip or killed backend during any request or print-worker query. Fix: `DatabaseService` attaches an error listener to every pooled client (`apps/api/src/database/database.service.ts`); the request still fails with 500 and the pool discards the broken client. Proven by `receipts.failure-injection.test.ts` (fails without the fix with an uncaught `ECONNRESET`). |
 | D2  | Low      | Open (bug card needed) | **Sample Storage can drop a filter chosen just before another.** With a text search active, choosing a project and then, quickly, a location sometimes loses the project (4 of 6 tries in a probe); typing into Search right after "Clear filters" can also be lost. `InventoryPage.update()` builds the next URL from the `query` of the last render, and the router applies URL changes without blocking, so a second change made before the re-render overwrites the first. Data is unaffected and the chips show what is applied; a person who changes filters one at a time won't notice. Suggested fix: build from the latest params (`setParams(prev => …)`) and don't remount the search form. The S10 test waits for each chip, as a person would.               |
 
+## Observations
+
+- **O1 (CI, 2026-10-26, run 40413585027):** on the CI runner, during the lost-response scenario
+  (S4), the wizard's automatic retry once got HTTP 500. The cause was "Connection terminated due to
+  connection timeout": the API's 2 s PostgreSQL connect timeout was hit under parallel E2E load.
+  The wizard retried again with the same key, as designed, and no duplicate was created. The test
+  had waited only 5 s for the IDs, shorter than the retry back-off (0.5 + 1.5 + 3 s), and now waits
+  15 s. Worth watching on the production PC: if connect timeouts show up in its logs, raise
+  `CONNECT_TIMEOUT_MS` in `database.service.ts`.
+
 ## Known limitations
 
 - **Hardware isn't covered** (TRP-T22): real ZD621 printing, DS3678-XR scanning, staff phones,
