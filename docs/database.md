@@ -82,3 +82,9 @@ Key rules enforced by the database:
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25).
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
+- **LAB credentials (migration 0003, TRP-T06).** `local_credential` holds one Argon2id PHC string
+  per account (the string records its own cost); a trigger allows it only for `shared_lab`
+  accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
+  Reference data seeds the LAB account (`app_user` 00000000-0000-4000-8000-000000000001 with a
+  `local_lab` identity, subject `LAB`) without a password: an admin sets it in
+  Settings → Staff & access.

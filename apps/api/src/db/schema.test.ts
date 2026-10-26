@@ -53,6 +53,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       'app_user',
       'audit_event',
       'identity_link',
+      'local_credential',
       'location',
       'print_job',
       'print_job_item',
@@ -61,6 +62,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       'role_assignment',
       'schema_migration',
       'session',
+      'sign_in_throttle',
       'storage_unit',
       'storage_unit_annual_counter',
       'storage_unit_hole_summary',
@@ -382,5 +384,50 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     await expect(
       db.pool.query(`UPDATE location SET active = false WHERE code_normalized = 'RECEIVING'`),
     ).rejects.toMatchObject({ code: PG.checkViolation });
+  });
+
+  describe('LAB credentials (TRP-T06)', () => {
+    const HASH =
+      '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';
+
+    it('seeds the LAB account with a local_lab identity and no password', async () => {
+      await runSeed(db.pool, 'reference', 'test');
+      const { rows } = await db.pool.query(
+        `SELECT u.display_name, u.account_type, u.status, l.subject,
+                (SELECT count(*)::int FROM local_credential c WHERE c.user_id = u.id) AS passwords
+         FROM app_user u JOIN identity_link l ON l.user_id = u.id AND l.provider = 'local_lab'`,
+      );
+      expect(rows).toEqual([
+        {
+          display_name: 'LAB',
+          account_type: 'shared_lab',
+          status: 'active',
+          subject: 'LAB',
+          passwords: 0,
+        },
+      ]);
+    });
+
+    it('stores only Argon2id hashes, and only for shared LAB accounts', async () => {
+      await runSeed(db.pool, 'reference', 'test');
+      const lab = '00000000-0000-4000-8000-000000000001';
+      await expect(
+        db.pool.query('INSERT INTO local_credential (user_id, password_hash) VALUES ($1, $2)', [
+          lab,
+          'plain-text-password',
+        ]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        db.pool.query('INSERT INTO local_credential (user_id, password_hash) VALUES ($1, $2)', [
+          userId,
+          HASH,
+        ]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await db.pool.query('INSERT INTO local_credential (user_id, password_hash) VALUES ($1, $2)', [
+        lab,
+        HASH,
+      ]);
+      await db.pool.query('DELETE FROM local_credential WHERE user_id = $1', [lab]);
+    });
   });
 });

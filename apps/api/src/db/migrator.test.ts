@@ -79,17 +79,21 @@ describe.runIf(testDatabaseUrl)('migrate', () => {
     expect(rows[0]).toEqual({ table_exists: null, recorded: 0 });
   });
 
-  it('AC7: production seed loads Receiving lab only and refuses dev fixtures', async () => {
+  it('AC7: production seed loads Receiving lab and LAB only and refuses dev fixtures', async () => {
     db = await createTestSchema();
     await migrate(db.pool);
+    await runSeed(db.pool, 'reference', 'production');
     await runSeed(db.pool, 'reference', 'production');
     await expect(runSeed(db.pool, 'dev', 'production')).rejects.toBeInstanceOf(SeedRefusedError);
     const { rows } = await db.pool.query(
       `SELECT (SELECT count(*)::int FROM project) AS projects,
-              (SELECT count(*)::int FROM app_user) AS users,
+              (SELECT count(*)::int FROM app_user WHERE account_type <> 'shared_lab') AS people,
+              (SELECT count(*)::int FROM app_user WHERE account_type = 'shared_lab') AS lab,
+              (SELECT count(*)::int FROM local_credential) AS passwords,
               (SELECT count(*)::int FROM location) AS locations`,
     );
-    expect(rows[0]).toEqual({ projects: 0, users: 0, locations: 1 });
+    // TRP-T06: the shared LAB account exists, but with no password until an admin sets one.
+    expect(rows[0]).toEqual({ projects: 0, people: 0, lab: 1, passwords: 0, locations: 1 });
   });
 
   it('loads development fixtures idempotently', async () => {

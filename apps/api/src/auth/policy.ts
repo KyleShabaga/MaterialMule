@@ -54,7 +54,7 @@ export type Permission =
   | 'session.revoke';
 
 /** What the shared LAB account may do (App Idea §8, owner decision #21 for moves). */
-const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'receipt.confirm',
   'receipt.draft',
   'project.create',
