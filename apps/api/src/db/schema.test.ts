@@ -379,6 +379,23 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
+  it('keeps each receipt line unique within its receipt (TRP-T09)', async () => {
+    const { projectId, receiptId, storageUnitId } = await bucketSetup('LINE-1', 'BKT-2026-000801');
+    await db.pool.query('UPDATE storage_unit SET receipt_line = 1 WHERE id = $1', [storageUnitId]);
+    const second = await insertStorageUnit(
+      db.pool,
+      { projectId, receiptId, locationId },
+      { readableId: 'BKT-2026-000802' },
+    );
+    await expect(
+      db.pool.query('UPDATE storage_unit SET receipt_line = 1 WHERE id = $1', [second]),
+    ).rejects.toMatchObject({ code: PG.uniqueViolation });
+    await expect(
+      db.pool.query('UPDATE storage_unit SET receipt_line = 0 WHERE id = $1', [second]),
+    ).rejects.toMatchObject({ code: PG.checkViolation });
+    await db.pool.query('UPDATE storage_unit SET receipt_line = 2 WHERE id = $1', [second]);
+  });
+
   it('never lets the system Receiving lab location be retired', async () => {
     await expect(
       db.pool.query(`UPDATE location SET active = false WHERE code_normalized = 'RECEIVING'`),

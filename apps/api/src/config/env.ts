@@ -38,6 +38,14 @@ const envSchema = z.object({
     .string()
     .refine(isValidTimeZone, { error: 'must be an IANA time zone such as America/Edmonton' })
     .default('America/Edmonton'),
+  // Guard on storage units per receipt (owner decision 2026-10-25: 50). It can be lowered, never
+  // raised above 50, which the database also enforces.
+  RECEIPT_MAX_UNITS: z.coerce
+    .number({ error: 'must be a number of storage units' })
+    .int({ error: 'must be a whole number' })
+    .min(1, { error: 'must be between 1 and 50' })
+    .max(50, { error: 'must be between 1 and 50' })
+    .default(50),
   // Optional: serve the built web app (apps/web/dist) from the API's origin, as production will.
   WEB_DIST_DIR: z.string().min(1).optional(),
   // Optional receiving label printer (TRP-T15). Creates the "receiving" printer the first time
