@@ -25,7 +25,21 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(LOG_LEVELS, { error: `must be one of ${LOG_LEVELS.join(', ')}` })
     .default('info'),
+  // Decides the year in storage unit IDs (owner decision 2026-10-25: America/Edmonton).
+  BUSINESS_TIME_ZONE: z
+    .string()
+    .refine(isValidTimeZone, { error: 'must be an IANA time zone such as America/Edmonton' })
+    .default('America/Edmonton'),
 });
+
+function isValidTimeZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export type AppConfig = z.infer<typeof envSchema>;
 

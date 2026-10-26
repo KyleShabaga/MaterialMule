@@ -70,6 +70,13 @@ Key rules enforced by the database:
   must match `issued_year`. A trigger makes `readable_id`, `id_prefix`, `issued_year` and
   `issued_holder_kind` immutable; current `unit_type` / `holder_kind` stay correctable (D45).
 - **Counters:** `storage_unit_annual_counter` has one row per prefix and year, capped at 999,999.
+  `allocateStorageUnitIds` (`apps/api/src/numbering`) increments it inside the caller's
+  transaction, so concurrent receipts serialise on the row and a rollback returns the numbers.
+  The year is the confirmation date in `BUSINESS_TIME_ZONE` (America/Edmonton), never the
+  received date. Note: tzdata 2026c has Edmonton on UTC−6 all year.
+- **Audit events are append-only** (migration 0002): triggers reject `UPDATE`, `DELETE` and
+  `TRUNCATE` even for the table owner. Record events with `recordAudit` (`apps/api/src/audit`)
+  on the same transaction client as the change; actor initials and name are snapshots.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only).
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25).
