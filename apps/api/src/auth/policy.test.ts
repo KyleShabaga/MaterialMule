@@ -46,6 +46,7 @@ describe('can', () => {
       'storage_unit.dispose_scan',
       'staff.manage',
       'disposal.approve',
+      'printer.manage',
     ] as Permission[]) {
       expect(can(lab, permission), permission).toBe(false);
     }
@@ -96,6 +97,7 @@ describe('can', () => {
     const admin = user({ userId: 'u-admin', roles: ['admin'] });
     expect(can(admin, 'staff.manage')).toBe(true);
     expect(can(admin, 'session.revoke')).toBe(true);
+    expect(can(admin, 'printer.manage')).toBe(true);
     expect(can(admin, 'program.close', project)).toBe(false);
     expect(can(admin, 'test.accept', project)).toBe(false);
     expect(can(admin, 'disposal.approve', project)).toBe(false);

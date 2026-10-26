@@ -51,7 +51,8 @@ export type Permission =
   | 'acceptance_delegation.manage'
   // Administration
   | 'staff.manage'
-  | 'session.revoke';
+  | 'session.revoke'
+  | 'printer.manage';
 
 /** What the shared LAB account may do (App Idea §8, owner decision #21 for moves). */
 export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
@@ -89,6 +90,7 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'staff.manage',
   'session.revoke',
   'test_catalog.manage',
+  'printer.manage',
 ]);
 
 /** Granted to the project's PM/PE (project-scoped). */

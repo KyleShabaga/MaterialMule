@@ -9,9 +9,14 @@ const isCI = Boolean(process.env.CI);
 // Never silently reuse a server already on the port: it could be another worktree's build.
 // Set E2E_REUSE_SERVER=1 only when you started this checkout's server yourself.
 const reuseServer = !isCI && process.env.E2E_REUSE_SERVER === '1';
+// A fake Zebra printer (raw TCP, like port 9100) that the API prints to during E2E (TRP-T15).
+// Started by e2e/support/global-setup.ts; 1000 above the app port so worktrees don't collide.
+const FAKE_PRINTER_PORT = PORT + 1000;
+process.env.E2E_FAKE_PRINTER_PORT = String(FAKE_PRINTER_PORT);
 
 export default defineConfig({
   testDir: 'e2e',
+  globalSetup: './e2e/support/global-setup.ts',
   fullyParallel: true,
   // Locally, more than two parallel browsers made the API freeze for 5–20 s at a time on the dev
   // PC (zero CPU, socket calls blocked; AVG Web Shield inspects browser traffic). Two workers were
@@ -49,6 +54,8 @@ export default defineConfig({
       HOST: '127.0.0.1',
       ENABLE_TEST_AUTH: 'true',
       WEB_DIST_DIR: '../web/dist',
+      LABEL_PRINTER_HOST: '127.0.0.1',
+      LABEL_PRINTER_PORT: String(FAKE_PRINTER_PORT),
       // 4xx responses log at warn; keep E2E output to real errors.
       LOG_LEVEL: 'error',
     },
