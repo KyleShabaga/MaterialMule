@@ -1,4 +1,4 @@
-import type { MeResponse, PrintJob } from '@trapezoid/shared';
+import type { MeResponse, PrintJob, StorageUnitDetail } from '@trapezoid/shared';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -10,6 +10,26 @@ import { PrintLabelsPanel } from './PrintLabelsPanel';
 import { PRINT_POLL_MS } from './usePrintJob';
 
 const UNIT = { id: '00000000-0000-4000-8000-000000000501', readableId: 'BKT-2026-000014' };
+
+const UNIT_DETAIL: StorageUnitDetail = {
+  ...UNIT,
+  unitType: 'bucket',
+  status: 'in_stock',
+  note: null,
+  receivedDate: '2026-10-23',
+  project: { id: 'p1', projectNumber: 'DEMO-2601', name: 'Riverbank', client: 'Example Client' },
+  holes: [],
+  location: { id: 'l1', code: 'RECEIVING', name: 'Receiving lab' },
+  receipt: {
+    id: 'r1',
+    receivedDate: '2026-10-23',
+    receiver: { initials: 'AT', name: 'Alex Tester' },
+    account: { initials: 'AT', name: 'Alex Tester' },
+    description: null,
+    quantity: 1,
+    confirmedAt: '2026-10-23T16:00:00.000Z',
+  },
+};
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   id: 'u1',
@@ -147,6 +167,11 @@ describe('storage unit labels page', () => {
       if (url === `/api/storage-units/${UNIT.readableId}/print-history`) {
         return json(200, { storageUnit: UNIT, jobs: [uncertain] });
       }
+      // The labels section sits on the storage unit detail page (TRP-T12).
+      if (url === `/api/storage-units/${UNIT.readableId}`) return json(200, UNIT_DETAIL);
+      if (url.startsWith(`/api/storage-units/${UNIT.id}/history`)) {
+        return json(200, { items: [], total: 0, page: 1, pageSize: 20 });
+      }
       if (url === `/api/print-jobs/${uncertain.id}/confirm-physical` && init?.method === 'POST') {
         return json(200, { ...uncertain, physicallyConfirmedAt: '2026-10-26T16:05:00.000Z' });
       }
@@ -154,8 +179,8 @@ describe('storage unit labels page', () => {
     });
     renderRoute(`/sample-storage/${UNIT.readableId}`);
 
-    expect(await screen.findByRole('heading', { name: UNIT.readableId })).toBeInTheDocument();
-    const history = screen.getByRole('table');
+    const history = await screen.findByRole('table');
+    expect(screen.getByRole('heading', { level: 1, name: UNIT.readableId })).toBeInTheDocument();
     expect(
       within(history).getByText('Unknown — check the printer before reprinting'),
     ).toBeInTheDocument();
