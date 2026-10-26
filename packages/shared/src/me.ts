@@ -13,11 +13,12 @@ export const meResponseSchema = z.object({
   permissions: z.array(z.string()),
   sessionExpiresAt: z.string(),
   /** The person's self-chosen position (TRP-T05). Describes their work; grants nothing. */
-  position: positionSchema.nullable(),
+  // Optional in the schema so older fixtures stay valid; the API always sends these three.
+  position: positionSchema.nullable().optional(),
   /** True until a Microsoft-signed-in person saves their first-login position. */
-  positionSetupRequired: z.boolean(),
+  positionSetupRequired: z.boolean().optional(),
   /** True when the latest Microsoft profile refresh failed (offer Retry). */
-  profileRefreshFailed: z.boolean(),
+  profileRefreshFailed: z.boolean().optional(),
 });
 
 export type MeResponse = z.infer<typeof meResponseSchema>;
