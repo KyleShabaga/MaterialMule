@@ -1,0 +1,77 @@
+# CLAUDE.md
+
+Guidance for Claude Code (and humans) working in this repository.
+
+## What this is
+
+Trapezoid tracks laboratory sample **storage units** (buckets, Shelby tubes, bulk containers) for a
+geotechnical/materials consulting firm: receiving and labelling, inventory and location, lab testing
+programs (progress only), retention, and disposal.
+
+- Requirements: Notion page "App Idea" (decisions D01–D52).
+- Work items: Notion "Trapezoid — Development Board". Each card (TRP-Txx) has scope, acceptance
+  criteria (section 7) and a test plan (section 8). Implement one card per branch.
+- Hosting (D25): a regular Windows PC running the NestJS API as a Windows service, PostgreSQL on the
+  same PC, and the React app in browsers on office computers and phones. No cloud, no off-site access.
+
+## Layout
+
+```
+apps/api         NestJS 12 backend, ESM ("type": "module"), routes under /api
+apps/web         React 19 + Vite browser app
+packages/shared  Types and zod schemas used by both (built with tsup to ESM + CJS)
+e2e              Playwright tests (desktop and phone viewports)
+scripts          Repo tooling (e.g. check-bundle-secrets.mjs)
+```
+
+## Commands (run from the repo root)
+
+| Command                | What it does                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `npm ci`               | Install exactly what's in the lockfile                                            |
+| `npm run dev`          | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)         |
+| `npm run lint`         | ESLint (zero warnings) and Prettier check                                         |
+| `npm run format`       | Prettier write                                                                    |
+| `npm run typecheck`    | `tsc --noEmit` in every workspace                                                 |
+| `npm test`             | Unit and integration tests (Vitest) in every workspace                            |
+| `npm run build`        | Build shared, API and web                                                         |
+| `npm run check:bundle` | Fail if server config appears in the web bundle                                   |
+| `npm run verify`       | lint → typecheck → test → build → check:bundle (the gate for every card)          |
+| `npm run test:e2e`     | Playwright smoke tests against built API (port 3100) + `vite preview` (port 4173) |
+
+Per-workspace: `npm run <script> -w @trapezoid/api` (or `@trapezoid/web`, `@trapezoid/shared`).
+`db:migrate` and `db:seed:dev` arrive with TRP-T02 and TRP-T33.
+
+A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows.
+
+## Configuration
+
+- The API validates env vars at startup (`apps/api/src/config/env.ts`) and exits with the list of
+  bad keys. Error messages must never include values.
+- Env file: `ENV_FILE` (default `.env` in `apps/api`). Templates: `apps/api/.env.example`.
+  `.env` / `.env.test` are git-ignored; never commit them.
+- Only `VITE_`-prefixed variables reach the browser. Never put secrets in them.
+- Tests that need PostgreSQL read `TEST_DATABASE_URL`; CI sets `REQUIRE_DATABASE_TESTS=1` so they
+  can't be silently skipped there.
+
+## Conventions
+
+- TypeScript strict everywhere. In `apps/api`, relative imports end in `.js` (NodeNext ESM).
+- API: one Nest module per domain area; validate input with zod schemas from `packages/shared`;
+  enforce every permission on the server, never only in the UI.
+- Put request/response types and validation in `packages/shared` so web and API agree.
+- Logging: pino via nestjs-pino. Add sensitive field names to `REDACT_PATHS` in
+  `apps/api/src/logging/logger.ts` instead of logging around them.
+- Tests sit next to the code (`*.test.ts`); E2E in `e2e/`. No fixed sleeps in tests.
+- Windows first: npm scripts must work in PowerShell, cmd and Git Bash.
+
+## Never
+
+- Never require or create an individual sample inventory at receiving. Receiving is per storage
+  unit with one SAMPLE#/DEPTH summary per test hole; individual samples appear only in lab requests.
+- Never implement a deferred decision as a default: billing D16–D18, sign-in timing D38, IT/pilot
+  choices D39. Cards mark proposals that need owner confirmation; stop and ask.
+- Never change a storage unit ID (SU-YYYY-000001) after issue, recycle one, or issue one for a draft.
+- Never use real production data, real people's records or send real email/messages in tests.
+  Use fictional data such as project DEMO-2601 and test hole TH26-01.
+- Never commit secrets, `.env` files or credentials.

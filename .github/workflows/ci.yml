@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # Production runs on a Windows PC (D25), so CI does too.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      REQUIRE_DATABASE_TESTS: '1'
+      TEST_DATABASE_URL: postgres://postgres:root@127.0.0.1:5432/trapezoid_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Service containers aren't available on Windows runners. The image ships PostgreSQL
+      # (user postgres / password root) as a stopped service, so start it and create the DB.
+      - name: Start PostgreSQL
+        shell: pwsh
+        run: |
+          $service = Get-Service -Name 'postgresql*' | Select-Object -First 1
+          Set-Service -InputObject $service -StartupType Manual
+          Start-Service -InputObject $service
+          $env:PGPASSWORD = 'root'
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U postgres -c 'CREATE DATABASE trapezoid_test;'
+
+      - name: Write API test environment
+        shell: pwsh
+        run: |
+          $secret = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+          @(
+            'APP_ENV=test'
+            "DATABASE_URL=$env:TEST_DATABASE_URL"
+            "SESSION_SECRET=$secret"
+            'LOG_LEVEL=warn'
+          ) | Set-Content -Path apps/api/.env.test -Encoding utf8
+
+      - run: npm ci
+      - run: npm run verify
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
