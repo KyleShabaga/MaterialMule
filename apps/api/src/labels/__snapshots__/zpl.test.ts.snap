@@ -1,0 +1,20 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderZpl (T1 snapshot, determinism) > matches the stored snapshot for a standard unit 1`] = `
+"^XA
+^FX Trapezoid sticker-v1^FS
+^CI28
+^PW1050
+^LL450
+^LH0,0
+^FO20,20^A0N,64,64^FH_^FDBKT-2026-000014^FS
+^FO20,94^A0N,44,44^FH_^FDDEMO-2601^FS
+^FO20,146^A0N,36,36^FH_^FDDemo Subdivision Phase 2^FS
+^FO20,194^A0N,30,30^FH_^FDTH26-01, TH26-02^FS
+^FO700,336^A0N,28,28^FH_^FDRECEIVED^FS
+^FO700,370^A0N,44,44^FH_^FD2026-10-26^FS
+^FO50,320^BY3^BCN,100,N,N,N,A^FDBKT-2026-000014^FS
+^FO830,52^BQN,2,8,M,7^FDMA,BKT-2026-000014^FS
+^XZ
+"
+`;
