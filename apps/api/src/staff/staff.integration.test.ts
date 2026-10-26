@@ -393,7 +393,7 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (TRP-T07)
       const signIn = (subject: string, upn: string, displayName: string) =>
         withTransaction(db.pool, (client) =>
           staff.resolveMicrosoftSignIn(client, {
-            tenantId: 'tenant-1',
+            tenantId: '00000000-0000-4000-8000-00000000f001',
             subject,
             upn,
             displayName,
@@ -401,7 +401,11 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (TRP-T07)
         );
 
       // Same initials and even the same name, different UPN: a separate pending user.
-      const other = await signIn('oid-other', 'jsong2@company.example', 'Jesse Stone');
+      const other = await signIn(
+        '00000000-0000-4000-8000-00000000a001',
+        'jsong2@company.example',
+        'Jesse Stone',
+      );
       expect(other.outcome).toBe('created');
       expect(other.userId).not.toBe(ids.jesse);
       const { rows: otherRow } = await db.pool.query(
@@ -410,18 +414,32 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (TRP-T07)
       );
       expect(otherRow[0]).toEqual({ status: 'pending', official_initials: null });
 
-      const linked = await signIn('oid-jesse', 'JStone@Company.example', 'Jesse Stone');
+      const linked = await signIn(
+        '00000000-0000-4000-8000-00000000a002',
+        'JStone@Company.example',
+        'Jesse Stone',
+      );
       expect(linked).toEqual({ userId: ids.jesse, outcome: 'linked' });
       expect((await listAuditForEntity(db.pool, 'app_user', ids.jesse!))[0]).toMatchObject({
         action: 'staff.linked_on_first_sign_in',
       });
 
-      expect(await signIn('oid-jesse', 'jstone@company.example', 'Jesse Stone')).toEqual({
+      expect(
+        await signIn(
+          '00000000-0000-4000-8000-00000000a002',
+          'jstone@company.example',
+          'Jesse Stone',
+        ),
+      ).toEqual({
         userId: ids.jesse,
         outcome: 'existing',
       });
       // The entry is linked now, so a new identity with the same UPN can't take it over.
-      const takeover = await signIn('oid-imposter', 'jstone@company.example', 'Jesse Stone');
+      const takeover = await signIn(
+        '00000000-0000-4000-8000-00000000a003',
+        'jstone@company.example',
+        'Jesse Stone',
+      );
       expect(takeover.outcome).toBe('created');
       expect(takeover.userId).not.toBe(ids.jesse);
     });
