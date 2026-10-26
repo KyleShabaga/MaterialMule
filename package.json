@@ -1,0 +1,45 @@
+{
+  "name": "trapezoid",
+  "private": true,
+  "description": "Laboratory sample receiving, storage-unit tracking and testing-program workflow.",
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @trapezoid/shared && concurrently -n shared,api,web -c gray,blue,magenta \"npm run dev -w @trapezoid/shared\" \"npm run dev -w @trapezoid/api\" \"npm run dev -w @trapezoid/web\"",
+    "build:shared": "npm run build -w @trapezoid/shared",
+    "lint": "eslint . --max-warnings 0 && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:shared && npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "check:bundle": "node scripts/check-bundle-secrets.mjs",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundle",
+    "test:e2e": "npm run build:shared && playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.19.2",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  },
+  "allowScripts": {
+    "esbuild": false,
+    "@swc/core": false
+  }
+}
