@@ -80,7 +80,7 @@ Key rules enforced by the database:
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
   so of two parallel creates exactly one succeeds and the other gets 409 with the existing row
-  (TRP-T08). Migration 0004 adds `text_pattern_ops` indexes for prefix search.
+  (TRP-T08). Migration 0005 adds `text_pattern_ops` indexes for prefix search.
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25). Each unit records its
   `receipt_line` (1 = first submitted, unique per receipt, migration 0003) so a retried
   confirmation returns the same row-to-ID mapping.
@@ -93,7 +93,7 @@ Key rules enforced by the database:
   `local_lab` identity, subject `LAB`) without a password: an admin sets it in
   Settings → Staff & access.
 
-## Print queue (TRP-T15, migration 0005)
+## Print queue (TRP-T15, migration 0006)
 
 - **Printers** (`printer`) are server-side configuration: key, name, host (IPv4 or host name),
   port (9100), enabled, default (at most one), status check. Print requests may only name a
