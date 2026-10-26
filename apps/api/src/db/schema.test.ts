@@ -498,6 +498,50 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
+  describe('staff directory (TRP-T07)', () => {
+    const addStaff = (values: string) =>
+      db.pool.query(
+        `INSERT INTO app_user (display_name, account_type, status, expected_upn, approved_by,
+                               approved_at, disabled_reason)
+         VALUES ${values}`,
+      );
+
+    it('keeps an expected UPN unique regardless of case', async () => {
+      await addStaff(
+        `('Jordan Smith', 'personal', 'active', 'jsmith@company.example', NULL, NULL, NULL)`,
+      );
+      await expect(
+        addStaff(`('J Smith', 'personal', 'active', 'JSmith@Company.example', NULL, NULL, NULL)`),
+      ).rejects.toMatchObject({ code: PG.uniqueViolation });
+      await expect(
+        addStaff(`('Bad', 'personal', 'active', 'no-at-sign', NULL, NULL, NULL)`),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+
+    it('allows duplicate official initials', async () => {
+      await insertUser(db.pool, 'JS');
+      await expect(insertUser(db.pool, 'JS')).resolves.toBeTruthy();
+    });
+
+    it('stores a disable reason only on a disabled account', async () => {
+      await expect(
+        addStaff(`('Active', 'personal', 'active', NULL, NULL, NULL, 'left')`),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        addStaff(`('Gone', 'personal', 'disabled', NULL, NULL, NULL, 'left')`),
+      ).resolves.toBeTruthy();
+    });
+
+    it('records approver and approval time together', async () => {
+      await expect(
+        addStaff(`('Half', 'personal', 'active', NULL, NULL, now(), NULL)`),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        addStaff(`('Whole', 'personal', 'active', NULL, '${userId}', now(), NULL)`),
+      ).resolves.toBeTruthy();
+    });
+  });
+
   describe('LAB credentials (TRP-T06)', () => {
     const HASH =
       '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';

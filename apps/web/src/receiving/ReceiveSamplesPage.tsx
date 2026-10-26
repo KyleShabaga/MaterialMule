@@ -1,6 +1,7 @@
-import type { ProjectSummary, StaffOption, TestHole } from '@trapezoid/shared';
+import type { ProjectSummary, ReceiverOption, StaffOption, TestHole } from '@trapezoid/shared';
 import { useEffect, useState } from 'react';
 import { listActiveStaff } from '../api/projects';
+import { ReceiverSelect } from '../components/ReceiverSelect';
 import { FormField, PageHeader } from '../components/ui';
 import { useOnline } from '../lib/online';
 import { useSession } from '../session/context';
@@ -29,9 +30,15 @@ export function ReceiveSamplesPage() {
   const online = useOnline();
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [staffError, setStaffError] = useState(false);
+  // A personal account receives as itself; the shared LAB station must choose who is receiving
+  // (TRP-T07 ReceiverSelect: active staff only, searched by initials or name).
+  const [receiver, setReceiver] = useState<ReceiverOption | null>(() =>
+    me && me.accountType !== 'shared_lab' && me.initials
+      ? { id: me.id, initials: me.initials, displayName: me.displayName, position: null }
+      : null,
+  );
   const [draft, setDraft] = useState<ReceiptDraft>(() => ({
-    // A personal account receives as itself; the shared LAB station must choose who is receiving.
-    receiverUserId: me && me.accountType !== 'shared_lab' ? me.id : '',
+    receiverUserId: receiver?.id ?? '',
     receivedDate: todayInEdmonton(),
     description: '',
     projectQuery: '',
@@ -65,24 +72,15 @@ export function ReceiveSamplesPage() {
         </p>
       ) : null}
       <div className="card receipt-draft">
-        <FormField label="Receiver" error={staffError ? "Staff list couldn't load." : null}>
-          {(props) => (
-            <select
-              {...props}
-              value={draft.receiverUserId}
-              onChange={(e) => update({ receiverUserId: e.target.value })}
-            >
-              <option value="">Choose who is receiving</option>
-              {staff.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.initials
-                    ? `${person.displayName} (${person.initials})`
-                    : person.displayName}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
+        <ReceiverSelect
+          label="Receiver"
+          value={receiver}
+          onChange={(next) => {
+            setReceiver(next);
+            update({ receiverUserId: next?.id ?? '' });
+          }}
+        />
+        {staffError ? <p className="field-error">The staff list couldn't load.</p> : null}
         <FormField label="Received date">
           {(props) => (
             <input

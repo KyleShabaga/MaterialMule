@@ -111,3 +111,30 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 State-changing requests (`POST`, `PUT`, `PATCH`, `DELETE`) must send `x-trapezoid-csrf: 1`
 (`CSRF_HEADER_NAME` in `@trapezoid/shared`), and if the browser sends `Origin` it must match the
 request's `Host`. The API enables no CORS, so another site can't send the header.
+
+## Staff & access (TRP-T07)
+
+| Route                                       | Policy                      |
+| ------------------------------------------- | --------------------------- |
+| `GET /api/staff?search=&status=`            | `staff.manage` (admin)      |
+| `POST /api/staff` (pre-provision)           | `staff.manage`              |
+| `POST /api/staff/:id/approve`               | `staff.manage`              |
+| `POST /api/staff/:id/disable {reason}`      | `staff.manage`              |
+| `POST /api/staff/:id/enable`                | `staff.manage`              |
+| `PUT /api/staff/:id/roles {roles, reason?}` | `staff.manage`              |
+| `PATCH /api/staff/:id`                      | `staff.manage`              |
+| `GET /api/staff/receivers?search=`          | any active session, LAB too |
+
+- **Approval** makes a pending account active; their existing session works on the next request.
+- **Disabling** needs a reason and revokes every session in the same transaction; the person
+  drops out of the receiver selector. Re-enabling doesn't revive old sessions.
+- **Last admin:** a change that would leave no active (non-LAB) admin, whether removing the admin
+  role or disabling, returns 422 `last_admin`. Kyle's bootstrap admin is an ordinary admin.
+- **LAB** can't hold roles (422 `roles_not_allowed`) and never appears as a receiver.
+- **Receiver selection is attribution, not authentication**: it grants nothing. Only active
+  staff with official initials are offered; free text is never accepted.
+- **Pre-provisioned staff** are created active (the admin who adds them approves them). On a
+  first Microsoft sign-in (`StaffService.resolveMicrosoftSignIn`, called by TRP-T05) the entry is
+  linked only when the UPN matches the expected UPN exactly (ignoring case) and the entry has no
+  sign-in identity yet. Initials and names are never compared; anyone else becomes a new pending
+  user.

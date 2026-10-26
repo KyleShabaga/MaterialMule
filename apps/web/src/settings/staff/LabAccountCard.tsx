@@ -5,21 +5,9 @@ import {
   type LabAccountResponse,
 } from '@trapezoid/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { apiFetch } from '../api/client';
-import { ConfirmDialog, EmptyState, ErrorState, FormField } from '../components/ui';
-import { formatExpiry } from '../lib/format';
-import { useMe } from '../session/context';
-
-/** Settings → Staff & access. Staff management arrives with TRP-T07; LAB admin is TRP-T06. */
-export function StaffPage() {
-  const me = useMe();
-  return (
-    <>
-      <EmptyState>Staff management arrives with TRP-T07.</EmptyState>
-      {me.permissions.includes('staff.manage') ? <LabAccountCard /> : null}
-    </>
-  );
-}
+import { apiFetch } from '../../api/client';
+import { ConfirmDialog, ErrorState, FormField } from '../../components/ui';
+import { formatExpiry } from '../../lib/format';
 
 type Load =
   { state: 'loading' } | { state: 'error' } | { state: 'ready'; account: LabAccountResponse };

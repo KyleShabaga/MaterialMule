@@ -203,7 +203,9 @@ describe('Reset LAB password (admin)', () => {
 
   it('is not offered to people without staff.manage', async () => {
     render_('/settings/staff', { status: 'active', me: LAB_ME }, {});
-    expect(await screen.findByText('Staff management arrives with TRP-T07.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Only administrators can manage staff and access.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Shared receiving account (LAB)')).not.toBeInTheDocument();
   });
 });

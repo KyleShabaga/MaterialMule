@@ -6,3 +6,4 @@ export * from './printing';
 export * from './profile';
 export * from './projects';
 export * from './receipts';
+export * from './staff';

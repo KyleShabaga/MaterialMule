@@ -12,7 +12,11 @@ VALUES
   ('00000000-0000-4000-8000-000000000105', 'Dana Example', 'Dana',   'Example', 'DE',  'engineer',    'test', 'active'),
   -- Two staff sharing the initials JS, to exercise duplicate-initial handling (TRP-T07).
   ('00000000-0000-4000-8000-000000000106', 'Jordan Smith', 'Jordan', 'Smith',   'JS',  'technician',  'test', 'active'),
-  ('00000000-0000-4000-8000-000000000107', 'Jamie Song',   'Jamie',  'Song',    'JS',  'engineer',    'test', 'active')
+  ('00000000-0000-4000-8000-000000000107', 'Jamie Song',   'Jamie',  'Song',    'JS',  'engineer',    'test', 'active'),
+  -- Pending applicants with no sign-in identity, for the staff approval flow (TRP-T07): one per
+  -- E2E viewport so parallel runs never approve the same person. Re-seeding makes them pending.
+  ('00000000-0000-4000-8000-000000000108', 'Riley Pending', 'Riley', 'Pending', NULL,  NULL,         'test', 'pending'),
+  ('00000000-0000-4000-8000-000000000109', 'Casey Pending', 'Casey', 'Pending', NULL,  NULL,         'test', 'pending')
 ON CONFLICT (id) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   given_name = EXCLUDED.given_name,
@@ -21,6 +25,9 @@ ON CONFLICT (id) DO UPDATE SET
   position = EXCLUDED.position,
   account_type = EXCLUDED.account_type,
   status = EXCLUDED.status,
+  approved_by = NULL,
+  approved_at = NULL,
+  disabled_reason = NULL,
   updated_at = now();
 
 -- Test sign-in identities: provider 'test', subject = fixture key.

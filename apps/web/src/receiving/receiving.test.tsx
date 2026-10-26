@@ -161,7 +161,7 @@ describe('Receive samples: project and test holes (TRP-T08)', () => {
       receiverUserId: AT.id,
     });
     expect(screen.getByLabelText('Description')).toHaveValue('Four buckets');
-    expect(screen.getByLabelText('Receiver')).toHaveValue(AT.id);
+    expect(screen.getByLabelText('Receiver')).toHaveValue('AT · Alex Tester');
   });
 
   it('AC5: shows field errors for a missing client and PM/PE without calling the API', async () => {

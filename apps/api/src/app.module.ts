@@ -34,6 +34,8 @@ import { ProfileService } from './profile/profile.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
+import { StaffController } from './staff/staff.controller.js';
+import { StaffService } from './staff/staff.service.js';
 import { TestHolesController } from './test-holes/test-holes.controller.js';
 import { TestHolesService } from './test-holes/test-holes.service.js';
 import { ReceiptsController } from './receiving/receipts.controller.js';
@@ -61,6 +63,7 @@ export class AppModule {
         ProjectsController,
         TestHolesController,
         StaffDirectoryController,
+        StaffController,
         ReceiptsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
@@ -79,6 +82,7 @@ export class AppModule {
         MicrosoftSignInService,
         ProfileService,
         UsersService,
+        StaffService,
         PrintWorkerService,
         ProjectsService,
         TestHolesService,

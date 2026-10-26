@@ -8,7 +8,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { StorageUnitLabelsPage } from './printing/StorageUnitLabelsPage';
-import { StaffPage } from './pages/StaffPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -18,6 +17,7 @@ import {
   SettingsLayout,
 } from './pages/simple-pages';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
+import { StaffPage } from './settings/staff/StaffPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
@@ -68,10 +68,7 @@ export const routes: RouteObject[] = [
                 path: 'receiving-log',
                 element: <PlaceholderPage title="Receiving Log" card="TRP-T10" />,
               },
-              {
-                path: 'receiving-log/new',
-                element: <ReceiveSamplesPage />,
-              },
+              { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
               {
                 path: 'sample-storage',
                 element: <PlaceholderPage title="Sample Storage" card="TRP-T12" />,
