@@ -27,7 +27,8 @@ decision D25). Written so someone who did not build the app can follow it step b
 12. [Recover production from a backup](#recover-production-from-a-backup)
 13. [Host acceptance tests (T1–T6)](#host-acceptance-tests-t1t6)
 14. [Backup acceptance tests (TRP-T21)](#backup-acceptance-tests-trp-t21)
-15. [Troubleshooting](#troubleshooting)
+15. [Performance benchmark (TRP-T19)](#performance-benchmark-trp-t19)
+16. [Troubleshooting](#troubleshooting)
 
 ## IT inputs
 
@@ -556,6 +557,14 @@ result on the TRP-T21 card (and drills in the [drill log](#drill-log)). T4 is au
 
 Also for AC4: disable the backup task for longer than the RPO (or set `RpoHours` low on a test
 host) and check the status page shows "Overdue" and the monitor raises event 1100.
+
+## Performance benchmark (TRP-T19)
+
+Before go-live (or out of hours), measure the host with the TRP-T19 benchmark: a separate
+`trapezoid_bench` database and role, a separate checkout with `npm ci`, then `npm run bench:seed`,
+`bench:explain` and `bench:load` for the ten-year and stress datasets. It never touches the
+`trapezoid` database and refuses any database without "bench" or "test" in its name. Step by step,
+including clean-up: [docs/performance/README.md](../performance/README.md#run-it-on-the-host-ac2).
 
 ## Troubleshooting
 
