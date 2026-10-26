@@ -122,3 +122,25 @@
     min-width: 6rem;
   }
 }
+
+/* ---- Corrections (TRP-T13) ---- */
+
+.correction-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.correction-field {
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid transparent;
+}
+
+/* Changed fields: a border and a "Changed" badge, never colour alone. */
+.correction-changed {
+  border-left-color: var(--accent, currentColor);
+}
+
+.correction-badge {
+  margin-top: 0.25rem;
+}

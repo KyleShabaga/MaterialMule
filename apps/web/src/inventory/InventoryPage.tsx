@@ -11,12 +11,13 @@ import {
   type TestHole,
 } from '@trapezoid/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { listTestHoles } from '../api/projects';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from './api';
 import './inventory.css';
 import { ProjectFilter } from './ProjectFilter';
+import { CameraScanButton } from '../scanning/CameraScanButton';
 import { StorageUnitTable } from './StorageUnitTable';
 import {
   clearedInventoryQuery,
@@ -120,8 +121,16 @@ export function InventoryPage() {
 
   return (
     <>
-      <PageHeader title="Sample Storage" />
+      <PageHeader
+        title="Sample Storage"
+        actions={
+          <Link className="button" to="/sample-storage/scan">
+            Scan labels
+          </Link>
+        }
+      />
       <LookUpId />
+      <CameraScanButton />
 
       <SearchForm
         key={query.search ?? ''}

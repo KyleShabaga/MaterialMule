@@ -38,6 +38,12 @@ import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
+import { StorageUnitCorrectionsController } from './storage-units/corrections/corrections.controller.js';
+import { StorageUnitCorrectionsService } from './storage-units/corrections/corrections.service.js';
+import {
+  LAB_REQUEST_LINK_CHECKER,
+  NoLabRequestLinks,
+} from './storage-units/corrections/lab-request-links.js';
 import { StorageUnitsController } from './storage-units/storage-units.controller.js';
 import { StorageUnitsService } from './storage-units/storage-units.service.js';
 import { TestHolesController } from './test-holes/test-holes.controller.js';
@@ -71,6 +77,7 @@ export class AppModule {
         ReceiptsController,
         InventoryController,
         StorageUnitsController,
+        StorageUnitCorrectionsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
@@ -95,6 +102,9 @@ export class AppModule {
         ReceiptsService,
         InventoryService,
         StorageUnitsService,
+        StorageUnitCorrectionsService,
+        // Lab requests arrive with TRP-T23; until then no unit has unresolved links.
+        { provide: LAB_REQUEST_LINK_CHECKER, useClass: NoLabRequestLinks },
         // Default deny on every route (TRP-T04).
         { provide: APP_GUARD, useClass: AuthGuard },
       ],

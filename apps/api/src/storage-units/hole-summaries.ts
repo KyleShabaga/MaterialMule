@@ -1,5 +1,5 @@
 import type { StorageUnitHoleSummary } from '@trapezoid/shared';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 interface SummaryRow {
   storage_unit_id: string;
@@ -17,7 +17,7 @@ interface SummaryRow {
 
 /** Hole summaries for the given units, keyed by unit ID, each list ordered by test-hole name. */
 export async function loadHoleSummaries(
-  pool: Pool,
+  pool: Pool | PoolClient,
   storageUnitIds: string[],
 ): Promise<Map<string, StorageUnitHoleSummary[]>> {
   const byUnit = new Map<string, StorageUnitHoleSummary[]>();

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   STORAGE_UNIT_HISTORY_PAGE_SIZE,
+  minimumRetainUntil,
   normalizeStorageUnitCode,
   type StorageUnitDetail,
   type StorageUnitHistoryPage,
@@ -47,6 +48,7 @@ interface DetailRow {
   status: StorageUnitDetail['status'];
   note: string | null;
   received_date: string;
+  version: number;
   project_id: string;
   project_number: string;
   project_name: string;
@@ -56,6 +58,10 @@ interface DetailRow {
   location_name: string;
   receipt_id: string;
   receipt_received_date: string;
+  receipt_project_id: string;
+  receipt_project_number: string;
+  receipt_project_name: string;
+  receipt_client: string;
   receiver_initials_snapshot: string;
   receiver_name_snapshot: string;
   account_initials: string | null;
@@ -73,10 +79,12 @@ export async function getStorageUnitDetail(
   if (!unit) return null;
   const { rows } = await pool.query<DetailRow>(
     `SELECT su.id, su.readable_id, su.unit_type, su.status, su.note,
-            su.received_date::text AS received_date,
+            su.received_date::text AS received_date, su.version,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
             r.id AS receipt_id, r.received_date::text AS receipt_received_date,
+            rp.id AS receipt_project_id, rp.project_number AS receipt_project_number,
+            rp.name AS receipt_project_name, rp.client AS receipt_client,
             r.receiver_initials_snapshot, r.receiver_name_snapshot,
             a.official_initials AS account_initials, a.display_name AS account_name,
             r.description, r.quantity, r.confirmed_at
@@ -84,6 +92,7 @@ export async function getStorageUnitDetail(
      JOIN project p ON p.id = su.project_id
      JOIN location l ON l.id = su.current_location_id
      JOIN receipt r ON r.id = su.receipt_id
+     JOIN project rp ON rp.id = r.project_id
      JOIN app_user a ON a.id = r.account_user_id
      WHERE su.id = $1`,
     [unit.id],
@@ -97,6 +106,8 @@ export async function getStorageUnitDetail(
     status: row.status,
     note: row.note,
     receivedDate: row.received_date,
+    minimumRetainUntil: minimumRetainUntil(row.received_date),
+    version: row.version,
     project: {
       id: row.project_id,
       projectNumber: row.project_number,
@@ -108,6 +119,12 @@ export async function getStorageUnitDetail(
     receipt: {
       id: row.receipt_id,
       receivedDate: row.receipt_received_date,
+      project: {
+        id: row.receipt_project_id,
+        projectNumber: row.receipt_project_number,
+        name: row.receipt_project_name,
+        client: row.receipt_client,
+      },
       receiver: { initials: row.receiver_initials_snapshot, name: row.receiver_name_snapshot },
       account: { initials: row.account_initials, name: row.account_name },
       description: row.description,

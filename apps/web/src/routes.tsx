@@ -21,6 +21,7 @@ import {
   SettingsLayout,
 } from './pages/simple-pages';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
+import { ScanPage } from './scanning/ScanPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { TestSignInPage } from './TestSignInPage';
 
@@ -76,6 +77,8 @@ export const routes: RouteObject[] = [
               // Inventory and storage unit detail (TRP-T12). The menu calls it Sample Storage; the
               // card's /inventory and /storage-units/:suNumber paths redirect here.
               { path: 'sample-storage', element: <InventoryPage /> },
+              // Handheld scanner lookup mode (TRP-T16); static, so it wins over :readableId.
+              { path: 'sample-storage/scan', element: <ScanPage /> },
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
