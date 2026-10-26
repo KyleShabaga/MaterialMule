@@ -11,7 +11,7 @@ import {
   type TestHole,
 } from '@trapezoid/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { listTestHoles } from '../api/projects';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from './api';

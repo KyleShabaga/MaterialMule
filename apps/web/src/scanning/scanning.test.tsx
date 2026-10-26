@@ -30,6 +30,8 @@ const DETAIL: StorageUnitDetail = {
   status: 'in_stock',
   note: null,
   receivedDate: '2026-10-23',
+  minimumRetainUntil: '2027-10-23',
+  version: 1,
   project: {
     id: '00000000-0000-4000-8000-000000000201',
     projectNumber: 'DEMO-2601',
@@ -54,6 +56,12 @@ const DETAIL: StorageUnitDetail = {
   receipt: {
     id: 'r1',
     receivedDate: '2026-10-23',
+    project: {
+      id: '00000000-0000-4000-8000-000000000201',
+      projectNumber: 'DEMO-2601',
+      name: 'Riverbank investigation',
+      client: 'Example Client',
+    },
     receiver: { initials: 'AT', name: 'Alex Tester' },
     account: { initials: null, name: 'LAB' },
     description: null,
