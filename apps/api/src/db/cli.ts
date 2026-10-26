@@ -1,14 +1,39 @@
-// Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`.
+// Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`, `setup-roles`.
 // Usage: tsx src/db/cli.ts <command> [--env-file .env.test]   (or node dist/db/cli.js in production)
+// setup-roles (TRP-T20, host only): node dist/db/cli.js setup-roles <migration-role> <app-role>
+//   connects with DATABASE_ADMIN_URL (a superuser, password from PGPASSWORD) instead of the env file.
 import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';
 import { migrate } from './migrator.js';
+import { setUpDatabaseRoles } from './roles.js';
 import { runSeed } from './seed.js';
 
-const USAGE = 'Usage: db <migrate|seed|seed-dev|reset-test> [--env-file <path>]';
+const USAGE =
+  'Usage: db <migrate|seed|seed-dev|reset-test> [--env-file <path>]\n' +
+  '       db setup-roles <migration-role> <app-role>   (with DATABASE_ADMIN_URL set)';
+
+/** Creates and grants the production roles (see roles.ts). Never reads the app's env file. */
+async function setupRoles([migrationRole, appRole]: string[]): Promise<void> {
+  const adminUrl = process.env.DATABASE_ADMIN_URL;
+  if (!adminUrl || !/^postgres(ql)?:\/\/.+/.test(adminUrl) || !migrationRole || !appRole) {
+    throw new Error(USAGE);
+  }
+  const pool = new Pool({ connectionString: adminUrl, max: 1 });
+  try {
+    for (const step of await setUpDatabaseRoles(pool, { migrationRole, appRole })) {
+      process.stdout.write(`${step}\n`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
 
 async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
+  if (command === 'setup-roles') {
+    await setupRoles(rest);
+    return;
+  }
   const envFlag = rest.indexOf('--env-file');
   if (envFlag !== -1) {
     process.env.ENV_FILE = rest[envFlag + 1];

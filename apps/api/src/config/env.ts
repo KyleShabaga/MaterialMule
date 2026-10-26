@@ -104,6 +104,13 @@ const envSchema = z.object({
     .transform((value) => value.toLowerCase())
     .optional(),
   BOOTSTRAP_ADMIN_UPN: z.string().min(3).max(320).optional(),
+  // Internal HTTPS (TRP-T20): the API terminates TLS itself with the certificate IT issues for the
+  // production host name. Either a PFX/PKCS#12 file (plus its passphrase, if any) or a PEM
+  // certificate chain and key. Required in production; optional elsewhere.
+  TLS_PFX_FILE: z.string().min(1).optional(),
+  TLS_PFX_PASSPHRASE: z.string().min(1).optional(),
+  TLS_CERT_FILE: z.string().min(1).optional(),
+  TLS_KEY_FILE: z.string().min(1).optional(),
 });
 
 const MICROSOFT_REQUIRED = [
@@ -131,8 +138,37 @@ function crossFieldProblems(config: z.infer<typeof envSchema>): string[] {
         problems.push(`${key} must use https in production`);
       }
     }
+    if (config.MICROSOFT_REDIRECT_URI && !config.MICROSOFT_REDIRECT_URI.startsWith('https://')) {
+      problems.push('MICROSOFT_REDIRECT_URI must use https in production');
+    }
+  }
+  problems.push(...tlsProblems(config));
+  return problems;
+}
+
+/** Exactly one certificate form; production must serve HTTPS (TRP-T20). */
+function tlsProblems(config: z.infer<typeof envSchema>): string[] {
+  const pfx = config.TLS_PFX_FILE !== undefined;
+  const pem = config.TLS_CERT_FILE !== undefined || config.TLS_KEY_FILE !== undefined;
+  const problems: string[] = [];
+  if (pfx && pem) {
+    problems.push('TLS_PFX_FILE must not be combined with TLS_CERT_FILE / TLS_KEY_FILE');
+  }
+  if (pem && (config.TLS_CERT_FILE === undefined || config.TLS_KEY_FILE === undefined)) {
+    problems.push('TLS_CERT_FILE and TLS_KEY_FILE must be set together');
+  }
+  if (config.TLS_PFX_PASSPHRASE !== undefined && !pfx) {
+    problems.push('TLS_PFX_PASSPHRASE is only used with TLS_PFX_FILE');
+  }
+  if (config.APP_ENV === 'production' && !pfx && !pem) {
+    problems.push('TLS_PFX_FILE (or TLS_CERT_FILE and TLS_KEY_FILE) is required in production');
   }
   return problems;
+}
+
+/** True when the API serves HTTPS itself. */
+export function tlsConfigured(config: AppConfig): boolean {
+  return config.TLS_PFX_FILE !== undefined || config.TLS_CERT_FILE !== undefined;
 }
 
 function isValidTimeZone(zone: string): boolean {

@@ -40,6 +40,10 @@ export const REDACT_PATHS = [
   '*.accessToken',
   'codeVerifier',
   '*.codeVerifier',
+  'TLS_PFX_PASSPHRASE',
+  '*.TLS_PFX_PASSPHRASE',
+  'passphrase',
+  '*.passphrase',
 ];
 
 export const REQUEST_ID_HEADER = 'x-request-id';
