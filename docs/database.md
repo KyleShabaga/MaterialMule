@@ -172,3 +172,25 @@ sorted and paged on the server (default 25, max 100, with the total).
 - **Detail and history.** `GET /api/storage-units/:suNumber` (readable ID or UUID) and
   `GET /api/storage-units/:id/history?page=` (20 per page, newest first: the unit's audit events
   plus its receipt's confirmation). All read-only, `inventory.read` (LAB included).
+
+## Storage unit corrections (TRP-T13)
+
+`PATCH /api/storage-units/:id` (`apps/api/src/storage-units/corrections`, readable ID or UUID)
+corrects a confirmed unit's type, received date, project, test holes and summaries, and note
+(D45–D47) with `{version, reason, changes}`. Personal and test accounts only
+(`storage_unit.correct`); LAB gets 403. No migration: the schema already allows it.
+
+- **Never changed:** the readable ID, prefix, issue year and issued holder (the identity trigger
+  refuses them), the saved location, print history and the receipt header (`receipt.received_date`,
+  `project_id`, receiver snapshots). `changes` is a strict object, so any other key is a 400.
+- **One transaction per save:** `SELECT … FOR UPDATE` on the unit, compare `version` (stale →
+  409 `version_conflict`), validate (received date not after today; holes must belong to the
+  unit's new project, 422 `test_hole_not_in_project`; same summary rules as receiving), refuse a
+  save that changes nothing (400 `no_changes`), then update the unit, replace its summaries as a
+  set (deleted before a project change because they reference `(project_id, storage_unit_id)`),
+  bump `version` and append one `storage_unit.corrected` audit event whose `before` / `after`
+  hold only the changed fields, with the reason.
+- **Project changes** ask the `LabRequestLinkChecker` first; unresolved links → 409
+  `unresolved_lab_links {links}`. Until lab requests exist (TRP-T23) the checker returns none.
+- **Retention:** the detail shows `minimumRetainUntil` = current received date + 1 year (29 Feb →
+  28 Feb). Full retention rules arrive with TRP-T29.
