@@ -13,9 +13,9 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
   let dist: string;
 
   beforeAll(async () => {
+    // A dot folder above the build (as in a .claude/worktrees checkout) must not hide it.
     base = mkdtempSync(join(tmpdir(), 'trapezoid-web-'));
-    // A dot-directory in the path (e.g. a .claude/worktrees checkout) must not hide index.html.
-    dist = join(base, '.checkout', 'dist');
+    dist = join(base, '.hidden-parent', 'dist');
     mkdirSync(join(dist, 'assets'), { recursive: true });
     writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Trapezoid</title>');
     writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("app")');

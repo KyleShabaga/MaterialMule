@@ -74,7 +74,13 @@ export class TestHolesService {
     const created = await withTransaction(this.database.pool, async (client) => {
       const project = await this.requireProject(client, projectId);
       if (input.receiverUserId && !(await findActiveStaff(client, input.receiverUserId))) {
-        throw validationError({ receiverUserId: ['Receiver must be an active staff member'] });
+        throw validationError([
+          {
+            field: 'receiverUserId',
+            code: 'not_active_staff',
+            message: 'Receiver must be an active staff member',
+          },
+        ]);
       }
       const { rows } = await client.query<TestHoleRow>(
         `INSERT INTO test_hole (project_id, name)

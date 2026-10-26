@@ -114,12 +114,26 @@ export const testHoleConflictResponseSchema = z.object({
 });
 export type TestHoleConflictResponse = z.infer<typeof testHoleConflictResponseSchema>;
 
-/** 400 body for invalid input: messages keyed by field name. Never echoes the values. */
+/**
+ * 400 body for invalid input, the same shape receipts use (`ReceiptErrorBody`, TRP-T09): one
+ * entry per problem with its field path. Never echoes the submitted values.
+ */
 export const validationErrorResponseSchema = z.object({
   code: z.literal('validation_failed'),
-  fieldErrors: z.record(z.string(), z.array(z.string())),
+  errors: z.array(z.object({ field: z.string(), code: z.string(), message: z.string() })),
 });
 export type ValidationErrorResponse = z.infer<typeof validationErrorResponseSchema>;
+
+/** Messages grouped by field, for showing next to each input. */
+export function messagesByField(
+  errors: readonly { field: string; message: string }[],
+): Record<string, string[]> {
+  const grouped: Record<string, string[]> = {};
+  for (const error of errors) {
+    (grouped[error.field || '_'] ??= []).push(error.message);
+  }
+  return grouped;
+}
 
 /** "67997 · West Pine Creek Ph.3 · Jacobs", as the project picker lists matches. */
 export function projectLabel(project: Pick<ProjectSummary, 'projectNumber' | 'name' | 'client'>) {

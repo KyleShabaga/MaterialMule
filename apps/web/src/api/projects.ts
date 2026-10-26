@@ -7,6 +7,7 @@ import {
   testHoleListResponseSchema,
   testHoleSchema,
   validationErrorResponseSchema,
+  messagesByField,
   type CreateProjectRequest,
   type CreateTestHoleRequest,
   type ProjectSummary,
@@ -70,7 +71,7 @@ async function postCreate<T>(
   if (response.status === 400) {
     const parsed = validationErrorResponseSchema.safeParse(await response.json());
     if (parsed.success) {
-      return { kind: 'invalid', fieldErrors: parsed.data.fieldErrors };
+      return { kind: 'invalid', fieldErrors: messagesByField(parsed.data.errors) };
     }
   }
   throw new ApiError(response.status);

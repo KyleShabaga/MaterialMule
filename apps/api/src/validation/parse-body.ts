@@ -1,12 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
-import type { ValidationErrorResponse } from '@trapezoid/shared';
-import { z } from 'zod';
+import { toFieldErrors, type FieldError, type ValidationErrorResponse } from '@trapezoid/shared';
+import type { z } from 'zod';
 
-/** A 400 with messages keyed by field name, in the shape the web forms read. */
-export function validationError(fieldErrors: Record<string, string[]>): BadRequestException {
+/** A 400 listing each problem by field, in the shape receipts use too (TRP-T09). */
+export function validationError(errors: FieldError[]): BadRequestException {
   return new BadRequestException({
     code: 'validation_failed',
-    fieldErrors,
+    errors,
   } satisfies ValidationErrorResponse);
 }
 
@@ -19,13 +19,8 @@ export function parseBody<Schema extends z.ZodType>(
   body: unknown,
 ): z.output<Schema> {
   const result = schema.safeParse(body ?? {});
-  if (result.success) {
-    return result.data;
+  if (!result.success) {
+    throw validationError(toFieldErrors(result.error));
   }
-  const fieldErrors: Record<string, string[]> = {};
-  for (const issue of result.error.issues) {
-    const field = issue.path.length > 0 ? issue.path.join('.') : '_';
-    (fieldErrors[field] ??= []).push(issue.message);
-  }
-  throw validationError(fieldErrors);
+  return result.data;
 }

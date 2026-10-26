@@ -8,6 +8,7 @@ import {
   testHoleListResponseSchema,
   testHoleSchema,
   validationErrorResponseSchema,
+  messagesByField,
 } from '@trapezoid/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -206,8 +207,9 @@ describe.runIf(testDatabaseUrl)('projects and test holes (TRP-T08)', () => {
       });
       expect(response.status).toBe(400);
       const body = validationErrorResponseSchema.parse(response.body);
-      expect(Object.keys(body.fieldErrors).sort()).toEqual(['client', 'pmPeUserId']);
-      expect(body.fieldErrors.client).toEqual(['Client is required']);
+      const byField = messagesByField(body.errors);
+      expect(Object.keys(byField).sort()).toEqual(['client', 'pmPeUserId']);
+      expect(byField.client).toEqual(['Client is required']);
       expect(JSON.stringify(body)).not.toContain('70002');
     });
 
@@ -219,9 +221,9 @@ describe.runIf(testDatabaseUrl)('projects and test holes (TRP-T08)', () => {
           newProject('70003', { pmPeUserId }),
         );
         expect(response.status).toBe(400);
-        expect(validationErrorResponseSchema.parse(response.body).fieldErrors).toHaveProperty(
-          'pmPeUserId',
-        );
+        expect(
+          messagesByField(validationErrorResponseSchema.parse(response.body).errors),
+        ).toHaveProperty('pmPeUserId');
       }
       const { rows } = await db.pool.query(`SELECT 1 FROM project WHERE project_number = '70003'`);
       expect(rows).toHaveLength(0);
@@ -307,9 +309,9 @@ describe.runIf(testDatabaseUrl)('projects and test holes (TRP-T08)', () => {
           name,
         });
         expect(response.status).toBe(400);
-        expect(validationErrorResponseSchema.parse(response.body).fieldErrors).toHaveProperty(
-          'name',
-        );
+        expect(
+          messagesByField(validationErrorResponseSchema.parse(response.body).errors),
+        ).toHaveProperty('name');
       }
     });
 

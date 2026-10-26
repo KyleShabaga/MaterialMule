@@ -22,7 +22,8 @@ export function serveWebApp(app: INestApplication, directory: string): void {
       next();
       return;
     }
-    // Relative to root: send() refuses absolute paths with a dot-directory anywhere in them.
+    // Relative to root, so a dot folder above it (e.g. a .claude worktree) isn't treated as a
+    // hidden file and refused.
     response.sendFile('index.html', { root });
   });
 }

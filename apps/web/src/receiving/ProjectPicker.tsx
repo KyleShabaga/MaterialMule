@@ -1,13 +1,15 @@
 import {
   createProjectRequestSchema,
+  messagesByField,
   projectLabel,
+  toFieldErrors,
   type ProjectSummary,
   type StaffOption,
 } from '@trapezoid/shared';
 import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import { createProject, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
-import { errorsByField, prefillFromQuery } from './prefill';
+import { prefillFromQuery } from './prefill';
 
 // Project combobox with inline "Add project" (TRP-T08). The typed text lives in the receipt draft
 // (props), so nothing typed is lost while adding a project or while offline.
@@ -112,7 +114,7 @@ export function ProjectPicker({
     const input = { ...form, receiverUserId };
     const checked = createProjectRequestSchema.safeParse(input);
     if (!checked.success) {
-      setFieldErrors(errorsByField(checked.error.issues));
+      setFieldErrors(messagesByField(toFieldErrors(checked.error)));
       return;
     }
     setFieldErrors({});

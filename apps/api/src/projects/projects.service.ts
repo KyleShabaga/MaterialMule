@@ -3,6 +3,7 @@ import {
   PROJECT_SEARCH_DEFAULT_LIMIT,
   PROJECT_SEARCH_MAX_LIMIT,
   projectNumberKey,
+  type FieldError,
   type ProjectConflictResponse,
   type ProjectSummary,
   type createProjectRequestSchema,
@@ -99,15 +100,23 @@ export class ProjectsService {
     requestId: string | null,
   ): Promise<ProjectSummary> {
     const created = await withTransaction(this.database.pool, async (client) => {
-      const fieldErrors: Record<string, string[]> = {};
+      const errors: FieldError[] = [];
       if (!(await findActiveStaff(client, input.pmPeUserId))) {
-        fieldErrors.pmPeUserId = ['PM/PE must be an active staff member'];
+        errors.push({
+          field: 'pmPeUserId',
+          code: 'not_active_staff',
+          message: 'PM/PE must be an active staff member',
+        });
       }
       if (input.receiverUserId && !(await findActiveStaff(client, input.receiverUserId))) {
-        fieldErrors.receiverUserId = ['Receiver must be an active staff member'];
+        errors.push({
+          field: 'receiverUserId',
+          code: 'not_active_staff',
+          message: 'Receiver must be an active staff member',
+        });
       }
-      if (Object.keys(fieldErrors).length > 0) {
-        throw validationError(fieldErrors);
+      if (errors.length > 0) {
+        throw validationError(errors);
       }
 
       const { rows } = await client.query<{ id: string }>(
