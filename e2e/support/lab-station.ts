@@ -51,8 +51,12 @@ export async function signInAsLabStation(page: Page): Promise<string> {
 /** Ends a session as if its time had run out (the LAB month, TRP-T06). */
 export async function expireSession(sessionId: string): Promise<void> {
   await withDatabase((client) =>
-    client.query(`UPDATE session SET expires_at = now() - interval '1 second' WHERE id = $1`, [
-      sessionId,
-    ]),
+    // Moves the whole month into the past (expires_at must stay after created_at).
+    client.query(
+      `UPDATE session SET created_at = now() - interval '1 month' - interval '1 second',
+                          expires_at = now() - interval '1 second'
+       WHERE id = $1`,
+      [sessionId],
+    ),
   );
 }
