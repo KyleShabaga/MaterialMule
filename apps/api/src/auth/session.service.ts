@@ -4,7 +4,10 @@ import type { PoolClient } from 'pg';
 import { APP_CONFIG } from '../config/config.constants.js';
 import type { AppConfig } from '../config/env.js';
 import { DatabaseService } from '../database/database.service.js';
+import { addCalendarMonth } from './calendar-month.js';
 import type { AccountStatus, AccountType, AuthUser, Role } from './policy.js';
+
+export { addCalendarMonth } from './calendar-month.js';
 
 export interface NewSession {
   /** Raw token for the cookie. Only its SHA-256 is stored. */
@@ -18,23 +21,6 @@ const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 
 export function hashToken(token: string): Buffer {
   return createHash('sha256').update(token, 'utf8').digest();
-}
-
-/**
- * One calendar month later at the same time of day, clamped to the month's last day.
- * Calculated in UTC; TRP-T06 (the only user of month-long sessions) makes it business-time-zone
- * aware for sign-ins near midnight at month end.
- */
-export function addCalendarMonth(from: Date): Date {
-  const result = new Date(from);
-  const day = result.getUTCDate();
-  result.setUTCDate(1);
-  result.setUTCMonth(result.getUTCMonth() + 1);
-  const lastDay = new Date(
-    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
-  ).getUTCDate();
-  result.setUTCDate(Math.min(day, lastDay));
-  return result;
 }
 
 interface SessionRow {
@@ -58,10 +44,14 @@ export class SessionService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** Expiry for a new session: LAB one calendar month (App Idea §8), others a fixed number of hours. */
+  /**
+   * Expiry for a new session: LAB one calendar month at the same local time in the business time
+   * zone (App Idea §8, TRP-T06), others a fixed number of hours. Always decided here, never by
+   * the client, and stored on the session row.
+   */
   expiryFor(accountType: AccountType, issuedAt: Date): Date {
     if (accountType === 'shared_lab') {
-      return addCalendarMonth(issuedAt);
+      return addCalendarMonth(issuedAt, this.config.BUSINESS_TIME_ZONE);
     }
     return new Date(issuedAt.getTime() + this.config.PERSONAL_SESSION_HOURS * 60 * 60 * 1000);
   }
@@ -70,10 +60,11 @@ export class SessionService {
     userId: string,
     accountType: AccountType,
     issuedAt = new Date(),
+    client?: PoolClient,
   ): Promise<NewSession> {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = this.expiryFor(accountType, issuedAt);
-    const { rows } = await this.database.pool.query<{ id: string }>(
+    const { rows } = await (client ?? this.database.pool).query<{ id: string }>(
       `INSERT INTO session (user_id, token_hash, created_at, expires_at)
        VALUES ($1, $2, $3, $4) RETURNING id`,
       [userId, hashToken(token), issuedAt, expiresAt],

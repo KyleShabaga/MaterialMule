@@ -23,14 +23,17 @@ test('an admin approves a pending applicant', async ({ page }, testInfo) => {
 });
 
 test('receiver selector: keyboard picks one of two people sharing "JS"', async ({ page }) => {
+  // The Lab (test) fixture is a personal-style account, so it starts as its own receiver; only
+  // the shared LAB station starts empty.
   await signInAs(page, 'lab');
   await page.goto('/receiving-log/new');
 
-  const input = page.getByRole('combobox', { name: /Received by/ });
-  await expect(input).toHaveValue('');
+  const input = page.getByRole('combobox', { name: 'Receiver', exact: true });
+  await expect(input).toHaveValue('LAB · Lab (test)');
   await expect(page.getByText('Not listed? Ask an administrator to add them.')).toBeVisible();
 
   await input.click();
+  await input.press('ControlOrMeta+a');
   await input.pressSequentially('JS');
   const jamie = page.getByRole('option', { name: 'JS · Jamie Song (Eng)' });
   const jordan = page.getByRole('option', { name: 'JS · Jordan Smith (Tech)' });
@@ -42,14 +45,15 @@ test('receiver selector: keyboard picks one of two people sharing "JS"', async (
   await input.press('ArrowDown');
   await expect(jordan).toHaveAttribute('aria-selected', 'true');
   await input.press('Enter');
-
   await expect(input).toHaveValue('JS · Jordan Smith (Tech)');
-  await expect(page.getByText('Receiver: JS · Jordan Smith (Tech)')).toBeVisible();
+  await expect(jordan).toBeHidden();
 
-  // Free text is never accepted.
+  // Free text is never accepted: an unmatched entry clears the choice.
   await input.fill('ZZ');
   await expect(page.getByText('No active staff match.')).toBeVisible();
-  await expect(page.getByText('No receiver chosen yet.')).toBeVisible();
+  await page.getByLabel('Description').click();
+  await expect(page.getByText('Choose a person from the list.')).toBeVisible();
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
 });
 
 test('non-admins cannot manage staff, in the UI or the API', async ({ page }) => {

@@ -4,9 +4,15 @@ import { Link, Navigate, useSearchParams } from 'react-router';
 import { ErrorState } from '../components/ui';
 import { safeReturnTo } from '../lib/return-to';
 import { useSession } from '../session/context';
+import { wasLabStation } from '../session/station';
+import { LabSignInForm } from './LabSignInForm';
+
+export const LAB_EXPIRED_MESSAGE =
+  'The LAB session has expired. Your draft is saved. Sign in to confirm.';
 
 export function SignInPage() {
-  const { session } = useSession();
+  const { session, refresh } = useSession();
+  const [labExpired] = useState(() => wasLabStation());
   const [params] = useSearchParams();
   const returnTo = safeReturnTo(params.get('returnTo'));
   const [providers, setProviders] = useState<AuthProvidersResponse | 'error' | null>(null);
@@ -37,7 +43,9 @@ export function SignInPage() {
     <main className="shell sign-in">
       <h1>Trapezoid</h1>
       <p className="subtitle">Sample receiving and storage tracking</p>
-      {params.get('expired') ? (
+      {labExpired ? (
+        <p role="status">{LAB_EXPIRED_MESSAGE}</p>
+      ) : params.get('expired') ? (
         <p role="status">Your session has ended. Sign in to continue where you left off.</p>
       ) : null}
       {providers === null ? <p>Loading sign-in options…</p> : null}
@@ -52,13 +60,7 @@ export function SignInPage() {
               Sign in with Microsoft
             </a>
           ) : null}
-          {providers.lab ? (
-            <section className="card" aria-labelledby="lab-sign-in">
-              <h2 id="lab-sign-in">Shared receiving station (LAB)</h2>
-              <p>LAB sign-in arrives with TRP-T06.</p>
-              <p className="field-hint">Forgot password? Ask an administrator.</p>
-            </section>
-          ) : null}
+          {providers.lab ? <LabSignInForm onSignedIn={refresh} /> : null}
           {providers.test ? (
             <Link className="button" to={testHref}>
               Test sign-in (development only)

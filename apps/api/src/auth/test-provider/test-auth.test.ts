@@ -178,7 +178,7 @@ describe.runIf(testDatabaseUrl)('test sign-in (TRP-T33)', () => {
     );
     await runSeed(db.pool, 'dev', 'test');
     const { rows } = await db.pool.query(
-      `SELECT display_name, (SELECT count(*)::int FROM app_user) AS users FROM app_user
+      `SELECT display_name, (SELECT count(*)::int FROM app_user WHERE account_type = 'test') AS users FROM app_user
        WHERE id = '00000000-0000-4000-8000-000000000104'`,
     );
     expect(rows[0]).toEqual({ display_name: 'Lab (test)', users: 9 }); // 7 sign-in fixtures + 2 pending applicants (T07)

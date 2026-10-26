@@ -18,6 +18,7 @@ import {
 } from '../../components/ui';
 import { useMe } from '../../session/context';
 import { StaffApiError, listStaff, staffApi } from './api';
+import { LabAccountCard } from './LabAccountCard';
 
 const STATUS_LABELS: Record<StaffStatus, string> = {
   pending: 'Pending',
@@ -88,7 +89,13 @@ export function StaffPage() {
       </section>
     );
   }
-  return <StaffDirectory currentUserId={me.id} />;
+  return (
+    <>
+      <StaffDirectory currentUserId={me.id} />
+      {/* The shared receiving account's password and stations (TRP-T06). */}
+      <LabAccountCard />
+    </>
+  );
 }
 
 function StaffDirectory({ currentUserId }: { currentUserId: string }) {

@@ -2,7 +2,6 @@ import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
-import { ReceiveSamplesPage } from './pages/ReceiveSamplesPage';
 import { SignInPage } from './pages/SignInPage';
 import {
   AccessPendingPage,
@@ -12,6 +11,7 @@ import {
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
+import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { TestSignInPage } from './TestSignInPage';
 
