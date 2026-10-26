@@ -8,6 +8,11 @@ import { withDatabase } from './support/db';
 
 const BKT_ID = /^BKT-\d{4}-\d{6}$/;
 
+// Routes (e.g. the LAB /api/me rewrite) may still be in flight when a test ends.
+test.afterEach(async ({ page }) => {
+  if (!page.isClosed()) await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 const bucket = (page: Page, n: number) => page.getByRole('region', { name: `Bucket ${n}` });
 const draftStatus = (page: Page) => page.locator('.draft-status');
 const draftList = (page: Page) => page.getByRole('region', { name: 'Drafts on this computer' });
