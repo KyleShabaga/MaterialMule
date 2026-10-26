@@ -21,7 +21,10 @@
     "build": "npm run build --workspaces --if-present",
     "check:bundle": "node scripts/check-bundle-secrets.mjs",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundle",
-    "test:e2e": "npm run build:shared && playwright test"
+    "test:e2e": "npm run build:shared && playwright test",
+    "db:migrate": "npm run db:migrate -w @trapezoid/api",
+    "db:seed:dev": "npm run db:seed:dev -w @trapezoid/api",
+    "db:reset:test": "npm run db:reset:test -w @trapezoid/api"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -41,5 +44,8 @@
   "allowScripts": {
     "esbuild": false,
     "@swc/core": false
+  },
+  "overrides": {
+    "multer": "^2.5.0"
   }
 }
