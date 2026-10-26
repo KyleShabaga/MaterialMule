@@ -176,6 +176,19 @@ Phones scan with **Scan with camera** (TRP-T17). The camera only works on HTTPS 
 `http://127.0.0.1` on the PC itself, so test it from a phone through the host's HTTPS address
 (TRP-T20). Details and the device test sheet: [docs/hardware/phone-camera.md](docs/hardware/phone-camera.md).
 
+## Receiving drafts
+
+Receive samples autosaves each receipt in progress as a draft in that browser only (IndexedDB,
+TRP-T11): there is no server copy, and another computer never sees it. Drafts not saved for over
+30 days get a **Stale** badge. By default they are never deleted automatically.
+
+A Lab Manager or admin can turn on automatic clean-up in **Settings → Receiving** (TRP-T40):
+**Delete drafts automatically** after 30–365 days without changes (default 90). Each computer
+then deletes its own old drafts the next time Receive samples is opened there and says how many,
+e.g. "2 drafts older than 90 days were deleted from this computer (automatic clean-up set by an
+administrator)." Drafts whose confirmation was interrupted are never deleted, and if the setting
+can't be loaded (offline, server error) nothing is deleted.
+
 ## Checks
 
 ```powershell

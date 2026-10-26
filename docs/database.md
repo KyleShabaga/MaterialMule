@@ -210,3 +210,14 @@ are computed by query, never stored.
   receipt (it is printed on labels); the API answers 422 `project_number_locked` first.
 - **Edits** bump `project.version` (optimistic concurrency) and record `project.updated` with only
   the changed fields before/after and the reason.
+
+## Draft auto-delete setting (TRP-T40, migration 0019)
+
+`draft_auto_delete_setting` holds exactly one row (primary key `singleton`, which can only be
+`true`): `enabled` (default `false`), `after_days` (30–365, default 90, a CHECK constraint),
+`version`, `updated_at` and `updated_by_user_id`. Receiving drafts themselves stay in each browser
+(TRP-T11); browsers read this row through `GET /api/settings/drafts` and delete their own old
+drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `version` (stale → 409
+`version_conflict` with the current value), bumps it and records `settings.drafts_changed`
+(entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
+again changes nothing.

@@ -23,6 +23,7 @@ import {
 } from './pages/simple-pages';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ScanPage } from './scanning/ScanPage';
+import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { TestSignInPage } from './TestSignInPage';
 
@@ -104,6 +105,8 @@ export const routes: RouteObject[] = [
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,
                   },
                   { path: 'printers', element: <PrintersSettingsPage /> },
+                  // Draft auto-delete (TRP-T40): Admin and Lab Manager.
+                  { path: 'receiving', element: <ReceivingSettingsPage /> },
                 ],
               },
               ...featureRoutes,
