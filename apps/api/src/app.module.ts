@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { SessionService } from './auth/session.service.js';
+import { TestAuthController, testAuthEnabled } from './auth/test-provider/test-auth.controller.js';
 import { APP_CONFIG } from './config/config.constants.js';
 import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
@@ -18,7 +19,12 @@ export class AppModule {
       module: AppModule,
       // DiscoveryModule lets the route-coverage test enumerate every controller.
       imports: [LoggerModule.forRoot({ pinoHttp: pinoHttpOptions(config) }), DiscoveryModule],
-      controllers: [HealthController, AuthController],
+      controllers: [
+        HealthController,
+        AuthController,
+        // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
+        ...(testAuthEnabled(config) ? [TestAuthController] : []),
+      ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         DatabaseService,

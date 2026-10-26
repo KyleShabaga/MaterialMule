@@ -77,3 +77,26 @@ body {
   display: block;
   color: var(--error);
 }
+
+.badge {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border: 1px solid var(--warning);
+  border-radius: 4px;
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.fixtures {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.fixtures button {
+  min-width: 10rem;
+  text-align: left;
+}
