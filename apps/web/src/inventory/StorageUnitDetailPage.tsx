@@ -222,7 +222,8 @@ export function StorageUnitDetailPage() {
 
       <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
 
-      <section className="card" id="label-preview" aria-labelledby="label-preview-heading">
+      {/* A group, not a region: the "Label" region (T15) stays the only landmark named Label. */}
+      <div className="card" id="label-preview" role="group" aria-labelledby="label-preview-heading">
         <h2 id="label-preview-heading">Preview label</h2>
         <LabelPreviewPanel
           // A correction (T13) bumps the version; the label shows the corrected details.
@@ -230,7 +231,7 @@ export function StorageUnitDetailPage() {
           storageUnit={unit.readableId}
           receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
         />
-      </section>
+      </div>
 
       <StorageUnitLabelsSection readableId={unit.readableId} />
     </>

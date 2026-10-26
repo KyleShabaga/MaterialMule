@@ -37,7 +37,7 @@ test('T3/T4: preview on the unit page, then a true-size PDF whose barcodes decod
 
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${unit.readableId}`);
-  const panel = page.getByRole('region', { name: 'Preview label' });
+  const panel = page.getByRole('group', { name: 'Preview label' });
   const image = panel.getByRole('img', { name: `Label for storage unit ${unit.readableId}` });
   await expect(image).toBeVisible();
   // AC1: the label shown on screen carries both barcodes, encoding exactly the ID.
