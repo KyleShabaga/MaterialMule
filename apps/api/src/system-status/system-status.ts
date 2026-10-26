@@ -1,0 +1,165 @@
+// Operational status for Settings → System status (TRP-T21). Reads only: the backup status record
+// written by deploy/windows/backup.ps1, the print queue, and free disk space.
+import { readFile, statfs } from 'node:fs/promises';
+import {
+  backupStatusFileSchema,
+  type BackupStatusFile,
+  type DiskSpace,
+  type SystemStatusResponse,
+} from '@trapezoid/shared';
+import type { Pool } from 'pg';
+
+type BackupSummary = SystemStatusResponse['backup'];
+type PrintQueueSummary = NonNullable<SystemStatusResponse['printQueue']>;
+
+const HOUR_MS = 3_600_000;
+
+/** Reads the status record. `missing` when no backup has written it yet. */
+export async function readBackupStatusFile(
+  path: string,
+): Promise<
+  { kind: 'ok'; status: BackupStatusFile } | { kind: 'missing' } | { kind: 'unreadable' }
+> {
+  let text: string;
+  try {
+    text = await readFile(path, 'utf8');
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ? { kind: 'missing' }
+      : { kind: 'unreadable' };
+  }
+  try {
+    // PowerShell's UTF-8 may start with a byte order mark.
+    const parsed = backupStatusFileSchema.safeParse(JSON.parse(text.replace(/^\uFEFF/, '')));
+    return parsed.success ? { kind: 'ok', status: parsed.data } : { kind: 'unreadable' };
+  } catch {
+    return { kind: 'unreadable' };
+  }
+}
+
+const EMPTY_BACKUP: Omit<BackupSummary, 'state' | 'message'> = {
+  lastRunAt: null,
+  lastRunResult: null,
+  lastRunMessage: null,
+  lastSuccessAt: null,
+  lastSuccessFile: null,
+  lastSuccessSizeBytes: null,
+  rpoHours: null,
+  rtoHours: null,
+  owner: null,
+  alertRecipient: null,
+};
+
+/**
+ * Decides what the page says about backups. A failed last run wins (AC3); otherwise no success
+ * within the recovery point objective is a warning (AC4).
+ */
+export function summarizeBackup(
+  file: Awaited<ReturnType<typeof readBackupStatusFile>> | null,
+  now: Date,
+): BackupSummary {
+  if (file === null) {
+    return {
+      ...EMPTY_BACKUP,
+      state: 'not_configured',
+      message:
+        'Backups are not set up on this server yet (BACKUP_STATUS_FILE is empty; backup design pending IT, D39).',
+    };
+  }
+  if (file.kind !== 'ok') {
+    return {
+      ...EMPTY_BACKUP,
+      state: 'unknown',
+      message:
+        file.kind === 'missing'
+          ? 'No backup has run yet.'
+          : 'The backup status record could not be read.',
+    };
+  }
+  const { status } = file;
+  const details: Omit<BackupSummary, 'state' | 'message'> = {
+    lastRunAt: status.lastRun.finishedAt,
+    lastRunResult: status.lastRun.result,
+    lastRunMessage: status.lastRun.message,
+    lastSuccessAt: status.lastSuccess?.finishedAt ?? null,
+    lastSuccessFile: status.lastSuccess?.file ?? null,
+    lastSuccessSizeBytes: status.lastSuccess?.sizeBytes ?? null,
+    rpoHours: status.rpoHours,
+    rtoHours: status.rtoHours,
+    owner: status.owner,
+    alertRecipient: status.alertRecipient,
+  };
+  if (status.lastRun.result === 'failed') {
+    return { ...details, state: 'failed', message: 'The last backup failed.' };
+  }
+  const lastSuccess = status.lastSuccess ? Date.parse(status.lastSuccess.finishedAt) : null;
+  if (lastSuccess === null || now.getTime() - lastSuccess > status.rpoHours * HOUR_MS) {
+    return {
+      ...details,
+      state: 'overdue',
+      message: `No successful backup in the last ${status.rpoHours} hours (the recovery point objective).`,
+    };
+  }
+  return { ...details, state: 'ok', message: 'The last backup succeeded.' };
+}
+
+export async function printQueueSummary(pool: Pool, now: Date): Promise<PrintQueueSummary> {
+  const { rows } = await pool.query<{
+    queued: number;
+    sending: number;
+    uncertain: number;
+    failed: number;
+    oldest_queued_at: Date | null;
+  }>(
+    `SELECT count(*) FILTER (WHERE status = 'queued')::int AS queued,
+            count(*) FILTER (WHERE status = 'sending')::int AS sending,
+            count(*) FILTER (WHERE status = 'uncertain' AND physically_confirmed_at IS NULL)::int
+              AS uncertain,
+            count(*) FILTER (WHERE status = 'failed')::int AS failed,
+            min(created_at) FILTER (WHERE status = 'queued') AS oldest_queued_at
+       FROM print_job
+      WHERE status IN ('queued', 'sending', 'uncertain', 'failed')`,
+  );
+  const row = rows[0]!;
+  const oldest = row.oldest_queued_at;
+  return {
+    queued: row.queued,
+    sending: row.sending,
+    uncertain: row.uncertain,
+    failed: row.failed,
+    oldestQueuedAt: oldest ? oldest.toISOString() : null,
+    oldestQueuedAgeSeconds: oldest
+      ? Math.max(0, Math.floor((now.getTime() - oldest.getTime()) / 1000))
+      : null,
+  };
+}
+
+/** Free space on the drive holding `path`, or null where the platform can't tell. */
+export async function diskSpace(path: string, label: string, now: Date): Promise<DiskSpace | null> {
+  try {
+    const stats = await statfs(path);
+    return {
+      label,
+      freeBytes: stats.bavail * stats.bsize,
+      totalBytes: stats.blocks * stats.bsize,
+      measuredAt: now.toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The backup target's space as backup.ps1 measured it (the service can't reach the target). */
+export function backupTargetDisk(
+  file: Awaited<ReturnType<typeof readBackupStatusFile>> | null,
+): DiskSpace | null {
+  if (file?.kind !== 'ok') return null;
+  const { target, lastRun } = file.status;
+  if (!target || target.freeBytes === null || target.totalBytes === null) return null;
+  return {
+    label: 'Backup location',
+    freeBytes: target.freeBytes,
+    totalBytes: target.totalBytes,
+    measuredAt: lastRun.finishedAt,
+  };
+}

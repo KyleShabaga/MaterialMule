@@ -23,6 +23,7 @@ import {
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ScanPage } from './scanning/ScanPage';
 import { StaffPage } from './settings/staff/StaffPage';
+import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
@@ -100,6 +101,8 @@ export const routes: RouteObject[] = [
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,
                   },
                   { path: 'printers', element: <PrintersSettingsPage /> },
+                  // Admin-only operational status (TRP-T21).
+                  { path: 'system-status', element: <SystemStatusPage /> },
                 ],
               },
               ...featureRoutes,

@@ -43,6 +43,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | printer.manage (T15)              |     |                   |             |   ✓   |               |                     |
 | project.edit (T35)                |     |                   |             |   ✓   |       ✓       |                     |
 | project.pm_pe.change (T35)        |     |                   |             |   ✓   |               |                     |
+| system.status.read (T21)          |     |                   |             |   ✓   |               |                     |
 
 "Project PM/PE" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account.

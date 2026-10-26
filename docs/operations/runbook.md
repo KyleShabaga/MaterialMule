@@ -22,29 +22,54 @@ decision D25). Written so someone who did not build the app can follow it step b
 7. [Rotate secrets](#rotate-secrets)
 8. [Renew the certificate](#renew-the-certificate)
 9. [Logs and health](#logs-and-health)
-10. [Host acceptance tests (T1–T6)](#host-acceptance-tests-t1t6)
-11. [Troubleshooting](#troubleshooting)
+10. [Backups and restore drills](#backups-and-restore-drills) (TRP-T21)
+11. [Monitoring and alerts](#monitoring-and-alerts) (TRP-T21)
+12. [Recover production from a backup](#recover-production-from-a-backup)
+13. [Host acceptance tests (T1–T6)](#host-acceptance-tests-t1t6)
+14. [Backup acceptance tests (TRP-T21)](#backup-acceptance-tests-trp-t21)
+15. [Troubleshooting](#troubleshooting)
 
 ## IT inputs
 
 Still needed before the first install. Record the answers in `host.config.psd1` / `trapezoid.env`
 on the host, not in the repository.
 
-| Input                       | Used for                                                            | Where it goes                                       |
-| --------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- |
-| Host PC and Windows edition | Runs everything (Windows 11 Pro or Windows Server)                  | —                                                   |
-| Production host name (DNS)  | The address staff use; must resolve on the office network           | `HealthUrl`, certificate, Microsoft redirect URI    |
-| Certificate approach        | Internal CA or a public certificate for the internal name           | `TLS_PFX_FILE` (+ passphrase) or PEM pair           |
-| Trust on devices            | Office PCs and staff phones must trust the issuing CA (camera, T17) | IT pushes the CA (GPO / MDM)                        |
-| HTTPS port                  | 443 unless IT says otherwise                                        | `PORT`, `HttpsPort`                                 |
-| Firewall scope              | Network profile(s) and address ranges allowed in                    | `FirewallProfiles`, `FirewallRemoteAddresses`       |
-| Service account             | Dedicated low-privilege account (virtual account or gMSA preferred) | `ServiceAccount`                                    |
-| Windows Update window       | When the host may restart                                           | IT policy (active hours / maintenance window)       |
-| Operational owner           | Who upgrades, watches health and renews the certificate             | This runbook's front page                           |
-| Backup design (D39, T21)    | Pre-deploy backup                                                   | `BackupScript` (until then: manual + `-SkipBackup`) |
+| Input                       | Used for                                                            | Where it goes                                    |
+| --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------ |
+| Host PC and Windows edition | Runs everything (Windows 11 Pro or Windows Server)                  | —                                                |
+| Production host name (DNS)  | The address staff use; must resolve on the office network           | `HealthUrl`, certificate, Microsoft redirect URI |
+| Certificate approach        | Internal CA or a public certificate for the internal name           | `TLS_PFX_FILE` (+ passphrase) or PEM pair        |
+| Trust on devices            | Office PCs and staff phones must trust the issuing CA (camera, T17) | IT pushes the CA (GPO / MDM)                     |
+| HTTPS port                  | 443 unless IT says otherwise                                        | `PORT`, `HttpsPort`                              |
+| Firewall scope              | Network profile(s) and address ranges allowed in                    | `FirewallProfiles`, `FirewallRemoteAddresses`    |
+| Service account             | Dedicated low-privilege account (virtual account or gMSA preferred) | `ServiceAccount`                                 |
+| Windows Update window       | When the host may restart                                           | IT policy (active hours / maintenance window)    |
+| Operational owner           | Who upgrades, watches health and renews the certificate             | This runbook's front page                        |
+| Backup design (D39, T21)    | Scheduled and pre-deploy backups, restore drills, alerts            | `backup.config.psd1` (see below)                 |
 
-Not decided here: Microsoft sign-in timing (D38) and backup/recovery design (D39). The scripts
-work without either.
+Not decided here: Microsoft sign-in timing (D38) and backup/recovery design (D39). The T20 scripts
+work without either; the T21 backup scripts **refuse to run** until IT has set every D39 value.
+
+### Backup decisions IT still has to make (D39)
+
+`deploy\windows\backup.config.example.psd1` leaves these empty on purpose. The proposals come from
+the TRP-T21 card and are **proposals pending IT**, not decisions.
+
+| Setting                    | Decision                                                            | Proposal (pending IT)                        |
+| -------------------------- | ------------------------------------------------------------------- | -------------------------------------------- |
+| `BackupTarget`             | Separate device or approved location (D25); IT picks the hardware   | none (IT's choice)                           |
+| `TargetEncryptedAtRest`    | IT confirms the location is encrypted at rest (BitLocker, NAS, ...) | must be `$true`; the app doesn't encrypt     |
+| `RpoHours`                 | Recovery point objective: the most data we may lose                 | ≤ 24 h, ideally 4-hourly dumps or hourly WAL |
+| `RtoHours`                 | Recovery time objective: how long a recovery may take               | ≤ 4 h                                        |
+| `KeepDaily/Weekly/Monthly` | Retention                                                           | 14 daily, 8 weekly, 12 monthly               |
+| `BackupOwner`              | Who owns backups and the restore drills                             | —                                            |
+| `AlertRecipient`           | Who IT's monitoring forwards the Trapezoid event log alerts to      | —                                            |
+| `BackupAccount`            | Windows account the scheduled tasks run as (gMSA preferred)         | —                                            |
+| `BackupTimes`              | When the backup runs (follows the RPO)                              | `@('02:00')` for a 24 h RPO                  |
+| Secrets recovery           | Password manager entry IT owns for every secret in the env files    | —                                            |
+
+WAL archiving (for an RPO shorter than the dump interval) is not built; ask the developer if IT
+wants it.
 
 ## Folder layout
 
@@ -61,6 +86,10 @@ C:\Trapezoid\                      InstallRoot (Administrators, SYSTEM: full; se
   service\trapezoid-service.exe    WinSW (manual download) + generated trapezoid-service.xml
   logs\                            service logs + deploy.log (service account: modify)
   deploy-state.json                current/previous release and deploy history
+  ops\                             TRP-T21 (Administrators, SYSTEM: full; backup account: modify)
+    staging\                       local copy while a backup runs (kept only after a failed copy)
+    status\                        backup-status.json, monitor-status.json (service account: read)
+    logs\                          backup.log, monitor.log, restore.log, restore-drills.jsonl
 ```
 
 ## First install
@@ -125,6 +154,10 @@ Give each role a long random password (generate with the password manager, store
 ```
 
 (`setup-roles` runs again after the first deploy, step 7.)
+
+Once IT has decided the backup design (D39), add the read-only backup role as a third argument
+(`setup-roles trapezoid_owner trapezoid_app trapezoid_backup`); see
+[Backups and restore drills](#backups-and-restore-drills).
 
 ### 4. Configuration files
 
@@ -202,12 +235,17 @@ approves), e.g. to `D:\`.
 This is the routine task (AC6). Allow 10 minutes, outside busy receiving hours.
 
 1. Tell the lab the app will be unavailable for about a minute.
-2. **Back up the database.** Until TRP-T21 provides `BackupScript`, take a manual backup:
+2. **Back up the database.** Once backups are set up (`BackupScript` and `BackupConfig` in
+   `host.config.psd1`), the deploy script runs `backup.ps1` first and stops if it fails. Until
+   then, take a manual backup:
    ```powershell
-   $stamp = Get-Date -Format yyyyMMdd-HHmm
-   & 'C:\Program Files\PostgreSQL\17\bin\pg_dump.exe' -h 127.0.0.1 -U postgres -Fc -f "E:\backups\trapezoid-$stamp.dump" trapezoid
+   $file = "E:\backups\trapezoid-manual-$(Get-Date -Format yyyyMMdd-HHmm).dump"
+   & 'C:\Program Files\PostgreSQL\17\bin\pg_dump.exe' -h 127.0.0.1 -U postgres -Fc -f $file trapezoid
+   '{0} *{1}' -f (Get-FileHash $file).Hash.ToLower(), (Split-Path -Leaf $file) | Set-Content ($file -replace '\.dump$', '.sha256')
    ```
-   (`E:\backups` = the separate backup location D25 requires. Check the file is not empty.)
+   (`E:\backups` = the separate backup location D25 requires. Check the file is not empty.
+   `restore.ps1` accepts it thanks to the `.sha256` file, but reports `restored-unverified`
+   because a manual dump has no manifest to compare with.)
 3. Copy the new release folder to the host, e.g. `D:\trapezoid-0.3.0-cd34ef5`.
 4. Open an elevated PowerShell 7 window and preview:
    ```powershell
@@ -246,8 +284,9 @@ cd C:\Trapezoid\current\deploy\windows
 
 Migrations are forward-only: rolling back the code does not undo schema changes. Releases are
 written so the previous release still runs on the newer schema; if a release says otherwise in its
-notes, or the previous release fails its health check after a rollback, restore the backup taken
-before the upgrade (`pg_restore`, TRP-T21) and then roll back.
+notes, or the previous release fails its health check after a rollback, recover the database from
+the backup taken before the upgrade ([Recover production from a backup](#recover-production-from-a-backup))
+and then roll back.
 
 ## Rotate secrets
 
@@ -292,10 +331,197 @@ Check the current expiry from the host:
 | Deploys and rollbacks    | `C:\Trapezoid\logs\deploy.log`, history in `C:\Trapezoid\deploy-state.json` |
 | Service start/stop/crash | Event Viewer → Windows Logs → System, source "Service Control Manager"      |
 | PostgreSQL               | `C:\Program Files\PostgreSQL\17\data\log\`                                  |
+| Backups, monitor, drills | `C:\Trapezoid\ops\logs\` (TRP-T21)                                          |
+| Backup/monitor alerts    | Event Viewer → Windows Logs → Application, source "Trapezoid"               |
 
 Health: `GET https://`_host_`/api/health` returns 200 `{"status":"ok","version":…,"database":"up"}`,
 or 503 when the database is down. Logs never contain passwords, cookies or connection strings
 (redacted at the source); report it as a bug if one does.
+
+Admins see more under **Settings → System status** (`GET /api/admin/system-status`): version,
+database, the latest backup's time and result (with a warning when no backup succeeded within the
+RPO), the print queue backlog and its oldest waiting job, print worker heartbeat, and free disk
+space on the host and (as measured by the last backup) the backup location. It reads the backup
+status record from `BACKUP_STATUS_FILE` in `trapezoid.env`
+(`C:\Trapezoid\ops\status\backup-status.json`); while that is empty the page says backups are not
+set up.
+
+### Log rotation (AC5)
+
+| Log                           | Rotation                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| Service (`trapezoid-service`) | WinSW: at 10 MB, 10 files kept (`Install-TrapezoidHost.ps1`)                 |
+| `deploy.log`                  | the deploy script: at 10 MB, 5 files kept                                    |
+| `ops\logs\*.log`              | the backup/monitor/restore scripts: `LogMaxSizeMB` (10), `LogKeepFiles` (10) |
+| PostgreSQL                    | its own settings, below                                                      |
+
+PostgreSQL (set once in `postgresql.conf`, then `Restart-Service postgresql-x64-17`): keep a week of
+daily files that overwrite themselves, and never log statements (they could hold personal data):
+
+```
+logging_collector = on
+log_filename = 'postgresql-%a.log'
+log_truncate_on_rotation = on
+log_rotation_age = 1d
+log_rotation_size = 50MB
+log_statement = 'none'
+```
+
+The API's logs never contain request bodies, tokens, cookies or passwords (pino redaction,
+`apps/api/src/logging/logger.ts`); the scripts never handle passwords at all.
+
+## Backups and restore drills
+
+TRP-T21. **Only after IT has decided the backup design (D39)**: every script refuses to run while a
+D39 value is missing from `backup.config.psd1` ([IT inputs](#backup-decisions-it-still-has-to-make-d39)).
+
+What a backup does (`deploy\windows\backup.ps1`): run `verify-restore.sql` (read-only) → `pg_dump`
+in custom format as the read-only `trapezoid_backup` role → run the queries again (equal results
+mean nothing changed during the dump) → zip the configuration (host and backup config,
+`trapezoid.env` **with every secret replaced by `<redacted>`**, `release.json`) → write SHA-256
+checksums → copy to `BackupTarget` under temporary names, then re-check the checksum there →
+retention → write the status record and, on failure, an Error event. Files at the location:
+
+```
+trapezoid-production-20261026T080000Z-0.3.0-cd34ef5.dump            the database (pg_dump -Fc)
+trapezoid-production-20261026T080000Z-0.3.0-cd34ef5.manifest.json   verification values at backup time
+trapezoid-production-20261026T080000Z-0.3.0-cd34ef5.config.zip      configuration without secrets
+trapezoid-production-20261026T080000Z-0.3.0-cd34ef5.sha256          checksums of the three files
+```
+
+Retention keeps every backup from the last 24 hours plus the newest of each of the last
+`KeepDaily` days, `KeepWeekly` ISO weeks and `KeepMonthly` months. It only deletes complete
+`trapezoid-<EnvironmentName>-*` sets in `BackupTarget`; nothing else there is touched.
+
+Secrets are **not** in any backup. Recovering them (DB role passwords, `SESSION_SECRET`, TLS
+passphrase, Microsoft client secret) relies on the password manager entry IT owns; check it at
+every drill.
+
+### Set up backups (once, after IT's decisions)
+
+Elevated PowerShell 7 on the host:
+
+1. Backup role (read-only; also used by the monitor). Re-run `setup-roles` with the third role,
+   then give it a long random password from the password manager:
+   ```powershell
+   $release = 'C:\Trapezoid\current'
+   $env:DATABASE_ADMIN_URL = 'postgres://postgres@127.0.0.1:5432/trapezoid'
+   $env:PGPASSWORD = (Read-Host 'postgres password' -MaskInput)
+   & node "$release\apps\api\dist\db\cli.js" setup-roles trapezoid_owner trapezoid_app trapezoid_backup
+   & 'C:\Program Files\PostgreSQL\17\bin\psql.exe' -h 127.0.0.1 -U postgres -d trapezoid -c "\password trapezoid_backup"
+   Remove-Item Env:PGPASSWORD, Env:DATABASE_ADMIN_URL
+   ```
+2. The backup account (`BackupAccount`, from IT) needs: write access to `BackupTarget` (IT sets
+   this on the device or share), and a pgpass file only it and Administrators can read:
+   `mkdir C:\Trapezoid\config\backup`, then put this single line in
+   `C:\Trapezoid\config\backup\pgpass.conf` (`127.0.0.1:5432:trapezoid:trapezoid_backup:<password>`),
+   and limit the folder to Administrators, SYSTEM and the backup account (Properties → Security).
+3. Copy `deploy\windows\backup.config.example.psd1` to `C:\Trapezoid\config\backup.config.psd1` and
+   fill in **every** IT decision. Leave nothing at a proposal IT hasn't approved.
+4. Preview, then install (creates `C:\Trapezoid\ops`, its permissions, the event log source
+   "Trapezoid" and the two scheduled tasks; nothing else changes with `-Skip`):
+   ```powershell
+   cd C:\Trapezoid\current\deploy\windows
+   .\Install-TrapezoidHost.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -BackupConfigPath C:\Trapezoid\config\backup.config.psd1 -Skip Folders,Service,Permissions,Firewall,Postgres,Power -WhatIf
+   ```
+   Run it again without `-WhatIf`. For a standard (non-gMSA) backup account it asks for that
+   account's password once and hands it to Task Scheduler.
+5. Point the app and the deploy script at it, then restart the service:
+   - `trapezoid.env`: `BACKUP_STATUS_FILE=C:\Trapezoid\ops\status\backup-status.json`
+   - `host.config.psd1`: `BackupScript = 'C:\Trapezoid\current\deploy\windows\backup.ps1'` and
+     `BackupConfig = 'C:\Trapezoid\config\backup.config.psd1'` (then drop `-SkipBackup`).
+6. Run the first backup by hand and check Settings → System status shows it:
+   `Start-ScheduledTask -TaskPath '\Trapezoid\' -TaskName 'Trapezoid Backup'`.
+
+Backups run as the backup account; never run `backup.ps1` elevated. Exit codes: 0 backed up,
+1 failed (recorded and alerted), 2 refused (configuration incomplete; nothing ran).
+
+### Restore drill (AC2, AC6)
+
+A backup only counts once a restore of it has been verified. Do a drill after setup, after every
+major upgrade and at least every quarter (or as IT decides), on the host or a spare PC with
+PostgreSQL 17. `restore.ps1` **only restores into a new, isolated database**: it refuses the
+production database (`DbName`), system databases, any database that already exists, and names
+without `restore` in them. It never uses `--clean`.
+
+```powershell
+cd C:\Trapezoid\current\deploy\windows
+$env:PGPASSWORD = (Read-Host 'postgres password' -MaskInput)
+$backup = 'E:\TrapezoidBackups\trapezoid-production-20261026T080000Z-0.3.0-cd34ef5.dump'
+.\restore.ps1 -ConfigPath C:\Trapezoid\config\backup.config.psd1 -BackupFile $backup -TargetDatabase trapezoid_restore_20261026 -WhatIf
+.\restore.ps1 -ConfigPath C:\Trapezoid\config\backup.config.psd1 -BackupFile $backup -TargetDatabase trapezoid_restore_20261026 -DropAfterVerify
+Remove-Item Env:PGPASSWORD
+```
+
+It checks the SHA-256 file, creates the database, restores, runs `verify-restore.sql` on the copy
+and compares it with the manifest taken from production at backup time: row counts of receipts,
+units, summaries, audit events and print jobs; the latest storage unit ID per prefix and year and
+the ID counters; the audit history (latest event and a fingerprint of all of them); and five
+spot-checked units. `Result: verified` (exit 0) means everything matches. Each drill is appended to
+`C:\Trapezoid\ops\logs\restore-drills.jsonl` with date, duration and result; also record it in the
+[drill log](#drill-log) below (AC6). A backup alone is not a verified backup.
+
+#### Drill log
+
+| Date | Who | Backup file | Duration | Result | Notes |
+| ---- | --- | ----------- | -------- | ------ | ----- |
+|      |     |             |          |        |       |
+
+## Monitoring and alerts
+
+The "Trapezoid Monitor" task runs `monitor.ps1` every 5 minutes (`MonitorIntervalMinutes`) and
+checks: the Windows service is running; `/api/health` answers 200 with the database up; the last
+backup succeeded and is younger than the RPO; no label print job has waited longer than
+`PrintQueueMaxAgeMinutes`; at least `MinFreeSpaceGB` free on the host, the PostgreSQL data drive
+and the backup location (local drives only; a network share's space is shown when the backup can
+measure it). Results: `C:\Trapezoid\ops\status\monitor-status.json`.
+
+Alerts go to the **Windows Application event log, source "Trapezoid"** (the app sends no email,
+TRP-T21). IT's monitoring forwards them to `AlertRecipient`:
+
+| Event ID | Level       | Meaning                                                     |
+| -------- | ----------- | ----------------------------------------------------------- |
+| 1000     | Information | Backup succeeded                                            |
+| 1001     | Error       | Backup failed (reason in the message)                       |
+| 1100     | Warning     | Monitor found a new problem (listed; raised once per issue) |
+| 1101     | Information | All monitor checks pass again                               |
+| 1200     | Information | Restore drill verified                                      |
+| 1201     | Error       | Restore drill failed or did not match                       |
+
+What to do: **1001** → read the reason (e.g. "Backup location unavailable": reconnect the drive or
+share), then run the backup task by hand and confirm Settings → System status shows success.
+**1100** about backups → the same; about the service or health → [Troubleshooting](#troubleshooting);
+about the print queue → check the printer (Settings → Printers); about disk space → free space or
+ask IT. If the backup task itself stops running (disabled, account password expired), the monitor
+still raises 1100 once the RPO passes, and the status page shows the warning.
+
+## Recover production from a backup
+
+Only when the production database is lost or damaged and the owner has decided to recover. This
+is deliberately manual: no script ever restores over production.
+
+1. Stop the service: `Stop-Service Trapezoid`.
+2. Restore the chosen backup into a **new** database, keeping owners and grants (the roles must
+   exist: on a rebuilt host, do [First install](#first-install) steps 1–4 and `setup-roles` first):
+   ```powershell
+   .\restore.ps1 -ConfigPath C:\Trapezoid\config\backup.config.psd1 -BackupFile <backup>.dump -TargetDatabase trapezoid_restore_recovery -KeepOwnership
+   ```
+   It must end with `Result: verified`.
+3. Swap the databases (keeps the damaged one for investigation):
+   ```powershell
+   $psql = 'C:\Program Files\PostgreSQL\17\bin\psql.exe'
+   & $psql -h 127.0.0.1 -U postgres -d postgres -c "ALTER DATABASE trapezoid RENAME TO trapezoid_damaged_$(Get-Date -Format yyyyMMdd)"
+   & $psql -h 127.0.0.1 -U postgres -d postgres -c "ALTER DATABASE trapezoid_restore_recovery RENAME TO trapezoid"
+   ```
+4. Re-run `setup-roles` (all three roles) so the database-level grants match, then
+   `Start-Service Trapezoid` and check `/api/health` and Settings → System status.
+5. Restore the secrets from the password manager if the host was rebuilt. Record the recovery like
+   a drill.
+6. **Before anyone receives samples again:** storage unit IDs issued after the backup's timestamp
+   may already be on physical labels, and the restored counters would issue them a second time
+   (IDs are never reused). Collect the highest ID per prefix and year printed since the backup
+   (labels, paper trail), and have the developer raise `storage_unit_annual_counter` past them
+   with an audited correction. Then re-enter the missing receipts from the paper trail.
 
 ## Host acceptance tests (T1–T6)
 
@@ -315,6 +541,22 @@ Also for AC4: run the secret check command under [Rotate secrets](#rotate-secret
 For AC6: a second person performs one [Upgrade](#upgrade) using only this page and notes any step
 that was unclear.
 
+## Backup acceptance tests (TRP-T21)
+
+After [Set up backups](#set-up-backups-once-after-its-decisions), on the host. Record date, who and
+result on the TRP-T21 card (and drills in the [drill log](#drill-log)). T4 is automated.
+
+| ID  | Test                     | How                                                                                                                        | Pass when                                                                                              |
+| --- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| T1  | Scheduled backup (AC1)   | Wait for (or `Start-ScheduledTask`) "Trapezoid Backup"                                                                     | `.dump`, `.manifest.json`, `.config.zip`, `.sha256` at `BackupTarget`; status page shows time, success |
+| T2  | Restore drill (AC2, AC6) | [Restore drill](#restore-drill-ac2-ac6) with the latest backup, timed                                                      | `Result: verified`; duration within the RTO; drill logged                                              |
+| T3  | Target unavailable (AC3) | Unplug the drive / disconnect the share, run the backup task                                                               | Exit 1; status page "Failed: Backup location unavailable"; event 1001 reaches `AlertRecipient`         |
+| T4  | Status endpoint (AC4)    | Automated: `apps/api/src/system-status/system-status.test.ts` (admin only; RPO warning)                                    | Non-admins get 403                                                                                     |
+| T5  | Log rotation (AC5)       | After a week: list `C:\Trapezoid\logs`, `ops\logs` and the PostgreSQL log folder; run the secret check from Rotate secrets | Sizes bounded; no passwords, cookies or tokens found                                                   |
+
+Also for AC4: disable the backup task for longer than the RPO (or set `RpoHours` low on a test
+host) and check the status page shows "Overdue" and the monitor raises event 1100.
+
 ## Troubleshooting
 
 **The service won't start.** Look at `trapezoid-service.err.log`. "Invalid configuration" lists
@@ -328,15 +570,11 @@ passphrase.
 certificate and resolve the host name to itself.
 
 **RollbackFailed.** The previous release didn't come back either, usually because a migration in
-the failed release changed something it relies on. Restore the pre-upgrade backup:
-
-```powershell
-Stop-Service Trapezoid
-& 'C:\Program Files\PostgreSQL\17\bin\pg_restore.exe' -h 127.0.0.1 -U postgres -d trapezoid --clean --if-exists E:\backups\trapezoid-<stamp>.dump
-Start-Service Trapezoid
-```
-
-then check `/api/health` and contact the developer.
+the failed release changed something it relies on. Contact the developer, then recover the
+pre-upgrade backup into a new database and swap it in, following
+[Recover production from a backup](#recover-production-from-a-backup) (nothing was received
+after that backup, because the service stopped for the upgrade). Never `pg_restore --clean` over
+the production database.
 
 **Phones show a certificate warning.** The phone doesn't trust IT's CA: IT installs the CA
 profile through MDM (camera scanning needs a trusted HTTPS page, T17).

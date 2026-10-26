@@ -47,6 +47,7 @@ describe('can', () => {
       'staff.manage',
       'disposal.approve',
       'printer.manage',
+      'system.status.read',
     ] as Permission[]) {
       expect(can(lab, permission), permission).toBe(false);
     }
@@ -74,6 +75,7 @@ describe('can', () => {
       expect(can(tech, permission), permission).toBe(true);
     }
     expect(can(tech, 'test.cancel')).toBe(false);
+    expect(can(tech, 'system.status.read')).toBe(false);
     expect(can(tech, 'program.priority.set')).toBe(false);
   });
 
@@ -98,6 +100,7 @@ describe('can', () => {
     expect(can(admin, 'staff.manage')).toBe(true);
     expect(can(admin, 'session.revoke')).toBe(true);
     expect(can(admin, 'printer.manage')).toBe(true);
+    expect(can(admin, 'system.status.read')).toBe(true);
     expect(can(admin, 'program.close', project)).toBe(false);
     expect(can(admin, 'test.accept', project)).toBe(false);
     expect(can(admin, 'disposal.approve', project)).toBe(false);
