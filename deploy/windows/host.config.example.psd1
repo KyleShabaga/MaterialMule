@@ -21,9 +21,13 @@
     # Releases kept on disk for rollback (at least 2).
     KeepReleases            = 5
 
-    # Pre-deploy database backup script (TRP-T21). The backup design is deferred (D39): until it
-    # exists, leave this empty, back up by hand and deploy with -SkipBackup.
+    # Pre-deploy database backup (TRP-T21). The backup design is deferred (D39): until IT has
+    # decided and backup.config.psd1 is filled in, leave both empty, back up by hand and deploy
+    # with -SkipBackup. Then set:
+    #   BackupScript = 'C:\Trapezoid\current\deploy\windows\backup.ps1'
+    #   BackupConfig = 'C:\Trapezoid\config\backup.config.psd1'
     BackupScript            = ''
+    BackupConfig            = ''
 
     # IT INPUT: dedicated low-privilege account the service runs as. Recommended: the virtual
     # account 'NT SERVICE\Trapezoid' (no password) or a gMSA 'DOMAIN\svc-trapezoid$'. A normal

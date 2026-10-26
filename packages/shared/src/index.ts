@@ -10,3 +10,4 @@ export * from './profile';
 export * from './projects';
 export * from './receipts';
 export * from './staff';
+export * from './system-status';

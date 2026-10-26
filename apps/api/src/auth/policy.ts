@@ -55,7 +55,9 @@ export type Permission =
   | 'staff.manage'
   | 'session.revoke'
   | 'printer.manage'
-  | 'project.pm_pe.change';
+  | 'project.pm_pe.change'
+  // Operations (TRP-T21): Settings → System status
+  | 'system.status.read';
 
 /** What the shared LAB account may do (App Idea §8, owner decision #21 for moves). */
 export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
@@ -97,6 +99,7 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   // Projects (TRP-T35): admins edit any project's fields and are the only ones who change its PM/PE.
   'project.edit',
   'project.pm_pe.change',
+  'system.status.read',
 ]);
 
 /** Granted to the project's PM/PE (project-scoped). */

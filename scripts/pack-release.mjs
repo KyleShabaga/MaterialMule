@@ -32,6 +32,13 @@ export const RELEASE_FILES = [
   'deploy/windows/host.config.example.psd1',
   'deploy/windows/trapezoid.env.example',
   'deploy/windows/migrate.env.example',
+  // Backups, restore drills and monitoring (TRP-T21).
+  'deploy/windows/TrapezoidOps.psm1',
+  'deploy/windows/backup.ps1',
+  'deploy/windows/restore.ps1',
+  'deploy/windows/monitor.ps1',
+  'deploy/windows/verify-restore.sql',
+  'deploy/windows/backup.config.example.psd1',
   'scripts/check-bundle-secrets.mjs',
 ];
 

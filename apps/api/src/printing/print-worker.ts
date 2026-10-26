@@ -51,6 +51,7 @@ interface ClaimedJob {
 export class PrintWorker {
   private running = false;
   private recovered = false;
+  private lastPoll: Date | null = null;
   private loop: Promise<void> | null = null;
   private wakeUp: (() => void) | null = null;
   private readonly busyPrinters = new Set<string>();
@@ -78,6 +79,11 @@ export class PrintWorker {
     await Promise.allSettled([...this.inFlight]);
   }
 
+  /** Heartbeat for Settings → System status (TRP-T21): last poll that reached the database. */
+  get health(): { running: boolean; lastPollAt: Date | null } {
+    return { running: this.running, lastPollAt: this.lastPoll };
+  }
+
   /** Looks for work now instead of at the next poll (called after a job is queued). */
   wake(): void {
     this.wakeUp?.();
@@ -90,6 +96,7 @@ export class PrintWorker {
           await this.recoverInterrupted();
         }
         await this.dispatch();
+        this.lastPoll = new Date();
       } catch (error) {
         // Database unavailable or similar: keep the process up and try again at the next poll.
         this.log.error(`Print worker poll failed: ${(error as Error).message}`);

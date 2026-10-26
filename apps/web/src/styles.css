@@ -269,6 +269,11 @@ button:disabled {
   font-weight: 600;
 }
 
+/* A dt/dd pair wrapped for a React key; keeps the two-column grid. */
+.status-row {
+  display: contents;
+}
+
 .status-ok dd:first-of-type {
   color: var(--ok);
 }

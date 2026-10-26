@@ -66,6 +66,9 @@ describe('pack-release (TRP-T20)', () => {
       'apps/api/seed/reference.sql',
       'apps/web/dist/index.html',
       'deploy/windows/Deploy-Trapezoid.ps1',
+      'deploy/windows/backup.ps1',
+      'deploy/windows/restore.ps1',
+      'deploy/windows/verify-restore.sql',
       'scripts/check-bundle-secrets.mjs',
       'release.json',
     ]) {
