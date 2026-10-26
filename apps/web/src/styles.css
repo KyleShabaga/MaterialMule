@@ -2,8 +2,12 @@
   --text: #1f2328;
   --muted: #59636e;
   --bg: #ffffff;
+  --surface: #f6f8fa;
   --border: #d1d9e0;
+  --accent: #0969da;
+  --accent-text: #ffffff;
   --ok: #1a7f37;
+  --info: #0969da;
   --warning: #9a6700;
   --error: #cf222e;
   font-family:
@@ -21,8 +25,12 @@
     --text: #e6edf3;
     --muted: #9198a1;
     --bg: #0d1117;
+    --surface: #151b23;
     --border: #3d444d;
+    --accent: #4493f8;
+    --accent-text: #0d1117;
     --ok: #3fb950;
+    --info: #4493f8;
     --warning: #d29922;
     --error: #f85149;
   }
@@ -31,6 +39,48 @@
 body {
   margin: 0;
 }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button,
+.button {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button.primary,
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- Standalone pages (sign-in, access pending, errors) ---- */
 
 .shell {
   max-width: 40rem;
@@ -43,16 +93,165 @@ body {
   margin-top: -0.5rem;
 }
 
-.health {
+.sign-in-options {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+/* ---- App layout ---- */
+
+.app {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'header header'
+    'nav main';
+  min-height: 100vh;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+}
+
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 10;
+  padding: 0.5rem;
+  background: var(--bg);
+}
+
+.app-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.app-name {
+  font-weight: 700;
+}
+
+.identity {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.identity-initials {
+  color: var(--muted);
+}
+
+.menu-toggle {
+  display: none;
+}
+
+.side-nav {
+  grid-area: nav;
+  border-right: 1px solid var(--border);
+  padding: 1rem 0.5rem;
+}
+
+.side-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.side-nav a {
+  display: block;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.side-nav a.active {
+  background: var(--surface);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.app-main {
+  grid-area: main;
+  padding: 1rem 1.5rem 3rem;
+  min-width: 0;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sub-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sub-nav a.active {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.card {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1rem;
+  margin-top: 1rem;
 }
 
-.health h2 {
+.card h2 {
   font-size: 1rem;
   margin-top: 0;
 }
+
+.receive-button {
+  font-size: 1.1rem;
+}
+
+/* ---- Dashboard activity ---- */
+
+.activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.activity-time {
+  color: var(--muted);
+}
+
+.activity.skeleton li {
+  height: 1.2rem;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.empty-state {
+  color: var(--muted);
+}
+
+.error-state {
+  color: var(--error);
+}
+
+/* ---- Status panel ---- */
 
 .status {
   display: grid;
@@ -78,16 +277,86 @@ body {
   color: var(--error);
 }
 
+/* ---- Badges ---- */
+
 .badge {
   display: inline-block;
   padding: 0 0.4rem;
-  border: 1px solid var(--warning);
+  border: 1px solid currentColor;
   border-radius: 4px;
-  color: var(--warning);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
 }
+
+.badge-neutral {
+  color: var(--muted);
+}
+
+.badge-info {
+  color: var(--info);
+}
+
+.badge-success {
+  color: var(--ok);
+}
+
+.badge-warning {
+  color: var(--warning);
+}
+
+.badge-danger {
+  color: var(--error);
+}
+
+/* ---- Forms, tables, dialogs ---- */
+
+.form-field {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.875rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.confirm-dialog {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--bg);
+  max-width: 28rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* ---- Test sign-in ---- */
 
 .fixtures {
   list-style: none;
@@ -99,4 +368,63 @@ body {
 .fixtures button {
   min-width: 10rem;
   text-align: left;
+}
+
+/* ---- Phone width: menu becomes a drawer, tables become cards ---- */
+
+@media (max-width: 640px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'header'
+      'main';
+  }
+
+  .menu-toggle {
+    display: inline-block;
+  }
+
+  .side-nav {
+    display: none;
+    position: fixed;
+    inset: 3.25rem 0 0 0;
+    z-index: 5;
+    background: var(--bg);
+    border-right: none;
+  }
+
+  .app.menu-open .side-nav {
+    display: block;
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
+
+  .identity {
+    font-size: 0.875rem;
+  }
+
+  .data-table thead {
+    display: none;
+  }
+
+  .data-table tr {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+  }
+
+  .data-table td {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: none;
+  }
+
+  .data-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    min-width: 7rem;
+  }
 }

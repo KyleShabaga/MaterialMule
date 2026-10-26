@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { App } from './App';
-import { fetchHealth } from './api/health';
+import { SystemStatus } from './SystemStatus';
+import { fetchHealth } from '../api/health';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -38,7 +38,7 @@ describe('fetchHealth', () => {
   });
 });
 
-describe('App', () => {
+describe('SystemStatus', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -48,7 +48,7 @@ describe('App', () => {
       'fetch',
       vi.fn(async () => jsonResponse(200, { status: 'ok', version: '0.1.0', database: 'up' })),
     );
-    render(<App />);
+    render(<SystemStatus />);
     expect(await screen.findByText('OK')).toBeInTheDocument();
     expect(screen.getByText('Connected')).toBeInTheDocument();
     expect(screen.getByText('0.1.0')).toBeInTheDocument();
@@ -61,7 +61,7 @@ describe('App', () => {
         throw new TypeError('Failed to fetch');
       }),
     );
-    render(<App />);
+    render(<SystemStatus />);
     expect(await screen.findByRole('alert')).toHaveTextContent('API unavailable');
   });
 });

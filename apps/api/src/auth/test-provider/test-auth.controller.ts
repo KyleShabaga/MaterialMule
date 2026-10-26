@@ -26,6 +26,8 @@ import { SESSION_COOKIE, sessionCookieOptions } from '../session-cookie.js';
 import { SessionService } from '../session.service.js';
 import { TEST_FIXTURES } from './fixtures.js';
 
+export { testAuthEnabled } from './gating.js';
+
 const signInSchema = z.object({ fixtureKey: z.string().min(1).max(40) });
 
 export interface TestFixtureView {
@@ -140,9 +142,4 @@ export class TestAuthController {
       sessionCookieOptions(this.config, session.expiresAt),
     );
   }
-}
-
-/** True when the fixture sign-in routes should exist. */
-export function testAuthEnabled(config: AppConfig): boolean {
-  return config.ENABLE_TEST_AUTH && config.APP_ENV !== 'production';
 }

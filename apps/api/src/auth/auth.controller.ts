@@ -10,7 +10,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { MeResponse } from '@trapezoid/shared';
+import type { AuthProvidersResponse, MeResponse } from '@trapezoid/shared';
 import type { Response } from 'express';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { APP_CONFIG } from '../config/config.constants.js';
@@ -19,6 +19,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import {
   AnySession,
+  Public,
   CurrentUser,
   RequirePermission,
   type AuthenticatedRequest,
@@ -26,6 +27,7 @@ import {
 import { can, type AuthUser, type Permission } from './policy.js';
 import { SESSION_COOKIE, sessionCookieOptions } from './session-cookie.js';
 import { SessionService } from './session.service.js';
+import { testAuthEnabled } from './test-provider/gating.js';
 
 const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'receipt.confirm',
@@ -72,6 +74,13 @@ export class AuthController {
     private readonly database: DatabaseService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  /** Which sign-in options the landing page should offer. T05/T06 switch theirs on. */
+  @Get('auth/providers')
+  @Public()
+  providers(): AuthProvidersResponse {
+    return { microsoft: false, lab: false, test: testAuthEnabled(this.config) };
+  }
 
   @Get('me')
   @AnySession()

@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { signInAs } from './support/auth';
 
-test('web shell shows the API and database as healthy', async ({ page }) => {
+test('dashboard shows the API and database as healthy', async ({ page }) => {
+  await signInAs(page, 'at');
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Trapezoid' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   const status = page.locator('.status');
   await expect(status).toContainText('OK');
   await expect(status).toContainText('Connected');
