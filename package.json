@@ -1,6 +1,7 @@
 {
   "name": "trapezoid",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Laboratory sample receiving, storage-unit tracking and testing-program workflow.",
   "packageManager": "npm@11.19.1",
   "engines": {
