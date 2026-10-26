@@ -697,4 +697,37 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       }
     });
   });
+
+  describe('projects (TRP-T35)', () => {
+    it('locks the project number once any receipt exists; other fields stay editable', async () => {
+      const projectId = await insertProject(db.pool, 'LOCK-1', userId);
+      await db.pool.query(`UPDATE project SET project_number = 'LOCK-1A' WHERE id = $1`, [
+        projectId,
+      ]);
+      await insertReceipt(db.pool, projectId, userId);
+      await expect(
+        db.pool.query(`UPDATE project SET project_number = 'LOCK-1B' WHERE id = $1`, [projectId]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await db.pool.query(
+        `UPDATE project SET name = 'Renamed', server_folder_path = 'P:\\Projects\\LOCK-1A'
+         WHERE id = $1`,
+        [projectId],
+      );
+      const { rows } = await db.pool.query(
+        'SELECT project_number, name FROM project WHERE id = $1',
+        [projectId],
+      );
+      expect(rows[0]).toEqual({ project_number: 'LOCK-1A', name: 'Renamed' });
+    });
+
+    it('limits the server folder path to 500 characters', async () => {
+      const projectId = await insertProject(db.pool, 'PATH-1', userId);
+      await expect(
+        db.pool.query('UPDATE project SET server_folder_path = $2 WHERE id = $1', [
+          projectId,
+          'x'.repeat(501),
+        ]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+  });
 });
