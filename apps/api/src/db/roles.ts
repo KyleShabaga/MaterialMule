@@ -65,9 +65,10 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
     }
 
     await run(`REVOKE ALL ON DATABASE ${database} FROM PUBLIC`, 'database closed to PUBLIC');
+    // CREATE lets migrations add trusted extensions such as pg_trgm (0010) without a superuser.
     await run(
-      `GRANT CONNECT, TEMPORARY ON DATABASE ${database} TO ${owner}`,
-      'migration role may connect',
+      `GRANT CONNECT, TEMPORARY, CREATE ON DATABASE ${database} TO ${owner}`,
+      'migration role may connect and add trusted extensions',
     );
     await run(`GRANT CONNECT ON DATABASE ${database} TO ${app}`, 'app role may connect');
 

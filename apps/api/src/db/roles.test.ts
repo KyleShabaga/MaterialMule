@@ -77,6 +77,10 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     for (const [role, password] of Object.entries(PASSWORDS)) {
       await admin.query(`ALTER ROLE ${role} PASSWORD '${password}'`);
     }
+    // Extensions (pg_trgm, 0010) live in public. On the host public is the app's schema, which
+    // setup-roles hands to the migration role; here the scratch schema stands in for it and the
+    // test database's public (recreated by reset-test, so without default grants) needs USAGE.
+    await admin.query(`GRANT USAGE ON SCHEMA public TO ${MIGRATION_ROLE}, ${APP_ROLE}`);
     owner = new Pool({ connectionString: urlFor(MIGRATION_ROLE, scratch.schema), max: 2 });
     app = new Pool({ connectionString: urlFor(APP_ROLE, scratch.schema), max: 2 });
 
@@ -141,6 +145,10 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
       ),
     ).toBe('ok');
     expect(await outcome(app, 'SELECT count(*) FROM location')).toBe('ok');
+    // Inventory search (0010) uses pg_trgm's operators from public.
+    expect(
+      await outcome(app, "SELECT count(*) FROM storage_unit_search WHERE document LIKE '%bkt%'"),
+    ).toBe('ok');
     expect(await outcome(app, `DELETE FROM app_user WHERE id = '${rows[0]!.id}'`)).toBe('ok');
   });
 
