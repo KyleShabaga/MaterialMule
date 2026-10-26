@@ -167,24 +167,32 @@ export function ProjectPicker({
       <legend>Project</legend>
       <div className="form-field combobox">
         <label htmlFor={`${id}-search`}>Find project (number or name)</label>
-        <input
-          id={`${id}-search`}
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={showList}
-          aria-controls={listboxId}
-          aria-activedescendant={showList && active >= 0 ? `${listboxId}-${active}` : undefined}
-          autoComplete="off"
-          value={query}
-          onChange={(event) => {
-            onQueryChange(event.target.value);
-            setOpen(true);
-            setActive(-1);
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setOpen(false)}
-          onKeyDown={onKeyDown}
-        />
+        <div className="combobox-row">
+          <input
+            id={`${id}-search`}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={showList}
+            aria-controls={listboxId}
+            aria-activedescendant={showList && active >= 0 ? `${listboxId}-${active}` : undefined}
+            autoComplete="off"
+            value={query}
+            onChange={(event) => {
+              onQueryChange(event.target.value);
+              setOpen(true);
+              setActive(-1);
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setOpen(false)}
+            onKeyDown={onKeyDown}
+          />
+          {/* Beside the search box, so the open list never covers it. */}
+          {!form ? (
+            <button type="button" onClick={startAdding} disabled={!online}>
+              {online ? 'Add project' : 'Connect to add a project'}
+            </button>
+          ) : null}
+        </div>
         {showList ? (
           <ul id={listboxId} role="listbox" aria-label="Matching projects" className="listbox">
             {results.map((project, index) => (
@@ -212,11 +220,7 @@ export function ProjectPicker({
         ) : null}
       </div>
 
-      {!form ? (
-        <button type="button" onClick={startAdding} disabled={!online}>
-          {online ? 'Add project' : 'Connect to add a project'}
-        </button>
-      ) : (
+      {form ? (
         <div className="inline-form" role="group" aria-labelledby={`${id}-add`}>
           <h3 id={`${id}-add`}>Add project</h3>
           <FormField label="Project number" error={field('projectNumber')}>
@@ -293,7 +297,7 @@ export function ProjectPicker({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
     </fieldset>
   );
 }
