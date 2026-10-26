@@ -1,5 +1,5 @@
 import type { MeResponse, StorageUnitDetail, StorageUnitHistoryPage } from '@trapezoid/shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -237,14 +237,14 @@ describe('storage unit corrections (TRP-T13)', () => {
     await user.type(screen.getByLabelText('Reason for the correction'), 'note was wrong');
     await user.click(screen.getByRole('button', { name: 'Save correction' }));
 
-    expect(
-      await screen.findByText(
-        'Someone else changed this unit. Review the latest values and try again.',
-      ),
-    ).toBeInTheDocument();
-    expect(await screen.findByLabelText('Storage unit note')).toHaveValue(
-      'Changed by someone else',
+    // The form restarts from the reloaded unit (new version), replacing its elements, so wait for
+    // the latest values first and only then look for the message.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Storage unit note')).toHaveValue('Changed by someone else'),
     );
+    expect(
+      screen.getByText('Someone else changed this unit. Review the latest values and try again.'),
+    ).toBeInTheDocument();
   });
 
   it('AC5: lists unresolved lab requests when a project change is blocked', async () => {
