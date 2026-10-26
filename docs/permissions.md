@@ -50,9 +50,27 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - Opaque random token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in production); only its
   SHA-256 is stored.
 - Absolute expiry, never extended: personal and test accounts 12 hours (`PERSONAL_SESSION_HOURS`,
-  owner decision 2026-10-25); LAB one calendar month (TRP-T06).
+  owner decision 2026-10-25); LAB one calendar month (TRP-T06): the same local time in
+  `BUSINESS_TIME_ZONE` a month later, clamped to the month's last day (Jan 31 → Feb 28/29). The
+  cookie's `Expires` equals the session expiry, so it survives a browser restart.
 - Revocable one at a time or all for a user; disabling a user revokes all of them in the same
   transaction.
+
+## Shared receiving account LAB (TRP-T06)
+
+- Username `LAB` (any case) and an app-managed password (`POST /api/auth/lab/sign-in`). It is not a
+  Microsoft account and has nothing to do with the development-only "Lab (test)" identity.
+- An admin (`staff.manage`) sets or resets the password with `POST /api/admin/lab/password`
+  (minimum 12 characters). A reset revokes every LAB session in the same transaction and clears
+  the account lockout. "Sign out all LAB stations" uses the T04 revoke endpoint.
+- Brute-force protection: 10 failed attempts within 15 minutes for the account, or from one client
+  address, refuse further attempts for 15 minutes (HTTP 429 with `Retry-After`). Every failure is
+  audited (`auth.sign_in_failed`), as is each lockout (`auth.lockout`); neither records the
+  password or an unrecognised username.
+- Audit events: `auth.sign_in` (provider `local_lab`), `auth.sign_in_failed`, `auth.lockout`,
+  `lab.password_reset`, `auth.sign_out` and `auth.sessions_revoked` (T04's name for a revocation).
+- `lab.integration.test.ts` calls every endpoint outside the LAB column with a LAB session and
+  expects 403 with nothing changed, so new endpoints are covered automatically.
 
 ## CSRF
 

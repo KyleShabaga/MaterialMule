@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { UNAUTHENTICATED_EVENT, apiFetch } from '../api/client';
 import { SessionContext, loadSession, type SessionState } from './context';
+import { rememberStation } from './station';
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -23,7 +24,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (session.status === 'active') {
+      rememberStation(session.me.accountType === 'shared_lab');
+    }
+  }, [session]);
+
   const signOut = useCallback(async (nextPath = '/sign-in') => {
+    // A deliberate sign-out isn't an expiry, so don't show the LAB expiry message next time.
+    rememberStation(false);
     await apiFetch('/api/auth/sign-out', { method: 'POST' }).catch(() => undefined);
     window.location.assign(nextPath);
   }, []);

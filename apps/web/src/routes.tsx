@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SignInPage } from './pages/SignInPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { StorageUnitLabelsPage } from './printing/StorageUnitLabelsPage';
+import { StaffPage } from './pages/StaffPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -13,6 +14,7 @@ import {
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
+import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
@@ -63,7 +65,7 @@ export const routes: RouteObject[] = [
               },
               {
                 path: 'receiving-log/new',
-                element: <PlaceholderPage title="Receive samples" card="TRP-T10" />,
+                element: <ReceiveSamplesPage />,
               },
               {
                 path: 'sample-storage',
@@ -80,10 +82,7 @@ export const routes: RouteObject[] = [
                     path: 'profile',
                     element: <PlaceholderPage title="My profile" card="TRP-T05" />,
                   },
-                  {
-                    path: 'staff',
-                    element: <PlaceholderPage title="Staff & access" card="TRP-T07" />,
-                  },
+                  { path: 'staff', element: <StaffPage /> },
                   {
                     path: 'locations',
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,

@@ -78,14 +78,22 @@ Key rules enforced by the database:
   `TRUNCATE` even for the table owner. Record events with `recordAudit` (`apps/api/src/audit`)
   on the same transaction client as the change; actor initials and name are snapshots.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
-  per project only).
+  per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
+  so of two parallel creates exactly one succeeds and the other gets 409 with the existing row
+  (TRP-T08). Migration 0004 adds `text_pattern_ops` indexes for prefix search.
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25). Each unit records its
   `receipt_line` (1 = first submitted, unique per receipt, migration 0003) so a retried
   confirmation returns the same row-to-ID mapping.
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
+- **LAB credentials (migration 0004, TRP-T06).** `local_credential` holds one Argon2id PHC string
+  per account (the string records its own cost); a trigger allows it only for `shared_lab`
+  accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
+  Reference data seeds the LAB account (`app_user` 00000000-0000-4000-8000-000000000001 with a
+  `local_lab` identity, subject `LAB`) without a password: an admin sets it in
+  Settings → Staff & access.
 
-## Print queue (TRP-T15, migration 0004)
+## Print queue (TRP-T15, migration 0005)
 
 - **Printers** (`printer`) are server-side configuration: key, name, host (IPv4 or host name),
   port (9100), enabled, default (at most one), status check. Print requests may only name a

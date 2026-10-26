@@ -26,6 +26,7 @@ import {
 } from './auth.decorators.js';
 import { can, type AuthUser, type Permission } from './policy.js';
 import { SESSION_COOKIE, sessionCookieOptions } from './session-cookie.js';
+import { LabAuthService } from './providers/local-lab/lab-auth.service.js';
 import { SessionService } from './session.service.js';
 import { testAuthEnabled } from './test-provider/gating.js';
 
@@ -73,14 +74,22 @@ export class AuthController {
   constructor(
     private readonly sessions: SessionService,
     private readonly database: DatabaseService,
+    private readonly lab: LabAuthService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** Which sign-in options the landing page should offer. T05/T06 switch theirs on. */
+  /**
+   * Which sign-in options the landing page should offer. LAB appears once an admin has set its
+   * password (TRP-T06); Microsoft arrives with TRP-T05.
+   */
   @Get('auth/providers')
   @Public()
-  providers(): AuthProvidersResponse {
-    return { microsoft: false, lab: false, test: testAuthEnabled(this.config) };
+  async providers(): Promise<AuthProvidersResponse> {
+    return {
+      microsoft: false,
+      lab: await this.lab.isAvailable(),
+      test: testAuthEnabled(this.config),
+    };
   }
 
   @Get('me')

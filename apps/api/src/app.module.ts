@@ -4,6 +4,11 @@ import { LoggerModule } from 'nestjs-pino';
 import { ActivityController } from './activity/activity.controller.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthGuard } from './auth/auth.guard.js';
+import {
+  LabAdminController,
+  LabAuthController,
+} from './auth/providers/local-lab/lab-auth.controller.js';
+import { LabAuthService } from './auth/providers/local-lab/lab-auth.service.js';
 import { SessionService } from './auth/session.service.js';
 import { TestAuthController, testAuthEnabled } from './auth/test-provider/test-auth.controller.js';
 import { APP_CONFIG } from './config/config.constants.js';
@@ -13,6 +18,11 @@ import { HealthController } from './health/health.controller.js';
 import { pinoHttpOptions } from './logging/logger.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
+import { ProjectsController } from './projects/projects.controller.js';
+import { ProjectsService } from './projects/projects.service.js';
+import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
+import { TestHolesController } from './test-holes/test-holes.controller.js';
+import { TestHolesService } from './test-holes/test-holes.service.js';
 import { ReceiptsController } from './receiving/receipts.controller.js';
 import { ReceiptsService } from './receiving/receipts.service.js';
 import { UsersService } from './users/users.service.js';
@@ -27,8 +37,13 @@ export class AppModule {
       controllers: [
         HealthController,
         AuthController,
+        LabAuthController,
+        LabAdminController,
         ActivityController,
         PrintingController,
+        ProjectsController,
+        TestHolesController,
+        StaffDirectoryController,
         ReceiptsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
@@ -37,8 +52,11 @@ export class AppModule {
         { provide: APP_CONFIG, useValue: config },
         DatabaseService,
         SessionService,
+        LabAuthService,
         UsersService,
         PrintWorkerService,
+        ProjectsService,
+        TestHolesService,
         ReceiptsService,
         // Default deny on every route (TRP-T04).
         { provide: APP_GUARD, useClass: AuthGuard },

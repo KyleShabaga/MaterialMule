@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { StatusBadge } from '../components/ui';
+import { formatExpiry } from '../lib/format';
 import { useMe, useSession } from '../session/context';
 import { accountBadge, visibleNavItems } from './nav';
 
@@ -32,6 +33,13 @@ export function AppLayout() {
             {me.initials ? <span className="identity-initials"> ({me.initials})</span> : null}
           </span>{' '}
           <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+          {me.accountType === 'shared_lab' ? (
+            <span className="identity-expiry">
+              {' '}
+              Session ends{' '}
+              <time dateTime={me.sessionExpiresAt}>{formatExpiry(me.sessionExpiresAt)}</time>
+            </span>
+          ) : null}
           <button type="button" onClick={() => void signOut('/sign-in?switch=1')}>
             Switch user
           </button>
