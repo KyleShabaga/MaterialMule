@@ -25,6 +25,7 @@ import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ScanPage } from './scanning/ScanPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { StaffPage } from './settings/staff/StaffPage';
+import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
@@ -107,6 +108,8 @@ export const routes: RouteObject[] = [
                   { path: 'printers', element: <PrintersSettingsPage /> },
                   // Draft auto-delete (TRP-T40): Admin and Lab Manager.
                   { path: 'receiving', element: <ReceivingSettingsPage /> },
+                  // Admin-only operational status (TRP-T21).
+                  { path: 'system-status', element: <SystemStatusPage /> },
                 ],
               },
               ...featureRoutes,

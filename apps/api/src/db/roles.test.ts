@@ -33,9 +33,11 @@ if (!superuser && process.env.CI === 'true' && testDatabaseUrl) {
 const suffix = randomBytes(4).toString('hex');
 const MIGRATION_ROLE = `t20_owner_${suffix}`;
 const APP_ROLE = `t20_app_${suffix}`;
+const BACKUP_ROLE = `t21_backup_${suffix}`;
 const PASSWORDS = {
   [MIGRATION_ROLE]: randomBytes(16).toString('hex'),
   [APP_ROLE]: randomBytes(16).toString('hex'),
+  [BACKUP_ROLE]: randomBytes(16).toString('hex'),
 };
 
 function urlFor(role: string, schema: string): string {
@@ -61,6 +63,7 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
   let admin: Pool;
   let owner: Pool;
   let app: Pool;
+  let backup: Pool;
   let database: string;
 
   beforeAll(async () => {
@@ -72,6 +75,7 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     await setUpDatabaseRoles(admin, {
       migrationRole: MIGRATION_ROLE,
       appRole: APP_ROLE,
+      backupRole: BACKUP_ROLE,
       schema: scratch.schema,
     });
     for (const [role, password] of Object.entries(PASSWORDS)) {
@@ -80,9 +84,12 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     // Extensions (pg_trgm, 0010) live in public. On the host public is the app's schema, which
     // setup-roles hands to the migration role; here the scratch schema stands in for it and the
     // test database's public (recreated by reset-test, so without default grants) needs USAGE.
-    await admin.query(`GRANT USAGE ON SCHEMA public TO ${MIGRATION_ROLE}, ${APP_ROLE}`);
+    await admin.query(
+      `GRANT USAGE ON SCHEMA public TO ${MIGRATION_ROLE}, ${APP_ROLE}, ${BACKUP_ROLE}`,
+    );
     owner = new Pool({ connectionString: urlFor(MIGRATION_ROLE, scratch.schema), max: 2 });
     app = new Pool({ connectionString: urlFor(APP_ROLE, scratch.schema), max: 2 });
+    backup = new Pool({ connectionString: urlFor(BACKUP_ROLE, scratch.schema), max: 2 });
 
     await migrate(owner);
     await runSeed(owner, 'reference', 'production');
@@ -90,16 +97,19 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     await setUpDatabaseRoles(admin, {
       migrationRole: MIGRATION_ROLE,
       appRole: APP_ROLE,
+      backupRole: BACKUP_ROLE,
       schema: scratch.schema,
     });
   }, 60_000);
 
   afterAll(async () => {
     await app?.end();
+    await backup?.end();
     await owner?.end();
     if (admin) {
       await admin.query(`DROP SCHEMA IF EXISTS ${scratch.schema} CASCADE`);
-      await admin.query(`DROP OWNED BY ${MIGRATION_ROLE}, ${APP_ROLE}`);
+      await admin.query(`DROP OWNED BY ${MIGRATION_ROLE}, ${APP_ROLE}, ${BACKUP_ROLE}`);
+      await admin.query(`DROP ROLE IF EXISTS ${BACKUP_ROLE}`);
       await admin.query(`DROP ROLE IF EXISTS ${APP_ROLE}`);
       await admin.query(`DROP ROLE IF EXISTS ${MIGRATION_ROLE}`);
       // Put the shared test database back to PostgreSQL's default.
@@ -121,7 +131,7 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     const { rows } = await admin.query(
       `SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls
          FROM pg_roles WHERE rolname = ANY($1) ORDER BY rolname`,
-      [[MIGRATION_ROLE, APP_ROLE]],
+      [[MIGRATION_ROLE, APP_ROLE, BACKUP_ROLE]],
     );
     for (const row of rows) {
       expect(row).toMatchObject({
@@ -168,6 +178,41 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
         { version: '9999', name: 'intruder', sql: 'CREATE TABLE intruder (id int)', checksum: 'x' },
       ]),
     ).rejects.toThrow();
+  });
+
+  it('T21: lets the backup role read every table and sequence, and change nothing', async () => {
+    const { rows } = await admin.query<{ table: string; ok: boolean }>(
+      `SELECT tablename AS table, has_table_privilege($1, schemaname || '.' || tablename, 'SELECT') AS ok
+         FROM pg_tables WHERE schemaname = $2`,
+      [BACKUP_ROLE, scratch.schema],
+    );
+    expect(rows.length).toBeGreaterThan(5);
+    expect(rows.filter((row) => !row.ok).map((row) => row.table)).toEqual([]);
+    expect(await outcome(backup, 'SELECT count(*) FROM storage_unit')).toBe('ok');
+    expect(await outcome(backup, 'SELECT count(*) FROM audit_event')).toBe('ok');
+    expect(await outcome(backup, 'SELECT last_value FROM storage_unit_annual_counter')).toBe('ok');
+    // Read-only by default (25006) and without write privileges even when it asks (42501).
+    expect(
+      await outcome(backup, `INSERT INTO location (code, name, kind) VALUES ('X1', 'X', 'lab')`),
+    ).toBe('25006');
+    const write = async (sql: string) => {
+      const client = await backup.connect();
+      try {
+        await client.query('BEGIN READ WRITE');
+        await client.query(sql);
+        return 'ok';
+      } catch (error) {
+        return (error as { code?: string }).code ?? 'error';
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release();
+      }
+    };
+    expect(await write(`INSERT INTO location (code, name, kind) VALUES ('X1', 'X', 'lab')`)).toBe(
+      '42501',
+    );
+    expect(await write('DELETE FROM audit_event')).toBe('42501');
+    expect(await write('CREATE TABLE intruder (id int)')).toBe('42501');
   });
 
   it('keeps audit events append-only for the app role', async () => {
@@ -217,6 +262,7 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     const steps = await setUpDatabaseRoles(admin, {
       migrationRole: MIGRATION_ROLE,
       appRole: APP_ROLE,
+      backupRole: BACKUP_ROLE,
       schema: scratch.schema,
     });
     expect(steps.some((step) => step.startsWith('created role'))).toBe(false);
@@ -229,5 +275,12 @@ describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
     await expect(
       setUpDatabaseRoles(admin, { migrationRole: APP_ROLE, appRole: APP_ROLE }),
     ).rejects.toThrow(/different roles/);
+    await expect(
+      setUpDatabaseRoles(admin, {
+        migrationRole: MIGRATION_ROLE,
+        appRole: APP_ROLE,
+        backupRole: APP_ROLE,
+      }),
+    ).rejects.toThrow(/backup role must differ/);
   });
 });

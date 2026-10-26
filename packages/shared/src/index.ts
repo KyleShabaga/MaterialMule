@@ -11,3 +11,4 @@ export * from './projects';
 export * from './receipts';
 export * from './settings';
 export * from './staff';
+export * from './system-status';

@@ -55,6 +55,7 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'session.revoke',
   'printer.manage',
   'settings.drafts.manage',
+  'system.status.read',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */
