@@ -139,3 +139,178 @@ export function messagesByField(
 export function projectLabel(project: Pick<ProjectSummary, 'projectNumber' | 'name' | 'client'>) {
   return `${project.projectNumber} · ${project.name} · ${project.client}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Projects list and project detail (TRP-T35)
+// ---------------------------------------------------------------------------------------------
+
+export const PROJECT_LIST_SORTS = ['number', 'name', 'last_receipt'] as const;
+export type ProjectListSort = (typeof PROJECT_LIST_SORTS)[number];
+export const PROJECT_LIST_SORT_DIRECTIONS = ['asc', 'desc'] as const;
+export const PROJECT_LIST_PAGE_SIZE_DEFAULT = 25;
+export const PROJECT_LIST_PAGE_SIZE_MAX = 100;
+/** Newest receipts shown on the project detail page; the total is reported alongside. */
+export const PROJECT_DETAIL_RECEIPT_LIMIT = 100;
+export const SERVER_FOLDER_PATH_MAX = 500;
+export const PROJECT_NUMBER_LOCKED_MESSAGE =
+  "Project number is printed on existing labels and can't be changed";
+
+const blankParam = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
+const queryBoolean = (value: unknown) => {
+  if (value === 'true' || value === '1') return true;
+  if (value === 'false' || value === '0') return false;
+  return blankParam(value);
+};
+
+/**
+ * `GET /api/projects?search=&mine=&sort=&dir=&page=&pageSize=`. The web app parses its URL with
+ * the same schema, so a shared link shows what the server returns.
+ */
+export const projectListQuerySchema = z.object({
+  search: z.preprocess(
+    blankParam,
+    z.string().trim().max(200, { error: 'must be at most 200 characters' }).optional(),
+  ),
+  /** Only projects where the signed-in user is PM/PE or review engineer. */
+  mine: z.preprocess(queryBoolean, z.boolean({ error: 'must be true or false' }).default(false)),
+  sort: z.preprocess(
+    blankParam,
+    z.enum(PROJECT_LIST_SORTS, { error: 'must be number, name or last_receipt' }).default('number'),
+  ),
+  /** Defaults to A–Z for number and name, newest first for last receipt. */
+  dir: z.preprocess(
+    blankParam,
+    z.enum(PROJECT_LIST_SORT_DIRECTIONS, { error: 'must be asc or desc' }).optional(),
+  ),
+  page: z.preprocess(
+    blankParam,
+    z.coerce.number({ error: 'must be a number' }).int().min(1).max(100_000).default(1),
+  ),
+  pageSize: z.preprocess(
+    blankParam,
+    z.coerce
+      .number({ error: 'must be a number' })
+      .int()
+      .min(1)
+      .max(PROJECT_LIST_PAGE_SIZE_MAX, { error: `must be at most ${PROJECT_LIST_PAGE_SIZE_MAX}` })
+      .default(PROJECT_LIST_PAGE_SIZE_DEFAULT),
+  ),
+});
+export type ProjectListQuery = z.output<typeof projectListQuerySchema>;
+
+export function projectListSortDirection(query: Pick<ProjectListQuery, 'sort' | 'dir'>) {
+  return query.dir ?? (query.sort === 'last_receipt' ? 'desc' : 'asc');
+}
+
+/** "Only mine": the user is the project's PM/PE or its review engineer. */
+export function isMyProject(
+  project: { pmPe: { id: string }; reviewEngineer: { id: string } | null },
+  userId: string,
+): boolean {
+  return project.pmPe.id === userId || project.reviewEngineer?.id === userId;
+}
+
+export const projectListItemSchema = projectSummarySchema.extend({
+  reviewEngineer: staffOptionSchema.nullable(),
+  testHoleCount: z.number(),
+  /** Storage units with status In stock. */
+  inStockUnitCount: z.number(),
+  /** Latest receipt's received date (YYYY-MM-DD), or null before the first receipt. */
+  lastReceiptDate: z.string().nullable(),
+});
+export type ProjectListItem = z.infer<typeof projectListItemSchema>;
+
+export const projectListPageSchema = z.object({
+  items: z.array(projectListItemSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+export type ProjectListPage = z.infer<typeof projectListPageSchema>;
+
+export const projectDetailTestHoleSchema = testHoleSchema.extend({
+  /** Storage units (any status) with a SAMPLE#/DEPTH summary for this hole. */
+  unitCount: z.number(),
+});
+export type ProjectDetailTestHole = z.infer<typeof projectDetailTestHoleSchema>;
+
+export const projectDetailReceiptSchema = z.object({
+  id: z.string(),
+  receivedDate: z.string(),
+  receiver: z.object({ name: z.string(), initials: z.string() }),
+  unitCount: z.number(),
+});
+export type ProjectDetailReceipt = z.infer<typeof projectDetailReceiptSchema>;
+
+/** `GET /api/projects/:id`: a superset of ProjectSummary, so summary callers keep working. */
+export const projectDetailSchema = projectSummarySchema.extend({
+  reviewEngineer: staffOptionSchema.nullable(),
+  serverFolderPath: z.string().nullable(),
+  /** Optimistic concurrency token; send it back with an edit. */
+  version: z.number(),
+  /** True once any receipt exists: the number is printed on labels. */
+  numberLocked: z.boolean(),
+  /** What the signed-in user may change (the server checks again on save). */
+  canEdit: z.boolean(),
+  canChangePmPe: z.boolean(),
+  /** Storage units of any status, and those In stock. */
+  unitCount: z.number(),
+  inStockUnitCount: z.number(),
+  testHoles: z.array(projectDetailTestHoleSchema),
+  /** Newest first, at most PROJECT_DETAIL_RECEIPT_LIMIT; receiptCount is the full total. */
+  receipts: z.array(projectDetailReceiptSchema),
+  receiptCount: z.number(),
+});
+export type ProjectDetail = z.infer<typeof projectDetailSchema>;
+
+// Like CONTROL_CHARACTERS, but a reason may span lines.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS_EXCEPT_NEWLINES = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/;
+
+/**
+ * `PATCH /api/projects/:id`. Only fields present are changed. Admins and the project's PM/PE may
+ * edit; only admins change the PM/PE, and that needs a reason (owner decision 2026-10-25).
+ */
+export const updateProjectRequestSchema = z.object({
+  version: z.number({ error: 'Version is required' }).int().min(1),
+  projectNumber: projectNumberSchema.optional(),
+  name: trimmedText('Project name', 200).optional(),
+  client: trimmedText('Client', 200).optional(),
+  reviewEngineerId: z.uuid({ error: 'Choose a staff member' }).nullable().optional(),
+  /** Blank clears the path. */
+  serverFolderPath: z
+    .preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+      z
+        .string({ error: 'Server folder path must be text' })
+        .trim()
+        .max(SERVER_FOLDER_PATH_MAX, {
+          error: `Server folder path must be ${SERVER_FOLDER_PATH_MAX} characters or fewer`,
+        })
+        .pipe(noControlCharacters('Server folder path'))
+        .nullable(),
+    )
+    .optional(),
+  pmPeId: staffId('PM/PE').optional(),
+  reason: z.preprocess(
+    blankParam,
+    z
+      .string({ error: 'Reason must be text' })
+      .trim()
+      .max(2000, { error: 'Reason must be 2000 characters or fewer' })
+      .refine((value) => !CONTROL_CHARACTERS_EXCEPT_NEWLINES.test(value), {
+        message: "Reason can't contain control characters",
+      })
+      .optional(),
+  ),
+});
+export type UpdateProjectRequest = z.input<typeof updateProjectRequestSchema>;
+
+/** 409 body when the project changed since it was loaded. */
+export const projectVersionConflictResponseSchema = z.object({
+  code: z.literal('version_conflict'),
+  current: projectDetailSchema,
+});
+export type ProjectVersionConflictResponse = z.infer<typeof projectVersionConflictResponseSchema>;

@@ -5,9 +5,14 @@ import {
   storageUnitDetailSchema,
   storageUnitHistoryPageSchema,
   storageUnitLookupResponseSchema,
+  unresolvedLabLinksResponseSchema,
+  validationErrorResponseSchema,
+  type FieldError,
   type InventoryLocation,
   type InventoryPage,
+  type LabRequestLink,
   type ProjectSummary,
+  type StorageUnitCorrectionRequestInput,
   type StorageUnitDetail,
   type StorageUnitHistoryPage,
   type StorageUnitLookupResponse,
@@ -87,4 +92,51 @@ export function fetchStorageUnitHistory(
     `/api/storage-units/${encodeURIComponent(id)}/history?page=${page}`,
     storageUnitHistoryPageSchema,
   );
+}
+
+/** Outcome of `PATCH /api/storage-units/:id` (TRP-T13). */
+export type CorrectionResult =
+  | { kind: 'saved'; unit: StorageUnitDetail }
+  | { kind: 'conflict' }
+  | { kind: 'lab_links'; links: LabRequestLink[] }
+  | { kind: 'invalid'; errors: FieldError[] }
+  | { kind: 'error'; message: string };
+
+export async function correctStorageUnit(
+  id: string,
+  body: StorageUnitCorrectionRequestInput,
+): Promise<CorrectionResult> {
+  let response: Response;
+  try {
+    response = await apiFetch(`/api/storage-units/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { kind: 'error', message: "Trapezoid couldn't be reached. Check the connection." };
+  }
+  const json: unknown = await response.json().catch(() => null);
+  if (response.ok) {
+    const unit = storageUnitDetailSchema.safeParse(json);
+    return unit.success
+      ? { kind: 'saved', unit: unit.data }
+      : { kind: 'error', message: 'Trapezoid returned an unexpected response.' };
+  }
+  if (response.status === 409) {
+    const links = unresolvedLabLinksResponseSchema.safeParse(json);
+    return links.success ? { kind: 'lab_links', links: links.data.links } : { kind: 'conflict' };
+  }
+  if (response.status === 400 || response.status === 422) {
+    // 422 (test hole not in the project) carries field errors in the same shape as a 400.
+    const invalid = validationErrorResponseSchema.safeParse({
+      ...(json as object),
+      code: 'validation_failed',
+    });
+    if (invalid.success) return { kind: 'invalid', errors: invalid.data.errors };
+  }
+  if (response.status === 403) {
+    return { kind: 'error', message: 'Corrections need a personal account.' };
+  }
+  if (response.status === 404) return { kind: 'error', message: 'No storage unit found.' };
+  return { kind: 'error', message: `The correction couldn't be saved (HTTP ${response.status}).` };
 }
