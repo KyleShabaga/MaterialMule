@@ -10,7 +10,7 @@ phones, Microsoft tenant) are TRP-T22's and are **not** covered here.
 | Item        | Value                                                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Date        | 2026-10-26                                                                                                                  |
-| Commit      | `d818555` (branch `test/trp-t18-receiving-regression`, on main `d21ccf0`, which includes TRP-T11)                           |
+| Commit      | `e4a3555` (branch `test/trp-t18-receiving-regression`, on main `79af420`, which includes TRP-T11 and T39)                   |
 | Environment | Windows 11 Pro 10.0.26200 (dev PC), Node 24.22.0, PostgreSQL 17.11, Playwright 1.64.1 (Chromium), npm 11                    |
 | Database    | Fresh per E2E run (`db:reset:test` + fictional dev seed); each API test file builds its own schema                          |
 | E2E shape   | Production-shaped: the API serves the built web app; fake Zebra printer on `E2E_PORT + 1000`; 2 local workers; `retries: 0` |
@@ -18,13 +18,13 @@ phones, Microsoft tenant) are TRP-T22's and are **not** covered here.
 
 | Gate                                                                 | Result                                                                                                |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `npm run verify`                                                     | Pass (API 439 passed / 9 skipped, shared 54, web 151, deploy 18; lint, typecheck, build, bundle scan) |
+| `npm run verify`                                                     | Pass (API 448 passed / 9 skipped, shared 54, web 159, deploy 18; lint, typecheck, build, bundle scan) |
 | `npm run test:security`                                              | Pass (11 tests, 2 files)                                                                              |
-| `E2E_PORT=3118 npm run test:e2e` (everything)                        | Pass (104 passed, 4 skipped by design)                                                                |
+| `E2E_PORT=3118 npm run test:e2e` (everything)                        | Pass (110 passed, 4 skipped by design)                                                                |
 | `npm run test:e2e:critical`, run 1 / 2 / 3 (consecutive, no retries) | Pass / Pass / Pass (24 passed each: 12 tests × 2 viewports)                                           |
-| `npm run test:e2e:critical -- --repeat-each=3` (the CI step)         | Pass (72 passed)                                                                                      |
+| `npm run test:e2e:critical -- --repeat-each=3` (the CI step)         | Pass (72 passed, at `d818555`; CI runs it on every push)                                              |
 
-Before TRP-T11 merged, the same gates also passed at `f9922c0` (critical path 18/18 three times
+Earlier, at `d818555` (before T39) and at `f9922c0` (before T11), the same gates also passed (critical path 18/18 three times
 in a row; CI green on PR #31 at `d1fcc60`).
 
 ## Outcome per scenario
