@@ -14,15 +14,15 @@ phones, Microsoft tenant) are TRP-T22's and are **not** covered here.
 | Environment | Windows 11 Pro 10.0.26200 (dev PC), Node 24.22.0, PostgreSQL 17.11, Playwright 1.64.1 (Chromium), npm 11                    |
 | Database    | Fresh per E2E run (`db:reset:test` + fictional dev seed); each API test file builds its own schema                          |
 | E2E shape   | Production-shaped: the API serves the built web app; fake Zebra printer on `E2E_PORT + 1000`; 2 local workers; `retries: 0` |
-| CI          | GitHub Actions `windows-latest` runs the same, plus `@critical` three more times (`--repeat-each=3`)                        |
+| CI          | GitHub Actions `windows-latest` runs the same, plus `npm run test:e2e:critical -- --repeat-each=3`                          |
 
-| Gate                                                 | Result                                                                                                |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `npm run verify`                                     | Pass (API 439 passed / 9 skipped, shared 54, web 131, deploy 18; lint, typecheck, build, bundle scan) |
-| `npm run test:security`                              | Pass (11 tests, 2 files)                                                                              |
-| `E2E_PORT=3118 npm run test:e2e` (everything)        | Pass (88 passed, 4 skipped by design)                                                                 |
-| `@critical`, run 1 / 2 / 3 (consecutive, no retries) | Pass / Pass / Pass (18 passed each: 9 scenarios × 2 viewports)                                        |
-| `@critical --repeat-each=3` (the CI step)            | Pass (54 passed)                                                                                      |
+| Gate                                                         | Result                                                                                                |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `npm run verify`                                             | Pass (API 439 passed / 9 skipped, shared 54, web 131, deploy 18; lint, typecheck, build, bundle scan) |
+| `npm run test:security`                                      | Pass (11 tests, 2 files)                                                                              |
+| `E2E_PORT=3118 npm run test:e2e` (everything)                | Pass (88 passed, 4 skipped by design)                                                                 |
+| `@critical`, run 1 / 2 / 3 (consecutive, no retries)         | Pass / Pass / Pass (18 passed each: 9 scenarios × 2 viewports)                                        |
+| `npm run test:e2e:critical -- --repeat-each=3` (the CI step) | Pass (54 passed)                                                                                      |
 
 ## Outcome per scenario
 

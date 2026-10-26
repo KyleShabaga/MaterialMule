@@ -7,11 +7,11 @@ automated test that proves it. Results of the latest run are in
 
 ## How to run
 
-| Command                                | What it runs                                                                          |
-| -------------------------------------- | ------------------------------------------------------------------------------------- |
-| `npm run test:e2e -- --grep @critical` | The Playwright critical path (desktop and phone), production-shaped as all E2E        |
-| `npm run test:security`                | Permission-matrix sweep and production-configuration checks (`apps/api/src/security`) |
-| `npm test`                             | Everything else below, including the concurrency and failure-injection tests          |
+| Command                                                                                                                                       | What it runs                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `npm run test:e2e:critical` (= `test:e2e -- --grep @critical`; use the script in PowerShell, where a bare `@critical` is parsed as splatting) | The Playwright critical path (desktop and phone), production-shaped as all E2E        |
+| `npm run test:security`                                                                                                                       | Permission-matrix sweep and production-configuration checks (`apps/api/src/security`) |
+| `npm test`                                                                                                                                    | Everything else below, including the concurrency and failure-injection tests          |
 
 Use `E2E_PORT=31xx` in a worktree, as for every E2E run (see `CLAUDE.md`). CI runs all three.
 

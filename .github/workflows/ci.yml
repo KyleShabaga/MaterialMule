@@ -61,7 +61,7 @@ jobs:
       - run: npm run test:e2e
       # TRP-T18 AC2: the receiving critical path three more times in a row, with no retries.
       - name: Critical path x3 (@critical)
-        run: npm run test:e2e -- --grep @critical --repeat-each=3
+        run: npm run test:e2e:critical -- --repeat-each=3
 
       - uses: actions/upload-artifact@v4
         if: failure()

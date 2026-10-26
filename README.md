@@ -179,7 +179,7 @@ npm run verify       # lint, typecheck, unit/integration tests, build, bundle se
 npx playwright install chromium   # once
 npm run test:e2e     # browser tests, desktop and phone
 npm run test:security                    # permission sweep of every endpoint (TRP-T18)
-npm run test:e2e -- --grep "@critical"   # receiving critical path only (TRP-T18)
+npm run test:e2e:critical               # receiving critical path only (TRP-T18)
 ```
 
 What the receiving regression suite covers, and its latest results:

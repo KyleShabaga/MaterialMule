@@ -21,7 +21,7 @@ import {
 } from '../support/receiving';
 
 // TRP-T18: the receiving critical path, end to end against the production-shaped build, at
-// desktop and phone widths. Run just these with `npm run test:e2e -- --grep @critical`.
+// desktop and phone widths. Run just these with `npm run test:e2e:critical`.
 // Each test makes its own fictional receipts, tagged with a unique description or project
 // number, so parallel workers and viewports never see each other's data. Traceability:
 // docs/testing/receiving-critical-path.md. Scenarios that need TRP-T11 (draft autosave, LAB
