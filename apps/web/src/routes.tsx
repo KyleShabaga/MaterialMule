@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
+import { ReceiveSamplesPage } from './pages/ReceiveSamplesPage';
 import { SignInPage } from './pages/SignInPage';
 import {
   AccessPendingPage,
@@ -11,6 +12,7 @@ import {
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
+import { StaffPage } from './settings/staff/StaffPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
@@ -59,10 +61,7 @@ export const routes: RouteObject[] = [
                 path: 'receiving-log',
                 element: <PlaceholderPage title="Receiving Log" card="TRP-T10" />,
               },
-              {
-                path: 'receiving-log/new',
-                element: <PlaceholderPage title="Receive samples" card="TRP-T10" />,
-              },
+              { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
               {
                 path: 'sample-storage',
                 element: <PlaceholderPage title="Sample Storage" card="TRP-T12" />,
@@ -77,10 +76,7 @@ export const routes: RouteObject[] = [
                     path: 'profile',
                     element: <PlaceholderPage title="My profile" card="TRP-T05" />,
                   },
-                  {
-                    path: 'staff',
-                    element: <PlaceholderPage title="Staff & access" card="TRP-T07" />,
-                  },
+                  { path: 'staff', element: <StaffPage /> },
                   {
                     path: 'locations',
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,

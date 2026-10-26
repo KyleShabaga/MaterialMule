@@ -11,6 +11,8 @@ import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { StaffController } from './staff/staff.controller.js';
+import { StaffService } from './staff/staff.service.js';
 import { UsersService } from './users/users.service.js';
 
 @Module({})
@@ -24,6 +26,7 @@ export class AppModule {
         HealthController,
         AuthController,
         ActivityController,
+        StaffController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
@@ -32,6 +35,7 @@ export class AppModule {
         DatabaseService,
         SessionService,
         UsersService,
+        StaffService,
         // Default deny on every route (TRP-T04).
         { provide: APP_GUARD, useClass: AuthGuard },
       ],

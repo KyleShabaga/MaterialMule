@@ -1,0 +1,61 @@
+import { expect, test } from '@playwright/test';
+import { signInAs } from './support/auth';
+
+// TRP-T07 T6. Each viewport approves its own seeded applicant (apps/api/seed/dev.sql), so the
+// desktop and phone runs never race for the same person.
+test('an admin approves a pending applicant', async ({ page }, testInfo) => {
+  const applicant = testInfo.project.name.startsWith('phone') ? 'Casey Pending' : 'Riley Pending';
+  await signInAs(page, 'admin');
+  await page.goto('/settings/staff');
+  await expect(page.getByRole('heading', { name: 'Staff & access' })).toBeVisible();
+
+  const pending = page.getByRole('region', { name: /Waiting for approval/ });
+  await expect(pending).toContainText(applicant);
+  await pending.getByRole('button', { name: `Approve ${applicant}` }).click();
+
+  await expect(
+    page.getByRole('status').filter({ hasText: `${applicant} is approved.` }),
+  ).toBeVisible();
+  await expect(pending.getByText(applicant)).toHaveCount(0);
+  // The directory now lists them as active.
+  await page.getByLabel('Search staff').fill(applicant);
+  await expect(page.getByRole('row').filter({ hasText: applicant })).toContainText('Active');
+});
+
+test('receiver selector: keyboard picks one of two people sharing "JS"', async ({ page }) => {
+  await signInAs(page, 'lab');
+  await page.goto('/receiving-log/new');
+
+  const input = page.getByRole('combobox', { name: /Received by/ });
+  await expect(input).toHaveValue('');
+  await expect(page.getByText('Not listed? Ask an administrator to add them.')).toBeVisible();
+
+  await input.click();
+  await input.pressSequentially('JS');
+  const jamie = page.getByRole('option', { name: 'JS · Jamie Song (Eng)' });
+  const jordan = page.getByRole('option', { name: 'JS · Jordan Smith (Tech)' });
+  await expect(jamie).toBeVisible();
+  await expect(jordan).toBeVisible();
+  // Both fit inside the viewport at phone width as well as desktop.
+  await expect(jordan).toBeInViewport();
+
+  await input.press('ArrowDown');
+  await expect(jordan).toHaveAttribute('aria-selected', 'true');
+  await input.press('Enter');
+
+  await expect(input).toHaveValue('JS · Jordan Smith (Tech)');
+  await expect(page.getByText('Receiver: JS · Jordan Smith (Tech)')).toBeVisible();
+
+  // Free text is never accepted.
+  await input.fill('ZZ');
+  await expect(page.getByText('No active staff match.')).toBeVisible();
+  await expect(page.getByText('No receiver chosen yet.')).toBeVisible();
+});
+
+test('non-admins cannot manage staff, in the UI or the API', async ({ page }) => {
+  await signInAs(page, 'lab');
+  await page.goto('/settings/staff');
+  await expect(page.getByText('Only administrators can manage staff and access.')).toBeVisible();
+  const response = await page.request.get('/api/staff');
+  expect(response.status()).toBe(403);
+});

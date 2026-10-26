@@ -22,6 +22,8 @@ export function serveWebApp(app: INestApplication, directory: string): void {
       next();
       return;
     }
-    response.sendFile(indexHtml);
+    // Relative to `root`, so a dot directory above it (e.g. a .claude/worktrees checkout) isn't
+    // treated as a hidden file and refused with 404.
+    response.sendFile('index.html', { root });
   });
 }

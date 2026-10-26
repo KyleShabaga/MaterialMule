@@ -12,8 +12,9 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
   let dist: string;
 
   beforeAll(async () => {
-    dist = mkdtempSync(join(tmpdir(), 'trapezoid-web-'));
-    mkdirSync(join(dist, 'assets'));
+    // Under a dot directory, like a .claude/worktrees checkout: index.html must still be served.
+    dist = join(mkdtempSync(join(tmpdir(), 'trapezoid-web-')), '.hidden', 'dist');
+    mkdirSync(join(dist, 'assets'), { recursive: true });
     writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Trapezoid</title>');
     writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("app")');
     app = await createApp(
@@ -30,7 +31,7 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
 
   afterAll(async () => {
     await app?.close();
-    rmSync(dist, { recursive: true, force: true });
+    rmSync(join(dist, '..', '..'), { recursive: true, force: true });
   });
 
   it('serves static files', async () => {

@@ -82,3 +82,8 @@ Key rules enforced by the database:
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25).
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
+- **Staff (migration 0003, TRP-T07).** Official initials are not unique. `expected_upn` (an
+  admin's pre-provisioned work email) is unique ignoring case when set; `approved_by` and
+  `approved_at` are set together; `disabled_reason` exists only on a disabled account. Receipts
+  keep receiver ID + initials + name snapshots, so renaming or disabling someone never rewrites
+  history.
