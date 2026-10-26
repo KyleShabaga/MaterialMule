@@ -123,6 +123,8 @@ export function fictionalUsers(): MockUser[] {
       extraClaims: { idp: 'https://sts.windows.net/99999999-8888-4777-8666-555555555555/' },
     }),
     user('nograph', 8, 'Graph Failure', { graphStatus: 503 }),
+    // Added by an admin before their first sign-in (TRP-T07 AC6).
+    user('jordan', 9, 'Jordan Ahead'),
   ];
 }
 

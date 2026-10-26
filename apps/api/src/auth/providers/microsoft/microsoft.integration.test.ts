@@ -425,6 +425,32 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (TRP-T05)', () => {
     expect(profile).toMatchObject({ officialInitials: 'KCS', initialsConfirmed: true });
   });
 
+  it('T07 AC6: first sign-in links the pre-provisioned staff entry by exact UPN', async () => {
+    const { rows } = await db.pool.query<{ id: string }>(
+      `INSERT INTO app_user (display_name, official_initials, position, account_type, status,
+                             expected_upn)
+       VALUES ('Jordan Ahead', 'JA', 'technician', 'personal', 'active', 'Jordan@Example.TEST')
+       RETURNING id`,
+    );
+    const staffId = rows[0]!.id;
+    const usersBefore = (await db.pool.query('SELECT count(*)::int AS n FROM app_user')).rows[0].n;
+
+    const { callback, cookie } = await signIn('jordan');
+    expect(callback.status).toBe(200);
+    expect(await userByOid(oidOf('jordan'))).toMatchObject({
+      id: staffId,
+      status: 'active',
+      official_initials: 'JA',
+    });
+    expect((await db.pool.query('SELECT count(*)::int AS n FROM app_user')).rows[0].n).toBe(
+      usersBefore,
+    );
+    expect(await me(cookie!)).toMatchObject({ status: 'active' });
+    const history = await listAuditForEntity(db.pool, 'app_user', staffId);
+    expect(history.map((e) => e.action)).toContain('staff.linked_on_first_sign_in');
+    expect(history.map((e) => e.action)).not.toContain('user.created');
+  });
+
   it('refuses disabled accounts', async () => {
     const drew = (await userByOid(oidOf('drew')))!;
     await db.pool.query(`UPDATE app_user SET status = 'disabled' WHERE id = $1`, [drew.id]);
