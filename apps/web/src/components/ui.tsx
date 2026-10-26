@@ -92,11 +92,14 @@ export function DataTable<Row>({
 
 /** Label, input and error text wired together with aria attributes. */
 export function FormField({
+  id: fixedId,
   label,
   error,
   hint,
   children,
 }: {
+  /** Fixed id for the input, e.g. so an error summary can link to it. */
+  id?: string;
   label: string;
   error?: string | null;
   hint?: string;
@@ -106,7 +109,8 @@ export function FormField({
     'aria-describedby'?: string;
   }) => ReactNode;
 }) {
-  const id = useId();
+  const generatedId = useId();
+  const id = fixedId ?? generatedId;
   const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null]
     .filter(Boolean)
     .join(' ');

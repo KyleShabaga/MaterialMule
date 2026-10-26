@@ -28,8 +28,8 @@ test('receiver selector: keyboard picks one of two people sharing "JS"', async (
   await signInAs(page, 'lab');
   await page.goto('/receiving-log/new');
 
-  const input = page.getByRole('combobox', { name: 'Receiver', exact: true });
-  await expect(input).toHaveValue('LAB · Lab (test)');
+  const input = page.getByRole('combobox', { name: 'Received by', exact: true });
+  await expect(input).toHaveValue('LAB · Lab (test) (Lab Mgr)');
   await expect(page.getByText('Not listed? Ask an administrator to add them.')).toBeVisible();
 
   await input.click();

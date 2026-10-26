@@ -142,7 +142,7 @@ describe('Receive samples: project and test holes (TRP-T08)', () => {
         return json(201, created);
       },
     });
-    await user.type(await screen.findByLabelText('Description'), 'Four buckets');
+    await user.type(await screen.findByLabelText('Description (optional)'), 'Four buckets');
     await user.type(screen.getByRole('combobox', { name: /Find project/ }), '70001');
     await screen.findByText('No matching project');
     await user.click(screen.getByRole('button', { name: 'Add project' }));
@@ -160,8 +160,8 @@ describe('Receive samples: project and test holes (TRP-T08)', () => {
       pmPeUserId: PE.id,
       receiverUserId: AT.id,
     });
-    expect(screen.getByLabelText('Description')).toHaveValue('Four buckets');
-    expect(screen.getByLabelText('Receiver')).toHaveValue('AT · Alex Tester');
+    expect(screen.getByLabelText('Description (optional)')).toHaveValue('Four buckets');
+    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
   });
 
   it('AC5: shows field errors for a missing client and PM/PE without calling the API', async () => {
@@ -256,6 +256,6 @@ describe('Receive samples: project and test holes (TRP-T08)', () => {
 
   it('a LAB station has no default receiver', async () => {
     renderReceive({}, me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB' }));
-    expect(await screen.findByLabelText('Receiver')).toHaveValue('');
+    expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
   });
 });
