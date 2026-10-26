@@ -31,6 +31,7 @@ function Get-TrapezoidHostConfig {
         ServiceStopTimeoutSeconds = 60
         KeepReleases            = 5
         BackupScript            = ''
+        BackupConfig            = ''
         ServiceAccount          = ''
         PostgresServiceName     = 'postgresql-x64-17'
         PostgresDataDir         = ''
@@ -73,6 +74,33 @@ function Get-TrapezoidHostConfig {
 
 # --- Logging -------------------------------------------------------------------------------------
 
+function Invoke-TrapezoidLogRotation {
+    <#
+    .SYNOPSIS
+    Size-based rotation for the scripts' own logs (TRP-T21): when Path reaches MaxSizeMB it becomes
+    <name>.1<ext>, older copies shift up and copies beyond KeepFiles are deleted. The service's logs
+    are rotated by WinSW (10 MB, 10 kept); PostgreSQL's by its own settings (runbook).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [double]$MaxSizeMB = 10,
+        [int]$KeepFiles = 10
+    )
+    $file = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if (-not $file -or $file.Length -lt ($MaxSizeMB * 1MB)) { return }
+    $dir = $file.DirectoryName
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+    $ext = $file.Extension
+    $numbered = { param($n) Join-Path $dir "$stem.$n$ext" }
+    Remove-Item -LiteralPath (& $numbered $KeepFiles) -Force -ErrorAction SilentlyContinue
+    for ($n = $KeepFiles - 1; $n -ge 1; $n--) {
+        $from = & $numbered $n
+        if (Test-Path -LiteralPath $from) { Move-Item -LiteralPath $from -Destination (& $numbered ($n + 1)) -Force }
+    }
+    Move-Item -LiteralPath $file.FullName -Destination (& $numbered 1) -Force
+}
+
 function Write-DeployLog {
     [CmdletBinding()]
     param(
@@ -87,7 +115,9 @@ function Write-DeployLog {
         default { Write-Host $line }
     }
     if (Test-Path -LiteralPath $Config.LogsDir -PathType Container) {
-        Add-Content -LiteralPath (Join-Path $Config.LogsDir 'deploy.log') -Value $line -Encoding utf8
+        $deployLog = Join-Path $Config.LogsDir 'deploy.log'
+        Invoke-TrapezoidLogRotation -Path $deployLog -MaxSizeMB 10 -KeepFiles 5
+        Add-Content -LiteralPath $deployLog -Value $line -Encoding utf8
     }
 }
 
@@ -268,8 +298,15 @@ function Invoke-TrapezoidBackup {
         return
     }
     Write-DeployLog -Config $Config -Message "Backing up with $($Config.BackupScript)"
-    & $Config.BackupScript
-    if (-not $?) {
+    # A script that ends without `exit` leaves LASTEXITCODE alone; don't inherit a stale value.
+    $global:LASTEXITCODE = 0
+    if ($Config.BackupConfig) {
+        # backup.ps1 (TRP-T21) takes its settings from backup.config.psd1.
+        & $Config.BackupScript -ConfigPath $Config.BackupConfig -Reason PreDeploy
+    } else {
+        & $Config.BackupScript
+    }
+    if (-not $? -or $LASTEXITCODE -ne 0) {
         throw 'The backup script failed; nothing was changed'
     }
 }
@@ -561,7 +598,7 @@ function Test-TrapezoidDatabaseExposure {
     return , $problems.ToArray()
 }
 
-Export-ModuleMember -Function Test-TrapezoidDatabaseExposure, Get-TrapezoidHostConfig, Write-DeployLog, Read-TrapezoidRelease,
+Export-ModuleMember -Function Invoke-TrapezoidLogRotation, Test-TrapezoidDatabaseExposure, Get-TrapezoidHostConfig, Write-DeployLog, Read-TrapezoidRelease,
     Get-TrapezoidCurrentVersion, Set-TrapezoidCurrentRelease, Get-TrapezoidDeployState,
     Save-TrapezoidDeployState, Remove-OldTrapezoidReleases, Stop-TrapezoidApp, Start-TrapezoidApp,
     Invoke-TrapezoidMigration, Invoke-TrapezoidBackup, Wait-TrapezoidHealthy, Invoke-TrapezoidDeploy,

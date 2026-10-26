@@ -74,3 +74,53 @@ export async function insertConfirmedBucket(): Promise<TestUnit> {
     }
   });
 }
+
+/**
+ * A confirmed receipt of several buckets (TRP-T39), with receipt lines in the given order. IDs use
+ * issue year 2025 and consecutive random numbers, as insertConfirmedBucket does.
+ */
+export async function insertConfirmedReceipt(
+  count: number,
+): Promise<{ receiptId: string; units: TestUnit[] }> {
+  return withDatabase(async (client) => {
+    await client.query('BEGIN');
+    try {
+      const receipt = await client.query<{ id: string }>(
+        `INSERT INTO receipt (project_id, received_date, receiver_user_id, receiver_initials_snapshot,
+                              receiver_name_snapshot, account_user_id, quantity, idempotency_key,
+                              request_hash)
+         VALUES ($1, '2025-11-03', $2, 'AT', 'Alex Tester', $2, $3, gen_random_uuid(), 'e2e')
+         RETURNING id`,
+        [DEMO_PROJECT_ID, ALEX_TESTER_ID, count],
+      );
+      const receiptId = receipt.rows[0]!.id;
+      const first = randomInt(1, 999_999 - count);
+      const units: TestUnit[] = [];
+      for (let line = 1; line <= count; line++) {
+        // Receipt order runs opposite to ID order, so "in order" can only mean receipt order.
+        const readableId = `BKT-2025-${String(first + count - line).padStart(6, '0')}`;
+        const unit = await client.query<{ id: string }>(
+          `INSERT INTO storage_unit (readable_id, id_prefix, issued_year, issued_holder_kind,
+                                     receipt_id, project_id, unit_type, holder_kind,
+                                     current_location_id, received_date, receipt_line)
+           SELECT $1, 'BKT', 2025, 'bucket', $2, $3, 'bucket', 'bucket', l.id, '2025-11-03', $4
+           FROM location l WHERE l.code_normalized = 'RECEIVING'
+           RETURNING id`,
+          [readableId, receiptId, DEMO_PROJECT_ID, line],
+        );
+        await client.query(
+          `INSERT INTO storage_unit_hole_summary (storage_unit_id, project_id, test_hole_id,
+                                                  summary_type)
+           VALUES ($1, $2, $3, 'all')`,
+          [unit.rows[0]!.id, DEMO_PROJECT_ID, TH26_01_ID],
+        );
+        units.push({ id: unit.rows[0]!.id, readableId });
+      }
+      await client.query('COMMIT');
+      return { receiptId, units };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  });
+}

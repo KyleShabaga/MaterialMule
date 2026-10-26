@@ -58,6 +58,9 @@ export function SettingsLayout() {
         {me.permissions.includes('printer.manage') ? (
           <NavLink to="/settings/printers">Printers</NavLink>
         ) : null}
+        {me.permissions.includes('system.status.read') ? (
+          <NavLink to="/settings/system-status">System status</NavLink>
+        ) : null}
       </nav>
       <Outlet />
     </>

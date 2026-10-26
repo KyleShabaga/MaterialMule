@@ -269,6 +269,11 @@ button:disabled {
   font-weight: 600;
 }
 
+/* A dt/dd pair wrapped for a React key; keeps the two-column grid. */
+.status-row {
+  display: contents;
+}
+
 .status-ok dd:first-of-type {
   color: var(--ok);
 }
@@ -868,6 +873,57 @@ textarea {
 
 .offline-notice {
   border-color: var(--warning);
+}
+
+/* ---- Receiving drafts (TRP-T11) ---- */
+
+.draft-status {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.draft-status-error {
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.handover {
+  border-color: var(--warning);
+  margin-bottom: 1rem;
+}
+
+.draft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.draft-item {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.draft-item h3 {
+  margin: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.draft-facts {
+  margin: 0.25rem 0;
+  color: var(--muted);
+}
+
+.draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .spinner {
