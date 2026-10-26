@@ -3,8 +3,12 @@ import { defineConfig, devices } from '@playwright/test';
 // E2E runs production-shaped: the built API serves the built web app from one origin (as on the
 // Windows host, TRP-T20), so no dev proxy sits between the browser and the API. The API reads
 // apps/api/.env.test (copy from .env.example); CI writes one before running.
-const PORT = 3100;
+// E2E_PORT lets several worktrees run E2E side by side (each with its own .env.test database).
+const PORT = Number(process.env.E2E_PORT ?? 3100);
 const isCI = Boolean(process.env.CI);
+// Never silently reuse a server already on the port: it could be another worktree's build.
+// Set E2E_REUSE_SERVER=1 only when you started this checkout's server yourself.
+const reuseServer = !isCI && process.env.E2E_REUSE_SERVER === '1';
 
 export default defineConfig({
   testDir: 'e2e',
@@ -34,7 +38,7 @@ export default defineConfig({
     // Wait on the port, not /api/health: a 503 (database down) would never count as ready,
     // and the smoke test reports the database state more clearly than a startup timeout.
     port: PORT,
-    reuseExistingServer: !isCI,
+    reuseExistingServer: reuseServer,
     timeout: 180_000,
     // Drain the server's output so a full pipe can never block the API's synchronous log writes.
     stdout: 'pipe',
