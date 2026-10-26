@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { positionSchema } from './profile';
 
 /** Response body of `GET /api/me`: who is signed in and what the UI may offer them. */
 export const meResponseSchema = z.object({
@@ -11,6 +12,12 @@ export const meResponseSchema = z.object({
   /** Global (not project-scoped) permissions, for showing or hiding UI. The server still checks. */
   permissions: z.array(z.string()),
   sessionExpiresAt: z.string(),
+  /** The person's self-chosen position (TRP-T05). Describes their work; grants nothing. */
+  position: positionSchema.nullable(),
+  /** True until a Microsoft-signed-in person saves their first-login position. */
+  positionSetupRequired: z.boolean(),
+  /** True when the latest Microsoft profile refresh failed (offer Retry). */
+  profileRefreshFailed: z.boolean(),
 });
 
 export type MeResponse = z.infer<typeof meResponseSchema>;

@@ -9,6 +9,17 @@ import {
   LabAuthController,
 } from './auth/providers/local-lab/lab-auth.controller.js';
 import { LabAuthService } from './auth/providers/local-lab/lab-auth.service.js';
+import {
+  EntraIdentityProvider,
+  microsoftSettings,
+} from './auth/providers/microsoft/entra-provider.js';
+import { MicrosoftAuthController } from './auth/providers/microsoft/microsoft-auth.controller.js';
+import { MicrosoftSignInService } from './auth/providers/microsoft/microsoft-sign-in.service.js';
+import {
+  MICROSOFT_PROVIDER,
+  MICROSOFT_SETTINGS,
+} from './auth/providers/microsoft/microsoft.constants.js';
+import { MicrosoftTokenCache } from './auth/providers/microsoft/token-cache.js';
 import { SessionService } from './auth/session.service.js';
 import { TestAuthController, testAuthEnabled } from './auth/test-provider/test-auth.controller.js';
 import { APP_CONFIG } from './config/config.constants.js';
@@ -16,6 +27,8 @@ import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { ProfileController } from './profile/profile.controller.js';
+import { ProfileService } from './profile/profile.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
@@ -28,6 +41,8 @@ import { UsersService } from './users/users.service.js';
 @Module({})
 export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
+    // Microsoft sign-in stays off (and its routes 404) unless its configuration is present.
+    const microsoft = microsoftSettings(config);
     return {
       module: AppModule,
       // DiscoveryModule lets the route-coverage test enumerate every controller.
@@ -37,6 +52,8 @@ export class AppModule {
         AuthController,
         LabAuthController,
         LabAdminController,
+        MicrosoftAuthController,
+        ProfileController,
         ActivityController,
         ProjectsController,
         TestHolesController,
@@ -50,6 +67,14 @@ export class AppModule {
         DatabaseService,
         SessionService,
         LabAuthService,
+        { provide: MICROSOFT_SETTINGS, useValue: microsoft },
+        {
+          provide: MICROSOFT_PROVIDER,
+          useValue: microsoft ? new EntraIdentityProvider(microsoft) : null,
+        },
+        MicrosoftTokenCache,
+        MicrosoftSignInService,
+        ProfileService,
         UsersService,
         ProjectsService,
         TestHolesService,

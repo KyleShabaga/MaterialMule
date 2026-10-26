@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
+const GUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 // Every message is written by hand so a validation error can never echo the value it rejected.
 const envSchema = z.object({
@@ -53,7 +54,66 @@ const envSchema = z.object({
     .enum(['true', 'false'], { error: 'must be true or false' })
     .default('false')
     .transform((value) => value === 'true'),
+  // Microsoft Entra ID sign-in (TRP-T05). Off unless tenant, client ID, secret and redirect URI
+  // are all set; they come from IT's app registration. A partial set is refused at startup.
+  MICROSOFT_TENANT_ID: z
+    .string()
+    .regex(GUID, { error: 'must be the directory (tenant) ID, a GUID' })
+    .transform((value) => value.toLowerCase())
+    .optional(),
+  MICROSOFT_CLIENT_ID: z
+    .string()
+    .regex(GUID, { error: 'must be the application (client) ID, a GUID' })
+    .optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
+  MICROSOFT_REDIRECT_URI: z
+    .url({ protocol: /^https?$/, error: 'must be an absolute http(s) URL' })
+    .optional(),
+  // Overridable only so tests can point at a mock tenant; production must use HTTPS.
+  MICROSOFT_AUTHORITY_HOST: z
+    .url({ protocol: /^https?$/, error: 'must be an absolute http(s) URL' })
+    .default('https://login.microsoftonline.com'),
+  MICROSOFT_GRAPH_BASE_URL: z
+    .url({ protocol: /^https?$/, error: 'must be an absolute http(s) URL' })
+    .default('https://graph.microsoft.com'),
+  // The first administrator (Kyle): their Entra object ID (preferred) or, failing that, UPN.
+  // Matching accounts become active admins at first sign-in; no first-user-wins logic.
+  BOOTSTRAP_ADMIN_OBJECT_ID: z
+    .string()
+    .regex(GUID, { error: 'must be an Entra object ID, a GUID' })
+    .transform((value) => value.toLowerCase())
+    .optional(),
+  BOOTSTRAP_ADMIN_UPN: z.string().min(3).max(320).optional(),
 });
+
+const MICROSOFT_REQUIRED = [
+  'MICROSOFT_TENANT_ID',
+  'MICROSOFT_CLIENT_ID',
+  'MICROSOFT_CLIENT_SECRET',
+  'MICROSOFT_REDIRECT_URI',
+] as const;
+
+/** Cross-field rules zod can't express per key. Messages name keys only, never values. */
+function crossFieldProblems(config: z.infer<typeof envSchema>): string[] {
+  const problems: string[] = [];
+  if (config.APP_ENV === 'production' && config.ENABLE_TEST_AUTH) {
+    problems.push('ENABLE_TEST_AUTH must not be true when APP_ENV is production');
+  }
+  const present = MICROSOFT_REQUIRED.filter((key) => config[key] !== undefined);
+  if (present.length > 0 && present.length < MICROSOFT_REQUIRED.length) {
+    for (const key of MICROSOFT_REQUIRED.filter((k) => config[k] === undefined)) {
+      problems.push(`${key} is required when Microsoft sign-in is configured`);
+    }
+  }
+  if (config.APP_ENV === 'production') {
+    for (const key of ['MICROSOFT_AUTHORITY_HOST', 'MICROSOFT_GRAPH_BASE_URL'] as const) {
+      if (!config[key].startsWith('https://')) {
+        problems.push(`${key} must use https in production`);
+      }
+    }
+  }
+  return problems;
+}
 
 function isValidTimeZone(zone: string): boolean {
   try {
@@ -81,8 +141,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   );
   const result = envSchema.safeParse(cleaned);
   if (result.success) {
-    if (result.data.APP_ENV === 'production' && result.data.ENABLE_TEST_AUTH) {
-      throw new ConfigError(['ENABLE_TEST_AUTH must not be true when APP_ENV is production']);
+    const problems = crossFieldProblems(result.data);
+    if (problems.length > 0) {
+      throw new ConfigError(problems);
     }
     return result.data;
   }

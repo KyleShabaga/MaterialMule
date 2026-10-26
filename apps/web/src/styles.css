@@ -561,3 +561,30 @@ button:disabled {
     min-width: 7rem;
   }
 }
+
+/* First-login position setup (TRP-T05) */
+.position-options {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.position-option {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.position-option > span {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.notice {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0;
+}

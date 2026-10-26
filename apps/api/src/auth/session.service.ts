@@ -117,6 +117,14 @@ export class SessionService {
     );
   }
 
+  /** Revokes the session a cookie token belongs to, if any (e.g. before a new sign-in). */
+  async revokeToken(token: string): Promise<void> {
+    await this.database.pool.query(
+      'UPDATE session SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL',
+      [hashToken(token)],
+    );
+  }
+
   /** Revokes every live session of a user. Pass `client` to join the caller's transaction. */
   async revokeAllForUser(userId: string, client?: PoolClient): Promise<number> {
     const result = await (client ?? this.database.pool).query(

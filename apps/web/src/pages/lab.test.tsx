@@ -17,6 +17,9 @@ const LAB_ME: MeResponse = {
   roles: [],
   permissions: ['receipt.confirm', 'inventory.read'],
   sessionExpiresAt: '2026-11-26T16:00:00.000Z',
+  position: null,
+  positionSetupRequired: false,
+  profileRefreshFailed: false,
 };
 
 const ADMIN_ME: MeResponse = {

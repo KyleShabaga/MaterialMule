@@ -56,6 +56,50 @@ describe('loadConfig', () => {
       expect(message).toContain('PORT must be between 1 and 65535');
     }
   });
+
+  describe('Microsoft sign-in keys (TRP-T05)', () => {
+    // Fictional values only.
+    const microsoft = {
+      MICROSOFT_TENANT_ID: '11111111-2222-4333-8444-555555555555',
+      MICROSOFT_CLIENT_ID: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      MICROSOFT_CLIENT_SECRET: 'fictional-client-secret-value',
+      MICROSOFT_REDIRECT_URI: 'https://trapezoid.example.test/sign-in/microsoft/callback',
+    };
+
+    it('is optional, and complete sets load with Microsoft defaults', () => {
+      expect(loadConfig(validEnv).MICROSOFT_TENANT_ID).toBeUndefined();
+      expect(loadConfig({ ...validEnv, ...microsoft })).toMatchObject({
+        MICROSOFT_AUTHORITY_HOST: 'https://login.microsoftonline.com',
+        MICROSOFT_GRAPH_BASE_URL: 'https://graph.microsoft.com',
+      });
+    });
+
+    it('refuses a partial set, naming the missing keys but never the secret', () => {
+      const partial = { ...validEnv, ...microsoft, MICROSOFT_REDIRECT_URI: '' };
+      expect(() => loadConfig(partial)).toThrowError(
+        /MICROSOFT_REDIRECT_URI is required when Microsoft sign-in is configured/,
+      );
+      try {
+        loadConfig({ ...partial, MICROSOFT_TENANT_ID: 'not-a-guid' });
+      } catch (error) {
+        const message = (error as ConfigError).message;
+        expect(message).toContain('MICROSOFT_TENANT_ID must be the directory (tenant) ID');
+        expect(message).not.toContain('not-a-guid');
+        expect(message).not.toContain(microsoft.MICROSOFT_CLIENT_SECRET);
+      }
+    });
+
+    it('requires https Microsoft endpoints in production', () => {
+      expect(() =>
+        loadConfig({
+          ...validEnv,
+          ...microsoft,
+          APP_ENV: 'production',
+          MICROSOFT_AUTHORITY_HOST: 'http://127.0.0.1:4100',
+        }),
+      ).toThrowError(/MICROSOFT_AUTHORITY_HOST must use https in production/);
+    });
+  });
 });
 
 describe('loadConfigOrExit', () => {

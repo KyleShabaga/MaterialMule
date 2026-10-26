@@ -2,6 +2,9 @@ import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
+import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
+import { PositionSetupPage } from './pages/PositionSetupPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { StaffPage } from './pages/StaffPage';
 import {
@@ -48,6 +51,8 @@ export const routes: RouteObject[] = [
     children: [
       { path: '/sign-in', element: <SignInPage /> },
       { path: '/sign-in/test', element: <TestSignInPage /> },
+      { path: '/sign-in/microsoft/callback', element: <MicrosoftCallbackPage /> },
+      { path: '/onboarding/position', element: <PositionSetupPage /> },
       { path: '/access-pending', element: <AccessPendingPage /> },
       {
         element: <RequireActiveSession />,
@@ -74,10 +79,10 @@ export const routes: RouteObject[] = [
                 path: 'settings',
                 element: <SettingsLayout />,
                 children: [
-                  { index: true, element: <PlaceholderPage title="My profile" card="TRP-T05" /> },
+                  { index: true, element: <ProfilePage /> },
                   {
                     path: 'profile',
-                    element: <PlaceholderPage title="My profile" card="TRP-T05" />,
+                    element: <ProfilePage />,
                   },
                   { path: 'staff', element: <StaffPage /> },
                   {
