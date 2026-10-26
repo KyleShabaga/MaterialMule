@@ -102,8 +102,18 @@ describe.runIf(testDatabaseUrl)('migrate', () => {
     await runSeed(db.pool, 'dev', 'test');
     await runSeed(db.pool, 'dev', 'test');
     const { rows } = await db.pool.query(
-      `SELECT project_number, (SELECT count(*)::int FROM test_hole) AS holes FROM project`,
+      `SELECT project_number, (SELECT count(*)::int FROM test_hole) AS holes FROM project
+       ORDER BY project_number`,
     );
-    expect(rows).toEqual([{ project_number: 'DEMO-2601', holes: 2 }]);
+    expect(rows).toEqual([
+      { project_number: 'DEMO-2601', holes: 3 },
+      { project_number: 'DEMO-2602', holes: 3 },
+    ]);
+    // Inventory demo units (TRP-T12), with their search documents.
+    const units = await db.pool.query(
+      `SELECT count(*)::int AS units, (SELECT count(*)::int FROM storage_unit_search) AS indexed
+       FROM storage_unit`,
+    );
+    expect(units.rows[0]).toEqual({ units: 5, indexed: 5 });
   });
 });

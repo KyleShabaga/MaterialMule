@@ -1,7 +1,6 @@
 import { isPrintJobActive, type PrintHistoryResponse, type PrintJob } from '@trapezoid/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router';
-import { DataTable, ErrorState, PageHeader } from '../components/ui';
+import { DataTable, ErrorState } from '../components/ui';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
 import { PrintLabelsPanel } from './PrintLabelsPanel';
@@ -28,11 +27,10 @@ function who(job: PrintJob): string {
 }
 
 /**
- * Storage unit page, labels section (TRP-T15): reprint and the unit's print history. The rest
- * of the unit detail (location, summaries, corrections) arrives with TRP-T12.
+ * Labels section of the storage unit detail page (TRP-T15, placed on the page by TRP-T12): print
+ * or reprint the unit's label and its print history.
  */
-export function StorageUnitLabelsPage() {
-  const { readableId = '' } = useParams();
+export function StorageUnitLabelsSection({ readableId }: { readableId: string }) {
   const [history, setHistory] = useState<History>({ state: 'loading' });
   const [reloads, setReloads] = useState(0);
   const [busyJob, setBusyJob] = useState<string | null>(null);
@@ -75,26 +73,25 @@ export function StorageUnitLabelsPage() {
 
   if (history.state === 'loading') {
     return (
-      <>
-        <PageHeader title={readableId} />
+      <section className="card" aria-labelledby="labels-heading" id="labels">
+        <h2 id="labels-heading">Label</h2>
         <p aria-busy="true">Loading…</p>
-      </>
+      </section>
     );
   }
   if (history.state === 'error') {
     return (
-      <>
-        <PageHeader title={readableId} />
+      <section className="card" aria-labelledby="labels-heading" id="labels">
+        <h2 id="labels-heading">Label</h2>
         <ErrorState message={history.message} onRetry={reload} />
-      </>
+      </section>
     );
   }
 
   const { storageUnit, jobs } = history.history;
   return (
     <>
-      <PageHeader title={storageUnit.readableId} />
-      <section className="card" aria-labelledby="labels-heading">
+      <section className="card" aria-labelledby="labels-heading" id="labels">
         <h2 id="labels-heading">Label</h2>
         <PrintLabelsPanel
           key={storageUnit.id}
