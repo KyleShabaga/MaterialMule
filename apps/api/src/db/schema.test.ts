@@ -58,6 +58,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       'oidc_sign_in_attempt',
       'print_job',
       'print_job_item',
+      'printer',
       'project',
       'receipt',
       'role_assignment',
@@ -402,6 +403,99 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     await expect(
       db.pool.query(`UPDATE location SET active = false WHERE code_normalized = 'RECEIVING'`),
     ).rejects.toMatchObject({ code: PG.checkViolation });
+  });
+  describe('print queue (TRP-T15)', () => {
+    async function job(values: Record<string, unknown> = {}) {
+      const columns = ['kind', 'printer_key', 'template_version', 'requested_by_user_id'];
+      const params: unknown[] = ['initial', 'schema-printer', 'sticker-v1', userId];
+      for (const [column, value] of Object.entries(values)) {
+        columns.push(column);
+        params.push(value);
+      }
+      const placeholders = params.map((_, i) => `$${i + 1}`).join(', ');
+      return db.pool.query<{ id: string }>(
+        `INSERT INTO print_job (${columns.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+        params,
+      );
+    }
+
+    beforeAll(async () => {
+      await db.pool.query(
+        `INSERT INTO printer (key, name, host) VALUES ('schema-printer', 'Schema', '10.0.0.5')`,
+      );
+    });
+
+    it('only accepts a host name or IP address and a valid port for a printer', async () => {
+      for (const host of ['http://10.0.0.5', '10.0.0.5:9100', 'a b', '-bad', '']) {
+        await expect(
+          db.pool.query(`INSERT INTO printer (key, name, host) VALUES ('p-bad', 'Bad', $1)`, [
+            host,
+          ]),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      }
+      await expect(
+        db.pool.query(
+          `INSERT INTO printer (key, name, host, port) VALUES ('p-bad', 'Bad', '10.0.0.6', 70000)`,
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        db.pool.query(
+          `INSERT INTO printer (key, name, host) VALUES ('Bad Key', 'Bad', '10.0.0.6')`,
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+
+    it('allows at most one default printer', async () => {
+      await db.pool.query(
+        `INSERT INTO printer (key, name, host, is_default) VALUES ('p-one', 'One', '10.0.0.7', true)`,
+      );
+      await expect(
+        db.pool.query(
+          `INSERT INTO printer (key, name, host, is_default) VALUES ('p-two', 'Two', '10.0.0.8', true)`,
+        ),
+      ).rejects.toMatchObject({ code: PG.uniqueViolation });
+      await db.pool.query(`DELETE FROM printer WHERE key = 'p-one'`);
+    });
+
+    it('only queues jobs for configured printers', async () => {
+      await expect(
+        db.pool.query(
+          `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id)
+           VALUES ('initial', '10.0.0.5', 'sticker-v1', $1)`,
+          [userId],
+        ),
+      ).rejects.toMatchObject({ code: PG.foreignKeyViolation });
+    });
+
+    it('caps attempts at three and ties sent_at to the sent status', async () => {
+      await expect(job({ attempts: 4 })).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(job({ status: 'sent' })).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(job({ status: 'failed', sent_at: new Date() })).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(job({ status: 'sent', sent_at: new Date() })).resolves.toBeTruthy();
+    });
+
+    it('only records a physical print confirmation, with who, on sent or uncertain jobs', async () => {
+      const now = new Date();
+      await expect(
+        job({
+          status: 'failed',
+          physically_confirmed_at: now,
+          physically_confirmed_by_user_id: userId,
+        }),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        job({ status: 'uncertain', physically_confirmed_at: now }),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        job({
+          status: 'uncertain',
+          physically_confirmed_at: now,
+          physically_confirmed_by_user_id: userId,
+        }),
+      ).resolves.toBeTruthy();
+    });
   });
 
   describe('LAB credentials (TRP-T06)', () => {

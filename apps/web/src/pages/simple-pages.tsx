@@ -8,7 +8,7 @@ import {
   useRouteError,
 } from 'react-router';
 import { EmptyState, PageHeader } from '../components/ui';
-import { useSession } from '../session/context';
+import { useMe, useSession } from '../session/context';
 
 /** Signed in but not yet approved: no app data, only a way out (App Idea §8). */
 export function AccessPendingPage() {
@@ -47,6 +47,7 @@ export function PlaceholderPage({ title, card }: { title: string; card: string }
 }
 
 export function SettingsLayout() {
+  const me = useMe();
   return (
     <>
       <PageHeader title="Settings" />
@@ -54,6 +55,9 @@ export function SettingsLayout() {
         <NavLink to="/settings/profile">My profile</NavLink>
         <NavLink to="/settings/staff">Staff &amp; access</NavLink>
         <NavLink to="/settings/locations">Locations</NavLink>
+        {me.permissions.includes('printer.manage') ? (
+          <NavLink to="/settings/printers">Printers</NavLink>
+        ) : null}
       </nav>
       <Outlet />
     </>

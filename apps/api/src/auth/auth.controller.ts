@@ -53,6 +53,7 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'disposal.approve',
   'staff.manage',
   'session.revoke',
+  'printer.manage',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */

@@ -6,6 +6,8 @@ import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
 import { PositionSetupPage } from './pages/PositionSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
+import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
+import { StorageUnitLabelsPage } from './printing/StorageUnitLabelsPage';
 import { StaffPage } from './pages/StaffPage';
 import {
   AccessPendingPage,
@@ -74,6 +76,7 @@ export const routes: RouteObject[] = [
                 path: 'sample-storage',
                 element: <PlaceholderPage title="Sample Storage" card="TRP-T12" />,
               },
+              { path: 'sample-storage/:readableId', element: <StorageUnitLabelsPage /> },
               { path: 'projects', element: <PlaceholderPage title="Projects" card="TRP-T35" /> },
               {
                 path: 'settings',
@@ -89,6 +92,7 @@ export const routes: RouteObject[] = [
                     path: 'locations',
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,
                   },
+                  { path: 'printers', element: <PrintersSettingsPage /> },
                 ],
               },
               ...featureRoutes,

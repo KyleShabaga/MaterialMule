@@ -49,6 +49,26 @@ const envSchema = z.object({
     .default(50),
   // Optional: serve the built web app (apps/web/dist) from the API's origin, as production will.
   WEB_DIST_DIR: z.string().min(1).optional(),
+  // Optional receiving label printer (TRP-T15). Creates the "receiving" printer the first time
+  // the API starts with it set; afterwards admins change printers under Settings → Printers.
+  LABEL_PRINTER_HOST: z
+    .string()
+    .regex(/^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/, {
+      error: 'must be an IP address or host name',
+    })
+    .optional(),
+  LABEL_PRINTER_PORT: z.coerce
+    .number({ error: 'must be a port number' })
+    .int({ error: 'must be a whole number' })
+    .min(1, { error: 'must be between 1 and 65535' })
+    .max(65535, { error: 'must be between 1 and 65535' })
+    .default(9100),
+  LABEL_PRINTER_NAME: z
+    .string()
+    .trim()
+    .min(1, { error: 'must not be blank' })
+    .max(100, { error: 'must be at most 100 characters' })
+    .default('Receiving ZD621'),
   // Development/test-only fixture sign-in (TRP-T33). Refused in production by loadConfig.
   ENABLE_TEST_AUTH: z
     .enum(['true', 'false'], { error: 'must be true or false' })

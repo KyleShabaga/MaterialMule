@@ -27,6 +27,8 @@ import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { PrintingController } from './printing/printing.controller.js';
+import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
 import { ProfileService } from './profile/profile.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
@@ -55,6 +57,7 @@ export class AppModule {
         MicrosoftAuthController,
         ProfileController,
         ActivityController,
+        PrintingController,
         ProjectsController,
         TestHolesController,
         StaffDirectoryController,
@@ -76,6 +79,7 @@ export class AppModule {
         MicrosoftSignInService,
         ProfileService,
         UsersService,
+        PrintWorkerService,
         ProjectsService,
         TestHolesService,
         ReceiptsService,
