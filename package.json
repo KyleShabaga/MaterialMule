@@ -30,7 +30,10 @@
     "db:migrate": "npm run db:migrate -w @trapezoid/api",
     "db:seed:dev": "npm run db:seed:dev -w @trapezoid/api",
     "db:reset:test": "npm run db:reset:test -w @trapezoid/api",
-    "db:reset:dev": "npm run db:reset:dev -w @trapezoid/api"
+    "db:reset:dev": "npm run db:reset:dev -w @trapezoid/api",
+    "bench:seed": "npm run bench:seed -w @trapezoid/api --",
+    "bench:load": "npm run bench:load -w @trapezoid/api --",
+    "bench:explain": "npm run bench:explain -w @trapezoid/api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -52,6 +55,7 @@
     "@swc/core": false
   },
   "overrides": {
-    "multer": "^2.5.0"
+    "multer": "^2.5.0",
+    "uuid": "^11.1.1"
   }
 }

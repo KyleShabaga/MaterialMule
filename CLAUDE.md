@@ -45,6 +45,8 @@ scripts          Repo tooling (check-bundle-secrets.mjs, pack-release.mjs)
 | `npm run db:seed:dev`                    | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants); refused in production                                            |
 | `npm run db:reset:dev`                   | Re-apply the dev fixtures (names, roles, pending applicants) without changing IDs or audit                                                                     |
 | `npm run db:reset:test`                  | Drop and rebuild the test database from `apps/api/.env.test`                                                                                                   |
+| `npm run bench:seed`                     | Rebuild a bench DB with fictional ten-year / 5x data (TRP-T19; see docs/performance/README.md)                                                                 |
+| `npm run bench:load`                     | Concurrent workload and correctness checks against the built API; `bench:explain` for plans                                                                    |
 | `npm run mock:idp -w @trapezoid/api`     | Mock Microsoft tenant for local sign-in (127.0.0.1:4100); see README                                                                                           |
 | `npm run mock:printer -w @trapezoid/api` | Fake Zebra printer for local printing (127.0.0.1:9100); see README                                                                                             |
 

@@ -111,6 +111,9 @@ const envSchema = z.object({
   TLS_PFX_PASSPHRASE: z.string().min(1).optional(),
   TLS_CERT_FILE: z.string().min(1).optional(),
   TLS_KEY_FILE: z.string().min(1).optional(),
+  // Backup status record written by deploy/windows/backup.ps1 (TRP-T21), shown under Settings →
+  // System status. Unset until the backup design is approved (D39): the page then says so.
+  BACKUP_STATUS_FILE: z.string().min(1).optional(),
 });
 
 const MICROSOFT_REQUIRED = [

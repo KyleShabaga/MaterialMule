@@ -3,7 +3,8 @@ import { escapeIdentifier, type Pool, type PoolClient } from 'pg';
 /**
  * Least-privilege PostgreSQL roles for the production host (TRP-T20):
  * - the migration role owns the schema and every table, and is used only by the deploy script;
- * - the app role (the API service) can read and write rows but never change the schema.
+ * - the app role (the API service) can read and write rows but never change the schema;
+ * - the optional backup role (TRP-T21, pg_dump and the monitor task) can only read.
  * Run as a superuser (postgres) on the production database. Idempotent: run it once before the
  * first migration (so tables the migration role creates are granted automatically) and again
  * after it (to apply the per-table exceptions below to tables that now exist).
@@ -12,6 +13,8 @@ import { escapeIdentifier, type Pool, type PoolClient } from 'pg';
 export interface DatabaseRoleNames {
   migrationRole: string;
   appRole: string;
+  /** Read-only role for scheduled backups (TRP-T21). Omitted: no backup role is set up. */
+  backupRole?: string;
   /** Schema holding the app's tables. `public` on the host; tests use a scratch schema. */
   schema?: string;
 }
@@ -35,6 +38,12 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
   if (names.migrationRole === names.appRole) {
     throw new Error('The migration role and the app role must be different roles');
   }
+  if (names.backupRole !== undefined) {
+    assertRoleName(names.backupRole, 'Backup role');
+    if (names.backupRole === names.migrationRole || names.backupRole === names.appRole) {
+      throw new Error('The backup role must differ from the migration and app roles');
+    }
+  }
   const schema = names.schema ?? 'public';
   const owner = escapeIdentifier(names.migrationRole);
   const app = escapeIdentifier(names.appRole);
@@ -51,9 +60,11 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
     const database = escapeIdentifier(
       (await client.query<{ db: string }>('SELECT current_database() AS db')).rows[0]!.db,
     );
+    const backup = names.backupRole ? escapeIdentifier(names.backupRole) : null;
     for (const [role, id] of [
       [names.migrationRole, owner],
       [names.appRole, app],
+      ...(names.backupRole && backup ? [[names.backupRole, backup] as const] : []),
     ] as const) {
       if (!(await roleExists(client, role))) {
         // LOGIN without a password: nobody can sign in as it until an admin sets one.
@@ -102,6 +113,9 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
       `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ${schemaId} TO ${app}`,
       'existing sequences: app role may use',
     );
+    if (names.backupRole && backup) {
+      await grantReadOnly(run, { database, schemaId, owner, backup, role: names.backupRole });
+    }
     for (const table of APP_READ_ONLY_TABLES) {
       if (await tableExists(client, schema, table)) {
         await run(
@@ -126,6 +140,42 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
   } finally {
     client.release();
   }
+}
+
+/**
+ * The backup role reads every table and sequence (pg_dump, the monitor's print-queue check) and
+ * nothing else: no writes, no schema changes, and read-only transactions by default.
+ */
+async function grantReadOnly(
+  run: (sql: string, summary: string) => Promise<void>,
+  ids: { database: string; schemaId: string; owner: string; backup: string; role: string },
+): Promise<void> {
+  const { database, schemaId, owner, backup, role } = ids;
+  await run(`GRANT CONNECT ON DATABASE ${database} TO ${backup}`, 'backup role may connect');
+  await run(`GRANT USAGE ON SCHEMA ${schemaId} TO ${backup}`, 'backup role may use the schema');
+  await run(
+    `ALTER DEFAULT PRIVILEGES FOR ROLE ${owner} IN SCHEMA ${schemaId} ` +
+      `GRANT SELECT ON TABLES TO ${backup}`,
+    'future tables: backup role reads',
+  );
+  await run(
+    `ALTER DEFAULT PRIVILEGES FOR ROLE ${owner} IN SCHEMA ${schemaId} ` +
+      `GRANT SELECT ON SEQUENCES TO ${backup}`,
+    'future sequences: backup role reads',
+  );
+  await run(
+    `GRANT SELECT ON ALL TABLES IN SCHEMA ${schemaId} TO ${backup}`,
+    'existing tables: backup role reads',
+  );
+  await run(
+    `GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${schemaId} TO ${backup}`,
+    'existing sequences: backup role reads',
+  );
+  // Belt and braces: even a mistaken grant can't be used to write from this role.
+  await run(
+    `ALTER ROLE ${backup} SET default_transaction_read_only = on`,
+    `${role}: read-only transactions by default`,
+  );
 }
 
 async function roleExists(client: PoolClient, role: string): Promise<boolean> {

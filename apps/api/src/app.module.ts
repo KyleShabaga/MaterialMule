@@ -47,6 +47,7 @@ import {
 } from './storage-units/corrections/lab-request-links.js';
 import { StorageUnitsController } from './storage-units/storage-units.controller.js';
 import { StorageUnitsService } from './storage-units/storage-units.service.js';
+import { SystemStatusController } from './system-status/system-status.controller.js';
 import { TestHolesController } from './test-holes/test-holes.controller.js';
 import { TestHolesService } from './test-holes/test-holes.service.js';
 import { ReceiptsController } from './receiving/receipts.controller.js';
@@ -79,6 +80,7 @@ export class AppModule {
         InventoryController,
         StorageUnitsController,
         StorageUnitCorrectionsController,
+        SystemStatusController,
         LabelsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),

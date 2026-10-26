@@ -14,23 +14,42 @@ One-time (re-runnable) setup of the Windows host for Trapezoid (TRP-T20).
 7. Read-only checks: PostgreSQL listens on localhost only, no remote pg_hba entries, no firewall
    rule opening the database port.
 
+With -BackupConfigPath (TRP-T21; only once IT has decided the backup design, D39):
+8. Backup folders under <InstallRoot>\ops (staging, status, logs) readable only by Administrators
+   and the backup account; the service account may read status\ (Settings -> System status).
+9. Windows event log source "Trapezoid" for backup and monitoring alerts.
+10. Scheduled tasks "\Trapezoid\Trapezoid Backup" (at BackupTimes) and "\Trapezoid\Trapezoid
+    Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
+    signed in.
+
 Always preview first with -WhatIf, which changes nothing and also works without elevation.
 Run for real from an elevated PowerShell 7 prompt on the host. See docs\operations\runbook.md.
 
 .EXAMPLE
 .\Install-TrapezoidHost.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -WhatIf
+
+.EXAMPLE
+.\Install-TrapezoidHost.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -BackupConfigPath C:\Trapezoid\config\backup.config.psd1 -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)][string]$ConfigPath,
     # Steps to leave out, e.g. -Skip Power,Firewall when IT manages them by policy.
-    [ValidateSet('Folders', 'Service', 'Permissions', 'Firewall', 'Postgres', 'Power')]
-    [string[]]$Skip = @()
+    [ValidateSet('Folders', 'Service', 'Permissions', 'Firewall', 'Postgres', 'Power', 'BackupFolders', 'EventLog', 'ScheduledTasks')]
+    [string[]]$Skip = @(),
+    # TRP-T21: backup.config.psd1. Adds the backup folders, event log source and scheduled tasks;
+    # refuses while IT's backup decisions (D39) are missing from it.
+    [string]$BackupConfigPath
 )
 
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'TrapezoidHosting.psm1')
 $config = Get-TrapezoidHostConfig -Path $ConfigPath
+$backupConfig = $null
+if ($BackupConfigPath) {
+    Import-Module (Join-Path $PSScriptRoot 'TrapezoidOps.psm1')
+    $backupConfig = Get-TrapezoidBackupConfig -Path $BackupConfigPath -Purpose Install
+}
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -172,6 +191,105 @@ if ('Power' -notin $Skip) {
         }
     }
     $warnings.Add('Windows Update restart window: agree active hours / maintenance window with IT (manual)')
+}
+
+# 8-10. Backups and monitoring (TRP-T21) -------------------------------------------------------------
+if ($backupConfig) {
+    $backupAccount = [string]$backupConfig.BackupAccount
+    if ($backupAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL SERVICE|NETWORK SERVICE)$' -or
+        $backupAccount -match 'Administrator') {
+        throw 'BackupAccount must be a dedicated low-privilege account (gMSA or standard user), not a built-in or admin account.'
+    }
+    if ('BackupFolders' -notin $Skip) {
+        Step 'Backup folders'
+        $statusDir = Split-Path -Parent $backupConfig.StatusFile
+        foreach ($dir in $backupConfig.OpsDir, $backupConfig.StagingDir, $statusDir, $backupConfig.OpsLogDir) {
+            if (Test-Path -LiteralPath $dir -PathType Container) {
+                Write-Host "exists: $dir"
+            } elseif ($PSCmdlet.ShouldProcess($dir, 'create folder')) {
+                New-Item -ItemType Directory -Path $dir -Force | Out-Null
+                Write-Host "created: $dir"
+            }
+        }
+        function New-BackupRule([string]$Identity, [string]$Rights) {
+            [System.Security.AccessControl.FileSystemAccessRule]::new(
+                $Identity, $Rights, 'ContainerInherit, ObjectInherit', 'None', 'Allow')
+        }
+        # Backups and their logs are never readable by ordinary users or the service account; the
+        # service account reads only the status records.
+        $opsRules = @(
+            (New-BackupRule 'BUILTIN\Administrators' 'FullControl'),
+            (New-BackupRule 'NT AUTHORITY\SYSTEM' 'FullControl'),
+            (New-BackupRule $backupAccount 'Modify'))
+        $backupPlan = [ordered]@{
+            $backupConfig.OpsDir = $opsRules
+            $statusDir           = @($opsRules + (New-BackupRule $config.ServiceAccount 'ReadAndExecute'))
+        }
+        foreach ($dir in $backupPlan.Keys) {
+            $who = ($backupPlan[$dir] | ForEach-Object { "$($_.IdentityReference): $($_.FileSystemRights)" }) -join '; '
+            if ($PSCmdlet.ShouldProcess($dir, "replace permissions (no inheritance) with $who")) {
+                $acl = [System.Security.AccessControl.DirectorySecurity]::new()
+                $acl.SetAccessRuleProtection($true, $false)
+                foreach ($rule in $backupPlan[$dir]) { $acl.AddAccessRule($rule) }
+                Set-Acl -LiteralPath $dir -AclObject $acl
+            }
+        }
+        if (-not (Test-Path -LiteralPath $backupConfig.BackupTarget -PathType Container)) {
+            $warnings.Add("Backup location $($backupConfig.BackupTarget) is not reachable from this session; check it as $backupAccount")
+        }
+        if ($backupConfig.PgPassFile -and -not (Test-Path -LiteralPath $backupConfig.PgPassFile -PathType Leaf)) {
+            $warnings.Add("PgPassFile $($backupConfig.PgPassFile) not found; create it for the backup role (runbook)")
+        }
+    }
+    if ('EventLog' -notin $Skip) {
+        Step 'Event log source'
+        $source = [string]$backupConfig.EventLogSource
+        if (Test-Path -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\$source") {
+            Write-Host "exists: $source (Application log)"
+        } elseif ($PSCmdlet.ShouldProcess($source, 'register Windows event log source in the Application log')) {
+            [System.Diagnostics.EventLog]::CreateEventSource($source, 'Application')
+        }
+    }
+    if ('ScheduledTasks' -notin $Skip) {
+        Step 'Scheduled tasks'
+        # A gMSA (DOMAIN\name$) has no password to enter.
+        $passwordless = $backupAccount.EndsWith('$')
+        $credential = $null
+        foreach ($task in Get-TrapezoidScheduledTaskPlan -Config $backupConfig) {
+            $when = if ($task.EveryMinutes) { "every $($task.EveryMinutes) min" } else { "daily at $($task.Times -join ', ')" }
+            if ($PSCmdlet.ShouldProcess("$($task.Path)$($task.Name)", "register scheduled task: $($task.Execute) $($task.Arguments), $when, as $backupAccount")) {
+                $action = New-ScheduledTaskAction -Execute $task.Execute -Argument $task.Arguments
+                $triggers = if ($task.EveryMinutes) {
+                    @(New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval ([TimeSpan]::FromMinutes($task.EveryMinutes)))
+                } else {
+                    @($task.Times | ForEach-Object { New-ScheduledTaskTrigger -Daily -At $_ })
+                }
+                $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit $task.TimeLimit -MultipleInstances IgnoreNew -StartWhenAvailable
+                $common = @{
+                    TaskName    = $task.Name
+                    TaskPath    = $task.Path
+                    Description = $task.Description
+                    Action      = $action
+                    Trigger     = $triggers
+                    Settings    = $settings
+                    Force       = $true
+                }
+                if ($passwordless) {
+                    $principal = New-ScheduledTaskPrincipal -UserId $backupAccount -LogonType Password -RunLevel Limited
+                    Register-ScheduledTask @common -Principal $principal | Out-Null
+                } else {
+                    # A standard account's password is typed here and handed to Task Scheduler only.
+                    if (-not $credential) {
+                        $credential = Get-Credential -UserName $backupAccount -Message 'Password of the backup account (kept by Task Scheduler only)'
+                    }
+                    Register-ScheduledTask @common -RunLevel Limited -User $credential.UserName -Password $credential.GetNetworkCredential().Password | Out-Null
+                }
+                Write-Host "registered: $($task.Path)$($task.Name) ($when)"
+            }
+        }
+    }
+} else {
+    $warnings.Add('Backups and monitoring are not set up (no -BackupConfigPath; backup design pending IT, D39)')
 }
 
 # 7. Read-only checks ------------------------------------------------------------------------------
