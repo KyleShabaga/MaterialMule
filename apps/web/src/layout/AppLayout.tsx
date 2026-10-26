@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { Link, NavLink, Outlet } from 'react-router';
 import { StatusBadge } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useMe, useSession } from '../session/context';
@@ -65,6 +65,12 @@ export function AppLayout() {
         </ul>
       </nav>
       <main id="main" className="app-main" tabIndex={-1}>
+        {me.profileRefreshFailed ? (
+          <p className="notice" role="status">
+            Your Microsoft profile couldn’t be refreshed, so your last known details are in use.{' '}
+            <Link to="/settings/profile">Review and retry</Link>
+          </p>
+        ) : null}
         <Outlet />
       </main>
     </div>

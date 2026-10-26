@@ -55,7 +55,10 @@ export function SignInPage() {
           {providers.microsoft ? (
             <a
               className="button primary"
-              href={`/api/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}`}
+              // After "Switch user", Microsoft must ask which account (shared devices).
+              href={`/api/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}${
+                params.get('switch') ? '&switch=1' : ''
+              }`}
             >
               Sign in with Microsoft
             </a>

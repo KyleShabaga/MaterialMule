@@ -72,6 +72,40 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - `lab.integration.test.ts` calls every endpoint outside the LAB column with a LAB session and
   expects 403 with nothing changed, so new endpoints are covered automatically.
 
+## Microsoft sign-in (TRP-T05)
+
+- **Off by default.** It is enabled only when `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`,
+  `MICROSOFT_CLIENT_SECRET` and `MICROSOFT_REDIRECT_URI` are all set; a partial set is refused at
+  startup. Until then `/api/auth/providers` reports `microsoft: false` and `/api/auth/microsoft/*`
+  answers 404. Keys are documented in `apps/api/.env.example`.
+- **Flow:** single-tenant Entra ID, authorization code + PKCE (S256), state and nonce, as a
+  confidential client via `openid-client`. `GET /api/auth/microsoft/start` stores the attempt
+  server-side (10 minutes, single use, bound to the browser by an HttpOnly cookie) and redirects to
+  Microsoft. Microsoft returns to the web route `/sign-in/microsoft/callback`, which posts the
+  result to `POST /api/auth/microsoft/callback`. The server validates the ID token (signature
+  against the tenant's keys, issuer, audience, tenant, nonce, expiry; guests refused) and issues
+  the app session. Microsoft tokens never reach the browser. The Graph token is held only in
+  server memory for a profile Retry.
+- **Identity:** `identity_link(provider='microsoft', tenant_id, subject=oid)`. Name, email and
+  initials are profile data and never keys, so a renamed person keeps the same app user and audit
+  history.
+- **Scopes:** `openid profile User.Read` only. Graph is read with
+  `GET /v1.0/me?$select=displayName,givenName,surname,mail,userPrincipalName,jobTitle,department,officeLocation`.
+  A Graph failure never blocks sign-in: known values stay, and the person sees a Retry.
+- **New people** are created `pending` and see position setup, then access-pending until an admin
+  approves them (TRP-T07). **Position grants nothing.** **Official initials** are only ever set by
+  an admin; refresh never writes them.
+- **Bootstrap admin:** the account whose object ID matches `BOOTSTRAP_ADMIN_OBJECT_ID` (or, only
+  when that is unset, whose UPN matches `BOOTSTRAP_ADMIN_UPN`) becomes active + admin at first
+  sign-in, or while still pending. There is no first-user-wins rule.
+- **Shared devices:** "Switch user" signs out and sends `prompt=select_account`. A new sign-in
+  revokes any previous session cookie on that browser.
+- **Still needs IT** (card T05 §5): the app registration (tenant ID, client ID, secret, redirect
+  URIs, admin consent for User.Read, technical owner), the optional `acct` ID-token claim, and
+  reconciling sign-in timing (D38). Real-account verification (card test T6) waits for these.
+- **Tests** use a mock tenant and Graph (`apps/api/src/test-support/mock-oidc.ts`;
+  `npm run mock:idp -w @trapezoid/api` for E2E) with fictional identities only.
+
 ## CSRF
 
 State-changing requests (`POST`, `PUT`, `PATCH`, `DELETE`) must send `x-trapezoid-csrf: 1`

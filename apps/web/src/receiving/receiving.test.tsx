@@ -38,6 +38,9 @@ const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   roles: [],
   permissions: ['inventory.read', 'project.create', 'test_hole.create'],
   sessionExpiresAt: '2026-10-26T06:00:00.000Z',
+  position: null,
+  positionSetupRequired: false,
+  profileRefreshFailed: false,
   ...overrides,
 });
 

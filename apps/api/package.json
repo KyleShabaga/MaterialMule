@@ -15,7 +15,8 @@
     "db:seed": "tsx src/db/cli.ts seed",
     "db:seed:dev": "tsx src/db/cli.ts seed-dev",
     "db:reset:test": "tsx src/db/cli.ts reset-test --env-file .env.test",
-    "db:reset:dev": "tsx src/db/cli.ts seed-dev"
+    "db:reset:dev": "tsx src/db/cli.ts seed-dev",
+    "mock:idp": "tsx src/test-support/mock-oidc-cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.2.0",
@@ -24,7 +25,9 @@
     "@trapezoid/shared": "^0.1.0",
     "bwip-js": "^4.11.4",
     "express": "^5.3.0",
+    "jose": "^6.2.13",
     "nestjs-pino": "^5.3.1",
+    "openid-client": "^6.8.8",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",

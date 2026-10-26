@@ -32,6 +32,14 @@ export const REDACT_PATHS = [
   '*.DATABASE_URL',
   'SESSION_SECRET',
   '*.SESSION_SECRET',
+  'MICROSOFT_CLIENT_SECRET',
+  '*.MICROSOFT_CLIENT_SECRET',
+  'clientSecret',
+  '*.clientSecret',
+  'accessToken',
+  '*.accessToken',
+  'codeVerifier',
+  '*.codeVerifier',
 ];
 
 export const REQUEST_ID_HEADER = 'x-request-id';

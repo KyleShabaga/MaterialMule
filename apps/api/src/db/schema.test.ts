@@ -55,6 +55,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       'identity_link',
       'local_credential',
       'location',
+      'oidc_sign_in_attempt',
       'print_job',
       'print_job_item',
       'printer',
@@ -539,6 +540,75 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
         HASH,
       ]);
       await db.pool.query('DELETE FROM local_credential WHERE user_id = $1', [lab]);
+    });
+  });
+
+  describe('Microsoft identities and profiles (TRP-T05)', () => {
+    const TENANT = '11111111-2222-4333-8444-555555555555';
+    const oid = (n: number) => `00000000-0000-4000-8000-0000000b${String(n).padStart(4, '0')}`;
+
+    async function personalUser(): Promise<string> {
+      const { rows } = await db.pool.query<{ id: string }>(
+        `INSERT INTO app_user (display_name, account_type, status)
+         VALUES ('Fictional Person', 'personal', 'pending') RETURNING id`,
+      );
+      return rows[0]!.id;
+    }
+
+    it('keys Microsoft identities on tenant and object ID GUIDs, one per person', async () => {
+      const person = await personalUser();
+      const link = (userId: string, tenant: string, subject: string) =>
+        db.pool.query(
+          `INSERT INTO identity_link (user_id, provider, tenant_id, subject)
+           VALUES ($1, 'microsoft', $2, $3)`,
+          [userId, tenant, subject],
+        );
+      await expect(link(person, TENANT, 'person@example.test')).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(link(person, '', oid(1))).rejects.toMatchObject({ code: PG.checkViolation });
+      await link(person, TENANT, oid(1));
+      await expect(link(person, TENANT, oid(2))).rejects.toMatchObject({
+        code: PG.uniqueViolation,
+      });
+      await expect(link(await personalUser(), TENANT, oid(1))).rejects.toMatchObject({
+        code: PG.uniqueViolation,
+      });
+    });
+
+    it('needs a position before position_set_at, and a complete initials confirmation', async () => {
+      const person = await personalUser();
+      await expect(
+        db.pool.query('UPDATE app_user SET position_set_at = now() WHERE id = $1', [person]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await db.pool.query(
+        `UPDATE app_user SET position = 'engineer', position_set_at = now() WHERE id = $1`,
+        [person],
+      );
+      await expect(
+        db.pool.query(
+          `UPDATE app_user SET official_initials = 'KCS', initials_confirmed_at = now() WHERE id = $1`,
+          [person],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        db.pool.query(`UPDATE app_user SET profile_source = 'directory' WHERE id = $1`, [person]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+
+    it('only lets a sign-in attempt return to an in-app path', async () => {
+      const insert = (returnTo: string) =>
+        db.pool.query(
+          `INSERT INTO oidc_sign_in_attempt (provider, state_hash, browser_binding_hash, nonce,
+                                             code_verifier, return_to, expires_at)
+           VALUES ('microsoft', gen_random_uuid()::text::bytea, 'b'::bytea, 'n', 'v', $1,
+                   now() + interval '10 minutes')`,
+          [returnTo],
+        );
+      await insert('/projects?mine=1');
+      for (const bad of ['https://evil.example', '//evil.example', 'projects']) {
+        await expect(insert(bad), bad).rejects.toMatchObject({ code: PG.checkViolation });
+      }
     });
   });
 });
