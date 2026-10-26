@@ -23,13 +23,21 @@ export default defineConfig({
   webServer: [
     {
       name: 'api',
-      command: 'npm run build -w @trapezoid/api && npm run start -w @trapezoid/api',
+      // Fresh test database with the fictional fixtures, then the built API with test sign-in on.
+      command:
+        'npm run db:reset:test -w @trapezoid/api && npm run db:seed:dev -w @trapezoid/api' +
+        ' && npm run build -w @trapezoid/api && npm run start -w @trapezoid/api',
       // Wait on the port, not /api/health: a 503 (database down) would never count as ready,
       // and the smoke test reports the database state more clearly than a startup timeout.
       port: API_PORT,
       reuseExistingServer: !isCI,
       timeout: 120_000,
-      env: { ENV_FILE: '.env.test', PORT: String(API_PORT), HOST: '127.0.0.1' },
+      env: {
+        ENV_FILE: '.env.test',
+        PORT: String(API_PORT),
+        HOST: '127.0.0.1',
+        ENABLE_TEST_AUTH: 'true',
+      },
     },
     {
       name: 'web',

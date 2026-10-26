@@ -13,7 +13,8 @@
     "db:migrate": "tsx src/db/cli.ts migrate",
     "db:seed": "tsx src/db/cli.ts seed",
     "db:seed:dev": "tsx src/db/cli.ts seed-dev",
-    "db:reset:test": "tsx src/db/cli.ts reset-test --env-file .env.test"
+    "db:reset:test": "tsx src/db/cli.ts reset-test --env-file .env.test",
+    "db:reset:dev": "tsx src/db/cli.ts seed-dev"
   },
   "dependencies": {
     "@nestjs/common": "^12.2.0",

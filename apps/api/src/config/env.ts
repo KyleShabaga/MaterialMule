@@ -38,6 +38,11 @@ const envSchema = z.object({
     .string()
     .refine(isValidTimeZone, { error: 'must be an IANA time zone such as America/Edmonton' })
     .default('America/Edmonton'),
+  // Development/test-only fixture sign-in (TRP-T33). Refused in production by loadConfig.
+  ENABLE_TEST_AUTH: z
+    .enum(['true', 'false'], { error: 'must be true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 function isValidTimeZone(zone: string): boolean {
@@ -66,6 +71,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   );
   const result = envSchema.safeParse(cleaned);
   if (result.success) {
+    if (result.data.APP_ENV === 'production' && result.data.ENABLE_TEST_AUTH) {
+      throw new ConfigError(['ENABLE_TEST_AUTH must not be true when APP_ENV is production']);
+    }
     return result.data;
   }
   const problems = result.error.issues.map((issue) => {

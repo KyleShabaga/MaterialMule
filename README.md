@@ -46,6 +46,21 @@ npm run dev
 
 Open http://127.0.0.1:5173. The page should show **API: OK** and **Database: Connected**.
 
+## Test sign-in (development only)
+
+Until Microsoft sign-in is set up, use the fictional test identities seeded by `db:seed:dev`:
+
+1. In `apps/api/.env` set `ENABLE_TEST_AUTH=true` (the API refuses to start with it in
+   production) and restart `npm run dev`.
+2. Open http://127.0.0.1:5173/sign-in/test and pick an identity, for example **Admin (test)**
+   (staff and sessions) or **Lab (test)** (Lab Manager role). Picking another one signs the first
+   out. Every action they take is audited with a TEST account type.
+3. `npm run db:reset:dev` restores the fixtures' names and roles without changing their IDs or
+   any audit history.
+
+In Playwright tests, `signInAs(page, 'admin')` from `e2e/support/auth.ts` does the same through
+the API.
+
 ## Checks
 
 ```powershell

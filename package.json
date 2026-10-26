@@ -24,7 +24,8 @@
     "test:e2e": "npm run build:shared && playwright test",
     "db:migrate": "npm run db:migrate -w @trapezoid/api",
     "db:seed:dev": "npm run db:seed:dev -w @trapezoid/api",
-    "db:reset:test": "npm run db:reset:test -w @trapezoid/api"
+    "db:reset:test": "npm run db:reset:test -w @trapezoid/api",
+    "db:reset:dev": "npm run db:reset:dev -w @trapezoid/api"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
