@@ -10,6 +10,8 @@ import { PositionSetupPage } from './pages/PositionSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
+import { ProjectDetailPage } from './projects/ProjectDetailPage';
+import { ProjectsPage } from './projects/ProjectsPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -19,6 +21,7 @@ import {
   SettingsLayout,
 } from './pages/simple-pages';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
+import { ScanPage } from './scanning/ScanPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { TestSignInPage } from './TestSignInPage';
 
@@ -74,10 +77,14 @@ export const routes: RouteObject[] = [
               // Inventory and storage unit detail (TRP-T12). The menu calls it Sample Storage; the
               // card's /inventory and /storage-units/:suNumber paths redirect here.
               { path: 'sample-storage', element: <InventoryPage /> },
+              // Handheld scanner lookup mode (TRP-T16); static, so it wins over :readableId.
+              { path: 'sample-storage/scan', element: <ScanPage /> },
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
-              { path: 'projects', element: <PlaceholderPage title="Projects" card="TRP-T35" /> },
+              // Projects list and detail (TRP-T35).
+              { path: 'projects', element: <ProjectsPage /> },
+              { path: 'projects/:projectId', element: <ProjectDetailPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,

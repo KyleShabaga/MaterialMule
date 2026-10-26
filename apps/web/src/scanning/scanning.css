@@ -1,0 +1,291 @@
+/* ---- Scanning (TRP-T16) ---- */
+
+.scan-panel {
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  max-width: 48rem;
+}
+
+.scan-field-row {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.scan-field {
+  font: inherit;
+  font-size: 1.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  min-width: 0;
+}
+
+.scan-ready {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.scan-paused .scan-ready {
+  color: var(--warning);
+}
+
+.scan-status {
+  border-left: 6px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.scan-message {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.scan-detail {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.scan-last {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.scan-actions {
+  margin-top: 0.5rem;
+}
+
+.scan-status-success {
+  border-left-color: var(--ok);
+}
+
+.scan-status-success .scan-message {
+  color: var(--ok);
+}
+
+.scan-status-error {
+  border-left-color: var(--error);
+}
+
+.scan-status-error .scan-message {
+  color: var(--error);
+}
+
+.scan-status-warning {
+  border-left-color: var(--warning);
+}
+
+.scan-status-warning .scan-message {
+  color: var(--warning);
+}
+
+.scan-status-busy {
+  border-left-color: var(--info);
+}
+
+.scan-sound {
+  color: var(--muted);
+}
+
+/* Covers the whole panel while focus is elsewhere, so a scan is never silently lost. */
+.scan-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 3px dashed var(--warning);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  color: var(--text);
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.scan-overlay strong {
+  font-size: 1.75rem;
+  color: var(--warning);
+}
+
+.scanned-unit {
+  margin-top: 1rem;
+  max-width: 48rem;
+}
+
+.scanned-unit-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.scanned-unit-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.verify-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.verify-list .verified strong {
+  color: var(--ok);
+}
+
+@media (max-width: 640px) {
+  .scan-message {
+    font-size: 1.35rem;
+  }
+
+  .scanned-unit-facts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scan-intro {
+  color: var(--muted);
+  max-width: 48rem;
+}
+
+/* ---- Phone-camera scanner (TRP-T17) ---- */
+
+.camera-scan-button {
+  margin-top: 0.75rem;
+}
+
+.camera-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #fff;
+}
+
+.camera-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgb(0 0 0 / 70%);
+}
+
+.camera-top h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.camera-view {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.camera-view video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Framing guide: a label-shaped box in the middle of the picture. */
+.camera-guide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(80%, 32rem);
+  aspect-ratio: 7 / 3;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 35%);
+  pointer-events: none;
+}
+
+.camera-bottom {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  background: rgb(0 0 0 / 80%);
+}
+
+.camera-status {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.camera-status-success {
+  color: #3fb950;
+}
+
+.camera-status-error {
+  color: #ff7b72;
+}
+
+.camera-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.camera-controls:empty {
+  display: none;
+}
+
+.camera-controls button[aria-pressed='true'] {
+  background: #f0c000;
+  color: #000;
+}
+
+.camera-manual {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.camera-manual input {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  min-width: 0;
+}
+
+.camera-decoder {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c9d1d9;
+}
+
+.camera-problem {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.camera-problem h3 {
+  margin-top: 0;
+}

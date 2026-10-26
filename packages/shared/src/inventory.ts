@@ -211,13 +211,20 @@ export const storageUnitDetailSchema = z.object({
   unitType: z.enum(STORAGE_UNIT_TYPES),
   status: z.enum(STORAGE_UNIT_STATUSES),
   note: z.string().nullable(),
+  /** Current received date; a correction (TRP-T13) may change it, the receipt header keeps its own. */
   receivedDate: z.string(),
+  /** Received date + 1 year until full retention rules arrive (TRP-T29). */
+  minimumRetainUntil: z.string(),
+  /** Bumped by every correction; a correction must send the version it was based on. */
+  version: z.number(),
   project: projectRef,
   holes: z.array(storageUnitHoleSummarySchema),
   location: locationRef,
+  /** The original receipt header, as recorded at confirmation; corrections never rewrite it. */
   receipt: z.object({
     id: z.string(),
     receivedDate: z.string(),
+    project: projectRef,
     /** Snapshots taken at confirmation; renaming the person later never changes them. */
     receiver: personRef,
     /** The signed-in account that confirmed the receipt (e.g. LAB). */
@@ -261,6 +268,8 @@ export function storageUnitHistoryActionLabel(action: string): string {
       return 'Receipt confirmed';
     case 'storage_unit.created':
       return 'Storage unit created';
+    case 'storage_unit.corrected':
+      return 'Details corrected';
     default:
       return action;
   }
