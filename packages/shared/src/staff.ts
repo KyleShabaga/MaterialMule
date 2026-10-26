@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { positionSchema } from './profile';
 
 // Staff directory and receiver selector (TRP-T07).
 
@@ -8,13 +9,13 @@ export type StaffStatus = z.infer<typeof staffStatusSchema>;
 export const staffRoleSchema = z.enum(['admin', 'lab_manager']);
 export type StaffRole = z.infer<typeof staffRoleSchema>;
 
-export const staffPositionSchema = z.enum(['technician', 'engineer', 'pm_pe', 'lab_manager']);
+export const staffPositionSchema = positionSchema;
 export type StaffPosition = z.infer<typeof staffPositionSchema>;
 
 export const staffAccountTypeSchema = z.enum(['personal', 'shared_lab', 'test']);
 
 /** Short labels used beside initials, e.g. "JS · Jordan Smith (Tech)". */
-export const POSITION_LABELS: Record<StaffPosition, string> = {
+export const POSITION_SHORT_LABELS: Record<StaffPosition, string> = {
   technician: 'Tech',
   engineer: 'Eng',
   pm_pe: 'PM/PE',
@@ -121,7 +122,7 @@ export function formatReceiver(
   option: Pick<ReceiverOption, 'initials' | 'displayName' | 'position'>,
 ) {
   const base = `${option.initials} · ${option.displayName}`;
-  return option.position ? `${base} (${POSITION_LABELS[option.position]})` : base;
+  return option.position ? `${base} (${POSITION_SHORT_LABELS[option.position]})` : base;
 }
 
 /** Error codes the staff API returns in `{ code }` bodies. */

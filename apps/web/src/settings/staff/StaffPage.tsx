@@ -1,5 +1,5 @@
 import {
-  POSITION_LABELS,
+  POSITION_SHORT_LABELS,
   ROLE_LABELS,
   type StaffMember,
   type StaffPosition,
@@ -35,7 +35,7 @@ const ACCOUNT_LABELS: Record<StaffMember['accountType'], string> = {
   shared_lab: 'Shared LAB',
   test: 'Test',
 };
-const POSITIONS = Object.keys(POSITION_LABELS) as StaffPosition[];
+const POSITIONS = Object.keys(POSITION_SHORT_LABELS) as StaffPosition[];
 const POSITION_NAMES: Record<StaffPosition, string> = {
   technician: 'Technician',
   engineer: 'Engineer',
