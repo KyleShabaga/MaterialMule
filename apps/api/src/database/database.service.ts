@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { Pool } from 'pg';
 import { APP_CONFIG } from '../config/config.constants.js';
 import type { AppConfig } from '../config/env.js';
@@ -6,7 +6,7 @@ import type { AppConfig } from '../config/env.js';
 const CONNECT_TIMEOUT_MS = 2000;
 
 @Injectable()
-export class DatabaseService implements OnModuleDestroy {
+export class DatabaseService implements OnApplicationShutdown {
   private readonly logger = new Logger(DatabaseService.name);
   /** Shared connection pool. Use withTransaction(pool, …) for multi-statement changes. */
   readonly pool: Pool;
@@ -35,7 +35,8 @@ export class DatabaseService implements OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy(): Promise<void> {
+  // After every onModuleDestroy hook, so the print worker can finish a send and record it first.
+  async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
   }
 }

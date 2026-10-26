@@ -329,6 +329,32 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+.checkbox {
+  display: block;
+  margin: 0.5rem 0;
+}
+
+.form-actions,
+.print-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.printer-form input:not([type='checkbox']) {
+  width: 100%;
+  max-width: 24rem;
+}
+
+/* Label printing status (TRP-T15) */
+.print-panel,
+.print-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

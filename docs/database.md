@@ -82,3 +82,27 @@ Key rules enforced by the database:
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25).
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
+
+## Print queue (TRP-T15, migration 0003)
+
+- **Printers** (`printer`) are server-side configuration: key, name, host (IPv4 or host name),
+  port (9100), enabled, default (at most one), status check. Print requests may only name a
+  configured, enabled printer key; a host or port in a request is rejected. `LABEL_PRINTER_HOST`
+  creates the `receiving` printer the first time the API starts with it set; afterwards an admin
+  changes printers at `PUT /api/admin/printers` (Settings → Printers). Printers are never
+  deleted (jobs reference them); turn one off instead.
+- **Jobs** (`print_job` + `print_job_item` in print order) record kind (initial / reprint),
+  template version, requesting account and, for the shared LAB account, the staff receiver.
+- **Status rules** (worker in `apps/api/src/printing`, running inside the API process, one job
+  at a time per printer, oldest first):
+  - nothing sent (refused, timed out, host status reports paper out / head open / paused) →
+    back to `queued` with backoff (5 s, 10 s), `failed` after 3 attempts;
+  - every byte written and the connection closed cleanly → `sent`;
+  - anything after label bytes started (drop mid-stream, no clean close) → `uncertain`, never
+    resent automatically; a person reprints or marks it printed.
+  - On startup, any job still `sending` becomes `uncertain` (the process stopped mid-send).
+- `physically_confirmed_at` / `_by_user_id` record "Labels came out OK"; only allowed on `sent`
+  or `uncertain` jobs. The UI never says "printed" without it.
+- Printing never changes receipts, storage units or locations. Audit events:
+  `label.print_requested`, `label.reprint_requested`, `label.print_failed`,
+  `label.print_uncertain`, `label.physically_confirmed`, `printer.configured`.
