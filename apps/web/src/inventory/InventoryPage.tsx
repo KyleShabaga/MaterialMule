@@ -20,6 +20,7 @@ import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from 
 import './inventory.css';
 import { ProjectFilter } from './ProjectFilter';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
+import { CameraScanButton } from '../scanning/CameraScanButton';
 import {
   clearedInventoryQuery,
   hasActiveFilters,
@@ -131,6 +132,7 @@ export function InventoryPage() {
         }
       />
       <LookUpId />
+      <CameraScanButton />
 
       <SearchForm
         key={query.search ?? ''}
