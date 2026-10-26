@@ -17,6 +17,7 @@ import { EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from './api';
 import './inventory.css';
 import { ProjectFilter } from './ProjectFilter';
+import { CameraScanButton } from '../scanning/CameraScanButton';
 import { StorageUnitTable } from './StorageUnitTable';
 import {
   clearedInventoryQuery,
@@ -129,6 +130,7 @@ export function InventoryPage() {
         }
       />
       <LookUpId />
+      <CameraScanButton />
 
       <SearchForm
         key={query.search ?? ''}

@@ -165,3 +165,127 @@
   color: var(--muted);
   max-width: 48rem;
 }
+
+/* ---- Phone-camera scanner (TRP-T17) ---- */
+
+.camera-scan-button {
+  margin-top: 0.75rem;
+}
+
+.camera-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #fff;
+}
+
+.camera-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgb(0 0 0 / 70%);
+}
+
+.camera-top h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.camera-view {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.camera-view video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Framing guide: a label-shaped box in the middle of the picture. */
+.camera-guide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(80%, 32rem);
+  aspect-ratio: 7 / 3;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 35%);
+  pointer-events: none;
+}
+
+.camera-bottom {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  background: rgb(0 0 0 / 80%);
+}
+
+.camera-status {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.camera-status-success {
+  color: #3fb950;
+}
+
+.camera-status-error {
+  color: #ff7b72;
+}
+
+.camera-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.camera-controls:empty {
+  display: none;
+}
+
+.camera-controls button[aria-pressed='true'] {
+  background: #f0c000;
+  color: #000;
+}
+
+.camera-manual {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.camera-manual input {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  min-width: 0;
+}
+
+.camera-decoder {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c9d1d9;
+}
+
+.camera-problem {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.camera-problem h3 {
+  margin-top: 0;
+}

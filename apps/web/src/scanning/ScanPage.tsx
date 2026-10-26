@@ -9,6 +9,7 @@ import { PageHeader } from '../components/ui';
 import { fetchStorageUnit } from '../inventory/api';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
 import '../inventory/inventory.css';
+import { CameraScanButton } from './CameraScanButton';
 import { playScanTone, useScanSound } from './feedback';
 import { displayScannedValue } from './scan-core';
 import { ScanInput, type ScanStatusView } from './ScanInput';
@@ -34,8 +35,10 @@ export function ScanPage() {
       <PageHeader title="Scan labels" />
       <p className="scan-intro">
         Pull the scanner&apos;s trigger on a storage unit label (Code 128 or QR). Scanning only
-        opens the record; it never moves or disposes anything.
+        opens the record; it never moves or disposes anything. On a phone, use{' '}
+        <strong>Scan with camera</strong>.
       </p>
+      <CameraScanButton />
       <ScanInput
         scanner={lookup.scanner}
         label="Scan a storage unit label"
