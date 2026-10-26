@@ -165,6 +165,17 @@ fetch('/api/receipts', {
 }).then((r) => r.json());
 ```
 
+## Scanning without a handheld scanner
+
+The Zebra DS3678-XR (TRP-T16) is a USB keyboard that types the label's ID and then Enter, so you
+can try scanning by typing. Open **Sample Storage → Scan labels** (`/sample-storage/scan`), type
+an ID such as `BKT-2026-000001` into the focused scan field and press Enter. Scanner setup and the
+hardware test sheet: [docs/hardware/ds3678-xr.md](docs/hardware/ds3678-xr.md).
+
+Phones scan with **Scan with camera** (TRP-T17). The camera only works on HTTPS pages, or on
+`http://127.0.0.1` on the PC itself, so test it from a phone through the host's HTTPS address
+(TRP-T20). Details and the device test sheet: [docs/hardware/phone-camera.md](docs/hardware/phone-camera.md).
+
 ## Checks
 
 ```powershell

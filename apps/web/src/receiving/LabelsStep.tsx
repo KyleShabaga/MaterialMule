@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { PrintLabelsPanel } from '../printing/PrintLabelsPanel';
 import { receiptPrintPath } from '../printing/print-paths';
+import { VerifyLabelsPanel } from '../scanning/VerifyLabelsPanel';
 import { formatSummaryValue, unitName, type ReceiptDraft } from './draft';
 
 /**
@@ -25,6 +26,7 @@ export function LabelsStep({
     index,
     issued: result.units.find((u) => u.clientRowId === unit.clientRowId),
   }));
+  const [verifying, setVerifying] = useState(false);
 
   return (
     <>
@@ -80,7 +82,19 @@ export function LabelsStep({
         ))}
       </ul>
 
+      {verifying ? (
+        <VerifyLabelsPanel
+          expectedIds={result.units.map((u) => u.suNumber)}
+          onClose={() => setVerifying(false)}
+        />
+      ) : null}
+
       <div className="wizard-actions">
+        {verifying ? null : (
+          <button type="button" onClick={() => setVerifying(true)}>
+            Verify labels
+          </button>
+        )}
         <button type="button" className="primary" onClick={onReceiveAnother}>
           Receive another
         </button>
