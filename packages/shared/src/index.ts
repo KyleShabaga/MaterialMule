@@ -2,6 +2,7 @@ export * from './activity';
 export * from './health';
 export * from './inventory';
 export * from './lab';
+export * from './labels';
 export * from './me';
 export * from './printing';
 export * from './profile';

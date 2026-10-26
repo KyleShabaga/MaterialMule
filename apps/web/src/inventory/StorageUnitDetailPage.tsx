@@ -9,6 +9,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
 import { fetchStorageUnit, fetchStorageUnitHistory } from './api';
 import type { InventoryLinkState } from './InventoryPage';
@@ -113,6 +114,7 @@ export function StorageUnitDetailPage() {
         <a href="#receipt">Receipt</a>
         <a href="#location">Location</a>
         <a href="#history">History</a>
+        <a href="#label-preview">Preview label</a>
         <a href="#labels">Labels</a>
       </nav>
 
@@ -165,6 +167,14 @@ export function StorageUnitDetailPage() {
       </section>
 
       <HistorySection storageUnitId={unit.id} />
+
+      <section className="card" id="label-preview" aria-labelledby="label-preview-heading">
+        <h2 id="label-preview-heading">Preview label</h2>
+        <LabelPreviewPanel
+          storageUnit={unit.readableId}
+          receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
+        />
+      </section>
 
       <StorageUnitLabelsSection readableId={unit.readableId} />
     </>

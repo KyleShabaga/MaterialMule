@@ -138,6 +138,10 @@ Remove the `MICROSOFT_*` lines to turn it off again.
 3. Print from a storage unit's page, `/sample-storage/<ID>` (for example
    `/sample-storage/BKT-2026-000001`).
 
+No printer at all? Use **Preview label** on a unit's page (or on the receiving wizard's labels
+step), then **Print / Save as PDF** and print or save at 100% / Actual size: each PDF page is one
+true-size 3.5 × 1.5 in label. Saving a PDF is not a label print and creates no print job (TRP-T39).
+
 The receiving wizard that creates storage units arrives with TRP-T10. Until then, create one from
 the browser console while signed in (for example as `at`):
 
