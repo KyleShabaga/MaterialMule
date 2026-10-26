@@ -9,6 +9,7 @@ import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
 import { PositionSetupPage } from './pages/PositionSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
+import { LabelPrintPage } from './printing/LabelPrintPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { ProjectDetailPage } from './projects/ProjectDetailPage';
 import { ProjectsPage } from './projects/ProjectsPage';
@@ -65,6 +66,9 @@ export const routes: RouteObject[] = [
       {
         element: <RequireActiveSession />,
         children: [
+          // Label print views (TRP-T39): no app chrome, one 3.5 x 1.5 in label per page.
+          { path: '/labels/print/unit/:id', element: <LabelPrintPage scope="unit" /> },
+          { path: '/labels/print/receipt/:id', element: <LabelPrintPage scope="receipt" /> },
           {
             path: '/',
             element: <AppLayout />,
