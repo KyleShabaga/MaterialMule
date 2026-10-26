@@ -2,6 +2,7 @@
   "name": "@trapezoid/shared",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Types and validation schemas shared by the Trapezoid API and web app.",
   "type": "module",
   "main": "./dist/index.cjs",
