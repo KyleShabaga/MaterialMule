@@ -79,11 +79,38 @@ Key rules enforced by the database:
   on the same transaction client as the change; actor initials and name are snapshots.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only).
-- **Receipts** hold 1–50 storage units (owner decision 2026-10-25).
+- **Receipts** hold 1–50 storage units (owner decision 2026-10-25). Each unit records its
+  `receipt_line` (1 = first submitted, unique per receipt, migration 0003) so a retried
+  confirmation returns the same row-to-ID mapping.
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
-- **Staff (migration 0003, TRP-T07).** Official initials are not unique. `expected_upn` (an
+- **Staff (migration 0004, TRP-T07).** Official initials are not unique. `expected_upn` (an
   admin's pre-provisioned work email) is unique ignoring case when set; `approved_by` and
   `approved_at` are set together; `disabled_reason` exists only on a disabled account. Receipts
   keep receiver ID + initials + name snapshots, so renaming or disabling someone never rewrites
   history.
+
+## Receipt confirmation (TRP-T09)
+
+`POST /api/receipts` (`apps/api/src/receiving`) creates a receipt and its storage units in one
+`READ COMMITTED` transaction:
+
+1. Look up the `idempotency_key`. If it exists, compare the stored `request_hash` (SHA-256 of the
+   validated payload with keys sorted, key excluded): equal → return the original result (200),
+   different → 409 `idempotency_key_reused`. Nothing is written either way.
+2. Validate what the shared zod schema can't: project exists, receiver is an active staff member
+   with initials (never LAB), received date not after today in `BUSINESS_TIME_ZONE`, at most
+   `RECEIPT_MAX_UNITS` units (400 `validation_failed` with `{field, code, message}` errors), and
+   every test hole belongs to the project (422 `test_hole_not_in_project`).
+3. Insert the receipt with `ON CONFLICT (idempotency_key) DO NOTHING`. A concurrent request with
+   the same key waits on the unique index until the first commits, then finds its row and replays.
+4. Allocate typed IDs (`allocateStorageUnitIds`, one block per holder kind, in submitted order),
+   insert units at Receiving lab (`in_stock`) and their hole summaries, and audit
+   `receipt.confirmed` plus one `storage_unit.created` per unit, all on the same client.
+
+`READ COMMITTED` is enough: ID allocation serialises on the counter row lock held until commit,
+the key is a unique constraint, the rows validated (project, test hole, user) aren't changed by
+receipts, and the foreign keys re-check them at insert. Any error rolls back everything, including
+the counter increment. The receipt stores the signed-in account (`account_user_id`, e.g. LAB) and
+the selected receiver with initials and name snapshots. Printing is not part of confirmation
+(TRP-T15).

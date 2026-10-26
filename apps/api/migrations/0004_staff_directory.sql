@@ -1,4 +1,4 @@
--- TRP-T07: staff directory, approval and pre-provisioning.
+-- TRP-T07 (0004): staff directory, approval and pre-provisioning.
 -- Initials stay non-unique (two "JS" staff are two people); only an expected UPN identifies a
 -- pre-provisioned entry, and only until that person's first Microsoft sign-in links it.
 
