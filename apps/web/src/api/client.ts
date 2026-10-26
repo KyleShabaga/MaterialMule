@@ -8,9 +8,15 @@ export const UNAUTHENTICATED_EVENT = 'trapezoid:unauthenticated';
 /**
  * fetch() for the Trapezoid API: same-origin cookies, JSON accept header, and the CSRF header the
  * server requires on every state-changing request (TRP-T04). A 401 also fires
- * UNAUTHENTICATED_EVENT; callers still get the response.
+ * UNAUTHENTICATED_EVENT (which sends the user to sign in) unless `reportUnauthenticated` is false,
+ * for screens that keep the user in place and offer Sign in themselves (TRP-T11 receiving).
+ * Callers always get the response.
  */
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+export async function apiFetch(
+  path: string,
+  init: RequestInit = {},
+  { reportUnauthenticated = true }: { reportUnauthenticated?: boolean } = {},
+): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set('accept', 'application/json');
   const method = (init.method ?? 'GET').toUpperCase();
@@ -21,7 +27,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers.set('content-type', 'application/json');
   }
   const response = await fetch(path, { ...init, method, headers, credentials: 'same-origin' });
-  if (response.status === 401) {
+  if (response.status === 401 && reportUnauthenticated) {
     window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));
   }
   return response;
