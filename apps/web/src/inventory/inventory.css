@@ -108,21 +108,6 @@
   margin-top: 0;
 }
 
-.details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 0.5rem 1rem;
-  margin: 0 0 0.75rem;
-}
-
-.details dt {
-  font-weight: 600;
-}
-
-.details dd {
-  margin: 0;
-}
-
 @media (max-width: 640px) {
   .inventory-filters .form-field {
     min-width: 0;
