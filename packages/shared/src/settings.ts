@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// App settings (TRP-T40). `draftAutoDelete`: whether each browser deletes its own receiving drafts
+// App settings (MM-T45). `draftAutoDelete`: whether each browser deletes its own receiving drafts
 // (TRP-T11) that haven't been saved for `afterDays` days. Off by default; drafts that were being
 // confirmed are never deleted. Read by every active session, changed by Admin and Lab Manager.
 

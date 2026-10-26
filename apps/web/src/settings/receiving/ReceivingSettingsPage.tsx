@@ -8,7 +8,7 @@ import { ErrorState, FormField } from '../../components/ui';
 import { useMe } from '../../session/context';
 import { fetchDraftSettings, saveDraftSettings } from './api';
 
-// Settings → Receiving (TRP-T40): draft auto-delete. Everyone may look; Admin and Lab Manager
+// Settings → Receiving (MM-T45): draft auto-delete. Everyone may look; Admin and Lab Manager
 // (`settings.drafts.manage`) may change it. The server enforces the same rule.
 
 export const MANAGE_PERMISSION = 'settings.drafts.manage';
@@ -130,7 +130,7 @@ function DraftAutoDeleteForm({
   );
 }
 
-/** Settings → Receiving (TRP-T40). */
+/** Settings → Receiving (MM-T45). */
 export function ReceivingSettingsPage() {
   const me = useMe();
   const allowed = me.permissions.includes(MANAGE_PERMISSION);

@@ -12,7 +12,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { getDraftSettings, putDraftSettings } from './draft-settings.js';
 
-/** App settings (TRP-T40). */
+/** App settings (MM-T45). */
 @Controller('settings')
 export class SettingsController {
   constructor(private readonly database: DatabaseService) {}

@@ -7,7 +7,7 @@ import { STALE_AFTER_DAYS, isStale, type StoredDraft } from './record';
 
 // "Drafts on this computer" on the receiving landing (TRP-T11). Only drafts this session may
 // see are passed in (LAB drafts for LAB, personal drafts for their owner). With draft auto-delete
-// on (TRP-T40) the Stale badge says when the draft goes, and a notice reports a clean-up.
+// on (MM-T45) the Stale badge says when the draft goes, and a notice reports a clean-up.
 
 export function DraftList({
   drafts,

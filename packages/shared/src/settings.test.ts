@@ -7,7 +7,7 @@ const body = (afterDays: unknown, enabled: unknown = true) => ({
   version: 1,
 });
 
-describe('putDraftSettingsRequestSchema (TRP-T40)', () => {
+describe('putDraftSettingsRequestSchema (MM-T45)', () => {
   it('accepts 30 to 365 whole days', () => {
     for (const days of [30, 90, 365]) {
       expect(putDraftSettingsRequestSchema.safeParse(body(days)).success, String(days)).toBe(true);

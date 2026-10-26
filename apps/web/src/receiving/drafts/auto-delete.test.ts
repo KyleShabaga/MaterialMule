@@ -10,7 +10,7 @@ import {
 import { newRecord, type StoredDraft } from './record';
 import type { DraftStore } from './store';
 
-// Draft auto-delete selection (TRP-T40 T1). Fictional accounts only.
+// Draft auto-delete selection (MM-T45 T1). Fictional accounts only.
 
 const LAB = { id: '00000000-0000-4000-8000-000000000001', accountType: 'shared_lab' as const };
 const AT = { id: '00000000-0000-4000-8000-000000000102', accountType: 'test' as const };
@@ -42,7 +42,7 @@ function memoryStore(records: StoredDraft[]): DraftStore & { ids(): string[] } {
   };
 }
 
-describe('selectAutoDelete (TRP-T40)', () => {
+describe('selectAutoDelete (MM-T45)', () => {
   it('picks visible drafts last saved more than afterDays ago', () => {
     const old = draft(AT, 91);
     const exactly = draft(AT, 90);
@@ -82,7 +82,7 @@ describe('selectAutoDelete (TRP-T40)', () => {
   });
 });
 
-describe('autoDeleteDrafts (TRP-T40)', () => {
+describe('autoDeleteDrafts (MM-T45)', () => {
   it('deletes the selection and counts it', async () => {
     const old = draft(AT, 120);
     const recent = draft(AT, 10);

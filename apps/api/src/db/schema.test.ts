@@ -732,7 +732,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
-  describe('draft auto-delete setting (TRP-T40)', () => {
+  describe('draft auto-delete setting (MM-T45)', () => {
     it('starts as one row: off, 90 days, version 1', async () => {
       const { rows } = await db.pool.query(
         'SELECT enabled, after_days, version FROM draft_auto_delete_setting',

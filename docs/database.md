@@ -211,7 +211,7 @@ are computed by query, never stored.
 - **Edits** bump `project.version` (optimistic concurrency) and record `project.updated` with only
   the changed fields before/after and the reason.
 
-## Draft auto-delete setting (TRP-T40, migration 0019)
+## Draft auto-delete setting (MM-T45, migration 0019)
 
 `draft_auto_delete_setting` holds exactly one row (primary key `singleton`, which can only be
 `true`): `enabled` (default `false`), `after_days` (30–365, default 90, a CHECK constraint),

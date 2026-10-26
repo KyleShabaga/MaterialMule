@@ -36,7 +36,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | test.cancel (D07)                 |     |                   |      ✓      |       |       ✓       |                     |
 | retention.manage (D05)            |     |                   |      ✓      |       |       ✓       |                     |
 | disposal.approve (D19)            |     |                   |      ✓      |       |       ✓       |                     |
-| settings.drafts.manage (T40)      |     |                   |      ✓      |   ✓   |               |                     |
+| settings.drafts.manage (MM-T45)   |     |                   |      ✓      |   ✓   |               |                     |
 | test.accept (D04)                 |     |                   |             |       |       ✓       |          ✓          |
 | program.close (D06)               |     |                   |             |       |       ✓       |                     |
 | acceptance_delegation.manage      |     |                   |             |       |       ✓       |                     |
@@ -161,7 +161,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   project) and audited as `project.updated` with only the changed fields before/after and the
   reason.
 
-## Draft auto-delete setting (TRP-T40)
+## Draft auto-delete setting (MM-T45)
 
 | Route                      | Policy                                                   |
 | -------------------------- | -------------------------------------------------------- |

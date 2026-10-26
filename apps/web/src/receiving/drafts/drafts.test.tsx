@@ -313,7 +313,7 @@ describe('Receiving drafts (TRP-T11)', () => {
   });
 });
 
-describe('Draft auto-delete on Receive samples (TRP-T40)', () => {
+describe('Draft auto-delete on Receive samples (MM-T45)', () => {
   const DAY = 86_400_000;
   const savedDaysAgo = (record: StoredDraft, days: number): StoredDraft => {
     const at = new Date(Date.now() - days * DAY).toISOString();

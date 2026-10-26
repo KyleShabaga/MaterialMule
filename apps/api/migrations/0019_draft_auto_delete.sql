@@ -1,4 +1,4 @@
--- TRP-T40: draft auto-delete setting.
+-- MM-T45: draft auto-delete setting.
 --
 -- Receiving drafts live only in each browser (TRP-T11). This one-row table says whether browsers
 -- delete their own drafts that haven't been saved for `after_days` days. Off by default; Admin and

@@ -182,7 +182,7 @@ Receive samples autosaves each receipt in progress as a draft in that browser on
 TRP-T11): there is no server copy, and another computer never sees it. Drafts not saved for over
 30 days get a **Stale** badge. By default they are never deleted automatically.
 
-A Lab Manager or admin can turn on automatic clean-up in **Settings → Receiving** (TRP-T40):
+A Lab Manager or admin can turn on automatic clean-up in **Settings → Receiving** (MM-T45):
 **Delete drafts automatically** after 30–365 days without changes (default 90). Each computer
 then deletes its own old drafts the next time Receive samples is opened there and says how many,
 e.g. "2 drafts older than 90 days were deleted from this computer (automatic clean-up set by an

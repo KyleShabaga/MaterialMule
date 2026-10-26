@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 
-// TRP-T40 T4: draft auto-delete, against the real API with fictional DEMO-2601 data. The setting
+// MM-T45 T4: draft auto-delete, against the real API with fictional DEMO-2601 data. The setting
 // is server-wide, so only the desktop run changes it (and puts it back); the phone run checks the
 // settings screen without saving, so the two never race for the same setting.
 

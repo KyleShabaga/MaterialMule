@@ -106,7 +106,7 @@ export const routes: RouteObject[] = [
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,
                   },
                   { path: 'printers', element: <PrintersSettingsPage /> },
-                  // Draft auto-delete (TRP-T40): Admin and Lab Manager.
+                  // Draft auto-delete (MM-T45): Admin and Lab Manager.
                   { path: 'receiving', element: <ReceivingSettingsPage /> },
                   // Admin-only operational status (TRP-T21).
                   { path: 'system-status', element: <SystemStatusPage /> },

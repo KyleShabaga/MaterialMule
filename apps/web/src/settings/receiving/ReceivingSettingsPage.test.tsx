@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
 
-// Settings → Receiving (TRP-T40 T3). Fictional people only.
+// Settings → Receiving (MM-T45 T3). Fictional people only.
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   id: '00000000-0000-4000-8000-000000000103',
@@ -74,7 +74,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Settings → Receiving (TRP-T40)', () => {
+describe('Settings → Receiving (MM-T45)', () => {
   it('shows the Receiving tab only to Lab Managers and admins', async () => {
     renderSettings(me(), { get: () => json(200, current(false, 90, 1)) }, '/settings/profile');
     const nav = await screen.findByRole('navigation', { name: 'Settings' });

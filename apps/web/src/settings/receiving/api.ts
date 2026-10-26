@@ -8,7 +8,7 @@ import {
 } from '@trapezoid/shared';
 import { apiFetch } from '../../api/client';
 
-// Draft auto-delete setting (TRP-T40). Every call resolves; failures carry a readable message.
+// Draft auto-delete setting (MM-T45). Every call resolves; failures carry a readable message.
 
 export const DRAFT_SETTINGS_PATH = '/api/settings/drafts';
 

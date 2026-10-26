@@ -45,7 +45,7 @@ export type Permission =
   | 'test.cancel'
   | 'retention.manage'
   | 'disposal.approve'
-  // Lab Manager and Admin (TRP-T40)
+  // Lab Manager and Admin (MM-T45)
   | 'settings.drafts.manage'
   // Project PM/PE (and delegates) only
   | 'test.accept'
@@ -90,7 +90,7 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'test.cancel',
   'retention.manage',
   'disposal.approve',
-  // Draft auto-delete setting (TRP-T40, owner request 2026-10-26).
+  // Draft auto-delete setting (MM-T45, owner request 2026-10-26).
   'settings.drafts.manage',
 ]);
 
@@ -100,7 +100,7 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'session.revoke',
   'test_catalog.manage',
   'printer.manage',
-  // Draft auto-delete setting (TRP-T40).
+  // Draft auto-delete setting (MM-T45).
   'settings.drafts.manage',
   // Projects (TRP-T35): admins edit any project's fields and are the only ones who change its PM/PE.
   'project.edit',

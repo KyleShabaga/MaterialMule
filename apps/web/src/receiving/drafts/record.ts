@@ -10,7 +10,7 @@ export const DRAFT_RECORD_VERSION = 1;
 
 /**
  * Drafts not saved for this long are flagged for review. They are deleted automatically only when
- * an Admin or Lab Manager has turned on draft auto-delete (TRP-T40, see auto-delete.ts).
+ * an Admin or Lab Manager has turned on draft auto-delete (MM-T45, see auto-delete.ts).
  */
 export const STALE_AFTER_DAYS = 30;
 

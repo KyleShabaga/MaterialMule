@@ -19,7 +19,7 @@ import { ReceiptWizard } from './ReceiptWizard';
 // Receiving landing (TRP-T11): "Drafts on this computer" above "Start new receipt". With no
 // drafts to show it goes straight to a new receipt. The open draft's ID is kept in the URL
 // (?draft=…) so signing in again after an expired session comes back to the same draft.
-// On opening, draft auto-delete (TRP-T40) runs first: only with the setting loaded from the
+// On opening, draft auto-delete (MM-T45) runs first: only with the setting loaded from the
 // server and switched on; if it can't load, nothing is deleted.
 
 /**

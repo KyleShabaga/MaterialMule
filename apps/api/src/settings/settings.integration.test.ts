@@ -15,7 +15,7 @@ import {
 } from '../test-support/database.js';
 import { insertProject } from '../test-support/fixtures.js';
 
-describe.runIf(testDatabaseUrl)('draft auto-delete setting API (TRP-T40)', () => {
+describe.runIf(testDatabaseUrl)('draft auto-delete setting API (MM-T45)', () => {
   let db: TestSchema;
   let app: INestApplication;
   const users: Record<string, string> = {};

@@ -2,7 +2,7 @@ import type { DraftSettings, MeResponse } from '@trapezoid/shared';
 import { visibleTo, type StoredDraft } from './record';
 import type { DraftStore } from './store';
 
-// Automatic clean-up of old drafts on this browser (TRP-T40, amends the T11 "never deleted"
+// Automatic clean-up of old drafts on this browser (MM-T45, amends the T11 "never deleted"
 // decision). Runs only with a setting fetched successfully from the server and switched on.
 // It deletes only drafts this session may see (T11 visibility rules) that haven't been saved for
 // more than `afterDays` days, and never a draft in the `confirming` state: its receipt may have
