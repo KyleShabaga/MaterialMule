@@ -1,6 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { APP_GUARD, DiscoveryModule } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
+import { ActivityController } from './activity/activity.controller.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { SessionService } from './auth/session.service.js';
@@ -22,6 +23,7 @@ export class AppModule {
       controllers: [
         HealthController,
         AuthController,
+        ActivityController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],

@@ -26,21 +26,21 @@ scripts          Repo tooling (e.g. check-bundle-secrets.mjs)
 
 ## Commands (run from the repo root)
 
-| Command                 | What it does                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `npm ci`                | Install exactly what's in the lockfile                                            |
-| `npm run dev`           | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)         |
-| `npm run lint`          | ESLint (zero warnings) and Prettier check                                         |
-| `npm run format`        | Prettier write                                                                    |
-| `npm run typecheck`     | `tsc --noEmit` in every workspace                                                 |
-| `npm test`              | Unit and integration tests (Vitest) in every workspace                            |
-| `npm run build`         | Build shared, API and web                                                         |
-| `npm run check:bundle`  | Fail if server config appears in the web bundle                                   |
-| `npm run verify`        | lint → typecheck → test → build → check:bundle (the gate for every card)          |
-| `npm run test:e2e`      | Playwright smoke tests against built API (port 3100) + `vite preview` (port 4173) |
-| `npm run db:migrate`    | Apply pending migrations, then reference data (Receiving lab)                     |
-| `npm run db:seed:dev`   | Load fictional dev fixtures (DEMO-2601, TH26-01/02); refused in production        |
-| `npm run db:reset:test` | Drop and rebuild the test database from `apps/api/.env.test`                      |
+| Command                 | What it does                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| `npm ci`                | Install exactly what's in the lockfile                                                     |
+| `npm run dev`           | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)                  |
+| `npm run lint`          | ESLint (zero warnings) and Prettier check                                                  |
+| `npm run format`        | Prettier write                                                                             |
+| `npm run typecheck`     | `tsc --noEmit` in every workspace                                                          |
+| `npm test`              | Unit and integration tests (Vitest) in every workspace                                     |
+| `npm run build`         | Build shared, API and web                                                                  |
+| `npm run check:bundle`  | Fail if server config appears in the web bundle                                            |
+| `npm run verify`        | lint → typecheck → test → build → check:bundle (the gate for every card)                   |
+| `npm run test:e2e`      | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on 3100 |
+| `npm run db:migrate`    | Apply pending migrations, then reference data (Receiving lab)                              |
+| `npm run db:seed:dev`   | Load fictional dev fixtures (DEMO-2601, TH26-01/02); refused in production                 |
+| `npm run db:reset:test` | Drop and rebuild the test database from `apps/api/.env.test`                               |
 
 Per-workspace: `npm run <script> -w @trapezoid/api` (or `@trapezoid/web`, `@trapezoid/shared`).
 Database details: [docs/database.md](docs/database.md). Migrations are forward-only SQL files in
@@ -48,7 +48,10 @@ Database details: [docs/database.md](docs/database.md). Migrations are forward-o
 integrity rules in the database and prove each in `apps/api/src/db/schema.test.ts`. API tests read
 the test database from `apps/api/.env.test` automatically.
 
-A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows.
+A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows. E2E runs
+production-shaped (the API serves `apps/web/dist` via `WEB_DIST_DIR`, no dev proxy) and signs in with
+`signInAs(page, key)` from `e2e/support/auth.ts`. Locally it uses 2 workers: on the dev PC, more
+parallel browsers made the API stall (AVG Web Shield); CI uses the default.
 
 ## Configuration
 

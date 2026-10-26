@@ -1,0 +1,64 @@
+import { useState } from 'react';
+import { NavLink, Outlet } from 'react-router';
+import { StatusBadge } from '../components/ui';
+import { useMe, useSession } from '../session/context';
+import { accountBadge, visibleNavItems } from './nav';
+
+export function AppLayout() {
+  const me = useMe();
+  const { signOut } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const badge = accountBadge(me);
+
+  return (
+    <div className={`app ${menuOpen ? 'menu-open' : ''}`}>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <header className="app-header">
+        <button
+          type="button"
+          className="menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="side-nav"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          Menu
+        </button>
+        <span className="app-name">Trapezoid</span>
+        <div className="identity" aria-label="Signed in user">
+          <span className="identity-name">
+            {me.displayName}
+            {me.initials ? <span className="identity-initials"> ({me.initials})</span> : null}
+          </span>{' '}
+          <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+          <button type="button" onClick={() => void signOut('/sign-in?switch=1')}>
+            Switch user
+          </button>
+          <button type="button" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
+      </header>
+      <nav id="side-nav" className="side-nav" aria-label="Main">
+        <ul>
+          {visibleNavItems().map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.to === '/'}
+                // Close the phone drawer once a destination is chosen.
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <main id="main" className="app-main" tabIndex={-1}>
+        <Outlet />
+      </main>
+    </div>
+  );
+}

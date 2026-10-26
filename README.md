@@ -81,3 +81,4 @@ To run the database integration test locally, set `TEST_DATABASE_URL` to the sam
 | Page shows **Database: Unavailable** (HTTP 503)     | PostgreSQL isn't running, or `DATABASE_URL` is wrong                        |
 | `Port 5173 is in use`                               | Another Vite dev server is running; stop it                                 |
 | E2E fails waiting for port 3100                     | `apps/api/.env.test` is missing or invalid                                  |
+| E2E requests time out at random with more workers   | Antivirus web shields (AVG here) can stall browser traffic; keep 2 workers  |

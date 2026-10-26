@@ -38,6 +38,8 @@ const envSchema = z.object({
     .string()
     .refine(isValidTimeZone, { error: 'must be an IANA time zone such as America/Edmonton' })
     .default('America/Edmonton'),
+  // Optional: serve the built web app (apps/web/dist) from the API's origin, as production will.
+  WEB_DIST_DIR: z.string().min(1).optional(),
   // Development/test-only fixture sign-in (TRP-T33). Refused in production by loadConfig.
   ENABLE_TEST_AUTH: z
     .enum(['true', 'false'], { error: 'must be true or false' })

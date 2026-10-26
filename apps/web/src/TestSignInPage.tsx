@@ -1,6 +1,9 @@
 import { meResponseSchema, type MeResponse } from '@trapezoid/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { apiFetch } from './api/client';
+import { safeReturnTo } from './lib/return-to';
+import { useSession } from './session/context';
 
 interface Fixture {
   key: string;
@@ -36,10 +39,17 @@ async function loadAll(): Promise<Load> {
 export function TestSignInPage() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [error, setError] = useState<string | null>(null);
+  const { refresh: refreshSession } = useSession();
+  const [params] = useSearchParams();
+  const returnTo = safeReturnTo(params.get('returnTo'));
 
+  // Update the app-wide session before showing "Continue", so following it never races a stale
+  // signed-out state into a redirect back to sign-in.
   const refresh = useCallback(async () => {
-    setLoad(await loadAll());
-  }, []);
+    const next = await loadAll();
+    await refreshSession();
+    setLoad(next);
+  }, [refreshSession]);
 
   useEffect(() => {
     let active = true;
@@ -92,7 +102,10 @@ export function TestSignInPage() {
           {load.me.accountType === 'test' ? <span className="badge">TEST</span> : null}{' '}
           <button type="button" onClick={() => void signOut()}>
             Sign out
-          </button>
+          </button>{' '}
+          <Link className="button primary" to={returnTo}>
+            Continue to Trapezoid
+          </Link>
         </p>
       ) : (
         <p aria-live="polite">Not signed in.</p>

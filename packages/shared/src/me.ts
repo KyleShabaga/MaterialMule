@@ -17,3 +17,12 @@ export type MeResponse = z.infer<typeof meResponseSchema>;
 
 /** Header every state-changing API request must carry (CSRF defence, TRP-T04). */
 export const CSRF_HEADER_NAME = 'x-trapezoid-csrf';
+
+/** Response body of `GET /api/auth/providers`: which sign-in options exist on this server. */
+export const authProvidersResponseSchema = z.object({
+  microsoft: z.boolean(),
+  lab: z.boolean(),
+  test: z.boolean(),
+});
+
+export type AuthProvidersResponse = z.infer<typeof authProvidersResponseSchema>;

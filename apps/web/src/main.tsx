@@ -1,7 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
-import { TestSignInPage } from './TestSignInPage';
+import { createBrowserRouter } from 'react-router';
+import { RouterProvider } from 'react-router/dom';
+import { routes } from './routes';
+import { SessionProvider } from './session/SessionProvider';
 import './styles.css';
 
 const root = document.getElementById('root');
@@ -9,7 +11,12 @@ if (!root) {
   throw new Error('Missing #root element in index.html');
 }
 
-// Minimal path switch until the app shell and router arrive (TRP-T34).
-const page = window.location.pathname === '/sign-in/test' ? <TestSignInPage /> : <App />;
+const router = createBrowserRouter(routes);
 
-createRoot(root).render(<StrictMode>{page}</StrictMode>);
+createRoot(root).render(
+  <StrictMode>
+    <SessionProvider>
+      <RouterProvider router={router} />
+    </SessionProvider>
+  </StrictMode>,
+);
