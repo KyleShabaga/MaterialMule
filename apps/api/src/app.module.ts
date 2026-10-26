@@ -16,6 +16,8 @@ import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { PrintingController } from './printing/printing.controller.js';
+import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
@@ -40,6 +42,7 @@ export class AppModule {
         LabAuthController,
         LabAdminController,
         ActivityController,
+        PrintingController,
         ProjectsController,
         TestHolesController,
         StaffDirectoryController,
@@ -55,6 +58,7 @@ export class AppModule {
         LabAuthService,
         UsersService,
         StaffService,
+        PrintWorkerService,
         ProjectsService,
         TestHolesService,
         ReceiptsService,

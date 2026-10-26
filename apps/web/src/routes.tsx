@@ -3,6 +3,8 @@ import { FEATURES } from './features';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { SignInPage } from './pages/SignInPage';
+import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
+import { StorageUnitLabelsPage } from './printing/StorageUnitLabelsPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -66,6 +68,7 @@ export const routes: RouteObject[] = [
                 path: 'sample-storage',
                 element: <PlaceholderPage title="Sample Storage" card="TRP-T12" />,
               },
+              { path: 'sample-storage/:readableId', element: <StorageUnitLabelsPage /> },
               { path: 'projects', element: <PlaceholderPage title="Projects" card="TRP-T35" /> },
               {
                 path: 'settings',
@@ -81,6 +84,7 @@ export const routes: RouteObject[] = [
                     path: 'locations',
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,
                   },
+                  { path: 'printers', element: <PrintersSettingsPage /> },
                 ],
               },
               ...featureRoutes,

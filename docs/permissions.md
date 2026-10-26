@@ -40,6 +40,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | program.close (D06)               |     |                   |             |       |       ✓       |                     |
 | acceptance_delegation.manage      |     |                   |             |       |       ✓       |                     |
 | staff.manage / session.revoke     |     |                   |             |   ✓   |               |                     |
+| printer.manage (T15)              |     |                   |             |   ✓   |               |                     |
 
 "Project PM/PE" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account.
