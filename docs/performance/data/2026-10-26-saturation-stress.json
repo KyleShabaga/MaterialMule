@@ -1,0 +1,449 @@
+{
+  "label": "saturation stress (unpaced)",
+  "startedAt": "2026-10-26T21:57:37.332Z",
+  "durationSeconds": 30,
+  "ratePerConnection": "unpaced",
+  "warmupSeconds": 5,
+  "seed": 20261025,
+  "database": "trapezoid_test_t19",
+  "system": {
+    "os": "Windows 11 Pro (10.0.26200, x64)",
+    "cpu": "AMD Ryzen 7 9700X 8-Core Processor x 16 logical",
+    "memoryGb": 62,
+    "node": "v24.22.0",
+    "postgres": "PostgreSQL 17.11 on x86_64-windows, compiled by msvc-19.44.35229, 64-bit",
+    "databaseSize": "621 MB",
+    "settings": {
+      "effective_cache_size": "524288 8kB",
+      "jit": "on",
+      "maintenance_work_mem": "65536 kB",
+      "max_connections": "100",
+      "max_parallel_workers_per_gather": "2",
+      "random_page_cost": "4",
+      "shared_buffers": "16384 8kB",
+      "synchronous_commit": "on",
+      "work_mem": "4096 kB"
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "scanners",
+      "description": "2 scanner sessions: storage unit lookup",
+      "connections": 2,
+      "p95TargetMs": 300,
+      "overall": {
+        "count": 16428,
+        "p50": 3,
+        "p95": 5,
+        "p99": 7,
+        "max": 33
+      },
+      "unexpectedStatuses": 0,
+      "socketErrors": 0,
+      "timeouts": 0,
+      "kinds": [
+        {
+          "kind": "lookup: scan storage unit ID",
+          "count": 16428,
+          "p50": 3,
+          "p95": 5,
+          "p99": 7,
+          "max": 33,
+          "statuses": {
+            "200": 16428
+          },
+          "unexpected": 0
+        }
+      ]
+    },
+    {
+      "scenario": "inventory",
+      "description": "5 users: inventory search, filters and paging",
+      "connections": 5,
+      "p95TargetMs": 500,
+      "overall": {
+        "count": 5126,
+        "p50": 14,
+        "p95": 121,
+        "p99": 180,
+        "max": 341
+      },
+      "unexpectedStatuses": 0,
+      "socketErrors": 0,
+      "timeouts": 0,
+      "kinds": [
+        {
+          "kind": "inventory: all statuses by ID, deep page",
+          "count": 360,
+          "p50": 12,
+          "p95": 16,
+          "p99": 18,
+          "max": 26,
+          "statuses": {
+            "200": 360
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: default view",
+          "count": 370,
+          "p50": 14,
+          "p95": 19,
+          "p99": 21,
+          "max": 23,
+          "statuses": {
+            "200": 370
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: default view, later page",
+          "count": 357,
+          "p50": 15,
+          "p95": 19,
+          "p99": 20,
+          "max": 22,
+          "statuses": {
+            "200": 357
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: filter location",
+          "count": 364,
+          "p50": 9,
+          "p95": 12,
+          "p99": 16,
+          "max": 27,
+          "statuses": {
+            "200": 364
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: filter project",
+          "count": 374,
+          "p50": 7,
+          "p95": 10,
+          "p99": 13,
+          "max": 15,
+          "statuses": {
+            "200": 374
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: filter project + test hole",
+          "count": 384,
+          "p50": 7,
+          "p95": 11,
+          "p99": 17,
+          "max": 20,
+          "statuses": {
+            "200": 384
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: filter received dates",
+          "count": 326,
+          "p50": 7,
+          "p95": 10,
+          "p99": 13,
+          "max": 17,
+          "statuses": {
+            "200": 326
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: filter type + status",
+          "count": 386,
+          "p50": 18,
+          "p95": 25,
+          "p99": 29,
+          "max": 36,
+          "statuses": {
+            "200": 386
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: search + type + dates",
+          "count": 349,
+          "p50": 18,
+          "p95": 45,
+          "p99": 51,
+          "max": 67,
+          "statuses": {
+            "200": 349
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: search ID fragment",
+          "count": 356,
+          "p50": 80,
+          "p95": 156,
+          "p99": 195,
+          "max": 235,
+          "statuses": {
+            "200": 356
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: search one common word",
+          "count": 368,
+          "p50": 54,
+          "p95": 104,
+          "p99": 181,
+          "max": 246,
+          "statuses": {
+            "200": 368
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: search project number",
+          "count": 414,
+          "p50": 12,
+          "p95": 18,
+          "p99": 154,
+          "max": 214,
+          "statuses": {
+            "200": 414
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: search test hole",
+          "count": 356,
+          "p50": 62,
+          "p95": 162,
+          "p99": 216,
+          "max": 290,
+          "statuses": {
+            "200": 356
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "inventory: search two words",
+          "count": 362,
+          "p50": 58,
+          "p95": 210,
+          "p99": 263,
+          "max": 341,
+          "statuses": {
+            "200": 362
+          },
+          "unexpected": 0
+        }
+      ]
+    },
+    {
+      "scenario": "detail",
+      "description": "3 users: storage unit detail page",
+      "connections": 3,
+      "p95TargetMs": null,
+      "overall": {
+        "count": 12057,
+        "p50": 7,
+        "p95": 11,
+        "p99": 14,
+        "max": 29
+      },
+      "unexpectedStatuses": 0,
+      "socketErrors": 0,
+      "timeouts": 0,
+      "kinds": [
+        {
+          "kind": "detail: storage unit",
+          "count": 12057,
+          "p50": 7,
+          "p95": 11,
+          "p99": 14,
+          "max": 29,
+          "statuses": {
+            "200": 12057
+          },
+          "unexpected": 0
+        }
+      ]
+    },
+    {
+      "scenario": "detail-sections",
+      "description": "2 users: detail page history and print history",
+      "connections": 2,
+      "p95TargetMs": null,
+      "overall": {
+        "count": 8551,
+        "p50": 7,
+        "p95": 10,
+        "p99": 13,
+        "max": 29
+      },
+      "unexpectedStatuses": 0,
+      "socketErrors": 0,
+      "timeouts": 0,
+      "kinds": [
+        {
+          "kind": "detail: history page 1",
+          "count": 4304,
+          "p50": 6,
+          "p95": 10,
+          "p99": 13,
+          "max": 29,
+          "statuses": {
+            "200": 4304
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "detail: print history",
+          "count": 4247,
+          "p50": 7,
+          "p95": 11,
+          "p99": 13,
+          "max": 21,
+          "statuses": {
+            "200": 4247
+          },
+          "unexpected": 0
+        }
+      ]
+    },
+    {
+      "scenario": "receiving",
+      "description": "2 receiving stations: 5-unit receipt confirmation",
+      "connections": 2,
+      "p95TargetMs": 1000,
+      "overall": {
+        "count": 1108,
+        "p50": 50,
+        "p95": 75,
+        "p99": 161,
+        "max": 257
+      },
+      "unexpectedStatuses": 0,
+      "socketErrors": 0,
+      "timeouts": 0,
+      "kinds": [
+        {
+          "kind": "receipt: confirm 5 units",
+          "count": 1108,
+          "p50": 50,
+          "p95": 75,
+          "p99": 161,
+          "max": 257,
+          "statuses": {
+            "201": 1108
+          },
+          "unexpected": 0
+        }
+      ]
+    },
+    {
+      "scenario": "auth-probes",
+      "description": "1 probe client: requests that must be refused",
+      "connections": 1,
+      "p95TargetMs": null,
+      "overall": {
+        "count": 24470,
+        "p50": 1,
+        "p95": 3,
+        "p99": 4,
+        "max": 17
+      },
+      "unexpectedStatuses": 0,
+      "socketErrors": 0,
+      "timeouts": 0,
+      "kinds": [
+        {
+          "kind": "probe: inventory without a session",
+          "count": 4071,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 9,
+          "statuses": {
+            "401": 4071
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "probe: lookup without a session",
+          "count": 4041,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 8,
+          "statuses": {
+            "401": 4041
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "probe: receipt without a session",
+          "count": 4142,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 6,
+          "statuses": {
+            "401": 4142
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "probe: receipt without the CSRF header",
+          "count": 4054,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 10,
+          "statuses": {
+            "403": 4054
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "probe: technician lists staff (admin only)",
+          "count": 4031,
+          "p50": 2,
+          "p95": 3,
+          "p99": 5,
+          "max": 12,
+          "statuses": {
+            "403": 4031
+          },
+          "unexpected": 0
+        },
+        {
+          "kind": "probe: technician reads printers (admin only)",
+          "count": 4131,
+          "p50": 2,
+          "p95": 3,
+          "p99": 5,
+          "max": 17,
+          "statuses": {
+            "403": 4131
+          },
+          "unexpected": 0
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "problems": [],
+    "storageUnits": 106335,
+    "receipts": 41375,
+    "receiptsSince": 1266,
+    "unitsSince": 6330,
+    "receiptsAcknowledged": 1262,
+    "receiptsInFlightAtCutoff": 4,
+    "unitsIssuedToClients": 6310
+  },
+  "authorizationFailures": 0
+}

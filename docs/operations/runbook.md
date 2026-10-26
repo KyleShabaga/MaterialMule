@@ -23,7 +23,8 @@ decision D25). Written so someone who did not build the app can follow it step b
 8. [Renew the certificate](#renew-the-certificate)
 9. [Logs and health](#logs-and-health)
 10. [Host acceptance tests (T1–T6)](#host-acceptance-tests-t1t6)
-11. [Troubleshooting](#troubleshooting)
+11. [Performance benchmark (TRP-T19)](#performance-benchmark-trp-t19)
+12. [Troubleshooting](#troubleshooting)
 
 ## IT inputs
 
@@ -314,6 +315,14 @@ TRP-T20 card.
 Also for AC4: run the secret check command under [Rotate secrets](#rotate-secrets) after T1–T6.
 For AC6: a second person performs one [Upgrade](#upgrade) using only this page and notes any step
 that was unclear.
+
+## Performance benchmark (TRP-T19)
+
+Before go-live (or out of hours), measure the host with the TRP-T19 benchmark: a separate
+`trapezoid_bench` database and role, a separate checkout with `npm ci`, then `npm run bench:seed`,
+`bench:explain` and `bench:load` for the ten-year and stress datasets. It never touches the
+`trapezoid` database and refuses any database without "bench" or "test" in its name. Step by step,
+including clean-up: [docs/performance/README.md](../performance/README.md#run-it-on-the-host-ac2).
 
 ## Troubleshooting
 

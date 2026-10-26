@@ -163,7 +163,8 @@ sorted and paged on the server (default 25, max 100, with the total).
   `location` rebuild it in the same transaction as the change, so it is never stale. Each search
   word becomes `document LIKE '%word%'` (AND across words, wildcards escaped), backed by a
   `pg_trgm` GIN index. `pg_trgm` is a trusted extension created in `public`; the migration role
-  needs `CREATE` on the database (the owner has it). TRP-T19 benchmarks and tunes.
+  needs `CREATE` on the database (the owner has it). TRP-T19 benchmarked it at ten-year and 5x
+  volume; no index change was needed ([docs/performance](performance/README.md)).
 - **Default view** "Current stock" excludes `disposed`; `status=all` or `status=disposed` show them.
 - **Stable paging.** Sorting by received date always ends with the storage unit ID
   (`COLLATE "C"`), so equal dates never make pages overlap or skip rows.
