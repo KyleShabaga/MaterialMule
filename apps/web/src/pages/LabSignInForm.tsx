@@ -4,7 +4,7 @@ import { apiFetch } from '../api/client';
 import { FormField } from '../components/ui';
 
 /** Messages for each sign-in failure. None repeats what was typed. */
-export async function labSignInError(response: Response): Promise<string | null> {
+async function labSignInError(response: Response): Promise<string | null> {
   if (response.ok) return null;
   if (response.status === 401) return 'The username or password is incorrect.';
   if (response.status === 429) {

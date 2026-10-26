@@ -24,6 +24,12 @@ export function StaffPage() {
 type Load =
   { state: 'loading' } | { state: 'error' } | { state: 'ready'; account: LabAccountResponse };
 
+async function loadAccount(): Promise<Load> {
+  const response = await apiFetch('/api/admin/lab').catch(() => null);
+  const parsed = response?.ok ? labAccountResponseSchema.safeParse(await response.json()) : null;
+  return parsed?.success ? { state: 'ready', account: parsed.data } : { state: 'error' };
+}
+
 type Pending = { kind: 'reset'; password: string } | { kind: 'revoke' } | null;
 
 /** The shared receiving account: reset its password or sign out every LAB station. */
@@ -36,15 +42,17 @@ export function LabAccountCard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    const response = await apiFetch('/api/admin/lab').catch(() => null);
-    const parsed = response?.ok ? labAccountResponseSchema.safeParse(await response.json()) : null;
-    setLoad(parsed?.success ? { state: 'ready', account: parsed.data } : { state: 'error' });
-  }, []);
+  const reload = useCallback(async () => setLoad(await loadAccount()), []);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let active = true;
+    void loadAccount().then((next) => {
+      if (active) setLoad(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function requestReset(event: FormEvent) {
     event.preventDefault();
