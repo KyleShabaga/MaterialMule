@@ -10,52 +10,56 @@ phones, Microsoft tenant) are TRP-T22's and are **not** covered here.
 | Item        | Value                                                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Date        | 2026-10-26                                                                                                                  |
-| Commit      | `f9922c0` (branch `test/trp-t18-receiving-regression`, on main `7863c3a`)                                                   |
+| Commit      | `d818555` (branch `test/trp-t18-receiving-regression`, on main `d21ccf0`, which includes TRP-T11)                           |
 | Environment | Windows 11 Pro 10.0.26200 (dev PC), Node 24.22.0, PostgreSQL 17.11, Playwright 1.64.1 (Chromium), npm 11                    |
 | Database    | Fresh per E2E run (`db:reset:test` + fictional dev seed); each API test file builds its own schema                          |
 | E2E shape   | Production-shaped: the API serves the built web app; fake Zebra printer on `E2E_PORT + 1000`; 2 local workers; `retries: 0` |
 | CI          | GitHub Actions `windows-latest` runs the same, plus `npm run test:e2e:critical -- --repeat-each=3`                          |
 
-| Gate                                                         | Result                                                                                                |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `npm run verify`                                             | Pass (API 439 passed / 9 skipped, shared 54, web 131, deploy 18; lint, typecheck, build, bundle scan) |
-| `npm run test:security`                                      | Pass (11 tests, 2 files)                                                                              |
-| `E2E_PORT=3118 npm run test:e2e` (everything)                | Pass (88 passed, 4 skipped by design)                                                                 |
-| `@critical`, run 1 / 2 / 3 (consecutive, no retries)         | Pass / Pass / Pass (18 passed each: 9 scenarios × 2 viewports)                                        |
-| `npm run test:e2e:critical -- --repeat-each=3` (the CI step) | Pass (54 passed)                                                                                      |
+| Gate                                                                 | Result                                                                                                |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `npm run verify`                                                     | Pass (API 439 passed / 9 skipped, shared 54, web 151, deploy 18; lint, typecheck, build, bundle scan) |
+| `npm run test:security`                                              | Pass (11 tests, 2 files)                                                                              |
+| `E2E_PORT=3118 npm run test:e2e` (everything)                        | Pass (104 passed, 4 skipped by design)                                                                |
+| `npm run test:e2e:critical`, run 1 / 2 / 3 (consecutive, no retries) | Pass / Pass / Pass (24 passed each: 12 tests × 2 viewports)                                           |
+| `npm run test:e2e:critical -- --repeat-each=3` (the CI step)         | Pass (72 passed)                                                                                      |
+
+Before TRP-T11 merged, the same gates also passed at `f9922c0` (critical path 18/18 three times
+in a row; CI green on PR #31 at `d1fcc60`).
 
 ## Outcome per scenario
 
 Each E2E scenario runs at desktop and phone width; "Pass" means both, in every run above.
 
-| #   | Scenario                                                                                                                               | Result                   |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| S1  | Personal user receives two TH26-01 buckets, summaries only; BKT IDs at Receiving lab                                                   | Pass                     |
-| S2  | LAB receives a mixed-hole bucket for chosen receiver JS (Jordan Smith); LAB + receiver attributed                                      | Pass                     |
-| S3  | Missing project and hole added mid-receipt; draft intact; confirms                                                                     | Pass                     |
-| S4  | Double-click Confirm; lost confirmation response retried with the same key: no duplicates                                              | Pass                     |
-| S5  | Offline: Confirm blocked with the message; reconnect and confirm                                                                       | Pass                     |
-| S5b | Offline: the draft keeps autosaving                                                                                                    | Not run: pending TRP-T11 |
-| S6  | LAB session expiry mid-draft; sign in; confirm                                                                                         | Not run: pending TRP-T11 |
-| S7  | Print dropped mid-job ("Unknown — check the printer"), then Reprint: same IDs, location unchanged                                      | Pass                     |
-| S8  | Simulated keyboard scan opens a newly received unit; no writes                                                                         | Pass                     |
-| S9  | Personal correction needs a reason, recalculates retain-until; LAB sees no action and gets 403                                         | Pass                     |
-| S10 | Inventory search and project / location / type filters find the new units                                                              | Pass                     |
-| T2  | Permission sweep: every route × unauthenticated, pending, disabled, LAB, Technician vs `docs/permissions.md`; refusals change no table | Pass                     |
-| T2b | `docs/permissions.md` matrix equals `policy.ts` for every permission and column                                                        | Pass                     |
-| T2c | Test sign-in unreachable with a production configuration (startup refusal, HTTPS production API)                                       | Pass                     |
-| T3a | 15 parallel receipts from 3 stations: distinct, contiguous BKT IDs, no gaps                                                            | Pass                     |
-| T3b | A retry racing other receipts returns its original IDs                                                                                 | Pass                     |
-| T3c | Simultaneous allocations, 4 prefixes × 2 years: independent counters, no duplicates                                                    | Pass                     |
-| T3d | Parallel corrections (version conflict), parallel project / hole creation                                                              | Pass (existing tests)    |
-| T4a | Database error at each of 7 writes of a receipt: nothing persisted, no ID burned, same request then succeeds                           | Pass                     |
-| T4b | Database connection lost mid-receipt: nothing persisted, API keeps serving                                                             | Pass after fix D1        |
-| T4c | API restart while printing: interrupted job uncertain and not resent; later job and reprint print; inventory unchanged                 | Pass                     |
-| T4d | Storage failure for drafts                                                                                                             | Not run: pending TRP-T11 |
-| X1  | Reprint after a received-date correction prints the new date, same ID                                                                  | Pass                     |
+| #   | Scenario                                                                                                                               | Result                |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| S1  | Personal user receives two TH26-01 buckets, summaries only; BKT IDs at Receiving lab                                                   | Pass                  |
+| S2  | LAB receives a mixed-hole bucket for chosen receiver JS (Jordan Smith); LAB + receiver attributed                                      | Pass                  |
+| S3  | Missing project and hole added mid-receipt; draft intact; confirms                                                                     | Pass                  |
+| S4  | Double-click Confirm; lost confirmation response retried with the same key: no duplicates                                              | Pass                  |
+| S5  | Offline: Confirm blocked with the message; reconnect and confirm                                                                       | Pass                  |
+| S5b | Offline: the draft keeps autosaving                                                                                                    | Pass                  |
+| S6  | LAB session expiry mid-draft; sign in; confirm                                                                                         | Pass                  |
+| S7  | Print dropped mid-job ("Unknown — check the printer"), then Reprint: same IDs, location unchanged                                      | Pass                  |
+| S8  | Simulated keyboard scan opens a newly received unit; no writes                                                                         | Pass                  |
+| S9  | Personal correction needs a reason, recalculates retain-until; LAB sees no action and gets 403                                         | Pass                  |
+| S10 | Inventory search and project / location / type filters find the new units                                                              | Pass                  |
+| T2  | Permission sweep: every route × unauthenticated, pending, disabled, LAB, Technician vs `docs/permissions.md`; refusals change no table | Pass                  |
+| T2b | `docs/permissions.md` matrix equals `policy.ts` for every permission and column                                                        | Pass                  |
+| T2c | Test sign-in unreachable with a production configuration (startup refusal, HTTPS production API)                                       | Pass                  |
+| T3a | 15 parallel receipts from 3 stations: distinct, contiguous BKT IDs, no gaps                                                            | Pass                  |
+| T3b | A retry racing other receipts returns its original IDs                                                                                 | Pass                  |
+| T3c | Simultaneous allocations, 4 prefixes × 2 years: independent counters, no duplicates                                                    | Pass                  |
+| T3d | Parallel corrections (version conflict), parallel project / hole creation                                                              | Pass (existing tests) |
+| T4a | Database error at each of 7 writes of a receipt: nothing persisted, no ID burned, same request then succeeds                           | Pass                  |
+| T4b | Database connection lost mid-receipt: nothing persisted, API keeps serving                                                             | Pass after fix D1     |
+| T4c | API restart while printing: interrupted job uncertain and not resent; later job and reprint print; inventory unchanged                 | Pass                  |
+| T4d | Storage failure for drafts                                                                                                             | Pass (T11 E2E T5)     |
+| X1  | Reprint after a received-date correction prints the new date, same ID                                                                  | Pass                  |
 
 AC3 summary: no failure injected here left a partial receipt, a burned or duplicate storage unit
-ID, or a changed unit; draft and identity loss under failures are T11 scenarios, pending.
+ID, or a changed unit; a draft survived offline editing, a failing browser store (reported, never
+shown as saved) and an expired LAB session, keeping its receiver.
 
 ## Defects found
 
@@ -69,9 +73,9 @@ ID, or a changed unit; draft and identity loss under failures are T11 scenarios,
 - **Hardware isn't covered** (TRP-T22): real ZD621 printing, DS3678-XR scanning, staff phones,
   the Microsoft tenant and the office HTTPS host. Printing uses a fake Zebra TCP printer;
   scanning uses keyboard input and a fake camera.
-- **TRP-T11 scenarios are pending** (PR #27 not merged at this commit): draft autosave while
-  offline (S5b), LAB session expiry mid-draft (S6) and storage failure for drafts (T4d). T11's
-  own E2E covers them on its branch; this suite adds them when T11 is on main.
+- **TRP-T11 scenarios** (S5b, S6, T4d) were added after T11 merged mid-card; S5b and T4d reuse
+  T11's own E2E (tagged `@critical`), which marks the LAB station by rewriting `/api/me`; S6 uses a
+  real LAB station session. Storage failure is simulated by making IndexedDB writes throw.
 - **LAB in E2E** uses a second, E2E-only `shared_lab` account with a session row inserted directly
   (`e2e/support/lab-station.ts`), because resetting the seeded LAB password (lab-login.spec.ts)
   revokes every LAB session. The LAB password form itself is covered by `e2e/lab-login.spec.ts`.
