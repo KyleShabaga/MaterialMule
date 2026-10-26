@@ -16,7 +16,7 @@ import {
 } from '../test-support/fixtures.js';
 import { runSeed } from './seed.js';
 
-describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
+describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
   let db: TestSchema;
   let userId: string;
   let locationId: string;
@@ -384,7 +384,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
-  it('keeps each receipt line unique within its receipt (TRP-T09)', async () => {
+  it('keeps each receipt line unique within its receipt (MM-T09)', async () => {
     const { projectId, receiptId, storageUnitId } = await bucketSetup('LINE-1', 'BKT-2026-000801');
     await db.pool.query('UPDATE storage_unit SET receipt_line = 1 WHERE id = $1', [storageUnitId]);
     const second = await insertStorageUnit(
@@ -401,7 +401,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     await db.pool.query('UPDATE storage_unit SET receipt_line = 2 WHERE id = $1', [second]);
   });
 
-  it("keeps each unit's search document current when its sources change (TRP-T12)", async () => {
+  it("keeps each unit's search document current when its sources change (MM-T12)", async () => {
     const { projectId, testHoleId, storageUnitId } = await bucketSetup(
       'SEARCH-1',
       'BKT-2026-000901',
@@ -447,7 +447,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       db.pool.query(`UPDATE location SET active = false WHERE code_normalized = 'RECEIVING'`),
     ).rejects.toMatchObject({ code: PG.checkViolation });
   });
-  describe('print queue (TRP-T15)', () => {
+  describe('print queue (MM-T15)', () => {
     async function job(values: Record<string, unknown> = {}) {
       const columns = ['kind', 'printer_key', 'template_version', 'requested_by_user_id'];
       const params: unknown[] = ['initial', 'schema-printer', 'sticker-v1', userId];
@@ -541,7 +541,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
-  describe('staff directory (TRP-T07)', () => {
+  describe('staff directory (MM-T07)', () => {
     const addStaff = (values: string) =>
       db.pool.query(
         `INSERT INTO app_user (display_name, account_type, status, expected_upn, approved_by,
@@ -585,7 +585,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
-  describe('LAB credentials (TRP-T06)', () => {
+  describe('LAB credentials (MM-T06)', () => {
     const HASH =
       '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';
 
@@ -630,7 +630,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
-  describe('Microsoft identities and profiles (TRP-T05)', () => {
+  describe('Microsoft identities and profiles (MM-T05)', () => {
     const TENANT = '11111111-2222-4333-8444-555555555555';
     const oid = (n: number) => `00000000-0000-4000-8000-0000000b${String(n).padStart(4, '0')}`;
 
@@ -699,7 +699,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     });
   });
 
-  describe('projects (TRP-T35)', () => {
+  describe('projects (MM-T35)', () => {
     it('locks the project number once any receipt exists; other fields stay editable', async () => {
       const projectId = await insertProject(db.pool, 'LOCK-1', userId);
       await db.pool.query(`UPDATE project SET project_number = 'LOCK-1A' WHERE id = $1`, [

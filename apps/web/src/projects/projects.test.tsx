@@ -3,7 +3,7 @@ import type {
   ProjectDetail,
   ProjectListItem,
   ProjectListPage,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -13,7 +13,7 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { projectListSearchParams, readOnlyMine, readProjectListQuery } from './url-state';
 
-// Fictional data only (TRP-T35): DEMO-2601, TH26-01, PM/PE "PE".
+// Fictional data only (MM-T35): DEMO-2601, TH26-01, PM/PE "PE".
 
 const PROJECT_ID = '00000000-0000-4000-8000-000000000201';
 const PE = { id: 'u-pe', displayName: 'Pat Example', initials: 'PE' };
@@ -159,7 +159,7 @@ describe('projects URL state', () => {
   });
 });
 
-describe('Projects table (TRP-T35)', () => {
+describe('Projects table (MM-T35)', () => {
   it('lists projects with counts and opens a project by its ID in the URL', async () => {
     stubApi((url) =>
       url.pathname === '/api/projects' ? json(200, listPage([listItem()], 1)) : undefined,
@@ -221,7 +221,7 @@ describe('Projects table (TRP-T35)', () => {
   });
 });
 
-describe('Project detail (TRP-T35)', () => {
+describe('Project detail (MM-T35)', () => {
   it('shows header fields, the folder path as text with Copy, holes and receipts', async () => {
     stubApi((url) =>
       url.pathname === `/api/projects/${PROJECT_ID}` ? json(200, detail()) : undefined,

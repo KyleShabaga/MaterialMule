@@ -50,7 +50,7 @@ async function seedDrafts(page: Page, drafts: SeedDraft[]): Promise<string[]> {
         };
       });
       return new Promise<string[]>((resolve, reject) => {
-        const open = indexedDB.open('trapezoid-drafts', 1);
+        const open = indexedDB.open('materialmule-drafts', 1);
         open.onupgradeneeded = () =>
           open.result.createObjectStore('receiptDrafts', { keyPath: 'draftId' });
         open.onerror = () => reject(open.error);
@@ -73,7 +73,7 @@ async function storedDescriptions(page: Page): Promise<string[]> {
   return page.evaluate(
     () =>
       new Promise<string[]>((resolve, reject) => {
-        const open = indexedDB.open('trapezoid-drafts');
+        const open = indexedDB.open('materialmule-drafts');
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const all = open.result
@@ -205,7 +205,7 @@ test('Settings → Receiving: Lab Managers can change it, others only see it', a
   await expect(page.getByRole('checkbox', { name: 'Delete drafts automatically' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0);
   const denied = await page.request.put('/api/settings/drafts', {
-    headers: { 'x-trapezoid-csrf': '1' },
+    headers: { 'x-materialmule-csrf': '1' },
     data: { draftAutoDelete: { enabled: true, afterDays: 30 }, version: 1 },
   });
   expect(denied.status()).toBe(403);

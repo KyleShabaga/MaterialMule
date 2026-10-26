@@ -5,7 +5,7 @@ import type { DraftAutoDelete } from './auto-delete';
 import { draftTitle, formatSavedDateTime, receiverText } from './format';
 import { STALE_AFTER_DAYS, isStale, type StoredDraft } from './record';
 
-// "Drafts on this computer" on the receiving landing (TRP-T11). Only drafts this session may
+// "Drafts on this computer" on the receiving landing (MM-T11). Only drafts this session may
 // see are passed in (LAB drafts for LAB, personal drafts for their owner). With draft auto-delete
 // on (MM-T45) the Stale badge says when the draft goes, and a notice reports a clean-up.
 
@@ -103,7 +103,7 @@ export function DraftList({
       {unreadable > 0 ? (
         <p className="field-hint">
           {unreadable === 1 ? '1 draft' : `${unreadable} drafts`} on this computer can't be opened
-          by this version of Trapezoid. They are kept as they are.
+          by this version of Material Mule. They are kept as they are.
         </p>
       ) : null}
       {error ? (
@@ -122,7 +122,7 @@ export function DraftList({
           {discarding ? draftTitle(discarding) : ''}: everything entered is removed from this
           computer. This can't be undone.
           {discarding?.status === 'confirming'
-            ? ' If its confirmation already went through, the storage units stay in Trapezoid.'
+            ? ' If its confirmation already went through, the storage units stay in Material Mule.'
             : ''}
         </p>
       </ConfirmDialog>

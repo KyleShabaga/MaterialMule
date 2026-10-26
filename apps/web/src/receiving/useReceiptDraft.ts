@@ -8,14 +8,14 @@ import {
   type DraftStore,
 } from './drafts/store';
 
-/** Autosave runs this long after the last change (TRP-T11: "about 1 s"). */
+/** Autosave runs this long after the last change (MM-T11: "about 1 s"). */
 export const AUTOSAVE_DELAY_MS = 1000;
 
 export type SaveState =
   { kind: 'unsaved' } | { kind: 'saved'; at: string } | { kind: 'error'; message: string };
 
 /**
- * The receiving draft as one object (TRP-T10), saved on this workstation (TRP-T11): about 1 s
+ * The receiving draft as one object (MM-T10), saved on this workstation (MM-T11): about 1 s
  * after each change, and at once on step changes, when a field loses focus, when the page is
  * hidden or closed, and when the wizard unmounts. Writes run one after another, so an older
  * snapshot never overwrites a newer one. `saveState` reports only what storage confirmed: a

@@ -2,7 +2,7 @@ import {
   formatStorageUnitHoleSummary,
   storageUnitTypeLabel,
   type InventoryItem,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { Link } from 'react-router';
 import { DataTable, type Column } from '../components/ui';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
@@ -13,8 +13,8 @@ export interface StorageUnitLinkState {
 }
 
 /**
- * One row per storage unit (TRP-T12). Shared by Sample Storage and the project detail page
- * (TRP-T35), which leaves out the project column because every row is the same project.
+ * One row per storage unit (MM-T12). Shared by Sample Storage and the project detail page
+ * (MM-T35), which leaves out the project column because every row is the same project.
  */
 export function StorageUnitTable({
   items,

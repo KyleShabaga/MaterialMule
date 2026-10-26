@@ -7,10 +7,10 @@ import {
   type ProjectSummary,
   type ReceiverOption,
   type TestHole,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 
-// The receiving wizard's draft (TRP-T10): one object holding everything entered, so moving
-// between steps never loses a value and TRP-T11 can persist it as is. Receiving is per storage
+// The receiving wizard's draft (MM-T10): one object holding everything entered, so moving
+// between steps never loses a value and MM-T11 can persist it as is. Receiving is per storage
 // unit with one SAMPLE#/DEPTH summary per test hole; there is no individual sample inventory.
 
 export interface SummaryDraft {
@@ -37,7 +37,7 @@ export interface UnitDraft {
 }
 
 export interface ReceiptDraft {
-  /** Created with the draft; every confirmation attempt for this draft reuses it (TRP-T09). */
+  /** Created with the draft; every confirmation attempt for this draft reuses it (MM-T09). */
   idempotencyKey: string;
   projectQuery: string;
   project: ProjectSummary | null;
@@ -294,7 +294,7 @@ export function describeErrors(draft: ReceiptDraft, errors: FieldError[]): Draft
 }
 
 /**
- * Validates the draft with the same shared schema `POST /api/receipts` uses (TRP-T09), plus the
+ * Validates the draft with the same shared schema `POST /api/receipts` uses (MM-T09), plus the
  * server's future-date check, so problems show before any API call.
  */
 export function validateDraft(draft: ReceiptDraft, today = todayInEdmonton()): DraftProblem[] {

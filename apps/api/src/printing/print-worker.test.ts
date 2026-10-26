@@ -27,7 +27,7 @@ const transport = new ZebraTcpTransport({
   sendTimeoutMs: 500,
 });
 
-describe.runIf(testDatabaseUrl)('print worker (TRP-T15)', () => {
+describe.runIf(testDatabaseUrl)('print worker (MM-T15)', () => {
   let db: TestSchema;
   let user: AuthUser;
   let units: string[];
@@ -228,7 +228,7 @@ describe.runIf(testDatabaseUrl)('print worker (TRP-T15)', () => {
 
     expect(await getPrintJob(db.pool, interrupted.id)).toMatchObject({
       status: 'uncertain',
-      lastError: 'Trapezoid restarted while sending these labels',
+      lastError: 'Material Mule restarted while sending these labels',
     });
     // The interrupted job was not resent; only the later job reached the printer.
     expect(printer.labels).toHaveLength(1);

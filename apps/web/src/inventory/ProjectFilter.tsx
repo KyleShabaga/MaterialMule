@@ -1,4 +1,4 @@
-import { projectLabel, type ProjectSummary } from '@trapezoid/shared';
+import { projectLabel, type ProjectSummary } from '@materialmule/shared';
 import { useEffect, useId, useState } from 'react';
 import { searchProjects } from '../api/projects';
 
@@ -10,7 +10,7 @@ type Results =
   | { state: 'error'; query: string };
 
 /**
- * Project filter for the inventory (TRP-T12): type a project number or name, pick a match. The
+ * Project filter for the inventory (MM-T12): type a project number or name, pick a match. The
  * selected project shows as text with a Clear button.
  */
 export function ProjectFilter({

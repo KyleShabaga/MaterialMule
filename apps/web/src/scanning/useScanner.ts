@@ -40,7 +40,7 @@ export interface Scanner {
 }
 
 /**
- * Keyboard-wedge scan capture (TRP-T16). The DS3678-XR cradle types the symbol's data and then
+ * Keyboard-wedge scan capture (MM-T16). The DS3678-XR cradle types the symbol's data and then
  * Enter into whichever field has focus; this hook owns that field. On Enter it trims the value,
  * drops duplicates inside the window, clears the field and keeps focus there for the next scan.
  * Focus leaving the scan panel marks the scanner paused so the screen can say so.

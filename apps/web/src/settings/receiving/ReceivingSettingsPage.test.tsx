@@ -1,4 +1,4 @@
-import type { MeResponse } from '@trapezoid/shared';
+import type { MeResponse } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';

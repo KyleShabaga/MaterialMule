@@ -1,4 +1,4 @@
-/* ---- Inventory and storage unit detail (TRP-T12) ---- */
+/* ---- Inventory and storage unit detail (MM-T12) ---- */
 
 .lookup-id,
 .inventory-search {
@@ -123,7 +123,7 @@
   }
 }
 
-/* ---- Corrections (TRP-T13) ---- */
+/* ---- Corrections (MM-T13) ---- */
 
 .correction-form {
   display: grid;

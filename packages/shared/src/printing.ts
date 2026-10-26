@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Label printing (TRP-T15): request and response shapes shared by the API and the web app.
+// Label printing (MM-T15): request and response shapes shared by the API and the web app.
 
 export const PRINT_JOB_KINDS = ['initial', 'reprint'] as const;
 export const PRINT_JOB_STATUSES = ['queued', 'sending', 'sent', 'failed', 'uncertain'] as const;

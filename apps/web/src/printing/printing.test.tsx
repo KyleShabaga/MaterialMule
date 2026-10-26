@@ -1,4 +1,4 @@
-import type { MeResponse, PrintJob, StorageUnitDetail } from '@trapezoid/shared';
+import type { MeResponse, PrintJob, StorageUnitDetail } from '@materialmule/shared';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -131,7 +131,7 @@ describe('PrintLabelsPanel', () => {
       storageUnitIds: [UNIT.id],
       kind: 'initial',
     });
-    expect(new Headers(post[1]!.headers).get('x-trapezoid-csrf')).toBe('1');
+    expect(new Headers(post[1]!.headers).get('x-materialmule-csrf')).toBe('1');
 
     await act(() => vi.advanceTimersByTimeAsync(PRINT_POLL_MS));
     expect(await screen.findByText('Sending to printer…')).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('storage unit labels page', () => {
       if (url === `/api/storage-units/${UNIT.readableId}/print-history`) {
         return json(200, { storageUnit: UNIT, jobs: [uncertain] });
       }
-      // The labels section sits on the storage unit detail page (TRP-T12).
+      // The labels section sits on the storage unit detail page (MM-T12).
       if (url === `/api/storage-units/${UNIT.readableId}`) return json(200, UNIT_DETAIL);
       if (url.startsWith(`/api/storage-units/${UNIT.id}/history`)) {
         return json(200, { items: [], total: 0, page: 1, pageSize: 20 });

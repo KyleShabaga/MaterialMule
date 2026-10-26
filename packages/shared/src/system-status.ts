@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Operational status (TRP-T21): the backup status record written by deploy/windows/backup.ps1 and
+// Operational status (MM-T21): the backup status record written by deploy/windows/backup.ps1 and
 // the admin-only `GET /api/admin/system-status` response shown under Settings → System status.
 
 export const BACKUP_RESULTS = ['success', 'failed'] as const;
@@ -14,7 +14,7 @@ const backupRunSchema = z.object({
   result: z.enum(BACKUP_RESULTS),
   /** Plain-language outcome; never a password or connection string. */
   message: z.string().max(1000),
-  /** Dump file name, e.g. trapezoid-production-20261026T080000Z-0.2.0-ab12cd3.dump. */
+  /** Dump file name, e.g. materialmule-production-20261026T080000Z-0.2.0-ab12cd3.dump. */
   file: z.string().max(260).nullable(),
   sizeBytes: z.number().int().nonnegative().nullable(),
   version: z.string().max(100).nullable(),

@@ -1,4 +1,4 @@
-import type { ConfirmReceiptResponse, PrintJob } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse, PrintJob } from '@materialmule/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import type { AuthUser } from '../auth/policy.js';
@@ -7,13 +7,13 @@ import { FakeZebraPrinter } from '../test-support/fake-zebra.js';
 import { LAB_ID, ReceivingHarness } from '../test-support/receiving-harness.js';
 import { enqueuePrintJob } from './print-queue.js';
 
-// TRP-T18 card test T4: the API process dies while the print worker is sending labels, then
+// MM-T18 card test T4: the API process dies while the print worker is sending labels, then
 // starts again. print-worker.test.ts proves the worker's recovery rule on its own; this runs the
 // whole service boot path (PrintWorkerService) and the HTTP API around it: the interrupted job
 // becomes "uncertain" and is never resent by itself, later jobs still print, a person's reprint
 // goes through, and no storage unit, ID, receipt or location changes. Fictional data only.
 
-describe.runIf(testDatabaseUrl)('worker restart during printing (TRP-T18 T4)', () => {
+describe.runIf(testDatabaseUrl)('worker restart during printing (MM-T18 T4)', () => {
   let printer: FakeZebraPrinter;
   let h: ReceivingHarness;
   let cookie: string;
@@ -109,7 +109,7 @@ describe.runIf(testDatabaseUrl)('worker restart during printing (TRP-T18 T4)', (
       .toBe('sent');
     expect(await getJob(interrupted.id)).toMatchObject({
       status: 'uncertain',
-      lastError: 'Trapezoid restarted while sending these labels',
+      lastError: 'Material Mule restarted while sending these labels',
     });
     // Only the later job reached the printer; the interrupted one waits for a person.
     expect(printer.labels.slice(labelsBefore)).toHaveLength(1);

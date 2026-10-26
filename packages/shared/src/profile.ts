@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Microsoft sign-in and profile onboarding (TRP-T05).
+// Microsoft sign-in and profile onboarding (MM-T05).
 
 /** App positions a person picks at first sign-in. They describe the work; they grant nothing. */
 export const POSITIONS = ['technician', 'engineer', 'pm_pe', 'lab_manager'] as const;

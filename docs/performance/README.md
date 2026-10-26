@@ -1,4 +1,4 @@
-# Performance benchmark (TRP-T19)
+# Performance benchmark (MM-T19)
 
 A reproducible benchmark of inventory lookup, inventory search and filters, storage unit detail
 pages and receipt confirmation at ten-year volume and at a 5x stress volume, under the concurrent
@@ -36,7 +36,7 @@ document. Any problem, or any probe answered with the wrong status, makes the co
 ## Tools
 
 - **Load generator:** [autocannon](https://github.com/mcollina/autocannon) 8.0.0, MIT licence, a
-  dev dependency of `@trapezoid/api` (pure JavaScript, no install scripts, no external binary; its
+  dev dependency of `@materialmule/api` (pure JavaScript, no install scripts, no external binary; its
   56 transitive packages are MIT, ISC, Apache-2.0, BSD-2/3-Clause). Its `uuid` dependency is
   overridden to 11.1.1 (`overrides` in the root `package.json`) to clear advisory
   GHSA-w5hq-g745-h8pq. Chosen over k6 because k6 is a separate binary.
@@ -67,7 +67,7 @@ the host prints the same fingerprint, it loaded identical data.
   Utilities"). The generated printer is disabled and points at `printer.example.test`; the load
   never prints labels.
 - The load API runs with test sign-in on a separate port and the bench env file; it never uses the
-  service's `trapezoid.env`.
+  service's `materialmule.env`.
 
 ## Run it on the dev PC
 
@@ -86,21 +86,21 @@ npm run bench:load -- --label "stress" --out docs/performance/data/<date>-stress
 ## Run it on the host (AC2)
 
 Do this before go-live or out of hours: the benchmark loads the same CPU, disk and PostgreSQL
-server the service uses. It never touches the `trapezoid` database.
+server the service uses. It never touches the `materialmule` database.
 
 1. **Bench role and database** (as `postgres`; the existing `127.0.0.1` `pg_hba.conf` lines
    already cover it):
    ```powershell
    $psql = 'C:\Program Files\PostgreSQL\17\bin\psql.exe'
-   & $psql -h 127.0.0.1 -U postgres -c "CREATE ROLE trapezoid_bench LOGIN"
-   & $psql -h 127.0.0.1 -U postgres -c "\password trapezoid_bench"
-   & $psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE trapezoid_bench OWNER trapezoid_bench"
+   & $psql -h 127.0.0.1 -U postgres -c "CREATE ROLE materialmule_bench LOGIN"
+   & $psql -h 127.0.0.1 -U postgres -c "\password materialmule_bench"
+   & $psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE materialmule_bench OWNER materialmule_bench"
    ```
 2. **A checkout for the benchmark**, separate from the release folder (the release has no dev
-   dependencies): install Git, clone the repo to e.g. `D:\trapezoid-bench`, check out the commit
+   dependencies): install Git, clone the repo to e.g. `D:\materialmule-bench`, check out the commit
    being measured, then in PowerShell:
    ```powershell
-   cd D:\trapezoid-bench
+   cd D:\materialmule-bench
    npm ci
    npm run build
    Copy-Item apps/api/.env.bench.example apps/api/.env.bench
@@ -111,9 +111,9 @@ server the service uses. It never touches the `trapezoid` database.
 4. **Record** in a new `docs/performance/results-<date>.md`: the host's CPU, RAM, disk, Windows
    build (`Get-CimInstance Win32_Processor`, `Win32_OperatingSystem`, `Get-PhysicalDisk`),
    antivirus, power plan, and the `system` block the load writes into its JSON (PostgreSQL version
-   and settings). Tick AC2 on the TRP-T19 card, or open a follow-up card for each missed target.
-5. **Clean up:** `& $psql -h 127.0.0.1 -U postgres -c "DROP DATABASE trapezoid_bench"`, then the
-   same with `"DROP ROLE trapezoid_bench"`, and delete `apps/api/.env.bench`.
+   and settings). Tick AC2 on the MM-T19 card, or open a follow-up card for each missed target.
+5. **Clean up:** `& $psql -h 127.0.0.1 -U postgres -c "DROP DATABASE materialmule_bench"`, then the
+   same with `"DROP ROLE materialmule_bench"`, and delete `apps/api/.env.bench`.
 
 Differences from production to note with host results: the load uses HTTP on 127.0.0.1 (the
 service serves HTTPS), and the load generator shares the host's CPU.

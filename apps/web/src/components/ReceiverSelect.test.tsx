@@ -1,4 +1,4 @@
-import type { ReceiverOption } from '@trapezoid/shared';
+import type { ReceiverOption } from '@materialmule/shared';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';

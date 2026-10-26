@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-// Optional result sounds (TRP-T16). The scanner beeps when it decodes a symbol; these tones say
-// what Trapezoid made of it, so the two never get confused: one high tone for a match, two low
+// Optional result sounds (MM-T16). The scanner beeps when it decodes a symbol; these tones say
+// what Material Mule made of it, so the two never get confused: one high tone for a match, two low
 // tones for anything else. Off unless the user turns them on; the choice is kept per browser.
 
-const STORAGE_KEY = 'trapezoid.scanSound';
+const STORAGE_KEY = 'materialmule.scanSound';
 
 export function readScanSoundSetting(): boolean {
   try {

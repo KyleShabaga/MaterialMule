@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigError, loadConfig, loadConfigOrExit, tlsConfigured } from './env.js';
 
 const SECRET = 'an-example-session-secret-that-is-long-enough';
-const DB_URL = 'postgres://trapezoid:hunter2pw@127.0.0.1:5432/trapezoid_test';
+const DB_URL = 'postgres://materialmule:hunter2pw@127.0.0.1:5432/materialmule_test';
 
 const validEnv = {
   APP_ENV: 'test',
@@ -10,7 +10,7 @@ const validEnv = {
   SESSION_SECRET: SECRET,
 };
 
-// The smallest production environment that loads (TRP-T20: HTTPS is required there).
+// The smallest production environment that loads (MM-T20: HTTPS is required there).
 const productionEnv = {
   ...validEnv,
   APP_ENV: 'production',
@@ -64,13 +64,13 @@ describe('loadConfig', () => {
     }
   });
 
-  describe('Microsoft sign-in keys (TRP-T05)', () => {
+  describe('Microsoft sign-in keys (MM-T05)', () => {
     // Fictional values only.
     const microsoft = {
       MICROSOFT_TENANT_ID: '11111111-2222-4333-8444-555555555555',
       MICROSOFT_CLIENT_ID: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       MICROSOFT_CLIENT_SECRET: 'fictional-client-secret-value',
-      MICROSOFT_REDIRECT_URI: 'https://trapezoid.example.test/sign-in/microsoft/callback',
+      MICROSOFT_REDIRECT_URI: 'https://materialmule.example.test/sign-in/microsoft/callback',
     };
 
     it('is optional, and complete sets load with Microsoft defaults', () => {
@@ -112,7 +112,7 @@ describe('loadConfig', () => {
         loadConfig({
           ...productionEnv,
           ...microsoft,
-          MICROSOFT_REDIRECT_URI: 'http://trapezoid.example.test/sign-in/microsoft/callback',
+          MICROSOFT_REDIRECT_URI: 'http://materialmule.example.test/sign-in/microsoft/callback',
         }),
       ).toThrowError(/MICROSOFT_REDIRECT_URI must use https in production/);
       expect(loadConfig({ ...productionEnv, ...microsoft }).MICROSOFT_REDIRECT_URI).toMatch(
@@ -121,7 +121,7 @@ describe('loadConfig', () => {
     });
   });
 
-  describe('HTTPS certificate keys (TRP-T20)', () => {
+  describe('HTTPS certificate keys (MM-T20)', () => {
     it('are optional outside production', () => {
       expect(tlsConfigured(loadConfig(validEnv))).toBe(false);
     });

@@ -356,7 +356,7 @@ button:disabled {
   max-width: 24rem;
 }
 
-/* Label printing status (TRP-T15) */
+/* Label printing status (MM-T15) */
 .print-panel,
 .print-status {
   display: flex;
@@ -392,7 +392,7 @@ button:disabled {
   margin-top: 1rem;
 }
 
-/* ---- Inputs (TRP-T07 staff, TRP-T08 receiving) ---- */
+/* ---- Inputs (MM-T07 staff, MM-T08 receiving) ---- */
 
 input[type='text'],
 input[type='search'],
@@ -418,7 +418,7 @@ textarea {
   min-height: 4rem;
 }
 
-/* ---- Receiver selector (TRP-T07) ---- */
+/* ---- Receiver selector (MM-T07) ---- */
 
 .receiver-select {
   max-width: 28rem;
@@ -471,7 +471,7 @@ textarea {
   font-size: 0.875rem;
 }
 
-/* ---- Staff & access (TRP-T07) ---- */
+/* ---- Staff & access (MM-T07) ---- */
 
 .section-header {
   display: flex;
@@ -605,7 +605,7 @@ textarea {
   }
 }
 
-/* ---- Receiving: project and test-hole pickers (TRP-T08) ---- */
+/* ---- Receiving: project and test-hole pickers (MM-T08) ---- */
 
 .receipt-draft input[readonly] {
   background: var(--surface);
@@ -720,7 +720,7 @@ textarea {
   margin: 0 0 0.5rem;
 }
 
-/* ---- Receiving wizard (TRP-T10) ---- */
+/* ---- Receiving wizard (MM-T10) ---- */
 
 .wizard-steps {
   display: flex;
@@ -875,7 +875,7 @@ textarea {
   border-color: var(--warning);
 }
 
-/* ---- Receiving drafts (TRP-T11) ---- */
+/* ---- Receiving drafts (MM-T11) ---- */
 
 .draft-status {
   margin: 0.25rem 0 0.75rem;
@@ -1061,7 +1061,7 @@ textarea {
   }
 }
 
-/* First-login position setup (TRP-T05) */
+/* First-login position setup (MM-T05) */
 .position-options {
   border: 1px solid var(--border);
   border-radius: 8px;

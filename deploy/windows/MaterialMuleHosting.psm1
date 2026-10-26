@@ -1,6 +1,6 @@
 #Requires -Version 7.2
-# Trapezoid Windows hosting helpers (TRP-T20). Used by Deploy-Trapezoid.ps1 and
-# Install-TrapezoidHost.ps1; see docs/operations/runbook.md. Nothing here runs on import.
+# Material Mule Windows hosting helpers (MM-T20). Used by Deploy-MaterialMule.ps1 and
+# Install-MaterialMuleHost.ps1; see docs/operations/runbook.md. Nothing here runs on import.
 
 Set-StrictMode -Version 3.0
 
@@ -8,7 +8,7 @@ $script:VersionPattern = '^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$'
 
 # --- Configuration -------------------------------------------------------------------------------
 
-function Get-TrapezoidHostConfig {
+function Get-MaterialMuleHostConfig {
     <#
     .SYNOPSIS
     Reads the host configuration (a .psd1 data file: no code runs) and fills in derived paths.
@@ -22,7 +22,7 @@ function Get-TrapezoidHostConfig {
     $data = Import-PowerShellDataFile -LiteralPath $Path
     $config = [ordered]@{
         InstallRoot             = $null
-        ServiceName             = 'Trapezoid'
+        ServiceName             = 'MaterialMule'
         NodeExe                 = 'C:\Program Files\nodejs\node.exe'
         ServiceEnvFile          = $null
         MigrationEnvFile        = $null
@@ -62,7 +62,7 @@ function Get-TrapezoidHostConfig {
     $config.LogsDir = Join-Path $root 'logs'
     $config.ServiceDir = Join-Path $root 'service'
     $config.StateFile = Join-Path $root 'deploy-state.json'
-    if (-not $config.ServiceEnvFile) { $config.ServiceEnvFile = Join-Path $config.ConfigDir 'trapezoid.env' }
+    if (-not $config.ServiceEnvFile) { $config.ServiceEnvFile = Join-Path $config.ConfigDir 'materialmule.env' }
     # Administrators only: the service account can't read the migration role's password.
     $config.AdminConfigDir = Join-Path $config.ConfigDir 'admin'
     if (-not $config.MigrationEnvFile) { $config.MigrationEnvFile = Join-Path $config.AdminConfigDir 'migrate.env' }
@@ -74,10 +74,10 @@ function Get-TrapezoidHostConfig {
 
 # --- Logging -------------------------------------------------------------------------------------
 
-function Invoke-TrapezoidLogRotation {
+function Invoke-MaterialMuleLogRotation {
     <#
     .SYNOPSIS
-    Size-based rotation for the scripts' own logs (TRP-T21): when Path reaches MaxSizeMB it becomes
+    Size-based rotation for the scripts' own logs (MM-T21): when Path reaches MaxSizeMB it becomes
     <name>.1<ext>, older copies shift up and copies beyond KeepFiles are deleted. The service's logs
     are rotated by WinSW (10 MB, 10 kept); PostgreSQL's by its own settings (runbook).
     #>
@@ -116,14 +116,14 @@ function Write-DeployLog {
     }
     if (Test-Path -LiteralPath $Config.LogsDir -PathType Container) {
         $deployLog = Join-Path $Config.LogsDir 'deploy.log'
-        Invoke-TrapezoidLogRotation -Path $deployLog -MaxSizeMB 10 -KeepFiles 5
+        Invoke-MaterialMuleLogRotation -Path $deployLog -MaxSizeMB 10 -KeepFiles 5
         Add-Content -LiteralPath $deployLog -Value $line -Encoding utf8
     }
 }
 
 # --- Releases and the current pointer ------------------------------------------------------------
 
-function Read-TrapezoidRelease {
+function Read-MaterialMuleRelease {
     <#
     .SYNOPSIS
     Validates a packed release folder (npm run release:pack) and returns its manifest.
@@ -133,7 +133,7 @@ function Read-TrapezoidRelease {
 
     $manifestPath = Join-Path $Path 'release.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-        throw "Not a Trapezoid release (no release.json): $Path"
+        throw "Not a Material Mule release (no release.json): $Path"
     }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     if ([string]$manifest.version -notmatch $script:VersionPattern) {
@@ -147,7 +147,7 @@ function Read-TrapezoidRelease {
     return $manifest
 }
 
-function Get-TrapezoidCurrentVersion {
+function Get-MaterialMuleCurrentVersion {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config)
     $link = Get-Item -LiteralPath $Config.CurrentLink -Force -ErrorAction SilentlyContinue
@@ -158,7 +158,7 @@ function Get-TrapezoidCurrentVersion {
     return Split-Path -Leaf ([string]$link.Target)
 }
 
-function Set-TrapezoidCurrentRelease {
+function Set-MaterialMuleCurrentRelease {
     <#
     .SYNOPSIS
     Points the `current` junction at releases\<version>. Junctions need no elevation.
@@ -180,7 +180,7 @@ function Set-TrapezoidCurrentRelease {
     New-Item -ItemType Junction -Path $Config.CurrentLink -Target $target | Out-Null
 }
 
-function Get-TrapezoidDeployState {
+function Get-MaterialMuleDeployState {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config)
     if (Test-Path -LiteralPath $Config.StateFile -PathType Leaf) {
@@ -189,7 +189,7 @@ function Get-TrapezoidDeployState {
     return [pscustomobject]@{ Current = $null; Previous = $null; History = @() }
 }
 
-function Save-TrapezoidDeployState {
+function Save-MaterialMuleDeployState {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Config,
@@ -197,7 +197,7 @@ function Save-TrapezoidDeployState {
         [AllowNull()][string]$Previous,
         [Parameter(Mandatory)][string]$Event
     )
-    $old = Get-TrapezoidDeployState -Config $Config
+    $old = Get-MaterialMuleDeployState -Config $Config
     $history = @($old.History) + [pscustomobject]@{
         At      = (Get-Date).ToString('o')
         Event   = $Event
@@ -212,7 +212,7 @@ function Save-TrapezoidDeployState {
     $state | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Config.StateFile -Encoding utf8
 }
 
-function Remove-OldTrapezoidReleases {
+function Remove-OldMaterialMuleReleases {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config, [string[]]$Keep = @())
     $releases = Get-ChildItem -LiteralPath $Config.ReleasesDir -Directory |
@@ -230,12 +230,12 @@ function Remove-OldTrapezoidReleases {
 
 # --- The service, migrations, backup and health ----------------------------------------------------
 
-function Stop-TrapezoidApp {
+function Stop-MaterialMuleApp {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config)
     $service = Get-Service -Name $Config.ServiceName -ErrorAction SilentlyContinue
     if (-not $service) {
-        throw "Windows service '$($Config.ServiceName)' is not installed (run Install-TrapezoidHost.ps1)"
+        throw "Windows service '$($Config.ServiceName)' is not installed (run Install-MaterialMuleHost.ps1)"
     }
     if ($service.Status -ne 'Stopped') {
         # The wrapper sends Ctrl+C; the API drains the print worker and closes the pool first.
@@ -244,13 +244,13 @@ function Stop-TrapezoidApp {
     }
 }
 
-function Start-TrapezoidApp {
+function Start-MaterialMuleApp {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config)
     Start-Service -Name $Config.ServiceName
 }
 
-function Invoke-TrapezoidMigration {
+function Invoke-MaterialMuleMigration {
     <#
     .SYNOPSIS
     Runs the release's migrations as the migration role: DATABASE_URL comes from the migration env
@@ -282,10 +282,10 @@ function Invoke-TrapezoidMigration {
     }
 }
 
-function Invoke-TrapezoidBackup {
+function Invoke-MaterialMuleBackup {
     <#
     .SYNOPSIS
-    Runs the configured pre-deploy backup (TRP-T21). The backup design is deferred (D39), so there is
+    Runs the configured pre-deploy backup (MM-T21). The backup design is deferred (D39), so there is
     no built-in backup: without BackupScript the deploy needs an explicit -SkipBackup.
     #>
     [CmdletBinding()]
@@ -301,7 +301,7 @@ function Invoke-TrapezoidBackup {
     # A script that ends without `exit` leaves LASTEXITCODE alone; don't inherit a stale value.
     $global:LASTEXITCODE = 0
     if ($Config.BackupConfig) {
-        # backup.ps1 (TRP-T21) takes its settings from backup.config.psd1.
+        # backup.ps1 (MM-T21) takes its settings from backup.config.psd1.
         & $Config.BackupScript -ConfigPath $Config.BackupConfig -Reason PreDeploy
     } else {
         & $Config.BackupScript
@@ -311,7 +311,7 @@ function Invoke-TrapezoidBackup {
     }
 }
 
-function Wait-TrapezoidHealthy {
+function Wait-MaterialMuleHealthy {
     <#
     .SYNOPSIS
     Polls GET /api/health until it answers 200 with status "ok", or the timeout passes.
@@ -342,10 +342,10 @@ function Wait-TrapezoidHealthy {
 
 # --- Deploy and rollback ---------------------------------------------------------------------------
 
-function Restore-TrapezoidPrevious {
+function Restore-MaterialMulePrevious {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config, [AllowNull()][string]$Previous, [Parameter(Mandatory)][string]$Failed)
-    try { Stop-TrapezoidApp -Config $Config } catch {
+    try { Stop-MaterialMuleApp -Config $Config } catch {
         Write-DeployLog -Config $Config -Level WARN -Message "Stopping the failed release: $($_.Exception.Message)"
     }
     if (-not $Previous) {
@@ -353,19 +353,19 @@ function Restore-TrapezoidPrevious {
         return 'Failed'
     }
     Write-DeployLog -Config $Config -Level WARN -Message "Rolling back to $Previous"
-    Set-TrapezoidCurrentRelease -Config $Config -Version $Previous
-    Start-TrapezoidApp -Config $Config
-    if (Wait-TrapezoidHealthy -Config $Config) {
-        Save-TrapezoidDeployState -Config $Config -Current $Previous -Previous $null -Event "rolled back from $Failed"
+    Set-MaterialMuleCurrentRelease -Config $Config -Version $Previous
+    Start-MaterialMuleApp -Config $Config
+    if (Wait-MaterialMuleHealthy -Config $Config) {
+        Save-MaterialMuleDeployState -Config $Config -Current $Previous -Previous $null -Event "rolled back from $Failed"
         Write-DeployLog -Config $Config -Level WARN -Message "Rolled back to $Previous; it is healthy"
         return 'RolledBack'
     }
-    Save-TrapezoidDeployState -Config $Config -Current $Previous -Previous $null -Event "rollback from $Failed unhealthy"
+    Save-MaterialMuleDeployState -Config $Config -Current $Previous -Previous $null -Event "rollback from $Failed unhealthy"
     Write-DeployLog -Config $Config -Level ERROR -Message "Rolled back to $Previous but it is not healthy either. Follow the runbook's recovery steps."
     return 'RollbackFailed'
 }
 
-function Invoke-TrapezoidDeploy {
+function Invoke-MaterialMuleDeploy {
     <#
     .SYNOPSIS
     Back up -> stop -> switch release -> migrate -> start -> health check, rolling back
@@ -378,15 +378,15 @@ function Invoke-TrapezoidDeploy {
         [switch]$SkipBackup
     )
     $source = (Resolve-Path -LiteralPath $ReleasePath).Path
-    $manifest = Read-TrapezoidRelease -Path $source
+    $manifest = Read-MaterialMuleRelease -Path $source
     $version = [string]$manifest.version
-    $previous = Get-TrapezoidCurrentVersion -Config $Config
+    $previous = Get-MaterialMuleCurrentVersion -Config $Config
     $destination = Join-Path $Config.ReleasesDir $version
     if ($previous -eq $version) {
         throw "Release $version is already current"
     }
     if (Test-Path -LiteralPath $destination) {
-        throw "Release $version is already on this host; use Deploy-Trapezoid.ps1 -Rollback -ToVersion $version to switch to it"
+        throw "Release $version is already on this host; use Deploy-MaterialMule.ps1 -Rollback -ToVersion $version to switch to it"
     }
 
     $plan = "deploy $version (current: $(if ($previous) { $previous } else { 'none' }))"
@@ -407,12 +407,12 @@ function Invoke-TrapezoidDeploy {
 
     Write-DeployLog -Config $Config -Message "Deploying $version (from $source); current is $(if ($previous) { $previous } else { 'none' })"
     # Backup first: if it fails, nothing has changed yet.
-    Invoke-TrapezoidBackup -Config $Config -SkipBackup:$SkipBackup
+    Invoke-MaterialMuleBackup -Config $Config -SkipBackup:$SkipBackup
     Copy-Item -LiteralPath $source -Destination $destination -Recurse
     if ($previous) {
         Write-DeployLog -Config $Config -Message "Stopping $($Config.ServiceName)"
         try {
-            Stop-TrapezoidApp -Config $Config
+            Stop-MaterialMuleApp -Config $Config
         } catch {
             # Nothing switched yet: forget the copy so the same release can be deployed again.
             Remove-Item -LiteralPath $destination -Recurse -Force
@@ -420,32 +420,32 @@ function Invoke-TrapezoidDeploy {
         }
     }
     try {
-        Set-TrapezoidCurrentRelease -Config $Config -Version $version
+        Set-MaterialMuleCurrentRelease -Config $Config -Version $version
         Write-DeployLog -Config $Config -Message 'Running migrations'
-        Invoke-TrapezoidMigration -Config $Config -Version $version
+        Invoke-MaterialMuleMigration -Config $Config -Version $version
     } catch {
         Write-DeployLog -Config $Config -Level ERROR -Message "$($_.Exception.Message). Migrations run one file per transaction, so the failed file left no change; earlier files in this release stay applied (restore the pre-deploy backup if the previous release cannot run on them)."
-        $outcome = Restore-TrapezoidPrevious -Config $Config -Previous $previous -Failed $version
+        $outcome = Restore-MaterialMulePrevious -Config $Config -Previous $previous -Failed $version
         return [pscustomobject]@{ Outcome = $outcome; Version = $version; Previous = $previous; Reason = 'migration' }
     }
 
     Write-DeployLog -Config $Config -Message "Starting $($Config.ServiceName)"
     $started = $true
-    try { Start-TrapezoidApp -Config $Config } catch {
+    try { Start-MaterialMuleApp -Config $Config } catch {
         $started = $false
         Write-DeployLog -Config $Config -Level ERROR -Message "Service did not start: $($_.Exception.Message)"
     }
-    if ($started -and (Wait-TrapezoidHealthy -Config $Config)) {
-        Save-TrapezoidDeployState -Config $Config -Current $version -Previous $previous -Event 'deployed'
+    if ($started -and (Wait-MaterialMuleHealthy -Config $Config)) {
+        Save-MaterialMuleDeployState -Config $Config -Current $version -Previous $previous -Event 'deployed'
         Write-DeployLog -Config $Config -Message "Deployed $version; health check passed"
-        Remove-OldTrapezoidReleases -Config $Config -Keep @($version, $previous | Where-Object { $_ })
+        Remove-OldMaterialMuleReleases -Config $Config -Keep @($version, $previous | Where-Object { $_ })
         return [pscustomobject]@{ Outcome = 'Deployed'; Version = $version; Previous = $previous }
     }
-    $outcome = Restore-TrapezoidPrevious -Config $Config -Previous $previous -Failed $version
+    $outcome = Restore-MaterialMulePrevious -Config $Config -Previous $previous -Failed $version
     return [pscustomobject]@{ Outcome = $outcome; Version = $version; Previous = $previous; Reason = 'health' }
 }
 
-function Invoke-TrapezoidRollback {
+function Invoke-MaterialMuleRollback {
     <#
     .SYNOPSIS
     Switches back to the previous release (or -ToVersion) by hand. Migrations are forward-only and
@@ -453,8 +453,8 @@ function Invoke-TrapezoidRollback {
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param([Parameter(Mandatory)]$Config, [string]$ToVersion)
-    $state = Get-TrapezoidDeployState -Config $Config
-    $current = Get-TrapezoidCurrentVersion -Config $Config
+    $state = Get-MaterialMuleDeployState -Config $Config
+    $current = Get-MaterialMuleCurrentVersion -Config $Config
     $target = if ($ToVersion) { $ToVersion } else { [string]$state.Previous }
     if (-not $target) {
         throw 'No previous release is recorded; name one with -ToVersion'
@@ -469,15 +469,15 @@ function Invoke-TrapezoidRollback {
         return [pscustomobject]@{ Outcome = 'WhatIf'; Version = $target; Previous = $current }
     }
     Write-DeployLog -Config $Config -Message "Manual rollback from $current to $target"
-    Stop-TrapezoidApp -Config $Config
-    Set-TrapezoidCurrentRelease -Config $Config -Version $target
-    Start-TrapezoidApp -Config $Config
-    if (Wait-TrapezoidHealthy -Config $Config) {
-        Save-TrapezoidDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback'
+    Stop-MaterialMuleApp -Config $Config
+    Set-MaterialMuleCurrentRelease -Config $Config -Version $target
+    Start-MaterialMuleApp -Config $Config
+    if (Wait-MaterialMuleHealthy -Config $Config) {
+        Save-MaterialMuleDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback'
         Write-DeployLog -Config $Config -Message "Now running $target; health check passed"
         return [pscustomobject]@{ Outcome = 'RolledBack'; Version = $target; Previous = $current }
     }
-    Save-TrapezoidDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback unhealthy'
+    Save-MaterialMuleDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback unhealthy'
     Write-DeployLog -Config $Config -Level ERROR -Message "$target is not healthy after the rollback"
     return [pscustomobject]@{ Outcome = 'RollbackFailed'; Version = $target; Previous = $current }
 }
@@ -494,7 +494,7 @@ function Test-PasswordlessServiceAccount([string]$Account) {
     return ($Account -match '^NT SERVICE\\[A-Za-z0-9_.-]+$') -or ($Account -match '^[A-Za-z0-9_.-]+\\[A-Za-z0-9_.-]+\$$')
 }
 
-function New-TrapezoidServiceXml {
+function New-MaterialMuleServiceXml {
     <#
     .SYNOPSIS
     WinSW 2.x configuration: automatic (delayed) start after PostgreSQL, restart on failure with
@@ -522,11 +522,11 @@ function New-TrapezoidServiceXml {
         $depend = "`n  <depend>$(ConvertTo-XmlText $Config.PostgresServiceName)</depend>"
     }
     return @"
-<!-- Generated by Install-TrapezoidHost.ps1 (TRP-T20). Edit host.config.psd1 and re-run instead. -->
+<!-- Generated by Install-MaterialMuleHost.ps1 (MM-T20). Edit host.config.psd1 and re-run instead. -->
 <service>
   <id>$(ConvertTo-XmlText $Config.ServiceName)</id>
   <name>$(ConvertTo-XmlText $Config.ServiceName)</name>
-  <description>Trapezoid laboratory sample tracking (NestJS API and web app over HTTPS).</description>
+  <description>Material Mule laboratory sample tracking (NestJS API and web app over HTTPS).</description>
   <executable>$(ConvertTo-XmlText $Config.NodeExe)</executable>
   <arguments>"$(ConvertTo-XmlText $main)"</arguments>
   <workingdirectory>$(ConvertTo-XmlText $workDir)</workingdirectory>
@@ -551,7 +551,7 @@ function New-TrapezoidServiceXml {
 
 # --- Database exposure checks (read-only) -------------------------------------------------------------
 
-function Test-TrapezoidDatabaseExposure {
+function Test-MaterialMuleDatabaseExposure {
     <#
     .SYNOPSIS
     Reads postgresql.conf and pg_hba.conf and lists anything that lets other computers reach
@@ -598,8 +598,8 @@ function Test-TrapezoidDatabaseExposure {
     return , $problems.ToArray()
 }
 
-Export-ModuleMember -Function Invoke-TrapezoidLogRotation, Test-TrapezoidDatabaseExposure, Get-TrapezoidHostConfig, Write-DeployLog, Read-TrapezoidRelease,
-    Get-TrapezoidCurrentVersion, Set-TrapezoidCurrentRelease, Get-TrapezoidDeployState,
-    Save-TrapezoidDeployState, Remove-OldTrapezoidReleases, Stop-TrapezoidApp, Start-TrapezoidApp,
-    Invoke-TrapezoidMigration, Invoke-TrapezoidBackup, Wait-TrapezoidHealthy, Invoke-TrapezoidDeploy,
-    Invoke-TrapezoidRollback, New-TrapezoidServiceXml, Test-PasswordlessServiceAccount
+Export-ModuleMember -Function Invoke-MaterialMuleLogRotation, Test-MaterialMuleDatabaseExposure, Get-MaterialMuleHostConfig, Write-DeployLog, Read-MaterialMuleRelease,
+    Get-MaterialMuleCurrentVersion, Set-MaterialMuleCurrentRelease, Get-MaterialMuleDeployState,
+    Save-MaterialMuleDeployState, Remove-OldMaterialMuleReleases, Stop-MaterialMuleApp, Start-MaterialMuleApp,
+    Invoke-MaterialMuleMigration, Invoke-MaterialMuleBackup, Wait-MaterialMuleHealthy, Invoke-MaterialMuleDeploy,
+    Invoke-MaterialMuleRollback, New-MaterialMuleServiceXml, Test-PasswordlessServiceAccount

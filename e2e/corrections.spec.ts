@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertInventoryFixture } from './support/inventory';
 
-// TRP-T13: correct a confirmed storage unit from its detail page. Fictional, per-test data.
+// MM-T13: correct a confirmed storage unit from its detail page. Fictional, per-test data.
 
 test('T7: correct a summary from the detail page; the history shows it and the ID stays', async ({
   page,

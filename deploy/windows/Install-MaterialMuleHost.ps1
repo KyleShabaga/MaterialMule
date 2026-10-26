@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-One-time (re-runnable) setup of the Windows host for Trapezoid (TRP-T20).
+One-time (re-runnable) setup of the Windows host for Material Mule (MM-T20).
 
 .DESCRIPTION
 1. Folders: <InstallRoot>\{config, config\admin, releases, logs, service}.
@@ -14,11 +14,11 @@ One-time (re-runnable) setup of the Windows host for Trapezoid (TRP-T20).
 7. Read-only checks: PostgreSQL listens on localhost only, no remote pg_hba entries, no firewall
    rule opening the database port.
 
-With -BackupConfigPath (TRP-T21; only once IT has decided the backup design, D39):
+With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39):
 8. Backup folders under <InstallRoot>\ops (staging, status, logs) readable only by Administrators
    and the backup account; the service account may read status\ (Settings -> System status).
-9. Windows event log source "Trapezoid" for backup and monitoring alerts.
-10. Scheduled tasks "\Trapezoid\Trapezoid Backup" (at BackupTimes) and "\Trapezoid\Trapezoid
+9. Windows event log source "MaterialMule" for backup and monitoring alerts.
+10. Scheduled tasks "\MaterialMule\MaterialMule Backup" (at BackupTimes) and "\MaterialMule\MaterialMule
     Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
     signed in.
 
@@ -26,10 +26,10 @@ Always preview first with -WhatIf, which changes nothing and also works without 
 Run for real from an elevated PowerShell 7 prompt on the host. See docs\operations\runbook.md.
 
 .EXAMPLE
-.\Install-TrapezoidHost.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -WhatIf
+.\Install-MaterialMuleHost.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -WhatIf
 
 .EXAMPLE
-.\Install-TrapezoidHost.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -BackupConfigPath C:\Trapezoid\config\backup.config.psd1 -WhatIf
+.\Install-MaterialMuleHost.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -BackupConfigPath C:\MaterialMule\config\backup.config.psd1 -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -37,18 +37,18 @@ param(
     # Steps to leave out, e.g. -Skip Power,Firewall when IT manages them by policy.
     [ValidateSet('Folders', 'Service', 'Permissions', 'Firewall', 'Postgres', 'Power', 'BackupFolders', 'EventLog', 'ScheduledTasks')]
     [string[]]$Skip = @(),
-    # TRP-T21: backup.config.psd1. Adds the backup folders, event log source and scheduled tasks;
+    # MM-T21: backup.config.psd1. Adds the backup folders, event log source and scheduled tasks;
     # refuses while IT's backup decisions (D39) are missing from it.
     [string]$BackupConfigPath
 )
 
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'TrapezoidHosting.psm1')
-$config = Get-TrapezoidHostConfig -Path $ConfigPath
+Import-Module (Join-Path $PSScriptRoot 'MaterialMuleHosting.psm1')
+$config = Get-MaterialMuleHostConfig -Path $ConfigPath
 $backupConfig = $null
 if ($BackupConfigPath) {
-    Import-Module (Join-Path $PSScriptRoot 'TrapezoidOps.psm1')
-    $backupConfig = Get-TrapezoidBackupConfig -Path $BackupConfigPath -Purpose Install
+    Import-Module (Join-Path $PSScriptRoot 'MaterialMuleOps.psm1')
+    $backupConfig = Get-MaterialMuleBackupConfig -Path $BackupConfigPath -Purpose Install
 }
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -64,8 +64,8 @@ if ($config.ServiceAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL S
     throw 'ServiceAccount must be a dedicated low-privilege account, not a built-in or admin account.'
 }
 
-$winsw = Join-Path $config.ServiceDir 'trapezoid-service.exe'
-$serviceXml = Join-Path $config.ServiceDir 'trapezoid-service.xml'
+$winsw = Join-Path $config.ServiceDir 'materialmule-service.exe'
+$serviceXml = Join-Path $config.ServiceDir 'materialmule-service.xml'
 $warnings = [System.Collections.Generic.List[string]]::new()
 
 function Step([string]$Name) { Write-Host "`n== $Name ==" -ForegroundColor Cyan }
@@ -86,7 +86,7 @@ if ('Folders' -notin $Skip) {
 # 2. Windows service (WinSW) --------------------------------------------------------------------
 if ('Service' -notin $Skip) {
     Step 'Windows service'
-    $xml = New-TrapezoidServiceXml -Config $config
+    $xml = New-MaterialMuleServiceXml -Config $config
     if ($PSCmdlet.ShouldProcess($serviceXml, 'write WinSW service configuration')) {
         Set-Content -LiteralPath $serviceXml -Value $xml -Encoding utf8
     }
@@ -147,9 +147,9 @@ if ('Permissions' -notin $Skip) {
 # 4. Firewall -------------------------------------------------------------------------------------
 if ('Firewall' -notin $Skip) {
     Step 'Windows Firewall'
-    $ruleName = 'Trapezoid-HTTPS-In'
+    $ruleName = 'MaterialMule-HTTPS-In'
     $ruleArgs = @{
-        DisplayName   = "Trapezoid HTTPS (TCP $($config.HttpsPort), TRP-T20)"
+        DisplayName   = "Material Mule HTTPS (TCP $($config.HttpsPort), MM-T20)"
         Direction     = 'Inbound'
         Action        = 'Allow'
         Protocol      = 'TCP'
@@ -193,7 +193,7 @@ if ('Power' -notin $Skip) {
     $warnings.Add('Windows Update restart window: agree active hours / maintenance window with IT (manual)')
 }
 
-# 8-10. Backups and monitoring (TRP-T21) -------------------------------------------------------------
+# 8-10. Backups and monitoring (MM-T21) -------------------------------------------------------------
 if ($backupConfig) {
     $backupAccount = [string]$backupConfig.BackupAccount
     if ($backupAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL SERVICE|NETWORK SERVICE)$' -or
@@ -255,7 +255,7 @@ if ($backupConfig) {
         # A gMSA (DOMAIN\name$) has no password to enter.
         $passwordless = $backupAccount.EndsWith('$')
         $credential = $null
-        foreach ($task in Get-TrapezoidScheduledTaskPlan -Config $backupConfig) {
+        foreach ($task in Get-MaterialMuleScheduledTaskPlan -Config $backupConfig) {
             $when = if ($task.EveryMinutes) { "every $($task.EveryMinutes) min" } else { "daily at $($task.Times -join ', ')" }
             if ($PSCmdlet.ShouldProcess("$($task.Path)$($task.Name)", "register scheduled task: $($task.Execute) $($task.Arguments), $when, as $backupAccount")) {
                 $action = New-ScheduledTaskAction -Execute $task.Execute -Argument $task.Arguments
@@ -295,7 +295,7 @@ if ($backupConfig) {
 # 7. Read-only checks ------------------------------------------------------------------------------
 Step 'Database exposure checks (read-only)'
 if ($config.PostgresDataDir) {
-    foreach ($problem in Test-TrapezoidDatabaseExposure -DataDir $config.PostgresDataDir) {
+    foreach ($problem in Test-MaterialMuleDatabaseExposure -DataDir $config.PostgresDataDir) {
         $warnings.Add("PostgreSQL: $problem")
     }
 } else {

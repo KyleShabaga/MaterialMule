@@ -4,7 +4,7 @@ import {
   printJobSchema,
   printersResponseSchema,
   type PrintJob,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { listAuditForEntity } from '../audit/audit.js';
@@ -30,7 +30,7 @@ import {
 } from '../test-support/fixtures.js';
 import { PrintWorkerService } from './print-worker.service.js';
 
-describe.runIf(testDatabaseUrl)('printing API (TRP-T15)', () => {
+describe.runIf(testDatabaseUrl)('printing API (MM-T15)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let printer: FakeZebraPrinter;

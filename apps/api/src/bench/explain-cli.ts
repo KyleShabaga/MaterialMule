@@ -1,10 +1,10 @@
 // `npm run bench:explain -- [--draws 5] [--seed N] [--out plans.md] [--env-file F]`
-// Captures EXPLAIN (ANALYZE, BUFFERS) for every statement the read endpoints run (TRP-T19). It
+// Captures EXPLAIN (ANALYZE, BUFFERS) for every statement the read endpoints run (MM-T19). It
 // calls the real service functions with a pool that explains each statement before running it, so
 // the plans are of exactly the SQL the API sends. Read-only: it never writes.
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { inventoryQuerySchema } from '@trapezoid/shared';
+import { inventoryQuerySchema } from '@materialmule/shared';
 import { Pool, type QueryResult } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';
 import { queryInventory } from '../inventory/inventory.service.js';

@@ -1,4 +1,4 @@
-import { projectListSortDirection, type ProjectListQuery } from '@trapezoid/shared';
+import { projectListSortDirection, type ProjectListQuery } from '@materialmule/shared';
 import { likeEscape } from './projects.service.js';
 
 /** Parameterised pieces of the projects list query. Values only ever travel as parameters. */
@@ -12,7 +12,7 @@ export interface ProjectListSql {
 }
 
 /**
- * Builds the projects list query (TRP-T35). Search matches number, name or client (contains,
+ * Builds the projects list query (MM-T35). Search matches number, name or client (contains,
  * ignoring case); "Only mine" keeps projects where `userId` is the PM/PE or review engineer. The
  * project number (then ID) ends every sort so pages never overlap or skip.
  */

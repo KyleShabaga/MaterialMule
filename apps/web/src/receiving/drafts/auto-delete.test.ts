@@ -1,4 +1,4 @@
-import type { DraftSettings } from '@trapezoid/shared';
+import type { DraftSettings } from '@materialmule/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { newDraft } from '../draft';
 import {

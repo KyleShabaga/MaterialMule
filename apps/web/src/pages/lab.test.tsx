@@ -1,4 +1,4 @@
-import type { MeResponse } from '@trapezoid/shared';
+import type { MeResponse } from '@materialmule/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -96,7 +96,7 @@ describe('LAB sign-in form', () => {
       username: 'LAB',
       password: 'generated-in-test',
     });
-    expect(new Headers(signIn.init?.headers).get('x-trapezoid-csrf')).toBe('1');
+    expect(new Headers(signIn.init?.headers).get('x-materialmule-csrf')).toBe('1');
   });
 
   it('explains wrong passwords and lockouts without repeating the password', async () => {

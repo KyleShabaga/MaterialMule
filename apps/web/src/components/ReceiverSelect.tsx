@@ -1,4 +1,8 @@
-import { formatReceiver, receiverListResponseSchema, type ReceiverOption } from '@trapezoid/shared';
+import {
+  formatReceiver,
+  receiverListResponseSchema,
+  type ReceiverOption,
+} from '@materialmule/shared';
 import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../api/client';
 
@@ -8,7 +12,7 @@ export const NOT_LISTED_MESSAGE = 'Not listed? Ask an administrator to add them.
 type Results = { state: 'error' } | { state: 'ready'; options: ReceiverOption[] };
 
 /**
- * "Received by" combobox (TRP-T07, used by receiving in TRP-T10). Lists active staff matching
+ * "Received by" combobox (MM-T07, used by receiving in MM-T10). Lists active staff matching
  * the typed initials or name, shown as "JS · Jordan Smith (Tech)" so people sharing initials are
  * told apart. Starts empty, never pre-selects the signed-in account, and accepts only a listed
  * person: typing after a selection clears it, so free-text initials can't be submitted. Choosing

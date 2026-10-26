@@ -18,7 +18,7 @@ import {
   type PrintHistoryResponse,
   type PrintJob,
   type Printer,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { z } from 'zod';
 import { requestIdOf } from '../auth/auth.controller.js';
 import {
@@ -68,7 +68,7 @@ function toHttpError(error: unknown): never {
   throw error;
 }
 
-/** Label printing (TRP-T15). Printing never changes receipts, storage units or locations. */
+/** Label printing (MM-T15). Printing never changes receipts, storage units or locations. */
 @Controller()
 export class PrintingController {
   constructor(

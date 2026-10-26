@@ -3,7 +3,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from '@pla
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 
-// TRP-T11: receiving drafts autosaved in this browser (IndexedDB), against the real API with
+// MM-T11: receiving drafts autosaved in this browser (IndexedDB), against the real API with
 // fictional DEMO-2601 data. Each test gets a fresh browser context, so it starts with no drafts.
 
 const BKT_ID = /^BKT-\d{4}-\d{6}$/;
@@ -52,7 +52,7 @@ async function savedAfter(page: Page, since: string): Promise<string> {
 
 /** Signs the context out on the server only (cookie kept, so the next request gets a 401). */
 async function expireSession(context: BrowserContext) {
-  const cookie = (await context.cookies()).find((c) => c.name === 'trapezoid_session');
+  const cookie = (await context.cookies()).find((c) => c.name === 'materialmule_session');
   if (!cookie) throw new Error('No session cookie');
   const hash = createHash('sha256').update(decodeURIComponent(cookie.value), 'utf8').digest();
   await withDatabase((client) =>
@@ -138,7 +138,7 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await expect(reopened.getByText(BKT_ID)).toHaveCount(0);
 });
 
-// Also in the TRP-T18 critical path.
+// Also in the MM-T18 critical path.
 test(
   'T4/AC2: offline edits keep saving and the indicator shows the latest time',
   { tag: '@critical' },
@@ -171,7 +171,7 @@ test(
   },
 );
 
-// Also in the TRP-T18 critical path.
+// Also in the MM-T18 critical path.
 test(
   'T5/AC3: when IndexedDB writes fail, the indicator says so and never "saved"',
   { tag: '@critical' },
@@ -286,7 +286,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   const history = await page.evaluate(
     () =>
       new Promise<unknown[]>((resolve, reject) => {
-        const open = indexedDB.open('trapezoid-drafts');
+        const open = indexedDB.open('materialmule-drafts');
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const all = open.result

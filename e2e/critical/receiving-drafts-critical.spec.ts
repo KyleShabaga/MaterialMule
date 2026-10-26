@@ -12,7 +12,7 @@ import {
   uniqueTag,
 } from '../support/receiving';
 
-// TRP-T18 critical path, scenarios that need TRP-T11 (local autosaved drafts): the shared LAB
+// MM-T18 critical path, scenarios that need MM-T11 (local autosaved drafts): the shared LAB
 // station's session runs out mid-draft; the draft survives, signing in again returns to it with
 // the same receiver, and confirming creates exactly one receipt. Uses a real shared_lab session
 // (e2e/support/lab-station.ts), not a rewritten /api/me.

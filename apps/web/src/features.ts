@@ -1,13 +1,13 @@
 /**
- * Menu areas from later increments stay hidden until their cards ship (TRP-T34). Flip a flag in
+ * Menu areas from later increments stay hidden until their cards ship (MM-T34). Flip a flag in
  * the same change that delivers the feature.
  */
 export const FEATURES = {
-  /** TRP-T24 */
+  /** MM-T24 */
   labTestingWorklist: false,
-  /** TRP-T23 */
+  /** MM-T23 */
   testingPrograms: false,
-  /** TRP-T29 / TRP-T30 */
+  /** MM-T29 / MM-T30 */
   disposalRetention: false,
 } as const;
 

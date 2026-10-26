@@ -6,7 +6,7 @@ import { ScanInput, type ScanStatusView } from './ScanInput';
 import { useScanLookup } from './useScanLookup';
 
 /**
- * Verify labels (TRP-T16, receiving Labels step): scan each freshly printed label and check it
+ * Verify labels (MM-T16, receiving Labels step): scan each freshly printed label and check it
  * belongs to one of the storage units just received. Only reads; nothing is changed.
  */
 export function VerifyLabelsPanel({

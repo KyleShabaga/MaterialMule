@@ -20,7 +20,7 @@ jobs:
     env:
       CI: 'true'
       REQUIRE_DATABASE_TESTS: '1'
-      TEST_DATABASE_URL: postgres://postgres:root@127.0.0.1:5432/trapezoid_test
+      TEST_DATABASE_URL: postgres://postgres:root@127.0.0.1:5432/materialmule_test
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +38,7 @@ jobs:
           Set-Service -InputObject $service -StartupType Manual
           Start-Service -InputObject $service
           $env:PGPASSWORD = 'root'
-          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U postgres -c 'CREATE DATABASE trapezoid_test;'
+          & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U postgres -c 'CREATE DATABASE materialmule_test;'
 
       - name: Write API test environment
         shell: pwsh
@@ -55,11 +55,11 @@ jobs:
       # Exercises the real migration CLI; tests also build their own isolated schemas.
       - run: npm run db:reset:test
       - run: npm run verify
-      # TRP-T18: the security suite on its own (it also runs inside verify's npm test).
+      # MM-T18: the security suite on its own (it also runs inside verify's npm test).
       - run: npm run test:security
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      # TRP-T18 AC2: the receiving critical path three more times in a row, with no retries.
+      # MM-T18 AC2: the receiving critical path three more times in a row, with no retries.
       - name: Critical path x3 (@critical)
         run: npm run test:e2e:critical -- --repeat-each=3
 

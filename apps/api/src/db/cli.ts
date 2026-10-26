@@ -1,7 +1,7 @@
 // Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`, `setup-roles`.
 // Usage: tsx src/db/cli.ts <command> [--env-file .env.test]   (or node dist/db/cli.js in production)
-// setup-roles (TRP-T20, host only): node dist/db/cli.js setup-roles <migration-role> <app-role> [<backup-role>]
-//   the optional backup role (TRP-T21) gets read-only access for pg_dump and the monitor task;
+// setup-roles (MM-T20, host only): node dist/db/cli.js setup-roles <migration-role> <app-role> [<backup-role>]
+//   the optional backup role (MM-T21) gets read-only access for pg_dump and the monitor task;
 //   connects with DATABASE_ADMIN_URL (a superuser, password from PGPASSWORD) instead of the env file.
 import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';

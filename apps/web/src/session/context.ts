@@ -1,4 +1,4 @@
-import { meResponseSchema, type MeResponse } from '@trapezoid/shared';
+import { meResponseSchema, type MeResponse } from '@materialmule/shared';
 import { createContext, useContext } from 'react';
 
 export type SessionState =

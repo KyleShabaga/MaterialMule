@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_COST, costOf, hashPassword, verifyPassword } from './password-hash.js';
 
-// TRP-T06 T2: password hashing and verification. Passwords are generated per run.
+// MM-T06 T2: password hashing and verification. Passwords are generated per run.
 describe('LAB password hashing', () => {
   const password = `pw-${randomBytes(12).toString('hex')}`;
 

@@ -1,16 +1,16 @@
-# Receiving regression results (TRP-T18)
+# Receiving regression results (MM-T18)
 
 Actual results of the receiving security, transaction and regression suite before the pilot.
 What each test proves, and which decision or acceptance criterion it covers, is in
 [receiving-critical-path.md](receiving-critical-path.md). Hardware checks (real printer, scanner,
-phones, Microsoft tenant) are TRP-T22's and are **not** covered here.
+phones, Microsoft tenant) are MM-T22's and are **not** covered here.
 
 ## Run record
 
 | Item        | Value                                                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Date        | 2026-10-26                                                                                                                  |
-| Commit      | `e4a3555` (branch `test/trp-t18-receiving-regression`, on main `79af420`, which includes TRP-T11 and T39)                   |
+| Commit      | `e4a3555` (branch `test/trp-t18-receiving-regression`, on main `79af420`, which includes MM-T11 and T39)                    |
 | Environment | Windows 11 Pro 10.0.26200 (dev PC), Node 24.22.0, PostgreSQL 17.11, Playwright 1.64.1 (Chromium), npm 11                    |
 | Database    | Fresh per E2E run (`db:reset:test` + fictional dev seed); each API test file builds its own schema                          |
 | E2E shape   | Production-shaped: the API serves the built web app; fake Zebra printer on `E2E_PORT + 1000`; 2 local workers; `retries: 0` |
@@ -80,10 +80,10 @@ shown as saved) and an expired LAB session, keeping its receiver.
 
 ## Known limitations
 
-- **Hardware isn't covered** (TRP-T22): real ZD621 printing, DS3678-XR scanning, staff phones,
+- **Hardware isn't covered** (MM-T22): real ZD621 printing, DS3678-XR scanning, staff phones,
   the Microsoft tenant and the office HTTPS host. Printing uses a fake Zebra TCP printer;
   scanning uses keyboard input and a fake camera.
-- **TRP-T11 scenarios** (S5b, S6, T4d) were added after T11 merged mid-card; S5b and T4d reuse
+- **MM-T11 scenarios** (S5b, S6, T4d) were added after T11 merged mid-card; S5b and T4d reuse
   T11's own E2E (tagged `@critical`), which marks the LAB station by rewriting `/api/me`; S6 uses a
   real LAB station session. Storage failure is simulated by making IndexedDB writes throw.
 - **LAB in E2E** uses a second, E2E-only `shared_lab` account with a session row inserted directly
@@ -96,4 +96,4 @@ shown as saved) and an expired LAB session, keeping its receiver.
   covered by `print-worker.test.ts`.
 - **"Clean Windows environment"** locally means the developer PC with a freshly reset test
   database for every run; the CI runner is the freshly provisioned Windows machine.
-- Performance and load are TRP-T19's.
+- Performance and load are MM-T19's.

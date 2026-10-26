@@ -5,7 +5,7 @@ import {
   type StaffPosition,
   type StaffRole,
   type StaffStatus,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ConfirmDialog,
@@ -78,7 +78,7 @@ function useLoad<T>(key: string, fetcher: () => Promise<T>): Load<T> {
   return latest?.key === key ? latest.load : { state: 'loading' };
 }
 
-/** Settings → Staff & access (TRP-T07). The server enforces admin-only; this only hides. */
+/** Settings → Staff & access (MM-T07). The server enforces admin-only; this only hides. */
 export function StaffPage() {
   const me = useMe();
   if (!me.permissions.includes('staff.manage')) {
@@ -92,7 +92,7 @@ export function StaffPage() {
   return (
     <>
       <StaffDirectory currentUserId={me.id} />
-      {/* The shared receiving account's password and stations (TRP-T06). */}
+      {/* The shared receiving account's password and stations (MM-T06). */}
       <LabAccountCard />
     </>
   );

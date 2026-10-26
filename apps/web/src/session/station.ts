@@ -1,7 +1,7 @@
-// Remembers, in this browser only, that it was last used as the shared LAB station (TRP-T06), so
+// Remembers, in this browser only, that it was last used as the shared LAB station (MM-T06), so
 // the sign-in page can explain an expired LAB session. Holds no identity, token or secret.
 
-const KEY = 'trapezoid.station';
+const KEY = 'materialmule.station';
 
 export function rememberStation(isLab: boolean): void {
   try {

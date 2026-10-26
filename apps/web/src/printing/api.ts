@@ -11,10 +11,10 @@ import {
   type Printer,
   type PutPrintersRequest,
   type ReceiptLabelPreviews,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
-// Label printing API calls (TRP-T15). Every call resolves; failures carry a readable message.
+// Label printing API calls (MM-T15). Every call resolves; failures carry a readable message.
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; message: string };
 
@@ -41,7 +41,7 @@ async function callWithStatus<T>(
     return {
       ok: false,
       status: 0,
-      message: "Trapezoid couldn't be reached. Check the connection.",
+      message: "Material Mule couldn't be reached. Check the connection.",
     };
   }
   const body: unknown = await response.json().catch(() => null);
@@ -57,7 +57,11 @@ async function callWithStatus<T>(
   const parsed = schema.safeParse(body);
   return parsed.success
     ? { ok: true, data: parsed.data }
-    : { ok: false, status: response.status, message: 'Trapezoid returned an unexpected response.' };
+    : {
+        ok: false,
+        status: response.status,
+        message: 'Material Mule returned an unexpected response.',
+      };
 }
 
 export function requestPrint(request: CreatePrintJobRequest): Promise<ApiResult<PrintJob>> {
@@ -95,7 +99,7 @@ export function savePrinters(request: PutPrintersRequest): Promise<ApiResult<Pri
   });
 }
 
-/** Label previews (TRP-T39) report "not found" separately so the screen can say so. */
+/** Label previews (MM-T39) report "not found" separately so the screen can say so. */
 export type PreviewResult<T> =
   { ok: true; data: T } | { ok: false; notFound: boolean; message: string };
 

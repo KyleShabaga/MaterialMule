@@ -1,4 +1,4 @@
-import { activityResponseSchema, type ActivityItem } from '@trapezoid/shared';
+import { activityResponseSchema, type ActivityItem } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { apiFetch } from '../api/client';

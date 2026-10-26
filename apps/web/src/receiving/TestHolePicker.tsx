@@ -3,12 +3,12 @@ import {
   testHoleNameKey,
   testHoleNameSchema,
   type TestHole,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import { createTestHole, listTestHoles } from '../api/projects';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing
-// matches exactly (TRP-T08). Names are kept as typed (trimmed): never renamed or re-yeared.
+// matches exactly (MM-T08). Names are kept as typed (trimmed): never renamed or re-yeared.
 
 type Holes = { state: 'loading' } | { state: 'error' } | { state: 'ready'; holes: TestHole[] };
 

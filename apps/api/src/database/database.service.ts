@@ -25,7 +25,7 @@ export class DatabaseService implements OnApplicationShutdown {
     // Nor may a client that loses its connection while checked out (mid-query): pg-pool removes
     // its own error listener during checkout, so without this the 'error' event is unhandled and
     // the whole API process exits. The query in flight still fails, and the pool discards the
-    // broken client on release (found by TRP-T18 failure injection).
+    // broken client on release (found by MM-T18 failure injection).
     this.pool.on('connect', (client) => {
       client.on('error', (error) => {
         this.logger.error(`Database connection lost: ${error.message}`);

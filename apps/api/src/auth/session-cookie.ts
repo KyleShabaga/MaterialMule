@@ -1,7 +1,7 @@
 import type { CookieOptions } from 'express';
 import type { AppConfig } from '../config/env.js';
 
-export const SESSION_COOKIE = 'trapezoid_session';
+export const SESSION_COOKIE = 'materialmule_session';
 
 /** Reads one cookie from a raw Cookie header without a parsing dependency. */
 export function readCookie(header: string | undefined, name: string): string | undefined {

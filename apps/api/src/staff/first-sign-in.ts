@@ -1,4 +1,4 @@
-// First Microsoft sign-in linking rule (TRP-T07). A pre-provisioned staff entry is linked only
+// First Microsoft sign-in linking rule (MM-T07). A pre-provisioned staff entry is linked only
 // when the signed-in UPN equals the entry's expected UPN and the entry has no sign-in identity
 // yet. Initials and names are never compared: two "JS" staff are two people.
 

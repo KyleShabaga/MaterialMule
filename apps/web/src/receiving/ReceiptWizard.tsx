@@ -1,4 +1,4 @@
-import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@materialmule/shared';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
@@ -30,10 +30,10 @@ import { ReceiptReview } from './ReviewStep';
 import { UnitEditor } from './UnitEditor';
 import { useReceiptDraft } from './useReceiptDraft';
 
-// Receiving wizard (TRP-T10): Details and storage units → Review receipt → Labels and finish.
+// Receiving wizard (MM-T10): Details and storage units → Review receipt → Labels and finish.
 // One SAMPLE#/DEPTH summary per test hole per storage unit; never an individual sample list.
 // The draft is autosaved on this workstation and survives reloads, crashes and an expired
-// session (TRP-T11); it is deleted once the receipt is confirmed or the user discards it.
+// session (MM-T11); it is deleted once the receipt is confirmed or the user discards it.
 
 type Step = 'details' | 'review' | 'labels';
 
@@ -48,7 +48,7 @@ const OFFLINE_CONFIRM_MESSAGE = "You're offline. Your draft is kept. Connect to 
 const PERSONAL_EXPIRED_MESSAGE =
   'Your session has expired. Your draft is saved. Sign in to confirm.';
 const RESUMED_CONFIRMING_MESSAGE =
-  "This receipt was being confirmed when Trapezoid closed. Confirming again sends the same receipt and won't create duplicates.";
+  "This receipt was being confirmed when Material Mule closed. Confirming again sends the same receipt and won't create duplicates.";
 
 export function ReceiptWizard({
   initial,
@@ -84,7 +84,7 @@ export function ReceiptWizard({
   const [step, setStep] = useState<Step>(() =>
     resumed ? (initial.status === 'confirming' ? 'review' : initial.step) : 'details',
   );
-  /** LAB handover (TRP-T11): the receiver stays until someone explicitly picks another. */
+  /** LAB handover (MM-T11): the receiver stays until someone explicitly picks another. */
   const [handover, setHandover] = useState<'ask' | 'changed' | 'kept'>(() =>
     resumed && initial.owner.type === 'lab' && initial.data.receiver ? 'ask' : 'kept',
   );
@@ -195,7 +195,7 @@ export function ReceiptWizard({
     }
     setConfirming(true);
     // Stored as "confirming" before the request leaves, so a crash before the answer resumes by
-    // resending with the same idempotency key (TRP-T09 then returns the original IDs).
+    // resending with the same idempotency key (MM-T09 then returns the original IDs).
     await setStatus('confirming');
     const outcome = await confirmReceipt(toConfirmRequest(draft));
     setConfirming(false);
@@ -513,7 +513,7 @@ export function ReceiptWizard({
         <p>
           Everything entered in this receipt is removed from this computer. This can't be undone.
           {record.status === 'confirming'
-            ? ' If its confirmation already went through, the storage units stay in Trapezoid.'
+            ? ' If its confirmation already went through, the storage units stay in Material Mule.'
             : ''}
         </p>
       </ConfirmDialog>

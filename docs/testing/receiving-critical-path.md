@@ -1,7 +1,7 @@
-# Receiving critical path: traceability (TRP-T18)
+# Receiving critical path: traceability (MM-T18)
 
 Every confirmed receiving decision, every shared-LAB rule and every acceptance criterion of the
-cards the first receiving increment depends on (TRP-T05 to T17, T33 to T35), mapped to the
+cards the first receiving increment depends on (MM-T05 to T17, T33 to T35), mapped to the
 automated test that proves it. Results of the latest run are in
 [receiving-regression-results.md](receiving-regression-results.md).
 
@@ -28,9 +28,9 @@ Paths are relative to the repository root. The card suggested `apps/web/e2e/crit
 | Failure injection | `apps/api/src/receiving/receipts.failure-injection.test.ts`, `apps/api/src/printing/print-restart.failure-injection.test.ts`                                                               |
 | Cross-card        | `apps/api/src/printing/reprint-after-correction.test.ts`                                                                                                                                   |
 
-New in T18 is marked **(T18)**. TRP-T11 (local autosaved drafts, PR #27) was merged while this
+New in T18 is marked **(T18)**. MM-T11 (local autosaved drafts, PR #27) was merged while this
 card was in progress; its scenarios are included. Hardware checks (real ZD621, DS3678-XR, staff phones, Microsoft tenant) belong to
-TRP-T22 and the cards' manual tests, never to this suite.
+MM-T22 and the cards' manual tests, never to this suite.
 
 Abbreviations: `api/` = `apps/api/src/`, `web/` = `apps/web/src/`, `shared/` = `packages/shared/src/`.
 

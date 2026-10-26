@@ -1,6 +1,6 @@
 // `npm run bench:seed -- --size ten-year|stress [--seed N] [--as-of YYYY-MM-DD] [--env-file F]`
 // Drops and rebuilds the benchmark database named in the env file (default apps/api/.env.bench),
-// then loads the fictional TRP-T19 dataset. Refuses production and any database whose name lacks
+// then loads the fictional MM-T19 dataset. Refuses production and any database whose name lacks
 // "bench" or "test".
 import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';

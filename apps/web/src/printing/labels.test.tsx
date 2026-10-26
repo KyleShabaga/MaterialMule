@@ -1,4 +1,4 @@
-import type { LabelPreview, MeResponse } from '@trapezoid/shared';
+import type { LabelPreview, MeResponse } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, MemoryRouter } from 'react-router';
@@ -8,7 +8,7 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { LabelPreviewPanel } from './LabelPreviewPanel';
 
-// TRP-T39 (T2): preview panel states and zoom, and the print view.
+// MM-T39 (T2): preview panel states and zoom, and the print view.
 
 const SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="3.5in" height="1.5in" viewBox="0 0 1050 450">' +

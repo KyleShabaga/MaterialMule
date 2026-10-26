@@ -1,21 +1,24 @@
-import { storageUnitLookupResponseSchema, type StorageUnitLookupResponse } from '@trapezoid/shared';
+import {
+  storageUnitLookupResponseSchema,
+  type StorageUnitLookupResponse,
+} from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
-// Scan lookups (TRP-T16/T17) reuse T12's `GET /api/storage-units/lookup?code=`: the server trims,
+// Scan lookups (MM-T16/T17) reuse T12's `GET /api/storage-units/lookup?code=`: the server trims,
 // upper-cases and matches. A scan only reads; nothing here moves or changes a storage unit.
 
 export type ScanLookupResult =
   | { kind: 'found'; unit: StorageUnitLookupResponse }
   /** Unknown or malformed code (404, or 400 for a code the server refuses to read). */
   | { kind: 'not_found' }
-  /** No answer from Trapezoid (network down, server error, timeout): keep the value, offer Retry. */
+  /** No answer from Material Mule (network down, server error, timeout): keep the value, offer Retry. */
   | { kind: 'unavailable'; message: string }
   | { kind: 'error'; message: string };
 
 /** A lookup that hasn't answered after this long counts as "server unavailable". */
 const LOOKUP_TIMEOUT_MS = 10_000;
 
-const UNAVAILABLE = "Trapezoid couldn't be reached. Check the connection, then Retry.";
+const UNAVAILABLE = "Material Mule couldn't be reached. Check the connection, then Retry.";
 
 export async function scanLookup(code: string): Promise<ScanLookupResult> {
   let response: Response;
@@ -38,5 +41,5 @@ export async function scanLookup(code: string): Promise<ScanLookupResult> {
   const parsed = storageUnitLookupResponseSchema.safeParse(body);
   return response.ok && parsed.success
     ? { kind: 'found', unit: parsed.data }
-    : { kind: 'error', message: 'Trapezoid returned an unexpected response.' };
+    : { kind: 'error', message: 'Material Mule returned an unexpected response.' };
 }

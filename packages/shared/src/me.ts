@@ -12,7 +12,7 @@ export const meResponseSchema = z.object({
   /** Global (not project-scoped) permissions, for showing or hiding UI. The server still checks. */
   permissions: z.array(z.string()),
   sessionExpiresAt: z.string(),
-  /** The person's self-chosen position (TRP-T05). Describes their work; grants nothing. */
+  /** The person's self-chosen position (MM-T05). Describes their work; grants nothing. */
   // Optional in the schema so older fixtures stay valid; the API always sends these three.
   position: positionSchema.nullable().optional(),
   /** True until a Microsoft-signed-in person saves their first-login position. */
@@ -23,8 +23,8 @@ export const meResponseSchema = z.object({
 
 export type MeResponse = z.infer<typeof meResponseSchema>;
 
-/** Header every state-changing API request must carry (CSRF defence, TRP-T04). */
-export const CSRF_HEADER_NAME = 'x-trapezoid-csrf';
+/** Header every state-changing API request must carry (CSRF defence, MM-T04). */
+export const CSRF_HEADER_NAME = 'x-materialmule-csrf';
 
 /** Response body of `GET /api/auth/providers`: which sign-in options exist on this server. */
 export const authProvidersResponseSchema = z.object({

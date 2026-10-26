@@ -4,7 +4,7 @@ import type {
   InventoryLocation,
   InventoryPage,
   InventoryQuery,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
@@ -25,7 +25,7 @@ interface InventoryRow {
   location_name: string;
 }
 
-/** One page of the inventory with its total (TRP-T12). Never returns more than 100 units. */
+/** One page of the inventory with its total (MM-T12). Never returns more than 100 units. */
 export async function queryInventory(pool: Pool, query: InventoryQuery): Promise<InventoryPage> {
   const sql = buildInventoryQuery(query);
   const count = await pool.query<{ total: number }>(

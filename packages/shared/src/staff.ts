@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { positionSchema } from './profile';
 
-// Staff directory and receiver selector (TRP-T07).
+// Staff directory and receiver selector (MM-T07).
 
 export const staffStatusSchema = z.enum(['pending', 'active', 'disabled']);
 export type StaffStatus = z.infer<typeof staffStatusSchema>;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Operational shared receiving account LAB (TRP-T06, App Idea §8).
+// Operational shared receiving account LAB (MM-T06, App Idea §8).
 
 /** The LAB account's username. Matched case-insensitively. */
 export const LAB_USERNAME = 'LAB';

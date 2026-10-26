@@ -1,9 +1,9 @@
-# Phone-camera scanning (TRP-T17)
+# Phone-camera scanning (MM-T17)
 
 Staff away from the handheld scanner can look a storage unit up with their phone: **Sample
 Storage → Scan with camera** (also on **Scan labels**). The phone's browser films the label,
-reads its Code 128 or QR (both encode exactly `PREFIX-YYYY-NNNNNN`, TRP-T14) and opens the unit.
-There is no phone app (D22). Scanning only looks up; it never moves anything (moves are TRP-T28).
+reads its Code 128 or QR (both encode exactly `PREFIX-YYYY-NNNNNN`, MM-T14) and opens the unit.
+There is no phone app (D22). Scanning only looks up; it never moves anything (moves are MM-T28).
 
 ## How it behaves
 
@@ -24,8 +24,8 @@ There is no phone app (D22). Scanning only looks up; it never moves anything (mo
 ## HTTPS is required
 
 Browsers only allow the camera on secure pages: `https://…`, or `http://localhost` /
-`http://127.0.0.1` on the PC itself. On the office network, phones must open Trapezoid at its
-HTTPS address from the Windows host (TRP-T20, `docs/operations/runbook.md`). On plain
+`http://127.0.0.1` on the PC itself. On the office network, phones must open Material Mule at its
+HTTPS address from the Windows host (MM-T20, `docs/operations/runbook.md`). On plain
 `http://<pc-name>` the scanner explains this and offers manual entry instead.
 
 ## Decoder
@@ -39,7 +39,7 @@ The decoder sits behind an adapter (`apps/web/src/scanning/decoder.ts`), so it c
 
 **Current (provisional) choice:** _auto_. It uses `BarcodeDetector` when it supports both Code 128
 and QR, and otherwise ZXing. The ZXing WebAssembly file (about 0.9 MB, 0.4 MB gzipped) is served
-by Trapezoid itself, never from a CDN, and is downloaded only when the camera is first opened. The
+by Material Mule itself, never from a CDN, and is downloaded only when the camera is first opened. The
 scanner shows which decoder is running ("Decoder: …").
 
 The card asks for the choice to be made from a spike on real staff phones. Add `?decoder=native`
@@ -49,7 +49,7 @@ choice in `createBarcodeDecoder` if _auto_ turns out to be wrong.
 
 ## Device test (card T4): to be recorded by Kyle
 
-Not run yet: no staff phones or internal HTTPS were available when TRP-T17 was built. Automated
+Not run yet: no staff phones or internal HTTPS were available when MM-T17 was built. Automated
 tests use a fake camera that films a generated label image.
 
 | Phone / OS / browser                | Decoder | Code 128 | QR  | Time to open (≈2 s?) | Low light | Worn label | Notes |

@@ -22,7 +22,7 @@ const TONE_LABEL: Record<ScanTone, string> = {
 };
 
 /**
- * The focused scan field and its large status area (TRP-T16). The scanner types into the field and
+ * The focused scan field and its large status area (MM-T16). The scanner types into the field and
  * ends with Enter; `useScanner` does the rest. When focus leaves the panel an overlay covers it
  * ("Click here to resume scanning") so a scan is never silently lost or typed somewhere else.
  */

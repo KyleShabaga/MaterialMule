@@ -4,7 +4,7 @@ import { CameraScanner } from './CameraScanner';
 import { readDecoderPreference } from './decoder';
 
 /**
- * "Scan with camera" (TRP-T17). The scanner, and so the camera permission prompt, exists only
+ * "Scan with camera" (MM-T17). The scanner, and so the camera permission prompt, exists only
  * after this button is tapped. A found unit opens its record.
  */
 export function CameraScanButton() {

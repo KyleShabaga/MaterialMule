@@ -2,9 +2,9 @@ import {
   INVENTORY_PAGE_SIZE_DEFAULT,
   inventoryQuerySchema,
   type InventoryQuery,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 
-// Inventory filter and page state lives in the URL query (TRP-T12), using the API's parameter
+// Inventory filter and page state lives in the URL query (MM-T12), using the API's parameter
 // names, so a view can be shared and Back returns to it.
 
 const KEYS = [

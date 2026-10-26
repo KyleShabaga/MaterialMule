@@ -14,7 +14,7 @@ export type RoutePolicy =
   | { kind: 'active' }
   | { kind: 'permission'; permission: Permission };
 
-export const ROUTE_POLICY = 'trapezoid:route-policy';
+export const ROUTE_POLICY = 'materialmule:route-policy';
 
 export const Public = () => SetMetadata(ROUTE_POLICY, { kind: 'public' } satisfies RoutePolicy);
 export const AnySession = () =>

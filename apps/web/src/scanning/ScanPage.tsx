@@ -2,7 +2,7 @@ import {
   formatStorageUnitHoleSummary,
   storageUnitTypeLabel,
   type StorageUnitDetail,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '../components/ui';
@@ -16,7 +16,7 @@ import { ScanInput, type ScanStatusView } from './ScanInput';
 import { useScanLookup, type ScanLookupState } from './useScanLookup';
 
 /**
- * Sample Storage → Scan (TRP-T16 lookup mode). Each scan looks the label up and shows that storage
+ * Sample Storage → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage
  * unit here; the next scan replaces it. Scanning only reads: it never moves or disposes anything.
  */
 export function ScanPage() {

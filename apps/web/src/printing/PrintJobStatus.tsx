@@ -1,8 +1,8 @@
-import { printJobStatusText, type PrintJob } from '@trapezoid/shared';
+import { printJobStatusText, type PrintJob } from '@materialmule/shared';
 import { StatusBadge } from '../components/ui';
 
 /**
- * One print job's honest status (TRP-T15): a chip, what to do next and the follow-up actions.
+ * One print job's honest status (MM-T15): a chip, what to do next and the follow-up actions.
  * "Sent to printer" never claims the labels physically came out; only a person can confirm that.
  */
 export function PrintJobStatus({

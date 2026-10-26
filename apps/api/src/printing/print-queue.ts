@@ -1,4 +1,4 @@
-import type { CreatePrintJobRequest, PrintHistoryResponse, PrintJob } from '@trapezoid/shared';
+import type { CreatePrintJobRequest, PrintHistoryResponse, PrintJob } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
 import { actorFor } from '../auth/auth.controller.js';
@@ -6,7 +6,7 @@ import type { AuthUser } from '../auth/policy.js';
 import { withTransaction } from '../db/transaction.js';
 import { TEMPLATE_VERSION } from '../labels/template-v1.js';
 
-// Print queue data access (TRP-T15). Requests only create jobs; the worker sends them. Nothing
+// Print queue data access (MM-T15). Requests only create jobs; the worker sends them. Nothing
 // here ever changes a receipt, storage unit or location: printing is separate from inventory.
 
 export type PrintErrorCode =

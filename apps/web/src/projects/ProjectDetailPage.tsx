@@ -1,4 +1,4 @@
-import { type InventoryPage, type ProjectDetail, type StaffOption } from '@trapezoid/shared';
+import { type InventoryPage, type ProjectDetail, type StaffOption } from '@materialmule/shared';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { createTestHole } from '../api/projects';
@@ -33,7 +33,7 @@ function sampleStorageLink(projectId: string, testHoleId?: string): string {
 }
 
 /**
- * Project detail (TRP-T35): header fields, copyable server folder path, test holes with unit
+ * Project detail (MM-T35): header fields, copyable server folder path, test holes with unit
  * counts, receipts, and the project's storage units in the T12 table.
  */
 export function ProjectDetailPage() {

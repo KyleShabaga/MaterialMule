@@ -8,14 +8,14 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { positionRequestSchema, type ProfileResponse } from '@trapezoid/shared';
+import { positionRequestSchema, type ProfileResponse } from '@materialmule/shared';
 import { requestIdOf } from '../auth/auth.controller.js';
 import { AnySession, CurrentUser, type AuthenticatedRequest } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
 import { ProfileService } from './profile.service.js';
 
 /**
- * The signed-in person's own profile (TRP-T05). Pending users may use these: setting a position
+ * The signed-in person's own profile (MM-T05). Pending users may use these: setting a position
  * is part of onboarding before approval, and none of them returns anyone else's data.
  */
 @Controller('me')

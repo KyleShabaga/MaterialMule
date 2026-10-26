@@ -1,5 +1,5 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
-import type { HealthResponse } from '@trapezoid/shared';
+import type { HealthResponse } from '@materialmule/shared';
 import type { Response } from 'express';
 import { Public } from '../auth/auth.decorators.js';
 import { DatabaseService } from '../database/database.service.js';

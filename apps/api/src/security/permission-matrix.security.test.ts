@@ -29,10 +29,10 @@ import {
   receivingLabId,
 } from '../test-support/fixtures.js';
 
-// TRP-T18 security sweep (card test T2, AC4). Every route the API serves is called as five kinds
+// MM-T18 security sweep (card test T2, AC4). Every route the API serves is called as five kinds
 // of caller — nobody, a pending account, a disabled account, the shared LAB account and an
 // ordinary Technician — and the outcome is compared with the permission matrix in
-// docs/permissions.md (TRP-T04), not with policy.ts, so the code and the agreed matrix can't
+// docs/permissions.md (MM-T04), not with policy.ts, so the code and the agreed matrix can't
 // drift apart unnoticed. Every refused call must leave every table exactly as it was.
 // Run on its own with `npm run test:security`. Fictional data only.
 
@@ -67,10 +67,11 @@ function readDocumentedMatrix(): Map<string, Set<MatrixColumn>> {
 
 /**
  * Routes whose policy is "any active user" and whose handler checks a project-scoped permission
- * itself (TRP-T35). `null` means any active session, LAB included.
+ * itself (MM-T35). `null` means any active session, LAB included.
  */
 const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'GET /api/staff/receivers': null,
+  'GET /api/settings/drafts': null,
   'PATCH /api/projects/:projectId': 'project.edit',
 };
 
@@ -91,7 +92,7 @@ type Expected =
   | { allowed: true }
   | { allowed: false; status: 401 | 403; code: 'unauthenticated' | 'access_pending' | 'forbidden' };
 
-describe.runIf(testDatabaseUrl)('security: permission matrix sweep (TRP-T18 T2)', () => {
+describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;
@@ -195,7 +196,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (TRP-T18 T2)'
   function expectedFor(route: Route, caller: Caller): Expected {
     const { policy } = route;
     if (caller === 'anonymous' || caller === 'disabled') {
-      // Disabled accounts' sessions stop authenticating (TRP-T04/T07).
+      // Disabled accounts' sessions stop authenticating (MM-T04/T07).
       return { allowed: false, status: 401, code: 'unauthenticated' };
     }
     if (policy.kind === 'session') return { allowed: true };

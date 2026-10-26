@@ -20,7 +20,7 @@ import {
 } from '../test-support/fixtures.js';
 import { lookupStorageUnit } from './storage-units.service.js';
 
-// TRP-T16 AC1/AC2 without the handheld: decode both symbols of a rendered label (T14's real-size
+// MM-T16 AC1/AC2 without the handheld: decode both symbols of a rendered label (T14's real-size
 // preview, the same symbol data as the ZPL) and feed each decoded text to T12's lookup, exactly
 // as the DS3678-XR would type it. Fictional data only.
 
@@ -58,7 +58,7 @@ const HOLDERS: Record<string, { issuedHolderKind: string; unitType: string; hold
     CT: { issuedHolderKind: 'generic', unitType: 'bulk_container', holderKind: 'generic' },
   };
 
-describe.runIf(testDatabaseUrl)('scanning a printed label opens its storage unit (TRP-T16)', () => {
+describe.runIf(testDatabaseUrl)('scanning a printed label opens its storage unit (MM-T16)', () => {
   let db: TestSchema;
   const unitIds: Record<string, string> = {};
   let otherProjectId: string;

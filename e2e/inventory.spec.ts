@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertInventoryFixture } from './support/inventory';
 
-// TRP-T12: storage unit inventory, search, filters and detail. Every row is fictional and tagged
+// MM-T12: storage unit inventory, search, filters and detail. Every row is fictional and tagged
 // per test, so the desktop and phone runs never see each other's units.
 
 test('T6: search, filter, open detail, Back keeps filters, then clear', async ({ page }) => {

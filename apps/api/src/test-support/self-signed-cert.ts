@@ -46,7 +46,7 @@ export function canMakeTestCertificates(): boolean {
 
 /** A throwaway self-signed certificate for localhost, as PFX and as PEM, in a temp folder. */
 export function makeTestCertificate(): TestCertificate {
-  const dir = mkdtempSync(join(tmpdir(), 'trapezoid-cert-'));
+  const dir = mkdtempSync(join(tmpdir(), 'materialmule-cert-'));
   const pfxPassphrase = `test-${Math.random().toString(36).slice(2)}`;
   execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', SCRIPT], {
     env: { ...process.env, T20_CERT_DIR: dir, T20_CERT_PASS: pfxPassphrase },

@@ -1,4 +1,4 @@
-// Server-side permission model (TRP-T04). Source: App Idea §1 "Confirmed permissions" and §8
+// Server-side permission model (MM-T04). Source: App Idea §1 "Confirmed permissions" and §8
 // "Confirmed shared receiving account". The matrix is documented in docs/permissions.md; keep both
 // in step. Position (Technician, Engineer, …) and directory job title never grant anything.
 
@@ -17,7 +17,7 @@ export interface AuthUser {
   initials: string | null;
 }
 
-/** Project facts a project-scoped permission needs. Delegates arrive with TRP-T25. */
+/** Project facts a project-scoped permission needs. Delegates arrive with MM-T25. */
 export interface ProjectContext {
   pmPeUserId: string;
   acceptanceDelegateUserIds?: string[];
@@ -51,14 +51,14 @@ export type Permission =
   | 'test.accept'
   | 'program.close'
   | 'acceptance_delegation.manage'
-  // Project PM/PE or admin (TRP-T35, owner decision 2026-10-25)
+  // Project PM/PE or admin (MM-T35, owner decision 2026-10-25)
   | 'project.edit'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
   | 'printer.manage'
   | 'project.pm_pe.change'
-  // Operations (TRP-T21): Settings → System status
+  // Operations (MM-T21): Settings → System status
   | 'system.status.read';
 
 /** What the shared LAB account may do (App Idea §8, owner decision #21 for moves). */
@@ -102,7 +102,7 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'printer.manage',
   // Draft auto-delete setting (MM-T45).
   'settings.drafts.manage',
-  // Projects (TRP-T35): admins edit any project's fields and are the only ones who change its PM/PE.
+  // Projects (MM-T35): admins edit any project's fields and are the only ones who change its PM/PE.
   'project.edit',
   'project.pm_pe.change',
   'system.status.read',

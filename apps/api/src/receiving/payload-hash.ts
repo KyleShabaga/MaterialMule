@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { ConfirmReceiptRequest } from '@trapezoid/shared';
+import type { ConfirmReceiptRequest } from '@materialmule/shared';
 
 /**
  * JSON with object keys sorted at every level, so two payloads that differ only in key order

@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { withDatabase } from './db';
 
-// Fictional inventory for TRP-T12 E2E. Each call makes its own two projects, location and units
+// Fictional inventory for MM-T12 E2E. Each call makes its own two projects, location and units
 // (tagged with a random code) so parallel runs and viewports never see each other's rows.
 
 const PE_ID = '00000000-0000-4000-8000-000000000101';

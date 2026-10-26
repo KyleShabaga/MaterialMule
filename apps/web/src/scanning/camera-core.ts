@@ -1,4 +1,4 @@
-// Phone-camera scanning rules (TRP-T17), kept free of React and browser APIs so they can be
+// Phone-camera scanning rules (MM-T17), kept free of React and browser APIs so they can be
 // unit-tested. Frames are only ever processed in the browser; nothing here sends or stores them.
 
 /** The same code is ignored until it leaves the frame or this long has passed (T17 scope). */

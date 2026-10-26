@@ -2,7 +2,7 @@ import {
   MICROSOFT_SIGN_IN_ERRORS,
   microsoftCallbackResponseSchema,
   type MicrosoftSignInError,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { apiFetch } from '../api/client';
@@ -12,15 +12,15 @@ import { useSession } from '../session/context';
 const SIGN_IN_ERROR_MESSAGES: Record<MicrosoftSignInError, { title: string; body: string }> = {
   wrong_tenant: {
     title: 'This Microsoft account can’t sign in here',
-    body: 'Trapezoid only accepts work accounts from the company’s own Microsoft directory. Sign in with your company account, or ask IT if you think this is wrong.',
+    body: 'Material Mule only accepts work accounts from the company’s own Microsoft directory. Sign in with your company account, or ask IT if you think this is wrong.',
   },
   guest_account: {
     title: 'Guest accounts can’t sign in',
-    body: 'This is a guest account from another organization. Trapezoid is for company staff accounts only.',
+    body: 'This is a guest account from another organization. Material Mule is for company staff accounts only.',
   },
   account_disabled: {
     title: 'Your access has been removed',
-    body: 'An administrator has turned off your Trapezoid access. Ask an administrator if you need it back.',
+    body: 'An administrator has turned off your Material Mule access. Ask an administrator if you need it back.',
   },
   cancelled: {
     title: 'Sign-in was cancelled',
@@ -28,7 +28,7 @@ const SIGN_IN_ERROR_MESSAGES: Record<MicrosoftSignInError, { title: string; body
   },
   consent_denied: {
     title: 'Permission wasn’t granted',
-    body: 'Trapezoid needs permission to sign you in and read your own basic profile (User.Read). Try again and accept, or ask IT to grant consent for the company.',
+    body: 'Material Mule needs permission to sign you in and read your own basic profile (User.Read). Try again and accept, or ask IT to grant consent for the company.',
   },
   expired_attempt: {
     title: 'That sign-in link has expired',

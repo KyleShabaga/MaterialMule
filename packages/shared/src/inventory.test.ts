@@ -9,7 +9,7 @@ import {
 
 const PROJECT = '00000000-0000-4000-8000-000000000201';
 
-describe('inventory query (TRP-T12)', () => {
+describe('inventory query (MM-T12)', () => {
   it('defaults to Current stock, newest received first, 25 per page', () => {
     const query = inventoryQuerySchema.parse({});
     expect(query).toMatchObject({ status: 'current', sort: 'received', page: 1, pageSize: 25 });

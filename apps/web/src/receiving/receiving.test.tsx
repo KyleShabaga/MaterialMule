@@ -1,4 +1,4 @@
-import type { MeResponse, ProjectSummary, TestHole } from '@trapezoid/shared';
+import type { MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -106,7 +106,7 @@ describe('prefillFromQuery', () => {
   });
 });
 
-describe('Receive samples: project and test holes (TRP-T08)', () => {
+describe('Receive samples: project and test holes (MM-T08)', () => {
   it('AC1: typing a number shows matches; choosing one fills the other fields read-only', async () => {
     const user = userEvent.setup();
     const fetchMock = renderReceive({ 'GET /api/projects/search': () => json(200, [westPine]) });

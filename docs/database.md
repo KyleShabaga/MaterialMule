@@ -1,8 +1,8 @@
 # Database
 
-PostgreSQL 17, one database per environment (`trapezoid_dev`, `trapezoid_test`, production).
+PostgreSQL 17, one database per environment (`materialmule_dev`, `materialmule_test`, production).
 Schema changes live in `apps/api/migrations/NNNN_snake_name.sql` and are applied by the small
-runner in `apps/api/src/db/migrator.ts` (TRP-T02).
+runner in `apps/api/src/db/migrator.ts` (MM-T02).
 
 ## Commands
 
@@ -27,9 +27,9 @@ In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migra
 
 ## Roles
 
-- **Development and test:** one login (`trapezoid`) owns both databases and runs migrations.
-- **Production (TRP-T20):** a migration role (`trapezoid_owner`) owns the schema and every table
-  and is used only by the deploy script; the API connects as `trapezoid_app`, which can read and
+- **Development and test:** one login (`materialmule`) owns both databases and runs migrations.
+- **Production (MM-T20):** a migration role (`materialmule_owner`) owns the schema and every table
+  and is used only by the deploy script; the API connects as `materialmule_app`, which can read and
   write rows but not create, alter or drop anything, not touch `schema_migration`, and only insert
   into `audit_event`. Neither role is a superuser. `node apps/api/dist/db/cli.js setup-roles
 <migration-role> <app-role>` (as `postgres`, via `DATABASE_ADMIN_URL`) creates and grants them;
@@ -42,7 +42,7 @@ Database tests read `TEST_DATABASE_URL` (falling back to `DATABASE_URL` in `apps
 Each test file creates its own temporary schema (`test_<random>`), migrates it and drops it
 afterwards, so files run in parallel without sharing data.
 
-## Schema (TRP-T02)
+## Schema (MM-T02)
 
 ```mermaid
 erDiagram
@@ -84,25 +84,25 @@ Key rules enforced by the database:
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
   so of two parallel creates exactly one succeeds and the other gets 409 with the existing row
-  (TRP-T08). Migration 0005 adds `text_pattern_ops` indexes for prefix search.
+  (MM-T08). Migration 0005 adds `text_pattern_ops` indexes for prefix search.
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25). Each unit records its
   `receipt_line` (1 = first submitted, unique per receipt, migration 0003) so a retried
   confirmation returns the same row-to-ID mapping.
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
-- **LAB credentials (migration 0004, TRP-T06).** `local_credential` holds one Argon2id PHC string
+- **LAB credentials (migration 0004, MM-T06).** `local_credential` holds one Argon2id PHC string
   per account (the string records its own cost); a trigger allows it only for `shared_lab`
   accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
   Reference data seeds the LAB account (`app_user` 00000000-0000-4000-8000-000000000001 with a
   `local_lab` identity, subject `LAB`) without a password: an admin sets it in
   Settings → Staff & access.
-- **Staff (migration 0008, TRP-T07).** Official initials are not unique. `expected_upn` (an
+- **Staff (migration 0008, MM-T07).** Official initials are not unique. `expected_upn` (an
   admin's pre-provisioned work email) is unique ignoring case when set; `approved_by` and
   `approved_at` are set together; `disabled_reason` exists only on a disabled account. Receipts
   keep receiver ID + initials + name snapshots, so renaming or disabling someone never rewrites
   history.
 
-## Print queue (TRP-T15, migration 0006)
+## Print queue (MM-T15, migration 0006)
 
 - **Printers** (`printer`) are server-side configuration: key, name, host (IPv4 or host name),
   port (9100), enabled, default (at most one), status check. Print requests may only name a
@@ -126,7 +126,7 @@ Key rules enforced by the database:
   `label.print_requested`, `label.reprint_requested`, `label.print_failed`,
   `label.print_uncertain`, `label.physically_confirmed`, `printer.configured`.
 
-## Receipt confirmation (TRP-T09)
+## Receipt confirmation (MM-T09)
 
 `POST /api/receipts` (`apps/api/src/receiving`) creates a receipt and its storage units in one
 `READ COMMITTED` transaction:
@@ -149,9 +149,9 @@ the key is a unique constraint, the rows validated (project, test hole, user) ar
 receipts, and the foreign keys re-check them at insert. Any error rolls back everything, including
 the counter increment. The receipt stores the signed-in account (`account_user_id`, e.g. LAB) and
 the selected receiver with initials and name snapshots. Printing is not part of confirmation
-(TRP-T15).
+(MM-T15).
 
-## Inventory search (TRP-T12, migration 0010)
+## Inventory search (MM-T12, migration 0010)
 
 `GET /api/inventory` (`apps/api/src/inventory`) returns one row per storage unit, filtered,
 sorted and paged on the server (default 25, max 100, with the total).
@@ -163,7 +163,7 @@ sorted and paged on the server (default 25, max 100, with the total).
   `location` rebuild it in the same transaction as the change, so it is never stale. Each search
   word becomes `document LIKE '%word%'` (AND across words, wildcards escaped), backed by a
   `pg_trgm` GIN index. `pg_trgm` is a trusted extension created in `public`; the migration role
-  needs `CREATE` on the database (the owner has it). TRP-T19 benchmarked it at ten-year and 5x
+  needs `CREATE` on the database (the owner has it). MM-T19 benchmarked it at ten-year and 5x
   volume; no index change was needed ([docs/performance](performance/README.md)).
 - **Default view** "Current stock" excludes `disposed`; `status=all` or `status=disposed` show them.
 - **Stable paging.** Sorting by received date always ends with the storage unit ID
@@ -174,7 +174,7 @@ sorted and paged on the server (default 25, max 100, with the total).
   `GET /api/storage-units/:id/history?page=` (20 per page, newest first: the unit's audit events
   plus its receipt's confirmation). All read-only, `inventory.read` (LAB included).
 
-## Storage unit corrections (TRP-T13)
+## Storage unit corrections (MM-T13)
 
 `PATCH /api/storage-units/:id` (`apps/api/src/storage-units/corrections`, readable ID or UUID)
 corrects a confirmed unit's type, received date, project, test holes and summaries, and note
@@ -192,11 +192,11 @@ corrects a confirmed unit's type, received date, project, test holes and summari
   bump `version` and append one `storage_unit.corrected` audit event whose `before` / `after`
   hold only the changed fields, with the reason.
 - **Project changes** ask the `LabRequestLinkChecker` first; unresolved links → 409
-  `unresolved_lab_links {links}`. Until lab requests exist (TRP-T23) the checker returns none.
+  `unresolved_lab_links {links}`. Until lab requests exist (MM-T23) the checker returns none.
 - **Retention:** the detail shows `minimumRetainUntil` = current received date + 1 year (29 Feb →
-  28 Feb). Full retention rules arrive with TRP-T29.
+  28 Feb). Full retention rules arrive with MM-T29.
 
-## Projects list and detail (TRP-T35, migration 0015)
+## Projects list and detail (MM-T35, migration 0015)
 
 `GET /api/projects` and `GET /api/projects/:id` (`apps/api/src/projects`) back the Projects
 screens. Counts (test holes, in-stock units, last receipt date, units per hole and per receipt)
@@ -217,7 +217,7 @@ are computed by query, never stored.
 `draft_auto_delete_setting` holds exactly one row (primary key `singleton`, which can only be
 `true`): `enabled` (default `false`), `after_days` (30–365, default 90, a CHECK constraint),
 `version`, `updated_at` and `updated_by_user_id`. Receiving drafts themselves stay in each browser
-(TRP-T11); browsers read this row through `GET /api/settings/drafts` and delete their own old
+(MM-T11); browsers read this row through `GET /api/settings/drafts` and delete their own old
 drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `version` (stale → 409
 `version_conflict` with the current value), bumps it and records `settings.drafts_changed`
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values

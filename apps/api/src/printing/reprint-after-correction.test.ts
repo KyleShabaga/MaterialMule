@@ -1,16 +1,16 @@
-import type { ConfirmReceiptResponse, PrintJob } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse, PrintJob } from '@materialmule/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { testDatabaseUrl } from '../test-support/database.js';
 import { FakeZebraPrinter } from '../test-support/fake-zebra.js';
 import { ReceivingHarness } from '../test-support/receiving-harness.js';
 
-// TRP-T18 cross-card regression (D03, D46; TRP-T13 + T14 AC5 + T15 AC5): after a personal user
+// MM-T18 cross-card regression (D03, D46; MM-T13 + T14 AC5 + T15 AC5): after a personal user
 // corrects a unit's received date, a reprint carries the corrected date and the same permanent
 // storage unit ID, and neither the correction nor the reprint moves the unit or adds one.
 // Fictional data only.
 
-describe.runIf(testDatabaseUrl)('reprint after a correction (TRP-T18)', () => {
+describe.runIf(testDatabaseUrl)('reprint after a correction (MM-T18)', () => {
   let printer: FakeZebraPrinter;
   let h: ReceivingHarness;
 

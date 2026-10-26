@@ -41,7 +41,7 @@ function problemOf(overrides: Record<string, unknown>) {
   }
 }
 
-// TRP-T05 T1: token claim validation.
+// MM-T05 T1: token claim validation.
 describe('verifyIdTokenClaims', () => {
   it('accepts a token for this tenant and app and keys the identity on tenant + oid', () => {
     expect(verifyIdTokenClaims(claims(), expected)).toEqual({

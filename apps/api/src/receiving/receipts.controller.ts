@@ -3,7 +3,7 @@ import {
   confirmReceiptRequestSchema,
   toFieldErrors,
   type ConfirmReceiptResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Response } from 'express';
 import { CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
@@ -14,7 +14,7 @@ export class ReceiptsController {
   constructor(private readonly receipts: ReceiptsService) {}
 
   /**
-   * Confirms a receiving draft (TRP-T09). 201 when the receipt is created; 200 with the original
+   * Confirms a receiving draft (MM-T09). 201 when the receipt is created; 200 with the original
    * result when the same idempotency key and payload are sent again. Printing is separate (T15).
    */
   @Post()

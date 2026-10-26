@@ -1,4 +1,4 @@
-import type { PrintJobStatus } from '@trapezoid/shared';
+import type { PrintJobStatus } from '@materialmule/shared';
 import type { SendOutcome } from './zebra-client.js';
 
 /** Attempts per job, counting the first. Only `not_sent` outcomes are retried. */
@@ -11,7 +11,7 @@ export interface AttemptResult {
 }
 
 /**
- * The job's status after an attempt (TRP-T15 status rules):
+ * The job's status after an attempt (MM-T15 status rules):
  * - nothing sent (refused, timed out, printer reported a problem) → retry with backoff, then
  *   failed after MAX_PRINT_ATTEMPTS;
  * - all bytes written and the connection closed cleanly → sent;

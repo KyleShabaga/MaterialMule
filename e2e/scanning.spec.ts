@@ -3,7 +3,7 @@ import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { insertInventoryFixture } from './support/inventory';
 
-// TRP-T16: DS3678-XR handheld scanning. The scanner is a USB keyboard that types the symbol's
+// MM-T16: DS3678-XR handheld scanning. The scanner is a USB keyboard that types the symbol's
 // data (exactly PREFIX-YYYY-NNNNNN for both Code 128 and QR, T14) followed by Enter, so each scan
 // here is the same keystrokes from Playwright's keyboard into whatever has focus. Fictional data.
 

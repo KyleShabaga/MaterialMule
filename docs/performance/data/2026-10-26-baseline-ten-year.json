@@ -5,7 +5,7 @@
   "ratePerConnection": 1,
   "warmupSeconds": 15,
   "seed": 20261025,
-  "database": "trapezoid_test_t19",
+  "database": "materialmule_test_t19",
   "system": {
     "os": "Windows 11 Pro (10.0.26200, x64)",
     "cpu": "AMD Ryzen 7 9700X 8-Core Processor x 16 logical",

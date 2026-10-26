@@ -9,7 +9,7 @@ import {
   type InventoryQuery,
   type ProjectSummary,
   type TestHole,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { listTestHoles } from '../api/projects';
@@ -44,7 +44,7 @@ function countLabel(total: number): string {
   return `${total.toLocaleString('en-CA')} storage ${total === 1 ? 'unit' : 'units'}`;
 }
 
-/** Inventory: one row per storage unit, searched, filtered and paged on the server (TRP-T12). */
+/** Inventory: one row per storage unit, searched, filtered and paged on the server (MM-T12). */
 export function InventoryPage() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();

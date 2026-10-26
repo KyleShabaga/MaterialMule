@@ -1,9 +1,9 @@
-import type { ConfirmReceiptResponse } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { testDatabaseUrl } from '../test-support/database.js';
 import { bootReceivingHarness, type ReceivingHarness } from '../test-support/receiving-harness.js';
 
-// TRP-T18 card test T4 / AC3: a database failure at any point of a receipt confirmation leaves
+// MM-T18 card test T4 / AC3: a database failure at any point of a receipt confirmation leaves
 // no partial receipt, burns no storage unit ID, and the same request (same idempotency key)
 // succeeds once the database is healthy again. Failures are injected with temporary triggers in
 // this test's own schema, so no failure hook exists in the application. Fictional data only.
@@ -58,7 +58,7 @@ const POINTS: InjectionPoint[] = [
   },
 ];
 
-describe.runIf(testDatabaseUrl)('receipt failure injection (TRP-T18 T4, AC3)', () => {
+describe.runIf(testDatabaseUrl)('receipt failure injection (MM-T18 T4, AC3)', () => {
   let h: ReceivingHarness;
 
   beforeAll(async () => {

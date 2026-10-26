@@ -1,4 +1,4 @@
-import type { MeResponse, ReceiverOption } from '@trapezoid/shared';
+import type { MeResponse, ReceiverOption } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ErrorState, PageHeader } from '../components/ui';
@@ -16,7 +16,7 @@ import { newRecord, visibleTo, type StoredDraft } from './drafts/record';
 import { indexedDbDraftStore, toStorageError } from './drafts/store';
 import { ReceiptWizard } from './ReceiptWizard';
 
-// Receiving landing (TRP-T11): "Drafts on this computer" above "Start new receipt". With no
+// Receiving landing (MM-T11): "Drafts on this computer" above "Start new receipt". With no
 // drafts to show it goes straight to a new receipt. The open draft's ID is kept in the URL
 // (?draft=…) so signing in again after an expired session comes back to the same draft.
 // On opening, draft auto-delete (MM-T45) runs first: only with the setting loaded from the
@@ -24,7 +24,7 @@ import { ReceiptWizard } from './ReceiptWizard';
 
 /**
  * Who receives by default: a personal account receives as itself (changeable); the shared LAB
- * station starts blank on every new receipt and must choose (Quick Ideas note, TRP-T07).
+ * station starts blank on every new receipt and must choose (Quick Ideas note, MM-T07).
  */
 function defaultReceiver(me: MeResponse): ReceiverOption | null {
   return me.accountType !== 'shared_lab' && me.initials

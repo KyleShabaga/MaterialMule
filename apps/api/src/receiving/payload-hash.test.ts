@@ -1,4 +1,4 @@
-import { confirmReceiptRequestSchema } from '@trapezoid/shared';
+import { confirmReceiptRequestSchema } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { canonicalJson, receiptPayloadHash } from './payload-hash.js';
 
@@ -38,7 +38,7 @@ function reversed(value: unknown): unknown {
 
 const hashOf = (input: unknown) => receiptPayloadHash(confirmReceiptRequestSchema.parse(input));
 
-describe('receipt payload hash (TRP-T09 T2)', () => {
+describe('receipt payload hash (MM-T09 T2)', () => {
   it('sorts keys at every level', () => {
     expect(canonicalJson({ b: 1, a: { d: [2, { f: 1, e: null }], c: 'x' } })).toBe(
       '{"a":{"c":"x","d":[2,{"e":null,"f":1}]},"b":1}',

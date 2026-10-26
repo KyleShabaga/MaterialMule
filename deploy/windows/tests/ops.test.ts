@@ -1,4 +1,4 @@
-// Automated tests for the backup, restore and monitoring scripts (TRP-T21). They run the real
+// Automated tests for the backup, restore and monitoring scripts (MM-T21). They run the real
 // PowerShell scripts against temp folders and the test database (a scratch schema). Only the
 // Windows event log writer is faked (tests/ops-harness.ps1): nothing here registers a scheduled
 // task, service or event source, and nothing runs elevated.
@@ -94,13 +94,13 @@ function writePsd1(path: string, settings: Record<string, Setting>) {
 function psJson<T>(code: string): T {
   const result = pwsh([
     '-Command',
-    `$ErrorActionPreference = 'Stop'; Import-Module ${psString(join(SCRIPTS, 'TrapezoidHosting.psm1'))}; Import-Module ${psString(join(SCRIPTS, 'TrapezoidOps.psm1'))}; ${code}`,
+    `$ErrorActionPreference = 'Stop'; Import-Module ${psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'))}; Import-Module ${psString(join(SCRIPTS, 'MaterialMuleOps.psm1'))}; ${code}`,
   ]);
   if (result.code !== 0) throw new Error(result.output);
   return JSON.parse(result.output) as T;
 }
 
-/** A fake TRP-T20 host: host.config.psd1, a current release and a service env file. */
+/** A fake MM-T20 host: host.config.psd1, a current release and a service env file. */
 function makeHost(work: string) {
   const root = join(work, 'host');
   mkdirSync(join(root, 'config'), { recursive: true });
@@ -108,10 +108,10 @@ function makeHost(work: string) {
   writeFileSync(join(root, 'current', 'release.json'), JSON.stringify({ version: VERSION }));
   // Fictional values: the backup's config bundle must carry the keys but never these secrets.
   writeFileSync(
-    join(root, 'config', 'trapezoid.env'),
+    join(root, 'config', 'materialmule.env'),
     [
       'APP_ENV=production',
-      'DATABASE_URL=postgres://trapezoid_app:fictional-db-password@127.0.0.1:5432/trapezoid',
+      'DATABASE_URL=postgres://materialmule_app:fictional-db-password@127.0.0.1:5432/materialmule',
       'SESSION_SECRET=fictional-session-secret-0123456789abcdef',
       'TLS_PFX_PASSPHRASE=fictional-passphrase',
       'MICROSOFT_CLIENT_SECRET=',
@@ -121,7 +121,7 @@ function makeHost(work: string) {
   const hostConfig = join(root, 'config', 'host.config.psd1');
   writePsd1(hostConfig, {
     InstallRoot: root,
-    ServiceName: 'TrapezoidT21TestNoSuchService',
+    ServiceName: 'MaterialMuleT21TestNoSuchService',
     // Nothing listens here: the monitor must report the health check.
     HealthUrl: 'http://127.0.0.1:9/api/health',
   });
@@ -133,7 +133,7 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
   let hostConfig: string;
 
   beforeAll(() => {
-    work = mkdtempSync(join(tmpdir(), 'trapezoid-t21-config-'));
+    work = mkdtempSync(join(tmpdir(), 'materialmule-t21-config-'));
     ({ hostConfig } = makeHost(work));
   });
   afterAll(() => rmSync(work, { recursive: true, force: true }));
@@ -150,7 +150,7 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
     }
     const install = pwsh([
       '-File',
-      join(SCRIPTS, 'Install-TrapezoidHost.ps1'),
+      join(SCRIPTS, 'Install-MaterialMuleHost.ps1'),
       '-ConfigPath',
       hostConfig,
       '-BackupConfigPath',
@@ -161,15 +161,15 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
     expect(install.output).toContain('Backup configuration is incomplete');
   });
 
-  it('Install-TrapezoidHost.ps1 -WhatIf previews the backup folders, event source and tasks', () => {
+  it('Install-MaterialMuleHost.ps1 -WhatIf previews the backup folders, event source and tasks', () => {
     const path = join(work, 'backup-install.config.psd1');
     const installHost = join(work, 'host-install.config.psd1');
     writePsd1(installHost, {
       InstallRoot: join(work, 'install-root'),
-      HealthUrl: 'https://trapezoid.example.internal/api/health',
-      ServiceName: 'TrapezoidT21TestNoSuchService',
-      ServiceAccount: 'NT SERVICE\\TrapezoidT21Test',
-      PostgresServiceName: 'TrapezoidT21TestNoSuchPostgres',
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceName: 'MaterialMuleT21TestNoSuchService',
+      ServiceAccount: 'NT SERVICE\\MaterialMuleT21Test',
+      PostgresServiceName: 'MaterialMuleT21TestNoSuchPostgres',
     });
     writePsd1(path, {
       HostConfigPath: installHost,
@@ -182,13 +182,13 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
       BackupOwner: 'Fictional IT owner',
       AlertRecipient: 'Fictional IT monitoring',
       TargetEncryptedAtRest: true,
-      BackupAccount: 'EXAMPLE\\svc-trapezoid-bk$',
+      BackupAccount: 'EXAMPLE\\svc-materialmule-bk$',
       BackupTimes: ['02:00', '14:00'],
-      EventLogSource: 'TrapezoidT21TestNoSuchSource',
+      EventLogSource: 'MaterialMuleT21TestNoSuchSource',
     });
     const result = pwsh([
       '-File',
-      join(SCRIPTS, 'Install-TrapezoidHost.ps1'),
+      join(SCRIPTS, 'Install-MaterialMuleHost.ps1'),
       '-ConfigPath',
       installHost,
       '-BackupConfigPath',
@@ -199,7 +199,7 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
     const output = result.output.replace(/\s+/g, ' ');
     expect(output).toContain('register Windows event log source');
     expect(output).toMatch(
-      /register scheduled task: .*backup\.ps1.*daily at 02:00, 14:00, as EXAMPLE\\svc-trapezoid-bk\$/,
+      /register scheduled task: .*backup\.ps1.*daily at 02:00, 14:00, as EXAMPLE\\svc-materialmule-bk\$/,
     );
     expect(output).toMatch(/register scheduled task: .*monitor\.ps1.*every 5 min/);
     expect(output).toContain('replace permissions (no inheritance)');
@@ -238,7 +238,7 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
   });
 });
 
-describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
+describe.runIf(isWindows)('ops helpers (MM-T21)', () => {
   it('keeps the last 24 h plus the newest backup per day, ISO week and month', () => {
     // Every 6 hours for 120 days back from 2026-10-26 12:00 UTC.
     const kept = psJson<string[]>(`
@@ -247,7 +247,7 @@ describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
         $t = $now.AddHours(-6 * $h)
         [pscustomobject]@{ Base = $t.ToString('yyyyMMddTHHmmss'); Time = $t }
       }
-      ConvertTo-Json -Compress @(Select-TrapezoidBackupsToKeep -Backups $backups -KeepDaily 14 -KeepWeekly 8 -KeepMonthly 12 -Now $now)
+      ConvertTo-Json -Compress @(Select-MaterialMuleBackupsToKeep -Backups $backups -KeepDaily 14 -KeepWeekly 8 -KeepMonthly 12 -Now $now)
     `);
     // 4 (last 24 h, 12:00 inclusive back to 18:00 the day before) + 14 days + weeks/months that
     // reach further back; each backup is counted once.
@@ -261,17 +261,17 @@ describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
   });
 
   it('redacts secrets in the configuration bundle', () => {
-    const work = mkdtempSync(join(tmpdir(), 'trapezoid-t21-redact-'));
+    const work = mkdtempSync(join(tmpdir(), 'materialmule-t21-redact-'));
     try {
       const { root } = makeHost(work);
       const text = psJson<string>(
-        `ConvertTo-Json (Get-RedactedEnvText -Path ${psString(join(root, 'config', 'trapezoid.env'))})`,
+        `ConvertTo-Json (Get-RedactedEnvText -Path ${psString(join(root, 'config', 'materialmule.env'))})`,
       );
       expect(text).not.toContain('fictional-db-password');
       expect(text).not.toContain('fictional-session-secret');
       expect(text).not.toContain('fictional-passphrase');
       expect(text).toContain(
-        'DATABASE_URL=postgres://trapezoid_app:<redacted>@127.0.0.1:5432/trapezoid',
+        'DATABASE_URL=postgres://materialmule_app:<redacted>@127.0.0.1:5432/materialmule',
       );
       expect(text).toContain('SESSION_SECRET=<redacted: see the password manager>');
       expect(text).toContain('MICROSOFT_CLIENT_SECRET=\r\n');
@@ -282,13 +282,13 @@ describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
   });
 
   it('AC5: rotates logs by size and keeps a bounded number', () => {
-    const work = mkdtempSync(join(tmpdir(), 'trapezoid-t21-rotate-'));
+    const work = mkdtempSync(join(tmpdir(), 'materialmule-t21-rotate-'));
     try {
       const log = join(work, 'backup.log');
       for (let i = 0; i < 5; i += 1) {
         writeFileSync(log, 'x'.repeat(2048));
         psJson(
-          `Invoke-TrapezoidLogRotation -Path ${psString(log)} -MaxSizeMB 0.001 -KeepFiles 3; '1'`,
+          `Invoke-MaterialMuleLogRotation -Path ${psString(log)} -MaxSizeMB 0.001 -KeepFiles 3; '1'`,
         );
       }
       expect(readdirSync(work).sort()).toEqual(['backup.1.log', 'backup.2.log', 'backup.3.log']);
@@ -297,8 +297,8 @@ describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
     }
   });
 
-  it('Deploy-Trapezoid.ps1 runs backup.ps1 with BackupConfig and stops when it fails', () => {
-    const work = mkdtempSync(join(tmpdir(), 'trapezoid-t21-predeploy-'));
+  it('Deploy-MaterialMule.ps1 runs backup.ps1 with BackupConfig and stops when it fails', () => {
+    const work = mkdtempSync(join(tmpdir(), 'materialmule-t21-predeploy-'));
     try {
       const { root, hostConfig } = makeHost(work);
       mkdirSync(join(root, 'logs'));
@@ -323,9 +323,9 @@ describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
         pwsh(
           [
             '-Command',
-            `$ErrorActionPreference = 'Stop'; Import-Module ${psString(join(SCRIPTS, 'TrapezoidHosting.psm1'))}
-             $c = Get-TrapezoidHostConfig -Path ${psString(withBackup)}
-             try { Invoke-TrapezoidBackup -Config $c; 'backup ok' } catch { "backup refused: $($_.Exception.Message)" }`,
+            `$ErrorActionPreference = 'Stop'; Import-Module ${psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'))}
+             $c = Get-MaterialMuleHostConfig -Path ${psString(withBackup)}
+             try { Invoke-MaterialMuleBackup -Config $c; 'backup ok' } catch { "backup refused: $($_.Exception.Message)" }`,
           ],
           { T21_FAKE_BACKUP_EXIT: String(exitCode) },
         ).output;
@@ -340,23 +340,23 @@ describe.runIf(isWindows)('ops helpers (TRP-T21)', () => {
   });
 
   it('refuses restore targets that could be production', () => {
-    const work = mkdtempSync(join(tmpdir(), 'trapezoid-t21-target-'));
+    const work = mkdtempSync(join(tmpdir(), 'materialmule-t21-target-'));
     try {
       const { hostConfig } = makeHost(work);
       const config = join(work, 'backup.config.psd1');
-      writePsd1(config, { HostConfigPath: hostConfig, DbName: 'trapezoid' });
+      writePsd1(config, { HostConfigPath: hostConfig, DbName: 'materialmule' });
       const check = (target: string) =>
         psJson<string>(`
-          $c = Get-TrapezoidBackupConfig -Path ${psString(config)} -Purpose Restore
-          try { Assert-TrapezoidRestoreTarget -Config $c -TargetDatabase ${psString(target)}; ConvertTo-Json 'ok' }
+          $c = Get-MaterialMuleBackupConfig -Path ${psString(config)} -Purpose Restore
+          try { Assert-MaterialMuleRestoreTarget -Config $c -TargetDatabase ${psString(target)}; ConvertTo-Json 'ok' }
           catch { ConvertTo-Json $_.Exception.Message }
         `);
-      expect(check('trapezoid')).toContain('it is the production database');
-      expect(check('TRAPEZOID')).toContain('lowercase');
+      expect(check('materialmule')).toContain('it is the production database');
+      expect(check('MATERIALMULE')).toContain('lowercase');
       expect(check('postgres')).toContain('system database');
-      expect(check('trapezoid_copy')).toContain("must contain 'restore'");
-      expect(check('trapezoid; drop')).toContain('lowercase');
-      expect(check('trapezoid_restore_20261026')).toBe('ok');
+      expect(check('materialmule_copy')).toContain("must contain 'restore'");
+      expect(check('materialmule; drop')).toContain('lowercase');
+      expect(check('materialmule_restore_20261026')).toBe('ok');
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
@@ -374,7 +374,7 @@ interface Status {
 }
 
 describe.runIf(isWindows && testDatabaseUrl)(
-  'backup.ps1, restore.ps1, monitor.ps1 (TRP-T21)',
+  'backup.ps1, restore.ps1, monitor.ps1 (MM-T21)',
   () => {
     const schema = `t21_${randomBytes(6).toString('hex')}`;
     let admin: Pool;
@@ -480,7 +480,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
         [user],
       );
 
-      work = mkdtempSync(join(tmpdir(), 'trapezoid-t21-'));
+      work = mkdtempSync(join(tmpdir(), 'materialmule-t21-'));
       ({ root } = makeHost(work));
       target = join(work, 'target');
       mkdirSync(target);
@@ -521,12 +521,15 @@ describe.runIf(isWindows && testDatabaseUrl)(
       // Old backups of this environment (one per day) and files retention must never touch.
       const old = ['20260901T020000Z', '20261001T020000Z', '20261020T020000Z', '20261021T020000Z'];
       for (const stamp of old) {
-        writeFileSync(join(target, `trapezoid-test-${stamp}-0.0.1.dump`), 'old');
-        writeFileSync(join(target, `trapezoid-test-${stamp}-0.0.1.sha256`), 'old');
+        writeFileSync(join(target, `materialmule-test-${stamp}-0.0.1.dump`), 'old');
+        writeFileSync(join(target, `materialmule-test-${stamp}-0.0.1.sha256`), 'old');
       }
-      writeFileSync(join(target, 'trapezoid-production-20260901T020000Z-0.0.1.dump'), 'other env');
       writeFileSync(
-        join(target, 'trapezoid-production-20260901T020000Z-0.0.1.sha256'),
+        join(target, 'materialmule-production-20260901T020000Z-0.0.1.dump'),
+        'other env',
+      );
+      writeFileSync(
+        join(target, 'materialmule-production-20260901T020000Z-0.0.1.sha256'),
         'other env',
       );
       writeFileSync(join(target, 'notes.txt'), 'IT notes');
@@ -534,7 +537,9 @@ describe.runIf(isWindows && testDatabaseUrl)(
       const result = run('backup.ps1', '-ConfigPath', configPath);
       expect(result.code, result.output).toBe(0);
       const files = readdirSync(target);
-      const dump = files.find((f) => /^trapezoid-test-\d{8}T\d{6}Z-0\.0\.0-t21test\.dump$/.test(f));
+      const dump = files.find((f) =>
+        /^materialmule-test-\d{8}T\d{6}Z-0\.0\.0-t21test\.dump$/.test(f),
+      );
       expect(dump, files.join(', ')).toBeDefined();
       const base = dump!.replace(/\.dump$/, '');
       for (const suffix of ['.sha256', '.manifest.json', '.config.zip']) {
@@ -544,7 +549,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
 
       // Checksums verify; the manifest has the card's verification values.
       const verify = psJson<{ Valid: boolean }>(
-        `Test-TrapezoidBackupChecksum -DumpPath ${psString(join(target, dump!))} | ConvertTo-Json`,
+        `Test-MaterialMuleBackupChecksum -DumpPath ${psString(join(target, dump!))} | ConvertTo-Json`,
       );
       expect(verify.Valid).toBe(true);
       const manifest = JSON.parse(
@@ -576,7 +581,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
       Remove-Item -Recurse -Force $dir
       ConvertTo-Json $text
     `);
-      expect(listing).toContain('trapezoid.env.redacted');
+      expect(listing).toContain('materialmule.env.redacted');
       expect(listing).toContain('host.config.psd1');
       expect(listing).toContain('release.json');
       expect(listing).not.toContain('fictional-db-password');
@@ -585,11 +590,11 @@ describe.runIf(isWindows && testDatabaseUrl)(
       // Retention (2 daily, 1 weekly, 1 monthly): 2026-10-21 and 2026-10-20 go, as do the older
       // months beyond KeepMonthly; other environments and other files stay.
       const remaining = readdirSync(target);
-      expect(remaining).not.toContain('trapezoid-test-20260901T020000Z-0.0.1.dump');
-      expect(remaining).not.toContain('trapezoid-test-20261001T020000Z-0.0.1.dump');
-      expect(remaining).not.toContain('trapezoid-test-20261020T020000Z-0.0.1.dump');
-      expect(remaining).toContain('trapezoid-test-20261021T020000Z-0.0.1.dump');
-      expect(remaining).toContain('trapezoid-production-20260901T020000Z-0.0.1.dump');
+      expect(remaining).not.toContain('materialmule-test-20260901T020000Z-0.0.1.dump');
+      expect(remaining).not.toContain('materialmule-test-20261001T020000Z-0.0.1.dump');
+      expect(remaining).not.toContain('materialmule-test-20261020T020000Z-0.0.1.dump');
+      expect(remaining).toContain('materialmule-test-20261021T020000Z-0.0.1.dump');
+      expect(remaining).toContain('materialmule-production-20260901T020000Z-0.0.1.dump');
       expect(remaining).toContain('notes.txt');
 
       // Status record (Settings → System status) and an informational event.
@@ -599,7 +604,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
         rpoHours: 24,
         alertRecipient: 'Fictional IT monitoring',
       });
-      expect(events().some((e) => e.startsWith('Trapezoid|Information|1000|'))).toBe(true);
+      expect(events().some((e) => e.startsWith('MaterialMule|Information|1000|'))).toBe(true);
       // The local staging copy is gone once the location holds a verified copy.
       expect(readdirSync(join(root, 'ops', 'staging'))).toEqual([]);
       expect(readFileSync(join(root, 'ops', 'logs', 'backup.log'), 'utf8')).not.toContain(
@@ -615,7 +620,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
       expect(after.lastRun).toMatchObject({ result: 'failed', file: null });
       expect(after.lastRun.message).toContain('Backup location unavailable');
       expect(after.lastSuccess).toEqual(before.lastSuccess);
-      const alert = events().find((e) => e.startsWith('Trapezoid|Error|1001|'));
+      const alert = events().find((e) => e.startsWith('MaterialMule|Error|1001|'));
       expect(alert).toContain('Backup location unavailable');
       expect(alert).toContain('Alert recipient: Fictional IT monitoring');
       // This run's dump stays in staging so it can be copied by hand.
@@ -633,11 +638,11 @@ describe.runIf(isWindows && testDatabaseUrl)(
       ) as { problems: string[] };
       expect(monitor.problems.join('\n')).toContain('Backup: last run failed');
       expect(monitor.problems.join('\n')).toContain(
-        'Service TrapezoidT21TestNoSuchService is not installed',
+        'Service MaterialMuleT21TestNoSuchService is not installed',
       );
       expect(monitor.problems.join('\n')).toContain('Health check: no response');
       expect(monitor.problems.join('\n')).toMatch(/Print queue: a label job has waited \d+ min/);
-      const alerts = () => events().filter((e) => e.startsWith('Trapezoid|Warning|1100|'));
+      const alerts = () => events().filter((e) => e.startsWith('MaterialMule|Warning|1100|'));
       expect(alerts()).toHaveLength(1);
       // Same problems again: no repeat alert.
       result = run('monitor.ps1', '-ConfigPath', configPath);
@@ -685,7 +690,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
         '-BackupFile',
         join(tampered, dump),
         '-TargetDatabase',
-        'trapezoid_test_t21_restore_never',
+        'materialmule_test_t21_restore_never',
       );
       expect(result.code).toBe(2);
       expect(result.output).toContain('does not match its SHA-256');
@@ -695,7 +700,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
       'T2/AC2/AC6: restores into a new isolated database, matches the manifest and records the drill',
       async () => {
         const dump = readdirSync(target).find((f) => f.includes(VERSION) && f.endsWith('.dump'))!;
-        const scratch = `trapezoid_test_t21_restore_${randomBytes(4).toString('hex')}`;
+        const scratch = `materialmule_test_t21_restore_${randomBytes(4).toString('hex')}`;
         try {
           const result = run(
             'restore.ps1',
@@ -721,7 +726,7 @@ describe.runIf(isWindows && testDatabaseUrl)(
             dropped: true,
           });
           expect(typeof drills.at(-1)!.durationSeconds).toBe('number');
-          expect(events().some((e) => e.startsWith('Trapezoid|Information|1200|'))).toBe(true);
+          expect(events().some((e) => e.startsWith('MaterialMule|Information|1200|'))).toBe(true);
 
           // Restoring again into an existing database is refused (kept for this check only).
           await admin.query(`CREATE DATABASE ${scratch}`);

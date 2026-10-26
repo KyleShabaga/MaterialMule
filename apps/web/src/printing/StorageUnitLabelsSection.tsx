@@ -1,4 +1,4 @@
-import { isPrintJobActive, type PrintHistoryResponse, type PrintJob } from '@trapezoid/shared';
+import { isPrintJobActive, type PrintHistoryResponse, type PrintJob } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { DataTable, ErrorState } from '../components/ui';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
@@ -27,7 +27,7 @@ function who(job: PrintJob): string {
 }
 
 /**
- * Labels section of the storage unit detail page (TRP-T15, placed on the page by TRP-T12): print
+ * Labels section of the storage unit detail page (MM-T15, placed on the page by MM-T12): print
  * or reprint the unit's label and its print history.
  */
 export function StorageUnitLabelsSection({ readableId }: { readableId: string }) {

@@ -5,13 +5,13 @@ import {
   toFieldErrors,
   type ProjectSummary,
   type StaffOption,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import { createProject, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
 import { prefillFromQuery } from './prefill';
 
-// Project combobox with inline "Add project" (TRP-T08). The typed text lives in the receipt draft
+// Project combobox with inline "Add project" (MM-T08). The typed text lives in the receipt draft
 // (props), so nothing typed is lost while adding a project or while offline.
 
 const SEARCH_DELAY_MS = 200;

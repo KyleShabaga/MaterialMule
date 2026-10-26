@@ -1,4 +1,4 @@
-import type { StorageUnitHoleSummary } from '@trapezoid/shared';
+import type { StorageUnitHoleSummary } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { diffCorrection, type CorrectableValues } from './correction-diff.js';
 
@@ -28,7 +28,7 @@ const current: CorrectableValues = {
   note: 'Lid taped',
 };
 
-describe('diffCorrection (TRP-T13 T1)', () => {
+describe('diffCorrection (MM-T13 T1)', () => {
   it('reports nothing when every value is the same', () => {
     const same = { ...current, holeSummaries: [...current.holeSummaries].reverse() };
     expect(diffCorrection(current, same)).toEqual({ fields: [], before: {}, after: {} });

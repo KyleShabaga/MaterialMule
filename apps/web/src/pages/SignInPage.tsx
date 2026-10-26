@@ -1,4 +1,4 @@
-import { authProvidersResponseSchema, type AuthProvidersResponse } from '@trapezoid/shared';
+import { authProvidersResponseSchema, type AuthProvidersResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { ErrorState } from '../components/ui';
@@ -41,7 +41,7 @@ export function SignInPage() {
 
   return (
     <main className="shell sign-in">
-      <h1>Trapezoid</h1>
+      <h1>Material Mule</h1>
       <p className="subtitle">Sample receiving and storage tracking</p>
       {labExpired ? (
         <p role="status">{LAB_EXPIRED_MESSAGE}</p>

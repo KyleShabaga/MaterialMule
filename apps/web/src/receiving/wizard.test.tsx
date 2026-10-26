@@ -1,4 +1,4 @@
-import type { MeResponse, ProjectSummary, TestHole } from '@trapezoid/shared';
+import type { MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 
-// Receiving wizard (TRP-T10). Every project, person and hole here is fictional.
+// Receiving wizard (MM-T10). Every project, person and hole here is fictional.
 
 const PE = {
   id: '00000000-0000-4000-8000-000000000101',
@@ -145,7 +145,7 @@ function issued(body: unknown, first = 1) {
   };
 }
 
-describe('Receiving wizard (TRP-T10)', () => {
+describe('Receiving wizard (MM-T10)', () => {
   it('AC1/AC2: two buckets, one with a mixed-hole summary, confirmed in one request', async () => {
     const user = userEvent.setup();
     const posts: unknown[] = [];

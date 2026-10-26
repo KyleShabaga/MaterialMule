@@ -1,5 +1,5 @@
 /**
- * Seeded pseudo-random numbers for the benchmark (TRP-T19). The same seed always produces the same
+ * Seeded pseudo-random numbers for the benchmark (MM-T19). The same seed always produces the same
  * dataset and the same request sequence, on any machine and PostgreSQL version, because nothing
  * depends on the database's own random() or on Math.random().
  */

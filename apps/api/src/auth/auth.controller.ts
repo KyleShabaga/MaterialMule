@@ -10,7 +10,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { AuthProvidersResponse, MeResponse, Position } from '@trapezoid/shared';
+import type { AuthProvidersResponse, MeResponse, Position } from '@materialmule/shared';
 import type { Response } from 'express';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { APP_CONFIG } from '../config/config.constants.js';
@@ -85,7 +85,7 @@ export class AuthController {
 
   /**
    * Which sign-in options the landing page should offer. LAB appears once an admin has set its
-   * password (TRP-T06); Microsoft once its configuration is present (TRP-T05).
+   * password (MM-T06); Microsoft once its configuration is present (MM-T05).
    */
   @Get('auth/providers')
   @Public()

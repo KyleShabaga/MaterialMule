@@ -16,10 +16,10 @@ import {
   type StorageUnitDetail,
   type StorageUnitHistoryPage,
   type StorageUnitLookupResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
-// Inventory, lookup and storage unit detail (TRP-T12). Every call resolves; failures carry a
+// Inventory, lookup and storage unit detail (MM-T12). Every call resolves; failures carry a
 // readable message, and `notFound` marks a 404 so screens can say "No storage unit found".
 
 export type InventoryResult<T> =
@@ -37,7 +37,7 @@ async function get<T>(path: string, schema: Schema<T>): Promise<InventoryResult<
     return {
       ok: false,
       notFound: false,
-      message: "Trapezoid couldn't be reached. Check the connection.",
+      message: "Material Mule couldn't be reached. Check the connection.",
     };
   }
   const body: unknown = await response.json().catch(() => null);
@@ -53,7 +53,7 @@ async function get<T>(path: string, schema: Schema<T>): Promise<InventoryResult<
   const parsed = schema.safeParse(body);
   return parsed.success
     ? { ok: true, data: parsed.data }
-    : { ok: false, notFound: false, message: 'Trapezoid returned an unexpected response.' };
+    : { ok: false, notFound: false, message: 'Material Mule returned an unexpected response.' };
 }
 
 /** `params` is the page's own URL query, which uses the API's parameter names. */
@@ -94,7 +94,7 @@ export function fetchStorageUnitHistory(
   );
 }
 
-/** Outcome of `PATCH /api/storage-units/:id` (TRP-T13). */
+/** Outcome of `PATCH /api/storage-units/:id` (MM-T13). */
 export type CorrectionResult =
   | { kind: 'saved'; unit: StorageUnitDetail }
   | { kind: 'conflict' }
@@ -113,14 +113,14 @@ export async function correctStorageUnit(
       body: JSON.stringify(body),
     });
   } catch {
-    return { kind: 'error', message: "Trapezoid couldn't be reached. Check the connection." };
+    return { kind: 'error', message: "Material Mule couldn't be reached. Check the connection." };
   }
   const json: unknown = await response.json().catch(() => null);
   if (response.ok) {
     const unit = storageUnitDetailSchema.safeParse(json);
     return unit.success
       ? { kind: 'saved', unit: unit.data }
-      : { kind: 'error', message: 'Trapezoid returned an unexpected response.' };
+      : { kind: 'error', message: 'Material Mule returned an unexpected response.' };
   }
   if (response.status === 409) {
     const links = unresolvedLabLinksResponseSchema.safeParse(json);

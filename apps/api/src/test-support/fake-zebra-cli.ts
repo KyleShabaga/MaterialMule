@@ -1,5 +1,5 @@
-// Runs the fake Zebra printer for manual testing without a ZD621 (TRP-T15):
-// `npm run mock:printer -w @trapezoid/api`. Point the API's printer at 127.0.0.1 and this port
+// Runs the fake Zebra printer for manual testing without a ZD621 (MM-T15):
+// `npm run mock:printer -w @materialmule/api`. Point the API's printer at 127.0.0.1 and this port
 // (LABEL_PRINTER_HOST / LABEL_PRINTER_PORT, or Settings → Printers). Never used outside tests.
 //   MOCK_PRINTER_PORT       port to listen on (default 9100)
 //   MOCK_PRINTER_MODE       accept (default) | hang | drop  — see fake-zebra.ts

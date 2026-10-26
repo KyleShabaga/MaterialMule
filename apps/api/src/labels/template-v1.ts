@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { measureText, truncateToWidth, wrapList } from './text-fit.js';
 
 /**
- * Storage-unit sticker, template v1 (TRP-T14): Zebra ZD621, 300 dpi, 3.5 × 1.5 in stock.
+ * Storage-unit sticker, template v1 (MM-T14): Zebra ZD621, 300 dpi, 3.5 × 1.5 in stock.
  * One layout definition drives both the ZPL and the preview, so they can't drift apart.
  * Any change to positions, sizes or fit rules needs a new template version: prints record the
  * version so reprints are reproducible (T15).
