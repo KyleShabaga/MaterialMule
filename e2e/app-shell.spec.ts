@@ -35,7 +35,8 @@ test('AC1/AC4: header identity, menu and Receive samples', async ({ page }) => {
 
   await menu.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('link', { name: 'Receive samples' }).click();
-  await expect(page).toHaveURL(/\/receiving-log\/new$/);
+  // The open receipt draft's ID is added to the URL (TRP-T11).
+  await expect(page).toHaveURL(/\/receiving-log\/new(\?draft=[\w-]+)?$/);
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();
 });
 

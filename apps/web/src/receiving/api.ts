@@ -11,6 +11,11 @@ import { apiFetch } from '../api/client';
 export type ConfirmOutcome =
   | { kind: 'confirmed'; response: ConfirmReceiptResponse }
   | { kind: 'invalid'; errors: FieldError[] }
+  /** The session is gone (TRP-T04/T06): sign in again, then confirm the same draft. */
+  | { kind: 'unauthenticated' }
+  /** No answer after every retry: the receipt may or may not exist; resending is safe. */
+  | { kind: 'lost'; message: string }
+  /** A definite refusal: nothing was created. */
   | { kind: 'failed'; message: string };
 
 /**
@@ -35,7 +40,12 @@ function isFieldErrors(value: unknown): value is FieldError[] {
 async function attempt(body: string): Promise<ConfirmOutcome | 'retry'> {
   let response: Response;
   try {
-    response = await apiFetch('/api/receipts', { method: 'POST', body });
+    // The wizard keeps the user on the draft and offers Sign in itself (TRP-T11).
+    response = await apiFetch(
+      '/api/receipts',
+      { method: 'POST', body },
+      { reportUnauthenticated: false },
+    );
   } catch {
     return 'retry';
   }
@@ -65,7 +75,7 @@ async function attempt(body: string): Promise<ConfirmOutcome | 'retry'> {
     return { kind: 'failed', message: "You don't have permission to confirm receipts." };
   }
   if (response.status === 401) {
-    return { kind: 'failed', message: 'Your session ended. Sign in again to confirm.' };
+    return { kind: 'unauthenticated' };
   }
   return { kind: 'failed', message: `Confirmation failed (HTTP ${response.status}).` };
 }
@@ -80,7 +90,7 @@ export async function confirmReceipt(
     const outcome = await attempt(body);
     if (outcome !== 'retry') return outcome;
     const delay = delays[tries];
-    if (delay === undefined) return { kind: 'failed', message: LOST };
+    if (delay === undefined) return { kind: 'lost', message: LOST };
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
 }
