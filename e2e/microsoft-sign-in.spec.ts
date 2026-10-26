@@ -42,6 +42,8 @@ test('T5: position setup interrupted, resumed and saved once', async ({ page }, 
   });
   expect(again.status()).toBe(409);
   await page.getByRole('button', { name: 'Sign out' }).click();
+  // Wait for sign-out's own navigation; a page.goto during it is aborted (net::ERR_ABORTED).
+  await expect(page).toHaveURL(/\/sign-in/);
   await signInWithMicrosoft(page, name);
   await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
   const me = await (await page.request.get('/api/me')).json();
