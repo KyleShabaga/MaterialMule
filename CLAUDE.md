@@ -53,6 +53,11 @@ production-shaped (the API serves `apps/web/dist` via `WEB_DIST_DIR`, no dev pro
 `signInAs(page, key)` from `e2e/support/auth.ts`. Locally it uses 2 workers: on the dev PC, more
 parallel browsers made the API stall (AVG Web Shield); CI uses the default.
 
+Parallel worktrees: each worktree needs its own test database (point its `apps/api/.env.test` at
+e.g. `trapezoid_test_t07`) and its own E2E port (`E2E_PORT=3107 npm run test:e2e`), because E2E
+resets the database it runs against. Playwright never reuses a server already on the port unless
+`E2E_REUSE_SERVER=1` is set.
+
 ## Configuration
 
 - The API validates env vars at startup (`apps/api/src/config/env.ts`) and exits with the list of
