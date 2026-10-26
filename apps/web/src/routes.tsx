@@ -10,6 +10,8 @@ import { PositionSetupPage } from './pages/PositionSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
+import { ProjectDetailPage } from './projects/ProjectDetailPage';
+import { ProjectsPage } from './projects/ProjectsPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -77,7 +79,9 @@ export const routes: RouteObject[] = [
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
-              { path: 'projects', element: <PlaceholderPage title="Projects" card="TRP-T35" /> },
+              // Projects list and detail (TRP-T35).
+              { path: 'projects', element: <ProjectsPage /> },
+              { path: 'projects/:projectId', element: <ProjectDetailPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROJECT_LIST_PAGE_SIZE_DEFAULT,
   createProjectRequestSchema,
+  projectListQuerySchema,
+  projectListSortDirection,
+  updateProjectRequestSchema,
   createTestHoleRequestSchema,
   normalizeProjectNumber,
   normalizeTestHoleName,
@@ -65,5 +69,65 @@ describe('createProjectRequestSchema', () => {
     expect(result.success).toBe(false);
     const fields = result.error!.issues.map((issue) => issue.path.join('.'));
     expect(fields).toEqual(expect.arrayContaining(['client', 'pmPeUserId']));
+  });
+});
+
+describe('projects list query (TRP-T35)', () => {
+  it('defaults to number A–Z, page 1 of 25, everyone’s projects', () => {
+    const query = projectListQuerySchema.parse({});
+    expect(query).toEqual({
+      mine: false,
+      sort: 'number',
+      page: 1,
+      pageSize: PROJECT_LIST_PAGE_SIZE_DEFAULT,
+    });
+    expect(projectListSortDirection(query)).toBe('asc');
+    expect(projectListSortDirection({ sort: 'last_receipt' })).toBe('desc');
+  });
+
+  it('reads URL values: blanks are unset, mine accepts true/1/false/0', () => {
+    expect(projectListQuerySchema.parse({ search: '  ', mine: '1' })).toMatchObject({
+      search: undefined,
+      mine: true,
+    });
+    expect(projectListQuerySchema.parse({ mine: '0', page: '2' })).toMatchObject({
+      mine: false,
+      page: 2,
+    });
+    expect(projectListQuerySchema.safeParse({ page: '0' }).success).toBe(false);
+  });
+});
+
+describe('project edit request (TRP-T35)', () => {
+  it('trims values, turns a blank folder path into null and drops a blank reason', () => {
+    expect(
+      updateProjectRequestSchema.parse({
+        version: 3,
+        name: '  Riverbank investigation ',
+        serverFolderPath: '   ',
+        reason: '  ',
+      }),
+    ).toEqual({ version: 3, name: 'Riverbank investigation', serverFolderPath: null });
+    expect(
+      updateProjectRequestSchema.parse({
+        version: 1,
+        serverFolderPath: ' \\\\fs01\\Projects\\DEMO-2601 ',
+      }).serverFolderPath,
+    ).toBe('\\\\fs01\\Projects\\DEMO-2601');
+  });
+
+  it('needs a version and rejects over-long paths and bad staff IDs by field', () => {
+    const result = updateProjectRequestSchema.safeParse({
+      serverFolderPath: 'x'.repeat(501),
+      pmPeId: 'not-a-uuid',
+      reviewEngineerId: 'nope',
+    });
+    expect(result.success).toBe(false);
+    const fields = result.error!.issues.map((issue) => String(issue.path[0])).sort();
+    expect(fields).toEqual(['pmPeId', 'reviewEngineerId', 'serverFolderPath', 'version']);
+    expect(updateProjectRequestSchema.parse({ version: 1, reviewEngineerId: null })).toEqual({
+      version: 1,
+      reviewEngineerId: null,
+    });
   });
 });

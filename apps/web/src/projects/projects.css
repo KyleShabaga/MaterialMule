@@ -1,0 +1,91 @@
+/* ---- Projects list and detail (TRP-T35) ---- */
+
+.projects-search,
+.add-hole {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  max-width: 40rem;
+}
+
+.only-mine {
+  align-self: center;
+  margin-right: 1rem;
+}
+
+.projects-table,
+.project-section,
+.project-name {
+  overflow-wrap: anywhere;
+}
+
+.project-name {
+  margin-top: 0;
+  font-size: 1.125rem;
+}
+
+.project-section {
+  margin-top: 1rem;
+  min-width: 0;
+}
+
+.project-section h2 {
+  font-size: 1.125rem;
+}
+
+.project-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0 1rem;
+}
+
+.project-holes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.hole-name {
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.folder-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+}
+
+.folder-path code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.edit-project {
+  width: min(32rem, calc(100% - 2rem));
+  box-sizing: border-box;
+}
+
+.edit-project input,
+.edit-project select,
+.edit-project textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .project-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .projects-table .data-table td::before {
+    min-width: 6rem;
+  }
+}
