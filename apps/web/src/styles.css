@@ -576,14 +576,33 @@ textarea {
   gap: 0.5rem;
 }
 
+/* Label/value list used across pages. minmax(0, …) and overflow-wrap keep a long value (a receipt
+   description, an email) inside the column; at phone width each label sits above its value. */
 .details {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
   gap: 0.25rem 1rem;
+  overflow-wrap: anywhere;
+}
+
+.details dt {
+  font-weight: 600;
 }
 
 .details dd {
   margin: 0;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+
+  .details dd {
+    margin-bottom: 0.5rem;
+  }
 }
 
 /* ---- Receiving: project and test-hole pickers (TRP-T08) ---- */
