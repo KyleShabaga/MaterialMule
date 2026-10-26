@@ -21,7 +21,8 @@ apps/api         NestJS 12 backend, ESM ("type": "module"), routes under /api
 apps/web         React 19 + Vite browser app
 packages/shared  Types and zod schemas used by both (built with tsup to ESM + CJS)
 e2e              Playwright tests (desktop and phone viewports)
-scripts          Repo tooling (e.g. check-bundle-secrets.mjs)
+deploy/windows   Host scripts: Install-TrapezoidHost, Deploy-Trapezoid (TRP-T20, docs/operations/runbook.md)
+scripts          Repo tooling (check-bundle-secrets.mjs, pack-release.mjs)
 ```
 
 ## Commands (run from the repo root)
@@ -36,6 +37,8 @@ scripts          Repo tooling (e.g. check-bundle-secrets.mjs)
 | `npm test`              | Unit and integration tests (Vitest) in every workspace                                     |
 | `npm run build`         | Build shared, API and web                                                                  |
 | `npm run check:bundle`  | Fail if server config appears in the web bundle                                            |
+| `npm run test:deploy`   | Deploy-script and release-packing tests (PowerShell 7, temp folders; part of `npm test`)   |
+| `npm run release:pack`  | Pack `release/trapezoid-<version>-<commit>/` for the Windows host (after verify)           |
 | `npm run verify`        | lint → typecheck → test → build → check:bundle (the gate for every card)                   |
 | `npm run test:e2e`      | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on 3100 |
 | `npm run db:migrate`    | Apply pending migrations, then reference data (Receiving lab)                              |

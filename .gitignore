@@ -21,3 +21,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Packed releases (npm run release:pack)
+release/
+# Host env files copied from deploy/windows/*.env.example
+*.env

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ConfigError, loadConfig, loadConfigOrExit } from './env.js';
+import { ConfigError, loadConfig, loadConfigOrExit, tlsConfigured } from './env.js';
 
 const SECRET = 'an-example-session-secret-that-is-long-enough';
 const DB_URL = 'postgres://trapezoid:hunter2pw@127.0.0.1:5432/trapezoid_test';
@@ -8,6 +8,13 @@ const validEnv = {
   APP_ENV: 'test',
   DATABASE_URL: DB_URL,
   SESSION_SECRET: SECRET,
+};
+
+// The smallest production environment that loads (TRP-T20: HTTPS is required there).
+const productionEnv = {
+  ...validEnv,
+  APP_ENV: 'production',
+  TLS_PFX_FILE: 'C:/fictional/app.pfx',
 };
 
 describe('loadConfig', () => {
@@ -98,6 +105,63 @@ describe('loadConfig', () => {
           MICROSOFT_AUTHORITY_HOST: 'http://127.0.0.1:4100',
         }),
       ).toThrowError(/MICROSOFT_AUTHORITY_HOST must use https in production/);
+    });
+
+    it('requires an https redirect URI in production', () => {
+      expect(() =>
+        loadConfig({
+          ...productionEnv,
+          ...microsoft,
+          MICROSOFT_REDIRECT_URI: 'http://trapezoid.example.test/sign-in/microsoft/callback',
+        }),
+      ).toThrowError(/MICROSOFT_REDIRECT_URI must use https in production/);
+      expect(loadConfig({ ...productionEnv, ...microsoft }).MICROSOFT_REDIRECT_URI).toMatch(
+        /^https:/,
+      );
+    });
+  });
+
+  describe('HTTPS certificate keys (TRP-T20)', () => {
+    it('are optional outside production', () => {
+      expect(tlsConfigured(loadConfig(validEnv))).toBe(false);
+    });
+
+    it('are required in production', () => {
+      expect(() => loadConfig({ ...validEnv, APP_ENV: 'production' })).toThrowError(
+        /TLS_PFX_FILE \(or TLS_CERT_FILE and TLS_KEY_FILE\) is required in production/,
+      );
+      expect(tlsConfigured(loadConfig(productionEnv))).toBe(true);
+      expect(
+        tlsConfigured(
+          loadConfig({
+            ...validEnv,
+            APP_ENV: 'production',
+            TLS_CERT_FILE: 'C:/fictional/app.crt',
+            TLS_KEY_FILE: 'C:/fictional/app.key',
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    it('accept exactly one complete certificate form', () => {
+      expect(() =>
+        loadConfig({ ...productionEnv, TLS_CERT_FILE: 'C:/fictional/app.crt' }),
+      ).toThrowError(/TLS_PFX_FILE must not be combined/);
+      expect(() => loadConfig({ ...validEnv, TLS_CERT_FILE: 'C:/fictional/app.crt' })).toThrowError(
+        /TLS_CERT_FILE and TLS_KEY_FILE must be set together/,
+      );
+      expect(() =>
+        loadConfig({ ...validEnv, TLS_PFX_PASSPHRASE: 'fictional-passphrase' }),
+      ).toThrowError(/TLS_PFX_PASSPHRASE is only used with TLS_PFX_FILE/);
+    });
+
+    it('never echoes the passphrase', () => {
+      try {
+        loadConfig({ ...validEnv, TLS_PFX_PASSPHRASE: 'fictional-passphrase' });
+        expect.unreachable('loadConfig should throw');
+      } catch (error) {
+        expect((error as ConfigError).message).not.toContain('fictional-passphrase');
+      }
     });
   });
 });

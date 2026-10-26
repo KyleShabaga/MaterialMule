@@ -7,7 +7,13 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', 'playwright-report/**', 'test-results/**'],
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      'release/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -22,7 +28,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/**/*.ts', 'scripts/**/*.mjs', '*.config.{ts,mjs}', 'e2e/**/*.ts'],
+    files: [
+      'apps/api/**/*.ts',
+      'scripts/**/*.mjs',
+      '*.config.{ts,mjs}',
+      'e2e/**/*.ts',
+      'deploy/**/*.ts',
+    ],
     languageOptions: { globals: globals.node },
   },
   {

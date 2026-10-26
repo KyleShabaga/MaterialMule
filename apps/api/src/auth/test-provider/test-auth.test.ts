@@ -35,7 +35,10 @@ describe('test auth gating (AC3, AC4)', () => {
     );
     expect(testAuthEnabled(config({ APP_ENV: 'test', ENABLE_TEST_AUTH: 'true' }))).toBe(true);
     expect(testAuthEnabled(config({ APP_ENV: 'test' }))).toBe(false);
-    expect(testAuthEnabled(config({ APP_ENV: 'production' }))).toBe(false);
+    // Production needs a certificate setting (TRP-T20); loadConfig doesn't read the file.
+    expect(
+      testAuthEnabled(config({ APP_ENV: 'production', TLS_PFX_FILE: 'C:/fictional/app.pfx' })),
+    ).toBe(false);
   });
 
   it('refuses to load a production config with ENABLE_TEST_AUTH=true', () => {

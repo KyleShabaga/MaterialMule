@@ -28,9 +28,13 @@ In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migra
 ## Roles
 
 - **Development and test:** one login (`trapezoid`) owns both databases and runs migrations.
-- **Production (TRP-T20):** a migration role owns the schema; the API connects with a separate
-  role that has only the data privileges it needs and no superuser rights. TRP-T03 removes
-  `UPDATE`/`DELETE` on `audit_event` from the API role.
+- **Production (TRP-T20):** a migration role (`trapezoid_owner`) owns the schema and every table
+  and is used only by the deploy script; the API connects as `trapezoid_app`, which can read and
+  write rows but not create, alter or drop anything, not touch `schema_migration`, and only insert
+  into `audit_event`. Neither role is a superuser. `node apps/api/dist/db/cli.js setup-roles
+<migration-role> <app-role>` (as `postgres`, via `DATABASE_ADMIN_URL`) creates and grants them;
+  it is idempotent. Proven in `apps/api/src/db/roles.test.ts` (runs where the test database user
+  is a superuser, as in CI). Steps: [operations runbook](operations/runbook.md).
 
 ## Tests
 
