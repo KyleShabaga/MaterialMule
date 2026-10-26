@@ -6,11 +6,11 @@ runner in `apps/api/src/db/migrator.ts` (TRP-T02).
 
 ## Commands
 
-| Command                 | What it does                                                                |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `npm run db:migrate`    | Apply pending migrations, then load reference data (Receiving lab)          |
-| `npm run db:seed:dev`   | Load fictional fixtures (DEMO-2601, TH26-01/02, two staff). Refused in prod |
-| `npm run db:reset:test` | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)     |
+| Command                 | What it does                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate`    | Apply pending migrations, then load reference data (Receiving lab)                                        |
+| `npm run db:seed:dev`   | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod |
+| `npm run db:reset:test` | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)                                   |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
 
