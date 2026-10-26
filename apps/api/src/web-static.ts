@@ -22,6 +22,7 @@ export function serveWebApp(app: INestApplication, directory: string): void {
       next();
       return;
     }
-    response.sendFile(indexHtml);
+    // Relative to root: send() refuses absolute paths with a dot-directory anywhere in them.
+    response.sendFile('index.html', { root });
   });
 }

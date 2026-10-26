@@ -78,7 +78,9 @@ Key rules enforced by the database:
   `TRUNCATE` even for the table owner. Record events with `recordAudit` (`apps/api/src/audit`)
   on the same transaction client as the change; actor initials and name are snapshots.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
-  per project only).
+  per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
+  so of two parallel creates exactly one succeeds and the other gets 409 with the existing row
+  (TRP-T08). Migration 0003 adds `text_pattern_ops` indexes for prefix search.
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25).
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.

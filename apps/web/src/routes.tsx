@@ -11,6 +11,7 @@ import {
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
+import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
@@ -61,7 +62,7 @@ export const routes: RouteObject[] = [
               },
               {
                 path: 'receiving-log/new',
-                element: <PlaceholderPage title="Receive samples" card="TRP-T10" />,
+                element: <ReceiveSamplesPage />,
               },
               {
                 path: 'sample-storage',

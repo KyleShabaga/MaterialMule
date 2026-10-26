@@ -9,11 +9,14 @@ import { createApp } from './create-app.js';
 
 describe('serving the built web app (WEB_DIST_DIR)', () => {
   let app: INestApplication;
+  let base: string;
   let dist: string;
 
   beforeAll(async () => {
-    dist = mkdtempSync(join(tmpdir(), 'trapezoid-web-'));
-    mkdirSync(join(dist, 'assets'));
+    base = mkdtempSync(join(tmpdir(), 'trapezoid-web-'));
+    // A dot-directory in the path (e.g. a .claude/worktrees checkout) must not hide index.html.
+    dist = join(base, '.checkout', 'dist');
+    mkdirSync(join(dist, 'assets'), { recursive: true });
     writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Trapezoid</title>');
     writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("app")');
     app = await createApp(
@@ -30,7 +33,7 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
 
   afterAll(async () => {
     await app?.close();
-    rmSync(dist, { recursive: true, force: true });
+    rmSync(base, { recursive: true, force: true });
   });
 
   it('serves static files', async () => {
