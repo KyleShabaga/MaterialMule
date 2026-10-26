@@ -1,20 +1,28 @@
 import { useState } from 'react';
 import { ConfirmDialog, StatusBadge } from '../../components/ui';
 import { formatUnitCount } from '../draft';
+import type { DraftAutoDelete } from './auto-delete';
 import { draftTitle, formatSavedDateTime, receiverText } from './format';
 import { STALE_AFTER_DAYS, isStale, type StoredDraft } from './record';
 
 // "Drafts on this computer" on the receiving landing (TRP-T11). Only drafts this session may
-// see are passed in (LAB drafts for LAB, personal drafts for their owner).
+// see are passed in (LAB drafts for LAB, personal drafts for their owner). With draft auto-delete
+// on (MM-T45) the Stale badge says when the draft goes, and a notice reports a clean-up.
 
 export function DraftList({
   drafts,
   unreadable,
+  autoDelete = null,
+  notice = null,
   onResume,
   onDiscard,
 }: {
   drafts: StoredDraft[];
   unreadable: number;
+  /** The auto-delete setting when it loaded; null when unknown (then it is treated as off). */
+  autoDelete?: DraftAutoDelete | null;
+  /** One-time notice after automatic clean-up deleted drafts on this visit. */
+  notice?: string | null;
   onResume: (record: StoredDraft) => void;
   onDiscard: (record: StoredDraft) => Promise<void>;
 }) {
@@ -36,6 +44,11 @@ export function DraftList({
   return (
     <section className="card" aria-labelledby="drafts-heading">
       <h2 id="drafts-heading">Drafts on this computer</h2>
+      {notice ? (
+        <p className="draft-cleanup-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       {drafts.length === 0 ? (
         <p className="empty-state">No drafts on this computer.</p>
       ) : (
@@ -58,7 +71,11 @@ export function DraftList({
                 {isStale(record) ? (
                   <p>
                     <StatusBadge tone="warning">Stale</StatusBadge> Not saved for over{' '}
-                    {STALE_AFTER_DAYS} days. Review it, then confirm or discard it.
+                    {STALE_AFTER_DAYS} days.{' '}
+                    {autoDelete?.enabled && record.status !== 'confirming'
+                      ? `Deleted automatically after ${autoDelete.afterDays} days without changes. `
+                      : ''}
+                    Review it, then confirm or discard it.
                   </p>
                 ) : null}
                 <div className="draft-actions">

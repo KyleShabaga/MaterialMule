@@ -52,6 +52,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
     expect(rows.map((r) => r.table_name)).toEqual([
       'app_user',
       'audit_event',
+      'draft_auto_delete_setting',
       'identity_link',
       'local_credential',
       'location',
@@ -727,6 +728,29 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
           projectId,
           'x'.repeat(501),
         ]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+  });
+
+  describe('draft auto-delete setting (MM-T45)', () => {
+    it('starts as one row: off, 90 days, version 1', async () => {
+      const { rows } = await db.pool.query(
+        'SELECT enabled, after_days, version FROM draft_auto_delete_setting',
+      );
+      expect(rows).toEqual([{ enabled: false, after_days: 90, version: 1 }]);
+    });
+
+    it('keeps the days within 30–365 and allows no second row', async () => {
+      for (const days of [29, 366]) {
+        await expect(
+          db.pool.query('UPDATE draft_auto_delete_setting SET after_days = $1', [days]),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      }
+      await expect(
+        db.pool.query('INSERT INTO draft_auto_delete_setting DEFAULT VALUES'),
+      ).rejects.toMatchObject({ code: PG.uniqueViolation });
+      await expect(
+        db.pool.query('INSERT INTO draft_auto_delete_setting (singleton) VALUES (false)'),
       ).rejects.toMatchObject({ code: PG.checkViolation });
     });
   });

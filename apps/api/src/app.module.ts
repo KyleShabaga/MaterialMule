@@ -52,6 +52,7 @@ import { TestHolesController } from './test-holes/test-holes.controller.js';
 import { TestHolesService } from './test-holes/test-holes.service.js';
 import { ReceiptsController } from './receiving/receipts.controller.js';
 import { ReceiptsService } from './receiving/receipts.service.js';
+import { SettingsController } from './settings/settings.controller.js';
 import { UsersService } from './users/users.service.js';
 
 @Module({})
@@ -82,6 +83,7 @@ export class AppModule {
         StorageUnitCorrectionsController,
         SystemStatusController,
         LabelsController,
+        SettingsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],

@@ -140,4 +140,13 @@ describe('can', () => {
     expect(can(lab, 'project.edit', project)).toBe(false);
     expect(can(lab, 'project.pm_pe.change')).toBe(false);
   });
+
+  it('MM-T45: only Lab Managers and admins change the draft auto-delete setting', () => {
+    expect(can(user({ roles: ['lab_manager'] }), 'settings.drafts.manage')).toBe(true);
+    expect(can(user({ roles: ['admin'] }), 'settings.drafts.manage')).toBe(true);
+    expect(can(user(), 'settings.drafts.manage')).toBe(false);
+    expect(can(user({ userId: 'u-pe' }), 'settings.drafts.manage', project)).toBe(false);
+    const lab = user({ accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
+    expect(can(lab, 'settings.drafts.manage')).toBe(false);
+  });
 });

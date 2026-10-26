@@ -36,6 +36,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | test.cancel (D07)                 |     |                   |      ✓      |       |       ✓       |                     |
 | retention.manage (D05)            |     |                   |      ✓      |       |       ✓       |                     |
 | disposal.approve (D19)            |     |                   |      ✓      |       |       ✓       |                     |
+| settings.drafts.manage (MM-T45)   |     |                   |      ✓      |   ✓   |               |                     |
 | test.accept (D04)                 |     |                   |             |       |       ✓       |          ✓          |
 | program.close (D06)               |     |                   |             |       |       ✓       |                     |
 | acceptance_delegation.manage      |     |                   |             |       |       ✓       |                     |
@@ -159,3 +160,23 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 - Edits are optimistic (`version`; a stale one gets 409 `version_conflict` with the current
   project) and audited as `project.updated` with only the changed fields before/after and the
   reason.
+
+## Draft auto-delete setting (MM-T45)
+
+| Route                      | Policy                                                   |
+| -------------------------- | -------------------------------------------------------- |
+| `GET /api/settings/drafts` | any active session, LAB included (stations need it)      |
+| `PUT /api/settings/drafts` | `settings.drafts.manage` (Lab Manager and admin, no LAB) |
+
+- **Setting:** `draftAutoDelete {enabled, afterDays}`; off by default, 30–365 days, default 90
+  (outside that range: 400 with a field error on `draftAutoDelete.afterDays`). Optimistic
+  `version` (409 `version_conflict` with the current value) and audited as
+  `settings.drafts_changed` with before/after and the actor.
+- **Settings → Receiving** is shown to people with `settings.drafts.manage`; anyone else who
+  opens `/settings/receiving` sees the setting read-only with "Only Lab Managers and
+  administrators can change this."
+- **The browser deletes, not the server.** Receive samples deletes only drafts this session may
+  see (T11: LAB drafts for LAB, personal drafts for their owner), last saved more than
+  `afterDays` days ago, never one in the `confirming` state, and only when the setting was loaded
+  successfully and is on. This amends the T11 decision that drafts are never deleted
+  automatically (owner request 2026-10-26).

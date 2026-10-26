@@ -312,3 +312,90 @@ describe('Receiving drafts (TRP-T11)', () => {
     expect((await store.list()).drafts).toHaveLength(0);
   });
 });
+
+describe('Draft auto-delete on Receive samples (MM-T45)', () => {
+  const DAY = 86_400_000;
+  const savedDaysAgo = (record: StoredDraft, days: number): StoredDraft => {
+    const at = new Date(Date.now() - days * DAY).toISOString();
+    return { ...record, createdAt: at, lastSavedAt: at };
+  };
+  const setting = (enabled: boolean, afterDays = 90) => ({
+    'GET /api/settings/drafts': () =>
+      json(200, { draftAutoDelete: { enabled, afterDays }, version: 2 }),
+  });
+
+  it('AC1: with the setting off, old drafts stay and show the T11 Stale badge', async () => {
+    const old = await stored(savedDaysAgo(newRecord(filled(AT), me()), 400));
+    renderPage(me(), setting(false));
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    expect(within(list).getByText('Stale').parentElement).toHaveTextContent(
+      'Stale Not saved for over 30 days. Review it, then confirm or discard it.',
+    );
+    expect(within(list).queryByRole('status')).toBeNull();
+    expect(await store.get(old.draftId)).not.toBeNull();
+  });
+
+  it('AC2/AC3: deletes drafts older than the setting, keeps confirming ones, and says how many', async () => {
+    const old = await stored(savedDaysAgo(newRecord(filled(AT), me()), 120));
+    const older = await stored(savedDaysAgo(newRecord(filled(null), me()), 300));
+    const stale = await stored(savedDaysAgo(newRecord(filled(AT), me()), 45));
+    const confirming = await stored({
+      ...savedDaysAgo(newRecord(filled(AT), me()), 200),
+      step: 'review',
+      status: 'confirming',
+    });
+    // Someone else's old draft on the same browser isn't this session's to delete.
+    const others = await stored(savedDaysAgo(newRecord(filled(PE), PE_ME), 300));
+    renderPage(me(), setting(true, 90));
+
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    expect(within(list).getByRole('status')).toHaveTextContent(
+      '2 drafts older than 90 days were deleted from this computer (automatic clean-up set by an administrator).',
+    );
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(await store.get(old.draftId)).toBeNull();
+    expect(await store.get(older.draftId)).toBeNull();
+    expect(await store.get(stale.draftId)).not.toBeNull();
+    expect(await store.get(confirming.draftId)).not.toBeNull();
+    expect(await store.get(others.draftId)).not.toBeNull();
+
+    const [first, second] = within(list).getAllByRole('listitem');
+    // Newest first: the 45-day draft says when it goes; the confirming one keeps T11 wording.
+    expect(within(first!).getByText('Stale').parentElement).toHaveTextContent(
+      'Not saved for over 30 days. Deleted automatically after 90 days without changes. Review it, then confirm or discard it.',
+    );
+    expect(within(second!).getByText('Confirmation interrupted')).toBeInTheDocument();
+    expect(within(second!).getByText('Stale').parentElement).toHaveTextContent(
+      'Stale Not saved for over 30 days. Review it, then confirm or discard it.',
+    );
+  });
+
+  it('stays on the list to show the notice when every draft was deleted', async () => {
+    await stored(savedDaysAgo(newRecord(filled(AT), me()), 120));
+    renderPage(me(), setting(true, 90));
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    expect(within(list).getByRole('status')).toHaveTextContent(
+      '1 draft older than 90 days was deleted from this computer',
+    );
+    expect(within(list).getByText('No drafts on this computer.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start new receipt' })).toBeVisible();
+  });
+
+  it('AC7: deletes nothing when the setting cannot be loaded', async () => {
+    const old = await stored(savedDaysAgo(newRecord(filled(AT), me()), 400));
+    renderPage(me(), { 'GET /api/settings/drafts': () => json(500, {}) });
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(list).queryByRole('status')).toBeNull();
+    expect(await store.get(old.draftId)).not.toBeNull();
+    await closeTab();
+
+    renderPage(me(), {
+      'GET /api/settings/drafts': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    await screen.findByRole('region', { name: 'Drafts on this computer' });
+    expect(await store.get(old.draftId)).not.toBeNull();
+  });
+});
