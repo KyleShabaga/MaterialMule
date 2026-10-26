@@ -172,3 +172,19 @@ sorted and paged on the server (default 25, max 100, with the total).
 - **Detail and history.** `GET /api/storage-units/:suNumber` (readable ID or UUID) and
   `GET /api/storage-units/:id/history?page=` (20 per page, newest first: the unit's audit events
   plus its receipt's confirmation). All read-only, `inventory.read` (LAB included).
+
+## Projects list and detail (TRP-T35, migration 0015)
+
+`GET /api/projects` and `GET /api/projects/:id` (`apps/api/src/projects`) back the Projects
+screens. Counts (test holes, in-stock units, last receipt date, units per hole and per receipt)
+are computed by query, never stored.
+
+- **Search** matches project number, name or client (contains, ignoring case, wildcards escaped),
+  backed by `pg_trgm` GIN indexes on each. "Only mine" (`mine=true`) keeps projects where the user
+  is `pm_pe_user_id` or `review_engineer_user_id`, both indexed.
+- **Stable paging.** Every sort (number, name, last receipt with never-received projects last)
+  ends with the normalised number (`COLLATE "C"`) and the ID. Default 25 per page, max 100.
+- **Project number lock.** A trigger rejects changing `project_number` once the project has any
+  receipt (it is printed on labels); the API answers 422 `project_number_locked` first.
+- **Edits** bump `project.version` (optimistic concurrency) and record `project.updated` with only
+  the changed fields before/after and the reason.

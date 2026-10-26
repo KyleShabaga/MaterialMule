@@ -49,10 +49,13 @@ export type Permission =
   | 'test.accept'
   | 'program.close'
   | 'acceptance_delegation.manage'
+  // Project PM/PE or admin (TRP-T35, owner decision 2026-10-25)
+  | 'project.edit'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
-  | 'printer.manage';
+  | 'printer.manage'
+  | 'project.pm_pe.change';
 
 /** What the shared LAB account may do (App Idea §8, owner decision #21 for moves). */
 export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
@@ -91,6 +94,9 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'session.revoke',
   'test_catalog.manage',
   'printer.manage',
+  // Projects (TRP-T35): admins edit any project's fields and are the only ones who change its PM/PE.
+  'project.edit',
+  'project.pm_pe.change',
 ]);
 
 /** Granted to the project's PM/PE (project-scoped). */
@@ -103,6 +109,7 @@ const PM_PE_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'test.accept',
   'program.close',
   'acceptance_delegation.manage',
+  'project.edit',
 ]);
 
 /** Granted to a project acceptance delegate (D04): acceptance only, never closure. */
