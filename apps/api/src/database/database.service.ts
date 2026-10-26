@@ -8,7 +8,8 @@ const CONNECT_TIMEOUT_MS = 2000;
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name);
-  private readonly pool: Pool;
+  /** Shared connection pool. Use withTransaction(pool, …) for multi-statement changes. */
+  readonly pool: Pool;
 
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
     this.pool = new Pool({

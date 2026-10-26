@@ -45,6 +45,13 @@ export async function createTestSchema(): Promise<TestSchema> {
   };
 }
 
+/** A DATABASE_URL whose connections use `schema`, for booting the whole app against it. */
+export function databaseUrlForSchema(schema: string): string {
+  const url = new URL(testDatabaseUrl!);
+  url.searchParams.set('options', `-c search_path=${schema}`);
+  return url.toString();
+}
+
 /** A fresh schema with every migration applied. */
 export async function createMigratedSchema(migrations?: MigrationFile[]): Promise<TestSchema> {
   const testSchema = await createTestSchema();

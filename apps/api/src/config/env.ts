@@ -25,6 +25,14 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(LOG_LEVELS, { error: `must be one of ${LOG_LEVELS.join(', ')}` })
     .default('info'),
+  // Personal-account sign-ins expire this many hours after sign-in, never extended
+  // (owner decision 2026-10-25: 12).
+  PERSONAL_SESSION_HOURS: z.coerce
+    .number({ error: 'must be a number of hours' })
+    .int({ error: 'must be a whole number of hours' })
+    .min(1, { error: 'must be between 1 and 168' })
+    .max(168, { error: 'must be between 1 and 168' })
+    .default(12),
   // Decides the year in storage unit IDs (owner decision 2026-10-25: America/Edmonton).
   BUSINESS_TIME_ZONE: z
     .string()
