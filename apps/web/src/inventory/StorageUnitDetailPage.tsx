@@ -1,4 +1,5 @@
 import {
+  describeStorageUnitCorrection,
   formatStorageUnitHoleSummary,
   storageUnitHistoryActionLabel,
   storageUnitTypeLabel,
@@ -10,7 +11,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
+import { useSession } from '../session/context';
 import { fetchStorageUnit, fetchStorageUnitHistory } from './api';
+import { CONFLICT_MESSAGE, CorrectionForm } from './CorrectionForm';
 import type { InventoryLinkState } from './InventoryPage';
 import './inventory.css';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
@@ -39,8 +42,8 @@ function person(initials: string | null, name: string | null): string {
 
 /**
  * Storage unit detail (TRP-T12): project and client, SAMPLE#/DEPTH summaries, receipt, saved
- * location, history and labels. Read-only: corrections (T13), moves (T28) and holds (T29) arrive
- * with their cards.
+ * location, history and labels. Personal accounts can correct details (TRP-T13); moves (T28) and
+ * holds (T29) arrive with their cards.
  */
 export function StorageUnitDetailPage() {
   const { readableId = '' } = useParams();
@@ -48,6 +51,12 @@ export function StorageUnitDetailPage() {
   const from = (location.state as InventoryLinkState | null)?.from ?? '';
   const [result, setResult] = useState<Loaded<StorageUnitDetail> | null>(null);
   const [reloads, setReloads] = useState(0);
+  const { session } = useSession();
+  const canCorrect =
+    session.status === 'active' && session.me.permissions.includes('storage_unit.correct');
+  const [correcting, setCorrecting] = useState(false);
+  const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +115,44 @@ export function StorageUnitDetailPage() {
             Saved location: <strong>{unit.location.name}</strong>
           </span>
         </p>
+        {!canCorrect ? (
+          <p className="field-hint">Corrections need a personal account.</p>
+        ) : !correcting ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCorrectionNotice(null);
+              setCorrecting(true);
+            }}
+          >
+            Correct details
+          </button>
+        ) : null}
       </div>
+
+      {canCorrect && correcting ? (
+        <CorrectionForm
+          // A newer version (e.g. after a conflict) starts the form again from the latest values.
+          key={unit.version}
+          unit={unit}
+          notice={correctionNotice}
+          onSaved={(corrected) => {
+            setResult({ key: readableId, ok: true, data: corrected });
+            setCorrecting(false);
+            setCorrectionNotice(null);
+            setHistoryVersion((count) => count + 1);
+          }}
+          onConflict={() => {
+            setCorrectionNotice(CONFLICT_MESSAGE);
+            setReloads((count) => count + 1);
+            setHistoryVersion((count) => count + 1);
+          }}
+          onCancel={() => {
+            setCorrecting(false);
+            setCorrectionNotice(null);
+          }}
+        />
+      ) : null}
 
       <nav className="sub-nav" aria-label="Storage unit sections">
         <a href="#summaries">Summaries</a>
@@ -123,6 +169,7 @@ export function StorageUnitDetailPage() {
             {unit.project.projectNumber} — {unit.project.name}
           </Detail>
           <Detail term="Client">{unit.project.client}</Detail>
+          <Detail term="Received date">{unit.receivedDate}</Detail>
         </dl>
         <ul className="hole-summaries" aria-label="Test hole summaries">
           {unit.holes.map((hole) => (
@@ -139,8 +186,12 @@ export function StorageUnitDetailPage() {
 
       <section className="card" id="receipt" aria-labelledby="receipt-heading">
         <h2 id="receipt-heading">Receipt</h2>
+        <p className="field-hint">As recorded at confirmation; corrections never change it.</p>
         <dl className="details">
           <Detail term="Received date">{unit.receipt.receivedDate}</Detail>
+          <Detail term="Project">
+            {unit.receipt.project.projectNumber} — {unit.receipt.project.name}
+          </Detail>
           <Detail term="Received by">
             {person(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
           </Detail>
@@ -160,11 +211,14 @@ export function StorageUnitDetailPage() {
             {unit.location.name} ({unit.location.code})
           </Detail>
           <Detail term="Pending move">None. Queued moves arrive with TRP-T28.</Detail>
-          <Detail term="Retain until and holds">Arrive with TRP-T29.</Detail>
+          <Detail term="Retain until (minimum)">{unit.minimumRetainUntil}</Detail>
         </dl>
+        <p className="field-hint">
+          Received date + 1 year. Holds and full retention rules arrive with TRP-T29.
+        </p>
       </section>
 
-      <HistorySection storageUnitId={unit.id} />
+      <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
 
       <StorageUnitLabelsSection readableId={unit.readableId} />
     </>
@@ -188,9 +242,9 @@ function changes(event: StorageUnitHistoryEvent): string[] {
 }
 
 /** Audit history, newest first, 20 per page; never loaded in full. */
-function HistorySection({ storageUnitId }: { storageUnitId: string }) {
+function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; refresh: number }) {
   const [page, setPage] = useState(1);
-  const key = `${storageUnitId}:${page}`;
+  const key = `${storageUnitId}:${page}:${refresh}`;
   const [result, setResult] = useState<Loaded<StorageUnitHistoryPage> | null>(null);
   const [reloads, setReloads] = useState(0);
 
@@ -203,7 +257,7 @@ function HistorySection({ storageUnitId }: { storageUnitId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [storageUnitId, page, key, reloads]);
+  }, [storageUnitId, page, key, reloads, refresh]);
 
   let body: ReactNode;
   if (!result || result.key !== key) {
@@ -221,19 +275,32 @@ function HistorySection({ storageUnitId }: { storageUnitId: string }) {
             <li key={event.id}>
               <span className="history-when">{formatTime(event.occurredAt)}</span>{' '}
               <strong>{storageUnitHistoryActionLabel(event.action)}</strong>{' '}
-              <span>
-                by {person(event.actor.initials, event.actor.name)}
-                {event.receiver
-                  ? ` for ${person(event.receiver.initials, event.receiver.name)}`
-                  : ''}
-              </span>
-              {event.reason ? <span className="field-hint"> Reason: {event.reason}</span> : null}
-              {changes(event).map((change) => (
-                <span key={change} className="field-hint">
-                  {' '}
-                  {change}
+              {event.action === 'storage_unit.corrected' ? (
+                // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
+                <span>
+                  {event.actor.initials ?? event.actor.name ?? 'Unknown'} changed{' '}
+                  {describeStorageUnitCorrection(event.before, event.after).join('; ')}
+                  {event.reason ? ` · Reason: ${event.reason}` : ''}
                 </span>
-              ))}
+              ) : (
+                <>
+                  <span>
+                    by {person(event.actor.initials, event.actor.name)}
+                    {event.receiver
+                      ? ` for ${person(event.receiver.initials, event.receiver.name)}`
+                      : ''}
+                  </span>
+                  {event.reason ? (
+                    <span className="field-hint"> Reason: {event.reason}</span>
+                  ) : null}
+                  {changes(event).map((change) => (
+                    <span key={change} className="field-hint">
+                      {' '}
+                      {change}
+                    </span>
+                  ))}
+                </>
+              )}
             </li>
           ))}
         </ol>

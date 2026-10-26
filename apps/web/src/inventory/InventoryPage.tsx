@@ -1,11 +1,9 @@
 import {
   INVENTORY_STATUS_FILTERS,
   STORAGE_UNIT_TYPES,
-  formatStorageUnitHoleSummary,
   inventoryStatusFilterLabel,
   inventorySortDirection,
   storageUnitTypeLabel,
-  type InventoryItem,
   type InventoryLocation,
   type InventoryPage as InventoryPageData,
   type InventoryQuery,
@@ -15,12 +13,12 @@ import {
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { listTestHoles } from '../api/projects';
-import { DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from './api';
 import './inventory.css';
 import { ProjectFilter } from './ProjectFilter';
-import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
 import { CameraScanButton } from '../scanning/CameraScanButton';
+import { StorageUnitTable } from './StorageUnitTable';
 import {
   clearedInventoryQuery,
   hasActiveFilters,
@@ -257,53 +255,7 @@ export function InventoryPage() {
             {hasActiveFilters(query) ? 'this search and these filters' : 'yet'}.
           </EmptyState>
         ) : (
-          <div className="inventory-table">
-            <DataTable
-              rows={page.items}
-              rowKey={(item) => item.id}
-              caption="Storage units"
-              empty="No storage units."
-              columns={[
-                {
-                  header: 'Storage unit',
-                  cell: (item) => (
-                    <span className="unit-cell">
-                      <strong>{item.readableId}</strong>
-                      <span>{storageUnitTypeLabel(item.unitType)}</span>
-                    </span>
-                  ),
-                },
-                {
-                  header: 'Project',
-                  cell: (item) => (
-                    <span className="unit-cell">
-                      <span>{item.project.projectNumber}</span>
-                      <span>{item.project.name}</span>
-                    </span>
-                  ),
-                },
-                { header: 'Test holes', cell: (item) => <HoleList item={item} /> },
-                { header: 'Location', cell: (item) => item.location.name },
-                { header: 'Received', cell: (item) => item.receivedDate },
-                {
-                  header: 'Status',
-                  cell: (item) => <StorageUnitStatusBadge status={item.status} />,
-                },
-                {
-                  header: 'View',
-                  cell: (item) => (
-                    <Link
-                      to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
-                      state={linkState}
-                      aria-label={`View ${item.readableId}`}
-                    >
-                      View
-                    </Link>
-                  ),
-                },
-              ]}
-            />
-          </div>
+          <StorageUnitTable items={page.items} linkState={linkState} />
         )
       ) : null}
 
@@ -329,18 +281,6 @@ export function InventoryPage() {
         </nav>
       ) : null}
     </>
-  );
-}
-
-function HoleList({ item }: { item: InventoryItem }) {
-  return (
-    <ul className="hole-list">
-      {item.holes.map((hole) => (
-        <li key={hole.testHoleId}>
-          {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
-        </li>
-      ))}
-    </ul>
   );
 }
 

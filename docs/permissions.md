@@ -41,6 +41,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | acceptance_delegation.manage      |     |                   |             |       |       ✓       |                     |
 | staff.manage / session.revoke     |     |                   |             |   ✓   |               |                     |
 | printer.manage (T15)              |     |                   |             |   ✓   |               |                     |
+| project.edit (T35)                |     |                   |             |   ✓   |       ✓       |                     |
+| project.pm_pe.change (T35)        |     |                   |             |   ✓   |               |                     |
 
 "Project PM/PE" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account.
@@ -138,3 +140,21 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   linked only when the UPN matches the expected UPN exactly (ignoring case) and the entry has no
   sign-in identity yet. Initials and names are never compared; anyone else becomes a new pending
   user.
+
+## Projects (TRP-T35)
+
+| Route                                    | Policy                                                |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `GET /api/projects?search=&mine=&sort=…` | `inventory.read` (every active session, LAB included) |
+| `GET /api/projects/:id`                  | `inventory.read`                                      |
+| `PATCH /api/projects/:id`                | active user; the service checks `project.edit`        |
+| `POST /api/projects/:id/test-holes`      | `test_hole.create` (LAB included)                     |
+
+- **Edit** (owner decision 2026-10-25): admins and the project's current PM/PE may change the
+  number, name, client, review engineer and server folder path. Changing the PM/PE is admin-only
+  (`project.pm_pe.change`) and needs a reason. A review engineer, Lab Manager or LAB can't edit.
+- **Project number** is printed on labels, so it can't change once the project has any receipt:
+  422 `project_number_locked`, also enforced by a database trigger (migration 0015).
+- Edits are optimistic (`version`; a stale one gets 409 `version_conflict` with the current
+  project) and audited as `project.updated` with only the changed fields before/after and the
+  reason.

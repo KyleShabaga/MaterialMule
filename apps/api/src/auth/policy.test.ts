@@ -120,4 +120,21 @@ describe('can', () => {
     expect(can(delegate, 'test.cancel', project)).toBe(false);
     expect(can(delegate, 'program.priority.set', project)).toBe(false);
   });
+
+  it('TRP-T35: admins and the project PM/PE edit a project; only admins change the PM/PE', () => {
+    const admin = user({ userId: 'u-admin', roles: ['admin'] });
+    const pe = user({ userId: 'u-pe' });
+    const lm = user({ userId: 'u-lm', roles: ['lab_manager'] });
+    const lab = user({ userId: 'u-pe', accountType: 'shared_lab', roles: ['admin'] });
+    expect(can(admin, 'project.edit', project)).toBe(true);
+    expect(can(admin, 'project.pm_pe.change')).toBe(true);
+    expect(can(pe, 'project.edit', project)).toBe(true);
+    expect(can(pe, 'project.edit', { pmPeUserId: 'someone-else' })).toBe(false);
+    expect(can(pe, 'project.pm_pe.change', project)).toBe(false);
+    expect(can(user(), 'project.edit', project)).toBe(false);
+    expect(can(user({ userId: 'u-de' }), 'project.edit', project)).toBe(false);
+    expect(can(lm, 'project.edit', project)).toBe(false);
+    expect(can(lab, 'project.edit', project)).toBe(false);
+    expect(can(lab, 'project.pm_pe.change')).toBe(false);
+  });
 });

@@ -81,6 +81,8 @@ const DETAIL: StorageUnitDetail = {
   status: 'in_stock',
   note: 'Lid taped',
   receivedDate: '2026-10-23',
+  minimumRetainUntil: '2027-10-23',
+  version: 1,
   project: PROJECT,
   holes: item('x').holes.concat({
     testHoleId: 'th2',
@@ -98,6 +100,7 @@ const DETAIL: StorageUnitDetail = {
   receipt: {
     id: 'r1',
     receivedDate: '2026-10-23',
+    project: PROJECT,
     receiver: { initials: 'AT', name: 'Alex Tester' },
     account: { initials: null, name: 'LAB' },
     description: 'Two buckets',
