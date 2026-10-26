@@ -4,6 +4,11 @@ import { LoggerModule } from 'nestjs-pino';
 import { ActivityController } from './activity/activity.controller.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthGuard } from './auth/auth.guard.js';
+import {
+  LabAdminController,
+  LabAuthController,
+} from './auth/providers/local-lab/lab-auth.controller.js';
+import { LabAuthService } from './auth/providers/local-lab/lab-auth.service.js';
 import { SessionService } from './auth/session.service.js';
 import { TestAuthController, testAuthEnabled } from './auth/test-provider/test-auth.controller.js';
 import { APP_CONFIG } from './config/config.constants.js';
@@ -25,6 +30,8 @@ export class AppModule {
       controllers: [
         HealthController,
         AuthController,
+        LabAuthController,
+        LabAdminController,
         ActivityController,
         ReceiptsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
@@ -34,6 +41,7 @@ export class AppModule {
         { provide: APP_CONFIG, useValue: config },
         DatabaseService,
         SessionService,
+        LabAuthService,
         UsersService,
         ReceiptsService,
         // Default deny on every route (TRP-T04).

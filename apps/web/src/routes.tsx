@@ -3,6 +3,7 @@ import { FEATURES } from './features';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { SignInPage } from './pages/SignInPage';
+import { StaffPage } from './pages/StaffPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -77,10 +78,7 @@ export const routes: RouteObject[] = [
                     path: 'profile',
                     element: <PlaceholderPage title="My profile" card="TRP-T05" />,
                   },
-                  {
-                    path: 'staff',
-                    element: <PlaceholderPage title="Staff & access" card="TRP-T07" />,
-                  },
+                  { path: 'staff', element: <StaffPage /> },
                   {
                     path: 'locations',
                     element: <PlaceholderPage title="Locations" card="TRP-T37" />,

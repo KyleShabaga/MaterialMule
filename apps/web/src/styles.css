@@ -146,8 +146,13 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.identity-initials {
+.identity-initials,
+.identity-expiry {
   color: var(--muted);
+}
+
+.identity-expiry {
+  font-size: 0.875rem;
 }
 
 .menu-toggle {
