@@ -35,13 +35,16 @@ Edit both files:
 - `SESSION_SECRET` in both: generate with
   `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
 
-Then:
+Then create the tables, load fictional demo data and start the app:
 
 ```powershell
+npm run db:migrate
+npm run db:seed:dev
+npm run db:reset:test
 npm run dev
 ```
 
-Open http://localhost:5173. The page should show **API: OK** and **Database: Connected**.
+Open http://127.0.0.1:5173. The page should show **API: OK** and **Database: Connected**.
 
 ## Checks
 

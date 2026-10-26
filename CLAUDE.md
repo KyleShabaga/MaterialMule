@@ -26,21 +26,27 @@ scripts          Repo tooling (e.g. check-bundle-secrets.mjs)
 
 ## Commands (run from the repo root)
 
-| Command                | What it does                                                                      |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `npm ci`               | Install exactly what's in the lockfile                                            |
-| `npm run dev`          | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)         |
-| `npm run lint`         | ESLint (zero warnings) and Prettier check                                         |
-| `npm run format`       | Prettier write                                                                    |
-| `npm run typecheck`    | `tsc --noEmit` in every workspace                                                 |
-| `npm test`             | Unit and integration tests (Vitest) in every workspace                            |
-| `npm run build`        | Build shared, API and web                                                         |
-| `npm run check:bundle` | Fail if server config appears in the web bundle                                   |
-| `npm run verify`       | lint → typecheck → test → build → check:bundle (the gate for every card)          |
-| `npm run test:e2e`     | Playwright smoke tests against built API (port 3100) + `vite preview` (port 4173) |
+| Command                 | What it does                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `npm ci`                | Install exactly what's in the lockfile                                            |
+| `npm run dev`           | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)         |
+| `npm run lint`          | ESLint (zero warnings) and Prettier check                                         |
+| `npm run format`        | Prettier write                                                                    |
+| `npm run typecheck`     | `tsc --noEmit` in every workspace                                                 |
+| `npm test`              | Unit and integration tests (Vitest) in every workspace                            |
+| `npm run build`         | Build shared, API and web                                                         |
+| `npm run check:bundle`  | Fail if server config appears in the web bundle                                   |
+| `npm run verify`        | lint → typecheck → test → build → check:bundle (the gate for every card)          |
+| `npm run test:e2e`      | Playwright smoke tests against built API (port 3100) + `vite preview` (port 4173) |
+| `npm run db:migrate`    | Apply pending migrations, then reference data (Receiving lab)                     |
+| `npm run db:seed:dev`   | Load fictional dev fixtures (DEMO-2601, TH26-01/02); refused in production        |
+| `npm run db:reset:test` | Drop and rebuild the test database from `apps/api/.env.test`                      |
 
 Per-workspace: `npm run <script> -w @trapezoid/api` (or `@trapezoid/web`, `@trapezoid/shared`).
-`db:migrate` and `db:seed:dev` arrive with TRP-T02 and TRP-T33.
+Database details: [docs/database.md](docs/database.md). Migrations are forward-only SQL files in
+`apps/api/migrations`; never edit one that has been applied (the runner checks a checksum). Put
+integrity rules in the database and prove each in `apps/api/src/db/schema.test.ts`. API tests read
+the test database from `apps/api/.env.test` automatically.
 
 A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows.
 
@@ -71,7 +77,20 @@ A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows
   unit with one SAMPLE#/DEPTH summary per test hole; individual samples appear only in lab requests.
 - Never implement a deferred decision as a default: billing D16–D18, sign-in timing D38, IT/pilot
   choices D39. Cards mark proposals that need owner confirmation; stop and ask.
-- Never change a storage unit ID (SU-YYYY-000001) after issue, recycle one, or issue one for a draft.
+- Never change a storage unit ID after issue, recycle one, or issue one for a draft. IDs are
+  `PREFIX-YYYY-NNNNNN` (amended 2026-10-25; the earlier `SU-` format is superseded): `BKT` bucket,
+  `ST` individually tracked Shelby tube, `CRE` core box, `CT` any other (generic) container. The
+  prefix follows the physical holder at confirmation; each prefix/year pair has its own counter;
+  a later type, date or project correction never changes the issued ID. Year = confirmation date
+  in America/Edmonton.
 - Never use real production data, real people's records or send real email/messages in tests.
   Use fictional data such as project DEMO-2601 and test hole TH26-01.
 - Never commit secrets, `.env` files or credentials.
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+
+## Learned rules
+
+- Format storage unit IDs with type prefixes (BKT-, ST-, CRE-, CT-) and per-type yearly counters, not SU-YYYY-000001.
+
+<!-- end claude-reflect -->

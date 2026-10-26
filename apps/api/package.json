@@ -9,7 +9,11 @@
     "dev": "nest start --watch -p tsconfig.build.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "tsx src/db/cli.ts migrate",
+    "db:seed": "tsx src/db/cli.ts seed",
+    "db:seed:dev": "tsx src/db/cli.ts seed-dev",
+    "db:reset:test": "tsx src/db/cli.ts reset-test --env-file .env.test"
   },
   "dependencies": {
     "@nestjs/common": "^12.2.0",
@@ -34,6 +38,7 @@
     "@types/supertest": "^7.2.1",
     "pino-pretty": "^13.2.0",
     "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
     "unplugin-swc": "^2.0.0"
   }
 }
