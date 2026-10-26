@@ -138,57 +138,62 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await expect(reopened.getByText(BKT_ID)).toHaveCount(0);
 });
 
-test('T4/AC2: offline edits keep saving and the indicator shows the latest time', async ({
-  page,
-  context,
-}) => {
-  await signInAs(page, 'at');
-  await page.goto('/receiving-log/new');
-  await chooseProject(page);
+// Also in the TRP-T18 critical path.
+test(
+  'T4/AC2: offline edits keep saving and the indicator shows the latest time',
+  { tag: '@critical' },
+  async ({ page, context }) => {
+    await signInAs(page, 'at');
+    await page.goto('/receiving-log/new');
+    await chooseProject(page);
 
-  await context.setOffline(true);
-  await expect(
-    page.getByText('Offline: your entries are kept here.', { exact: false }),
-  ).toBeVisible();
-  await page.getByLabel('Description (optional)').fill('Edited offline');
-  const savedFirst = await savedAfter(page, new Date().toISOString());
-  await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
-  const savedSecond = await savedAfter(page, new Date().toISOString());
-  expect(savedSecond > savedFirst).toBe(true);
+    await context.setOffline(true);
+    await expect(
+      page.getByText('Offline: your entries are kept here.', { exact: false }),
+    ).toBeVisible();
+    await page.getByLabel('Description (optional)').fill('Edited offline');
+    const savedFirst = await savedAfter(page, new Date().toISOString());
+    await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
+    const savedSecond = await savedAfter(page, new Date().toISOString());
+    expect(savedSecond > savedFirst).toBe(true);
 
-  await context.setOffline(false);
-  await page.close();
-  const reopened = await context.newPage();
-  await reopened.goto('/receiving-log/new');
-  await draftList(reopened)
-    .getByRole('button', { name: /Resume draft/ })
-    .click();
-  await expect(reopened.getByLabel('Description (optional)')).toHaveValue('Edited offline');
-  await expect(bucket(reopened, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue(
-    'Still offline',
-  );
-});
+    await context.setOffline(false);
+    await page.close();
+    const reopened = await context.newPage();
+    await reopened.goto('/receiving-log/new');
+    await draftList(reopened)
+      .getByRole('button', { name: /Resume draft/ })
+      .click();
+    await expect(reopened.getByLabel('Description (optional)')).toHaveValue('Edited offline');
+    await expect(bucket(reopened, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue(
+      'Still offline',
+    );
+  },
+);
 
-test('T5/AC3: when IndexedDB writes fail, the indicator says so and never "saved"', async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    IDBObjectStore.prototype.put = () => {
-      throw new DOMException('Quota exceeded', 'QuotaExceededError');
-    };
-  });
-  await signInAs(page, 'at');
-  await page.goto('/receiving-log/new');
-  await page.getByLabel('Description (optional)').fill('Will not save');
-  const alert = page.getByRole('alert').filter({ hasText: "Couldn't save draft on this device" });
-  await expect(alert).toBeVisible();
-  await expect(alert).toContainText('Receiver: AT');
-  await expect(alert).toContainText('no storage space left');
-  // A step change retries the save; it still fails and still says so.
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await expect(alert).toBeVisible();
-  await expect(page.getByText(/Draft saved/)).toHaveCount(0);
-});
+// Also in the TRP-T18 critical path.
+test(
+  'T5/AC3: when IndexedDB writes fail, the indicator says so and never "saved"',
+  { tag: '@critical' },
+  async ({ page }) => {
+    await page.addInitScript(() => {
+      IDBObjectStore.prototype.put = () => {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      };
+    });
+    await signInAs(page, 'at');
+    await page.goto('/receiving-log/new');
+    await page.getByLabel('Description (optional)').fill('Will not save');
+    const alert = page.getByRole('alert').filter({ hasText: "Couldn't save draft on this device" });
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Receiver: AT');
+    await expect(alert).toContainText('no storage space left');
+    // A step change retries the save; it still fails and still says so.
+    await page.getByRole('button', { name: 'Next: Review' }).click();
+    await expect(alert).toBeVisible();
+    await expect(page.getByText(/Draft saved/)).toHaveCount(0);
+  },
+);
 
 test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then succeeds', async ({
   page,

@@ -20,6 +20,8 @@
     "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build:shared && npm run test --workspaces --if-present && npm run test:deploy",
     "test:deploy": "vitest run --config deploy/vitest.config.ts",
+    "test:security": "npm run build:shared && npm run test:security -w @trapezoid/api",
+    "test:e2e:critical": "npm run test:e2e -- --grep @critical",
     "build": "npm run build --workspaces --if-present",
     "check:bundle": "node scripts/check-bundle-secrets.mjs",
     "release:pack": "node scripts/pack-release.mjs",

@@ -7,6 +7,8 @@ import { formatHostStatus, HOST_STATUS_REQUEST, type HostStatus } from '../print
 //   hang   — accept the connection but never answer or close
 //   drop   — answer status, then reset the connection after `dropAfterBytes` label bytes
 // For "refused", use FakeZebraPrinter.unusedPort(): nothing listens there.
+// dropJobsContaining (TRP-T18) targets one job while others print normally: the next job whose
+// label data contains a registered marker (e.g. a storage unit ID) is reset mid-stream, once.
 
 export type FakeZebraMode = 'accept' | 'hang' | 'drop';
 
@@ -27,6 +29,8 @@ export class FakeZebraPrinter {
   mode: FakeZebraMode;
   status: Partial<HostStatus>;
   dropAfterBytes: number;
+  /** Markers armed for a one-off mid-stream reset; each is consumed by the job it hits. */
+  readonly dropJobsContaining = new Set<string>();
   private readonly sockets = new Set<Socket>();
 
   private constructor(
@@ -101,6 +105,13 @@ export class FakeZebraPrinter {
         jobIndex = this.jobs.push('') - 1;
       }
       received += text;
+      const marker = [...this.dropJobsContaining].find((m) => received.includes(m));
+      if (marker !== undefined) {
+        this.dropJobsContaining.delete(marker);
+        this.jobs[jobIndex] = received;
+        socket.resetAndDestroy();
+        return;
+      }
       if (mode === 'drop' && received.length >= this.dropAfterBytes) {
         this.jobs[jobIndex] = received.slice(0, this.dropAfterBytes);
         socket.resetAndDestroy();

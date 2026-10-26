@@ -55,8 +55,13 @@ jobs:
       # Exercises the real migration CLI; tests also build their own isolated schemas.
       - run: npm run db:reset:test
       - run: npm run verify
+      # TRP-T18: the security suite on its own (it also runs inside verify's npm test).
+      - run: npm run test:security
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # TRP-T18 AC2: the receiving critical path three more times in a row, with no retries.
+      - name: Critical path x3 (@critical)
+        run: npm run test:e2e:critical -- --repeat-each=3
 
       - uses: actions/upload-artifact@v4
         if: failure()

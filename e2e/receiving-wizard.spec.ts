@@ -217,42 +217,46 @@ test('T5/AC3/AC4: validation per type blocks Next; 10.5 m is saved as 10.5 m', a
   ]);
 });
 
-test('T6/AC6/AC7: offline disables Confirm; Review → Step 1 → Review keeps everything', async ({
-  page,
-  context,
-}) => {
-  await signInAs(page, 'at');
-  await startReceipt(page);
-  await page.getByLabel('Description (optional)').fill('One bucket from the drill crew');
-  const unit = bucket(page, 1);
-  await addHole(unit, 'TH26-01');
-  await sampleRange(unit, 'TH26-01', 'G1', 'S12');
-  await unit.getByLabel('Bucket 1 note (optional)').fill('Lid taped');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
+// Also in the TRP-T18 critical path (offline: confirm blocked, reconnect and confirm).
+test(
+  'T6/AC6/AC7: offline disables Confirm; Review → Step 1 → Review keeps everything',
+  {
+    tag: '@critical',
+  },
+  async ({ page, context }) => {
+    await signInAs(page, 'at');
+    await startReceipt(page);
+    await page.getByLabel('Description (optional)').fill('One bucket from the drill crew');
+    const unit = bucket(page, 1);
+    await addHole(unit, 'TH26-01');
+    await sampleRange(unit, 'TH26-01', 'G1', 'S12');
+    await unit.getByLabel('Bucket 1 note (optional)').fill('Lid taped');
+    await page.getByRole('button', { name: 'Next: Review' }).click();
 
-  await context.setOffline(true);
-  const confirm = page.getByRole('button', { name: 'Confirm receipt' });
-  await expect(
-    page.getByText("You're offline. Your draft is kept. Connect to confirm."),
-  ).toBeVisible();
-  await expect(confirm).toBeDisabled();
+    await context.setOffline(true);
+    const confirm = page.getByRole('button', { name: 'Confirm receipt' });
+    await expect(
+      page.getByText("You're offline. Your draft is kept. Connect to confirm."),
+    ).toBeVisible();
+    await expect(confirm).toBeDisabled();
 
-  await page.getByRole('button', { name: 'Edit Bucket 1' }).click();
-  await expect(summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Sample to')).toHaveValue('S12');
-  await expect(bucket(page, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue('Lid taped');
-  await expect(page.getByLabel('Description (optional)')).toHaveValue(
-    'One bucket from the drill crew',
-  );
-  await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await expect(bucket(page, 1).getByText('G1–S12')).toBeVisible();
-  await expect(bucket(page, 1).getByText('Lid taped')).toBeVisible();
+    await page.getByRole('button', { name: 'Edit Bucket 1' }).click();
+    await expect(summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Sample to')).toHaveValue('S12');
+    await expect(bucket(page, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue('Lid taped');
+    await expect(page.getByLabel('Description (optional)')).toHaveValue(
+      'One bucket from the drill crew',
+    );
+    await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
+    await page.getByRole('button', { name: 'Next: Review' }).click();
+    await expect(bucket(page, 1).getByText('G1–S12')).toBeVisible();
+    await expect(bucket(page, 1).getByText('Lid taped')).toBeVisible();
 
-  await context.setOffline(false);
-  await expect(confirm).toBeEnabled();
-  await confirm.click();
-  expect(await issuedIds(page)).toHaveLength(1);
-});
+    await context.setOffline(false);
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    expect(await issuedIds(page)).toHaveLength(1);
+  },
+);
 
 test('T8/AC5: a personal account defaults to itself; LAB starts blank and must choose', async ({
   page,
