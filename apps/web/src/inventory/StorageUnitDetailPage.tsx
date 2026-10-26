@@ -10,6 +10,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
 import { useSession } from '../session/context';
 import { fetchStorageUnit, fetchStorageUnitHistory } from './api';
@@ -159,6 +160,7 @@ export function StorageUnitDetailPage() {
         <a href="#receipt">Receipt</a>
         <a href="#location">Location</a>
         <a href="#history">History</a>
+        <a href="#label-preview">Preview label</a>
         <a href="#labels">Labels</a>
       </nav>
 
@@ -219,6 +221,17 @@ export function StorageUnitDetailPage() {
       </section>
 
       <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
+
+      {/* A group, not a region: the "Label" region (T15) stays the only landmark named Label. */}
+      <div className="card" id="label-preview" role="group" aria-labelledby="label-preview-heading">
+        <h2 id="label-preview-heading">Preview label</h2>
+        <LabelPreviewPanel
+          // A correction (T13) bumps the version; the label shows the corrected details.
+          key={unit.version}
+          storageUnit={unit.readableId}
+          receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
+        />
+      </div>
 
       <StorageUnitLabelsSection readableId={unit.readableId} />
     </>

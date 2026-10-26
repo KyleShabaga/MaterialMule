@@ -115,8 +115,15 @@ test('T3/AC1: two buckets for TH26-01, reviewed and confirmed with two BKT IDs',
     ],
   );
 
-  // Labels step: print through the T15 queue; open a unit.
+  // Labels step: preview a label (TRP-T39) and print through the T15 queue; open a unit.
+  const units = page.getByRole('list', { name: 'New storage units' });
+  await units.getByText('Preview label').first().click();
+  await expect(units.getByRole('img', { name: `Label for storage unit ${ids[0]}` })).toBeVisible();
+  await noHorizontalScroll(page);
   const labels = page.getByRole('region', { name: 'Receipt confirmed' });
+  await expect(
+    labels.getByRole('link', { name: 'Print / Save all labels as PDF' }),
+  ).toHaveAttribute('href', /^\/labels\/print\/receipt\/[0-9a-f-]{36}$/);
   await labels.getByRole('button', { name: 'Print all labels' }).click();
   await expect(labels.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('link', { name: `Open ${ids[1]}` }).click();

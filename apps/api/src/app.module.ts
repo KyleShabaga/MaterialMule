@@ -28,6 +28,7 @@ import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
 import { InventoryController } from './inventory/inventory.controller.js';
 import { InventoryService } from './inventory/inventory.service.js';
+import { LabelsController } from './labels/labels.controller.js';
 import { pinoHttpOptions } from './logging/logger.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
@@ -78,6 +79,7 @@ export class AppModule {
         InventoryController,
         StorageUnitsController,
         StorageUnitCorrectionsController,
+        LabelsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
