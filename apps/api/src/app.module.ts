@@ -26,6 +26,8 @@ import { APP_CONFIG } from './config/config.constants.js';
 import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
+import { InventoryController } from './inventory/inventory.controller.js';
+import { InventoryService } from './inventory/inventory.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
@@ -36,6 +38,8 @@ import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
+import { StorageUnitsController } from './storage-units/storage-units.controller.js';
+import { StorageUnitsService } from './storage-units/storage-units.service.js';
 import { TestHolesController } from './test-holes/test-holes.controller.js';
 import { TestHolesService } from './test-holes/test-holes.service.js';
 import { ReceiptsController } from './receiving/receipts.controller.js';
@@ -65,6 +69,8 @@ export class AppModule {
         StaffDirectoryController,
         StaffController,
         ReceiptsController,
+        InventoryController,
+        StorageUnitsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
@@ -87,6 +93,8 @@ export class AppModule {
         ProjectsService,
         TestHolesService,
         ReceiptsService,
+        InventoryService,
+        StorageUnitsService,
         // Default deny on every route (TRP-T04).
         { provide: APP_GUARD, useClass: AuthGuard },
       ],

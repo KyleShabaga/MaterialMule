@@ -6,11 +6,11 @@ runner in `apps/api/src/db/migrator.ts` (TRP-T02).
 
 ## Commands
 
-| Command                 | What it does                                                                |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `npm run db:migrate`    | Apply pending migrations, then load reference data (Receiving lab)          |
-| `npm run db:seed:dev`   | Load fictional fixtures (DEMO-2601, TH26-01/02, two staff). Refused in prod |
-| `npm run db:reset:test` | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)     |
+| Command                 | What it does                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate`    | Apply pending migrations, then load reference data (Receiving lab)                                        |
+| `npm run db:seed:dev`   | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod |
+| `npm run db:reset:test` | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)                                   |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
 
@@ -150,3 +150,25 @@ receipts, and the foreign keys re-check them at insert. Any error rolls back eve
 the counter increment. The receipt stores the signed-in account (`account_user_id`, e.g. LAB) and
 the selected receiver with initials and name snapshots. Printing is not part of confirmation
 (TRP-T15).
+
+## Inventory search (TRP-T12, migration 0010)
+
+`GET /api/inventory` (`apps/api/src/inventory`) returns one row per storage unit, filtered,
+sorted and paged on the server (default 25, max 100, with the total).
+
+- **Search document.** `storage_unit_search` holds one lower-cased, newline-separated document per
+  unit: ID, type, unit note, project number / name / client, each test-hole name with its
+  SAMPLE#/DEPTH summary (Custom text and summary notes included) and the saved location's code and
+  name. Triggers on `storage_unit`, `storage_unit_hole_summary`, `project`, `test_hole` and
+  `location` rebuild it in the same transaction as the change, so it is never stale. Each search
+  word becomes `document LIKE '%word%'` (AND across words, wildcards escaped), backed by a
+  `pg_trgm` GIN index. `pg_trgm` is a trusted extension created in `public`; the migration role
+  needs `CREATE` on the database (the owner has it). TRP-T19 benchmarks and tunes.
+- **Default view** "Current stock" excludes `disposed`; `status=all` or `status=disposed` show them.
+- **Stable paging.** Sorting by received date always ends with the storage unit ID
+  (`COLLATE "C"`), so equal dates never make pages overlap or skip rows.
+- **Lookup.** `GET /api/storage-units/lookup?code=` trims and upper-cases, then matches the
+  readable ID exactly (404 `storage_unit_not_found`). Scanning (T16/T17) reuses it.
+- **Detail and history.** `GET /api/storage-units/:suNumber` (readable ID or UUID) and
+  `GET /api/storage-units/:id/history?page=` (20 per page, newest first: the unit's audit events
+  plus its receipt's confirmation). All read-only, `inventory.read` (LAB included).

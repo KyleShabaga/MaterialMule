@@ -696,6 +696,223 @@ textarea {
   margin: 0 0 0.5rem;
 }
 
+/* ---- Receiving wizard (TRP-T10) ---- */
+
+.wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  color: var(--muted);
+}
+
+.wizard-steps li[aria-current='step'] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.wizard-steps li.done::after {
+  content: ' ✓';
+}
+
+.step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+  font-size: 0.875rem;
+}
+
+.wizard-step .card,
+.wizard-step > .card {
+  margin-bottom: 1rem;
+}
+
+.error-summary {
+  border: 2px solid var(--error);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.error-summary h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.error-summary ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.error-summary a {
+  color: var(--error);
+}
+
+.unit-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Desktop: each unit is a row; its name and actions on the left, holes and summaries on the right. */
+.unit-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) 1fr;
+  gap: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-width: 0;
+}
+
+.unit-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.unit-headline {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+.unit-body {
+  min-width: 0;
+}
+
+.hole-summary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  min-width: 0;
+}
+
+.hole-summary legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  align-items: flex-start;
+}
+
+.range .form-field {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.range input {
+  width: 100%;
+}
+
+.depth-unit {
+  display: flex;
+  gap: 1rem;
+  padding: 0.4rem 0;
+}
+
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.quantity {
+  margin: 0;
+  font-weight: 600;
+}
+
+.wizard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.link-button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 0.25rem;
+}
+
+.offline-notice {
+  border-color: var(--warning);
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
+.issued-units {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.issued-unit h3 {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+}
+
+.issued-unit p {
+  overflow-wrap: anywhere;
+}
+
+.issued-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  /* Phone: one card per unit, and Next / Confirm stay reachable at the bottom. */
+  .unit-row {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+}
+
 /* ---- Test sign-in ---- */
 
 .fixtures {

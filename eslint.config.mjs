@@ -7,11 +7,13 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
+    // .claude/ holds agent worktrees: whole other checkouts, linted in their own right.
     ignores: [
       '**/dist/**',
       '**/coverage/**',
       'playwright-report/**',
       'test-results/**',
+      '.claude/**',
       'release/**',
     ],
   },
@@ -28,13 +30,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      'apps/api/**/*.ts',
-      'scripts/**/*.mjs',
-      '*.config.{ts,mjs}',
-      'e2e/**/*.ts',
-      'deploy/**/*.ts',
-    ],
+    files: ['apps/api/**/*.ts', 'scripts/**/*.mjs', '*.config.{ts,mjs}', 'e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
   {

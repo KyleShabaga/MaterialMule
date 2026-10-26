@@ -16,7 +16,8 @@
     "db:seed:dev": "tsx src/db/cli.ts seed-dev",
     "db:reset:test": "tsx src/db/cli.ts reset-test --env-file .env.test",
     "db:reset:dev": "tsx src/db/cli.ts seed-dev",
-    "mock:idp": "tsx src/test-support/mock-oidc-cli.ts"
+    "mock:idp": "tsx src/test-support/mock-oidc-cli.ts",
+    "mock:printer": "tsx src/test-support/fake-zebra-cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.2.0",

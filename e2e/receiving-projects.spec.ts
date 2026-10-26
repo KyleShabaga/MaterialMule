@@ -13,10 +13,10 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();
 
   // Other draft fields, entered first.
-  const receiver = page.getByRole('combobox', { name: 'Receiver', exact: true });
+  const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
   await receiver.fill('AT');
   await page.getByRole('option', { name: 'AT · Alex Tester (Tech)' }).click();
-  await page.getByLabel('Description').fill('Four buckets from the drill crew');
+  await page.getByLabel('Description (optional)').fill('Four buckets from the drill crew');
 
   // Existing project by name.
   await page.getByRole('combobox', { name: /Find project/ }).fill('riverbank');
@@ -54,7 +54,9 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
 
   // AC7: nothing else in the draft was cleared.
   await expect(receiver).toHaveValue('AT · Alex Tester (Tech)');
-  await expect(page.getByLabel('Description')).toHaveValue('Four buckets from the drill crew');
+  await expect(page.getByLabel('Description (optional)')).toHaveValue(
+    'Four buckets from the drill crew',
+  );
 
   // The new project is searchable straight away.
   await page.getByRole('button', { name: 'Change project' }).click();

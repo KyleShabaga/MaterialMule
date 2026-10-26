@@ -1,5 +1,8 @@
 import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
+import { InventoryPage } from './inventory/InventoryPage';
+import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
+import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
@@ -7,7 +10,6 @@ import { PositionSetupPage } from './pages/PositionSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
-import { StorageUnitLabelsPage } from './printing/StorageUnitLabelsPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -69,11 +71,12 @@ export const routes: RouteObject[] = [
                 element: <PlaceholderPage title="Receiving Log" card="TRP-T10" />,
               },
               { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
-              {
-                path: 'sample-storage',
-                element: <PlaceholderPage title="Sample Storage" card="TRP-T12" />,
-              },
-              { path: 'sample-storage/:readableId', element: <StorageUnitLabelsPage /> },
+              // Inventory and storage unit detail (TRP-T12). The menu calls it Sample Storage; the
+              // card's /inventory and /storage-units/:suNumber paths redirect here.
+              { path: 'sample-storage', element: <InventoryPage /> },
+              { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
+              { path: 'inventory', element: <InventoryRedirect /> },
+              { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
               { path: 'projects', element: <PlaceholderPage title="Projects" card="TRP-T35" /> },
               {
                 path: 'settings',

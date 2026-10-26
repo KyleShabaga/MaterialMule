@@ -68,6 +68,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       'storage_unit',
       'storage_unit_annual_counter',
       'storage_unit_hole_summary',
+      'storage_unit_search',
       'test_hole',
     ]);
     // No individual sample inventory at receiving.
@@ -397,6 +398,47 @@ describe.runIf(testDatabaseUrl)('receiving schema (TRP-T02)', () => {
       db.pool.query('UPDATE storage_unit SET receipt_line = 0 WHERE id = $1', [second]),
     ).rejects.toMatchObject({ code: PG.checkViolation });
     await db.pool.query('UPDATE storage_unit SET receipt_line = 2 WHERE id = $1', [second]);
+  });
+
+  it("keeps each unit's search document current when its sources change (TRP-T12)", async () => {
+    const { projectId, testHoleId, storageUnitId } = await bucketSetup(
+      'SEARCH-1',
+      'BKT-2026-000901',
+    );
+    const document = async () => {
+      const { rows } = await db.pool.query<{ document: string }>(
+        'SELECT document FROM storage_unit_search WHERE storage_unit_id = $1',
+        [storageUnitId],
+      );
+      return rows[0]?.document ?? null;
+    };
+    // Created with the unit: ID, type, project and location.
+    expect(await document()).toContain('bkt-2026-000901');
+    expect(await document()).toContain('search-1');
+    expect(await document()).toContain('receiving lab');
+
+    const summaryId = await insertSummary(
+      db.pool,
+      { storageUnitId, projectId, testHoleId },
+      { type: 'custom', customText: 'Bag Of Fines' },
+    );
+    expect(await document()).toContain('th26-01');
+    expect(await document()).toContain('bag of fines');
+
+    await db.pool.query(`UPDATE storage_unit_hole_summary SET note = 'Seal OK' WHERE id = $1`, [
+      summaryId,
+    ]);
+    expect(await document()).toContain('seal ok');
+    await db.pool.query(`UPDATE storage_unit SET note = 'Cracked lid' WHERE id = $1`, [
+      storageUnitId,
+    ]);
+    expect(await document()).toContain('cracked lid');
+    await db.pool.query(`UPDATE project SET client = 'Renamed Client' WHERE id = $1`, [projectId]);
+    expect(await document()).toContain('renamed client');
+    await db.pool.query(`UPDATE test_hole SET name = 'TH26-01A' WHERE id = $1`, [testHoleId]);
+    expect(await document()).toContain('th26-01a');
+    await db.pool.query('DELETE FROM storage_unit_hole_summary WHERE id = $1', [summaryId]);
+    expect(await document()).not.toContain('bag of fines');
   });
 
   it('never lets the system Receiving lab location be retired', async () => {

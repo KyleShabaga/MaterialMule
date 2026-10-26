@@ -27,23 +27,26 @@ scripts          Repo tooling (check-bundle-secrets.mjs, pack-release.mjs)
 
 ## Commands (run from the repo root)
 
-| Command                 | What it does                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `npm ci`                | Install exactly what's in the lockfile                                                     |
-| `npm run dev`           | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)                  |
-| `npm run lint`          | ESLint (zero warnings) and Prettier check                                                  |
-| `npm run format`        | Prettier write                                                                             |
-| `npm run typecheck`     | `tsc --noEmit` in every workspace                                                          |
-| `npm test`              | Unit and integration tests (Vitest) in every workspace                                     |
-| `npm run build`         | Build shared, API and web                                                                  |
-| `npm run check:bundle`  | Fail if server config appears in the web bundle                                            |
-| `npm run test:deploy`   | Deploy-script and release-packing tests (PowerShell 7, temp folders; part of `npm test`)   |
-| `npm run release:pack`  | Pack `release/trapezoid-<version>-<commit>/` for the Windows host (after verify)           |
-| `npm run verify`        | lint → typecheck → test → build → check:bundle (the gate for every card)                   |
-| `npm run test:e2e`      | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on 3100 |
-| `npm run db:migrate`    | Apply pending migrations, then reference data (Receiving lab)                              |
-| `npm run db:seed:dev`   | Load fictional dev fixtures (DEMO-2601, TH26-01/02); refused in production                 |
-| `npm run db:reset:test` | Drop and rebuild the test database from `apps/api/.env.test`                               |
+| Command                                  | What it does                                                                                                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                 | Install exactly what's in the lockfile                                                                                                                         |
+| `npm run dev`                            | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)                                                                                      |
+| `npm run lint`                           | ESLint (zero warnings) and Prettier check                                                                                                                      |
+| `npm run format`                         | Prettier write                                                                                                                                                 |
+| `npm run typecheck`                      | `tsc --noEmit` in every workspace                                                                                                                              |
+| `npm test`                               | Unit and integration tests (Vitest) in every workspace                                                                                                         |
+| `npm run build`                          | Build shared, API and web                                                                                                                                      |
+| `npm run check:bundle`                   | Fail if server config appears in the web bundle                                                                                                                |
+| `npm run test:deploy`                    | Deploy-script and release-packing tests (PowerShell 7, temp folders; part of `npm test`)                                                                       |
+| `npm run release:pack`                   | Pack `release/trapezoid-<version>-<commit>/` for the Windows host (after verify)                                                                               |
+| `npm run verify`                         | lint → typecheck → test → build → check:bundle (the gate for every card)                                                                                       |
+| `npm run test:e2e`                       | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on `E2E_PORT` (3100); fake printer on +1000, mock Microsoft tenant on +2000 |
+| `npm run db:migrate`                     | Apply pending migrations, then reference data (Receiving lab)                                                                                                  |
+| `npm run db:seed:dev`                    | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants); refused in production                                            |
+| `npm run db:reset:dev`                   | Re-apply the dev fixtures (names, roles, pending applicants) without changing IDs or audit                                                                     |
+| `npm run db:reset:test`                  | Drop and rebuild the test database from `apps/api/.env.test`                                                                                                   |
+| `npm run mock:idp -w @trapezoid/api`     | Mock Microsoft tenant for local sign-in (127.0.0.1:4100); see README                                                                                           |
+| `npm run mock:printer -w @trapezoid/api` | Fake Zebra printer for local printing (127.0.0.1:9100); see README                                                                                             |
 
 Per-workspace: `npm run <script> -w @trapezoid/api` (or `@trapezoid/web`, `@trapezoid/shared`).
 Database details: [docs/database.md](docs/database.md). Migrations are forward-only SQL files in
