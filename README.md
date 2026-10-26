@@ -178,7 +178,12 @@ Phones scan with **Scan with camera** (TRP-T17). The camera only works on HTTPS 
 npm run verify       # lint, typecheck, unit/integration tests, build, bundle secret scan
 npx playwright install chromium   # once
 npm run test:e2e     # browser tests, desktop and phone
+npm run test:security                    # permission sweep of every endpoint (TRP-T18)
+npm run test:e2e -- --grep "@critical"   # receiving critical path only (TRP-T18)
 ```
+
+What the receiving regression suite covers, and its latest results:
+[docs/testing/receiving-critical-path.md](docs/testing/receiving-critical-path.md).
 
 API tests use the database in `apps/api/.env.test` automatically; CI sets
 `REQUIRE_DATABASE_TESTS=1` so they can't be skipped there.
