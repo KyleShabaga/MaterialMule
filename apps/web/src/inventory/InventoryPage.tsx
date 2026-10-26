@@ -122,7 +122,14 @@ export function InventoryPage() {
 
   return (
     <>
-      <PageHeader title="Sample Storage" />
+      <PageHeader
+        title="Sample Storage"
+        actions={
+          <Link className="button" to="/sample-storage/scan">
+            Scan labels
+          </Link>
+        }
+      />
       <LookUpId />
 
       <SearchForm
