@@ -89,6 +89,77 @@ export interface MicrosoftIdentity {
 
 export type FirstSignInOutcome = 'existing' | 'linked' | 'created';
 
+const systemActor = (userId: string, name: string): AuditActor => ({
+  userId,
+  accountType: 'personal',
+  initials: null,
+  name,
+});
+
+/**
+ * Links a first Microsoft sign-in to a pre-provisioned staff entry (AC6) and returns that
+ * entry's id, or null when nothing matches. Matches only an exact (case-insensitive) expected UPN
+ * on an entry with no identity attached; initials and names are never compared. Call it inside
+ * the sign-in transaction, after checking that the identity isn't already linked.
+ */
+export async function linkPreprovisionedStaff(
+  client: PoolClient,
+  identity: MicrosoftIdentity,
+  requestId?: string | null,
+): Promise<string | null> {
+  const { rows: candidates } = await client.query<{
+    id: string;
+    expected_upn: string | null;
+    linked: boolean;
+  }>(
+    `SELECT u.id, u.expected_upn,
+            EXISTS (SELECT 1 FROM identity_link l WHERE l.user_id = u.id) AS linked
+     FROM app_user u
+     WHERE lower(u.expected_upn) = $1
+     FOR UPDATE OF u`,
+    [normalizeUpn(identity.upn)],
+  );
+  const matchId = findPreprovisionedMatch(
+    identity.upn,
+    candidates.map((row) => ({
+      userId: row.id,
+      expectedUpn: row.expected_upn,
+      linked: row.linked,
+    })),
+  );
+  if (!matchId) {
+    return null;
+  }
+  await client.query(
+    `INSERT INTO identity_link (user_id, provider, tenant_id, subject)
+     VALUES ($1, 'microsoft', $2, $3)`,
+    [matchId, identity.tenantId, identity.subject],
+  );
+  await client.query(
+    `UPDATE app_user
+     SET sign_in_username = $2, work_email = COALESCE(work_email, $3),
+         given_name = COALESCE(given_name, $4), surname = COALESCE(surname, $5),
+         updated_at = now()
+     WHERE id = $1`,
+    [
+      matchId,
+      identity.upn,
+      identity.workEmail ?? null,
+      identity.givenName ?? null,
+      identity.surname ?? null,
+    ],
+  );
+  await recordAudit(client, {
+    action: 'staff.linked_on_first_sign_in',
+    entityType: 'app_user',
+    entityId: matchId,
+    actor: systemActor(matchId, identity.displayName),
+    after: { provider: 'microsoft', signInUsername: identity.upn },
+    requestId,
+  });
+  return matchId;
+}
+
 /** What a receipt stores about its receiver at selection time (TRP-T09 snapshots). */
 export interface ReceiverSnapshot {
   userId: string;
@@ -447,60 +518,8 @@ export class StaffService {
       return { userId: known[0]!.user_id, outcome: 'existing' };
     }
 
-    const { rows: candidates } = await client.query<{
-      id: string;
-      expected_upn: string | null;
-      linked: boolean;
-    }>(
-      `SELECT u.id, u.expected_upn,
-              EXISTS (SELECT 1 FROM identity_link l WHERE l.user_id = u.id) AS linked
-       FROM app_user u
-       WHERE lower(u.expected_upn) = $1
-       FOR UPDATE OF u`,
-      [normalizeUpn(identity.upn)],
-    );
-    const matchId = findPreprovisionedMatch(
-      identity.upn,
-      candidates.map((row) => ({
-        userId: row.id,
-        expectedUpn: row.expected_upn,
-        linked: row.linked,
-      })),
-    );
-    const systemActor = (userId: string, name: string): AuditActor => ({
-      userId,
-      accountType: 'personal',
-      initials: null,
-      name,
-    });
-
+    const matchId = await linkPreprovisionedStaff(client, identity);
     if (matchId) {
-      await client.query(
-        `INSERT INTO identity_link (user_id, provider, tenant_id, subject)
-         VALUES ($1, 'microsoft', $2, $3)`,
-        [matchId, identity.tenantId, identity.subject],
-      );
-      await client.query(
-        `UPDATE app_user
-         SET sign_in_username = $2, work_email = COALESCE(work_email, $3),
-             given_name = COALESCE(given_name, $4), surname = COALESCE(surname, $5),
-             updated_at = now()
-         WHERE id = $1`,
-        [
-          matchId,
-          identity.upn,
-          identity.workEmail ?? null,
-          identity.givenName ?? null,
-          identity.surname ?? null,
-        ],
-      );
-      await recordAudit(client, {
-        action: 'staff.linked_on_first_sign_in',
-        entityType: 'app_user',
-        entityId: matchId,
-        actor: systemActor(matchId, identity.displayName),
-        after: { provider: 'microsoft', signInUsername: identity.upn },
-      });
       return { userId: matchId, outcome: 'linked' };
     }
 

@@ -18,6 +18,7 @@ import { ProviderSignInFailed, type ExternalIdentityProvider } from './entra-pro
 import { GraphProfileError, fetchGraphProfile } from './graph-client.js';
 import { MICROSOFT_PROVIDER, MICROSOFT_SETTINGS } from './microsoft.constants.js';
 import type { MicrosoftSettings } from './entra-provider.js';
+import { linkPreprovisionedStaff } from '../../../staff/staff.service.js';
 import { MicrosoftTokenCache } from './token-cache.js';
 
 const ATTEMPT_LIFETIME_MS = 10 * 60 * 1000;
@@ -174,6 +175,32 @@ export class MicrosoftSignInService {
       let row = existing.rows[0];
       const claims = { name: identity.name, preferredUsername: identity.preferredUsername };
       let created = false;
+
+      // First sign-in for someone an admin added ahead of time (TRP-T07 AC6): link that entry
+      // instead of creating a new pending user. Graph's UPN is preferred over the token claim.
+      const upn = graph?.userPrincipalName ?? identity.preferredUsername;
+      if (!row && upn) {
+        const linkedId = await linkPreprovisionedStaff(
+          client,
+          {
+            tenantId: identity.tenantId,
+            subject: identity.objectId,
+            upn,
+            displayName: graph?.displayName ?? identity.name ?? upn,
+            givenName: graph?.givenName ?? null,
+            surname: graph?.surname ?? null,
+            workEmail: graph?.mail ?? null,
+          },
+          requestId,
+        );
+        if (linkedId) {
+          const linked = await client.query<ProfileRow>(
+            `SELECT ${PROFILE_COLUMNS} FROM app_user WHERE id = $1 FOR UPDATE`,
+            [linkedId],
+          );
+          row = linked.rows[0];
+        }
+      }
 
       if (row?.status === 'disabled') {
         return { ok: false as const, reason: 'account_disabled' as const, userId: row.id };
