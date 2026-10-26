@@ -340,7 +340,8 @@ describe.runIf(testDatabaseUrl)('projects and test holes (TRP-T08)', () => {
       const inB = testHoleListResponseSchema.parse(
         (await get(`/api/projects/${projectB}/test-holes?q=th26`, cookies.lab!)).body,
       );
-      expect(inB.map((h) => h.name)).toEqual(['TH26-01', 'TH26-09']);
+      // Either spelling may have won the simultaneous-create race above.
+      expect(inB.map((h) => h.name.toUpperCase())).toEqual(['TH26-01', 'TH26-09']);
     });
 
     it('404s for an unknown project and 400s for a malformed ID', async () => {
