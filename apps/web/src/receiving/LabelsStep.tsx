@@ -1,6 +1,7 @@
 import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { BandedCard } from '../components/ui';
 import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { PrintLabelsPanel } from '../printing/PrintLabelsPanel';
 import { receiptPrintPath } from '../printing/print-paths';
@@ -30,8 +31,7 @@ export function LabelsStep({
 
   return (
     <>
-      <section className="card" aria-labelledby="labels-heading">
-        <h2 id="labels-heading">Receipt confirmed</h2>
+      <BandedCard title="Receipt confirmed">
         <p role="status">
           {result.units.length === 1
             ? '1 storage unit received. Print its label and stick it on the bucket.'
@@ -52,7 +52,7 @@ export function LabelsStep({
             Print / Save all labels as PDF
           </Link>
         </p>
-      </section>
+      </BandedCard>
 
       <ul className="issued-units" aria-label="New storage units">
         {rows.map(({ unit, index, issued }) => (

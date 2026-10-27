@@ -145,6 +145,42 @@ function issued(body: unknown, first = 1) {
   };
 }
 
+describe('Receiving wizard layout (MM-T55 part C)', () => {
+  it('shows the step tag and chips, banded cards, and the bottom action bar per step', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await chooseProject(user);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Receive samples' })).toBeVisible();
+    expect(screen.getByText('Step 1 of 3')).toBeVisible();
+    const steps = screen.getByRole('list', { name: 'Receiving steps' });
+    expect(within(steps).getAllByRole('listitem')[0]).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByRole('region', { name: 'Details' })).toBeVisible();
+    const unit = bucket(1);
+    expect(within(unit).getByRole('heading', { level: 3, name: 'Bucket 1' })).toBeVisible();
+    expect(within(unit).getByText('no test holes yet')).toBeVisible();
+
+    // Step 1 bar: no problems yet, the draft status, Discard draft and Next: Review.
+    const bar = () => document.querySelector<HTMLElement>('.wizard-step > .wizard-actions')!;
+    expect(within(bar()).queryByText(/problems? to fix/)).toBeNull();
+    expect(within(bar()).getByText(/Receiver: AT/)).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: 'Discard draft' })).toBeVisible();
+
+    // Trying to move on with a bucket that has no test hole counts the problems in the bar.
+    await user.click(within(bar()).getByRole('button', { name: 'Next: Review' }));
+    expect(within(bar()).getByText(/^\d+ problems? to fix$/)).toBeVisible();
+
+    await addHole(user, bucket(1), 'TH26-01');
+    await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S12');
+    await user.click(within(bar()).getByRole('button', { name: 'Next: Review' }));
+    expect(await screen.findByText('Step 2 of 3')).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: 'Back' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: 'Confirm receipt' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: 'Discard draft' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Bucket 1' })).toBeVisible();
+  });
+});
+
 describe('Receiving wizard (MM-T10)', () => {
   it('AC1/AC2: two buckets, one with a mixed-hole summary, confirmed in one request', async () => {
     const user = userEvent.setup();
@@ -162,7 +198,7 @@ describe('Receiving wizard (MM-T10)', () => {
     await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S12');
     await addHole(user, bucket(1), 'TH26-02');
     await user.selectOptions(holeGroup(bucket(1), 'TH26-02').getByLabelText('Summary type'), 'all');
-    expect(within(bucket(1)).getByText('Bucket 1 · TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
+    expect(within(bucket(1)).getByText('TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Add bucket' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
@@ -375,7 +411,7 @@ describe('Receiving wizard (MM-T10)', () => {
     expect(screen.getByRole('heading', { name: 'Bucket 2' })).toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Duplicate Bucket 1' }));
     expect(screen.getAllByText('3 storage units').length).toBeGreaterThan(0);
-    expect(within(bucket(2)).getByText('Bucket 2 · TH26-01: G1–S4')).toBeInTheDocument();
+    expect(within(bucket(2)).getByText('TH26-01: G1–S4')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Remove Bucket 3' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
   });

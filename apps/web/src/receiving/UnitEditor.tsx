@@ -1,12 +1,5 @@
-import { FormField } from '../components/ui';
-import {
-  fieldId,
-  unitHeadline,
-  unitName,
-  UNIT_TYPE_LABEL,
-  withHoles,
-  type UnitDraft,
-} from './draft';
+import { BandedCard, FormField } from '../components/ui';
+import { fieldId, unitHeadline, unitName, withHoles, type UnitDraft } from './draft';
 import { SummaryEditor } from './SummaryEditor';
 import { TestHolePicker } from './TestHolePicker';
 
@@ -41,13 +34,20 @@ export function UnitEditor({
   const holesError = errors.get(`${path}.holeSummaries`);
 
   return (
-    <section className="unit-row" aria-labelledby={headingId} id={`unit-${unit.clientRowId}`}>
-      <div className="unit-head">
-        <h3 id={headingId} tabIndex={-1}>
-          {name}
-        </h3>
-        <p className="unit-headline">{unitHeadline(index, unit)}</p>
-        <p className="field-hint">Type: {UNIT_TYPE_LABEL[unit.unitType]}</p>
+    <BandedCard
+      id={`unit-${unit.clientRowId}`}
+      className="unit-card"
+      headingLevel={3}
+      headingId={headingId}
+      focusableHeading
+      title={name}
+      // The heading already names the unit ("Bucket 1"); the band adds its test-hole summaries.
+      subtitle={
+        <span className="unit-headline">
+          {unitHeadline(index, unit).split(' · ').slice(1).join(' · ')}
+        </span>
+      }
+      aside={
         <div className="row-actions">
           <button type="button" onClick={onDuplicate} aria-label={`Duplicate ${name}`}>
             Duplicate
@@ -56,8 +56,8 @@ export function UnitEditor({
             Remove
           </button>
         </div>
-      </div>
-
+      }
+    >
       <div className="unit-body">
         <div id={fieldId(`${path}.holeSummaries`)}>
           {projectId ? (
@@ -110,6 +110,6 @@ export function UnitEditor({
           )}
         </FormField>
       </div>
-    </section>
+    </BandedCard>
   );
 }

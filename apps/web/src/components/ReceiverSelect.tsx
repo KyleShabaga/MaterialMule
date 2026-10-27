@@ -3,7 +3,7 @@ import {
   receiverListResponseSchema,
   type ReceiverOption,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../api/client';
 
 const SEARCH_DELAY_MS = 150;
@@ -47,6 +47,7 @@ export function ReceiverSelect({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [touched, setTouched] = useState(false);
+  const selectOnFocus = useRef(false);
   const [latest, setLatest] = useState<{ query: string; results: Results } | null>(null);
 
   const query = value ? '' : text.trim();
@@ -159,10 +160,23 @@ export function ReceiverSelect({
             setOpen(true);
             if (value) onChange(null);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={(event) => {
+            setOpen(true);
+            // MM-T53: select the chosen name so the first keystroke replaces it and searches.
+            if (value) {
+              event.currentTarget.select();
+              selectOnFocus.current = true;
+            }
+          }}
+          // A click's mouseup would otherwise drop the selection just made on focus.
+          onMouseUp={(event) => {
+            if (selectOnFocus.current) event.preventDefault();
+            selectOnFocus.current = false;
+          }}
           onBlur={() => {
             setOpen(false);
             setTouched(true);
+            selectOnFocus.current = false;
           }}
           onKeyDown={onKeyDown}
         />

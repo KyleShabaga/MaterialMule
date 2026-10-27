@@ -1,5 +1,6 @@
 import { formatReceiver, projectLabel } from '@materialmule/shared';
 import type { ReactNode } from 'react';
+import { BandedCard } from '../components/ui';
 import {
   formatSummaryValue,
   formatUnitCount,
@@ -20,15 +21,17 @@ export function ReceiptReview({
 }) {
   return (
     <>
-      <section className="card review-section" aria-labelledby="review-details">
-        <div className="section-header">
-          <h2 id="review-details">Details</h2>
-          {onEditDetails ? (
+      <BandedCard
+        className="review-section"
+        title="Details"
+        aside={
+          onEditDetails ? (
             <button type="button" className="link-button" onClick={onEditDetails}>
               Edit details
             </button>
-          ) : null}
-        </div>
+          ) : undefined
+        }
+      >
         <dl className="details">
           <dt>Project</dt>
           <dd>{draft.project ? projectLabel(draft.project) : '—'}</dd>
@@ -41,20 +44,17 @@ export function ReceiptReview({
           <dt>Quantity</dt>
           <dd>{formatUnitCount(draft.units.length)}</dd>
         </dl>
-      </section>
+      </BandedCard>
 
       {draft.units.map((unit, index) => {
         const name = unitName(index, unit);
-        const headingId = `review-${unit.clientRowId}`;
         return (
-          <section
+          <BandedCard
             key={unit.clientRowId}
-            className="card review-section"
-            aria-labelledby={headingId}
-          >
-            <div className="section-header">
-              <h2 id={headingId}>{name}</h2>
-              {onEditUnit ? (
+            className="review-section"
+            title={name}
+            aside={
+              onEditUnit ? (
                 <button
                   type="button"
                   className="link-button"
@@ -63,8 +63,9 @@ export function ReceiptReview({
                 >
                   Edit
                 </button>
-              ) : null}
-            </div>
+              ) : undefined
+            }
+          >
             <dl className="details">
               <dt>Type</dt>
               <dd>{UNIT_TYPE_LABEL[unit.unitType]}</dd>
@@ -81,7 +82,7 @@ export function ReceiptReview({
                 </>
               ) : null}
             </dl>
-          </section>
+          </BandedCard>
         );
       })}
     </>

@@ -24,6 +24,9 @@ export function BandedCard({
   as: Tag = 'section',
   id,
   className,
+  headingLevel = 2,
+  headingId: fixedHeadingId,
+  focusableHeading = false,
   children,
 }: {
   title: ReactNode;
@@ -34,9 +37,17 @@ export function BandedCard({
   as?: 'section' | 'div';
   id?: string;
   className?: string;
+  /** h3 for cards nested under a section's h2 (e.g. each storage unit in the wizard). */
+  headingLevel?: 2 | 3;
+  /** Fixed heading id, e.g. so an error summary or "Edit" link can move focus to it. */
+  headingId?: string;
+  /** Let script move focus to the heading (tabIndex -1). */
+  focusableHeading?: boolean;
   children?: ReactNode;
 }) {
-  const headingId = useId();
+  const generatedId = useId();
+  const headingId = fixedHeadingId ?? generatedId;
+  const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const classes = ['banded-card', tone === 'attention' ? 'banded-card-attention' : null, className]
     .filter(Boolean)
     .join(' ');
@@ -49,9 +60,13 @@ export function BandedCard({
     >
       <div className="banded-card-head">
         <div className="banded-card-titles">
-          <h2 id={headingId} className="banded-card-title">
+          <Heading
+            id={headingId}
+            className="banded-card-title"
+            tabIndex={focusableHeading ? -1 : undefined}
+          >
             {title}
-          </h2>
+          </Heading>
           {subtitle ? <p className="banded-card-subtitle">{subtitle}</p> : null}
         </div>
         {aside ? <div className="banded-card-aside">{aside}</div> : null}

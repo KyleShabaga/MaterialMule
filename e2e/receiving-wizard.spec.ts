@@ -92,7 +92,7 @@ test('T3/AC1: two buckets for TH26-01, reviewed and confirmed with two BKT IDs',
   await expect(page.getByText('2 storage units').first()).toBeVisible();
   await addHole(bucket(page, 2), 'TH26-01');
   await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
-  await expect(bucket(page, 2).getByText('Bucket 2 · TH26-01: G13–S32')).toBeVisible();
+  await expect(bucket(page, 2).getByText('TH26-01: G13–S32')).toBeVisible();
   // Receiving never asks for individual samples: one summary per hole per bucket.
   await expect(page.getByLabel(/sample (number|id)/i)).toHaveCount(0);
   await noHorizontalScroll(page);
@@ -140,7 +140,7 @@ test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank desc
   await sampleRange(unit, 'TH26-01', 'G1', 'S12');
   await addHole(unit, 'TH26-02');
   await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
-  await expect(unit.getByText('Bucket 1 · TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
+  await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
   await expect(page.getByLabel('Description (optional)')).toHaveValue('');
 
   await page.getByRole('button', { name: 'Next: Review' }).click();
@@ -285,4 +285,36 @@ test('T8/AC5: a personal account defaults to itself; LAB starts blank and must c
   await expect(
     page.getByRole('alert').getByRole('link', { name: 'Choose who received the samples.' }),
   ).toHaveCount(0);
+});
+
+test('MM-T53 T3: clicking the prefilled Received by and typing starts a new search', async ({
+  page,
+}) => {
+  await signInAs(page, 'at');
+  await page.goto('/receiving-log/new');
+  const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
+  await expect(receiver).toHaveValue(/^AT · Alex Tester/);
+  await receiver.click();
+  await page.keyboard.type('JS');
+  await expect(receiver).toHaveValue('JS');
+  await expect(page.getByRole('option', { name: /^JS · Jordan Smith/ })).toBeVisible();
+});
+
+test('MM-T54 T1: no sideways scroll with the test-hole list open, 320 to 1440 px', async ({
+  page,
+}) => {
+  await signInAs(page, 'at');
+  await startReceipt(page);
+  const unit = bucket(page, 1);
+  const find = unit.getByRole('combobox', { name: 'Find or add a test hole' });
+  for (const width of [320, 375, 665, 768, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await find.fill('TH26');
+    await expect(unit.getByRole('option', { name: 'TH26-01', exact: true })).toBeVisible();
+    await noHorizontalScroll(page);
+    // The search box stays inside the bucket card.
+    const [box, card] = await Promise.all([find.boundingBox(), unit.boundingBox()]);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(card!.x + card!.width + 0.5);
+    await find.fill('');
+  }
 });
