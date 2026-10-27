@@ -222,16 +222,15 @@ export function StorageUnitDetailPage() {
 
       <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
 
-      {/* A group, not a region: the "Label" region (T15) stays the only landmark named Label. */}
-      <div className="card" id="label-preview" role="group" aria-labelledby="label-preview-heading">
-        <h2 id="label-preview-heading">Preview label</h2>
-        <LabelPreviewPanel
-          // A correction (T13) bumps the version; the label shows the corrected details.
-          key={unit.version}
-          storageUnit={unit.readableId}
-          receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
-        />
-      </div>
+      {/* Groups, not regions: the "Label" region (T15) stays the only landmark named Label. */}
+      <LabelPreviewPanel
+        // A correction (T13) bumps the version; the label shows the corrected details.
+        key={`label-preview-${unit.version}`}
+        layout="dual"
+        id="label-preview"
+        storageUnit={unit.readableId}
+        receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
+      />
 
       <StorageUnitLabelsSection readableId={unit.readableId} />
     </>

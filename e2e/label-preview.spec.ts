@@ -53,15 +53,21 @@ test('T3/T4: preview on the unit page, then a true-size PDF whose barcodes decod
   await panel.getByRole('button', { name: 'Zoom in' }).click();
   await expect(panel.getByText('Zoomed to twice the real size.')).toBeVisible();
 
-  // Print view: no app chrome, instructions, one label.
+  // MM-T55: the print view card sits beside the preview and shows one page per label.
+  const printViewCard = page.getByRole('group', { name: 'Print view · 1 label' });
+  await expect(printViewCard.getByText('Page 1 of 1')).toBeVisible();
+
+  // Print view (opens in a new tab): no app chrome, instructions, one label.
+  const popup = page.waitForEvent('popup');
   await panel.getByRole('link', { name: 'Print / Save as PDF' }).click();
-  await expect(page.getByRole('heading', { name: `Label ${unit.readableId}` })).toBeVisible();
-  await expect(page.getByText(/100% \(Actual size\)/)).toBeVisible();
-  await expect(page.getByRole('navigation')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Print / Save as PDF' })).toBeVisible();
+  const printPage = await popup;
+  await expect(printPage.getByRole('heading', { name: `Label ${unit.readableId}` })).toBeVisible();
+  await expect(printPage.getByText(/100% \(Actual size\)/)).toBeVisible();
+  await expect(printPage.getByRole('navigation')).toHaveCount(0);
+  await expect(printPage.getByRole('button', { name: 'Print / Save as PDF' })).toBeVisible();
 
   // AC2: each PDF page is 3.5 × 1.5 in with one label whose barcodes decode to the ID.
-  const pages = await saveAsPdf(page);
+  const pages = await saveAsPdf(printPage);
   expect(pages).toHaveLength(1);
   expect(pages[0]!.widthIn).toBeCloseTo(3.5, 3);
   expect(pages[0]!.heightIn).toBeCloseTo(1.5, 3);
@@ -69,8 +75,8 @@ test('T3/T4: preview on the unit page, then a true-size PDF whose barcodes decod
 
   // T4 / AC5: previewing and saving a PDF create no print job, audit event or unit change.
   expect(await sideEffects([unit.id])).toEqual(before);
-  await page.getByRole('link', { name: `← Back to ${unit.readableId}` }).click();
-  await expect(page.getByText('No labels printed yet.')).toBeVisible();
+  await printPage.getByRole('link', { name: `← Back to ${unit.readableId}` }).click();
+  await expect(printPage.getByText('No labels printed yet.')).toBeVisible();
 });
 
 test('AC3: one print view holds every label of a receipt, in receipt order', async ({ page }) => {
@@ -79,12 +85,14 @@ test('AC3: one print view holds every label of a receipt, in receipt order', asy
 
   await signInAs(page, 'lab');
   await page.goto(`/sample-storage/${units[1]!.readableId}`);
+  const popup = page.waitForEvent('popup');
   await page.getByRole('link', { name: 'Print / Save all 3 labels of this receipt' }).click();
-  await expect(page.getByRole('heading', { name: '3 labels' })).toBeVisible();
-  const sheet = page.getByLabel('Labels to print');
+  const printPage = await popup;
+  await expect(printPage.getByRole('heading', { name: '3 labels' })).toBeVisible();
+  const sheet = printPage.getByLabel('Labels to print');
   await expect(sheet.getByRole('img')).toHaveCount(3);
 
-  const pages = await saveAsPdf(page);
+  const pages = await saveAsPdf(printPage);
   expect(pages).toHaveLength(3);
   for (const [index, pdfPage] of pages.entries()) {
     expect(pdfPage.widthIn).toBeCloseTo(3.5, 3);

@@ -27,6 +27,21 @@ const PRINT_CSS = `
 
 type Labels = PreviewResult<LabelPreview[]>;
 
+/** The browser print settings for a true-size PDF; shared with the unit page's print view card. */
+export function LabelPrintSteps() {
+  return (
+    <ol className="label-print-steps">
+      <li>Choose Print / Save as PDF below.</li>
+      <li>
+        Set the scale to <strong>100% (Actual size)</strong>, not Fit to page. Margins: None.
+      </li>
+      <li>
+        Each page is one 3.5 × 1.5 in label. Save as PDF, or print on 3.5 × 1.5 in label stock.
+      </li>
+    </ol>
+  );
+}
+
 /**
  * Print view (MM-T39): one label, or every label of a receipt in order, with no app chrome so
  * the browser's Print → Save as PDF gives a true-scale PDF. Saving a PDF never creates a print job
@@ -93,17 +108,7 @@ export function LabelPrintPage({ scope }: { scope: 'unit' | 'receipt' }) {
         {body}
         {labels && labels.length > 0 ? (
           <>
-            <ol className="label-print-steps">
-              <li>Choose Print / Save as PDF below.</li>
-              <li>
-                Set the scale to <strong>100% (Actual size)</strong>, not Fit to page. Margins:
-                None.
-              </li>
-              <li>
-                Each page is one 3.5 × 1.5 in label. Save as PDF, or print on 3.5 × 1.5 in label
-                stock.
-              </li>
-            </ol>
+            <LabelPrintSteps />
             <p className="field-hint">
               This doesn&apos;t count as a label print and creates no print job. Printer fonts may
               differ slightly; the ZD621 print is the final check.

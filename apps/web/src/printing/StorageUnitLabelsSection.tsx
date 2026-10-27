@@ -1,6 +1,6 @@
 import { isPrintJobActive, type PrintHistoryResponse, type PrintJob } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { DataTable, ErrorState } from '../components/ui';
+import { BandedCard, DataTable, ErrorState } from '../components/ui';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
 import { PrintLabelsPanel } from './PrintLabelsPanel';
@@ -73,26 +73,23 @@ export function StorageUnitLabelsSection({ readableId }: { readableId: string })
 
   if (history.state === 'loading') {
     return (
-      <section className="card" aria-labelledby="labels-heading" id="labels">
-        <h2 id="labels-heading">Label</h2>
+      <BandedCard id="labels" title="Label">
         <p aria-busy="true">Loading…</p>
-      </section>
+      </BandedCard>
     );
   }
   if (history.state === 'error') {
     return (
-      <section className="card" aria-labelledby="labels-heading" id="labels">
-        <h2 id="labels-heading">Label</h2>
+      <BandedCard id="labels" title="Label">
         <ErrorState message={history.message} onRetry={reload} />
-      </section>
+      </BandedCard>
     );
   }
 
   const { storageUnit, jobs } = history.history;
   return (
     <>
-      <section className="card" aria-labelledby="labels-heading" id="labels">
-        <h2 id="labels-heading">Label</h2>
+      <BandedCard id="labels" title="Label">
         <PrintLabelsPanel
           key={storageUnit.id}
           storageUnitIds={[storageUnit.id]}
@@ -100,9 +97,8 @@ export function StorageUnitLabelsSection({ readableId }: { readableId: string })
           buttonLabel={jobs.length > 0 ? 'Reprint label' : 'Print label'}
           onJobChange={reload}
         />
-      </section>
-      <section className="card" aria-labelledby="print-history-heading">
-        <h2 id="print-history-heading">Print history</h2>
+      </BandedCard>
+      <BandedCard title="Print history">
         {actionError ? (
           <p className="field-error" role="alert">
             {actionError}
@@ -135,7 +131,7 @@ export function StorageUnitLabelsSection({ readableId }: { readableId: string })
             },
           ]}
         />
-      </section>
+      </BandedCard>
     </>
   );
 }

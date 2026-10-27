@@ -143,6 +143,32 @@ describe('LabelPreviewPanel', () => {
     );
   });
 
+  it('MM-T55: dual layout puts the preview card beside the print view card', async () => {
+    stubApi(() => json(200, preview({ warnings: ['Project name shortened to fit'] })));
+    renderPanel({ storageUnit: 'BKT-2026-000014', layout: 'dual', id: 'label-preview' });
+
+    const previewCard = await screen.findByRole('group', { name: 'Preview label' });
+    expect(previewCard).toHaveAttribute('id', 'label-preview');
+    expect(await within(previewCard).findByText('Template sticker-v1')).toBeInTheDocument();
+    expect(
+      within(previewCard).getByRole('img', { name: 'Label for storage unit BKT-2026-000014' }),
+    ).toBeInTheDocument();
+    expect(within(previewCard).getByRole('heading', { name: 'Fit warnings' })).toBeInTheDocument();
+    const pdf = within(previewCard).getByRole('link', { name: 'Print / Save as PDF' });
+    expect(pdf).toHaveAttribute('href', '/labels/print/unit/BKT-2026-000014');
+    expect(pdf).toHaveAttribute('target', '_blank');
+
+    const printView = screen.getByRole('group', { name: 'Print view · 1 label' });
+    expect(within(printView).getByText('Opens in a new tab')).toBeInTheDocument();
+    expect(within(printView).getByText(/100% \(Actual size\)/)).toBeInTheDocument();
+    expect(within(printView).getByText(/creates no print job/)).toBeInTheDocument();
+    const pages = within(printView).getByLabelText('Pages in the print view');
+    expect(within(pages).getByText('Page 1 of 1')).toBeInTheDocument();
+    expect(
+      within(pages).getByRole('img', { name: 'Page 1: label for storage unit BKT-2026-000014' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows an error with Retry, then the label', async () => {
     let calls = 0;
     stubApi(() => {
