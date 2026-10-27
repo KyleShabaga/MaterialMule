@@ -116,23 +116,24 @@ test('MM-T59 T3: a summary copied from the table finds its units', async ({ page
     await page.getByRole('button', { name: 'Search', exact: true }).click();
   };
 
-  // Exactly as shown, en dash included.
+  // Copy both summaries exactly as shown, en dash included, before any search narrows the table.
   const depth = (
     await row(data.aOtherHole)
       .getByText(/^TH26-02: /)
       .innerText()
   ).trim();
-  expect(depth).toBe('TH26-02: 3–5 ft');
-  await search(depth);
-  await expect(table.locator('tbody tr')).toHaveCount(1);
-  await expect(row(data.aOtherHole)).toBeVisible();
-
   const sample = (
     await row(data.a1)
       .getByText(/^TH26-01: /)
       .innerText()
   ).trim();
+  expect(depth).toBe('TH26-02: 3–5 ft');
   expect(sample).toBe('TH26-01: G1–S12');
+
+  await search(depth);
+  await expect(table.locator('tbody tr')).toHaveCount(1);
+  await expect(row(data.aOtherHole)).toBeVisible();
+
   await search(sample);
   // Current stock: a1, b1 and aReceiving hold TH26-01 G1–S12; aDisposed is hidden.
   await expect(table.locator('tbody tr')).toHaveCount(3);
