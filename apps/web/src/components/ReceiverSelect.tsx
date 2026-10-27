@@ -24,12 +24,19 @@ export function ReceiverSelect({
   label = 'Received by',
   required = false,
   error,
+  searchPath = '/api/staff/receivers',
+  noMatchText = 'No active staff match.',
+  hint = `Search by initials or name. ${NOT_LISTED_MESSAGE}`,
 }: {
   value: ReceiverOption | null;
   onChange: (receiver: ReceiverOption | null) => void;
   label?: string;
   required?: boolean;
   error?: string | null;
+  /** Where options come from; the Receiving Log filter (MM-T51) lists past receivers instead. */
+  searchPath?: string;
+  noMatchText?: string;
+  hint?: string;
 }) {
   const id = useId();
   const listId = `${id}-list`;
@@ -48,7 +55,7 @@ export function ReceiverSelect({
     if (query === '') return;
     let current = true;
     const timer = window.setTimeout(() => {
-      void apiFetch(`/api/staff/receivers?search=${encodeURIComponent(query)}`)
+      void apiFetch(`${searchPath}?search=${encodeURIComponent(query)}`)
         .then(async (response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           return receiverListResponseSchema.parse(await response.json());
@@ -68,7 +75,7 @@ export function ReceiverSelect({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, searchPath]);
 
   const results = latest?.query === query ? latest.results : null;
   const options = results?.state === 'ready' ? results.options : [];
@@ -119,7 +126,7 @@ export function ReceiverSelect({
       : results.state === 'error'
         ? 'Staff search failed. Try again.'
         : options.length === 0
-          ? 'No active staff match.'
+          ? noMatchText
           : null;
   const unmatched = touched && !open && value === null && text.trim() !== '';
   const message = error ?? (unmatched ? 'Choose a person from the list.' : null);
@@ -199,7 +206,7 @@ export function ReceiverSelect({
         </ul>
       </div>
       <p id={hintId} className="field-hint">
-        Search by initials or name. {NOT_LISTED_MESSAGE}
+        {hint}
       </p>
       <p id={statusId} className="receiver-status" role="status">
         {status}

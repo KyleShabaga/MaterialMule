@@ -1,5 +1,6 @@
 import type { StaffOption } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
+import type { AuditReceiver } from '../audit/audit.js';
 
 // Active staff who can be credited on a record: a project's PM/PE or the receiver of a receipt.
 // The shared LAB account is a station, not a person, so it never appears here (App Idea §8).
@@ -35,4 +36,9 @@ export async function findActiveStaff(
     [id],
   );
   return rows[0] ? toOption(rows[0]) : null;
+}
+
+/** A staff member as the receiver of an audit event, copied at the time (MM-T56). */
+export function auditReceiver(staff: StaffOption): AuditReceiver {
+  return { userId: staff.id, initials: staff.initials, name: staff.displayName };
 }

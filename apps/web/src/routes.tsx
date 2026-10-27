@@ -22,6 +22,8 @@ import {
   SettingsLayout,
 } from './pages/simple-pages';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
+import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
+import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
 import { ScanPage } from './scanning/ScanPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { StaffPage } from './settings/staff/StaffPage';
@@ -75,11 +77,10 @@ export const routes: RouteObject[] = [
             element: <AppLayout />,
             children: [
               { index: true, element: <DashboardPage /> },
-              {
-                path: 'receiving-log',
-                element: <PlaceholderPage title="Receiving Log" card="MM-T10" />,
-              },
+              // Confirmed receipts and receipt detail (MM-T51); static `new` wins over :receiptId.
+              { path: 'receiving-log', element: <ReceivingLogPage /> },
               { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
+              { path: 'receiving-log/:receiptId', element: <ReceiptDetailPage /> },
               // Inventory and storage unit detail (MM-T12). The menu calls it Sample Storage; the
               // card's /inventory and /storage-units/:suNumber paths redirect here.
               { path: 'sample-storage', element: <InventoryPage /> },

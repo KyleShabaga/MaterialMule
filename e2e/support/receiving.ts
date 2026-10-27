@@ -12,6 +12,7 @@ export const DEMO = {
   th02: '00000000-0000-4000-8000-000000000302',
   at: '00000000-0000-4000-8000-000000000102',
   jordanSmith: '00000000-0000-4000-8000-000000000106',
+  jamieSong: '00000000-0000-4000-8000-000000000107',
 };
 
 const CSRF = { 'x-materialmule-csrf': '1' };
@@ -112,6 +113,7 @@ export interface ApiReceiptOptions {
   units?: number;
   description?: string;
   receivedDate?: string;
+  receiverUserId?: string;
 }
 
 /** Confirms a receipt through POST /api/receipts as the page's signed-in account. */
@@ -126,7 +128,7 @@ export async function receiveThroughApi(
       idempotencyKey: randomUUID(),
       projectId: options.projectId ?? DEMO.projectId,
       receivedDate: options.receivedDate ?? '2026-10-20',
-      receiverUserId: DEMO.at,
+      receiverUserId: options.receiverUserId ?? DEMO.at,
       description: options.description ?? null,
       units: Array.from({ length: options.units ?? 1 }, (_, i) => ({
         clientRowId: `row-${i + 1}`,

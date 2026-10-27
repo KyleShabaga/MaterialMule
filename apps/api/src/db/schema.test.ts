@@ -823,4 +823,39 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       ).rejects.toMatchObject({ code: PG.checkViolation });
     });
   });
+
+  describe('audit receiver snapshots (MM-T56)', () => {
+    const addEvent = (receiverId: string | null, initials: string | null, name: string | null) =>
+      db.pool.query(
+        `INSERT INTO audit_event (action, entity_type, actor_account_type, receiver_user_id,
+                                  receiver_initials_snapshot, receiver_name_snapshot)
+         VALUES ('receipt.confirmed', 'receipt', 'system', $1, $2, $3)`,
+        [receiverId, initials, name],
+      );
+
+    it('T3/AC3: refuses a receiver event without its name snapshot', async () => {
+      await expect(addEvent(userId, null, null)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(addEvent(userId, 'AT', null)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(addEvent(userId, 'AT', 'Test AT')).resolves.toBeTruthy();
+      // A receiver without confirmed initials at the time is recorded by name.
+      await expect(addEvent(userId, null, 'Test AT')).resolves.toBeTruthy();
+    });
+
+    it('refuses snapshots without a receiver, and malformed snapshots', async () => {
+      await expect(addEvent(null, null, null)).resolves.toBeTruthy();
+      await expect(addEvent(null, 'AT', 'Test AT')).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(addEvent(userId, 'at', 'Test AT')).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(addEvent(userId, 'AT', '  ')).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+    });
+  });
 });
