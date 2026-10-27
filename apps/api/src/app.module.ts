@@ -14,6 +14,7 @@ import {
   microsoftSettings,
 } from './auth/providers/microsoft/entra-provider.js';
 import { MicrosoftAuthController } from './auth/providers/microsoft/microsoft-auth.controller.js';
+import { MicrosoftSignInRateLimit } from './auth/providers/microsoft/microsoft-rate-limit.js';
 import { MicrosoftSignInService } from './auth/providers/microsoft/microsoft-sign-in.service.js';
 import {
   MICROSOFT_PROVIDER,
@@ -99,6 +100,7 @@ export class AppModule {
         },
         MicrosoftTokenCache,
         MicrosoftSignInService,
+        MicrosoftSignInRateLimit,
         ProfileService,
         UsersService,
         StaffService,

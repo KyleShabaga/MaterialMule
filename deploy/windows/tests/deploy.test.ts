@@ -11,6 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { get as httpGet } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -295,6 +296,274 @@ describe.runIf(isWindows)('Deploy-MaterialMule.ps1 (MM-T20)', () => {
     expect(kept).toContain('1.0.0-aaaaaa1');
     expect(kept).not.toContain('1.0.1-bbbbbb2');
     expect(kept.length).toBeLessThanOrEqual(4);
+  });
+});
+
+// MM-T41 regression tests: a failed backup must stop the deploy before anything changes, whether
+// the backup is a PowerShell wrapper whose last native command fails (the reviewed bug: `$?` alone
+// stayed true), a script that throws or exits non-zero, or a native command configured directly.
+// A successful backup must not be failed by a stale non-zero $LASTEXITCODE from earlier.
+describe.runIf(isWindows)('pre-deploy backup failures (MM-T41)', () => {
+  let work: string;
+  let root: string;
+  let port: number;
+  let env: Record<string, string>;
+  let sources: string;
+  let common: Record<string, string | number>;
+  const configs: Record<string, string> = {};
+
+  const BASELINE = '2.0.0-aaaaaa1';
+  const NEXT = '2.0.1-bbbbbb2';
+
+  // Each backup appends 'backup' to the event log first, so the tests see that it really ran.
+  const MARK = `Add-Content -LiteralPath $env:T20_FAKE_LOG -Value 'backup'`;
+  const BACKUPS: Record<string, { file: string; body: string }> = {
+    ok: { file: 'ok.ps1', body: `${MARK}\n` },
+    okNative: { file: 'ok-native.ps1', body: `${MARK}\n& cmd.exe /d /c exit 0\n` },
+    nativeFails: { file: 'native-fails.ps1', body: `${MARK}\n& cmd.exe /d /c exit 42\n` },
+    nativeFailsWithConfig: {
+      file: 'native-fails-config.ps1',
+      body: `param([string]$ConfigPath, [string]$Reason)\n${MARK}\n& cmd.exe /d /c exit 42\n`,
+    },
+    throws: { file: 'throws.ps1', body: `${MARK}\nthrow 'Backup target unreachable'\n` },
+    exits: { file: 'exits.ps1', body: `${MARK}\nexit 5\n` },
+    writesError: {
+      file: 'writes-error.ps1',
+      body: `${MARK}\nWrite-Error 'pg_dump reported an error'\n`,
+    },
+    directNative: {
+      file: 'native-backup.cmd',
+      body: '@echo off\r\necho backup>>"%T20_FAKE_LOG%"\r\nexit /b 42\r\n',
+    },
+  };
+
+  const log = () =>
+    existsSync(env.T20_FAKE_LOG!)
+      ? readFileSync(env.T20_FAKE_LOG!, 'utf8').trim().split(/\r?\n/).filter(Boolean)
+      : [];
+  const clearLog = () => rmSync(env.T20_FAKE_LOG!, { force: true });
+  const current = (): string | null =>
+    existsSync(join(root, 'current'))
+      ? JSON.parse(readFileSync(join(root, 'current', 'release.json'), 'utf8')).version
+      : null;
+  const stateText = () => readFileSync(join(root, 'deploy-state.json'), 'utf8');
+  /** One fresh connection per check: a pooled keep-alive socket may belong to a stopped server. */
+  function health(): Promise<{ http: number; version?: string }> {
+    return new Promise((done, fail) => {
+      httpGet(`http://127.0.0.1:${port}/api/health`, { agent: false }, (response) => {
+        let text = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => (text += chunk));
+        response.on('end', () => {
+          const body = JSON.parse(text) as { version?: string };
+          done({ http: response.statusCode ?? 0, version: body.version });
+        });
+      }).on('error', fail);
+    });
+  }
+  const deploy = (...args: string[]) => pwsh(['-File', HARNESS, ...args], env);
+
+  /**
+   * Calls Invoke-MaterialMuleBackup directly, after leaving $LASTEXITCODE at 9 from an unrelated
+   * native command, and reports whether it passed.
+   */
+  function backupHelper(config: string) {
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      `Import-Module ${psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'))}`,
+      `$config = Get-MaterialMuleHostConfig -Path ${psString(config)}`,
+      '& cmd.exe /d /c exit 9',
+      'try { Invoke-MaterialMuleBackup -Config $config; "RESULT=passed" }',
+      'catch { "RESULT=failed: $($_.Exception.Message)" }',
+    ].join('\n');
+    return pwsh(['-Command', script], env);
+  }
+
+  /** Everything a refused deploy must leave alone. */
+  async function unchanged() {
+    return {
+      log: log(),
+      current: current(),
+      releases: readdirSync(join(root, 'releases')),
+      state: stateText(),
+      health: await health(),
+    };
+  }
+
+  beforeAll(async () => {
+    work = mkdtempSync(join(tmpdir(), 'materialmule-backup-'));
+    root = join(work, 'host');
+    sources = join(work, 'incoming');
+    mkdirSync(join(root, 'config', 'admin'), { recursive: true });
+    mkdirSync(join(root, 'releases'), { recursive: true });
+    mkdirSync(join(root, 'logs'), { recursive: true });
+    mkdirSync(sources, { recursive: true });
+    port = await freePort();
+    env = {
+      T20_FAKE_LOG: join(work, 'events.log'),
+      T20_FAKE_PID: join(work, 'fake.pid'),
+      T20_FAKE_PORT: String(port),
+    };
+    writeFileSync(
+      join(root, 'config', 'materialmule.env'),
+      'APP_ENV=production\nDATABASE_URL=postgres://fake_app@127.0.0.1:5432/fake\n',
+    );
+    writeFileSync(
+      join(root, 'config', 'admin', 'migrate.env'),
+      'DATABASE_URL=postgres://fake_owner@127.0.0.1:5432/fake\n',
+    );
+    // A fictional backup.config.psd1: only its path is passed on to the wrapper.
+    const backupConfig = join(work, 'backup.config.psd1');
+    writeFileSync(backupConfig, '@{}\n');
+    common = {
+      InstallRoot: root,
+      ServiceName: 'MaterialMuleT41TestNoSuchService',
+      NodeExe: process.execPath,
+      HealthUrl: `http://127.0.0.1:${port}/api/health`,
+      HealthTimeoutSeconds: 8,
+      KeepReleases: 3,
+    };
+    for (const [key, backup] of Object.entries(BACKUPS)) {
+      const script = join(work, backup.file);
+      writeFileSync(script, backup.body);
+      configs[key] = join(work, `host.${key}.psd1`);
+      writeConfig(configs[key], {
+        ...common,
+        BackupScript: script,
+        ...(key === 'nativeFailsWithConfig' ? { BackupConfig: backupConfig } : {}),
+      });
+    }
+    configs.none = join(work, 'host.nobackup.psd1');
+    writeConfig(configs.none, common);
+
+    // A running baseline release, so a refused deploy has a release, service and state to keep.
+    const result = deploy('-ConfigPath', configs.ok!, '-Release', makeRelease(sources, BASELINE));
+    expect(result.code, result.output).toBe(0);
+    makeRelease(sources, NEXT);
+  });
+
+  afterAll(() => {
+    if (env && existsSync(env.T20_FAKE_PID!)) {
+      try {
+        process.kill(Number(readFileSync(env.T20_FAKE_PID!, 'utf8').trim()));
+      } catch {
+        // Already gone.
+      }
+    }
+    if (work) rmSync(work, { recursive: true, force: true });
+  });
+
+  it('AC1/AC2: a wrapper whose native command exits 42 stops the deploy with exit code 3', async () => {
+    const before = await unchanged();
+    clearLog();
+    const result = deploy(
+      '-ConfigPath',
+      configs.nativeFails!,
+      '-Release',
+      join(sources, `materialmule-${NEXT}`),
+    );
+    expect(result.code, result.output).toBe(3);
+    expect(result.output).toContain('Stopped: The backup script failed; nothing was changed');
+    // The backup ran; nothing after it did: no stop, switch, migrate or start.
+    expect(await unchanged()).toEqual({ ...before, log: ['backup'] });
+    expect(current()).toBe(BASELINE);
+  });
+
+  it('AC1: the same wrapper fails the backup helper itself', () => {
+    const result = backupHelper(configs.nativeFails!);
+    expect(result.output).toContain('RESULT=failed: The backup script failed; nothing was changed');
+  });
+
+  it('AC1: a wrapper run with BackupConfig (-ConfigPath, -Reason) fails the same way', async () => {
+    const before = await unchanged();
+    clearLog();
+    const result = deploy(
+      '-ConfigPath',
+      configs.nativeFailsWithConfig!,
+      '-Release',
+      join(sources, `materialmule-${NEXT}`),
+    );
+    expect(result.code, result.output).toBe(3);
+    expect(await unchanged()).toEqual({ ...before, log: ['backup'] });
+  });
+
+  it.each([
+    ['a script that throws', 'throws', 'Backup target unreachable'],
+    ['a script that exits 5', 'exits', 'The backup script failed'],
+    ['a script that writes an error', 'writesError', 'pg_dump reported an error'],
+    ['a native backup command that exits 42', 'directNative', 'The backup script failed'],
+  ])('AC4: %s stops the deploy with exit code 3 and changes nothing', async (_, key, message) => {
+    const before = await unchanged();
+    clearLog();
+    const result = deploy(
+      '-ConfigPath',
+      configs[key]!,
+      '-Release',
+      join(sources, `materialmule-${NEXT}`),
+    );
+    expect(result.code, result.output).toBe(3);
+    expect(result.output).toContain(message);
+    expect(await unchanged()).toEqual({ ...before, log: ['backup'] });
+  });
+
+  it.each([
+    ['a script with no native command', 'ok'],
+    ['a wrapper whose native command succeeds', 'okNative'],
+  ])('AC3: %s passes after an unrelated non-zero exit code', (_, key) => {
+    clearLog();
+    const result = backupHelper(configs[key]!);
+    expect(result.output).toContain('RESULT=passed');
+    expect(log()).toEqual(['backup']);
+  });
+
+  it('AC5: -WhatIf runs no backup and changes nothing', async () => {
+    const before = await unchanged();
+    clearLog();
+    const result = deploy(
+      '-ConfigPath',
+      configs.nativeFails!,
+      '-Release',
+      join(sources, `materialmule-${NEXT}`),
+      '-WhatIf',
+    );
+    expect(result.code, result.output).toBe(0);
+    expect(result.output).toContain('What if: back up with');
+    expect(await unchanged()).toEqual({ ...before, log: [] });
+  });
+
+  it('AC5: with no BackupScript, -SkipBackup still deploys (the manual-backup workflow)', async () => {
+    clearLog();
+    const result = deploy(
+      '-ConfigPath',
+      configs.none!,
+      '-Release',
+      join(sources, `materialmule-${NEXT}`),
+      '-SkipBackup',
+    );
+    expect(result.code, result.output).toBe(0);
+    expect(result.output).toContain('Backup skipped (-SkipBackup)');
+    expect(log()).toEqual([
+      'stop',
+      `migrate ${NEXT} postgres://fake_owner@127.0.0.1:5432/fake`,
+      'start',
+    ]);
+    expect(current()).toBe(NEXT);
+    expect(await health()).toMatchObject({ http: 200, version: NEXT });
+  });
+
+  it('AC3: a successful wrapper backup lets the deploy proceed normally', async () => {
+    clearLog();
+    const release = makeRelease(sources, '2.0.2-cccccc3');
+    const result = deploy('-ConfigPath', configs.okNative!, '-Release', release);
+    expect(result.code, result.output).toBe(0);
+    expect(log()).toEqual([
+      'backup',
+      'stop',
+      'migrate 2.0.2-cccccc3 postgres://fake_owner@127.0.0.1:5432/fake',
+      'start',
+    ]);
+    expect(current()).toBe('2.0.2-cccccc3');
+    expect(await health()).toMatchObject({ http: 200, version: '2.0.2-cccccc3' });
   });
 });
 

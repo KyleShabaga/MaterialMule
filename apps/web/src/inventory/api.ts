@@ -47,7 +47,7 @@ async function get<T>(path: string, schema: Schema<T>): Promise<InventoryResult<
         ? 'No storage unit found.'
         : response.status === 403
           ? "You don't have permission to see this."
-          : `Request failed (HTTP ${response.status}).`;
+          : 'Material Mule had a problem loading this. Try again.';
     return { ok: false, notFound: response.status === 404, message };
   }
   const parsed = schema.safeParse(body);
@@ -138,5 +138,5 @@ export async function correctStorageUnit(
     return { kind: 'error', message: 'Corrections need a personal account.' };
   }
   if (response.status === 404) return { kind: 'error', message: 'No storage unit found.' };
-  return { kind: 'error', message: `The correction couldn't be saved (HTTP ${response.status}).` };
+  return { kind: 'error', message: "The correction wasn't saved. Try again." };
 }

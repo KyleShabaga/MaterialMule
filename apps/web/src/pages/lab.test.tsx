@@ -126,6 +126,24 @@ describe('LAB sign-in form', () => {
     expect(document.body.textContent).not.toContain('not-the-password');
   });
 
+  it('explains a server problem in plain words, without the status code', async () => {
+    render_(
+      '/sign-in',
+      { status: 'signed-out' },
+      {
+        '/api/auth/providers': providers(true),
+        '/api/auth/sign-out': () => ({ status: 401 }),
+        '/api/auth/lab/sign-in': () => ({ status: 500, body: {} }),
+      },
+    );
+    fireEvent.change(await screen.findByLabelText('Password'), {
+      target: { value: 'generated-in-test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in as LAB' }));
+    expect(await screen.findByText('Sign-in didn’t work. Try again.')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('500');
+  });
+
   it('is hidden until an administrator sets the LAB password', async () => {
     render_('/sign-in', { status: 'signed-out' }, { '/api/auth/providers': providers(false) });
     expect(
@@ -199,6 +217,53 @@ describe('Reset LAB password (admin)', () => {
     expect(await within(card).findByText(/LAB password reset/)).toBeInTheDocument();
     const reset = calls.find((call) => call.url === '/api/admin/lab/password')!;
     expect(JSON.parse(String(reset.init?.body))).toEqual({ newPassword: 'a-long-enough-password' });
+  });
+
+  async function confirmReset() {
+    const card = await screen.findByRole('region', { name: 'Shared receiving account (LAB)' });
+    await within(card).findByText('Signed-in stations');
+    fireEvent.change(within(card).getByLabelText('New LAB password'), {
+      target: { value: 'a-long-enough-password' },
+    });
+    fireEvent.change(within(card).getByLabelText('Repeat the new password'), {
+      target: { value: 'a-long-enough-password' },
+    });
+    fireEvent.click(within(card).getByRole('button', { name: 'Reset LAB password' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reset password', hidden: true }));
+    return card;
+  }
+
+  it('says nothing changed when the server refuses, without the status code', async () => {
+    render_(
+      '/settings/staff',
+      { status: 'active', me: ADMIN_ME },
+      {
+        '/api/admin/lab/password': () => ({ status: 500, body: {} }),
+        '/api/admin/lab': () => ({ status: 200, body: account }),
+      },
+    );
+    const card = await confirmReset();
+    expect(
+      await within(card).findByText('That didn’t work. Nothing was changed. Try again.'),
+    ).toBeInTheDocument();
+    expect(card.textContent).not.toContain('500');
+  });
+
+  it('does not promise anything when the server could not be reached', async () => {
+    render_(
+      '/settings/staff',
+      { status: 'active', me: ADMIN_ME },
+      {
+        '/api/admin/lab/password': () => {
+          throw new TypeError('Failed to fetch');
+        },
+        '/api/admin/lab': () => ({ status: 200, body: account }),
+      },
+    );
+    const card = await confirmReset();
+    expect(await within(card).findByText(/couldn’t be reached/)).toBeInTheDocument();
+    expect(card.textContent).not.toContain('Nothing was changed');
+    expect(card.textContent).not.toContain('LAB password reset');
   });
 
   it('is not offered to people without staff.manage', async () => {

@@ -5,7 +5,7 @@ import type {
   StorageUnitDetail,
   StorageUnitHistoryPage,
 } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -289,6 +289,109 @@ describe('Sample Storage inventory (MM-T12)', () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/sample-storage/BKT-2026-000014');
     expect(fetchMock).toHaveBeenCalled();
+  });
+});
+
+describe('Sample Storage rapid filter changes (MM-T46)', () => {
+  const stubInventory = () =>
+    stubApi((url) =>
+      url.pathname === '/api/inventory' ? json(200, page([item('BKT-2026-000014')], 1)) : undefined,
+    );
+
+  it('T1/AC1: two filters chosen in quick succession during a search are both kept', async () => {
+    stubInventory();
+    const router = renderAt('/sample-storage?search=TH26-01');
+    await screen.findByRole('option', { name: WAREHOUSE.name });
+    await screen.findByText('1 storage unit');
+
+    // Both picks land before the first navigation has rendered.
+    act(() => {
+      fireEvent.change(screen.getByRole('combobox', { name: 'Type' }), {
+        target: { value: 'bucket' },
+      });
+      fireEvent.change(screen.getByRole('combobox', { name: 'Location' }), {
+        target: { value: WAREHOUSE.id },
+      });
+    });
+
+    await waitFor(() =>
+      expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
+        search: 'TH26-01',
+        type: 'bucket',
+        locationId: WAREHOUSE.id,
+      }),
+    );
+    const chips = screen.getByRole('list', { name: 'Active filters' });
+    expect(within(chips).getByText('Search: TH26-01')).toBeInTheDocument();
+    expect(within(chips).getByText('Type: Bucket')).toBeInTheDocument();
+    expect(within(chips).getByText('Location: Warehouse C2')).toBeInTheDocument();
+  });
+
+  it('T1: rapid page turns and a sort change all build on each other', async () => {
+    stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(200, page([item('BKT-2026-000014')], 120))
+        : undefined,
+    );
+    const router = renderAt('/sample-storage?type=bucket');
+    await screen.findByText('Page 1 of 5');
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    });
+    await waitFor(() => expect(router.state.location.search).toBe('?type=bucket&page=3'));
+
+    act(() => {
+      fireEvent.change(screen.getByRole('combobox', { name: 'Sort by' }), {
+        target: { value: 'id:asc' },
+      });
+      fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), {
+        target: { value: 'all' },
+      });
+    });
+    await waitFor(() =>
+      expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
+        type: 'bucket',
+        sort: 'id',
+        dir: 'asc',
+        status: 'all',
+      }),
+    );
+  });
+
+  it('AC2: a search typed right after Clear filters is kept', async () => {
+    stubInventory();
+    const router = renderAt('/sample-storage?search=TH26-01&type=bucket');
+    await screen.findByText('1 storage unit');
+    const box = screen.getByRole('searchbox', { name: 'Search' });
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+      fireEvent.change(box, { target: { value: 'TH26-02' } });
+      fireEvent.submit(screen.getByRole('search', { name: 'Search inventory' }));
+    });
+
+    await waitFor(() => expect(router.state.location.search).toBe('?search=TH26-02'));
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('TH26-02');
+    const chips = screen.getByRole('list', { name: 'Active filters' });
+    expect(within(chips).getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('AC2: text typed into Search before Clear filters has rendered is not wiped', async () => {
+    stubInventory();
+    const router = renderAt('/sample-storage?search=TH26-01');
+    await screen.findByText('1 storage unit');
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search' }), {
+        target: { value: 'TH26-02' },
+      });
+    });
+
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('TH26-02');
   });
 });
 

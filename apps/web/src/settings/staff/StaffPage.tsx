@@ -5,6 +5,7 @@ import {
   type StaffPosition,
   type StaffRole,
   type StaffStatus,
+  type UpdateStaffRequest,
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
@@ -351,18 +352,39 @@ function StaffDrawer({
     }
   }
 
+  // Only changed fields are sent, so an unrelated edit never re-confirms initials (MM-T44) or
+  // touches the position (MM-T43).
   function saveProfile(event: FormEvent) {
     event.preventDefault();
+    const patch: UpdateStaffRequest = {};
+    if (displayName !== member.displayName) patch.displayName = displayName;
+    if (initials.trim() && initials.trim() !== member.officialInitials) {
+      patch.officialInitials = initials;
+    }
+    if ((position || null) !== member.position) patch.position = position || null;
+    if (Object.keys(patch).length === 0) {
+      onChanged(member, 'No changes to save.');
+      return;
+    }
     void run(
-      () =>
-        staffApi.update(member.id, {
-          displayName,
-          ...(initials.trim() ? { officialInitials: initials } : {}),
-          position: position || null,
-        }),
+      () => staffApi.update(member.id, patch),
       `Saved ${displayName.trim() || member.displayName}.`,
     );
   }
+
+  /** Explicitly confirms initials that are on record but were never confirmed (MM-T44). */
+  function confirmInitials() {
+    const value = member.officialInitials;
+    if (!value) return;
+    void run(
+      () => staffApi.update(member.id, { officialInitials: value }),
+      `Initials ${value} confirmed for ${member.displayName}.`,
+    );
+  }
+
+  const initialsUnconfirmed = Boolean(member.officialInitials) && !member.initialsConfirmed;
+  const clearsPosition =
+    member.accountType === 'personal' && member.position !== null && position === '';
 
   function saveRoles(event: FormEvent) {
     event.preventDefault();
@@ -430,7 +452,11 @@ function StaffDrawer({
         </FormField>
         <FormField
           label="Official initials"
-          hint="1 to 5 letters, confirmed by an admin. Not unique."
+          hint={
+            initialsUnconfirmed
+              ? 'Not confirmed yet: save new initials or confirm these. 1 to 5 letters. Not unique.'
+              : '1 to 5 letters, confirmed by an admin. Not unique.'
+          }
         >
           {(props) => (
             <input
@@ -442,7 +468,21 @@ function StaffDrawer({
             />
           )}
         </FormField>
-        <FormField label="Position" hint="Describes their work; grants no permissions.">
+        {initialsUnconfirmed ? (
+          <p>
+            <button type="button" onClick={confirmInitials} disabled={busy}>
+              Confirm initials {member.officialInitials}
+            </button>
+          </p>
+        ) : null}
+        <FormField
+          label="Position"
+          hint={
+            clearsPosition
+              ? 'Not set: they will be asked to choose a position again at their next sign-in.'
+              : 'Describes their work; grants no permissions.'
+          }
+        >
           {(props) => (
             <select
               {...props}

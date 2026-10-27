@@ -1,9 +1,16 @@
 name: CI
 
+# Kept small to save Actions minutes. The "Protect main" ruleset requires `verify` to pass on a PR
+# that is up to date with main, so main itself doesn't re-run it; start a full run by hand from the
+# Actions tab (workflow_dispatch) when needed. Draft PRs skip CI until they are marked ready.
+# Docs-only changes still run: a required check that never runs would block the PR.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # Only the browser-cache job runs on main (PR runs can read caches saved on main, not each other's).
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +21,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     # Production runs on a Windows PC (D25), so CI does too.
     runs-on: windows-latest
     timeout-minutes: 30
@@ -51,16 +59,31 @@ jobs:
             'LOG_LEVEL=warn'
           ) | Set-Content -Path apps/api/.env.test -Encoding utf8
 
+      - name: Playwright version
+        id: playwright
+        shell: pwsh
+        run: |
+          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json -AsHashtable
+          "version=$($lock.packages['node_modules/@playwright/test'].version)" >> $env:GITHUB_OUTPUT
+
+      # The browser download was the slowest step (~2.5 min); it is cached per Playwright version.
+      - uses: actions/cache/restore@v4
+        id: browsers
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - run: npm ci
       # Exercises the real migration CLI; tests also build their own isolated schemas.
       - run: npm run db:reset:test
       - run: npm run verify
-      # MM-T18: the security suite on its own (it also runs inside verify's npm test).
-      - run: npm run test:security
-      - run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
       - run: npm run test:e2e
       # MM-T18 AC2: the receiving critical path three more times in a row, with no retries.
+      # Manual runs only, to save minutes; the E2E run above already includes it once.
       - name: Critical path x3 (@critical)
+        if: github.event_name == 'workflow_dispatch'
         run: npm run test:e2e:critical -- --repeat-each=3
 
       - uses: actions/upload-artifact@v4
@@ -69,3 +92,45 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Saves the Playwright browser to the cache from main, where every PR run can restore it.
+  # Runs about a minute only when the Playwright version changes; otherwise it ends after the lookup.
+  browser-cache:
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            package-lock.json
+            .nvmrc
+          sparse-checkout-cone-mode: false
+
+      - name: Playwright version
+        id: playwright
+        shell: pwsh
+        run: |
+          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json -AsHashtable
+          "version=$($lock.packages['node_modules/@playwright/test'].version)" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        id: browsers
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+          lookup-only: true
+
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx --yes playwright@${{ steps.playwright.outputs.version }} install chromium
+
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}

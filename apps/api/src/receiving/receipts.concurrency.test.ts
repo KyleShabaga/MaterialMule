@@ -1,4 +1,5 @@
 import type { ConfirmReceiptResponse } from '@materialmule/shared';
+import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTransaction } from '../db/transaction.js';
 import {
@@ -6,7 +7,7 @@ import {
   PREFIX_BY_HOLDER,
   type HolderKind,
 } from '../numbering/storage-unit-id.js';
-import { testDatabaseUrl } from '../test-support/database.js';
+import { createMigratedSchema, testDatabaseUrl } from '../test-support/database.js';
 import { bootReceivingHarness, type ReceivingHarness } from '../test-support/receiving-harness.js';
 
 // MM-T18 card test T3 (concurrency) for receipts. Parallel corrections (version conflict) and
@@ -88,39 +89,46 @@ describe.runIf(testDatabaseUrl)('concurrent receipts (MM-T18 T3)', () => {
   });
 
   it('simultaneous allocations for every prefix and two years keep each counter separate', async () => {
-    await h.db.pool.query('DELETE FROM storage_unit_annual_counter');
-    const kinds: HolderKind[] = ['bucket', 'shelby_tube', 'core_box', 'generic'];
-    const years = [new Date('2026-10-25T18:00:00Z'), new Date('2027-01-03T18:00:00Z')];
-    // 8 transactions of 2 IDs per prefix per year, interleaved and started together.
-    const jobs = Array.from({ length: 8 }, () =>
-      years.flatMap((issuedAt) => kinds.map((kind) => ({ kind, issuedAt }))),
-    ).flat();
-    const results = await Promise.all(
-      jobs.map(({ kind, issuedAt }) =>
-        withTransaction(h.db.pool, (client) =>
-          allocateStorageUnitIds(client, kind, 2, {
-            issuedAt,
-            timeZone: 'America/Edmonton',
-          }),
-        ),
-      ),
-    );
-    for (const kind of kinds) {
-      for (const year of [2026, 2027]) {
-        const prefix = PREFIX_BY_HOLDER[kind];
-        const ids = results
-          .flatMap((r) => r.ids)
-          .filter((id) => id.startsWith(`${prefix}-${year}-`));
-        expect(
-          ids.map(sequence).sort((a, b) => a - b),
-          `${prefix}-${year}`,
-        ).toEqual(Array.from({ length: 16 }, (_, i) => i + 1));
-      }
+    // Fresh counters: they can never be deleted or lowered (MM-T47), so use a scratch schema.
+    const scratch = await createMigratedSchema();
+    try {
+      await allocateEveryPrefixAndYear(scratch.pool);
+    } finally {
+      await scratch.drop();
     }
-    const { rows } = await h.db.pool.query(
-      'SELECT prefix, year, last_value FROM storage_unit_annual_counter ORDER BY prefix, year',
-    );
-    expect(rows).toHaveLength(8);
-    for (const row of rows) expect(row.last_value).toBe(16);
   });
 });
+
+async function allocateEveryPrefixAndYear(pool: Pool): Promise<void> {
+  const kinds: HolderKind[] = ['bucket', 'shelby_tube', 'core_box', 'generic'];
+  const years = [new Date('2026-10-25T18:00:00Z'), new Date('2027-01-03T18:00:00Z')];
+  // 8 transactions of 2 IDs per prefix per year, interleaved and started together.
+  const jobs = Array.from({ length: 8 }, () =>
+    years.flatMap((issuedAt) => kinds.map((kind) => ({ kind, issuedAt }))),
+  ).flat();
+  const results = await Promise.all(
+    jobs.map(({ kind, issuedAt }) =>
+      withTransaction(pool, (client) =>
+        allocateStorageUnitIds(client, kind, 2, {
+          issuedAt,
+          timeZone: 'America/Edmonton',
+        }),
+      ),
+    ),
+  );
+  for (const kind of kinds) {
+    for (const year of [2026, 2027]) {
+      const prefix = PREFIX_BY_HOLDER[kind];
+      const ids = results.flatMap((r) => r.ids).filter((id) => id.startsWith(`${prefix}-${year}-`));
+      expect(
+        ids.map(sequence).sort((a, b) => a - b),
+        `${prefix}-${year}`,
+      ).toEqual(Array.from({ length: 16 }, (_, i) => i + 1));
+    }
+  }
+  const { rows } = await pool.query(
+    'SELECT prefix, year, last_value FROM storage_unit_annual_counter ORDER BY prefix, year',
+  );
+  expect(rows).toHaveLength(8);
+  for (const row of rows) expect(row.last_value).toBe(16);
+}
