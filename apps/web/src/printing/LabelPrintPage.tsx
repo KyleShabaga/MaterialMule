@@ -1,6 +1,6 @@
 import type { LabelPreview } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { EmptyState, ErrorState } from '../components/ui';
 import { fetchLabelPreview, fetchReceiptLabelPreviews, type PreviewResult } from './api';
 import { LabelImage } from './LabelImage';
@@ -49,6 +49,7 @@ export function LabelPrintSteps() {
  */
 export function LabelPrintPage({ scope }: { scope: 'unit' | 'receipt' }) {
   const { id = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const key = `${scope}:${id}`;
   const [reloads, setReloads] = useState(0);
   const [result, setResult] = useState<{ key: string; value: Labels } | null>(null);
@@ -69,14 +70,18 @@ export function LabelPrintPage({ scope }: { scope: 'unit' | 'receipt' }) {
   }, [scope, id, loadKey]);
 
   const labels = result?.key === loadKey && result.value.ok ? result.value.data : null;
-  const back =
-    scope === 'unit' && labels?.[0] ? (
-      <Link to={`/sample-storage/${encodeURIComponent(labels[0].readableId)}`}>
-        ← Back to {labels[0].readableId}
-      </Link>
-    ) : (
-      <Link to="/sample-storage">← Back to Sample Storage</Link>
-    );
+  // The unit to return to: the one shown, or for a receipt the unit it was opened from, if that
+  // unit is on the receipt (MM-T61).
+  const from = searchParams.get('from');
+  const backUnit =
+    scope === 'unit' ? labels?.[0] : labels?.find((label) => label.readableId === from);
+  const back = backUnit ? (
+    <Link to={`/sample-storage/${encodeURIComponent(backUnit.readableId)}`}>
+      ← Back to {backUnit.readableId}
+    </Link>
+  ) : (
+    <Link to="/sample-storage">← Back to Sample Storage</Link>
+  );
 
   let body;
   if (!result || result.key !== loadKey) {

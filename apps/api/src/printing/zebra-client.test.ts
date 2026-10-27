@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeZebraPrinter } from '../test-support/fake-zebra.js';
-import { ZebraTcpTransport } from './zebra-client.js';
+import { describeSocketError, ZebraTcpTransport } from './zebra-client.js';
 
 const FAST = { connectTimeoutMs: 1_000, statusTimeoutMs: 300, sendTimeoutMs: 500 };
 const LABELS = '^XA^FDBKT-2026-000014^FS^XZ\n^XA^FDBKT-2026-000015^FS^XZ\n'.repeat(20);
@@ -86,5 +86,20 @@ describe('ZebraTcpTransport against a fake printer (T3)', () => {
       printerMessage: 'Printer out of labels',
     });
     expect(printer.jobs).toEqual([]);
+  });
+});
+
+describe('describeSocketError (MM-T61)', () => {
+  const describeCode = (code: string | undefined) =>
+    describeSocketError(Object.assign(new Error('socket'), { code }));
+
+  it('words every socket error in plain language, never a raw code', () => {
+    expect(describeCode('ECONNABORTED')).toBe('Printer dropped the connection');
+    expect(describeCode('ENETDOWN')).toBe('Printer is not reachable on the network');
+    for (const code of ['EPROTO', 'EADDRINUSE', 'ESOMETHINGNEW', undefined]) {
+      const message = describeCode(code);
+      expect(message).toBe('Material Mule could not talk to the printer');
+      expect(message).not.toMatch(/\bE[A-Z]{3,}\b|unknown/);
+    }
   });
 });
