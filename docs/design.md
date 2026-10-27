@@ -195,6 +195,9 @@ Don't rename them in a design pass.
   person confirms it printed; "Unknown — check the printer before reprinting" when it can't tell.
 - **Times** are shown in the firm's local time (America/Edmonton) with `en-CA` formatting
   (`Oct 26, 2026, 2:05 p.m.`), never UTC. Durations read like "4 min" or "2 h 5 min".
+- **People:** initials, a middle dot, then the name: "JS · Jordan Smith" (`formatPerson`), so people
+  who share initials are told apart. Pickers add the position: "JS · Jordan Smith (Tech)". At a
+  LAB station, say who the work was for: "LAB for RE received …" (MM-T61).
 - **Numbers and units:** depths always carry their unit (m or ft); keep the unit the person chose.
 - **Fictional data only** in examples, screenshots and tests: project DEMO-2601, test holes TH26-01
   and TH26-02.
