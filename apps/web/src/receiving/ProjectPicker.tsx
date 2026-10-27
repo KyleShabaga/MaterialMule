@@ -10,6 +10,7 @@ import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import { createProject, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
 import { prefillFromQuery } from './prefill';
+import { useListHighlight } from '../components/useListHighlight';
 
 // Project combobox with inline "Add project" (MM-T08). The typed text lives in the receipt draft
 // (props), so nothing typed is lost while adding a project or while offline.
@@ -48,7 +49,6 @@ export function ProjectPicker({
   const id = useId();
   const [search, setSearch] = useState<Search>({ state: 'idle' });
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
   const [form, setForm] = useState<AddForm | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [existing, setExisting] = useState<ProjectSummary | null>(null);
@@ -74,11 +74,16 @@ export function ProjectPicker({
   const results = search.state === 'ready' && search.query === trimmed ? search.results : [];
   const listboxId = `${id}-projects`;
   const showList = open && trimmed !== '' && !form;
+  // MM-T62: the first match is highlighted, so Enter picks it (same in every picker).
+  const highlight = useListHighlight(
+    results.length,
+    `${trimmed}|${results.map((project) => project.id).join(',')}`,
+  );
+  const active = highlight.active;
 
   function choose(project: ProjectSummary) {
     onSelect(project);
     setOpen(false);
-    setActive(-1);
     setForm(null);
     setExisting(null);
   }
@@ -87,10 +92,10 @@ export function ProjectPicker({
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setOpen(true);
-      setActive((index) => Math.min(index + 1, results.length - 1));
+      highlight.next();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((index) => Math.max(index - 1, 0));
+      highlight.previous();
     } else if (event.key === 'Enter' && showList && results[active]) {
       event.preventDefault();
       choose(results[active]);
@@ -182,7 +187,6 @@ export function ProjectPicker({
             onChange={(event) => {
               onQueryChange(event.target.value);
               setOpen(true);
-              setActive(-1);
             }}
             onFocus={() => setOpen(true)}
             onBlur={() => setOpen(false)}
