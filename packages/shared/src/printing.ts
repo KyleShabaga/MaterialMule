@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatReceiver } from './staff';
 
 // Label printing (MM-T15): request and response shapes shared by the API and the web app.
 
@@ -87,12 +88,26 @@ export interface PrintStatusText {
   hint: string | null;
 }
 
+/** "JS · Jordan Smith", or the name alone for staff without confirmed initials. */
+function personText(person: { initials: string | null; name: string }): string {
+  return person.initials
+    ? formatReceiver({ initials: person.initials, displayName: person.name, position: null })
+    : person.name;
+}
+
+/** "Tried 3 times." / "Tried once." */
+function attemptsText(attempts: number): string {
+  return attempts === 1 ? 'Tried once.' : `Tried ${attempts} times.`;
+}
+
 /**
  * Honest wording for a job's status. "Sent to printer" is never worded as a physical print:
- * only a person's "Labels came out OK" confirmation says the labels exist.
+ * only a person's "Labels came out OK" confirmation says the labels exist. With who confirmed a
+ * job (print history), an uncertain job marked printed names them (MM-T61).
  */
 export function printJobStatusText(
-  job: Pick<PrintJob, 'status' | 'attempts' | 'printerMessage' | 'physicallyConfirmedAt'>,
+  job: Pick<PrintJob, 'status' | 'attempts' | 'printerMessage' | 'physicallyConfirmedAt'> &
+    Partial<Pick<PrintJob, 'physicallyConfirmedBy'>>,
 ): PrintStatusText {
   const confirmed = job.physicallyConfirmedAt !== null;
   switch (job.status) {
@@ -122,11 +137,17 @@ export function printJobStatusText(
           ? `${job.printerMessage} — not printed`
           : "Printer didn't respond — not printed",
         tone: 'danger',
-        hint: 'Fix the printer, then Reprint.',
+        hint: `${job.attempts > 0 ? `${attemptsText(job.attempts)} ` : ''}Fix the printer, then Reprint.`,
       };
     case 'uncertain':
       return confirmed
-        ? { label: 'Marked as printed', tone: 'success', hint: null }
+        ? {
+            label: 'Marked as printed',
+            tone: 'success',
+            hint: `The printer result was uncertain; ${
+              job.physicallyConfirmedBy ? personText(job.physicallyConfirmedBy) : 'a person'
+            } marked it as printed.`,
+          }
         : {
             label: 'Unknown — check the printer before reprinting',
             tone: 'warning',

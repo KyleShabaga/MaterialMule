@@ -100,6 +100,12 @@ test('AC3: one print view holds every label of a receipt, in receipt order', asy
     expect(await decodePdfPage(pdfPage)).toEqual(symbols(units[index]!.readableId));
   }
   expect(await sideEffects(units.map((u) => u.id))).toEqual(before);
+
+  // MM-T61: the back link returns to the unit the print view was opened from.
+  await printPage.getByRole('link', { name: `← Back to ${units[1]!.readableId}` }).click();
+  await expect(
+    printPage.getByRole('heading', { level: 1, name: units[1]!.readableId }),
+  ).toBeVisible();
 });
 
 test('AC4: signed out, the preview API answers 401', async ({ page }) => {

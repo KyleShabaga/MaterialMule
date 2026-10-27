@@ -131,7 +131,7 @@ describe('LabelPreviewPanel', () => {
     ).toEqual(['Project name shortened to fit', '2 test holes not shown; the sticker says']);
     expect(
       screen.getByRole('link', { name: 'Print / Save all 3 labels of this receipt' }),
-    ).toHaveAttribute('href', '/labels/print/receipt/r1');
+    ).toHaveAttribute('href', '/labels/print/receipt/r1?from=BKT-2026-000014');
   });
 
   it('opens print views in a new tab from the receiving wizard', async () => {
@@ -244,6 +244,40 @@ describe('LabelPrintPage', () => {
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
       '/api/storage-units/BKT-2026-000014/label/preview',
     ]);
+  });
+
+  it('MM-T61: a receipt print view opened from a unit links back to that unit', async () => {
+    const ids = ['BKT-2026-000014', 'BKT-2026-000015'];
+    stubApi((url) =>
+      url === '/api/receipts/r1/labels/preview'
+        ? json(200, {
+            receiptId: 'r1',
+            labels: ids.map((readableId, index) =>
+              preview({ readableId, storageUnitId: `id-${index}` }),
+            ),
+          })
+        : undefined,
+    );
+    renderRoute('/labels/print/receipt/r1?from=BKT-2026-000015');
+    expect(await screen.findByRole('heading', { name: '2 labels' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Back to BKT-2026-000015' })).toHaveAttribute(
+      'href',
+      '/sample-storage/BKT-2026-000015',
+    );
+  });
+
+  it('MM-T61: ignores a "from" unit that is not on the receipt', async () => {
+    stubApi((url) =>
+      url === '/api/receipts/r1/labels/preview'
+        ? json(200, { receiptId: 'r1', labels: [preview()] })
+        : undefined,
+    );
+    renderRoute('/labels/print/receipt/r1?from=BKT-2026-000099');
+    expect(await screen.findByRole('heading', { name: 'Label BKT-2026-000014' })).toBeVisible();
+    expect(screen.getByRole('link', { name: '← Back to Sample Storage' })).toHaveAttribute(
+      'href',
+      '/sample-storage',
+    );
   });
 
   it('says when the receipt does not exist', async () => {

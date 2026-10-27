@@ -249,6 +249,47 @@ describe('storage unit labels page', () => {
   });
 });
 
+describe('print history wording (MM-T61)', () => {
+  it('says an uncertain job marked printed was uncertain and who confirmed it; failed jobs show attempts', async () => {
+    const markedPrinted = printJob({
+      id: '00000000-0000-4000-8000-000000000921',
+      status: 'uncertain',
+      attempts: 1,
+      lastError: 'Printer dropped the connection while receiving labels',
+      physicallyConfirmedAt: '2026-10-26T16:05:00.000Z',
+      physicallyConfirmedBy: { userId: 'js', initials: 'JS', name: 'Jordan Smith' },
+    });
+    const failed = printJob({
+      id: '00000000-0000-4000-8000-000000000922',
+      status: 'failed',
+      attempts: 3,
+      lastError: 'Printer refused the connection',
+    });
+    stubApi((url) => {
+      if (url === `/api/storage-units/${UNIT.readableId}/print-history`) {
+        return json(200, { storageUnit: UNIT, jobs: [markedPrinted, failed] });
+      }
+      if (url === `/api/storage-units/${UNIT.readableId}`) return json(200, UNIT_DETAIL);
+      if (url.startsWith(`/api/storage-units/${UNIT.id}/history`)) {
+        return json(200, { items: [], total: 0, page: 1, pageSize: 20 });
+      }
+      return undefined;
+    });
+    renderRoute(`/sample-storage/${UNIT.readableId}`);
+
+    const history = await screen.findByRole('table', { name: /Print history/ });
+    expect(within(history).getByText('Marked as printed')).toBeInTheDocument();
+    expect(
+      within(history).getByText(
+        'The printer result was uncertain; JS · Jordan Smith marked it as printed.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(history).getByText('Tried 3 times. Fix the printer, then Reprint.'),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('Settings → Printers', () => {
   const printers = [
     {
