@@ -102,7 +102,7 @@ test(
     await sampleRange(unit, 'TH26-01', 'G1', 'S12');
     await addHole(unit, 'TH26-02');
     await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
-    await expect(unit.getByText('Bucket 1 · TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
+    await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
     await page.getByRole('button', { name: 'Next: Review' }).click();
     await page.getByRole('button', { name: 'Confirm receipt' }).click();
     const [id] = await issuedIds(page);

@@ -2,7 +2,7 @@ import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@materialm
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { ConfirmDialog, FormField, PageHeader } from '../components/ui';
+import { BandedCard, ConfirmDialog, FormField } from '../components/ui';
 import { useOnline } from '../lib/online';
 import { LAB_EXPIRED_MESSAGE } from '../pages/SignInPage';
 import { useSession } from '../session/context';
@@ -44,6 +44,9 @@ const STEPS: { key: Step; label: string }[] = [
 ];
 
 const ADD_UNIT_SHORTCUT = 'Alt+N';
+
+const formatProblemCount = (count: number) =>
+  count === 1 ? '1 problem to fix' : `${count} problems to fix`;
 const OFFLINE_CONFIRM_MESSAGE = "You're offline. Your draft is kept. Connect to confirm.";
 const PERSONAL_EXPIRED_MESSAGE =
   'Your session has expired. Your draft is saved. Sign in to confirm.';
@@ -261,27 +264,39 @@ export function ReceiptWizard({
   }
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
+  const discardButton = (
+    <button
+      type="button"
+      className="danger"
+      onClick={() => setDiscardOpen(true)}
+      disabled={confirming}
+    >
+      Discard draft
+    </button>
+  );
 
   return (
     <div onBlur={() => void flush()}>
-      <PageHeader
-        title="Receive samples"
-        actions={
-          step !== 'labels' ? (
-            <button
-              type="button"
-              className="danger"
-              onClick={() => setDiscardOpen(true)}
-              disabled={confirming}
+      <div className="wizard-header">
+        <div className="wizard-title">
+          <h1>Receive samples</h1>
+          {/* The visually hidden step heading below announces the same thing. */}
+          <span className="wizard-step-tag" aria-hidden="true">
+            Step {stepIndex + 1} of 3
+          </span>
+        </div>
+        <ol className="wizard-steps" aria-label="Receiving steps">
+          {STEPS.map((s, index) => (
+            <li
+              key={s.key}
+              aria-current={s.key === step ? 'step' : undefined}
+              className={index < stepIndex ? 'done' : undefined}
             >
-              Discard draft
-            </button>
-          ) : null
-        }
-      />
-      {step !== 'labels' ? (
-        <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
-      ) : null}
+              <span className="step-number">{index + 1}</span> {s.label}
+            </li>
+          ))}
+        </ol>
+      </div>
       {discardError ? (
         <p className="field-error" role="alert">
           {discardError}
@@ -303,17 +318,6 @@ export function ReceiptWizard({
           history.
         </p>
       ) : null}
-      <ol className="wizard-steps" aria-label="Receiving steps">
-        {STEPS.map((s, index) => (
-          <li
-            key={s.key}
-            aria-current={s.key === step ? 'step' : undefined}
-            className={index < stepIndex ? 'done' : undefined}
-          >
-            <span className="step-number">{index + 1}</span> {s.label}
-          </li>
-        ))}
-      </ol>
       <h2 id="wizard-step-heading" className="visually-hidden" tabIndex={-1}>
         Step {stepIndex + 1} of 3: {STEPS[stepIndex]!.label}
       </h2>
@@ -327,7 +331,7 @@ export function ReceiptWizard({
           ) : null}
           <ErrorSummary problems={shown} attempt={attempts} />
 
-          <div className="card">
+          <BandedCard title="Details" className="wizard-details">
             <div id={fieldId('projectId')}>
               <ProjectPicker
                 value={draft.project}
@@ -397,9 +401,9 @@ export function ReceiptWizard({
                 />
               )}
             </FormField>
-          </div>
+          </BandedCard>
 
-          <section className="card" aria-labelledby="units-heading">
+          <section className="wizard-units" aria-labelledby="units-heading">
             <div className="section-header">
               <h2 id="units-heading">Storage units</h2>
               <p className="quantity" aria-live="polite">
@@ -438,7 +442,12 @@ export function ReceiptWizard({
           </section>
 
           <div className="wizard-actions">
-            <span className="quantity">{formatUnitCount(draft.units.length)}</span>
+            {shown.length > 0 ? (
+              <span className="wizard-problems">{formatProblemCount(shown.length)}</span>
+            ) : null}
+            <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
+            <span className="wizard-actions-spacer" />
+            {discardButton}
             <button type="button" className="primary" onClick={next}>
               Next: Review
             </button>
@@ -480,6 +489,9 @@ export function ReceiptWizard({
             </div>
           ) : null}
           <div className="wizard-actions">
+            <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
+            <span className="wizard-actions-spacer" />
+            {discardButton}
             <button type="button" onClick={() => goToStep('details')} disabled={confirming}>
               Back
             </button>

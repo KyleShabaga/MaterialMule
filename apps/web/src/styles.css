@@ -1082,14 +1082,40 @@ textarea {
   margin: 0 0 0.5rem;
 }
 
-/* ---- Receiving wizard (MM-T10) ---- */
+/* ---- Receiving wizard (MM-T10; canvas layout MM-T55) ---- */
+
+.wizard-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.wizard-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+
+.wizard-title h1 {
+  margin: 0;
+}
+
+.wizard-step-tag {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
 
 .wizard-steps {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 0.625rem;
   list-style: none;
-  margin: 0 0 1.25rem;
+  margin: 0;
   padding: 0;
 }
 
@@ -1173,29 +1199,38 @@ textarea {
   margin-bottom: 0.75rem;
 }
 
-/* Desktop: each unit is a row; its name and actions on the left, holes and summaries on the right. */
-.unit-row {
-  display: grid;
-  grid-template-columns: minmax(12rem, 16rem) 1fr;
-  gap: 0 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
-  padding: 0.75rem 1rem;
+/* Each storage unit is a banded card: name, summaries and actions in the band; holes, summaries
+   and note stacked in one column below at every width (MM-T54: no crushed side column). */
+.unit-card {
+  margin-top: 0;
   min-width: 0;
 }
 
-.unit-head h3 {
+.unit-card .unit-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.unit-card .hole-summary {
   margin: 0;
-  font-size: 1.05rem;
 }
 
 .unit-headline {
-  margin: 0.25rem 0;
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.wizard-details {
+  margin-top: 0;
+}
+
+.wizard-units > .section-header {
+  margin-bottom: 0.25rem;
+}
+
+.wizard-units > .section-header h2 {
+  margin: 0;
 }
 
 .unit-body {
@@ -1263,6 +1298,36 @@ textarea {
   margin: 1rem 0;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
+}
+
+/* Steps 1 and 2: the action bar stays at the bottom of the main column while the page scrolls. */
+.wizard-step > .wizard-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line-shell);
+  border-radius: var(--radius-control);
+  background: var(--card-head);
+}
+
+.wizard-step > .wizard-actions .draft-status {
+  margin: 0;
+}
+
+.wizard-actions-spacer {
+  flex: 1 1 auto;
+}
+
+.wizard-problems {
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.wizard-problems + .draft-status::before {
+  content: '| ';
+  color: var(--line-control);
 }
 
 .link-button {
@@ -1386,11 +1451,7 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  /* Phone: one card per unit, and Next / Confirm stay reachable at the bottom. */
-  .unit-row {
-    grid-template-columns: 1fr;
-  }
-
+  /* Phone: the action bar spans the screen; buttons are full width and 44px tall. */
   .wizard-actions {
     position: sticky;
     bottom: 0;
@@ -1399,6 +1460,37 @@ textarea {
     padding: 0.75rem 1rem;
     background: var(--shell);
     border-top: 1px solid var(--line-shell);
+  }
+
+  .wizard-step > .wizard-actions {
+    margin: 1rem -1rem 0;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: var(--shell);
+  }
+
+  .wizard-step > .wizard-actions {
+    justify-content: flex-start;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .wizard-step > .wizard-actions button {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  /* Status text on its own row(s); the buttons share the last row. */
+  .wizard-step > .wizard-actions .draft-status,
+  .wizard-problems {
+    flex: 1 1 100%;
+  }
+
+  .wizard-actions-spacer {
+    display: none;
+  }
+
+  .wizard-problems + .draft-status::before {
+    content: none;
   }
 }
 

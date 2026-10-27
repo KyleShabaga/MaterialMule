@@ -11,6 +11,12 @@ const JORDAN: ReceiverOption = {
   displayName: 'Jordan Smith',
   position: 'technician',
 };
+const ALEX: ReceiverOption = {
+  id: 'id-alex',
+  initials: 'AT',
+  displayName: 'Alex Tester',
+  position: 'technician',
+};
 const JAMIE: ReceiverOption = {
   id: 'id-jamie',
   initials: 'JS',
@@ -31,8 +37,14 @@ function stubReceivers(byQuery: Record<string, ReceiverOption[]>) {
   return fetchMock;
 }
 
-function Harness({ onChange }: { onChange: (value: ReceiverOption | null) => void }) {
-  const [value, setValue] = useState<ReceiverOption | null>(null);
+function Harness({
+  onChange,
+  initial = null,
+}: {
+  onChange: (value: ReceiverOption | null) => void;
+  initial?: ReceiverOption | null;
+}) {
+  const [value, setValue] = useState<ReceiverOption | null>(initial);
   return (
     <ReceiverSelect
       value={value}
@@ -49,6 +61,51 @@ afterEach(() => {
 });
 
 describe('ReceiverSelect', () => {
+  it('MM-T53 AC1: clicking into a chosen receiver and typing starts a new search', async () => {
+    stubReceivers({ at: [ALEX] });
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onChange={onChange} initial={JORDAN} />);
+
+    const input = screen.getByRole('combobox', { name: /Received by/ });
+    expect(input).toHaveValue('JS · Jordan Smith (Tech)');
+    await user.click(input);
+    await user.keyboard('AT');
+    expect(input).toHaveValue('AT');
+    expect(onChange).toHaveBeenCalledWith(null);
+    expect(await screen.findByRole('option', { name: 'AT · Alex Tester (Tech)' })).toBeVisible();
+  });
+
+  it('MM-T53 AC1: tabbing into a chosen receiver selects it too', async () => {
+    stubReceivers({ at: [ALEX] });
+    const user = userEvent.setup();
+    render(
+      <>
+        <button type="button">Before</button>
+        <Harness onChange={vi.fn()} initial={JORDAN} />
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Before' }));
+    await user.tab();
+    await user.keyboard('AT');
+    expect(screen.getByRole('combobox', { name: /Received by/ })).toHaveValue('AT');
+  });
+
+  it('MM-T53 AC2: focusing and leaving without typing keeps the receiver', async () => {
+    const fetchMock = stubReceivers({});
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onChange={onChange} initial={JORDAN} />);
+
+    const input = screen.getByRole('combobox', { name: /Received by/ });
+    await user.click(input);
+    await user.tab();
+    expect(input).toHaveValue('JS · Jordan Smith (Tech)');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByText('Choose a person from the list.')).toBeNull();
+  });
+
   it('starts empty and does not search until something is typed', () => {
     const fetchMock = stubReceivers({});
     render(<Harness onChange={vi.fn()} />);
