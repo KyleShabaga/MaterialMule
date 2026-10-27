@@ -6,7 +6,11 @@ import { formatReceiver } from './staff';
 export const PRINT_JOB_KINDS = ['initial', 'reprint'] as const;
 export const PRINT_JOB_STATUSES = ['queued', 'sending', 'sent', 'failed', 'uncertain'] as const;
 
+/** Storage-unit stickers (MM-T15) or location labels (MM-T37). */
+export const PRINT_JOB_TARGETS = ['storage_unit', 'location'] as const;
+
 export type PrintJobKind = (typeof PRINT_JOB_KINDS)[number];
+export type PrintJobTarget = (typeof PRINT_JOB_TARGETS)[number];
 export type PrintJobStatus = (typeof PRINT_JOB_STATUSES)[number];
 
 /** Most storage units in one print job (a receipt holds at most 50). */
@@ -59,8 +63,24 @@ export const printJobSchema = z.object({
   sentAt: z.string().nullable(),
   physicallyConfirmedAt: z.string().nullable(),
   physicallyConfirmedBy: person.nullable(),
+  /** What the job prints: storage-unit stickers (`items`) or location labels (`locations`). */
+  target: z.enum(PRINT_JOB_TARGETS),
+  /** Storage units, in print order; empty for a location job. */
   items: z.array(
     z.object({ storageUnitId: z.string(), readableId: z.string(), position: z.number() }),
+  ),
+  /**
+   * Location labels (MM-T37), in print order, with the code and name as requested; empty for a
+   * storage-unit job. `payload` is what both symbols carry.
+   */
+  locations: z.array(
+    z.object({
+      locationId: z.string(),
+      code: z.string(),
+      name: z.string(),
+      payload: z.string(),
+      position: z.number(),
+    }),
   ),
 });
 

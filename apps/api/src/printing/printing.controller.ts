@@ -52,13 +52,15 @@ function parse<S extends z.ZodType>(schema: S, body: unknown): z.output<S> {
   return result.data;
 }
 
-function toHttpError(error: unknown): never {
+export function toHttpError(error: unknown): never {
   if (error instanceof PrintRequestError) {
     const body = { code: error.code, message: error.message };
     switch (error.code) {
       case 'not_found':
+      case 'unknown_location':
         throw new NotFoundException(body);
       case 'not_confirmable':
+      case 'location_retired':
       case 'no_printer_configured':
         throw new ConflictException(body);
       default:

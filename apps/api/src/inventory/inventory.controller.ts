@@ -2,7 +2,6 @@ import { Controller, Get, Inject, Query } from '@nestjs/common';
 import {
   inventoryQuerySchema,
   recentlyReceivedQuerySchema,
-  type InventoryLocation,
   type InventoryPage,
   type RecentlyReceivedResponse,
 } from '@materialmule/shared';
@@ -45,12 +44,5 @@ export class InventoryController {
       parseBody(recentlyReceivedQuerySchema, query),
       dashboardDates(new Date(), this.config.BUSINESS_TIME_ZONE),
     );
-  }
-
-  /** Read-only location list for the filter. Managing locations is MM-T37. */
-  @Get('locations')
-  @RequirePermission('inventory.read')
-  locations(): Promise<InventoryLocation[]> {
-    return this.inventory.locations();
   }
 }

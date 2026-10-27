@@ -45,8 +45,9 @@ export type Permission =
   | 'test.cancel'
   | 'retention.manage'
   | 'disposal.approve'
-  // Lab Manager and Admin (MM-T45)
+  // Lab Manager and Admin (MM-T45, MM-T37)
   | 'settings.drafts.manage'
+  | 'location.manage'
   // Project PM/PE (and delegates) only
   | 'test.accept'
   | 'program.close'
@@ -92,6 +93,8 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'disposal.approve',
   // Draft auto-delete setting (MM-T45, owner request 2026-10-26).
   'settings.drafts.manage',
+  // Storage locations: add, edit, retire (MM-T37, Kyle 2026-10-26).
+  'location.manage',
 ]);
 
 /** Granted by the admin role. Admin never implies project authority or Lab Manager rights. */
@@ -102,6 +105,8 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'printer.manage',
   // Draft auto-delete setting (MM-T45).
   'settings.drafts.manage',
+  // Storage locations (MM-T37).
+  'location.manage',
   // Projects (MM-T35): admins edit any project's fields and are the only ones who change its PM/PE.
   'project.edit',
   'project.pm_pe.change',

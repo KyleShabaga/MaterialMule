@@ -1,4 +1,9 @@
-import { layoutStickerV1, TEMPLATE_VERSION, type StickerInput } from './template-v1.js';
+import {
+  layoutStickerV1,
+  TEMPLATE_VERSION,
+  type LabelLayout,
+  type StickerInput,
+} from './template-v1.js';
 
 /** The ^FH hex indicator used in every text field. */
 const HEX_INDICATOR = '_';
@@ -43,8 +48,19 @@ export function renderZpl(
     throw new RangeError(`Unknown sticker template version: ${templateVersion}`);
   }
   const layout = layoutStickerV1(input);
-  const { code128, qr } = layout;
+  return {
+    zpl: zplForLayout(layout),
+    warnings: layout.warnings,
+    templateVersion: TEMPLATE_VERSION,
+  };
+}
 
+/**
+ * The ZPL for a positioned label (sticker or location label, MM-T37). Symbol data is validated
+ * by each template to A–Z, 0–9 and '-', so it needs no escaping; text fields are always escaped.
+ */
+export function zplForLayout(layout: LabelLayout): string {
+  const { code128, qr } = layout;
   const lines = [
     '^XA',
     `^FX Material Mule ${layout.templateVersion}^FS`,
@@ -57,16 +73,11 @@ export function renderZpl(
         `^FO${text.x},${text.y}^A0N,${text.height},${text.height}` +
         `^FH${HEX_INDICATOR}^FD${escapeZplText(text.text)}^FS`,
     ),
-    // Symbol data is a validated storage unit ID (A–Z, 0–9, '-'), so it needs no escaping.
     `^FO${code128.x},${code128.y}^BY${code128.moduleWidth}` +
       `^BCN,${code128.barHeight},N,N,N,A^FD${layout.symbolData}^FS`,
     `^FO${qr.x},${qr.y}^BQN,2,${qr.magnification},${qr.errorCorrection},7` +
       `^FD${qr.errorCorrection}A,${layout.symbolData}^FS`,
     '^XZ',
   ];
-  return {
-    zpl: lines.join('\n') + '\n',
-    warnings: layout.warnings,
-    templateVersion: TEMPLATE_VERSION,
-  };
+  return lines.join('\n') + '\n';
 }
