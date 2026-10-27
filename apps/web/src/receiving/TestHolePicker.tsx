@@ -136,9 +136,10 @@ export function TestHolePicker({
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       highlight.previous();
-    } else if (event.key === 'Enter' && showList) {
+    } else if (event.key === 'Enter') {
+      // Enter chooses the highlighted option and never submits the surrounding form (MM-T61).
       event.preventDefault();
-      const option = options[active];
+      const option = showList ? options[active] : undefined;
       if (option) pick(option);
     } else if (event.key === 'Escape') {
       setOpen(false);

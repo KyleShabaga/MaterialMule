@@ -187,7 +187,12 @@ export async function getStorageUnitHistory(
      LEFT JOIN receipt rc ON rc.id = $2
      LEFT JOIN app_user u ON u.id = e.receiver_user_id AND e.receiver_name_snapshot IS NULL
      WHERE ${where}
-     ORDER BY e.occurred_at DESC, e.id DESC
+     -- Events of one transaction share occurred_at and the ids are random, so rank them: the
+     -- unit's creation is the oldest of its instant, then by action (MM-T61, same order everywhere).
+     ORDER BY e.occurred_at DESC,
+              CASE e.action WHEN 'storage_unit.created' THEN 1 ELSE 0 END,
+              e.action DESC,
+              e.id DESC
      LIMIT $3 OFFSET $4`,
     [unit.id, unit.receipt_id, pageSize, (page - 1) * pageSize],
   );

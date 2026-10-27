@@ -324,6 +324,10 @@ export function CorrectionForm({
                 onQueryChange={setProjectQuery}
                 onSelect={(project) => {
                   setNewProject(project);
+                  // A project is chosen now: its "choose the new project" error no longer applies.
+                  if (project) {
+                    setErrors((current) => current.filter((e) => e.field !== 'changes.projectId'));
+                  }
                   // Test holes belong to one project: choose them again in the new one.
                   setSummaries(project?.id === unit.project.id ? initialSummaries : []);
                   setHoleQuery('');

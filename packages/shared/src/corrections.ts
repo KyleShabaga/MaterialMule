@@ -204,8 +204,15 @@ export function describeStorageUnitCorrection(
   after: Record<string, unknown> | null,
 ): string[] {
   if (!before || !after) return [];
+  // After a project move both projects may have a TH26-01, so the hole lists name their project
+  // ("DEMO-2601 TH26-01: G1–S10 → DEMO-2602 TH26-01: G1–S10"), MM-T61.
+  const moved = 'project' in before && 'project' in after;
+  const value = (field: StorageUnitCorrectionField, values: Record<string, unknown>) => {
+    const text = correctionValueText(field, values[field]);
+    if (field !== 'holeSummaries' || !moved || text === 'none' || text === 'unknown') return text;
+    return `${correctionValueText('project', values.project)} ${text}`;
+  };
   return STORAGE_UNIT_CORRECTION_FIELDS.filter((field) => field in after || field in before).map(
-    (field) =>
-      `${FIELD_LABELS[field]} ${correctionValueText(field, before[field])} → ${correctionValueText(field, after[field])}`,
+    (field) => `${FIELD_LABELS[field]} ${value(field, before)} → ${value(field, after)}`,
   );
 }

@@ -96,8 +96,30 @@ describe('describeStorageUnitCorrection', () => {
       'type Shelby tube → Bucket',
       'received date 2026-10-23 → 2026-10-21',
       'project DEMO-2601 → DEMO-2602',
-      'test holes TH26-01: ALL → TH26-01: 0–1.5 m',
+      'test holes DEMO-2601 TH26-01: ALL → DEMO-2602 TH26-01: 0–1.5 m',
       'note none → Lid taped',
     ]);
+  });
+
+  it('MM-T61: after a project move, same-named holes still read as a change', () => {
+    const holes = [
+      { testHoleName: 'TH26-01', type: 'sample_range', sampleFrom: 'G1', sampleTo: 'S10' },
+    ];
+    expect(
+      describeStorageUnitCorrection(
+        { project: { id: 'a', projectNumber: 'DEMO-2601' }, holeSummaries: holes },
+        { project: { id: 'b', projectNumber: 'DEMO-2602' }, holeSummaries: holes },
+      ),
+    ).toEqual([
+      'project DEMO-2601 → DEMO-2602',
+      'test holes DEMO-2601 TH26-01: G1–S10 → DEMO-2602 TH26-01: G1–S10',
+    ]);
+    // Without a project move the holes stay as they were.
+    expect(
+      describeStorageUnitCorrection(
+        { holeSummaries: holes },
+        { holeSummaries: [{ ...holes[0], sampleTo: 'S12' }] },
+      ),
+    ).toEqual(['test holes TH26-01: G1–S10 → TH26-01: G1–S12']);
   });
 });

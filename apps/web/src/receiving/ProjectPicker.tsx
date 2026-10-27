@@ -96,9 +96,11 @@ export function ProjectPicker({
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       highlight.previous();
-    } else if (event.key === 'Enter' && showList && results[active]) {
+    } else if (event.key === 'Enter') {
+      // Enter in the search box chooses the highlighted match; it never submits the whole form
+      // (the Correct details form, MM-T61).
       event.preventDefault();
-      choose(results[active]);
+      if (showList && results[active]) choose(results[active]);
     } else if (event.key === 'Escape') {
       setOpen(false);
     }
