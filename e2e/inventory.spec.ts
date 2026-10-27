@@ -124,3 +124,47 @@ test('T7: at phone width rows become cards with no horizontal scroll', async ({
   );
   expect(detailOverflow).toBeLessThanOrEqual(0);
 });
+
+test('MM-T46 T2: with a search active, two quick filter picks are both kept (5 rounds)', async ({
+  page,
+}) => {
+  const data = await insertInventoryFixture();
+  await signInAs(page, 'at');
+  const count = page.getByRole('status').filter({ hasText: 'storage unit' });
+  const chips = page.getByRole('list', { name: 'Active filters' });
+
+  for (let round = 1; round <= 5; round += 1) {
+    await page.goto('/sample-storage');
+    await page.getByRole('searchbox', { name: 'Search' }).fill(data.tag);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await expect(count).toHaveText('4 storage units');
+    await expect(
+      page.getByRole('combobox', { name: 'Location' }).getByRole('option', {
+        name: data.warehouse,
+      }),
+    ).toBeAttached();
+
+    // Both picks in the same task, so the second lands before the first has re-rendered.
+    await page.evaluate((warehouse) => {
+      const pick = (label: string, matches: (option: HTMLOptionElement) => boolean) => {
+        const labelEl = [...document.querySelectorAll('label')].find(
+          (el) => el.textContent === label,
+        )!;
+        const select = document.getElementById(labelEl.htmlFor) as HTMLSelectElement;
+        select.value = [...select.options].find(matches)!.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      pick('Location', (option) => option.text === warehouse);
+      pick('Status', (option) => option.value === 'all');
+    }, data.warehouse);
+
+    await expect(chips).toContainText(`Search: ${data.tag}`);
+    await expect(chips).toContainText(`Location: ${data.warehouse}`);
+    await expect(chips).toContainText('Status: All statuses');
+    await expect(count).toHaveText('4 storage units');
+    const url = new URL(page.url());
+    expect(url.searchParams.get('search'), `round ${round}`).toBe(data.tag);
+    expect(url.searchParams.get('locationId'), `round ${round}`).toBeTruthy();
+    expect(url.searchParams.get('status'), `round ${round}`).toBe('all');
+  }
+});
