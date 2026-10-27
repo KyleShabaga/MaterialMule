@@ -1,0 +1,38 @@
+/* ---- Receiving Log and receipt detail (MM-T51) ---- */
+
+.receiving-log-filters .form-field {
+  min-width: 12rem;
+}
+
+.receiving-log-table {
+  overflow-wrap: anywhere;
+}
+
+.receiving-log-empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+}
+
+.receiving-log-empty p {
+  margin: 0;
+}
+
+.receipt-unit-id {
+  font-family: var(--font-mono);
+}
+
+.receipt-corrected {
+  gap: 0.25rem;
+}
+
+@media (max-width: 640px) {
+  .receiving-log-filters .form-field {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .receiving-log-table .data-table td::before {
+    min-width: 7rem;
+  }
+}
