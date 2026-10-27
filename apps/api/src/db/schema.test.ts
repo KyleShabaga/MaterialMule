@@ -374,6 +374,75 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
     });
   });
 
+  describe('storage unit IDs are never reused (MM-T47)', () => {
+    it('AC1: refuses DELETE and TRUNCATE on storage_unit with a clear error', async () => {
+      const { receiptId, storageUnitId } = await bucketSetup('REUSE-1', 'BKT-2026-000501');
+      await expect(
+        db.pool.query('DELETE FROM storage_unit WHERE id = $1', [storageUnitId]),
+      ).rejects.toMatchObject({
+        code: PG.restrictViolation,
+        message:
+          "storage unit BKT-2026-000501 can't be deleted: issued storage unit IDs are permanent",
+      });
+      await expect(db.pool.query('DELETE FROM storage_unit')).rejects.toMatchObject({
+        code: PG.restrictViolation,
+      });
+      await expect(db.pool.query('TRUNCATE storage_unit CASCADE')).rejects.toMatchObject({
+        code: PG.restrictViolation,
+        message: expect.stringContaining('issued storage unit IDs are permanent'),
+      });
+      // Nor can the receipt that issued it go, which would orphan the ID.
+      await expect(
+        db.pool.query('DELETE FROM receipt WHERE id = $1', [receiptId]),
+      ).rejects.toMatchObject({ code: PG.foreignKeyViolation });
+
+      const { rows } = await db.pool.query('SELECT readable_id FROM storage_unit WHERE id = $1', [
+        storageUnitId,
+      ]);
+      expect(rows).toEqual([{ readable_id: 'BKT-2026-000501' }]);
+      // Hole summaries carry no ID, so corrections may still replace them (covered above, T12).
+    });
+
+    it('AC2: refuses lowering, deleting, truncating or moving a counter; raising works', async () => {
+      await db.pool.query(
+        `INSERT INTO storage_unit_annual_counter (prefix, year, last_value) VALUES ('ST', 2031, 7)`,
+      );
+      const counter = `prefix = 'ST' AND year = 2031`;
+      await expect(
+        db.pool.query(`UPDATE storage_unit_annual_counter SET last_value = 6 WHERE ${counter}`),
+      ).rejects.toMatchObject({
+        code: PG.restrictViolation,
+        message:
+          "storage unit counter ST-2031 can't go down from 7 to 6: issued IDs are never reused",
+      });
+      await expect(
+        db.pool.query(`UPDATE storage_unit_annual_counter SET last_value = 0 WHERE ${counter}`),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await expect(
+        db.pool.query(`DELETE FROM storage_unit_annual_counter WHERE ${counter}`),
+      ).rejects.toMatchObject({
+        code: PG.restrictViolation,
+        message: "storage unit counter ST-2031 can't be deleted: issued IDs are never reused",
+      });
+      await expect(db.pool.query('TRUNCATE storage_unit_annual_counter')).rejects.toMatchObject({
+        code: PG.restrictViolation,
+      });
+      await expect(
+        db.pool.query(`UPDATE storage_unit_annual_counter SET year = 2032 WHERE ${counter}`),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+
+      // Raising (e.g. after a restore) and rewriting the same value both work.
+      await db.pool.query(`UPDATE storage_unit_annual_counter SET last_value = 7 WHERE ${counter}`);
+      await db.pool.query(
+        `UPDATE storage_unit_annual_counter SET last_value = 42 WHERE ${counter}`,
+      );
+      const { rows } = await db.pool.query(
+        `SELECT last_value FROM storage_unit_annual_counter WHERE ${counter}`,
+      );
+      expect(rows).toEqual([{ last_value: 42 }]);
+    });
+  });
+
   it('caps a receipt at 50 storage units (owner decision 2026-10-25)', async () => {
     const projectId = await insertProject(db.pool, 'QTY-1', userId);
     await expect(insertReceipt(db.pool, projectId, userId, 51)).rejects.toMatchObject({

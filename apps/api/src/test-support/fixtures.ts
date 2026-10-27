@@ -137,5 +137,6 @@ export const PG = {
   uniqueViolation: '23505',
   foreignKeyViolation: '23503',
   checkViolation: '23514',
+  restrictViolation: '23001',
   notNullViolation: '23502',
 } as const;
