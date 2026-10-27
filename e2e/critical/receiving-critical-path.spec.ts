@@ -71,7 +71,9 @@ test(
 
     await page.getByRole('link', { name: `Open ${ids[0]}` }).click();
     await expect(page.getByRole('heading', { level: 1, name: ids[0]! })).toBeVisible();
-    await expect(page.getByText('Saved location: Receiving lab')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+      'Receiving lab',
+    );
     await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
       'TH26-01: G1–S12',
     );
@@ -358,7 +360,9 @@ test(
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
     // D46: retention follows the corrected date; the ID and location stay.
     await expect(page.getByText('2027-10-19')).toBeVisible();
-    await expect(page.getByText('Saved location: Receiving lab')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+      'Receiving lab',
+    );
     await expect(page.getByRole('list', { name: 'History events' })).toContainText(
       'Reason: wrong date on tag',
     );
