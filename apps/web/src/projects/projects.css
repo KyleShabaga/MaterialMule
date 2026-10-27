@@ -16,6 +16,10 @@
   min-width: 0;
 }
 
+.add-hole button {
+  white-space: nowrap;
+}
+
 .project-tools .form-field {
   margin: 0;
 }
@@ -62,10 +66,10 @@
   margin-top: 1rem;
 }
 
-.projects-table,
+/* Wrap between words only (MM-T58); the list table itself is a .table-stack. */
 .project-section,
 .project-name {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .project-name {
