@@ -337,6 +337,9 @@ function activeChips(
       remove: { locationId: undefined },
     });
   }
+  if (query.receiptId) {
+    chips.push({ key: 'receipt', label: 'One receipt', remove: { receiptId: undefined } });
+  }
   if (query.status !== 'current') {
     chips.push({
       key: 'status',
