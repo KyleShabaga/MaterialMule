@@ -200,13 +200,18 @@ describe('Sample Storage inventory (MM-T12)', () => {
     expect(within(table).getAllByRole('row')).toHaveLength(3);
     expect(within(table).getAllByText('TH26-01: G1–S12')).toHaveLength(2);
     expect(within(table).getAllByText('Warehouse C2')).toHaveLength(2);
-    expect(screen.getByRole('link', { name: 'View BKT-2026-000014' })).toHaveAttribute(
+    // MM-T50: the storage unit ID is the link; there is no View column.
+    expect(within(table).queryByRole('columnheader', { name: 'View' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'BKT-2026-000014' })).toHaveAttribute(
       'href',
       '/sample-storage/BKT-2026-000014',
     );
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument();
 
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Search' }), 'TH26-01 warehouse');
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Search inventory' }),
+      'TH26-01 warehouse',
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
     expect(router.state.location.search).toBe('?search=TH26-01+warehouse');
@@ -229,7 +234,7 @@ describe('Sample Storage inventory (MM-T12)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(router.state.location.search).toBe('');
     expect(await screen.findByText('42 storage units')).toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('');
+    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('');
   });
 
   it('filters to one receipt (dashboard link) with a removable chip that Clear filters clears', async () => {
@@ -396,7 +401,7 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
     stubInventory();
     const router = renderAt('/sample-storage?search=TH26-01&type=bucket');
     await screen.findByText('1 storage unit');
-    const box = screen.getByRole('searchbox', { name: 'Search' });
+    const box = screen.getByRole('searchbox', { name: 'Search inventory' });
 
     act(() => {
       fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
@@ -405,7 +410,7 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
     });
 
     await waitFor(() => expect(router.state.location.search).toBe('?search=TH26-02'));
-    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('TH26-02');
+    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('TH26-02');
     const chips = screen.getByRole('list', { name: 'Active filters' });
     expect(within(chips).getAllByRole('listitem')).toHaveLength(1);
   });
@@ -417,13 +422,13 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
 
     act(() => {
       fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-      fireEvent.change(screen.getByRole('searchbox', { name: 'Search' }), {
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search inventory' }), {
         target: { value: 'TH26-02' },
       });
     });
 
     await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('TH26-02');
+    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('TH26-02');
   });
 });
 
@@ -449,7 +454,8 @@ describe('storage unit detail (MM-T12)', () => {
     expect(screen.getByRole('heading', { level: 1, name: DETAIL.readableId })).toBeInTheDocument();
 
     const summaries = screen.getByRole('region', { name: 'Summaries' });
-    expect(within(summaries).getByText('DEMO-2601 — Riverbank investigation')).toBeInTheDocument();
+    expect(within(summaries).getByText('DEMO-2601')).toBeInTheDocument();
+    expect(within(summaries).getByText(/Riverbank investigation/)).toBeInTheDocument();
     expect(within(summaries).getByText('Example Client')).toBeInTheDocument();
     const holes = within(summaries).getByRole('list', { name: 'Test hole summaries' });
     expect(holes).toHaveTextContent('TH26-01: G1–S12');

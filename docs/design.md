@@ -537,6 +537,26 @@ Approved by Kyle on 2026-10-27 (canvas: "APPROVED — Dashboard"); built in
   worker state) from Settings → System status.
 - The old API/database health panel is no longer on the dashboard; admins see it in System status.
 
+## Sample Storage
+
+Built to the canvas artboards "Sample Storage — list", "Storage unit detail", "Correct details" and
+"Print status — every state" in MM-T50 (`apps/web/src/inventory/`).
+
+- **List:** Look up ID (with Scan with camera) beside Search inventory, each on its own card; the
+  filters in a four-column card (two on tablets, one on phones); active filter chips, the count and
+  Clear filters on one line; the results table and its pager on one card. The storage unit ID is
+  the row's link (no View column); its type is a small mono tag under it, the project number is
+  mono `accent-ink`, test holes are mono tags, and IDs and dates never break.
+- **Detail:** the ID large with its type tag, status and location under it, and Correct details
+  (primary) on the right. Summaries and History on the left, Receipt and Location and retention on
+  the right (one column at 1024px and below), each a `BandedCard` with label-left rows. The label
+  preview and print view (MM-T55) and the Labels section run full width below.
+- **Correct details** replaces the page with its own heading and a "← Back to <ID>" button; focus
+  moves to the heading and back to the Correct details button. Type and Received date sit side by
+  side; Project and Test holes are inset groups; the count of changed fields sits beside the
+  buttons. A version conflict is an amber notice; a saved correction shows "Details corrected."
+- Print status chips already used the artboard's wording and actions (`printJobStatusText`).
+
 ## Current app: gaps and inconsistencies
 
 Found while writing this guide (main at 57978f3).
