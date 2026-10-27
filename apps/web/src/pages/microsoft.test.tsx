@@ -114,6 +114,7 @@ describe('Microsoft callback page', () => {
     ['cancelled', 'Sign-in was cancelled'],
     ['consent_denied', 'Permission wasn’t granted'],
     ['account_disabled', 'Your access has been removed'],
+    ['rate_limited', 'Too many sign-in attempts'],
   ])('explains %s', async (code, title) => {
     renderAt(
       '/sign-in/microsoft/callback?error=access_denied&state=xyz',

@@ -59,6 +59,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   cookie's `Expires` equals the session expiry, so it survives a browser restart.
 - Revocable one at a time or all for a user; disabling a user revokes all of them in the same
   transaction.
+- Roles and account status are read from the database on every request, never stored in the
+  session, so a role change applies to that person's existing sessions on their next request
+  (MM-T48: removing Admin turns their next admin-only request into 403) without revoking them.
 
 ## Shared receiving account LAB (MM-T06)
 
@@ -104,6 +107,11 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   sign-in, or while still pending. There is no first-user-wins rule.
 - **Shared devices:** "Switch user" signs out and sends `prompt=select_account`. A new sign-in
   revokes any previous session cookie on that browser.
+- **Rate limit (MM-T48):** `start` and `callback` each allow 20 requests per client address per
+  5 minutes; more get HTTP 429 with `Retry-After` and a plain message (`start` as text/plain,
+  `callback` as code `rate_limited`, which the callback page explains). Each address has its own
+  count, so one never blocks another. Counts are in memory (one API process, D25) and reset on a
+  restart. Refusals are logged as warnings, not audited.
 - **Still needs IT** (card T05 §5): the app registration (tenant ID, client ID, secret, redirect
   URIs, admin consent for User.Read, technical owner), the optional `acct` ID-token claim, and
   reconciling sign-in timing (D38). Real-account verification (card test T6) waits for these.

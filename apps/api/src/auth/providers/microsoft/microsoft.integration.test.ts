@@ -24,6 +24,7 @@ import { SESSION_COOKIE } from '../../session-cookie.js';
 import { SessionService } from '../../session.service.js';
 import { MICROSOFT_SCOPES } from './entra-provider.js';
 import { SIGN_IN_BINDING_COOKIE } from './microsoft-auth.controller.js';
+import { MicrosoftSignInRateLimit } from './microsoft-rate-limit.js';
 
 const REDIRECT_URI = 'http://localhost:5173/sign-in/microsoft/callback';
 const SECRET = 'test-session-secret-0123456789abcdef';
@@ -126,6 +127,8 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
   });
 
   beforeEach(() => {
+    // Every request here comes from one address; start each test under the MM-T48 limit.
+    app.get(MicrosoftSignInRateLimit).reset();
     for (const user of mock.users.values()) delete user.graphStatus;
     mock.users.get('nograph')!.graphStatus = 503;
   });
