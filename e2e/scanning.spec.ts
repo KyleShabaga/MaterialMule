@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { insertInventoryFixture } from './support/inventory';
+import { signInAsLabStation } from './support/lab-station';
 
 // MM-T16: DS3678-XR handheld scanning. The scanner is a USB keyboard that types the symbol's
 // data (exactly PREFIX-YYYY-NNNNNN for both Code 128 and QR, T14) followed by Enter, so each scan
@@ -83,6 +84,39 @@ test('T2/AC1/AC4: a simulated scan opens the unit; the same label within 2 s is 
   // Scanning never moves or changes anything.
   expect(api.writes()).toEqual([]);
   expect(await unitState([data.a1, data.b1])).toEqual(before);
+});
+
+// MM-T49: the receiving station looks units up by scan while signed in as a real LAB station
+// session (the E2E-only shared_lab account, as e2e/critical does; never the shared LAB password).
+test('T2/AC1: a LAB station scans a label and sees the unit, read-only', async ({ page }) => {
+  const data = await insertInventoryFixture();
+  const before = await unitState([data.a1, data.aReceiving]);
+  await signInAsLabStation(page);
+  await page.goto('/sample-storage');
+  await page.getByRole('link', { name: 'Scan labels' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Scan labels' })).toBeVisible();
+  const field = page.getByRole('textbox', { name: 'Scan a storage unit label' });
+  await expect(field).toBeFocused();
+  const api = recordApiCalls(page);
+
+  await scan(page, data.a1);
+  await expect(page.getByRole('status').filter({ hasText: data.a1 })).toHaveText(
+    `Success: Found ${data.a1}`,
+  );
+  const card = page.getByRole('region', { name: data.a1 });
+  await expect(card).toContainText(data.projectA);
+  await expect(card).toContainText(data.warehouse);
+  await expect(field).toBeFocused();
+
+  // A unit still at the Receiving lab, as a station would scan right after labelling.
+  await scan(page, data.aReceiving);
+  await expect(page.getByRole('region', { name: data.aReceiving })).toContainText('Receiving lab');
+  expect(api.lookups()).toEqual([data.a1, data.aReceiving]);
+
+  await page.getByRole('link', { name: 'Open full record' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: data.aReceiving })).toBeVisible();
+  expect(api.writes()).toEqual([]);
+  expect(await unitState([data.a1, data.aReceiving])).toEqual(before);
 });
 
 test('T3/AC3/AC5/AC7: unknown code, server down with Retry, lost focus', async ({ page }) => {
