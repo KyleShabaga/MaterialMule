@@ -372,6 +372,24 @@ describe('Settings → Locations (MM-T37)', () => {
     );
   });
 
+  it('edit re-reads the location, so a code locked since the list loaded is read-only', async () => {
+    const user = userEvent.setup();
+    fakeApi([location()], {
+      // The list row is stale; the server already has the code locked by a print.
+      'GET /api/locations/00000000-0000-4000-8000-0000000000c1': () =>
+        json(200, {
+          location: location({ codeLocked: true, version: 2 }),
+          events: [],
+          printJobs: [],
+        }),
+    });
+    renderPage(MANAGER);
+    await user.click(await screen.findByRole('button', { name: 'Edit Warehouse C1' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit Warehouse C1' });
+    const code = (await within(dialog).findByRole('textbox', { name: 'Code' })) as HTMLInputElement;
+    expect(code.readOnly).toBe(true);
+  });
+
   it('retire asks for a reason and, when blocked, says how many units and links to them', async () => {
     const user = userEvent.setup();
     const { calls } = fakeApi([location()], {

@@ -11,11 +11,18 @@ import {
   type StorageLocation,
   type UpdateLocationRequest,
 } from '@materialmule/shared';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
 import { useMe } from '../../session/context';
-import { createLocation, listLocations, retireLocation, updateLocation, type Failure } from './api';
+import {
+  createLocation,
+  fetchLocation,
+  listLocations,
+  retireLocation,
+  updateLocation,
+  type Failure,
+} from './api';
 import { LocationDrawer } from './LocationDrawer';
 import { MANAGE_PERMISSION, NOT_ALLOWED_TEXT, inventoryLink } from './location-links';
 import { Modal } from './Modal';
@@ -45,6 +52,50 @@ function fieldError(errors: FieldError[], field: string): string | null {
 }
 
 /** Add or edit a location. The code can't change once a label was requested for it. */
+/**
+ * Reads the location again before an edit or retirement, so the form reflects the latest saved
+ * state (e.g. a code locked by a print a moment ago) rather than a list row that may be stale.
+ */
+function WithFreshLocation({
+  location,
+  onClose,
+  children,
+}: {
+  location: StorageLocation;
+  onClose: () => void;
+  children: (fresh: StorageLocation) => ReactNode;
+}) {
+  const [load, setLoad] = useState<
+    | { state: 'loading' }
+    | { state: 'error'; message: string }
+    | { state: 'ready'; location: StorageLocation }
+  >({ state: 'loading' });
+  useEffect(() => {
+    let cancelled = false;
+    void fetchLocation(location.id).then((result) => {
+      if (cancelled) return;
+      setLoad(
+        result.ok
+          ? { state: 'ready', location: result.data.location }
+          : { state: 'error', message: result.message },
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [location.id]);
+  if (load.state === 'ready') return <>{children(load.location)}</>;
+  return (
+    <Modal title={location.name} onClose={onClose}>
+      {load.state === 'loading' ? (
+        <p aria-busy="true">Loading…</p>
+      ) : (
+        <ErrorState message={load.message} />
+      )}
+    </Modal>
+  );
+}
+
 function LocationFormDialog({
   location,
   onClose,
@@ -477,9 +528,9 @@ export function LocationsPage() {
         </div>
       )}
 
-      {editing ? (
+      {editing === 'new' ? (
         <LocationFormDialog
-          location={editing === 'new' ? null : editing}
+          location={null}
           onClose={() => setEditing(null)}
           onConflict={conflict}
           onSaved={(_location, message) => {
@@ -488,6 +539,21 @@ export function LocationsPage() {
             reload();
           }}
         />
+      ) : editing ? (
+        <WithFreshLocation location={editing} onClose={() => setEditing(null)}>
+          {(fresh) => (
+            <LocationFormDialog
+              location={fresh}
+              onClose={() => setEditing(null)}
+              onConflict={conflict}
+              onSaved={(_location, message) => {
+                setEditing(null);
+                setNotice(message);
+                reload();
+              }}
+            />
+          )}
+        </WithFreshLocation>
       ) : null}
       {retiring ? (
         <RetireDialog
