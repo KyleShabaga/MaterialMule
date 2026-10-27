@@ -73,7 +73,9 @@ export function PositionSetupPage() {
       await refresh();
       void navigate('/', { replace: true });
     } catch {
-      setError('Your position wasn’t saved because the server could not be reached. Try again.');
+      setError(
+        'Your position wasn’t saved: Material Mule couldn’t be reached. Check the connection and try again.',
+      );
     } finally {
       setSaving(false);
     }

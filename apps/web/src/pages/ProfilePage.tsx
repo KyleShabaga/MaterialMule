@@ -66,7 +66,7 @@ export function ProfilePage() {
       );
       await refreshSession();
     } catch {
-      setNotice('The server could not be reached. Try again later.');
+      setNotice('Material Mule couldn’t be reached. Check the connection and try again later.');
     } finally {
       setRetrying(false);
     }

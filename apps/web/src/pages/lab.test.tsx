@@ -245,7 +245,7 @@ describe('Reset LAB password (admin)', () => {
       '/settings/staff',
       { status: 'active', me: ADMIN_ME },
       {
-        '/api/admin/lab/password': () => ({ status: 500, body: {} }),
+        '/api/admin/lab/password': () => ({ status: 409, body: {} }),
         '/api/admin/lab': () => ({ status: 200, body: account }),
       },
     );
@@ -253,8 +253,30 @@ describe('Reset LAB password (admin)', () => {
     expect(
       await within(card).findByText('That didn’t work. Nothing was changed. Try again.'),
     ).toBeInTheDocument();
-    expect(card.textContent).not.toContain('500');
+    expect(card.textContent).not.toContain('409');
   });
+
+  it.each([500, 502, 503, 504])(
+    'MM-T61: after a %i the outcome is unknown, so it says to reload and check',
+    async (status) => {
+      render_(
+        '/settings/staff',
+        { status: 'active', me: ADMIN_ME },
+        {
+          '/api/admin/lab/password': () => ({ status, body: {} }),
+          '/api/admin/lab': () => ({ status: 200, body: account }),
+        },
+      );
+      const card = await confirmReset();
+      expect(
+        await within(card).findByText(
+          'Material Mule had a problem, so it isn’t clear whether this worked. Reload the page to check before trying again.',
+        ),
+      ).toBeInTheDocument();
+      expect(card.textContent).not.toContain('Nothing was changed');
+      expect(card.textContent).not.toContain(String(status));
+    },
+  );
 
   it('does not promise anything when the server could not be reached', async () => {
     render_(
