@@ -511,6 +511,36 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
     expect(await document()).not.toContain('bag of fines');
   });
 
+  it('indexes summaries as displayed, with every dash folded to a hyphen (MM-T59)', async () => {
+    const { projectId, testHoleId, storageUnitId } = await bucketSetup(
+      'SEARCH-2',
+      'BKT-2026-000902',
+    );
+    const document = async () => {
+      const { rows } = await db.pool.query<{ document: string }>(
+        'SELECT document FROM storage_unit_search WHERE storage_unit_id = $1',
+        [storageUnitId],
+      );
+      return rows[0]!.document;
+    };
+    const summaryId = await insertSummary(
+      db.pool,
+      { storageUnitId, projectId, testHoleId },
+      { type: 'depth_range', depthFrom: 3, depthTo: 5.5, depthUnit: 'ft' },
+    );
+    expect(await document()).toContain('\n3 5.5 ft\n3-5.5 ft\nth26-01: 3-5.5 ft');
+    await db.pool.query(
+      `UPDATE storage_unit_hole_summary
+       SET summary_type = 'sample_range', depth_from = NULL, depth_to = NULL, depth_unit = NULL,
+           sample_from = 'G1', sample_to = 'S10', note = E'Lot A\\u2013B \\u2212 C\\u2014D'
+       WHERE id = $1`,
+      [summaryId],
+    );
+    expect(await document()).toContain('g1 s10 g1-s10\nth26-01: g1-s10');
+    expect(await document()).toContain('lot a-b - c-d');
+    expect(await document()).not.toMatch(/[‐-―−﹘﹣－]/);
+  });
+
   it('never lets the system Receiving lab location be retired', async () => {
     await expect(
       db.pool.query(`UPDATE location SET active = false WHERE code_normalized = 'RECEIVING'`),
