@@ -169,6 +169,26 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   project) and audited as `project.updated` with only the changed fields before/after and the
   reason.
 
+## Receiving Log (MM-T51)
+
+| Route                                                                                            | Policy                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `GET /api/receipts?search=&projectId=&receiverUserId=&receivedFrom=&receivedTo=&page=&pageSize=` | `inventory.read` (every active session, LAB included) |
+| `GET /api/receipts/:receiptId`                                                                   | `inventory.read`                                      |
+| `GET /api/receipts/receivers?search=` or `?id=`                                                  | `inventory.read`                                      |
+
+- **Read-only.** None of these writes, audits or queues printing. Printing from a receipt uses
+  `POST /api/print-jobs` (`label.print`); correcting a unit uses `PATCH /api/storage-units/:id`
+  (`storage_unit.correct`, so LAB still can't).
+- **Attribution:** the received-by initials and name come from the receipt's snapshots, the
+  filter uses the stable `receiver_user_id`, and the confirming account (e.g. LAB) is shown
+  separately. Responses carry no idempotency key, request hash, email or session data.
+- **Receivers filter** lists only people who have received at least one receipt, including
+  people since disabled or renamed (shown by current name; their old name and initials still
+  match). It returns the same minimal fields as `GET /api/staff/receivers`.
+- Pending users get 403 and disabled or signed-out callers 401, as everywhere; the endpoint
+  sweep (`permission-matrix.security.test.ts`) covers all three routes.
+
 ## Draft auto-delete setting (MM-T45)
 
 | Route                      | Policy                                                   |
