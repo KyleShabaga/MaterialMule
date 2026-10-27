@@ -106,6 +106,78 @@ describe('StaffPage', () => {
     expect(screen.queryByRole('region', { name: /Waiting for approval/ })).toBeNull();
   });
 
+  describe('losing Admin mid-session (MM-T52)', () => {
+    const LAB = {
+      userId: 'lab-id',
+      passwordSet: true,
+      passwordUpdatedAt: '2026-10-26T00:00:00.000Z',
+      activeSessions: 1,
+      lockedUntil: null,
+    };
+
+    /** Serves the page as an admin until `revoke()`; then every staff request is a 403. */
+    function stubApi() {
+      const state = { admin: true };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input);
+          const json = (status: number, body: unknown) =>
+            new Response(JSON.stringify(body), {
+              status,
+              headers: { 'content-type': 'application/json' },
+            });
+          if (!state.admin) return json(403, { code: 'forbidden' });
+          if (url.startsWith('/api/admin/lab')) return json(200, LAB);
+          if (url.includes('status=pending')) return json(200, [RILEY]);
+          return json(200, [RILEY, JORDAN]);
+        }),
+      );
+      return state;
+    }
+
+    it('T1: a 403 hides every admin-only control and shows one message with Retry', async () => {
+      const state = stubApi();
+      const user = userEvent.setup();
+      renderPage(['staff.manage']);
+      expect(await screen.findByRole('region', { name: /Waiting for approval/ })).toBeVisible();
+      expect(await screen.findByRole('region', { name: 'Shared receiving account (LAB)' }));
+
+      state.admin = false;
+      await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'J');
+
+      expect(
+        await screen.findByText('You no longer have permission to manage staff.'),
+      ).toBeVisible();
+      expect(screen.getAllByText('You no longer have permission to manage staff.')).toHaveLength(1);
+      expect(screen.queryByRole('button', { name: 'Add staff' })).toBeNull();
+      expect(screen.queryByRole('region', { name: /Waiting for approval/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Shared receiving account (LAB)' })).toBeNull();
+      expect(screen.queryByLabelText('New LAB password')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
+    });
+
+    it('T2: after Admin is granted back, Retry restores the full page', async () => {
+      const state = stubApi();
+      const user = userEvent.setup();
+      renderPage(['staff.manage']);
+      await screen.findByRole('region', { name: /Waiting for approval/ });
+      state.admin = false;
+      await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'J');
+      await screen.findByText('You no longer have permission to manage staff.');
+
+      state.admin = true;
+      await user.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(await screen.findByRole('region', { name: /Waiting for approval/ })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Add staff' })).toBeVisible();
+      expect(
+        await screen.findByRole('region', { name: 'Shared receiving account (LAB)' }),
+      ).toBeVisible();
+      expect(screen.queryByText('You no longer have permission to manage staff.')).toBeNull();
+    });
+  });
+
   describe('profile drawer (MM-T43, MM-T44)', () => {
     const OLIVE = member({
       id: 'olive',

@@ -1,6 +1,6 @@
 import type { Printer } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
-import { EmptyState, ErrorState, FormField } from '../components/ui';
+import { EmptyState, ErrorState, FormField, StatusBadge } from '../components/ui';
 import { useMe } from '../session/context';
 import { fetchPrinters, savePrinters } from './api';
 
@@ -51,90 +51,114 @@ function PrinterForm({
 
   const title = isNew ? 'Add a printer' : draft.name || draft.id;
   return (
-    <form className="card printer-form" onSubmit={(event) => void submit(event)} aria-label={title}>
-      <h2>{title}</h2>
-      {isNew ? (
-        <FormField
-          label="Printer ID"
-          hint="Lowercase letters, digits and dashes. Can't change later."
-        >
+    // Banded like BandedCard (MM-T55), but the form itself is the named landmark.
+    <form
+      className={`banded-card printer-form${isNew ? ' printer-form-new' : ''}`}
+      onSubmit={(event) => void submit(event)}
+      aria-label={title}
+    >
+      <div className="banded-card-head">
+        <div className="banded-card-titles">
+          <h2 className="banded-card-title">{title}</h2>
+          {isNew ? null : (
+            <p className="banded-card-subtitle banded-card-meta">Printer ID: {initial.id}</p>
+          )}
+        </div>
+        {isNew ? null : (
+          <div className="banded-card-aside">
+            {initial.enabled ? <StatusBadge tone="success">In use</StatusBadge> : null}
+            {initial.isDefault ? <StatusBadge tone="info">Default</StatusBadge> : null}
+          </div>
+        )}
+      </div>
+      <div className="banded-card-body">
+        {isNew ? (
+          <FormField
+            label="Printer ID"
+            hint="Lowercase letters, digits and dashes. Can't change later."
+          >
+            {(props) => (
+              <input
+                {...props}
+                value={draft.id}
+                onChange={(e) => set('id', e.target.value)}
+                required
+              />
+            )}
+          </FormField>
+        ) : null}
+        <FormField label="Name">
           {(props) => (
             <input
               {...props}
-              value={draft.id}
-              onChange={(e) => set('id', e.target.value)}
+              value={draft.name}
+              onChange={(e) => set('name', e.target.value)}
               required
             />
           )}
         </FormField>
-      ) : null}
-      <FormField label="Name">
-        {(props) => (
-          <input
-            {...props}
-            value={draft.name}
-            onChange={(e) => set('name', e.target.value)}
-            required
-          />
-        )}
-      </FormField>
-      <FormField label="IP address or host name" hint="Fixed address from IT, e.g. 10.0.0.50">
-        {(props) => (
-          <input
-            {...props}
-            value={draft.host}
-            onChange={(e) => set('host', e.target.value)}
-            required
-          />
-        )}
-      </FormField>
-      <FormField label="Port" hint="Zebra raw printing uses 9100">
-        {(props) => (
-          <input
-            {...props}
-            type="number"
-            min={1}
-            max={65535}
-            value={draft.port}
-            onChange={(e) => set('port', Number(e.target.value))}
-            required
-          />
-        )}
-      </FormField>
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={draft.enabled}
-          onChange={(e) => set('enabled', e.target.checked)}
-        />{' '}
-        In use
-      </label>
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={draft.isDefault}
-          onChange={(e) => set('isDefault', e.target.checked)}
-        />{' '}
-        Default printer for labels
-      </label>
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={draft.checkStatus}
-          onChange={(e) => set('checkStatus', e.target.checked)}
-        />{' '}
-        Check printer status (paper, head, pause) before sending
-      </label>
-      <div className="form-actions">
-        <button type="submit" className="primary" disabled={saving}>
-          {isNew ? 'Add printer' : 'Save'}
-        </button>
+        <div className="field-pair field-pair-port">
+          <FormField label="IP address or host name" hint="Fixed address from IT, e.g. 10.0.0.50">
+            {(props) => (
+              <input
+                {...props}
+                value={draft.host}
+                onChange={(e) => set('host', e.target.value)}
+                required
+              />
+            )}
+          </FormField>
+          <FormField label="Port" hint="Zebra raw printing uses 9100">
+            {(props) => (
+              <input
+                {...props}
+                type="number"
+                min={1}
+                max={65535}
+                value={draft.port}
+                onChange={(e) => set('port', Number(e.target.value))}
+                required
+              />
+            )}
+          </FormField>
+        </div>
+        <div className="checkbox-group">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={draft.enabled}
+              onChange={(e) => set('enabled', e.target.checked)}
+            />{' '}
+            In use
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={draft.isDefault}
+              onChange={(e) => set('isDefault', e.target.checked)}
+            />{' '}
+            Default printer for labels
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={draft.checkStatus}
+              onChange={(e) => set('checkStatus', e.target.checked)}
+            />{' '}
+            Check printer status (paper, head, pause) before sending
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="submit" className="primary" disabled={saving}>
+            {isNew ? 'Add printer' : 'Save'}
+          </button>
+        </div>
+        {error ? (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
-      {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
-      ) : null}
     </form>
   );
 }
@@ -176,23 +200,28 @@ export function PrintersSettingsPage() {
   };
   return (
     <>
-      <p role="status" className="field-hint">
+      <p role="status" className={saved ? 'notice notice-success' : 'visually-hidden'}>
         {saved ? 'Printer settings saved.' : ''}
       </p>
-      {load.printers.length === 0 ? (
-        <EmptyState>
-          No label printer yet. Add the ZD621 once IT has given it a fixed IP.
-        </EmptyState>
-      ) : null}
-      {load.printers.map((printer) => (
-        <PrinterForm
-          key={`${printer.id}:${JSON.stringify(printer)}`}
-          initial={printer}
-          isNew={false}
-          onSaved={onSaved}
-        />
-      ))}
-      <PrinterForm initial={BLANK} isNew onSaved={onSaved} />
+      {/* Canvas layout (MM-T55): printers on the left, "Add a printer" beside them. */}
+      <div className="printers-layout">
+        <div className="printers-list">
+          {load.printers.length === 0 ? (
+            <EmptyState>
+              No label printer yet. Add the ZD621 once IT has given it a fixed IP.
+            </EmptyState>
+          ) : null}
+          {load.printers.map((printer) => (
+            <PrinterForm
+              key={`${printer.id}:${JSON.stringify(printer)}`}
+              initial={printer}
+              isNew={false}
+              onSaved={onSaved}
+            />
+          ))}
+        </div>
+        <PrinterForm initial={BLANK} isNew onSaved={onSaved} />
+      </div>
     </>
   );
 }

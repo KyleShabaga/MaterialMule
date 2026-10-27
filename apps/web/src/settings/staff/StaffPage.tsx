@@ -9,6 +9,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  BandedCard,
   ConfirmDialog,
   DataTable,
   EmptyState,
@@ -56,7 +57,12 @@ function errorMessage(error: unknown): string {
 }
 
 type Load<T> =
-  { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; data: T };
+  | { state: 'loading' }
+  | { state: 'error'; message: string; forbidden: boolean }
+  | { state: 'ready'; data: T };
+
+const isForbidden = (error: unknown) => error instanceof StaffApiError && error.forbidden;
+const REVOKED_MESSAGE = 'You no longer have permission to manage staff.';
 
 /** Loads `fetcher()` whenever `key` changes, without setting state synchronously in the effect. */
 function useLoad<T>(key: string, fetcher: () => Promise<T>): Load<T> {
@@ -70,7 +76,11 @@ function useLoad<T>(key: string, fetcher: () => Promise<T>): Load<T> {
     fetcherRef.current().then(
       (data) => current && setLatest({ key, load: { state: 'ready', data } }),
       (error: unknown) =>
-        current && setLatest({ key, load: { state: 'error', message: errorMessage(error) } }),
+        current &&
+        setLatest({
+          key,
+          load: { state: 'error', message: errorMessage(error), forbidden: isForbidden(error) },
+        }),
     );
     return () => {
       current = false;
@@ -90,16 +100,48 @@ export function StaffPage() {
       </section>
     );
   }
+  return <StaffAccess currentUserId={me.id} />;
+}
+
+/**
+ * MM-T52: once any staff request is refused (403), the caller has lost Admin. The whole page,
+ * including Add staff, the pending card and the LAB account card, gives way to one message with
+ * Retry; Retry loads everything again, so a re-granted Admin gets the page back without signing
+ * in again.
+ */
+function StaffAccess({ currentUserId }: { currentUserId: string }) {
+  const [revoked, setRevoked] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  if (revoked) {
+    return (
+      <section aria-labelledby="staff-heading" className="staff">
+        <h2 id="staff-heading">Staff &amp; access</h2>
+        <ErrorState
+          message={REVOKED_MESSAGE}
+          onRetry={() => {
+            setRevoked(false);
+            setAttempt((n) => n + 1);
+          }}
+        />
+      </section>
+    );
+  }
   return (
-    <>
-      <StaffDirectory currentUserId={me.id} />
+    <div key={attempt}>
+      <StaffDirectory currentUserId={currentUserId} onForbidden={() => setRevoked(true)} />
       {/* The shared receiving account's password and stations (MM-T06). */}
-      <LabAccountCard />
-    </>
+      <LabAccountCard onForbidden={() => setRevoked(true)} />
+    </div>
   );
 }
 
-function StaffDirectory({ currentUserId }: { currentUserId: string }) {
+function StaffDirectory({
+  currentUserId,
+  onForbidden,
+}: {
+  currentUserId: string;
+  onForbidden: () => void;
+}) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StaffStatus | ''>('');
   const [version, setVersion] = useState(0);
@@ -113,6 +155,11 @@ function StaffDirectory({ currentUserId }: { currentUserId: string }) {
   );
   const pending = useLoad(`${version}|pending`, () => listStaff({ search: '', status: 'pending' }));
   const refresh = () => setVersion((v) => v + 1);
+  const forbidden =
+    (list.state === 'error' && list.forbidden) || (pending.state === 'error' && pending.forbidden);
+  useEffect(() => {
+    if (forbidden) onForbidden();
+  }, [forbidden, onForbidden]);
 
   function changed(member: StaffMember, message: string) {
     setNotice(message);
@@ -125,7 +172,8 @@ function StaffDirectory({ currentUserId }: { currentUserId: string }) {
     try {
       changed(await staffApi.approve(member.id), `${member.displayName} is approved.`);
     } catch (error) {
-      setRowError(errorMessage(error));
+      if (isForbidden(error)) onForbidden();
+      else setRowError(errorMessage(error));
     }
   }
 
@@ -143,8 +191,13 @@ function StaffDirectory({ currentUserId }: { currentUserId: string }) {
       {rowError ? <ErrorState message={rowError} /> : null}
 
       {pending.state === 'ready' && pending.data.length > 0 ? (
-        <section className="card pending-staff" aria-labelledby="pending-heading">
-          <h3 id="pending-heading">Waiting for approval ({pending.data.length})</h3>
+        <BandedCard
+          className="pending-staff"
+          tone="attention"
+          headingLevel={3}
+          title={`Waiting for approval (${pending.data.length})`}
+          aside={<StatusBadge tone="warning">Pending</StatusBadge>}
+        >
           <ul>
             {pending.data.map((member) => (
               <li key={member.id}>
@@ -172,10 +225,10 @@ function StaffDirectory({ currentUserId }: { currentUserId: string }) {
               </li>
             ))}
           </ul>
-        </section>
+        </BandedCard>
       ) : null}
 
-      <div className="filters" role="search">
+      <div className="filters filter-bar" role="search">
         <FormField label="Search staff">
           {(props) => (
             <input
@@ -259,11 +312,13 @@ function StaffDirectory({ currentUserId }: { currentUserId: string }) {
           member={selected}
           isSelf={selected.id === currentUserId}
           onChanged={changed}
+          onForbidden={onForbidden}
           onClose={() => setSelected(null)}
         />
       ) : null}
       {adding ? (
         <AddStaffDialog
+          onForbidden={onForbidden}
           onClose={() => setAdding(false)}
           onAdded={(member) => {
             setAdding(false);
@@ -319,11 +374,13 @@ function StaffDrawer({
   member,
   isSelf,
   onChanged,
+  onForbidden,
   onClose,
 }: {
   member: StaffMember;
   isSelf: boolean;
   onChanged: (member: StaffMember, message: string) => void;
+  onForbidden: () => void;
   onClose: () => void;
 }) {
   const [displayName, setDisplayName] = useState(member.displayName);
@@ -345,7 +402,8 @@ function StaffDrawer({
       onChanged(await action(), message);
       return true;
     } catch (caught) {
-      setError(errorMessage(caught));
+      if (isForbidden(caught)) onForbidden();
+      else setError(errorMessage(caught));
       return false;
     } finally {
       setBusy(false);
@@ -599,9 +657,11 @@ function StaffDrawer({
 function AddStaffDialog({
   onClose,
   onAdded,
+  onForbidden,
 }: {
   onClose: () => void;
   onAdded: (member: StaffMember) => void;
+  onForbidden: () => void;
 }) {
   const [displayName, setDisplayName] = useState('');
   const [initials, setInitials] = useState('');
@@ -624,7 +684,8 @@ function AddStaffDialog({
         }),
       );
     } catch (caught) {
-      setError(errorMessage(caught));
+      if (isForbidden(caught)) onForbidden();
+      else setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }

@@ -1,7 +1,7 @@
 import { POSITION_LABELS, profileResponseSchema, type ProfileResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../api/client';
-import { ErrorState } from '../components/ui';
+import { BandedCard, ErrorState } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useSession } from '../session/context';
 
@@ -84,11 +84,20 @@ export function ProfilePage() {
   const p = load.profile;
   const field = (value: string | null) => value ?? <span className="field-hint">Not provided</span>;
 
+  const initials =
+    (p.officialInitials && p.initialsConfirmed ? p.officialInitials : null) ??
+    p.displayName
+      .split(/\s+/)
+      .map((part) => part[0] ?? '')
+      .join('')
+      .slice(0, 3)
+      .toUpperCase();
+
+  // Canvas layout (MM-T55): who is signed in beside the banded profile card.
   return (
-    <section aria-labelledby="my-profile">
-      <h2 id="my-profile">My profile</h2>
+    <div className="profile-page">
       {p.refreshFailedAt ? (
-        <div className="error-state" role="alert">
+        <div className="notice profile-warning" role="alert">
           <p>
             Your Microsoft profile couldn’t be refreshed ({formatExpiry(p.refreshFailedAt)}). These
             are your last known details.
@@ -101,47 +110,69 @@ export function ProfilePage() {
         </div>
       ) : null}
       {notice ? <p role="status">{notice}</p> : null}
-      <dl className="status profile-fields">
-        <dt>Name</dt>
-        <dd>{p.displayName}</dd>
-        <dt>Given name</dt>
-        <dd>{field(p.givenName)}</dd>
-        <dt>Surname</dt>
-        <dd>{field(p.surname)}</dd>
-        <dt>Work email</dt>
-        <dd>
-          {p.workEmail ?? <span className="field-hint">No mailbox address from Microsoft</span>}
-        </dd>
-        <dt>Sign-in username</dt>
-        <dd>{field(p.signInUsername)}</dd>
-        <dt>Job title (from Microsoft)</dt>
-        <dd>{field(p.jobTitle)}</dd>
-        <dt>Department</dt>
-        <dd>{field(p.department)}</dd>
-        <dt>Office</dt>
-        <dd>{field(p.officeLocation)}</dd>
-        <dt>Official initials</dt>
-        <dd>
-          {p.officialInitials && p.initialsConfirmed ? (
-            p.officialInitials
-          ) : (
-            <span className="field-hint">Not confirmed yet: an administrator sets these</span>
-          )}
-        </dd>
-        <dt>Position</dt>
-        <dd>{p.position ? POSITION_LABELS[p.position].label : field(null)}</dd>
-        <dt>Profile source</dt>
-        <dd>{p.source ? SOURCE_LABELS[p.source] : field(null)}</dd>
-        <dt>Last refreshed</dt>
-        <dd>{p.refreshedAt ? formatExpiry(p.refreshedAt) : field(null)}</dd>
-      </dl>
-      {p.canRefresh && !p.refreshFailedAt ? (
-        <p>
-          <button type="button" onClick={() => void retry()} disabled={retrying}>
-            {retrying ? 'Refreshing…' : 'Refresh from Microsoft'}
-          </button>
-        </p>
-      ) : null}
-    </section>
+      <div className="profile-layout">
+        <section className="profile-who" aria-label="Signed in as">
+          <span className="profile-initials" aria-hidden="true">
+            {initials}
+          </span>
+          <div>
+            <p className="profile-name">{p.displayName}</p>
+            {p.workEmail ? <p className="profile-email">{p.workEmail}</p> : null}
+          </div>
+          {p.position ? (
+            <p className="profile-chips">
+              <span className="profile-chip">{POSITION_LABELS[p.position].label}</span>
+            </p>
+          ) : null}
+          {p.canRefresh && !p.refreshFailedAt ? (
+            <button type="button" onClick={() => void retry()} disabled={retrying}>
+              {retrying ? 'Refreshing…' : 'Refresh from Microsoft'}
+            </button>
+          ) : null}
+        </section>
+        <BandedCard
+          className="profile-card"
+          title="My profile"
+          subtitle="From your Microsoft 365 profile. Official initials are set by an administrator."
+        >
+          <dl className="profile-fields">
+            <dt>Name</dt>
+            <dd>{p.displayName}</dd>
+            <dt>Given name</dt>
+            <dd>{field(p.givenName)}</dd>
+            <dt>Surname</dt>
+            <dd>{field(p.surname)}</dd>
+            <dt>Work email</dt>
+            <dd>
+              {p.workEmail ?? <span className="field-hint">No mailbox address from Microsoft</span>}
+            </dd>
+            <dt>Sign-in username</dt>
+            <dd>{field(p.signInUsername)}</dd>
+            <dt>Job title (from Microsoft)</dt>
+            <dd>{field(p.jobTitle)}</dd>
+            <dt>Department</dt>
+            <dd>{field(p.department)}</dd>
+            <dt>Office</dt>
+            <dd>{field(p.officeLocation)}</dd>
+            <dt>Official initials</dt>
+            <dd>
+              {p.officialInitials && p.initialsConfirmed ? (
+                p.officialInitials
+              ) : (
+                <span className="profile-unconfirmed">
+                  Not confirmed yet: an administrator sets these
+                </span>
+              )}
+            </dd>
+            <dt>Position</dt>
+            <dd>{p.position ? POSITION_LABELS[p.position].label : field(null)}</dd>
+            <dt>Profile source</dt>
+            <dd>{p.source ? SOURCE_LABELS[p.source] : field(null)}</dd>
+            <dt>Last refreshed</dt>
+            <dd>{p.refreshedAt ? formatExpiry(p.refreshedAt) : field(null)}</dd>
+          </dl>
+        </BandedCard>
+      </div>
+    </div>
   );
 }

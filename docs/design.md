@@ -406,7 +406,15 @@ Use `BandedCard` (MM-T55) for every card the canvas draws with a header band:
   mono, status badges or small buttons. The aside wraps under the title on narrow screens.
 - The body sits below with 20px padding (16px on phones). Leave out `children` for a band-only card.
 - The card is a `<section>` named by its heading (`aria-labelledby`); pass `as="div"` for a named
-  group inside another section. `tone="attention"` gives the amber edge.
+  group inside another section. `tone="attention"` gives the amber edge. `headingLevel={3}` and a
+  fixed `headingId` suit cards nested under a section's `h2` (each storage unit in the wizard).
+- **Stat tiles** (`.stat-tiles`, Settings): a small mono uppercase label over a value on a `shell`
+  tile with a 1px `line`; counts use `.stat-number`. A tile that needs attention adds
+  `.stat-tile-warning` or `.stat-tile-danger`, which colour its edge and text, and the label still
+  says what it is.
+- **Wizard action bar** (Receive samples steps 1 and 2): sticky at the foot of the page on a
+  `card-head` bar: problem count, draft status, Discard draft, then the step's buttons. On phones it
+  spans the screen and the buttons share one row at 44px.
 
 ### Data tables → stacked cards
 

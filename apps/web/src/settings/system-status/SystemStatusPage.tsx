@@ -1,7 +1,13 @@
 import { type BackupState, type SystemStatusResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { fetchSystemStatus } from './api';
-import { EmptyState, ErrorState, StatusBadge, type BadgeTone } from '../../components/ui';
+import {
+  BandedCard,
+  EmptyState,
+  ErrorState,
+  StatusBadge,
+  type BadgeTone,
+} from '../../components/ui';
 import { formatAge, formatBytes, formatExpiry } from '../../lib/format';
 import { useMe } from '../../session/context';
 
@@ -22,11 +28,10 @@ function BackupSection({ backup }: { backup: SystemStatusResponse['backup'] }) {
   const badge = BACKUP_BADGE[backup.state];
   const alert = backup.state === 'failed' || backup.state === 'overdue';
   return (
-    <section className="card" aria-labelledby="status-backup">
-      <h2 id="status-backup">
-        Backups <StatusBadge tone={badge.tone}>{badge.text}</StatusBadge>
-      </h2>
-      <p role={alert ? 'alert' : undefined}>{backup.message}</p>
+    <BandedCard title="Backups" aside={<StatusBadge tone={badge.tone}>{badge.text}</StatusBadge>}>
+      <p role={alert ? 'alert' : undefined} className={alert ? 'notice status-alert' : undefined}>
+        {backup.message}
+      </p>
       {backup.state === 'not_configured' ? null : (
         <dl className="status">
           <dt>Last run</dt>
@@ -74,43 +79,58 @@ function BackupSection({ backup }: { backup: SystemStatusResponse['backup'] }) {
           ) : null}
         </dl>
       )}
-    </section>
+    </BandedCard>
   );
 }
 
 function PrintQueueSection({ status }: { status: SystemStatusResponse }) {
   const queue = status.printQueue;
+  const worker = (
+    <span>
+      Print worker:{' '}
+      <strong className={status.printWorker.running ? 'text-success' : 'text-warning'}>
+        {status.printWorker.running ? 'Running' : 'Stopped'}
+      </strong>
+    </span>
+  );
   return (
-    <section className="card" aria-labelledby="status-print">
-      <h2 id="status-print">Print queue</h2>
+    <BandedCard title="Print queue" aside={worker}>
       {queue === null ? (
         <p>Unavailable while the database is down.</p>
       ) : (
-        <dl className="status">
-          <dt>Waiting to print</dt>
-          <dd>{queue.queued}</dd>
-          <dt>Oldest waiting</dt>
-          <dd>
-            {queue.oldestQueuedAgeSeconds === null
-              ? '—'
-              : `${formatAge(queue.oldestQueuedAgeSeconds)} ago`}
-          </dd>
-          <dt>Sending now</dt>
-          <dd>{queue.sending}</dd>
-          <dt>Not sure if printed</dt>
-          <dd>{queue.uncertain}</dd>
-          <dt>Failed</dt>
-          <dd>{queue.failed}</dd>
-          <dt>Print worker</dt>
-          <dd>
-            {status.printWorker.running ? 'Running' : 'Stopped'}
-            {status.printWorker.lastPollAt
-              ? `, last checked ${formatExpiry(status.printWorker.lastPollAt)}`
-              : ''}
-          </dd>
+        <dl className="stat-tiles stat-tiles-2">
+          <div>
+            <dt>Waiting to print</dt>
+            <dd className="stat-number">{queue.queued}</dd>
+            <dd className="stat-note">
+              Oldest waiting:{' '}
+              {queue.oldestQueuedAgeSeconds === null ? (
+                '—'
+              ) : (
+                <span>{`${formatAge(queue.oldestQueuedAgeSeconds)} ago`}</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Sending now</dt>
+            <dd className="stat-number">{queue.sending}</dd>
+          </div>
+          <div className={queue.uncertain > 0 ? 'stat-tile-warning' : undefined}>
+            <dt>Not sure if printed</dt>
+            <dd className="stat-number">{queue.uncertain}</dd>
+          </div>
+          <div className={queue.failed > 0 ? 'stat-tile-danger' : undefined}>
+            <dt>Failed</dt>
+            <dd className="stat-number">{queue.failed}</dd>
+          </div>
         </dl>
       )}
-    </section>
+      {status.printWorker.lastPollAt ? (
+        <p className="field-hint">
+          Print worker last checked {formatExpiry(status.printWorker.lastPollAt)}.
+        </p>
+      ) : null}
+    </BandedCard>
   );
 }
 
@@ -146,40 +166,66 @@ export function SystemStatusPage() {
   }
   const { status } = load;
   return (
+    // Canvas layout (MM-T55): Service tiles, Backups beside Print queue, then Disk space bars.
     <>
-      <section className="card" aria-labelledby="status-service">
-        <h2 id="status-service">Service</h2>
-        <dl className={`status ${status.database === 'up' ? 'status-ok' : 'status-warning'}`}>
-          <dt>Database</dt>
-          <dd>{status.database === 'up' ? 'Connected' : 'Unavailable'}</dd>
-          <dt>Version</dt>
-          <dd>{status.version}</dd>
-          <dt>Checked</dt>
-          <dd>{formatExpiry(status.checkedAt)}</dd>
+      <BandedCard
+        title="Service"
+        aside={
+          <button type="button" onClick={() => setAttempt((a) => a + 1)}>
+            Check again
+          </button>
+        }
+      >
+        <dl className="stat-tiles stat-tiles-3">
+          <div>
+            <dt>Database</dt>
+            <dd>
+              <StatusBadge tone={status.database === 'up' ? 'success' : 'danger'}>
+                {status.database === 'up' ? 'Connected' : 'Unavailable'}
+              </StatusBadge>
+            </dd>
+          </div>
+          <div>
+            <dt>Version</dt>
+            <dd className="stat-mono">{status.version}</dd>
+          </div>
+          <div>
+            <dt>Checked</dt>
+            <dd className="stat-mono">{formatExpiry(status.checkedAt)}</dd>
+          </div>
         </dl>
-        <button type="button" onClick={() => setAttempt((a) => a + 1)}>
-          Check again
-        </button>
-      </section>
-      <BackupSection backup={status.backup} />
-      <PrintQueueSection status={status} />
-      <section className="card" aria-labelledby="status-disk">
-        <h2 id="status-disk">Disk space</h2>
+      </BandedCard>
+      <div className="status-columns">
+        <BackupSection backup={status.backup} />
+        <PrintQueueSection status={status} />
+      </div>
+      <BandedCard title="Disk space">
         {status.disks.length === 0 ? (
           <p>Not available on this server.</p>
         ) : (
-          <dl className="status">
-            {status.disks.map((disk) => (
-              <div key={disk.label} className="status-row">
-                <dt>{disk.label}</dt>
-                <dd>
-                  {formatBytes(disk.freeBytes)} free of {formatBytes(disk.totalBytes)}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <ul className="disk-list">
+            {status.disks.map((disk) => {
+              const used =
+                disk.totalBytes > 0
+                  ? Math.round(((disk.totalBytes - disk.freeBytes) / disk.totalBytes) * 100)
+                  : 0;
+              return (
+                <li key={disk.label}>
+                  <div className="disk-label">
+                    <strong>{disk.label}</strong>
+                    <span className="stat-mono">
+                      {formatBytes(disk.freeBytes)} free of {formatBytes(disk.totalBytes)}
+                    </span>
+                  </div>
+                  <div className="disk-bar" role="img" aria-label={`${used}% used`}>
+                    <div style={{ width: `${used}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </section>
+      </BandedCard>
     </>
   );
 }
