@@ -51,6 +51,8 @@ export const staffMemberSchema = z.object({
   id: z.string(),
   displayName: z.string(),
   officialInitials: z.string().nullable(),
+  /** True once an admin has assigned or confirmed the official initials (MM-T44). */
+  initialsConfirmed: z.boolean(),
   position: staffPositionSchema.nullable(),
   accountType: staffAccountTypeSchema,
   status: staffStatusSchema,

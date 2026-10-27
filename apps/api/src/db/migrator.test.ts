@@ -79,6 +79,83 @@ describe.runIf(testDatabaseUrl)('migrate', () => {
     expect(rows[0]).toEqual({ table_exists: null, recorded: 0 });
   });
 
+  it('MM-T44: 0024 confirms admin-assigned initials only from audit evidence', async () => {
+    db = await createTestSchema();
+    const all = await readMigrations();
+    const before0024 = all.filter((m) => m.version < '0024');
+    expect(all.some((m) => m.version === '0024')).toBe(true);
+    await migrate(db.pool, before0024);
+    const pool = db.pool;
+
+    const user = async (name: string, initials: string | null) =>
+      (
+        await pool.query<{ id: string }>(
+          `INSERT INTO app_user (display_name, official_initials, account_type, status)
+           VALUES ($1, $2, 'personal', 'active') RETURNING id`,
+          [name, initials],
+        )
+      ).rows[0]!.id;
+    const event = (
+      action: string,
+      entityId: string,
+      actorId: string | null,
+      initials: string,
+      at: string,
+      accountType = 'personal',
+    ) =>
+      pool.query(
+        `INSERT INTO audit_event (occurred_at, action, entity_type, entity_id, actor_user_id,
+                                  actor_account_type, after_values)
+         VALUES ($1, $2, 'app_user', $3, $4, $5, $6)`,
+        [at, action, entityId, actorId, accountType, { officialInitials: initials }],
+      );
+    const adminA = await user('Avery Admin', 'AA');
+    const adminB = await user('Blake Admin', 'BA');
+    // Pre-provisioned by A: confirmed by A at the event time.
+    const preprovisioned = await user('Review New Staff', 'RS');
+    await event('staff.preprovisioned', preprovisioned, adminA, 'RS', '2026-10-01T15:00:00Z');
+    // Assigned by A, then changed by B: B's change is the evidence.
+    const changed = await user('Casey Changed', 'CC');
+    await event('staff.preprovisioned', changed, adminA, 'CX', '2026-10-01T15:00:00Z');
+    await event('staff.initials_changed', changed, adminB, 'CC', '2026-10-02T15:00:00Z');
+    // The value on record differs from the latest audited one: no trustworthy evidence.
+    const drifted = await user('Drew Drifted', 'DZ');
+    await event('staff.initials_changed', drifted, adminA, 'DD', '2026-10-01T15:00:00Z');
+    // A system actor is not a confirming person.
+    const systemSet = await user('Sam System', 'SS');
+    await event('staff.initials_changed', systemSet, null, 'SS', '2026-10-01T15:00:00Z', 'system');
+    // Seeded or otherwise unaudited initials stay unconfirmed.
+    const seeded = await user('Sid Seeded', 'SD');
+    // An existing confirmation is kept as it is.
+    const alreadyConfirmed = await user('Kim Kept', 'KK');
+    await pool.query(
+      `UPDATE app_user SET initials_confirmed_by_user_id = $2,
+              initials_confirmed_at = '2026-09-01T15:00:00Z' WHERE id = $1`,
+      [alreadyConfirmed, adminB],
+    );
+    await event('staff.preprovisioned', alreadyConfirmed, adminA, 'KK', '2026-10-01T15:00:00Z');
+
+    const result = await migrate(db.pool, all);
+    expect(result.applied).toContain('0024_staff_initials_confirmation_backfill');
+
+    const { rows } = await pool.query<{
+      id: string;
+      by: string | null;
+      at: Date | null;
+    }>(
+      `SELECT id, initials_confirmed_by_user_id AS by, initials_confirmed_at AS at
+       FROM app_user WHERE id = ANY($1::uuid[])`,
+      [[preprovisioned, changed, drifted, systemSet, seeded, alreadyConfirmed]],
+    );
+    const byId = new Map(rows.map((row) => [row.id, { by: row.by, at: row.at?.toISOString() }]));
+    expect(byId.get(preprovisioned)).toEqual({ by: adminA, at: '2026-10-01T15:00:00.000Z' });
+    expect(byId.get(changed)).toEqual({ by: adminB, at: '2026-10-02T15:00:00.000Z' });
+    expect(byId.get(drifted)).toEqual({ by: null, at: undefined });
+    expect(byId.get(systemSet)).toEqual({ by: null, at: undefined });
+    expect(byId.get(seeded)).toEqual({ by: null, at: undefined });
+    expect(byId.get(alreadyConfirmed)).toEqual({ by: adminB, at: '2026-09-01T15:00:00.000Z' });
+  });
+
   it('AC7: production seed loads Receiving lab and LAB only and refuses dev fixtures', async () => {
     db = await createTestSchema();
     await migrate(db.pool);

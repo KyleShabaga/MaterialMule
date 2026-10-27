@@ -1,7 +1,7 @@
 import type { MeResponse, StaffMember } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext } from '../../session/context';
 import { StaffPage } from './StaffPage';
 
@@ -20,6 +20,7 @@ const member = (overrides: Partial<StaffMember>): StaffMember => ({
   id: 'x',
   displayName: 'X',
   officialInitials: null,
+  initialsConfirmed: false,
   position: null,
   accountType: 'test',
   status: 'active',
@@ -40,6 +41,7 @@ const JORDAN = member({
   id: 'jordan',
   displayName: 'Jordan Smith',
   officialInitials: 'JS',
+  initialsConfirmed: true,
   position: 'technician',
 });
 
@@ -102,5 +104,92 @@ describe('StaffPage', () => {
     expect(calls).toContain('POST /api/staff/riley/approve');
     expect(await screen.findByText('Riley Pending is approved.')).toBeVisible();
     expect(screen.queryByRole('region', { name: /Waiting for approval/ })).toBeNull();
+  });
+
+  describe('profile drawer (MM-T43, MM-T44)', () => {
+    const OLIVE = member({
+      id: 'olive',
+      displayName: 'Olive Onboarded',
+      officialInitials: 'OO',
+      initialsConfirmed: false,
+      position: 'engineer',
+      accountType: 'personal',
+    });
+
+    function stubApi() {
+      const patches: unknown[] = [];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const json = (body: unknown) =>
+            new Response(JSON.stringify(body), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            });
+          if (init?.method === 'PATCH') {
+            const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+            patches.push(body);
+            return json({
+              ...OLIVE,
+              ...body,
+              initialsConfirmed: 'officialInitials' in body ? true : OLIVE.initialsConfirmed,
+            });
+          }
+          if (String(input).includes('status=pending')) return json([]);
+          return json([OLIVE]);
+        }),
+      );
+      return patches;
+    }
+
+    beforeEach(() => {
+      // jsdom has no <dialog> methods.
+      HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+        this.open = true;
+      };
+      HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+        this.open = false;
+      };
+    });
+
+    async function openDrawer() {
+      const user = userEvent.setup();
+      renderPage(['staff.manage']);
+      await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
+      return { user, drawer: await screen.findByRole('dialog', { name: 'Olive Onboarded' }) };
+    }
+
+    it('sends only the cleared position and explains that onboarding reopens', async () => {
+      const patches = stubApi();
+      const { user, drawer } = await openDrawer();
+      const position = within(drawer).getByLabelText('Position');
+      await user.selectOptions(position, 'Not set');
+      expect(
+        within(drawer).getByText(
+          'Not set: they will be asked to choose a position again at their next sign-in.',
+        ),
+      ).toBeVisible();
+      await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
+      expect(await screen.findByText('Saved Olive Onboarded.')).toBeVisible();
+      expect(patches).toEqual([{ position: null }]);
+    });
+
+    it('never sends unchanged initials, and confirms them only on request', async () => {
+      const patches = stubApi();
+      const { user, drawer } = await openDrawer();
+      await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
+      expect(await screen.findByText('No changes to save.')).toBeVisible();
+      expect(patches).toEqual([]);
+
+      await user.clear(within(drawer).getByLabelText('Display name'));
+      await user.type(within(drawer).getByLabelText('Display name'), 'Olive Renamed');
+      await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
+      expect(await screen.findByText('Saved Olive Renamed.')).toBeVisible();
+      expect(patches).toEqual([{ displayName: 'Olive Renamed' }]);
+
+      await user.click(within(drawer).getByRole('button', { name: 'Confirm initials OO' }));
+      expect(await screen.findByText('Initials OO confirmed for Olive Renamed.')).toBeVisible();
+      expect(patches.at(-1)).toEqual({ officialInitials: 'OO' });
+    });
   });
 });
