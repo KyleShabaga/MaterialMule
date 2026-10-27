@@ -1,144 +1,119 @@
 ---
 name: Material Mule
-theme: system # follows prefers-color-scheme; these are the dark values, light values are under Colors
-colors:
-  # Surfaces, darkest to lightest (tonal layers, no shadows)
-  surface-base: '#090D16'
-  surface-canvas: '#0F172A'
-  surface-card: '#1E293B'
-  surface-raised: '#334155'
-  # Lines
-  border-subtle: '#1E293B'
-  border-strong: '#475569'
-  border-control: '#64748B'
-  # Text
-  text: '#F1F5F9'
-  text-muted: '#94A3B8'
-  text-muted-raised: '#CBD5E1'
-  text-disabled: '#64748B'
-  # Actions
-  primary: '#2563EB'
-  primary-active: '#1D4ED8'
+theme: system # follows prefers-color-scheme; dark values first, light values under Colors
+source: https://claude.ai/artifact/2NqGwsbofmjSShjyCn1iti # the Material Mule design system
+colors: # dark theme
+  shell: '#000F21'
+  page: '#031427'
+  card: '#07182C'
+  card-head: '#0B1F38'
+  inset: '#061426'
+  line: '#1B385A'
+  line-shell: '#1E3A5F'
+  line-control: '#64748B'
+  ink: '#F1F5F9'
+  ink-soft: '#CBD5E1'
+  muted: '#94A3B8'
+  disabled: '#64748B'
+  accent: '#38BDF8'
+  accent-ink: '#7DD3FC'
+  accent-bg: '#082F49'
+  accent-line: '#075985'
+  primary: '#0369A1'
+  primary-active: '#075985'
   on-primary: '#FFFFFF'
-  link: '#60A5FA'
-  focus: '#60A5FA'
-  secondary: '#D97706'
-  secondary-text: '#F59E0B'
-  # Status tones (text / background / border)
-  danger-text: '#F87171'
-  danger-bg: '#450A0A'
-  danger-border: '#DC2626'
-  warning-text: '#F59E0B'
-  warning-bg: '#451A03'
-  warning-border: '#D97706'
-  info-text: '#38BDF8'
-  info-bg: '#082F49'
-  info-border: '#0284C7'
-  success-text: '#34D399'
+  focus: '#38BDF8'
+  success: '#34D399'
   success-bg: '#064E3B'
-  success-border: '#059669'
-  neutral-text: '#94A3B8'
+  success-line: '#059669'
+  warning: '#F59E0B'
+  warning-bg: '#451A03'
+  warning-line: '#D97706'
+  warning-panel: '#1D1203'
+  warning-panel-ink: '#FDE68A'
+  danger: '#F87171'
+  danger-bg: '#450A0A'
+  danger-line: '#DC2626'
+  danger-panel: '#1F0A10'
+  danger-panel-ink: '#FCA5A5'
+  info: '#38BDF8'
+  info-bg: '#082F49'
+  info-line: '#0284C7'
+  neutral: '#94A3B8'
   neutral-bg: '#1E293B'
-  neutral-border: '#475569'
-  review-text: '#C084FC'
+  neutral-line: '#475569'
+  review: '#C084FC'
   review-bg: '#2E1065'
-  review-border: '#7C3AED'
-  # Connection
-  sync-live: '#10B981'
-  sync-offline: '#F59E0B'
-  # Labels and print views (always light, whatever the theme)
+  review-line: '#7C3AED'
   label-paper: '#FFFFFF'
   label-ink: '#000000'
+  scrim: 'rgba(0, 0, 0, 0.6)'
 typography:
-  headline-xl:
+  page-title:
     {
       fontFamily: Inter,
-      fontSize: 2rem,
+      fontSize: 24px,
       fontWeight: '700',
-      lineHeight: 2.5rem,
-      letterSpacing: -0.02em,
+      lineHeight: 32px,
+      letterSpacing: -0.6px,
     }
-  headline-lg:
+  card-title: { fontFamily: Inter, fontSize: 17px, fontWeight: '700', lineHeight: 24px }
+  section-label:
     {
       fontFamily: Inter,
-      fontSize: 1.5rem,
+      fontSize: 13px,
       fontWeight: '600',
-      lineHeight: 2rem,
-      letterSpacing: -0.01em,
+      lineHeight: 20px,
+      letterSpacing: 0.35px,
     }
-  headline-lg-mobile:
-    {
-      fontFamily: Inter,
-      fontSize: 1.25rem,
-      fontWeight: '600',
-      lineHeight: 1.75rem,
-      letterSpacing: -0.01em,
-    }
-  headline-md: { fontFamily: Inter, fontSize: 1.25rem, fontWeight: '600', lineHeight: 1.75rem }
-  headline-sm: { fontFamily: Inter, fontSize: 1.125rem, fontWeight: '600', lineHeight: 1.5rem }
-  body-lg: { fontFamily: Inter, fontSize: 1rem, fontWeight: '400', lineHeight: 1.5rem }
-  body-md: { fontFamily: Inter, fontSize: 0.875rem, fontWeight: '400', lineHeight: 1.25rem }
-  body-sm: { fontFamily: Inter, fontSize: 0.75rem, fontWeight: '400', lineHeight: 1rem }
-  label-ui:
-    {
-      fontFamily: Inter,
-      fontSize: 0.75rem,
-      fontWeight: '600',
-      lineHeight: 1rem,
-      letterSpacing: 0.02em,
-    }
-  label-mono-lg:
+  scan-message: { fontFamily: Inter, fontSize: 28px, fontWeight: '700', lineHeight: 36px }
+  body-lg: { fontFamily: Inter, fontSize: 16px, fontWeight: '400', lineHeight: 24px }
+  body: { fontFamily: Inter, fontSize: 14px, fontWeight: '400', lineHeight: 20px }
+  small: { fontFamily: Inter, fontSize: 12px, fontWeight: '400', lineHeight: 16px }
+  header-ui: { fontFamily: Inter, fontSize: 12px, fontWeight: '500', lineHeight: 16px }
+  id-xl: { fontFamily: JetBrains Mono, fontSize: 32px, fontWeight: '700', lineHeight: 40px }
+  id-lg: { fontFamily: JetBrains Mono, fontSize: 22px, fontWeight: '700', lineHeight: 28px }
+  id: { fontFamily: JetBrains Mono, fontSize: 14px, fontWeight: '600', lineHeight: 20px }
+  label-mono:
     {
       fontFamily: JetBrains Mono,
-      fontSize: 0.875rem,
+      fontSize: 11px,
       fontWeight: '600',
-      lineHeight: 1.25rem,
-      letterSpacing: 0.04em,
+      lineHeight: 16px,
+      letterSpacing: 1px,
     }
-  label-mono-md:
+  badge:
     {
       fontFamily: JetBrains Mono,
-      fontSize: 0.75rem,
+      fontSize: 11px,
       fontWeight: '500',
-      lineHeight: 1rem,
-      letterSpacing: 0.02em,
+      lineHeight: 14px,
+      letterSpacing: 0.55px,
     }
-  label-mono-sm:
-    {
-      fontFamily: JetBrains Mono,
-      fontSize: 0.6875rem,
-      fontWeight: '500',
-      lineHeight: 0.875rem,
-      letterSpacing: 0.05em,
-    }
-  scan-message: { fontFamily: Inter, fontSize: 1.75rem, fontWeight: '700', lineHeight: 2.25rem }
 rounded:
-  sm: 0.125rem
-  DEFAULT: 0.25rem
-  md: 0.375rem
-  lg: 0.5rem
-  xl: 0.75rem
-  # No `full` radius: nothing in the app is pill-shaped (Kyle, 2026-10-26).
+  radius-tag: 2px # badges, ID badges, tags, chips, step numbers, menu items, header buttons
+  radius-control: 4px # buttons, inputs, cards, dialogs, drawers
+  # No pill radius: nothing in the app is pill-shaped (Kyle, 2026-10-26).
 spacing:
-  gutter: 1rem
-  gutter-desktop: 1.5rem
-  margin: 1rem
-  margin-desktop: 2rem
-  space-xs: 0.25rem
-  space-sm: 0.5rem
-  space-md: 0.75rem
-  space-lg: 1.25rem
-  space-xl: 2rem
+  space-1: 4px
+  space-2: 8px
+  space-3: 12px
+  space-4: 16px
+  space-5: 20px
+  space-6: 24px
+  space-8: 32px
+  space-16: 64px
 breakpoints:
   phone: 640px # and below
-  tablet: 1024px # 641–1024
+  tablet: 1024px # 641-1024
 sizes:
-  touch-target: 44px # phone, tablet and the LAB station
-  control-desktop: 36px # mouse-driven office PCs
-  row-desktop: 36px
-  row-phone: 52px
-  dialog-max: 480px
-  drawer-max: 32rem
+  target: 44px # phone, tablet and the LAB station
+  control: 40px # desktop controls; never below 36px
+  header-height: 56px
+  sidebar-width: 224px
+  drawer-width: 512px
+  dialog-width: 480px
+  content-max: 896px
 ---
 
 # Material Mule design guide
@@ -148,11 +123,14 @@ firm: receiving and labelling, inventory and location, lab testing progress, ret
 This guide sets how its screens look, read and behave. The front matter above holds the tokens; the
 sections below say how to use them.
 
-Status of this guide (2026-10-26): it is the **target**. The tokens and rules here start from a
-dark, industrial direction Kyle supplied, adapted to Material Mule's decisions (App Idea D01–D52)
-and checked for WCAG 2.2 AA contrast. The app as built still uses an earlier light/dark palette
-(see [Current app: gaps and inconsistencies](#current-app-gaps-and-inconsistencies)). Items marked
-**Proposal — pending Kyle** are not decided; don't build them until Kyle confirms.
+Status of this guide (2026-10-27): the **source of truth for tokens and components is the
+[Material Mule design system](https://claude.ai/artifact/2NqGwsbofmjSShjyCn1iti)** (its
+`tokens.json`, brand book and `mm-` component previews). This file mirrors it for people working in
+the repo; the approved screens live on the
+[Material Mule UI canvas](https://claude.ai/artifact/5VUohfcm8SJdYtiHSuME3B). The palette is the navy
+look from Kyle's Figma, checked for WCAG 2.2 AA in both themes, and `apps/web/src/styles.css` uses
+these tokens as of the consistency pass. Items marked **Proposal — pending Kyle** are not decided;
+don't build them until Kyle confirms.
 
 ## Who uses it, and where
 
@@ -174,10 +152,11 @@ favours fast reading, clear accountability (who did what, when) and honest statu
 - **Look:** structural lines, tonal layers, high-contrast status, monospaced identifiers. No
   gradients, glows, illustrations or emoji.
 - **Shape:** "soft industrial" — square-ish corners. **Nothing is pill-shaped** (Kyle, 2026-10-26): badges,
-  ID badges, tags and chips use 2px corners like the header and sidebar; controls 4px; containers
-  8px. Badges are told apart from buttons by size, mono type and having no hover state.
-- **Name:** the product is **Material Mule** (renamed from Trapezoid on 2026-10-26). A logo or
-  wordmark is **Proposal — pending Kyle**; until then the header shows the name in `headline-sm`.
+  ID badges, tags and chips use `radius-tag` (2px) like the header and sidebar; buttons, inputs,
+  cards, dialogs and drawers use `radius-control` (4px). Badges are told apart from buttons by size,
+  mono type and having no hover state.
+- **Name and mark:** the product is **Material Mule** (renamed from Trapezoid on 2026-10-26). The
+  logo mark from Kyle's Figma sits in a 32px navy box in the header, beside the name in uppercase.
 
 ## Voice and wording
 
@@ -219,76 +198,45 @@ Don't rename them in a design pass.
 
 ## Colors
 
-The palette is calibrated for dark rooms, glare and cheap displays: tonal surfaces separated by
-crisp 1px lines.
+Navy tonal layers separated by 1px lines, a cyan accent for "where you are" and links, one blue
+primary button per view, and status tones that always come with a word. Every token is defined for
+both themes; the app follows the operating system's light or dark setting (decided by Kyle,
+2026-10-26). Labels and print views are black on white in both.
 
-- **Primary — Blueprint blue `#2563EB`:** the one main action per view, selected items, active nav.
-- **Secondary — Safety amber `#D97706` / `#F59E0B`:** attention: warnings, approvals for disposal,
-  stale drafts, paused scanning, offline. Never decorative.
-- **Neutral — Slate `#0F172A` → `#64748B`:** surfaces, borders, secondary text, disabled.
-- **Red is only for failure and destructive actions.** Never decorative.
+| Token                                     | Dark                      | Light                     | Use                                                                                                           |
+| ----------------------------------------- | ------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `shell`                                   | #000F21                   | #F8FAFC                   | Header, side menu, field fill                                                                                 |
+| `page`                                    | #031427                   | #F1F5F9                   | Page ground                                                                                                   |
+| `card`                                    | #07182C                   | #FFFFFF                   | Cards, tables, drawers                                                                                        |
+| `card-head`                               | #0B1F38                   | #F8FAFC                   | Card header band, table header, dialogs, secondary buttons                                                    |
+| `inset`                                   | #061426                   | #F8FAFC                   | Nested groups (fieldsets), striped rows                                                                       |
+| `line`                                    | #1B385A                   | #E2E8F0                   | Decorative edges only                                                                                         |
+| `line-shell`                              | #1E3A5F                   | #CBD5E1                   | Header and menu borders                                                                                       |
+| `line-control`                            | #64748B                   | #64748B                   | Edges of inputs, selects, checkboxes, secondary buttons (4.0:1 on `shell`, 3.8:1 on `card` dark; 4.8:1 light) |
+| `ink`                                     | #F1F5F9                   | #0F172A                   | Body text (16.3:1 / 17.9:1 on `card`)                                                                         |
+| `ink-soft`                                | #CBD5E1                   | #334155                   | Secondary text, dialog body (12.0:1 / 10.4:1)                                                                 |
+| `muted`                                   | #94A3B8                   | #475569                   | Labels, hints (7.0:1 / 7.6:1 on `card`)                                                                       |
+| `disabled`                                | #64748B                   | #64748B                   | Disabled control text, with the `disabled` attribute                                                          |
+| `accent`                                  | #38BDF8                   | #0369A1                   | Links, the active menu item and tab (8.3:1 / 5.9:1)                                                           |
+| `accent-ink`, `accent-bg`, `accent-line`  | #7DD3FC, #082F49, #075985 | #075985, #E0F2FE, #7DD3FC | Mono tags for project numbers and test holes (8.3:1 / 6.6:1)                                                  |
+| `primary`, `primary-active`, `on-primary` | #0369A1, #075985, #FFFFFF | same                      | The one primary button per view (white text 5.9:1)                                                            |
+| `focus`                                   | #38BDF8                   | #0369A1                   | 2px focus ring, 2px offset                                                                                    |
+| `success`, `success-bg`, `success-line`   | #34D399, #064E3B, #059669 | #047857, #ECFDF5, #059669 | Success badges and notices (5.1:1 / 5.2:1)                                                                    |
+| `warning`, `warning-bg`, `warning-line`   | #F59E0B, #451A03, #D97706 | #B45309, #FFFBEB, #D97706 | Warning badges (7.0:1 / 4.8:1); attention card edges                                                          |
+| `warning-panel`, `warning-panel-ink`      | #1D1203, #FDE68A          | #FFFBEB, #92400E          | Amber notices (14.8:1 / 6.8:1)                                                                                |
+| `danger`, `danger-bg`, `danger-line`      | #F87171, #450A0A, #DC2626 | #B91C1C, #FEF2F2, #DC2626 | Danger badges, field errors, destructive buttons (5.8:1 / 5.9:1)                                              |
+| `danger-panel`, `danger-panel-ink`        | #1F0A10, #FCA5A5          | #FEF2F2, #991B1B          | Error summaries, red notices (10.0:1 / 7.6:1)                                                                 |
+| `info`, `info-bg`, `info-line`            | #38BDF8, #082F49, #0284C7 | #0369A1, #F0F9FF, #0284C7 | Info badges; the "Changed" bar on corrected fields                                                            |
+| `neutral`, `neutral-bg`, `neutral-line`   | #94A3B8, #1E293B, #475569 | #475569, #F1F5F9, #94A3B8 | Neutral badges (Disposed, Disabled)                                                                           |
+| `review`, `review-bg`, `review-line`      | #C084FC, #2E1065, #7C3AED | #6D28D9, #F5F3FF, #7C3AED | Reserved: lab review states                                                                                   |
+| `label-paper`, `label-ink`                | #FFFFFF, #000000          | same                      | Stickers and print pages                                                                                      |
+| `scrim`                                   | rgba(0, 0, 0, 0.6)        | rgba(15, 23, 42, 0.45)    | Behind dialogs and drawers                                                                                    |
 
-### Contrast (WCAG 2.2 AA)
-
-Text needs 4.5:1 (3:1 at 24px+ or 19px bold); control boundaries, focus indicators and meaningful
-icons need 3:1 against what's next to them. Measured ratios:
-
-| Pair                                             | Ratio             | Use                                                           |
-| ------------------------------------------------ | ----------------- | ------------------------------------------------------------- |
-| `text` #F1F5F9 on `surface-base` #090D16         | 17.7:1            | Body text                                                     |
-| `text` on `surface-canvas` #0F172A               | 16.3:1            | Body text                                                     |
-| `text` on `surface-card` #1E293B                 | 13.4:1            | Body text in cards                                            |
-| `text` on `surface-raised` #334155               | 9.5:1             | Dialog text                                                   |
-| `text-muted` #94A3B8 on canvas / card            | 7.0 / 5.7:1       | Hints, metadata                                               |
-| `text-muted` on `surface-raised`                 | 4.0:1 ✗           | **Don't.** Use `text-muted-raised` #CBD5E1 (7.0:1)            |
-| `on-primary` #FFFFFF on `primary` #2563EB        | 5.2:1             | Primary button                                                |
-| `on-primary` on `primary-active` #1D4ED8         | 6.7:1             | Pressed primary button                                        |
-| `link` / `focus` #60A5FA on canvas / card / base | 7.0 / 5.8 / 7.6:1 | Links, focus ring                                             |
-| `primary` #2563EB as text on canvas              | 3.4:1 ✗           | **Don't** use the button blue for links or focus on dark      |
-| `border-control` #64748B on base / canvas / card | 4.1 / 3.8 / 3.1:1 | Input, checkbox and select outlines                           |
-| `border-strong` #475569 on canvas                | 2.4:1             | Decorative card outlines only, never a control's only edge    |
-| `danger-text` #F87171 on `danger-bg` #450A0A     | 5.8:1             | Danger badge, destructive button                              |
-| `danger-text` on canvas / card                   | 6.5 / 5.3:1       | Error messages                                                |
-| `warning-text` #F59E0B on `warning-bg` #451A03   | 7.0:1             | Warning badge                                                 |
-| `warning-text` on canvas / card                  | 8.3 / 6.8:1       | Warning text                                                  |
-| `info-text` #38BDF8 on `info-bg` #082F49         | 6.5:1             | Info badge                                                    |
-| `success-text` #34D399 on `success-bg` #064E3B   | 5.1:1             | Success badge                                                 |
-| `neutral-text` #94A3B8 on `neutral-bg` #1E293B   | 5.7:1             | Neutral badge                                                 |
-| `review-text` #C084FC on `review-bg` #2E1065     | 5.8:1             | Review badge (future lab review states)                       |
-| `text-disabled` #64748B on canvas                | 3.8:1             | Disabled controls only (exempt; still paired with `disabled`) |
-
-Changes from the starting palette, made to pass AA: urgent/danger text `#EF4444` → `#F87171` (was
-4.3:1 on `#450A0A`); links and focus use `#60A5FA`, not `#2563EB`; input outlines use `#64748B`, not
-`#475569`; muted text on raised surfaces uses `#CBD5E1`.
-
-### Light and dark themes
-
-**Decided by Kyle on 2026-10-26: the app follows the operating system's light or dark setting**
-(`prefers-color-scheme`). The front matter is the dark set; this is the light set, with the same
-token names. Print views and label previews are black on white in both.
-
-| Token                      | Light value                 | Check (WCAG AA)                           |
-| -------------------------- | --------------------------- | ----------------------------------------- |
-| surface-base               | #F8FAFC                     | Frame, side menu, input fill              |
-| surface-canvas             | #FFFFFF                     | Page content                              |
-| surface-card               | #F1F5F9                     | Cards, table header, hover                |
-| surface-raised             | #FFFFFF                     | Dialogs (with a 1px `border-strong` edge) |
-| border-subtle              | #E2E8F0                     | Dividers only                             |
-| border-strong              | #CBD5E1                     | Decorative outlines only                  |
-| border-control             | #64748B                     | 4.8 / 4.6 / 4.3:1 on canvas / base / card |
-| text                       | #0F172A                     | 17.9:1 on canvas, 16.3:1 on card          |
-| text-muted, -raised        | #475569                     | 7.6:1 on canvas, 6.9:1 on card            |
-| text-disabled              | #64748B                     | 4.8:1                                     |
-| primary / primary-active   | #2563EB / #1D4ED8           | White text 5.2 / 6.7:1                    |
-| link / focus               | #1D4ED8                     | 6.7:1 on canvas, 6.1:1 on card            |
-| secondary / -text          | #D97706 / #B45309           | Text 5.0:1 on canvas, 4.6:1 on card       |
-| danger text / bg / border  | #B91C1C / #FEF2F2 / #DC2626 | 5.9:1 on its bg, 5.9:1 on card            |
-| warning text / bg / border | #B45309 / #FFFBEB / #D97706 | 4.8:1 on its bg, 4.6:1 on card            |
-| info text / bg / border    | #0369A1 / #F0F9FF / #0284C7 | 5.6:1 on its bg, 5.4:1 on card            |
-| success text / bg / border | #047857 / #ECFDF5 / #059669 | 5.2:1 on its bg, 5.0:1 on card            |
-| neutral text / bg / border | #475569 / #F1F5F9 / #94A3B8 | 6.9:1 on its bg                           |
-| review text / bg / border  | #6D28D9 / #F5F3FF / #7C3AED | 6.5:1 on its bg                           |
-| sync-live / sync-offline   | #047857 / #B45309           | As success / warning text                 |
+Rules: never put `muted` or a status colour on a ground its note doesn't name; `line` is never a
+control's only edge (use `line-control`); red is only for failure and destructive actions; amber
+means attention; every status also has a word. Kyle's Figma used white text on `#0284C7` buttons
+(4.1:1) and `#64748B` for upcoming wizard steps on navy (3.9:1); both fail AA, so the system uses
+`primary` (#0369A1) and `muted` instead.
 
 ## Typography
 
@@ -304,12 +252,12 @@ physical label or types from one.
 Rules:
 
 - Body text on forms is `body-lg` (16px). Inputs are **never below 16px**, or phone Safari zooms the
-  page when a field gets focus. Dense desktop tables may use `body-md` (14px).
-- One `h1` per page (`headline-lg`, `headline-lg-mobile` at phone width). The storage unit ID on its
-  detail page is `headline-xl` in mono.
+  page when a field gets focus. Dense desktop tables may use `body` (14px).
+- One `h1` per page (`page-title`, `page-title` at phone width). The storage unit ID on its
+  detail page is `id-xl` in mono.
 - The scan result message is `scan-message` (28px bold; 22px at phone width) so it reads from a
   step back.
-- Smallest text is 11px (`label-mono-sm`, badges) and must still meet 4.5:1.
+- Smallest text is 11px (`badge`, badges) and must still meet 4.5:1.
 
 **Fonts — Proposal — pending Kyle:** Inter and JetBrains Mono are both SIL Open Font Licence. They
 must be **self-hosted** in the web build (for example the `@fontsource` packages, MIT/OFL), never
@@ -331,28 +279,30 @@ Use the single `640px` phone breakpoint everywhere; don't add others without upd
 
 ### Spacing
 
-Use the scale only: 4, 8, 12, 20, 32px (`space-xs`…`space-xl`). Page padding is `margin` (16px) on
-phone, `gutter-desktop` (24px) on desktop. Related fields sit `space-md` apart; sections `space-xl`.
+Use the scale only: 4, 8, 12, 20, 32px (`space-xs`…`space-xl`). Page padding is `space-4` (16px) on
+phone, `space-6` (24px) on desktop. Related fields sit `space-md` apart; sections `space-xl`.
 Lay out groups with flex/grid and `gap`, not margins on children.
 
 ### Density
 
-- Desktop table rows: 36px tall, 8px vertical cell padding, hairline dividers (`border-subtle`).
+- Desktop table rows: 36px tall, 8px vertical cell padding, hairline dividers (`line`).
 - Phone rows (stacked cards): 52px minimum per row of content.
 - Nested detail (for example the SAMPLE#/DEPTH summaries under a unit) indents 1.5rem with a 2px
-  `border-strong` line on the left.
+  `line` line on the left.
 
 ## Elevation and depth
 
 Depth comes from **tonal layers and 1px lines**, never drop shadows (they vanish on glare and cheap
 panels).
 
-| Level | Surface          | Used for                                                                         |
-| ----- | ---------------- | -------------------------------------------------------------------------------- |
-| 0     | `surface-base`   | App frame, side menu, input fields                                               |
-| 1     | `surface-canvas` | Page content, tables                                                             |
-| 2     | `surface-card`   | Cards, table header, row hover, selected row, open dropdown list                 |
-| 3     | `surface-raised` | Dialogs and drawers, over a 60% black scrim (`#00000099`) with 4px backdrop blur |
+| Level | Surface     | Used for                                              |
+| ----- | ----------- | ----------------------------------------------------- |
+| 0     | `shell`     | Header, side menu, input fields                       |
+| 1     | `page`      | Page ground                                           |
+| 2     | `card`      | Cards, tables, drawers                                |
+| 3     | `card-head` | Card header bands, table headers, open lists, dialogs |
+| —     | `inset`     | Nested groups inside a card, striped table rows       |
+| —     | `scrim`     | Behind dialogs and drawers                            |
 
 ## Components
 
@@ -361,17 +311,17 @@ markup; add a variant there rather than restyling one screen.
 
 ### Buttons
 
-| Variant      | Look                                                                                  | Use                                                                |
-| ------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Primary      | `primary` fill, white text, 4px corners, 8px × 16px padding; pressed `primary-active` | One per view: the step forward ("Next: Review", "Confirm receipt") |
-| Secondary    | `surface-card` fill, 1px `border-control`; hover `surface-raised`                     | Everything else ("Back", "Retry", "Reprint")                       |
-| Destructive  | `danger-bg` fill, 1px `danger-border`, `danger-text`                                  | Discard draft, disable a staff member, later disposal              |
-| Link button  | No fill, `link` colour, underlined                                                    | Low-weight actions inside text                                     |
-| Scan trigger | Full width on phone, 2px `secondary` border, label "Scan with camera"                 | Opens the phone-camera scanner                                     |
+| Variant      | Look                                                                                                             | Use                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Primary      | `primary` fill, white text, 4px corners, 40px tall (44px on phones), 16px side padding; pressed `primary-active` | One per view: the step forward ("Next: Review", "Confirm receipt") |
+| Secondary    | `card` fill, 1px `line-control`; hover `card-head`                                                               | Everything else ("Back", "Retry", "Reprint")                       |
+| Destructive  | `danger-bg` fill, 1px `danger-line`, `danger`                                                                    | Discard draft, disable a staff member, later disposal              |
+| Link button  | No fill, `accent` colour, underlined                                                                             | Low-weight actions inside text                                     |
+| Scan trigger | Full width on phone, 2px `warning-line` border, label "Scan with camera"                                         | Opens the phone-camera scanner                                     |
 
 - Minimum size: **44 × 44px** at phone width, on tablets and on the LAB station; 36px on desktop.
   This includes small "×" buttons on chips and the "Menu" button.
-- Disabled: `text-disabled`, `cursor: not-allowed`, and the real `disabled` attribute. Don't use
+- Disabled: `disabled`, `cursor: not-allowed`, and the real `disabled` attribute. Don't use
   opacity alone.
 - Busy: keep the label, add the spinner, set `aria-busy`, and block a second click.
 - Disposal (future): confirmation is online-only (App Idea); the button is disabled
@@ -380,7 +330,7 @@ markup; add a variant there rather than restyling one screen.
 ### Status badges
 
 `StatusBadge` shows status as **text first**; colour only supports it. Badges have 2px corners, uppercase
-via CSS, `label-mono-sm`, 1px border, tone background.
+via CSS, `badge`, 1px border, tone background.
 
 | Tone    | Material Mule statuses today                                                                                                                  |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -396,7 +346,7 @@ retention holds arrive; they are not V1 statuses.
 
 ### Storage unit ID badge
 
-2px corners, `surface-card` fill, `text` in `label-mono-lg`, with a small barcode glyph before the ID
+2px corners, `card` fill, `ink` in `id`, with a small barcode glyph before the ID
 (inline SVG, `aria-hidden="true"`). The ID text is selectable and is the accessible name. Use it in
 tables, scan results and the issued-units list; the detail page heading shows the ID large instead.
 
@@ -410,18 +360,18 @@ someone confirms the labels came out.
 
 - Use `FormField` so the label, hint and error are wired with `for`/`id`, `aria-describedby` and
   `aria-invalid`.
-- Label above the field, hint under it in `text-muted`, error under that in `danger-text` starting
+- Label above the field, hint under it in `muted`, error under that in `danger` starting
   with the fix.
-- Field: `surface-base` fill, 1px `border-control`, 4px corners, 16px text, 44px tall at phone width.
-- Focus: 2px `focus` ring with 2px offset. Invalid: `danger-border` outline plus the error text.
-- Read-only fields: `surface-card` fill and the `readonly` attribute, not `disabled` (so they can be
+- Field: `shell` fill, 1px `line-control`, 4px corners, 16px text, 44px tall at phone width.
+- Focus: 2px `focus` ring with 2px offset. Invalid: `danger-line` outline plus the error text.
+- Read-only fields: `card` fill and the `readonly` attribute, not `disabled` (so they can be
   read and copied).
 
 ### Barcode (keyboard-wedge) fields
 
 The scan panel keeps a dedicated field focused so a scan is never lost:
 
-- Show **"Ready to scan"** in `success-text` while it has focus. When focus leaves, cover the panel
+- Show **"Ready to scan"** in `success` while it has focus. When focus leaves, cover the panel
   with the **"Scanning paused — Click here to resume scanning"** button (amber dashed border). Text,
   not just colour or animation, tells the state.
 - A scanner/target icon on the right edge is decorative (`aria-hidden`). A gentle pulse on the ready
@@ -435,21 +385,21 @@ The scan panel keeps a dedicated field focused so a scan is never lost:
 
 Combobox pattern: a text input with `role="combobox"`, an overlaid `role="listbox"` that never pushes
 the content below it, arrow keys to move, Enter to choose, Escape to close. Options are ≥44px tall
-at phone width. Hover and the active option use `surface-card`; the chosen option also shows a check
+at phone width. Hover and the active option use `card`; the chosen option also shows a check
 or "Selected" text.
 
 ### Cards
 
-`surface-card` fill, 1px `border-subtle`, 8px corners, 16px padding. A card heading is
-`headline-sm`. Attention cards (handover, offline, pending staff) add a 1px `warning-border` and a
+`card` fill, 1px `line`, 4px corners (`radius-control`), 20px padding (16px on phones), and a `card-head` header band. A card heading is
+`card-title`. Attention cards (handover, offline, pending staff) add a 1px `warning-line` and a
 heading that says why — never the border alone.
 
 ### Data tables → stacked cards
 
 - Use `DataTable` (real `<table>`, `<th scope="col">`, a visually hidden `<caption>`).
-- Header row: `surface-card`, `label-ui` uppercase via CSS, sort state in the header's text and
+- Header row: `card`, `label-mono` uppercase via CSS, sort state in the header's text and
   `aria-sort`.
-- Rows: alternate `surface-base` / `surface-canvas`; hover `surface-card`.
+- Rows: alternate `shell` / `page`; hover `card`.
 - At phone width each row becomes a card: header hidden, each cell shows its column name from
   `data-label` above or beside the value; the row's main link (the storage unit ID) comes first and
   the whole card is ≥52px tall.
@@ -460,7 +410,7 @@ heading that says why — never the border alone.
 ### Dialogs and drawers
 
 - `ConfirmDialog` uses native `<dialog>` (`showModal`) for focus trapping and Escape. Max width
-  480px, `surface-raised`, scrim as in Elevation. Title in `headline-sm`, actions right-aligned with
+  480px, `card-head`, scrim as in Elevation. Title in `card-title`, actions right-aligned with
   Cancel first and the primary action last.
 - Drawers (staff detail) slide from the right, max 32rem, full width on phone.
 - Focus moves into the dialog on open and returns to the opener on close.
@@ -473,20 +423,20 @@ receiver selector, and times are local.
 
 ### Error, empty and loading states
 
-| State       | Pattern                                                                                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Loading     | Skeleton rows in `surface-card` for lists; a spinner with text ("Loading storage units…") for actions. Announce with `aria-busy`. No spinner for under 300ms. |
-| Empty       | `EmptyState`: one sentence on what would appear here and, if possible, the action that makes it appear ("No drafts. Start one with Receive samples.").        |
-| Error       | `ErrorState` (`role="alert"`): plain message + Retry button. The message is `danger-text`; the button stays a normal secondary button.                        |
-| Form errors | `ErrorSummary` at the top of the step with links to each field, plus each field's own error.                                                                  |
-| Offline     | Amber notice that says what still works, e.g. "You're offline. Your draft is kept. Connect to confirm." Never promise syncing that doesn't exist.             |
+| State       | Pattern                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Loading     | Skeleton rows in `card` for lists; a spinner with text ("Loading storage units…") for actions. Announce with `aria-busy`. No spinner for under 300ms.  |
+| Empty       | `EmptyState`: one sentence on what would appear here and, if possible, the action that makes it appear ("No drafts. Start one with Receive samples."). |
+| Error       | `ErrorState` (`role="alert"`): plain message + Retry button. The message is `danger`; the button stays a normal secondary button.                      |
+| Form errors | `ErrorSummary` at the top of the step with links to each field, plus each field's own error.                                                           |
+| Offline     | Amber notice that says what still works, e.g. "You're offline. Your draft is kept. Connect to confirm." Never promise syncing that doesn't exist.      |
 
 ### Navigation and header
 
-- Header (`surface-base`): product name, then the person (initials and name) and the account badge
+- Header (`shell`): product name, then the person (initials and name) and the account badge
   ("Personal", "Shared station: LAB", "TEST"), then the LAB session end time.
-- Side menu (`surface-base`): links ≥44px tall on touch; the current page has a 3px `primary` bar on
-  the left, `surface-card` fill and `aria-current="page"`.
+- Side menu (`shell`): links ≥44px tall on touch; the current page has a 3px `primary` bar on
+  the left, `card` fill and `aria-current="page"`.
 - A "Skip to content" link is the first focusable element.
 
 ## Scanner and keyboard rules
@@ -548,61 +498,45 @@ receiver selector, and times are local.
 
 ## Current app: gaps and inconsistencies
 
-Found while writing this guide (main at 57978f3). These are what the consistency pass should fix.
+Found while writing this guide (main at 57978f3).
 
-**Tokens and theme**
+**Fixed in the consistency pass:**
 
-1. Palette is GitHub-style (`#0969da`, `#1f2328`…) in light and dark, not this guide's tokens
-   (`apps/web/src/styles.css` `:root`).
-2. The camera scanner hard-codes its own colours (`#3fb950`, `#ff7b72`, `#f0c000`, `#c9d1d9`) instead
-   of tokens (`scanning/scanning.css`).
-3. `correction-changed` uses `var(--accent, currentColor)`; the fallback hides a missing token.
-4. Corner radii are mixed: 4px (badges), 6px (buttons, inputs), 8px (cards), 10px (scan panel).
-5. Pop-up lists use drop shadows (`.listbox`, `.receiver-options`); this guide uses layers and lines.
-6. The phone breakpoint `@media (max-width: 640px)` is repeated in five places in `styles.css` and
-   again in each feature file — fine, but `.data-table td::before` min-width is 7rem globally and
-   overridden to 6rem in two feature files.
+- The GitHub-style palette is replaced by the tokens above, in light and dark; the camera scanner's
+  hard-coded colours and `correction-changed`'s fallback now use tokens.
+- Corners are 2px / 4px everywhere: filter chips and wizard step numbers are no longer round.
+- Pop-up lists use layers and lines, not drop shadows.
+- Buttons are 40px on desktop and 44px at phone width; chip remove buttons and `.link-button` are
+  at least 36px (44px on phones); side-menu links are 36px (48px in the phone menu).
+- Disabled buttons use `disabled` text and an edge, not opacity.
+- `ErrorState` shows the message in a red panel and keeps its Retry button normal.
+- Badges have tone fills, mono type and 2px corners.
+- `.checkbox`, `.notice` and `.muted` are defined once, in `styles.css`.
+- All text inputs are 16px; the skip link has an edge; storage unit IDs are mono.
+- The primary button keeps white text in both themes.
+- Destructive confirmations (Discard draft, Disable) use the red danger button.
+- The header shows the logo mark; the side menu shows Kyle's icons in `currentColor`.
 
-**Components**
+**Still open** (not styling, left for separate cards):
 
-7. Buttons are about 34px tall (`padding: 0.4rem 0.8rem`) everywhere, below 44px on phones and the
-   LAB station.
-8. Chip remove buttons (`.chips button`, `padding: 0 0.4rem`) and `.link-button` (`padding: 0.25rem`)
-   are far below 44px.
-9. Side-menu links are about 34px tall; phone menu items should be ≥44px.
-10. `button:disabled` uses `opacity: 0.6` only.
-11. `ErrorState` colours the whole block red, including the Retry button's surroundings; the button
-    itself has no danger style, so it looks mismatched.
-12. Status badges are outline-only (`border: currentColor`, no fill) at 12px; this guide adds tone
-    backgrounds and mono type.
-13. `.checkbox` and `.notice` are each defined twice in `styles.css` with different rules.
-14. `.muted` is defined in `projects/projects.css` but is a general utility.
-15. Inputs are 1rem in some places (`.receiver-select input`) and inherit 16px elsewhere, but the
-    camera manual-entry field and scan field set their own sizes; phone inputs must all be ≥16px.
-16. The skip link appears with `var(--bg)` and no border or focus ring offset rule of its own.
-17. The issued-unit heading uses `ui-monospace`; storage unit IDs elsewhere (tables, unit detail
-    heading) use the body font.
-    17a. Filter chips (`.chips li`, `border-radius: 999px`) and wizard step numbers (`.step-number`, a circle) are round; with the no-pill rule they get 2px corners.
-
-**Wording**
-
-18. Most buttons and headings are sentence case; nav items use title case by Kyle's decision (keep).
-19. Dark-mode `--accent-text: #0d1117` makes primary buttons dark text on light blue in dark mode and
-    white text in light mode — the primary button changes character with the theme.
+1. Many error messages still include raw HTTP codes, e.g. "Your position wasn’t saved (HTTP 500)."
+   and "That didn’t work (HTTP 409)." (`PositionSetupPage`, `LabAccountCard`, several `api.ts`).
+2. The screens on the canvas reorganise several pages (card header bands, the Receive samples bottom
+   bar, the Settings layouts, the Labels section beside the print view); this pass restyles the
+   existing structure only.
+3. The header doesn't show the app version yet (the Figma shows it under the name).
 
 ## Proposals — pending Kyle
 
 1. ~~Dark-only app screens or follow the OS setting~~ — **decided 2026-10-26: follow the OS
    setting** with the light and dark sets above.
-2. **Self-hosted Inter and JetBrains Mono** (OFL; adds a font package and some font files to the web build)
-   or keep the system fonts.
-3. **Logo or wordmark** for Material Mule in the header and sign-in page.
-4. **Uppercase mono status badges** with tone backgrounds — changes the look of every status.
-5. **Storage unit ID badge with a barcode glyph** in tables and scan results.
-6. **Striped table rows** (alternating base/canvas) on desktop.
-
-Until Kyle decides 2–6, the code pass applies only what doesn't depend on them: the light and dark
-tokens, touch targets, focus, contrast, disabled states, duplicated rules and hard-coded colours.
+2. **Self-hosted Inter and JetBrains Mono** (OFL; adds a font package and font files to the web
+   build), or keep the system fonts. Until decided, the app uses the system stacks (`system-ui`,
+   `ui-monospace`).
+3. ~~Logo or wordmark~~ — **provided in Kyle's Figma (2026-10-26)**; the header uses the mark.
+4. ~~Uppercase mono status badges~~ — **adopted from Kyle's Figma screens.**
+5. **Storage unit ID badge with a barcode glyph** — not on the approved screens; not built.
+6. ~~Striped table rows~~ — **adopted** (`inset` on even rows).
 
 ## Not in V1 (reserved)
 

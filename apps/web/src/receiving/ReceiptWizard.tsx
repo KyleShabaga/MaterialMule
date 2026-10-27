@@ -268,7 +268,12 @@ export function ReceiptWizard({
         title="Receive samples"
         actions={
           step !== 'labels' ? (
-            <button type="button" onClick={() => setDiscardOpen(true)} disabled={confirming}>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => setDiscardOpen(true)}
+              disabled={confirming}
+            >
               Discard draft
             </button>
           ) : null
@@ -507,6 +512,7 @@ export function ReceiptWizard({
         open={discardOpen}
         title="Discard this draft?"
         confirmLabel="Discard draft"
+        danger
         onConfirm={() => void discard()}
         onCancel={() => setDiscardOpen(false)}
       >

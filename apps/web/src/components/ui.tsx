@@ -142,6 +142,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  danger = false,
   onConfirm,
   onCancel,
 }: {
@@ -149,6 +150,8 @@ export function ConfirmDialog({
   title: string;
   children: ReactNode;
   confirmLabel: string;
+  /** Destructive action (discard, disable): the confirm button is red instead of primary. */
+  danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -168,7 +171,7 @@ export function ConfirmDialog({
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" className="primary" onClick={onConfirm}>
+        <button type="button" className={danger ? 'danger' : 'primary'} onClick={onConfirm}>
           {confirmLabel}
         </button>
       </div>

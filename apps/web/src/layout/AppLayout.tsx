@@ -3,7 +3,9 @@ import { Link, NavLink, Outlet } from 'react-router';
 import { StatusBadge } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useMe, useSession } from '../session/context';
+import logoUrl from './logo.svg';
 import { accountBadge, visibleNavItems } from './nav';
+import { NavIcon } from './NavIcon';
 
 export function AppLayout() {
   const me = useMe();
@@ -26,7 +28,12 @@ export function AppLayout() {
         >
           Menu
         </button>
-        <span className="app-name">Material Mule</span>
+        <Link to="/" className="app-brand">
+          <span className="app-mark">
+            <img src={logoUrl} alt="" width={26} height={26} />
+          </span>
+          <span className="app-name">Material Mule</span>
+        </Link>
         <div className="identity" aria-label="Signed in user">
           <span className="identity-name">
             {me.displayName}
@@ -49,6 +56,7 @@ export function AppLayout() {
         </div>
       </header>
       <nav id="side-nav" className="side-nav" aria-label="Main">
+        <p className="nav-heading">Primary navigation</p>
         <ul>
           {visibleNavItems().map((item) => (
             <li key={item.to}>
@@ -58,6 +66,7 @@ export function AppLayout() {
                 // Close the phone drawer once a destination is chosen.
                 onClick={() => setMenuOpen(false)}
               >
+                <NavIcon to={item.to} />
                 {item.label}
               </NavLink>
             </li>
