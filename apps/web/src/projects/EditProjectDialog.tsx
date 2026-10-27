@@ -171,10 +171,13 @@ export function EditProjectDialog({
       aria-labelledby={titleId}
       onCancel={onClose}
     >
-      <h2 id={titleId}>Edit project</h2>
+      <div className="edit-project-head">
+        <h2 id={titleId}>Edit project</h2>
+        <span className="project-number">{base.projectNumber}</span>
+      </div>
       <form noValidate onSubmit={(event) => void submit(event)}>
         {message ? (
-          <p className="field-error" role="alert">
+          <p className="notice notice-warning" role="alert">
             {message}
           </p>
         ) : null}
@@ -199,33 +202,36 @@ export function EditProjectDialog({
               type="text"
               value={draft.projectNumber}
               maxLength={40}
-              disabled={base.numberLocked}
+              // Read-only, not disabled, so it can still be read and copied (design guide).
+              readOnly={base.numberLocked}
               onChange={(event) => set('projectNumber')(event.target.value)}
             />
           )}
         </FormField>
-        <FormField label="Name" error={error('name')}>
-          {(props) => (
-            <input
-              {...props}
-              type="text"
-              value={draft.name}
-              maxLength={200}
-              onChange={(event) => set('name')(event.target.value)}
-            />
-          )}
-        </FormField>
-        <FormField label="Client" error={error('client')}>
-          {(props) => (
-            <input
-              {...props}
-              type="text"
-              value={draft.client}
-              maxLength={200}
-              onChange={(event) => set('client')(event.target.value)}
-            />
-          )}
-        </FormField>
+        <div className="field-pair">
+          <FormField label="Name" error={error('name')}>
+            {(props) => (
+              <input
+                {...props}
+                type="text"
+                value={draft.name}
+                maxLength={200}
+                onChange={(event) => set('name')(event.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField label="Client" error={error('client')}>
+            {(props) => (
+              <input
+                {...props}
+                type="text"
+                value={draft.client}
+                maxLength={200}
+                onChange={(event) => set('client')(event.target.value)}
+              />
+            )}
+          </FormField>
+        </div>
         <FormField
           label="PM/PE"
           error={error('pmPeId')}

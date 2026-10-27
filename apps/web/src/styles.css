@@ -425,6 +425,30 @@ button:disabled:hover {
   margin-top: 0;
 }
 
+/* Look-up, search and filter cards above a list (MM-T50): mono uppercase labels. */
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.tool-card label {
+  font: 600 0.6875rem/1rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.tool-card .field-hint {
+  margin: 0;
+}
+
 /* ---- Card with a header band (MM-T55, canvas "card header bands") ---- */
 
 .banded-card {

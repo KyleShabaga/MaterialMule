@@ -556,6 +556,23 @@ Built to the canvas artboards "Sample Storage — list", "Storage unit detail", 
   side; Project and Test holes are inset groups; the count of changed fields sits beside the
   buttons. A version conflict is an amber notice; a saved correction shows "Details corrected."
 - Print status chips already used the artboard's wording and actions (`printJobStatusText`).
+- Look-up, search and filter cards above a list use `.tool-card` (`styles.css`): `card` fill, 1px
+  `line`, mono uppercase labels. Sample Storage and Projects share it.
+
+## Projects
+
+Built to "Projects — list", "Project detail" and "Edit project dialog" in MM-T50
+(`apps/web/src/projects/`).
+
+- **List:** Search projects, Only mine and Sort by on one `.tool-card`; active filters (Search,
+  "Only mine: <initials>") as chips with the count; the table and pager on one card. The project
+  number (mono, accent) links to the project; PM/PE reads "Pat Example (PE)".
+- **Detail:** the project number large in mono with the name under it and Edit project on the
+  right; Project details as stat tiles (Client, PM/PE, Review engineer, Storage units) with the
+  server folder and Copy on a full-width tile; Test holes (one row each, unit count on the right,
+  "Add test hole") beside Receipts; Storage units with "Open in Sample Storage →" in the band.
+- **Edit project:** the project number beside the title; a locked number is read-only (not
+  disabled) so it can be copied; Name and Client side by side; a save conflict is an amber notice.
 
 ## Current app: gaps and inconsistencies
 

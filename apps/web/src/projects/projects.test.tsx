@@ -185,7 +185,10 @@ describe('Projects table (MM-T35)', () => {
     );
     const router = renderAt('/projects');
     await screen.findByText('1 project');
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Search' }), 'nothing here');
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Search projects' }),
+      'nothing here',
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByText('No projects match this search.')).toBeInTheDocument();
     expect(router.state.location.search).toBe('?search=nothing+here');
@@ -209,6 +212,14 @@ describe('Projects table (MM-T35)', () => {
     expect(readOnlyMine('u1')).toBe(true);
     expect(readOnlyMine('someone-else')).toBe(false);
     expect(callsTo(fetchMock, '/api/projects').at(-1)!.url.searchParams.get('mine')).toBe('true');
+
+    // MM-T50: the filter shows as a chip; removing it turns "Only mine" off and remembers that.
+    const chips = screen.getByRole('list', { name: 'Active filters' });
+    expect(chips).toHaveTextContent(/Only mine:/);
+    await userEvent.click(within(chips).getByRole('button', { name: 'Remove filter Only mine' }));
+    expect(screen.getByRole('checkbox', { name: 'Only mine' })).not.toBeChecked();
+    expect(readOnlyMine('u1')).toBe(false);
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
   });
 
   it('hides "Only mine" from the shared LAB account', async () => {
@@ -267,13 +278,13 @@ describe('Project detail (MM-T35)', () => {
     renderAt(`/projects/${PROJECT_ID}`);
     const input = await screen.findByRole('textbox', { name: 'Add test hole' });
     await userEvent.type(input, 'th26-01 ');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add test hole' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'TH26-01 already exists in this project.',
     );
     await userEvent.clear(input);
     await userEvent.type(input, 'TH26-03');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add test hole' }));
     expect(await screen.findByText('Added test hole TH26-03.')).toBeInTheDocument();
     expect(await screen.findByText('TH26-03')).toBeInTheDocument();
   });
@@ -307,7 +318,9 @@ describe('Project detail (MM-T35)', () => {
     renderAt(`/projects/${PROJECT_ID}`);
     await userEvent.click(await screen.findByRole('button', { name: 'Edit project' }));
     const dialog = screen.getByRole('dialog', { name: 'Edit project' });
-    expect(within(dialog).getByRole('textbox', { name: 'Project number' })).toBeDisabled();
+    expect(within(dialog).getByRole('textbox', { name: 'Project number' })).toHaveAttribute(
+      'readonly',
+    );
     expect(dialog).toHaveTextContent("Printed on existing labels, so it can't be changed.");
 
     // Changing the PM/PE needs a reason before anything is sent.

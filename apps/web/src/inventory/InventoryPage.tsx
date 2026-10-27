@@ -143,7 +143,7 @@ export function InventoryPage() {
         }
       />
       <div className="storage-tools">
-        <div className="storage-tool">
+        <div className="tool-card">
           <LookUpId />
           <CameraScanButton />
         </div>
@@ -153,7 +153,7 @@ export function InventoryPage() {
         />
       </div>
 
-      <fieldset className="storage-tool inventory-filters">
+      <fieldset className="tool-card inventory-filters">
         <legend className="visually-hidden">Filters</legend>
         <ProjectFilter
           selected={selectedProject}
@@ -388,7 +388,7 @@ function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: 
     onSearch(text.trim());
   }
   return (
-    <form role="search" aria-label="Search inventory" className="storage-tool" onSubmit={submit}>
+    <form role="search" aria-label="Search inventory" className="tool-card" onSubmit={submit}>
       <label htmlFor={id}>Search inventory</label>
       <div className="inline-input">
         <input
