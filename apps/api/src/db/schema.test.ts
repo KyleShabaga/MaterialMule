@@ -518,12 +518,17 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
   });
   describe('print queue (MM-T15)', () => {
     async function job(values: Record<string, unknown> = {}) {
-      const columns = ['kind', 'printer_key', 'template_version', 'requested_by_user_id'];
-      const params: unknown[] = ['initial', 'schema-printer', 'sticker-v1', userId];
-      for (const [column, value] of Object.entries(values)) {
-        columns.push(column);
-        params.push(value);
-      }
+      const row: Record<string, unknown> = {
+        kind: 'initial',
+        printer_key: 'schema-printer',
+        template_version: 'sticker-v1',
+        requested_by_user_id: userId,
+        requested_by_initials_snapshot: 'AT',
+        requested_by_name_snapshot: 'Test AT',
+        ...values,
+      };
+      const columns = Object.keys(row);
+      const params = Object.values(row);
       const placeholders = params.map((_, i) => `$${i + 1}`).join(', ');
       return db.pool.query<{ id: string }>(
         `INSERT INTO print_job (${columns.join(', ')}) VALUES (${placeholders}) RETURNING id`,
@@ -572,8 +577,9 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
     it('only queues jobs for configured printers', async () => {
       await expect(
         db.pool.query(
-          `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id)
-           VALUES ('initial', '10.0.0.5', 'sticker-v1', $1)`,
+          `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                                  requested_by_name_snapshot)
+           VALUES ('initial', '10.0.0.5', 'sticker-v1', $1, 'Test AT')`,
           [userId],
         ),
       ).rejects.toMatchObject({ code: PG.foreignKeyViolation });
@@ -605,6 +611,8 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
           status: 'uncertain',
           physically_confirmed_at: now,
           physically_confirmed_by_user_id: userId,
+          confirmed_by_initials_snapshot: 'AT',
+          confirmed_by_name_snapshot: 'Test AT',
         }),
       ).resolves.toBeTruthy();
     });
@@ -642,6 +650,48 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
           db.pool.query(`UPDATE print_job SET receiver_name_snapshot = NULL WHERE id = $1`, [
             rows[0]!.id,
           ]),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      });
+    });
+
+    describe('requested-by and confirmed-by snapshots (MM-T65, Kyle 2026-10-27)', () => {
+      it('refuses a new job without the requester name snapshot', async () => {
+        await expect(
+          job({ requested_by_initials_snapshot: null, requested_by_name_snapshot: null }),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+        await expect(job({ requested_by_name_snapshot: null })).rejects.toMatchObject({
+          code: PG.checkViolation,
+        });
+        await expect(job({ requested_by_initials_snapshot: 'at' })).rejects.toMatchObject({
+          code: PG.checkViolation,
+        });
+        // The shared LAB account has no initials; it is recorded by name.
+        await expect(
+          job({ requested_by_initials_snapshot: null, requested_by_name_snapshot: 'LAB' }),
+        ).resolves.toBeTruthy();
+      });
+
+      it('refuses a confirmation without the confirmer name snapshot, or a snapshot without one', async () => {
+        const { rows } = await job({ status: 'sent', sent_at: new Date() });
+        const id = rows[0]!.id;
+        const confirm = (initials: string | null, name: string | null) =>
+          db.pool.query(
+            `UPDATE print_job
+             SET physically_confirmed_at = now(), physically_confirmed_by_user_id = $2,
+                 confirmed_by_initials_snapshot = $3, confirmed_by_name_snapshot = $4
+             WHERE id = $1`,
+            [id, userId, initials, name],
+          );
+        await expect(confirm(null, null)).rejects.toMatchObject({ code: PG.checkViolation });
+        await expect(confirm('AT', null)).rejects.toMatchObject({ code: PG.checkViolation });
+        await expect(confirm('AT', 'Test AT')).resolves.toBeTruthy();
+        await expect(
+          db.pool.query(`UPDATE print_job SET confirmed_by_name_snapshot = NULL WHERE id = $1`, [
+            id,
+          ]),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+        await expect(
+          job({ confirmed_by_initials_snapshot: 'AT', confirmed_by_name_snapshot: 'Test AT' }),
         ).rejects.toMatchObject({ code: PG.checkViolation });
       });
     });

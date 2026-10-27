@@ -147,8 +147,9 @@ describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (MM-T21)', () => {
     );
     for (const minutes of [10, 1]) {
       await db.pool.query(
-        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id, created_at)
-         VALUES ('initial', 'receiving', 'v1', $1, now() - make_interval(mins => $2))`,
+        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                                requested_by_name_snapshot, created_at)
+         VALUES ('initial', 'receiving', 'v1', $1, 'Tech', now() - make_interval(mins => $2))`,
         [tech, minutes],
       );
     }

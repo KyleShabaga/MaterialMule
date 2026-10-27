@@ -298,8 +298,9 @@ describe.runIf(testDatabaseUrl)('printing API (MM-T15)', () => {
     expect(audit.filter((e) => e.action === 'label.physically_confirmed')).toHaveLength(1);
 
     const { rows } = await db.pool.query<{ id: string }>(
-      `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id, status)
-       VALUES ('initial', 'receiving', 'sticker-v1', $1, 'failed') RETURNING id`,
+      `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                              requested_by_name_snapshot, status)
+       VALUES ('initial', 'receiving', 'sticker-v1', $1, 'User tech', 'failed') RETURNING id`,
       [users.tech],
     );
     const failed = await post(`/api/print-jobs/${rows[0]!.id}/confirm-physical`, 'tech');
