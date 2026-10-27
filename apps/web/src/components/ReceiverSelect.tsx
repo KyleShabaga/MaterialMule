@@ -5,6 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../api/client';
+import { useListHighlight } from './useListHighlight';
 
 const SEARCH_DELAY_MS = 150;
 export const NOT_LISTED_MESSAGE = 'Not listed? Ask an administrator to add them.';
@@ -45,7 +46,6 @@ export function ReceiverSelect({
   const statusId = `${id}-status`;
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
   const [touched, setTouched] = useState(false);
   const selectOnFocus = useRef(false);
   const [latest, setLatest] = useState<{ query: string; results: Results } | null>(null);
@@ -64,7 +64,6 @@ export function ReceiverSelect({
           (options) => {
             if (!current) return;
             setLatest({ query, results: { state: 'ready', options } });
-            setActive(options.length > 0 ? 0 : -1);
           },
           () => {
             if (current) setLatest({ query, results: { state: 'error' } });
@@ -80,12 +79,17 @@ export function ReceiverSelect({
   const results = latest?.query === query ? latest.results : null;
   const options = results?.state === 'ready' ? results.options : [];
   const expanded = open && query !== '';
+  // MM-T62: the first match is highlighted, as in the project and test-hole pickers.
+  const highlight = useListHighlight(
+    options.length,
+    `${query}|${options.map((option) => option.id).join(',')}`,
+  );
+  const active = highlight.active;
 
   function choose(option: ReceiverOption) {
     onChange(option);
     setText('');
     setOpen(false);
-    setActive(-1);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -93,14 +97,12 @@ export function ReceiverSelect({
       case 'ArrowDown':
         event.preventDefault();
         setOpen(true);
-        if (options.length > 0) setActive((index) => (index + 1) % options.length);
+        highlight.next();
         break;
       case 'ArrowUp':
         event.preventDefault();
         setOpen(true);
-        if (options.length > 0) {
-          setActive((index) => (index <= 0 ? options.length - 1 : index - 1));
-        }
+        highlight.previous();
         break;
       case 'Enter':
         if (expanded && active >= 0 && options[active]) {

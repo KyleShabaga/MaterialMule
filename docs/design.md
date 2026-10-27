@@ -389,7 +389,10 @@ The scan panel keeps a dedicated field focused so a scan is never lost:
 ### Pickers and lists (project, test hole, receiver)
 
 Combobox pattern: a text input with `role="combobox"`, an overlaid `role="listbox"` that never pushes
-the content below it, arrow keys to move, Enter to choose, Escape to close. Options are ≥44px tall
+the content below it, arrow keys to move, Enter to choose, Escape to close. Every picker answers the
+keyboard the same way (MM-T62, `useListHighlight`): once something is typed, the first match is
+highlighted and announced (`aria-activedescendant`), so Enter picks it and ArrowDown+Enter the
+second; the arrows wrap. A list opened before typing starts with nothing highlighted. Options are ≥44px tall
 at phone width. Hover and the active option use `card`; the chosen option also shows a check
 or "Selected" text.
 
