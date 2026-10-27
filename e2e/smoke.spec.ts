@@ -1,15 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-test('dashboard shows the API and database as healthy', async ({ page }) => {
+// The dashboard no longer shows API/database health (approved design, 2026-10-27); admins see
+// it under Settings → System status (system-status.spec.ts). Here: the app loads data at all.
+test('dashboard loads data from the API and database', async ({ page }) => {
   await signInAs(page, 'at');
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-  const status = page.locator('.status');
-  await expect(status).toContainText('OK');
-  await expect(status).toContainText('Connected');
-  await expect(status).toContainText(/\d+\.\d+\.\d+/);
+  const recent = page.getByRole('region', { name: 'Recently received' });
+  await expect(recent.getByRole('link', { name: 'See all in Sample Storage →' })).toBeVisible();
+  await expect(recent.getByText(/this week$/)).toBeVisible();
+  await expect(recent.getByRole('alert')).toHaveCount(0);
 });
 
 test('health endpoint is reachable through the web origin', async ({ request }) => {
