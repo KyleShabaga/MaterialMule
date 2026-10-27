@@ -46,7 +46,7 @@ test('a new receipt is the newest entry in Recent activity and links to the rece
     expect(Date.parse(below.at), `listed below ours: ${below.text}`).toBeLessThanOrEqual(oursAt);
   }
 
-  // It links to its receipt. (The receipt page itself is not built yet: MM-T10.)
+  // It links to Sample Storage filtered to its receipt (all statuses, so later disposals still show).
   const receiptId = await withDatabase(async (client) => {
     const { rows } = await client.query<{ receipt_id: string }>(
       'SELECT receipt_id FROM storage_unit WHERE readable_id = $1',
@@ -54,5 +54,8 @@ test('a new receipt is the newest entry in Recent activity and links to the rece
     );
     return rows[0]!.receipt_id;
   });
-  await expect(ours.getByRole('link')).toHaveAttribute('href', `/receiving-log/${receiptId}`);
+  await expect(ours.getByRole('link')).toHaveAttribute(
+    'href',
+    `/sample-storage?receiptId=${receiptId}&status=all`,
+  );
 });

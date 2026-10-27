@@ -45,7 +45,8 @@ describe('toActivityItem (T1)', () => {
       }),
     );
     expect(item.summary).toBe('AT received BKT-2026-000014 and 1 more for DEMO-2601');
-    expect(item.href).toBe('/receiving-log/r1');
+    // Sample Storage filtered to the receipt's units, disposed ones included (no receipt page yet).
+    expect(item.href).toBe('/sample-storage?receiptId=r1&status=all');
   });
 
   it('describes corrections and reprints by storage unit ID', () => {

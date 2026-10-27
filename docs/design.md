@@ -510,6 +510,25 @@ receiver selector, and times are local.
     part numbered (QR code, storage unit ID, project number, project name, test holes, Code 128
     barcode, received date); parts with a fit warning are marked in amber with the warning text.
 
+## Dashboard
+
+Approved by Kyle on 2026-10-27 (canvas: "APPROVED — Dashboard"); built in
+`apps/web/src/pages/DashboardPage.tsx` with its parts in `apps/web/src/dashboard/`.
+
+- **Top row:** the Receive samples card (primary button, "Resume a draft (N)" when this browser
+  holds drafts this person may see, and "N drafts on this computer · N stale") beside "Look up a
+  storage unit" (the Sample Storage look-up, with Scan with camera).
+- **Recently received:** the 6 newest current storage units from
+  `GET /api/inventory/recently-received` (newest received date, then storage unit ID — Sample
+  Storage's default order), with project, SAMPLE#/DEPTH summaries, location, received time and
+  receiver initials, and the unit's newest print job worded by `printJobStatusText`. Filters All /
+  Today / Labels to check (sent or uncertain, nobody confirmed, received in the last 30 days).
+  "N this week" counts from Monday in the business time zone. Stacks into cards on phones.
+- **Lower row:** Recent activity, Drafts on this computer (newest three, Resume each), and — only
+  with `system.status.read` — the Label printer card (waiting to print, not sure if printed, print
+  worker state) from Settings → System status.
+- The old API/database health panel is no longer on the dashboard; admins see it in System status.
+
 ## Current app: gaps and inconsistencies
 
 Found while writing this guide (main at 57978f3).

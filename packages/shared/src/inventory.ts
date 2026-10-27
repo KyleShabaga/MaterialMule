@@ -86,6 +86,8 @@ export const inventoryQuerySchema = z.object({
   testHoleId: optionalParam(z.uuid({ error: 'must be a test hole ID' })),
   type: optionalParam(z.enum(STORAGE_UNIT_TYPES, { error: 'is not a storage unit type' })),
   locationId: optionalParam(z.uuid({ error: 'must be a location ID' })),
+  /** Units issued by one receipt (the dashboard's "received" activity links here). */
+  receiptId: optionalParam(z.uuid({ error: 'must be a receipt ID' })),
   status: z.preprocess(
     blankToUndefined,
     z.enum(INVENTORY_STATUS_FILTERS, { error: 'is not a status filter' }).default('current'),

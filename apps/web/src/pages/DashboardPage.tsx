@@ -1,63 +1,102 @@
-import { activityResponseSchema, type ActivityItem } from '@materialmule/shared';
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { apiFetch } from '../api/client';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
-import { SystemStatus } from './SystemStatus';
+import { fetchRecentActivity } from '../dashboard/api';
+import '../dashboard/dashboard.css';
+import { DraftsCard } from '../dashboard/DashboardDrafts';
+import { draftCountText, useDashboardDrafts } from '../dashboard/drafts';
+import { shortDateTime } from '../dashboard/format';
+import { LabelPrinterCard } from '../dashboard/LabelPrinterCard';
+import { RecentlyReceived } from '../dashboard/RecentlyReceived';
+import { useLoad } from '../dashboard/useLoad';
+import { LookUpId } from '../inventory/LookUpId';
+import { CameraScanButton } from '../scanning/CameraScanButton';
+import { useMe } from '../session/context';
 
-type Activity =
-  | { state: 'loading' }
-  | { state: 'error'; message: string }
-  | { state: 'ready'; items: ActivityItem[] };
-
-async function loadActivity(): Promise<Activity> {
-  try {
-    const response = await apiFetch('/api/activity/recent?limit=20');
-    if (!response.ok) {
-      return {
-        state: 'error',
-        message: "Recent activity couldn't load. Try again.",
-      };
-    }
-    return { state: 'ready', items: activityResponseSchema.parse(await response.json()) };
-  } catch {
-    return { state: 'error', message: "Recent activity couldn't load. Check the connection." };
-  }
-}
-
-const timeFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
+// Dashboard as approved by Kyle on 2026-10-27 (canvas artboard "APPROVED — Dashboard"):
+// Receive samples and look-up on top, Recently received, then Recent activity, drafts on this
+// computer and (admins only) the label printer.
 
 export function DashboardPage() {
-  const [attempt, setAttempt] = useState(0);
-  const [latest, setLatest] = useState<{ attempt: number; activity: Activity } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void loadActivity().then((activity) => {
-      if (active) setLatest({ attempt, activity });
-    });
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
-
-  const activity: Activity = latest?.attempt === attempt ? latest.activity : { state: 'loading' };
+  const me = useMe();
+  const drafts = useDashboardDrafts(me);
+  const showPrinter = me.permissions.includes('system.status.read');
 
   return (
-    <>
+    <div className="dashboard">
       <PageHeader title="Dashboard" />
-      <Link className="button primary receive-button" to="/receiving-log/new">
-        Receive samples
-      </Link>
 
-      <section className="card" aria-labelledby="recent-activity">
-        <h2 id="recent-activity">Recent activity</h2>
+      <div className="dash-top">
+        <section className="dash-panel dash-receive" aria-labelledby="dash-receive">
+          <div className="dash-receive-intro">
+            <span className="dash-receive-icon" aria-hidden="true">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 7l9-4 9 4-9 4-9-4z" />
+                <path d="M3 7v10l9 4 9-4V7" />
+                <path d="M12 11v10" />
+              </svg>
+            </span>
+            <div>
+              <h2 id="dash-receive">Receive samples</h2>
+              <p>
+                Record buckets for a project, print their labels, and they appear in Sample Storage.
+              </p>
+            </div>
+          </div>
+          <div className="dash-receive-actions">
+            <Link className="button primary receive-button" to="/receiving-log/new">
+              <span aria-hidden="true">+</span>
+              Receive samples
+            </Link>
+            {drafts.state === 'ready' && drafts.drafts.length > 0 ? (
+              <>
+                <Link className="button" to="/receiving-log/new">
+                  Resume a draft ({drafts.drafts.length})
+                </Link>
+                <span className="dash-receive-count">{draftCountText(drafts.drafts)}</span>
+              </>
+            ) : null}
+          </div>
+        </section>
+
+        <div className="dash-panel dash-lookup">
+          <LookUpId
+            className="dash-lookup-form"
+            heading="Look up a storage unit"
+            label="Storage unit ID"
+            hint="Scan the label or type the ID. On a phone, use Scan with camera."
+          />
+          <CameraScanButton />
+        </div>
+      </div>
+
+      <RecentlyReceived />
+
+      <div className={showPrinter ? 'dash-lower dash-lower-3' : 'dash-lower'}>
+        <RecentActivity />
+        <DraftsCard drafts={drafts} />
+        {showPrinter ? <LabelPrinterCard /> : null}
+      </div>
+    </div>
+  );
+}
+
+function RecentActivity() {
+  const [activity, retry] = useLoad('activity', fetchRecentActivity);
+  return (
+    <section className="dash-panel" aria-labelledby="dash-activity">
+      <div className="dash-head">
+        <h2 id="dash-activity">Recent activity</h2>
+      </div>
+      <div className="dash-body">
         {activity.state === 'loading' ? (
           <ul className="activity skeleton" aria-busy="true" aria-label="Loading recent activity">
             <li />
@@ -65,27 +104,20 @@ export function DashboardPage() {
             <li />
           </ul>
         ) : activity.state === 'error' ? (
-          <ErrorState message={activity.message} onRetry={() => setAttempt((a) => a + 1)} />
-        ) : activity.items.length === 0 ? (
+          <ErrorState message={activity.message} onRetry={retry} />
+        ) : activity.data.length === 0 ? (
           <EmptyState>No activity yet. Receive the first storage unit.</EmptyState>
         ) : (
-          <ul className="activity">
-            {activity.items.map((item) => (
+          <ul className="dash-activity">
+            {activity.data.map((item) => (
               <li key={item.id}>
-                {item.href ? <Link to={item.href}>{item.summary}</Link> : item.summary}
-                <span className="activity-time">
-                  {' · '}
-                  <time dateTime={item.occurredAt}>
-                    {timeFormat.format(new Date(item.occurredAt))}
-                  </time>
-                </span>
+                <time dateTime={item.occurredAt}>{shortDateTime(item.occurredAt)}</time>
+                <span>{item.href ? <Link to={item.href}>{item.summary}</Link> : item.summary}</span>
               </li>
             ))}
           </ul>
         )}
-      </section>
-
-      <SystemStatus />
-    </>
+      </div>
+    </section>
   );
 }
