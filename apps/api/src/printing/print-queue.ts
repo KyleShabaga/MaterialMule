@@ -62,8 +62,14 @@ const SELECT_JOBS = `
          j.physically_confirmed_at,
          j.requested_by_user_id, rq.display_name AS requested_by_name,
          rq.official_initials AS requested_by_initials,
-         j.receiver_user_id, rc.display_name AS receiver_name,
-         rc.official_initials AS receiver_initials,
+         j.receiver_user_id,
+         -- MM-T65: the receiver as they were when the job was requested; for older jobs without
+         -- a snapshot (none in history either), the person as they are now. Initials and name
+         -- always come from the same source.
+         CASE WHEN j.receiver_name_snapshot IS NOT NULL THEN j.receiver_name_snapshot
+              ELSE rc.display_name END AS receiver_name,
+         CASE WHEN j.receiver_name_snapshot IS NOT NULL THEN j.receiver_initials_snapshot
+              ELSE rc.official_initials END AS receiver_initials,
          j.physically_confirmed_by_user_id AS confirmed_by_user_id,
          cf.display_name AS confirmed_by_name, cf.official_initials AS confirmed_by_initials
   FROM print_job j
@@ -219,9 +225,17 @@ export async function enqueuePrintJob(
 
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
-                              receiver_user_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [request.kind, printer.key, TEMPLATE_VERSION, user.userId, receiver?.userId ?? null],
+                              receiver_user_id, receiver_initials_snapshot, receiver_name_snapshot)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [
+        request.kind,
+        printer.key,
+        TEMPLATE_VERSION,
+        user.userId,
+        receiver?.userId ?? null,
+        receiver?.initials ?? null,
+        receiver?.name ?? null,
+      ],
     );
     const jobId = rows[0]!.id;
     await client.query(

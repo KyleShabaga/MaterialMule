@@ -608,6 +608,43 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
         }),
       ).resolves.toBeTruthy();
     });
+
+    describe('receiver snapshots (MM-T65)', () => {
+      const credited = (initials: string | null, name: string | null) =>
+        job({
+          receiver_user_id: userId,
+          receiver_initials_snapshot: initials,
+          receiver_name_snapshot: name,
+        });
+
+      it('T3/AC3: refuses a new receiver-crediting job without its name snapshot', async () => {
+        await expect(job({ receiver_user_id: userId })).rejects.toMatchObject({
+          code: PG.checkViolation,
+        });
+        await expect(credited('AT', null)).rejects.toMatchObject({ code: PG.checkViolation });
+        await expect(credited('AT', 'Test AT')).resolves.toBeTruthy();
+        // A receiver without confirmed initials at the time is recorded by name.
+        await expect(credited(null, 'Test AT')).resolves.toBeTruthy();
+      });
+
+      it('refuses snapshots without a receiver, malformed ones and clearing them later', async () => {
+        await expect(job()).resolves.toBeTruthy();
+        await expect(
+          job({ receiver_initials_snapshot: 'AT', receiver_name_snapshot: 'Test AT' }),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+        await expect(credited('at', 'Test AT')).rejects.toMatchObject({
+          code: PG.checkViolation,
+        });
+        await expect(credited('AT', '  ')).rejects.toMatchObject({ code: PG.checkViolation });
+
+        const { rows } = await credited('AT', 'Test AT');
+        await expect(
+          db.pool.query(`UPDATE print_job SET receiver_name_snapshot = NULL WHERE id = $1`, [
+            rows[0]!.id,
+          ]),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      });
+    });
   });
 
   describe('staff directory (MM-T07)', () => {
