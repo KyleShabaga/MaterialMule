@@ -16,7 +16,9 @@
   overflow-wrap: break-word;
 }
 
-/* Storage unit IDs, dates and times never break mid-token. */
+/* A .table-stack (MM-T66 UI-07): narrower than 48rem, as at 770–870px beside the menu, the rows
+   stack into cards instead of widening the page. Storage unit IDs, dates and times never break
+   mid-token. */
 .receiving-log-table .receipt-unit-id,
 .receiving-log-table time,
 .receipt-date {

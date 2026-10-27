@@ -19,7 +19,8 @@ import './inventory.css';
 import { LookUpId } from './LookUpId';
 import { ProjectFilter } from './ProjectFilter';
 import { CameraScanButton } from '../scanning/CameraScanButton';
-import { StorageUnitTable } from './StorageUnitTable';
+import { StorageUnitTable, type StorageUnitTableView } from './StorageUnitTable';
+import { readTableView, rememberTableView } from './table-view';
 import { useLatestSearchParams } from './useLatestSearchParams';
 import {
   clearedInventoryQuery,
@@ -51,6 +52,11 @@ export function InventoryPage() {
   const [params, setParams] = useLatestSearchParams();
   const location = useLocation();
   const query = useMemo(() => readInventoryQuery(params), [params]);
+  const [view, setView] = useState<StorageUnitTableView>(readTableView);
+  const chooseView = (next: StorageUnitTableView) => {
+    setView(next);
+    rememberTableView(next);
+  };
   const requestKey = inventorySearchParams(query).toString();
 
   const [result, setResult] = useState<Loaded<InventoryPageData> | null>(null);
@@ -246,6 +252,18 @@ export function InventoryPage() {
             ))}
           </ul>
         ) : null}
+        <div className="view-switch" role="group" aria-label="Table view">
+          {(['standard', 'compact'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={view === option}
+              onClick={() => chooseView(option)}
+            >
+              {option === 'standard' ? 'Standard' : 'Compact'}
+            </button>
+          ))}
+        </div>
         <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
           {page ? countLabel(page.total) : 'Loading…'}
         </p>
@@ -275,7 +293,7 @@ export function InventoryPage() {
           </EmptyState>
         ) : (
           <div className="table-card">
-            <StorageUnitTable items={page.items} linkState={linkState} />
+            <StorageUnitTable items={page.items} linkState={linkState} view={view} />
             {page.total > page.pageSize ? (
               <nav className="pager" aria-label="Pages">
                 <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>

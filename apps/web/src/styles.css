@@ -55,6 +55,10 @@
   --radius-control: 4px;
   --target: 44px;
   --control: 40px;
+  /* MM-T66 UI-02/03: one badge height, one gap between buttons, one gap between button groups. */
+  --badge-height: 1.25rem;
+  --gap-button: 0.5rem;
+  --gap-group: 1rem;
 
   /* Inter and JetBrains Mono are bundled (see main.tsx); the rest are fallbacks while they load. */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -118,6 +122,16 @@ body {
 
 a {
   color: var(--accent);
+  text-underline-offset: 0.15em;
+}
+
+/* MM-T66 UI-01: every link answers the pointer the same way: darker text and a thicker
+   underline (or an underline where there was none). Nothing moves; focus keeps its outline.
+   Navigation, tab and button links set their own hover further down. */
+a:hover {
+  color: var(--accent-ink);
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
 }
 
 :focus-visible {
@@ -375,7 +389,15 @@ button:disabled:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--gap-group);
+}
+
+/* Buttons beside a page title wrap as a group, never touching (MM-T66 UI-03). */
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--gap-button);
 }
 
 .page-header h1 {
@@ -593,12 +615,14 @@ button:disabled:hover {
 .badge {
   display: inline-flex;
   align-items: center;
+  min-height: var(--badge-height);
   padding: 1px 0.5rem;
   border: 1px solid var(--neutral-line);
   border-radius: var(--radius-tag);
   background: var(--neutral-bg);
   color: var(--neutral);
-  font: 500 0.6875rem/1.3 var(--font-mono);
+  font: 500 0.6875rem/1rem var(--font-mono);
+  vertical-align: middle;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   /* Some statuses are a sentence (the offline notice); they wrap rather than widen the page. */
@@ -678,7 +702,7 @@ button:disabled:hover {
 .print-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--gap-button);
 }
 
 .printer-form input:not([type='checkbox']) {
@@ -740,8 +764,9 @@ button:disabled:hover {
 
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--gap-button);
   margin-top: 1rem;
 }
 
@@ -880,7 +905,8 @@ textarea {
 
 .row-actions {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: var(--gap-button);
 }
 
 .filters {
@@ -999,8 +1025,15 @@ textarea {
 
 .readonly-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
   gap: 0 1rem;
+}
+
+/* Inputs fill their cell and may shrink with it, so none spills out of the box (MM-T66 UI-07:
+   at 770–870px the PM/PE field overflowed the Project box). */
+.readonly-grid input {
+  width: 100%;
+  min-width: 0;
 }
 
 .combobox {
@@ -1325,7 +1358,7 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: var(--gap-button) var(--gap-group);
   margin: 1rem 0;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
@@ -1349,6 +1382,16 @@ textarea {
 
 .wizard-actions-spacer {
   flex: 1 1 auto;
+}
+
+/* The bar's buttons wrap together, as one row, below the draft status when space runs out
+   (MM-T66 UI-07: at 770–870px Discard and Next stacked one above the other). */
+.wizard-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--gap-button);
+  margin-left: auto;
 }
 
 .wizard-problems {
@@ -1430,7 +1473,7 @@ textarea {
 .draft-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--gap-button);
 }
 
 .spinner {
@@ -1478,7 +1521,7 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--gap-button);
 }
 
 @media (max-width: 640px) {
@@ -1521,8 +1564,90 @@ textarea {
     display: none;
   }
 
+  .wizard-actions-buttons {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
   .wizard-problems + .draft-status::before {
     content: none;
+  }
+}
+
+/* ---- Review receipt above 1280px (MM-T66 UI-08, UI-11) ---- */
+
+/* Units table (rendered only above 1280px): one row per unit; long summaries wrap to a second
+   line rather than widen the page, and the table scrolls sideways inside its card if it must. */
+.review-units .banded-card-body {
+  padding: 0;
+}
+
+.review-units-scroll {
+  overflow-x: auto;
+}
+
+.review-units-table {
+  border: none;
+}
+
+/* The unit name heads its row but reads as body text, not as a column header. */
+.review-units-table th[scope='row'] {
+  background: none;
+  color: var(--ink);
+  font: 600 0.9375rem/1.25rem var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.review-units-table td,
+.review-units-table th {
+  padding: 0.4375rem 0.75rem;
+  vertical-align: middle;
+}
+
+.review-units-table td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.review-summaries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-hole {
+  font: 600 0.8125rem/1.25rem var(--font-mono);
+}
+
+.review-unit-action {
+  width: 1%;
+  text-align: right;
+}
+
+@media (width > 1280px) {
+  /* Details: labels on one line, values on the next, like a table row. A long value is cut at
+     two lines; it is still read in full by screen readers and shown in full on hover (title). */
+  .review-details .details {
+    grid-template-columns:
+      minmax(0, 2fr) max-content minmax(0, 1.2fr) minmax(0, 2fr)
+      max-content;
+    grid-template-rows: auto auto;
+    grid-auto-flow: column;
+    gap: 0.25rem 1.5rem;
+  }
+
+  .review-details .details dd {
+    align-self: start;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
   }
 }
 
@@ -1942,7 +2067,7 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--gap-button);
   padding-top: 0.875rem;
   border-top: 1px solid var(--line);
 }

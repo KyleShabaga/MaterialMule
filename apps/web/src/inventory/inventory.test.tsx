@@ -237,6 +237,46 @@ describe('Sample Storage inventory (MM-T12)', () => {
     expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('');
   });
 
+  it('MM-T66 UI-10: switches between Standard and Compact with the same rows, and remembers it', async () => {
+    window.localStorage.removeItem('materialmule.sampleStorage.tableView');
+    stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(200, page([item('BKT-2026-000014'), item('BKT-2026-000015')], 2))
+        : undefined,
+    );
+    renderAt('/sample-storage');
+    expect(await screen.findByText('2 storage units')).toBeInTheDocument();
+    const views = screen.getByRole('group', { name: 'Table view' });
+    const standard = within(views).getByRole('button', { name: 'Standard' });
+    const compact = within(views).getByRole('button', { name: 'Compact' });
+    expect(standard).toHaveAttribute('aria-pressed', 'true');
+    expect(compact).toHaveAttribute('aria-pressed', 'false');
+    expect(document.querySelector('.inventory-table-compact')).toBeNull();
+
+    await userEvent.click(compact);
+    expect(compact).toHaveAttribute('aria-pressed', 'true');
+    expect(document.querySelector('.inventory-table-compact')).not.toBeNull();
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent),
+    ).toEqual(['Storage unit', 'Project', 'Test holes', 'Location', 'Received', 'Status']);
+    // Same links and full values (long ones are only cut short visually; the title has them).
+    expect(screen.getByRole('link', { name: 'BKT-2026-000015' })).toHaveAttribute(
+      'href',
+      '/sample-storage/BKT-2026-000015',
+    );
+    expect(within(table).getAllByTitle('TH26-01: G1–S12')).toHaveLength(2);
+    expect(window.localStorage.getItem('materialmule.sampleStorage.tableView')).toBe('compact');
+
+    await userEvent.click(standard);
+    expect(document.querySelector('.inventory-table-compact')).toBeNull();
+    expect(window.localStorage.getItem('materialmule.sampleStorage.tableView')).toBe('standard');
+    window.localStorage.removeItem('materialmule.sampleStorage.tableView');
+  });
+
   it('filters to one receipt (dashboard link) with a removable chip that Clear filters clears', async () => {
     const receiptId = '0b8f5e2a-4c1d-4e6f-9a3b-2d7c8e9f1a2b';
     const fetchMock = stubApi((url) =>

@@ -408,12 +408,191 @@ describe('Receiving wizard (MM-T10)', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     await user.keyboard('{Alt>}n{/Alt}');
-    expect(screen.getByRole('heading', { name: 'Bucket 2' })).toHaveFocus();
+    // MM-T66 UI-05: the new bucket's test hole search has focus.
+    expect(
+      within(bucket(2)).getByRole('combobox', { name: 'Find or add a test hole' }),
+    ).toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Duplicate Bucket 1' }));
     expect(screen.getAllByText('3 storage units').length).toBeGreaterThan(0);
     expect(within(bucket(2)).getByText('TH26-01: G1–S4')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Remove Bucket 3' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
+  });
+
+  describe('MM-T66 UI-08/UI-11: Review receipt above 1280px', () => {
+    /** matchMedia that answers `wide` for exactly the "> 1280px" query and records the queries. */
+    function stubWidth(wide: boolean) {
+      const queries: string[] = [];
+      vi.stubGlobal('matchMedia', (query: string) => {
+        queries.push(query);
+        return {
+          matches: wide && query === '(width > 1280px)',
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+      });
+      return queries;
+    }
+
+    async function toReview(user: User) {
+      await chooseProject(user);
+      await addHole(user, bucket(1), 'TH26-01');
+      await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S4');
+      await addHole(user, bucket(1), 'TH26-02');
+      await user.selectOptions(
+        holeGroup(bucket(1), 'TH26-02').getByLabelText('Summary type'),
+        'all',
+      );
+      await user.click(screen.getByRole('button', { name: 'Add bucket' }));
+      await addHole(user, bucket(2), 'TH26-01');
+      await user.selectOptions(
+        holeGroup(bucket(2), 'TH26-01').getByLabelText('Summary type'),
+        'all',
+      );
+      await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    }
+
+    it('shows one table with shared headers, a row per unit, every summary and Edit', async () => {
+      const queries = stubWidth(true);
+      const user = userEvent.setup();
+      renderWizard();
+      await toReview(user);
+
+      const table = await screen.findByRole('table', { name: 'Storage units in this receipt' });
+      expect(queries).toContain('(width > 1280px)');
+      expect(
+        within(table)
+          .getAllByRole('columnheader')
+          .map((th) => th.textContent),
+      ).toEqual(['Storage unit', 'Type', 'Test holes (SAMPLE#/DEPTH)', 'Note', 'Actions']);
+      const [, first, second] = within(table).getAllByRole('row');
+      expect(within(first!).getByRole('rowheader')).toHaveTextContent('Bucket 1');
+      expect(first).toHaveTextContent('TH26-01 G1–S4');
+      expect(first).toHaveTextContent('TH26-02 ALL');
+      expect(within(second!).getByRole('rowheader')).toHaveTextContent('Bucket 2');
+      // No separate card per unit at this width.
+      expect(screen.queryByRole('region', { name: 'Bucket 1' })).toBeNull();
+      // UI-11: the Details summary keeps every field and its action.
+      const details = screen.getByRole('region', { name: 'Details' });
+      for (const term of ['Project', 'Received date', 'Received by', 'Description', 'Quantity']) {
+        expect(within(details).getByText(term)).toBeInTheDocument();
+      }
+      expect(within(details).getByRole('button', { name: 'Edit details' })).toBeEnabled();
+
+      await user.click(within(table).getByRole('button', { name: 'Edit Bucket 2' }));
+      expect(await screen.findByRole('heading', { name: 'Bucket 2' })).toHaveFocus();
+    });
+
+    it('keeps a card per unit at 1280px and below', async () => {
+      stubWidth(false);
+      const user = userEvent.setup();
+      renderWizard();
+      await toReview(user);
+      expect(await screen.findByRole('region', { name: 'Bucket 1' })).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Bucket 2' })).toBeInTheDocument();
+      expect(screen.queryByRole('table', { name: 'Storage units in this receipt' })).toBeNull();
+    });
+  });
+
+  describe('MM-T66 UI-05/UI-06: keyboard flow for test holes', () => {
+    const search = (unit: HTMLElement) =>
+      within(unit).getByRole('combobox', { name: 'Find or add a test hole' });
+
+    it('Alt+N adds one bucket and typing goes straight into its test hole search', async () => {
+      const user = userEvent.setup();
+      renderWizard();
+      await chooseProject(user);
+      await user.click(within(bucket(1)).getByLabelText('Bucket 1 note (optional)'));
+      await user.keyboard('{Alt>}n{/Alt}');
+      expect(screen.getAllByRole('region', { name: /^Bucket \d$/ })).toHaveLength(2);
+      expect(search(bucket(2))).toHaveFocus();
+      expect(search(bucket(1))).not.toHaveFocus();
+      await user.keyboard('TH26-02');
+      expect(search(bucket(2))).toHaveValue('TH26-02');
+      expect(search(bucket(1))).toHaveValue('');
+      await user.keyboard('{Enter}');
+      expect(
+        within(bucket(2)).getByRole('list', { name: 'Selected test holes' }),
+      ).toHaveTextContent('TH26-02');
+    });
+
+    it('Alt+N still works after Enter has left the test hole search', async () => {
+      const user = userEvent.setup();
+      renderWizard();
+      await chooseProject(user);
+      await user.type(search(bucket(1)), 'TH26-01');
+      await within(bucket(1)).findByRole('option', { name: 'TH26-01' });
+      await user.keyboard('{Enter}');
+      expect(document.activeElement).toBe(document.body);
+      await user.keyboard('{Alt>}n{/Alt}');
+      expect(search(bucket(2))).toHaveFocus();
+    });
+
+    it('Alt+N before a project is chosen focuses the new bucket heading', async () => {
+      const user = userEvent.setup();
+      renderWizard();
+      await user.click(await screen.findByLabelText('Description (optional)'));
+      await user.keyboard('{Alt>}n{/Alt}');
+      expect(screen.getByRole('heading', { name: 'Bucket 2' })).toHaveFocus();
+    });
+
+    it('Enter on an existing hole selects it, closes the list and leaves the search box', async () => {
+      const user = userEvent.setup();
+      renderWizard();
+      await chooseProject(user);
+      await user.type(search(bucket(1)), 'TH26-01');
+      await within(bucket(1)).findByRole('option', { name: 'TH26-01' });
+      await user.keyboard('{Enter}');
+      expect(
+        within(bucket(1)).getByRole('list', { name: 'Selected test holes' }),
+      ).toHaveTextContent('TH26-01');
+      expect(search(bucket(1))).not.toHaveFocus();
+      expect(search(bucket(1))).toHaveAttribute('aria-expanded', 'false');
+      expect(within(bucket(1)).queryByRole('listbox')).toBeNull();
+      // Nothing was submitted: still on Details.
+      expect(screen.getByRole('button', { name: 'Next: Review' })).toBeInTheDocument();
+    });
+
+    it('Enter on "Add …" creates the hole, selects it and leaves the search box', async () => {
+      const user = userEvent.setup();
+      const th3: TestHole = { id: 'th3', projectId: project.id, name: 'TH26-03' };
+      renderWizard({
+        [`POST /api/projects/${project.id}/test-holes`]: () => json(201, th3),
+      });
+      await chooseProject(user);
+      await user.type(search(bucket(1)), 'TH26-03');
+      await within(bucket(1)).findByRole('option', { name: 'Add TH26-03' });
+      await user.keyboard('{Enter}');
+      await vi.waitFor(() =>
+        expect(
+          within(bucket(1)).getByRole('list', { name: 'Selected test holes' }),
+        ).toHaveTextContent('TH26-03'),
+      );
+      expect(search(bucket(1))).not.toHaveFocus();
+      expect(within(bucket(1)).queryByRole('listbox')).toBeNull();
+    });
+
+    it('a failed add keeps the search box focused with the error', async () => {
+      const user = userEvent.setup();
+      renderWizard({
+        [`POST /api/projects/${project.id}/test-holes`]: () => {
+          throw new TypeError('Failed to fetch');
+        },
+      });
+      await chooseProject(user);
+      await user.type(search(bucket(1)), 'TH26-04');
+      await within(bucket(1)).findByRole('option', { name: 'Add TH26-04' });
+      await user.keyboard('{Enter}');
+      expect(
+        await within(bucket(1)).findByText(
+          "The test hole couldn't be saved. Check the connection.",
+        ),
+      ).toBeInTheDocument();
+      expect(search(bucket(1))).toHaveFocus();
+      expect(search(bucket(1))).toHaveValue('TH26-04');
+      expect(within(bucket(1)).queryByRole('list', { name: 'Selected test holes' })).toBeNull();
+    });
   });
 
   it('AC5: a personal account defaults to itself; a LAB station starts blank', async () => {

@@ -154,7 +154,7 @@ export function ReceiptDetailPage() {
           Current values. A unit whose project or received date was corrected is marked “Corrected”;
           its history shows the change.
         </p>
-        <div className="receiving-log-table">
+        <div className="receiving-log-table table-stack">
           <UnitTable receipt={receipt} />
         </div>
       </section>

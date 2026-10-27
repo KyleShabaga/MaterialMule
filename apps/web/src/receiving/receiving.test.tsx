@@ -14,6 +14,7 @@ const PE = {
   id: '00000000-0000-4000-8000-000000000101',
   displayName: 'Pat Example',
   initials: 'PE',
+  position: 'pm_pe' as const,
 };
 const AT = {
   id: '00000000-0000-4000-8000-000000000102',
@@ -162,6 +163,68 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     });
     expect(screen.getByLabelText('Description (optional)')).toHaveValue('Four buckets');
     expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
+  });
+
+  describe('MM-T66 UI-04: Add project lists only PM/PE staff', () => {
+    // GET /api/staff/active already returns only active personal accounts (never pending,
+    // disabled or LAB; proven in the API's staff tests). Admin authority isn't a position.
+    const person = (initials: string, displayName: string, position: string | null, n: number) => ({
+      id: `00000000-0000-4000-8000-0000000002${String(n).padStart(2, '0')}`,
+      initials,
+      displayName,
+      position,
+    });
+    const STAFF = [
+      person('PM', 'Pam Manager', 'pm_pe', 1),
+      person('EN', 'Eli Engineer', 'engineer', 2),
+      person('TE', 'Tia Technician', 'technician', 3),
+      person('LM', 'Lee Labmanager', 'lab_manager', 4),
+      person('NP', 'Nia Noposition', null, 5),
+      person('AD', 'Ada Admin', null, 6),
+      person('PX', 'Pax Second-Pm', 'pm_pe', 7),
+    ];
+
+    async function openAddProject(staff: unknown[]) {
+      const user = userEvent.setup();
+      renderReceive({
+        'GET /api/projects/search': () => json(200, []),
+        'GET /api/staff/active': () => json(200, staff),
+      });
+      await user.type(await screen.findByRole('combobox', { name: /Find project/ }), '70003');
+      await user.click(screen.getByRole('button', { name: 'Add project' }));
+      return { user, form: screen.getByRole('group', { name: 'Add project' }) };
+    }
+
+    it('offers active pm_pe staff only, in one list without groups', async () => {
+      const { form } = await openAddProject(STAFF);
+      const select = within(form).getByLabelText('PM/PE');
+      await vi.waitFor(() =>
+        expect(
+          within(select)
+            .getAllByRole('option')
+            .map((o) => o.textContent),
+        ).toEqual(['Choose a staff member', 'PM · Pam Manager', 'PX · Pax Second-Pm']),
+      );
+      expect(select.querySelector('optgroup')).toBeNull();
+      expect(within(form).getByText('Lists active staff whose position is PM/PE.')).toBeVisible();
+    });
+
+    it('explains an empty list and never substitutes someone else', async () => {
+      const { user, form } = await openAddProject(STAFF.filter((p) => p.position !== 'pm_pe'));
+      expect(
+        await within(form).findByText(/Nobody active has the PM\/PE position yet\./),
+      ).toBeVisible();
+      const select = within(form).getByLabelText('PM/PE');
+      expect(
+        within(select)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['No PM/PE available']);
+      await user.type(within(form).getByLabelText('Project name'), 'Example');
+      await user.type(within(form).getByLabelText('Client'), 'Example Client');
+      await user.click(within(form).getByRole('button', { name: 'Save project' }));
+      expect(within(form).getByText('PM/PE is required')).toBeInTheDocument();
+    });
   });
 
   it('AC5: shows field errors for a missing client and PM/PE without calling the API', async () => {

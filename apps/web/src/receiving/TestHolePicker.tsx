@@ -4,7 +4,7 @@ import {
   testHoleNameSchema,
   type TestHole,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createTestHole, listTestHoles } from '../api/projects';
 import { useListHighlight } from '../components/useListHighlight';
 
@@ -45,6 +45,7 @@ export function TestHolePicker({
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let current = true;
@@ -88,12 +89,13 @@ export function TestHolePicker({
     onQueryChange('');
   }
 
-  async function add(name: string) {
+  /** Adds a test hole and selects it; true when it was added (or already existed). */
+  async function add(name: string): Promise<boolean> {
     setMessage(null);
     const checked = testHoleNameSchema.safeParse(name);
     if (!checked.success) {
       setMessage({ tone: 'error', text: checked.error.issues[0]!.message });
-      return;
+      return false;
     }
     setSaving(true);
     try {
@@ -119,21 +121,35 @@ export function TestHolePicker({
           setMessage({ tone: 'info', text: addedNote(hole.name) });
         }
         select(hole);
-      } else {
-        setMessage({ tone: 'error', text: Object.values(result.fieldErrors).flat().join(' ') });
+        return true;
       }
+      setMessage({ tone: 'error', text: Object.values(result.fieldErrors).flat().join(' ') });
+      return false;
     } catch {
       setMessage({ tone: 'error', text: "The test hole couldn't be saved. Check the connection." });
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  function pick(option: Option) {
+  /**
+   * After Enter chose a hole (MM-T66 UI-06): close the list and leave the search box, keeping the
+   * selection. A failed add keeps the box focused so the name can be corrected.
+   */
+  function finish() {
+    setOpen(false);
+    input.current?.blur();
+  }
+
+  function pick(option: Option, viaEnter = false) {
     if (option.kind === 'hole') {
       select(option.hole);
+      if (viaEnter) finish();
     } else if (online && !saving) {
-      void add(option.name);
+      void add(option.name).then((added) => {
+        if (added && viaEnter) finish();
+      });
     }
   }
 
@@ -149,7 +165,7 @@ export function TestHolePicker({
       // Enter chooses the highlighted option and never submits the surrounding form (MM-T61).
       event.preventDefault();
       const option = showList ? options[active] : undefined;
-      if (option) pick(option);
+      if (option) pick(option, true);
     } else if (event.key === 'Escape') {
       setOpen(false);
     }
@@ -177,6 +193,7 @@ export function TestHolePicker({
       <div className="form-field combobox">
         <label htmlFor={`${id}-search`}>Find or add a test hole</label>
         <input
+          ref={input}
           id={`${id}-search`}
           role="combobox"
           aria-autocomplete="list"

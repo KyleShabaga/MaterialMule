@@ -282,8 +282,13 @@ importing its `latin-<weight>.css` next to the others.
 | Phone   | ≤ 640px    | One column. Side menu becomes a full-screen drawer behind a "Menu" button. Tables become stacked cards. Wizard actions stick to the bottom. |
 | Tablet  | 641–1024px | Side menu stays; forms one column; tables keep columns and scroll in their own box if wider.                                                |
 | Desktop | > 1024px   | Side menu (14rem) + content. Content max width 72rem for tables, 48rem for forms and scan panels.                                           |
+| Wide    | > 1280px   | Strictly wider than 1280px (`(width > 1280px)`, `WIDE_SCREEN` in `useMediaQuery.ts`). Only the three MM-T66 layouts below change here.      |
 
 Use the single `640px` phone breakpoint everywhere; don't add others without updating this table.
+The wide breakpoint (MM-T66) applies only to: the Review receipt Details strip and units table
+(Receive samples step 2) and the storage unit page's one-column cards. At exactly 1280px the
+narrower layout stays. Wide tables that sit beside the side menu use `.table-stack`, so they stack
+by their own width (MM-T58/T60, and the Receiving Log tables since MM-T66).
 
 ### Spacing
 
@@ -497,6 +502,30 @@ receiver selector, and times are local.
 - Touch targets ≥44px at phone width and on the LAB station.
 - Pages pass at 200% zoom and at 320px width without horizontal page scroll.
 
+## Shared rules from MM-T66
+
+- **Links:** every link answers hover the same way: `accent-ink` text and a 2px underline (an
+  underline appears where there was none). Nothing moves, and the focus outline is unchanged.
+  Navigation, tab and button-styled links keep their own hover.
+- **Badges and tags:** `.badge`, `.type-tag`, `.dash-tag` and `.note-tag` share one height
+  (`--badge-height`, 20px), 11px type on a 16px line, and 1px × 8px padding; widths follow the
+  text. SAMPLE#/DEPTH chips (`.hole-tag`) are content, not badges, and keep their size.
+- **Button spacing:** buttons side by side are `--gap-button` (8px) apart, groups `--gap-group`
+  (16px), and every action row wraps as a whole (`flex-wrap`), never touching. Page-title actions
+  use `.page-actions`; the receiving action bar keeps its buttons together in
+  `.wizard-actions-buttons`, so they wrap below the draft status as one row.
+- **Receive samples keyboard:** Alt+N adds a storage unit and puts focus in its test hole search
+  (its heading before a project is chosen); it works anywhere on the Details step except while a
+  dialog is open. Enter on a test hole (existing or newly added) selects it, closes the list and
+  leaves the search box; a failed add keeps the box focused with the error.
+- **Add project from Receive samples:** the PM/PE list offers only active staff whose position is
+  PM/PE (`pm_pe`), in one list, with a hint; when nobody qualifies it says so and offers nobody
+  else. Edit project, Review engineer and Correct details keep the grouped list (MM-T61). This is a
+  UI filter: it grants no role and changes no project authority.
+- **Review receipt above 1280px:** the Details card is one strip (labels on one line, values on the
+  next, each value at most two lines with the full text in the `title`), and the storage units are
+  one table: Storage unit, Type, Test holes (SAMPLE#/DEPTH), Note and Edit, one row per unit.
+
 ## Shared receiving station (LAB)
 
 - LAB is one shared account that can be signed in on several lab computers at the same time
@@ -564,9 +593,17 @@ Built to the canvas artboards "Sample Storage — list", "Storage unit detail", 
   Clear filters on one line; the results table and its pager on one card. The storage unit ID is
   the row's link (no View column); its type is a small mono tag under it, the project number is
   mono `accent-ink`, test holes are mono tags, and IDs and dates never break.
+- **Standard / Compact view (MM-T66 UI-10):** two joined toggle buttons ("Table view") beside the
+  count. Compact shows the same records, columns and links with each record on one line, 5px cell
+  padding, test holes as one comma-separated mono line; long project names, test-hole lists and
+  locations end in "…" with the full text in the page and the `title`. The compact table never
+  stacks; it scrolls sideways inside its card when it must. The choice is remembered on this
+  browser (`materialmule.sampleStorage.tableView`), Standard by default.
 - **Detail:** the ID large with its type tag, status and location under it, and Correct details
   (primary) on the right. Summaries and History on the left, Receipt and Location and retention on
-  the right (one column at 1024px and below), each a `BandedCard` with label-left rows. The label
+  the right from 1025 to 1280px; one column at 1024px and below **and above 1280px** (MM-T66 UI-09),
+  in the same order (Summaries, History, Receipt, Location and retention), each a `BandedCard` with
+  label-left rows. The label
   preview and print view (MM-T55) and the Labels section run full width below.
 - **Correct details** replaces the page with its own heading and a "← Back to <ID>" button; focus
   moves to the heading and back to the Correct details button. Type and Received date sit side by
