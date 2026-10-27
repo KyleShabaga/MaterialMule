@@ -1,14 +1,12 @@
 name: CI
 
-# Kept small to save Actions minutes (Windows runners bill at 2x). Each PR is tested on top of the
-# latest main before it merges, so there is no extra run on main; start one by hand from the Actions
-# tab (workflow_dispatch) when needed. Draft PRs and docs-only changes don't run CI.
+# Kept small to save Actions minutes. The "Protect main" ruleset requires `verify` to pass on a PR
+# that is up to date with main, so there is no extra run on main; start one by hand from the Actions
+# tab (workflow_dispatch) when needed. Draft PRs skip CI until they are marked ready. Docs-only
+# changes still run: a required check that never runs would block the PR.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
   workflow_dispatch:
 
 permissions:
