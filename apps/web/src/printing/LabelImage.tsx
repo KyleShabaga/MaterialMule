@@ -7,16 +7,19 @@ export function LabelImage({
   svg,
   readableId,
   className,
+  alt,
 }: {
   svg: string;
   readableId: string;
   className?: string;
+  /** Override the accessible name, e.g. for a page stand-in that repeats the preview. */
+  alt?: string;
 }) {
   return (
     <img
       className={className}
       src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
-      alt={`Label for storage unit ${readableId}`}
+      alt={alt ?? `Label for storage unit ${readableId}`}
       // 3.5 × 1.5 in at 96 CSS px per inch; CSS sets the real size.
       width={336}
       height={144}
