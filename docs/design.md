@@ -118,7 +118,7 @@ rounded:
   md: 0.375rem
   lg: 0.5rem
   xl: 0.75rem
-  full: 9999px
+  # No `full` radius: nothing in the app is pill-shaped (Kyle, 2026-10-26).
 spacing:
   gutter: 1rem
   gutter-desktop: 1.5rem
@@ -173,8 +173,9 @@ favours fast reading, clear accountability (who did what, when) and honest statu
 
 - **Look:** structural lines, tonal layers, high-contrast status, monospaced identifiers. No
   gradients, glows, illustrations or emoji.
-- **Shape:** "soft industrial" — 4px corners on controls, 8px on containers, pills only for status
-  badges, ID badges and filter chips, so a pill never looks like a button.
+- **Shape:** "soft industrial" — square-ish corners. **Nothing is pill-shaped** (Kyle, 2026-10-26): badges,
+  ID badges, tags and chips use 2px corners like the header and sidebar; controls 4px; containers
+  8px. Badges are told apart from buttons by size, mono type and having no hover state.
 - **Name:** the product is **Material Mule** (renamed from Trapezoid on 2026-10-26). A logo or
   wordmark is **Proposal — pending Kyle**; until then the header shows the name in `headline-sm`.
 
@@ -378,7 +379,7 @@ markup; add a variant there rather than restyling one screen.
 
 ### Status badges
 
-`StatusBadge` shows status as **text first**; colour only supports it. Badges are pills, uppercase
+`StatusBadge` shows status as **text first**; colour only supports it. Badges have 2px corners, uppercase
 via CSS, `label-mono-sm`, 1px border, tone background.
 
 | Tone    | Material Mule statuses today                                                                                                                  |
@@ -395,7 +396,7 @@ retention holds arrive; they are not V1 statuses.
 
 ### Storage unit ID badge
 
-Pill, `surface-card` fill, `text` in `label-mono-lg`, with a small barcode glyph before the ID
+2px corners, `surface-card` fill, `text` in `label-mono-lg`, with a small barcode glyph before the ID
 (inline SVG, `aria-hidden="true"`). The ID text is selectable and is the accessible name. Use it in
 tables, scan results and the issued-units list; the detail page heading shows the ID large instead.
 
@@ -570,6 +571,7 @@ Found while writing this guide (main at 57978f3). These are what the consistency
 16. The skip link appears with `var(--bg)` and no border or focus ring offset rule of its own.
 17. The issued-unit heading uses `ui-monospace`; storage unit IDs elsewhere (tables, unit detail
     heading) use the body font.
+    17a. Filter chips (`.chips li`, `border-radius: 999px`) and wizard step numbers (`.step-number`, a circle) are round; with the no-pill rule they get 2px corners.
 
 **Wording**
 
