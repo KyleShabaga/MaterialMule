@@ -86,6 +86,9 @@ describe.runIf(testDatabaseUrl)('projects and test holes (TRP-T08)', () => {
       }),
     );
     await app.init();
+    // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+    // on the same server and can see a null address (flaky 'server.address() null').
+    await app.listen(0, '127.0.0.1');
     await addUser('pe', 'personal');
     await addUser('tech', 'personal');
     await addUser('lab', 'shared_lab');
