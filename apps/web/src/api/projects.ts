@@ -1,4 +1,5 @@
 import {
+  bulkGroupListSchema,
   projectConflictResponseSchema,
   projectSearchResponseSchema,
   projectSummarySchema,
@@ -8,6 +9,7 @@ import {
   testHoleSchema,
   validationErrorResponseSchema,
   messagesByField,
+  type BulkGroupSummary,
   type CreateProjectRequest,
   type CreateTestHoleRequest,
   type ProjectSummary,
@@ -46,6 +48,13 @@ export function listTestHoles(projectId: string, query = ''): Promise<TestHole[]
   return getJson(
     `/api/projects/${encodeURIComponent(projectId)}/test-holes?q=${encodeURIComponent(query)}`,
     (body) => testHoleListResponseSchema.parse(body),
+  );
+}
+
+/** A project's bulk samples, for the receiving picker and the correction form (MM-T36). */
+export function listBulkGroups(projectId: string): Promise<BulkGroupSummary[]> {
+  return getJson(`/api/projects/${encodeURIComponent(projectId)}/bulk-groups`, (body) =>
+    bulkGroupListSchema.parse(body),
   );
 }
 

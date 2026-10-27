@@ -147,7 +147,7 @@ describe('draft model', () => {
       ),
     );
     const request = toConfirmRequest(d);
-    expect(request.units[0]!.holeSummaries[0]).toEqual({
+    expect(request.units[0]!.holeSummaries![0]).toEqual({
       testHoleId: th1.id,
       type: 'depth_range',
       note: '',
@@ -156,7 +156,7 @@ describe('draft model', () => {
       depthUnit: 'm',
     });
     const parsed = confirmReceiptRequestSchema.parse(request);
-    expect(parsed.units[0]!.holeSummaries[0]).toMatchObject({
+    expect(parsed.units[0]!.holeSummaries![0]).toMatchObject({
       depthFrom: 0,
       depthTo: 10.5,
       depthUnit: 'm',

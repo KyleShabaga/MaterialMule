@@ -37,9 +37,15 @@ export function buildInventoryQuery(query: InventoryQuery): InventorySql {
     where.push(`su.project_id = ${param(query.projectId)}`);
   }
   if (query.testHoleId) {
+    // Units from that hole: summarised per hole, a Shelby tube sourced from it, or a bulk bucket
+    // whose group is sourced from it (MM-T36).
+    const hole = param(query.testHoleId);
     where.push(
-      `EXISTS (SELECT 1 FROM storage_unit_hole_summary h
-               WHERE h.storage_unit_id = su.id AND h.test_hole_id = ${param(query.testHoleId)})`,
+      `(EXISTS (SELECT 1 FROM storage_unit_hole_summary h
+                WHERE h.storage_unit_id = su.id AND h.test_hole_id = ${hole})
+        OR su.source_test_hole_id = ${hole}
+        OR EXISTS (SELECT 1 FROM bulk_group g
+                   WHERE g.id = su.bulk_group_id AND g.test_hole_id = ${hole}))`,
     );
   }
   if (query.type) {

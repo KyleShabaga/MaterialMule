@@ -21,15 +21,15 @@ interface StickerRow {
  * The unit's current sticker values, selected exactly as the print worker (T15) selects them, so
  * the preview shows what the ZD621 would print. Read-only: no print job, no audit event.
  */
+// The origin line (test-hole / field-location names) comes from storage_unit_origin_names
+// (migration 0029): hole names, a Shelby tube's source or a bulk group's source. Never sample
+// references, depths, group IDs or bucket counts (MM-T36 sticker contract).
 const STICKER_SELECT = `
   SELECT su.id, su.readable_id, su.received_date::text AS received_date,
          p.project_number, p.name AS project_name,
-         COALESCE(array_agg(th.name ORDER BY th.name_normalized)
-                    FILTER (WHERE th.id IS NOT NULL), '{}') AS test_holes
+         storage_unit_origin_names(su.id) AS test_holes
   FROM storage_unit su
-  JOIN project p ON p.id = su.project_id
-  LEFT JOIN storage_unit_hole_summary s ON s.storage_unit_id = su.id
-  LEFT JOIN test_hole th ON th.id = s.test_hole_id`;
+  JOIN project p ON p.id = su.project_id`;
 
 function toPreview(row: StickerRow): LabelPreview {
   const preview = renderPreviewSvg({
@@ -53,8 +53,7 @@ export async function getLabelPreview(pool: Pool, idOrCode: string): Promise<Lab
   const byUuid = UUID_PATTERN.test(idOrCode);
   const { rows } = await pool.query<StickerRow>(
     `${STICKER_SELECT}
-     WHERE ${byUuid ? 'su.id' : 'su.readable_id'} = $1
-     GROUP BY su.id, p.id`,
+     WHERE ${byUuid ? 'su.id' : 'su.readable_id'} = $1`,
     [byUuid ? idOrCode : normalizeStorageUnitCode(idOrCode)],
   );
   const row = rows[0];
@@ -72,7 +71,6 @@ export async function getReceiptLabelPreviews(
   const { rows } = await pool.query<StickerRow>(
     `${STICKER_SELECT}
      WHERE su.receipt_id = $1
-     GROUP BY su.id, p.id
      ORDER BY su.receipt_line NULLS LAST, su.readable_id`,
     [receiptId],
   );

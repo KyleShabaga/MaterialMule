@@ -38,6 +38,8 @@ const DETAIL: StorageUnitDetail = {
     name: 'Riverbank investigation',
     client: 'Example Client',
   },
+  sample: null,
+  bulkGroup: null,
   holes: [
     {
       testHoleId: 'th1',

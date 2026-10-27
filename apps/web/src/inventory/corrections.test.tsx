@@ -26,6 +26,8 @@ const UNIT: StorageUnitDetail = {
   minimumRetainUntil: '2027-10-23',
   version: 1,
   project: PROJECT,
+  sample: null,
+  bulkGroup: null,
   holes: [
     {
       testHoleId: '00000000-0000-4000-8000-000000000301',

@@ -344,7 +344,7 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
   it('AC5: a test hole from another project returns 422 and changes nothing', async () => {
     const before = await snapshot();
     const body = twoBuckets();
-    body.units[1]!.holeSummaries[0]!.testHoleId = otherProjectHole;
+    body.units[1]!.holeSummaries![0]!.testHoleId = otherProjectHole;
     const response = await post(body);
     expect(response.status).toBe(422);
     expect(response.body).toEqual({
@@ -435,7 +435,7 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
 
     it('rejects a malformed payload with field paths', async () => {
       const body = twoBuckets();
-      body.units[0]!.holeSummaries[0] = { testHoleId: th01, type: 'depth_range' } as never;
+      body.units[0]!.holeSummaries![0] = { testHoleId: th01, type: 'depth_range' } as never;
       await expectFieldError(body, 'units.0.holeSummaries.0.depthUnit', 'required');
       await expectFieldError({ ...twoBuckets(), units: [] }, 'units', 'too_small');
       await expectFieldError('not json', 'idempotencyKey', 'invalid_type');

@@ -100,9 +100,11 @@ describe.runIf(testDatabaseUrl)('scanning a printed label opens its storage unit
 
   it('AC2: a label reprinted after a correction still opens the same unit', async () => {
     const readableId = 'BKT-2026-000014';
-    // A correction (D45) changes the current type, project and date, never the issued ID.
+    // A correction (D45) changes the current type, project and date, never the issued ID. (A
+    // bulk soil bucket now needs a bulk group, MM-T36, so the example type is a Shelby tube.)
     await db.pool.query(
-      `UPDATE storage_unit SET unit_type = 'bulk_container', project_id = $2,
+      `UPDATE storage_unit SET unit_type = 'shelby_tube', holder_kind = 'shelby_tube',
+                               project_id = $2,
                                received_date = '2026-10-24'
        WHERE id = $1`,
       [unitIds[readableId], otherProjectId],

@@ -272,6 +272,20 @@
   list-style: none;
 }
 
+/* MM-T36: the bulk badge sits in the chip list without a chip of its own. */
+.bulk-badge-item {
+  display: flex;
+  align-items: center;
+}
+
+/* A bulk sample's buckets on a member's detail page, in "n of N" order. */
+.bulk-members {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
 .hole-tag {
   padding: 0.125rem 0.5rem;
   border: 1px solid var(--line);

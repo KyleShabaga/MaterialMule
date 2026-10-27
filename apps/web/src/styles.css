@@ -1347,6 +1347,38 @@ textarea {
   min-height: 36px;
 }
 
+/* MM-T36: each unit row's physical holder and Bulk soil sample box, and the sampling source
+   choice (Test hole / Standalone sampling location) inside a tube's or bulk sample's fields. */
+.unit-kind {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--gap-group);
+  align-items: flex-start;
+}
+
+.unit-kind .form-field {
+  flex: 0 1 14rem;
+  min-width: 0;
+}
+
+.checkbox-field .checkbox {
+  margin: 0;
+}
+
+.source-type {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  padding: 0.4rem 0;
+}
+
+/* "Bulk sample · B1 · bucket 1 of 2": app metadata only, never on the sticker. */
+.badge-bulk {
+  background: var(--info-bg);
+  border-color: var(--info-line);
+  color: var(--info);
+}
+
 .quantity {
   margin: 0;
   font-weight: 600;

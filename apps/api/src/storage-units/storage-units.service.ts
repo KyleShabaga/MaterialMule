@@ -10,6 +10,7 @@ import {
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from './hole-summaries.js';
+import { loadBulkGroupMembers, loadSampleIdentities } from './sample-identity.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,10 +18,21 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 async function findUnit(
   pool: Pool,
   idOrCode: string,
-): Promise<{ id: string; readable_id: string; receipt_id: string } | null> {
+): Promise<{
+  id: string;
+  readable_id: string;
+  receipt_id: string;
+  bulk_group_id: string | null;
+} | null> {
   const byUuid = UUID_PATTERN.test(idOrCode);
-  const { rows } = await pool.query<{ id: string; readable_id: string; receipt_id: string }>(
-    `SELECT id, readable_id, receipt_id FROM storage_unit WHERE ${byUuid ? 'id' : 'readable_id'} = $1`,
+  const { rows } = await pool.query<{
+    id: string;
+    readable_id: string;
+    receipt_id: string;
+    bulk_group_id: string | null;
+  }>(
+    `SELECT id, readable_id, receipt_id, bulk_group_id
+     FROM storage_unit WHERE ${byUuid ? 'id' : 'readable_id'} = $1`,
     [byUuid ? idOrCode : normalizeStorageUnitCode(idOrCode)],
   );
   return rows[0] ?? null;
@@ -99,6 +111,8 @@ export async function getStorageUnitDetail(
   );
   const row = rows[0]!;
   const holes = await loadHoleSummaries(pool, [row.id]);
+  const identity = (await loadSampleIdentities(pool, [row.id])).get(row.id);
+  const group = identity?.bulkGroup ?? null;
   return {
     id: row.id,
     readableId: row.readable_id,
@@ -115,6 +129,15 @@ export async function getStorageUnitDetail(
       client: row.client,
     },
     holes: holes.get(row.id) ?? [],
+    sample: identity?.sample ?? null,
+    bulkGroup: group && {
+      groupId: group.groupId,
+      memberNumber: group.memberNumber,
+      memberCount: group.memberCount,
+      description: group.description,
+      version: group.version,
+      members: await loadBulkGroupMembers(pool, group.groupId),
+    },
     location: { id: row.location_id, code: row.location_code, name: row.location_name },
     receipt: {
       id: row.receipt_id,
@@ -149,8 +172,9 @@ interface HistoryRow {
 }
 
 /**
- * Audit history of a unit, newest first and paged: its own events plus its receipt's
- * confirmation. Print jobs have their own section (print history, MM-T15).
+ * Audit history of a unit, newest first and paged: its own events, its receipt's confirmation
+ * and, for a bulk soil bucket, its current group's creation and identity corrections (MM-T36).
+ * Print jobs have their own section (print history, MM-T15).
  */
 export async function getStorageUnitHistory(
   pool: Pool,
@@ -161,10 +185,12 @@ export async function getStorageUnitHistory(
   if (!unit) return null;
   const pageSize = STORAGE_UNIT_HISTORY_PAGE_SIZE;
   const where = `(e.entity_type = 'storage_unit' AND e.entity_id = $1)
-                 OR (e.entity_type = 'receipt' AND e.entity_id = $2)`;
+                 OR (e.entity_type = 'receipt' AND e.entity_id = $2)
+                 OR (e.entity_type = 'bulk_group' AND e.entity_id = $5)`;
   const count = await pool.query<{ total: number }>(
-    `SELECT count(*)::int AS total FROM audit_event e WHERE ${where}`,
-    [unit.id, unit.receipt_id],
+    `SELECT count(*)::int AS total FROM audit_event e
+     WHERE ${where.replace('$5', '$3')}`,
+    [unit.id, unit.receipt_id, unit.bulk_group_id],
   );
   // The receiver as they were at the event (MM-T56): the event's own snapshot; for events written
   // before migration 0025, the unit's receipt snapshot when the event credits that receiver; only
@@ -190,11 +216,12 @@ export async function getStorageUnitHistory(
      -- Events of one transaction share occurred_at and the ids are random, so rank them: the
      -- unit's creation is the oldest of its instant, then by action (MM-T61, same order everywhere).
      ORDER BY e.occurred_at DESC,
-              CASE e.action WHEN 'storage_unit.created' THEN 1 ELSE 0 END,
+              CASE e.action WHEN 'storage_unit.created' THEN 1 WHEN 'bulk_group.created' THEN 2
+                            ELSE 0 END,
               e.action DESC,
               e.id DESC
      LIMIT $3 OFFSET $4`,
-    [unit.id, unit.receipt_id, pageSize, (page - 1) * pageSize],
+    [unit.id, unit.receipt_id, pageSize, (page - 1) * pageSize, unit.bulk_group_id],
   );
   return {
     items: rows.map((row) => ({

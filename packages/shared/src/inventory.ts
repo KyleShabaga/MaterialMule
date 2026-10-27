@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HOLE_SUMMARY_TYPES } from './receipts';
+import { bulkGroupDetailSchema, bulkMembershipSchema, sampleIdentitySchema } from './samples';
 
 // Storage unit inventory, search and detail (MM-T12). One row per tracked storage unit; ordinary
 // samples are never inventory rows. Filtering, sorting and paging all happen on the server.
@@ -32,7 +33,8 @@ export function storageUnitTypeLabel(type: StorageUnitType): string {
     case 'shelby_tube':
       return 'Shelby tube';
     case 'bulk_container':
-      return 'Bulk container';
+      // A bucket holding a bulk soil sample (MM-T36); its BKT- ID still names the bucket.
+      return 'Bulk soil sample';
   }
 }
 
@@ -198,6 +200,13 @@ export const inventoryItemSchema = z.object({
   status: z.enum(STORAGE_UNIT_STATUSES),
   project: projectRef,
   holes: z.array(storageUnitHoleSummarySchema),
+  /**
+   * A Shelby tube's own sampling source, sample reference and depth, or a bulk soil bucket's
+   * group identity (MM-T36). Null for units summarised per test hole.
+   */
+  sample: sampleIdentitySchema.nullable(),
+  /** "Bucket n of N" in the unit's bulk group; null unless it holds a bulk soil sample. */
+  bulkGroup: bulkMembershipSchema.nullable(),
   /** Last saved location (a pending move never replaces it, MM-T28). */
   location: locationRef,
   receivedDate: z.string(),
@@ -237,6 +246,10 @@ export const storageUnitDetailSchema = z.object({
   version: z.number(),
   project: projectRef,
   holes: z.array(storageUnitHoleSummarySchema),
+  /** As on inventory rows (MM-T36). */
+  sample: sampleIdentitySchema.nullable(),
+  /** The unit's bulk group with every member bucket and its own place in it (MM-T36). */
+  bulkGroup: bulkGroupDetailSchema.nullable(),
   location: locationRef,
   /** The original receipt header, as recorded at confirmation; corrections never rewrite it. */
   receipt: z.object({
@@ -288,6 +301,12 @@ export function storageUnitHistoryActionLabel(action: string): string {
       return 'Storage unit created';
     case 'storage_unit.corrected':
       return 'Details corrected';
+    case 'storage_unit.bulk_group_changed':
+      return 'Bulk sample changed';
+    case 'bulk_group.created':
+      return 'Bulk sample created';
+    case 'bulk_group.corrected':
+      return 'Bulk sample corrected';
     default:
       return action;
   }

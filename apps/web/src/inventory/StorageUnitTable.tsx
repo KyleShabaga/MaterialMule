@@ -1,11 +1,8 @@
-import {
-  formatStorageUnitHoleSummary,
-  storageUnitTypeLabel,
-  type InventoryItem,
-} from '@materialmule/shared';
+import { storageUnitTypeLabel, type InventoryItem } from '@materialmule/shared';
 import { Link } from 'react-router';
 import { DataTable, type Column } from '../components/ui';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
+import { UnitContentsLine, UnitContentsList } from './UnitContents';
 
 /** Standard rows wrap and stack on narrow screens; compact rows keep each record on one line. */
 export type StorageUnitTableView = 'standard' | 'compact';
@@ -24,6 +21,9 @@ export interface StorageUnitLinkState {
  * one line and less padding. A long project name or test-hole list is cut short with "…" but is
  * still read in full by screen readers and shown in full on hover (title); the table scrolls
  * sideways inside its card rather than stacking into cards.
+ *
+ * MM-T36: the "Sampling source" column holds hole summaries, a Shelby tube's source or a bulk
+ * soil bucket's bulk sample with its "bucket n of N" badge, in both views (UnitContents).
  */
 export function StorageUnitTable({
   items,
@@ -67,8 +67,9 @@ export function StorageUnitTable({
         ]
       : []),
     {
-      header: 'Test holes',
-      cell: (item) => (compact ? <HoleLine item={item} /> : <HoleList item={item} />),
+      header: 'Sampling source',
+      cell: (item) =>
+        compact ? <UnitContentsLine unit={item} /> : <UnitContentsList unit={item} />,
     },
     {
       header: 'Location',
@@ -106,32 +107,4 @@ export function StorageUnitTable({
 
 function projectText(item: InventoryItem): string {
   return `${item.project.projectNumber} ${item.project.name}`;
-}
-
-function holeText(item: InventoryItem): string {
-  return item.holes
-    .map((hole) => `${hole.testHoleName}: ${formatStorageUnitHoleSummary(hole)}`)
-    .join(', ');
-}
-
-/** Compact view: every summary on one line, separated by commas. */
-function HoleLine({ item }: { item: InventoryItem }) {
-  const text = holeText(item);
-  return (
-    <span className="hole-line" title={text}>
-      {text}
-    </span>
-  );
-}
-
-function HoleList({ item }: { item: InventoryItem }) {
-  return (
-    <ul className="hole-list">
-      {item.holes.map((hole) => (
-        <li key={hole.testHoleId} className="hole-tag">
-          {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
-        </li>
-      ))}
-    </ul>
-  );
 }

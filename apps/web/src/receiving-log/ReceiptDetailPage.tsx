@@ -1,9 +1,4 @@
-import {
-  formatStorageUnitHoleSummary,
-  storageUnitTypeLabel,
-  type ReceiptDetail,
-  type ReceiptUnit,
-} from '@materialmule/shared';
+import { storageUnitTypeLabel, type ReceiptDetail, type ReceiptUnit } from '@materialmule/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import {
@@ -16,6 +11,7 @@ import {
 } from '../components/ui';
 import '../inventory/inventory.css';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
+import { UnitContentsList } from '../inventory/UnitContents';
 import { PrintLabelsPanel } from '../printing/PrintLabelsPanel';
 import { receiptPrintPath, unitPrintPath } from '../printing/print-paths';
 import { useSession } from '../session/context';
@@ -181,16 +177,9 @@ function UnitTable({ receipt }: { receipt: ReceiptDetail }) {
       ),
     },
     {
-      header: 'Test holes',
-      cell: (unit) => (
-        <ul className="hole-list">
-          {unit.holes.map((hole) => (
-            <li key={hole.testHoleId}>
-              {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
-            </li>
-          ))}
-        </ul>
-      ),
+      // Hole summaries, a Shelby tube's source or a bulk sample (MM-T36).
+      header: 'Sampling source',
+      cell: (unit) => <UnitContentsList unit={unit} itemClassName="" />,
     },
     {
       header: 'Project',

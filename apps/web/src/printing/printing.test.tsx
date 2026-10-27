@@ -20,6 +20,8 @@ const UNIT_DETAIL: StorageUnitDetail = {
   minimumRetainUntil: '2027-10-23',
   version: 1,
   project: { id: 'p1', projectNumber: 'DEMO-2601', name: 'Riverbank', client: 'Example Client' },
+  sample: null,
+  bulkGroup: null,
   holes: [],
   location: { id: 'l1', code: 'RECEIVING', name: 'Receiving lab' },
   receipt: {

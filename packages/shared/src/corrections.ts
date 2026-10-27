@@ -5,11 +5,17 @@ import {
   STORAGE_UNIT_TYPES,
   type StorageUnitHoleSummary,
 } from './inventory';
-import { holeSummaryInputSchema, RECEIPT_UNIT_TYPES } from './receipts';
+import { holeSummaryInputSchema } from './receipts';
 
 // Corrections to a confirmed storage unit, `PATCH /api/storage-units/:id` (MM-T13, D45–D47).
 // A correction changes current values only: the storage unit ID, saved location, print history
 // and the original receipt header are never rewritten.
+
+/**
+ * Types a correction may set. Still Bucket only: a Shelby tube or bulk soil bucket needs its
+ * sampling source or bulk sample, which this correction doesn't carry (MM-T36).
+ */
+export const CORRECTION_UNIT_TYPES = ['bucket'] as const;
 
 /** Minimum length of the reason every correction needs. */
 export const STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH = 5;
@@ -41,8 +47,7 @@ export const storageUnitCorrectionRequestSchema = z
     // Strict: anything else (the ID, location, receipt header…) can't be corrected here.
     changes: z.strictObject(
       {
-        /** Only Bucket exists until MM-T36; the field is modelled now. */
-        unitType: z.enum(RECEIPT_UNIT_TYPES, { error: 'must be bucket' }).optional(),
+        unitType: z.enum(CORRECTION_UNIT_TYPES, { error: 'must be bucket' }).optional(),
         /** Absent: unchanged. Null or blank: clear the note. */
         note: z
           .string({ error: 'must be text' })

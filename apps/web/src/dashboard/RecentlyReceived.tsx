@@ -1,5 +1,4 @@
 import {
-  formatStorageUnitHoleSummary,
   printJobStatusText,
   storageUnitTypeLabel,
   type RecentlyReceivedItem,
@@ -9,6 +8,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { DataTable, ErrorState, StatusBadge, type Column } from '../components/ui';
 import type { InventoryLinkState } from '../inventory/InventoryPage';
+import { UnitContentsList } from '../inventory/UnitContents';
 import { fetchRecentlyReceived } from './api';
 import { labDate, receivedWhen } from './format';
 import { useLoad } from './useLoad';
@@ -69,14 +69,13 @@ const columns: Column<RecentlyReceivedItem>[] = [
   },
   {
     header: 'SAMPLE#/DEPTH',
+    // Hole summaries, a Shelby tube's source or a bulk sample (MM-T36).
     cell: (item) => (
-      <ul className="dash-holes">
-        {item.holes.map((hole) => (
-          <li key={hole.testHoleId} className="dash-tag dash-tag-plain">
-            {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
-          </li>
-        ))}
-      </ul>
+      <UnitContentsList
+        unit={item}
+        listClassName="dash-holes"
+        itemClassName="dash-tag dash-tag-plain"
+      />
     ),
   },
   { header: 'Location', cell: (item) => item.location.name },

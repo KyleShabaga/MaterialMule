@@ -42,6 +42,8 @@ import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
+import { BulkGroupsController } from './storage-units/bulk-groups/bulk-groups.controller.js';
+import { BulkGroupsService } from './storage-units/bulk-groups/bulk-groups.service.js';
 import { StorageUnitCorrectionsController } from './storage-units/corrections/corrections.controller.js';
 import { StorageUnitCorrectionsService } from './storage-units/corrections/corrections.service.js';
 import {
@@ -88,6 +90,7 @@ export class AppModule {
         LocationsController,
         StorageUnitsController,
         StorageUnitCorrectionsController,
+        BulkGroupsController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -119,6 +122,7 @@ export class AppModule {
         LocationsService,
         StorageUnitsService,
         StorageUnitCorrectionsService,
+        BulkGroupsService,
         // Lab requests arrive with MM-T23; until then no unit has unresolved links.
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: NoLabRequestLinks },
         // Default deny on every route (MM-T04).

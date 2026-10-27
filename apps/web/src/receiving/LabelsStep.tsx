@@ -6,10 +6,10 @@ import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { PrintLabelsPanel } from '../printing/PrintLabelsPanel';
 import { receiptPrintPath } from '../printing/print-paths';
 import { VerifyLabelsPanel } from '../scanning/VerifyLabelsPanel';
-import { formatSummaryValue, unitName, type ReceiptDraft } from './draft';
+import { unitHeadline, type ReceiptDraft } from './draft';
 
 /**
- * Step 3 (MM-T10): the issued storage unit IDs (BKT- for buckets) with Print all, Print one
+ * Step 3 (MM-T10): the issued storage unit IDs (BKT- for buckets, ST- for Shelby tubes) with Print all, Print one
  * (MM-T15 print queue), Preview label and Print / Save as PDF (MM-T39) and Open storage unit.
  * Print views open in a new tab so this step stays on screen.
  */
@@ -34,8 +34,8 @@ export function LabelsStep({
       <BandedCard title="Receipt confirmed">
         <p role="status">
           {result.units.length === 1
-            ? '1 storage unit received. Print its label and stick it on the bucket.'
-            : `${result.units.length} storage units received. Print the labels and stick one on each bucket.`}
+            ? '1 storage unit received. Print its label and stick it on the bucket or tube.'
+            : `${result.units.length} storage units received. Print the labels and stick one on each bucket or tube.`}
         </p>
         <PrintLabelsPanel
           storageUnitIds={result.units.map((u) => u.storageUnitId)}
@@ -58,10 +58,9 @@ export function LabelsStep({
         {rows.map(({ unit, index, issued }) => (
           <li key={unit.clientRowId} className="card issued-unit">
             <h3>{issued?.suNumber ?? '—'}</h3>
-            <p>
-              {unitName(index, unit)}
-              {unit.summaries.map((s) => ` · ${s.testHole.name}: ${formatSummaryValue(s)}`)}
-            </p>
+            {/* App metadata only: the sticker itself never shows sample references, depths or
+                bulk samples (MM-T36 sticker contract). */}
+            <p>{unitHeadline(index, unit, draft)}</p>
             {issued ? (
               <div className="issued-actions">
                 <PrintLabelsPanel

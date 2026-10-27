@@ -58,6 +58,8 @@ function unit(n: number, overrides: Partial<RecentlyReceivedItem> = {}): Recentl
       name: project.name,
       client: 'Example Client',
     },
+    sample: null,
+    bulkGroup: null,
     holes: [
       {
         testHoleId: '00000000-0000-4000-8000-000000000911',

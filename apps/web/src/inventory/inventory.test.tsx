@@ -47,6 +47,8 @@ function item(readableId: string, overrides: Partial<InventoryItem> = {}): Inven
     unitType: 'bucket',
     status: 'in_stock',
     project: PROJECT,
+    sample: null,
+    bulkGroup: null,
     holes: [
       {
         testHoleId: 'th1',
@@ -84,6 +86,8 @@ const DETAIL: StorageUnitDetail = {
   minimumRetainUntil: '2027-10-23',
   version: 1,
   project: PROJECT,
+  sample: null,
+  bulkGroup: null,
   holes: item('x').holes.concat({
     testHoleId: 'th2',
     testHoleName: 'TH26-02',
@@ -262,7 +266,7 @@ describe('Sample Storage inventory (MM-T12)', () => {
       within(table)
         .getAllByRole('columnheader')
         .map((th) => th.textContent),
-    ).toEqual(['Storage unit', 'Project', 'Test holes', 'Location', 'Received', 'Status']);
+    ).toEqual(['Storage unit', 'Project', 'Sampling source', 'Location', 'Received', 'Status']);
     // Same links and full values (long ones are only cut short visually; the title has them).
     expect(screen.getByRole('link', { name: 'BKT-2026-000015' })).toHaveAttribute(
       'href',
