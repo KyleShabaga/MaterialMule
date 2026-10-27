@@ -71,6 +71,8 @@ function readDocumentedMatrix(): Map<string, Set<MatrixColumn>> {
  */
 const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'GET /api/staff/receivers': null,
+  // MM-T45: every station reads the draft auto-delete setting; only PUT is restricted.
+  'GET /api/settings/drafts': null,
   'PATCH /api/projects/:projectId': 'project.edit',
 };
 
