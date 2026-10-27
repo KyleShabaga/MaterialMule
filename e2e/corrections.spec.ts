@@ -20,7 +20,8 @@ test('T7: correct a summary from the detail page; the history shows it and the I
   const sampleTo = form.getByLabel('Sample to');
   await expect(sampleTo).toHaveValue('S12');
   await sampleTo.fill('S10');
-  await expect(form.getByText('Changed')).toBeVisible();
+  await expect(form.getByText('Changed', { exact: true })).toBeVisible();
+  await expect(form.getByText('1 field changed')).toBeVisible();
   await expect(form).toContainText('Printed labels show the values at print time.');
 
   // A reason is required.
@@ -31,7 +32,10 @@ test('T7: correct a summary from the detail page; the history shows it and the I
 
   await expect(form).toBeHidden();
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
-  await expect(page.getByText(`Saved location: ${data.warehouse}`)).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Details corrected.' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+    data.warehouse,
+  );
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
     'TH26-01: G1–S10',
   );

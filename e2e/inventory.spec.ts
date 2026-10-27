@@ -38,9 +38,11 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   expect(filteredUrl).toContain('projectId=');
 
   // Open the detail page from the row.
-  await page.getByRole('link', { name: `View ${data.a1}` }).click();
+  await page.getByRole('link', { name: data.a1, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
-  await expect(page.getByText(`Saved location: ${data.warehouse}`)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+    data.warehouse,
+  );
   const receipt = page.getByRole('region', { name: 'Receipt' });
   await expect(receipt).toContainText('AT — Alex Tester');
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(

@@ -162,13 +162,23 @@ describe('storage unit corrections (MM-T13)', () => {
     renderUnit();
 
     await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    // MM-T50: Correct details is its own view; focus moves to its heading.
+    expect(screen.getByRole('heading', { level: 1, name: 'Correct details' })).toHaveFocus();
+    expect(screen.queryByRole('region', { name: 'Summaries' })).not.toBeInTheDocument();
     const form = screen.getByRole('form', { name: 'Correct details' });
     expect(within(form).queryByText('Changed')).not.toBeInTheDocument();
+    expect(within(form).getByText('Nothing changed yet')).toBeInTheDocument();
     const date = within(form).getByLabelText('Received date');
     expect(date).toHaveValue('2026-10-23');
     await user.clear(date);
     await user.type(date, '2026-10-21');
     expect(within(form).getByText('Changed')).toBeInTheDocument();
+    expect(within(form).getByText('1 field changed')).toBeInTheDocument();
+    expect(
+      within(form).getByText(
+        'Was 2026-10-23. The minimum retain-until date (received date + 1 year) follows it.',
+      ),
+    ).toBeInTheDocument();
     expect(
       within(form).getByText(
         'Printed labels show the values at print time. Reprint if the label is now wrong.',
@@ -190,6 +200,8 @@ describe('storage unit corrections (MM-T13)', () => {
       { version: 1, reason: 'wrong date on tag', changes: { receivedDate: '2026-10-21' } },
     ]);
     expect(screen.queryByRole('form', { name: 'Correct details' })).not.toBeInTheDocument();
+    expect(screen.getByText('Details corrected.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Correct details' })).toHaveFocus();
     const summaries = screen.getByRole('region', { name: 'Summaries' });
     expect(within(summaries).getByText('2026-10-21')).toBeInTheDocument();
     const receipt = screen.getByRole('region', { name: 'Receipt' });
@@ -200,6 +212,24 @@ describe('storage unit corrections (MM-T13)', () => {
         'KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('MM-T50: Back to the unit leaves Correct details without saving', async () => {
+    const patches = stubApi({ unit: UNIT, history: EMPTY_HISTORY, patch: () => json(500, {}) });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await user.type(screen.getByLabelText('Storage unit note'), ' and wet');
+    await user.click(screen.getByRole('button', { name: '← Back to BKT-2026-000014' }));
+
+    expect(screen.queryByRole('form', { name: 'Correct details' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Correct details' })).toHaveFocus();
+    expect(
+      within(screen.getByRole('region', { name: 'Summaries' })).getByText('Lid taped'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Details corrected.')).not.toBeInTheDocument();
+    expect(patches).toHaveLength(0);
   });
 
   it('AC2: LAB sees no Correct action and an explanation', async () => {
