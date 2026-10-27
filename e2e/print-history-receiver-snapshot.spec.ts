@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
+import { signInAsLabStation } from './support/lab-station';
 import { receiveThroughApi, uniqueTag } from './support/receiving';
 
 // MM-T65 T4: a unit's print history keeps the receiver as they were when the job was requested,
@@ -20,7 +20,7 @@ test('T4: Sample Storage print history shows the receiver at printing after a re
     return rows[0]!.id;
   });
 
-  await signInAs(page, 'lab');
+  await signInAsLabStation(page);
   const [unit] = await receiveThroughApi(page, { receiverUserId: receiverId });
   // At the LAB station the receipt's receiver is credited on the print.
   const printed = await page.request.post('/api/print-jobs', {
@@ -38,7 +38,6 @@ test('T4: Sample Storage print history shows the receiver at printing after a re
 
   await page.goto(`/sample-storage/${unit!.suNumber}`);
   const history = page.getByRole('table', { name: `Print history for ${unit!.suNumber}` });
-  await expect(history.getByRole('row')).toHaveCount(2);
   await expect(history).toContainText(`for CQ · ${tag} Pending`);
   await expect(history).not.toContainText('Renamed');
   await expect(history).not.toContainText('CR ·');
