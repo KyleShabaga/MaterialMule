@@ -293,7 +293,7 @@ function ReceiptTable({
           state={linkState}
           aria-label={`Open receipt: ${item.project.projectNumber}, received ${item.receivedDate} by ${formatReceiver(item.receiver)}`}
         >
-          {item.receivedDate}
+          <span className="receipt-date">{item.receivedDate}</span>
         </Link>
       ),
     },

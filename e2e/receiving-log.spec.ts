@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { signInAsLabStation } from './support/lab-station';
@@ -20,6 +20,9 @@ async function noHorizontalScroll(page: Page) {
   );
   expect(overflow).toBeLessThanOrEqual(0);
 }
+
+/** Body rows only: the header row is hidden when a table stacks into cards on a phone. */
+const bodyRows = (table: Locator) => table.locator('tbody tr');
 
 async function printJobCount(): Promise<number> {
   return withDatabase(async (client) => {
@@ -45,8 +48,7 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   const ids = units.map((u) => u.suNumber).sort();
   const printJobs = await printJobCount();
 
-  await page.goto('/');
-  await page.getByRole('link', { name: 'Receiving Log' }).first().click();
+  await page.goto('/receiving-log');
   await expect(page.getByRole('heading', { name: 'Receiving Log' })).toBeVisible();
 
   // An exact storage unit ID finds its receipt once, with quantity two (AC1, AC9).
@@ -55,7 +57,7 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   await search.press('Enter');
   await expect(page.getByRole('status').filter({ hasText: /receipt/ })).toHaveText('1 receipt');
   const table = page.getByRole('table', { name: 'Confirmed receipts' });
-  await expect(table.getByRole('row')).toHaveCount(2);
+  await expect(bodyRows(table)).toHaveCount(1);
   await expect(table.getByText('AT · Alex Tester')).toBeVisible();
   await expect(table.getByText('by LAB (shared station)')).toBeVisible();
   await expect(table.getByText(projectNumber)).toBeVisible();
@@ -91,7 +93,9 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   await unitTable.getByRole('link', { name: `Open ${ids[0]}` }).click();
   await expect(page.getByRole('heading', { name: ids[0] })).toBeVisible();
   await expect(
-    page.getByRole('group', { name: 'Preview label' }).locator('svg').first(),
+    page
+      .getByRole('group', { name: 'Preview label' })
+      .getByRole('img', { name: `Label for storage unit ${ids[0]}` }),
   ).toBeVisible();
   await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
@@ -131,13 +135,13 @@ test('AC4: receivers sharing initials are filtered by person, and told apart', a
 
   await page.goto(`/receiving-log?search=${encodeURIComponent(projectNumber)}`);
   const table = page.getByRole('table', { name: 'Confirmed receipts' });
-  await expect(table.getByRole('row')).toHaveCount(3);
+  await expect(bodyRows(table)).toHaveCount(2);
   await expect(table.getByText('JS · Jordan Smith')).toBeVisible();
   await expect(table.getByText('JS · Jamie Song')).toBeVisible();
 
   await page.getByRole('combobox', { name: 'Received by' }).fill('JS');
   await page.getByRole('option', { name: /Jamie Song/ }).click();
-  await expect(table.getByRole('row')).toHaveCount(2);
+  await expect(bodyRows(table)).toHaveCount(1);
   await expect(table.getByText('JS · Jamie Song')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`receiverUserId=${DEMO.jamieSong}`));
   await expect(

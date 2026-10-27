@@ -1,11 +1,26 @@
 /* ---- Receiving Log and receipt detail (MM-T51) ---- */
 
+.receiving-log-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  align-items: start;
+}
+
+/* Inputs line up even when one field (Received by) has a hint under it. */
 .receiving-log-filters .form-field {
-  min-width: 12rem;
+  align-content: start;
+  min-width: 0;
 }
 
 .receiving-log-table {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+/* Storage unit IDs, dates and times never break mid-token. */
+.receiving-log-table .receipt-unit-id,
+.receiving-log-table time,
+.receipt-date {
+  white-space: nowrap;
 }
 
 .receiving-log-empty {
@@ -27,9 +42,8 @@
 }
 
 @media (max-width: 640px) {
-  .receiving-log-filters .form-field {
-    min-width: 0;
-    flex: 1 1 100%;
+  .receiving-log-filters {
+    grid-template-columns: 1fr;
   }
 
   .receiving-log-table .data-table td::before {

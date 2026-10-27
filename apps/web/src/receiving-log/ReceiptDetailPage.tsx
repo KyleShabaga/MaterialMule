@@ -212,7 +212,7 @@ function UnitTable({ receipt }: { receipt: ReceiptDetail }) {
           original={receipt.receivedDate}
           historyPath={`${unitPath(unit)}#history`}
         >
-          {unit.receivedDate}
+          <span className="receipt-date">{unit.receivedDate}</span>
         </Current>
       ),
     },
