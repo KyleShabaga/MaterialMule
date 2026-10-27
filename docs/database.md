@@ -78,6 +78,15 @@ Key rules enforced by the database:
   transaction, so concurrent receipts serialise on the row and a rollback returns the numbers.
   The year is the confirmation date in `BUSINESS_TIME_ZONE` (America/Edmonton), never the
   received date. Note: tzdata 2026c has Edmonton on UTC−6 all year.
+- **Issued IDs are never reused (migration 0020, MM-T47).** Triggers, which also bind the table
+  owner, refuse `DELETE` and `TRUNCATE` on `storage_unit` (units leave through `status`, never by
+  deletion) and on `storage_unit_annual_counter`, and any `UPDATE` that lowers a counter's
+  `last_value` or moves it to another prefix or year. Raising a counter is allowed (e.g. after a
+  restore). Errors use SQLSTATE `23001` (`restrict_violation`) and name the unit or counter. A
+  receipt that issued units can't be deleted either (foreign key from `storage_unit`). Hole
+  summaries carry no ID, so corrections may still replace them. Test and dev resets drop and
+  recreate the schema (`db:reset:test`, `createMigratedSchema`), never delete rows; a test that
+  needs fresh counters uses its own scratch schema.
 - **Audit events are append-only** (migration 0002): triggers reject `UPDATE`, `DELETE` and
   `TRUNCATE` even for the table owner. Record events with `recordAudit` (`apps/api/src/audit`)
   on the same transaction client as the change; actor initials and name are snapshots.

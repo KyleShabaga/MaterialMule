@@ -63,8 +63,10 @@ describe.runIf(testDatabaseUrl)('receipt failure injection (MM-T18 T4, AC3)', ()
 
   beforeAll(async () => {
     h = await bootReceivingHarness();
-    // Start from a known counter so "no ID burned" is easy to read: the next IDs are …001–003.
-    await h.db.pool.query('DELETE FROM storage_unit_annual_counter');
+    // The harness schema is new, so no counter exists yet and "no ID burned" is easy to read: the
+    // next IDs are …001–003. (Counters can't be deleted or lowered, MM-T47.)
+    const { rows } = await h.db.pool.query('SELECT 1 FROM storage_unit_annual_counter');
+    expect(rows).toHaveLength(0);
   });
 
   afterAll(async () => {
