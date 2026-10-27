@@ -6,6 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import { createTestHole, listTestHoles } from '../api/projects';
+import { useListHighlight } from '../components/useListHighlight';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing
 // matches exactly (MM-T08). Names are kept as typed (trimmed): never renamed or re-yeared.
@@ -35,7 +36,6 @@ export function TestHolePicker({
   const [loaded, setLoaded] = useState<{ projectId: string; holes: Holes } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
   const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -65,13 +65,20 @@ export function TestHolePicker({
   ];
   const listboxId = `${id}-holes`;
   const showList = open && holes.state === 'ready' && options.length > 0;
+  // MM-T62: once something is typed the first match is highlighted, so Enter picks it (same in
+  // every picker). The list shown on focus, before typing, starts with nothing highlighted.
+  const highlight = useListHighlight(
+    options.length,
+    `${key}|${options.map((option) => (option.kind === 'hole' ? option.hole.id : 'add')).join(',')}`,
+    key !== '',
+  );
+  const active = highlight.active;
 
   function select(hole: TestHole) {
     if (!selectedIds.has(hole.id)) {
       onChange([...selected, hole]);
     }
     onQueryChange('');
-    setActive(-1);
   }
 
   async function add(name: string) {
@@ -125,13 +132,13 @@ export function TestHolePicker({
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setOpen(true);
-      setActive((index) => Math.min(index + 1, options.length - 1));
+      highlight.next();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((index) => Math.max(index - 1, 0));
+      highlight.previous();
     } else if (event.key === 'Enter' && showList) {
       event.preventDefault();
-      const option = options[active] ?? (options.length === 1 ? options[0] : undefined);
+      const option = options[active];
       if (option) pick(option);
     } else if (event.key === 'Escape') {
       setOpen(false);
@@ -171,7 +178,6 @@ export function TestHolePicker({
           onChange={(event) => {
             onQueryChange(event.target.value);
             setOpen(true);
-            setActive(-1);
             setMessage(null);
           }}
           onFocus={() => setOpen(true)}
