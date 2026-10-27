@@ -29,6 +29,8 @@ function event(overrides: Partial<AuditEvent>): AuditEvent {
     actorInitials: 'AT',
     actorName: 'Alex Tester',
     receiverUserId: null,
+    receiverInitials: null,
+    receiverName: null,
     reason: null,
     before: null,
     after: null,
