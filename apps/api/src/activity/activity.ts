@@ -52,7 +52,10 @@ export function toActivityItem(event: AuditEvent): ActivityItem {
   switch (event.action) {
     case 'receipt.confirmed':
       summary = `${who} received ${units(d)}${forProject}`;
-      href = event.entityId ? `/receiving-log/${event.entityId}` : null;
+      // All statuses, so units of the receipt that were later disposed still show.
+      href = event.entityId
+        ? `/sample-storage?receiptId=${encodeURIComponent(event.entityId)}&status=all`
+        : null;
       break;
     case 'storage_unit.corrected':
       summary = `${who} corrected ${d.readableId ?? 'a storage unit'}`;

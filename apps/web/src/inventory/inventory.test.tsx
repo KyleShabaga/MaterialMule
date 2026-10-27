@@ -232,6 +232,38 @@ describe('Sample Storage inventory (MM-T12)', () => {
     expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('');
   });
 
+  it('filters to one receipt (dashboard link) with a removable chip that Clear filters clears', async () => {
+    const receiptId = '0b8f5e2a-4c1d-4e6f-9a3b-2d7c8e9f1a2b';
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(
+            200,
+            url.searchParams.get('receiptId')
+              ? page([item('BKT-2026-000014')], 1)
+              : page([item('BKT-2026-000014'), item('BKT-2026-000015')], 42),
+          )
+        : undefined,
+    );
+    const router = renderAt(`/sample-storage?receiptId=${receiptId}&status=all`);
+    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
+    expect(Object.fromEntries(inventoryCalls(fetchMock).at(-1)!.searchParams)).toEqual({
+      receiptId,
+      status: 'all',
+    });
+    const chips = screen.getByRole('list', { name: 'Active filters' });
+    expect(within(chips).getByText('One receipt')).toBeInTheDocument();
+    expect(within(chips).getByText('Status: All statuses')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter One receipt' }));
+    expect(router.state.location.search).toBe('?status=all');
+    expect(await screen.findByText('42 storage units')).toBeInTheDocument();
+
+    await router.navigate(`/sample-storage?receiptId=${receiptId}`);
+    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(router.state.location.search).toBe('');
+  });
+
   it('shows a no-match state', async () => {
     stubApi((url) => (url.pathname === '/api/inventory' ? json(200, page([], 0)) : undefined));
     renderAt('/sample-storage?search=nothing');

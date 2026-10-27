@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { withDatabase } from './support/db';
 import { insertInventoryFixture } from './support/inventory';
+import { receiveThroughApi } from './support/receiving';
 
 // MM-T12: storage unit inventory, search, filters and detail. Every row is fictional and tagged
 // per test, so the desktop and phone runs never see each other's units.
@@ -123,4 +125,30 @@ test('T7: at phone width rows become cards with no horizontal scroll', async ({
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(detailOverflow).toBeLessThanOrEqual(0);
+});
+
+test('the dashboard receipt activity opens Sample Storage showing exactly that receipt', async ({
+  page,
+}) => {
+  await signInAs(page, 'at');
+  await receiveThroughApi(page, { units: 3 }); // another receipt, which must not show
+  const units = await receiveThroughApi(page, { units: 2 });
+  const [first, second] = units.map((unit) => unit.suNumber) as [string, string];
+  // A unit of the receipt that was later disposed still belongs to it.
+  await withDatabase((client) =>
+    client.query(`UPDATE storage_unit SET status = 'disposed' WHERE readable_id = $1`, [second]),
+  );
+
+  await page.goto('/');
+  await page.getByRole('link', { name: new RegExp(`received ${first} and 1 more`) }).click();
+  await expect(page).toHaveURL(/\/sample-storage\?receiptId=[\w-]+&status=all$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Sample Storage' })).toBeVisible();
+  const count = page.getByRole('status').filter({ hasText: 'storage unit' });
+  await expect(count).toHaveText('2 storage units');
+  const table = page.getByRole('table', { name: 'Storage units' });
+  await expect(table.getByText(first)).toBeVisible();
+  await expect(table.getByText(second)).toBeVisible();
+  const chips = page.getByRole('list', { name: 'Active filters' });
+  await expect(chips).toContainText('One receipt');
+  await expect(chips).toContainText('Status: All statuses');
 });
