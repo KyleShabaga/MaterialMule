@@ -85,9 +85,10 @@ export function NotFoundPage() {
 /** Router-level error boundary: a readable message instead of a blank page. */
 export function ErrorPage() {
   const error = useRouteError();
-  const message = isRouteErrorResponse(error)
-    ? `${error.status} ${error.statusText}`
-    : 'Something went wrong while showing this page.';
+  const message =
+    isRouteErrorResponse(error) && error.status === 404
+      ? 'This page doesn’t exist. Check the address, or go back to the dashboard.'
+      : 'Something went wrong while showing this page. Reload to try again.';
   return (
     <main className="shell" role="alert">
       <h1>Something went wrong</h1>
