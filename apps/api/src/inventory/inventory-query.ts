@@ -48,6 +48,9 @@ export function buildInventoryQuery(query: InventoryQuery): InventorySql {
   if (query.locationId) {
     where.push(`su.current_location_id = ${param(query.locationId)}`);
   }
+  if (query.receiptId) {
+    where.push(`su.receipt_id = ${param(query.receiptId)}`);
+  }
   if (query.status === 'current') {
     where.push(`su.status <> 'disposed'`);
   } else if (query.status !== 'all') {

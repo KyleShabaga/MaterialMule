@@ -13,6 +13,7 @@ const KEYS = [
   'testHoleId',
   'type',
   'locationId',
+  'receiptId',
   'status',
   'receivedFrom',
   'receivedTo',
@@ -48,6 +49,7 @@ export function inventorySearchParams(query: InventoryQuery): URLSearchParams {
   set('testHoleId', query.testHoleId);
   set('type', query.type);
   set('locationId', query.locationId);
+  set('receiptId', query.receiptId);
   set('status', query.status, 'current');
   set('receivedFrom', query.receivedFrom);
   set('receivedTo', query.receivedTo);
@@ -66,6 +68,7 @@ export function hasActiveFilters(query: InventoryQuery): boolean {
     query.testHoleId ||
     query.type ||
     query.locationId ||
+    query.receiptId ||
     query.status !== 'current' ||
     query.receivedFrom ||
     query.receivedTo,
