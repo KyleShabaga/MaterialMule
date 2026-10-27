@@ -1208,7 +1208,20 @@ textarea {
 
 .unit-card .unit-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
+}
+
+/* MM-T54: fieldsets default to their content's width; let bucket fields shrink to the card. */
+.unit-card fieldset {
+  min-width: 0;
+}
+
+.unit-card input,
+.unit-card select,
+.unit-card textarea {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .unit-card .hole-summary {
@@ -1483,6 +1496,7 @@ textarea {
   .wizard-step > .wizard-actions .draft-status,
   .wizard-problems {
     flex: 1 1 100%;
+    min-width: 0;
   }
 
   .wizard-actions-spacer {
@@ -1533,8 +1547,9 @@ textarea {
 /* ---- Phone width: menu becomes a drawer, tables become cards, 44px targets ---- */
 
 @media (max-width: 640px) {
+  /* minmax(0, …): no child can widen the page past the screen (MM-T54, 320px). */
   .app {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       'header'
       'main';
@@ -1565,7 +1580,13 @@ textarea {
     padding: 1rem;
   }
 
+  /* The header wraps rather than widen the page on the narrowest phones. */
+  .app-header {
+    flex-wrap: wrap;
+  }
+
   .identity {
+    min-width: 0;
     font-size: 0.875rem;
   }
 
