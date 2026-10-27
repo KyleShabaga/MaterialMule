@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { apiFetch } from './api/client';
 import { safeReturnTo } from './lib/return-to';
+import { BandedCard, StatusBadge } from './components/ui';
+import { AuthPage } from './pages/AuthLayout';
 import { useSession } from './session/context';
 
 interface Fixture {
@@ -81,47 +83,84 @@ export function TestSignInPage() {
   }
 
   if (load.state === 'loading') {
-    return <p className="shell">Loading test identities…</p>;
+    return (
+      <AuthPage busy>
+        <p>Loading test identities…</p>
+      </AuthPage>
+    );
   }
   if (load.state === 'unavailable') {
     return (
-      <main className="shell">
+      <AuthPage>
         <h1>Test sign-in</h1>
         <p role="alert">Test sign-in isn’t available on this server.</p>
-      </main>
+      </AuthPage>
     );
   }
 
+  const me = load.me;
   return (
-    <main className="shell">
-      <h1>Test sign-in</h1>
-      <p className="subtitle">Development and test only. These are fictional people.</p>
-      {load.me ? (
-        <p className="signed-in" aria-live="polite">
-          Signed in as <strong>{load.me.displayName}</strong>{' '}
-          {load.me.accountType === 'test' ? <span className="badge">TEST</span> : null}{' '}
-          <button type="button" onClick={() => void signOut()}>
-            Sign out
-          </button>{' '}
-          <Link className="button primary" to={returnTo}>
-            Continue to Material Mule
-          </Link>
-        </p>
+    <AuthPage wide>
+      <p className="notice notice-warning">
+        <strong>Development and test only.</strong> These are fictional people. This page doesn’t
+        exist on the production server.
+      </p>
+      <div className="auth-title-row">
+        <h1>Test sign-in</h1>
+        <StatusBadge tone="warning">Test</StatusBadge>
+      </div>
+      {me ? (
+        <section className="auth-card test-identity" aria-label="Current identity">
+          <p className="signed-in" aria-live="polite">
+            <span className="test-initials" aria-hidden="true">
+              {me.initials ?? '—'}
+            </span>
+            <span>
+              <span className="field-hint">Signed in as</span> <strong>{me.displayName}</strong>
+              {me.initials ? <span className="muted"> · {me.initials}</span> : null}{' '}
+              {me.accountType === 'test' ? <span className="badge">TEST</span> : null}
+            </span>
+          </p>
+          <div className="auth-actions">
+            <button type="button" onClick={() => void signOut()}>
+              Sign out
+            </button>
+            <Link className="button primary" to={returnTo}>
+              Continue to Material Mule <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
       ) : (
         <p aria-live="polite">Not signed in.</p>
       )}
       {error ? <p role="alert">{error}</p> : null}
-      <ul className="fixtures">
-        {load.fixtures.map((fixture) => (
-          <li key={fixture.key}>
-            <button type="button" onClick={() => void signInAs(fixture.key)}>
-              {fixture.displayName}
-            </button>{' '}
-            <span className="badge">TEST</span> {fixture.initials ? `${fixture.initials} · ` : ''}
-            {fixture.summary}
-          </li>
-        ))}
-      </ul>
-    </main>
+      <BandedCard
+        title="Sign in as"
+        aside={`${load.fixtures.length} test ${load.fixtures.length === 1 ? 'identity' : 'identities'}`}
+      >
+        <ul className="fixtures">
+          {load.fixtures.map((fixture) => (
+            <li key={fixture.key}>
+              <button type="button" onClick={() => void signInAs(fixture.key)}>
+                {fixture.displayName}
+              </button>
+              <span className="badge">TEST</span>
+              {fixture.initials ? (
+                <span className="fixture-initials">{fixture.initials}</span>
+              ) : null}
+              <span className="fixture-summary">{fixture.summary}</span>
+              {me && me.displayName === fixture.displayName ? (
+                <span className="fixture-current">
+                  <span aria-hidden="true">● </span>Signed in
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </BandedCard>
+      <p className="field-hint">
+        Pending applicants sign in through the mock Microsoft tenant, not here.
+      </p>
+    </AuthPage>
   );
 }

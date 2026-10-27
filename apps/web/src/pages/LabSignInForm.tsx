@@ -1,19 +1,29 @@
 import { LAB_USERNAME, signInLockedResponseSchema } from '@materialmule/shared';
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '../api/client';
-import { FormField } from '../components/ui';
+import { FormField, StatusBadge } from '../components/ui';
+
+interface SignInFailure {
+  message: string;
+  /** Too many failed attempts: sign-in is paused (shown as the amber "Paused" state). */
+  paused: boolean;
+}
 
 /** Messages for each sign-in failure. None repeats what was typed. */
-async function labSignInError(response: Response): Promise<string | null> {
+async function labSignInError(response: Response): Promise<SignInFailure | null> {
   if (response.ok) return null;
-  if (response.status === 401) return 'The username or password is incorrect.';
+  const failure = (message: string) => ({ message, paused: false });
+  if (response.status === 401) return failure('The username or password is incorrect.');
   if (response.status === 429) {
     const body = signInLockedResponseSchema.safeParse(await response.json().catch(() => null));
     const minutes = body.success ? Math.max(1, Math.ceil(body.data.retryAfterSeconds / 60)) : 15;
-    return `Too many failed attempts. Sign-in is paused for about ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+    return {
+      message: `Too many failed attempts. Sign-in is paused for about ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+      paused: true,
+    };
   }
-  if (response.status === 400) return 'Enter the username and password.';
-  return 'Sign-in didn’t work. Try again.';
+  if (response.status === 400) return failure('Enter the username and password.');
+  return failure('Sign-in didn’t work. Try again.');
 }
 
 /**
@@ -23,7 +33,7 @@ async function labSignInError(response: Response): Promise<string | null> {
 export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   const [username, setUsername] = useState(LAB_USERNAME);
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SignInFailure | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent) {
@@ -37,23 +47,29 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
         method: 'POST',
         body: JSON.stringify({ username, password }),
       });
-      const message = await labSignInError(response);
-      if (message) {
-        setError(message);
+      const failure = await labSignInError(response);
+      if (failure) {
+        setError(failure);
         setPassword('');
         return;
       }
       await onSignedIn();
     } catch {
-      setError('The server could not be reached. Try again.');
+      setError({ message: 'The server could not be reached. Try again.', paused: false });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section className="card" aria-labelledby="lab-sign-in">
-      <h2 id="lab-sign-in">Shared receiving station (LAB)</h2>
+    <section className="auth-card lab-sign-in" aria-labelledby="lab-sign-in">
+      <div className="auth-card-head">
+        <div>
+          <h2 id="lab-sign-in">Shared receiving station (LAB)</h2>
+          <p className="field-hint">For the receiving PC that several people share.</p>
+        </div>
+        {error?.paused ? <StatusBadge tone="warning">Paused</StatusBadge> : null}
+      </div>
       <form onSubmit={(event) => void submit(event)} noValidate>
         <FormField label="Username">
           {(props) => (
@@ -68,7 +84,7 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
             />
           )}
         </FormField>
-        <FormField label="Password" error={error}>
+        <FormField label="Password" error={error && !error.paused ? error.message : null}>
           {(props) => (
             <input
               {...props}
@@ -81,6 +97,12 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
             />
           )}
         </FormField>
+        {error?.paused ? (
+          <div className="notice notice-warning" role="alert">
+            <p>{error.message}</p>
+            <p>An administrator can reset the LAB password to end the pause sooner.</p>
+          </div>
+        ) : null}
         <button type="submit" className="primary" disabled={busy || !password}>
           {busy ? 'Signing in…' : 'Sign in as LAB'}
         </button>

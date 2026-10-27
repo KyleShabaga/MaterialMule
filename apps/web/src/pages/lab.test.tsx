@@ -123,6 +123,13 @@ describe('LAB sign-in form', () => {
     fireEvent.change(password, { target: { value: 'not-the-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in as LAB' }));
     expect(await screen.findByText(/paused for about 14 minutes/)).toBeInTheDocument();
+    // MM-T50: the paused state is an amber panel with the way out, and a "Paused" badge.
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'An administrator can reset the LAB password to end the pause sooner.',
+    );
+    const card = screen.getByRole('region', { name: 'Shared receiving station (LAB)' });
+    expect(within(card).getByText('Paused')).toBeInTheDocument();
+    expect(screen.queryByText('The username or password is incorrect.')).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain('not-the-password');
   });
 

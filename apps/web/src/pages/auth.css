@@ -1,0 +1,362 @@
+/* ---- Sign-in and other standalone pages (MM-T50, canvas "Sign-in screens") ---- */
+
+.auth-page {
+  min-height: 100vh;
+  background: var(--page);
+}
+
+.auth-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 30rem;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+
+.auth-main-wide {
+  max-width: 40rem;
+}
+
+.auth-main > *,
+.auth-main h1,
+.auth-main .notice {
+  margin: 0;
+}
+
+.auth-main h1 {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  letter-spacing: -0.02em;
+}
+
+/* The mark in a 48px box beside the name (design guide: Name and mark). */
+.auth-brand {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.auth-brand-name {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.auth-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  box-sizing: border-box;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-control);
+  background: var(--card-head);
+  color: var(--accent);
+}
+
+.auth-mark svg {
+  width: 2.25rem;
+  height: auto;
+}
+
+.auth-tagline,
+.auth-lead {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-lead {
+  margin-top: 0.5rem;
+  color: var(--ink-soft);
+}
+
+.auth-eyebrow {
+  margin: 0 0 0.25rem;
+  font: 600 0.6875rem/1rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Microsoft first, then "or", then the LAB card, then the dashed test link. */
+.sign-in-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.button.auth-microsoft {
+  min-height: 3rem;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font: 500 0.6875rem/1rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1 1 auto;
+  border-top: 1px solid var(--line);
+}
+
+.button.auth-test-link {
+  justify-content: center;
+  border-style: dashed;
+  background: transparent;
+  font-family: var(--font-mono);
+}
+
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.auth-card h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+}
+
+.auth-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.auth-card-head .field-hint,
+.auth-card .notice p {
+  margin: 0.125rem 0 0;
+}
+
+.lab-sign-in form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lab-sign-in input {
+  width: 100%;
+}
+
+.lab-sign-in button[type='submit'] {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.lab-sign-in > .field-hint {
+  margin: 0;
+}
+
+/* A plain-language panel on the inset ground: why, and what happens next. */
+.auth-callout {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--inset);
+  color: var(--ink-soft);
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.auth-actions-end {
+  justify-content: flex-end;
+}
+
+/* Microsoft sign-in problems: an amber icon box beside the title, body and next step. */
+.auth-problem {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+  border-color: var(--warning-line);
+}
+
+.auth-problem-icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-control);
+  background: var(--warning-panel);
+  color: var(--warning);
+}
+
+.auth-problem-text {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.auth-problem-text > * {
+  margin: 0;
+}
+
+.auth-problem h1 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+.auth-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Test sign-in: who is signed in, then one row per fictional person. */
+.test-identity .signed-in {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin: 0;
+}
+
+.test-initials {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-tag);
+  background: var(--card-head);
+  font: 700 1rem/1 var(--font-mono);
+  color: var(--accent-ink);
+}
+
+.auth-main .banded-card {
+  margin-top: 0;
+}
+
+.fixtures {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fixtures li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.fixtures li:last-child {
+  border-bottom: none;
+}
+
+.fixtures button {
+  min-width: 10rem;
+  justify-content: flex-start;
+}
+
+.fixture-initials {
+  font: 600 0.8125rem/1.25rem var(--font-mono);
+  color: var(--accent-ink);
+}
+
+.fixture-summary {
+  color: var(--ink-soft);
+}
+
+.fixture-current {
+  margin-left: auto;
+  color: var(--success);
+  font: 600 0.75rem/1rem var(--font-mono);
+}
+
+/* First sign-in: each position is a large choice card. */
+.position-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.position-form .position-options {
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1rem;
+}
+
+.position-options legend {
+  padding: 0 0.375rem;
+  font: 600 0.6875rem/1.4 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.position-option {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--inset);
+  cursor: pointer;
+}
+
+.position-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.position-form > p {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .auth-main {
+    padding: 1.5rem 1rem;
+  }
+
+  .auth-main h1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .auth-problem {
+    flex-direction: column;
+  }
+
+  .auth-actions > .button,
+  .auth-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .fixtures button {
+    min-width: 0;
+  }
+
+  .fixture-current {
+    margin-left: 0;
+  }
+}
