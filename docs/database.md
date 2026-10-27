@@ -95,7 +95,10 @@ Key rules enforced by the database:
   accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
   Reference data seeds the LAB account (`app_user` 00000000-0000-4000-8000-000000000001 with a
   `local_lab` identity, subject `LAB`) without a password: an admin sets it in
-  Settings → Staff & access.
+  Settings → Staff & access. LAB sign-in and the LAB password reset each start by taking
+  `FOR NO KEY UPDATE` on LAB's `app_user` row, then read the hash in a new statement, then lock
+  `sign_in_throttle` rows (MM-T40). That lock order serialises "verify password, create session"
+  with "replace password, revoke sessions", so no old-password session outlives a reset.
 - **Staff (migration 0008, MM-T07).** Official initials are not unique. `expected_upn` (an
   admin's pre-provisioned work email) is unique ignoring case when set; `approved_by` and
   `approved_at` are set together; `disabled_reason` exists only on a disabled account. Receipts
