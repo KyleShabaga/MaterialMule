@@ -4,6 +4,7 @@ export * from './dashboard';
 export * from './health';
 export * from './inventory';
 export * from './lab';
+export * from './locations';
 export * from './labels';
 export * from './me';
 export * from './printing';

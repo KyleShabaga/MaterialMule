@@ -84,7 +84,7 @@ function isCalendarDate(value: string) {
 }
 
 /** Control and invisible formatting characters become spaces; runs of space collapse to one. */
-function cleanText(value: string) {
+export function cleanText(value: string) {
   return value
     .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, ' ')
     .replace(/\s+/g, ' ')
@@ -119,7 +119,32 @@ export interface TextField {
   width: number;
 }
 
-export interface StickerLayout {
+/** Anything the ZPL and SVG emitters can draw: text fields, one Code 128 and one QR. */
+export interface LabelLayout {
+  templateVersion: string;
+  widthDots: number;
+  heightDots: number;
+  /** What both symbols encode. */
+  symbolData: string;
+  texts: TextField[];
+  code128: {
+    x: number;
+    y: number;
+    moduleWidth: number;
+    barHeight: number;
+    maxModules: number;
+  };
+  qr: {
+    x: number;
+    y: number;
+    magnification: number;
+    errorCorrection: string;
+    maxModules: number;
+  };
+  warnings: string[];
+}
+
+export interface StickerLayout extends LabelLayout {
   templateVersion: typeof TEMPLATE_VERSION;
   widthDots: number;
   heightDots: number;
@@ -132,7 +157,7 @@ export interface StickerLayout {
   warnings: string[];
 }
 
-function field(x: number, y: number, height: number, value: string): TextField {
+export function field(x: number, y: number, height: number, value: string): TextField {
   return { x, y, height, text: value, width: measureText(value, height) };
 }
 

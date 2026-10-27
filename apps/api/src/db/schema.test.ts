@@ -59,6 +59,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'oidc_sign_in_attempt',
       'print_job',
       'print_job_item',
+      'print_job_location_item',
       'printer',
       'project',
       'receipt',
@@ -973,6 +974,252 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       await expect(addEvent(userId, 'AT', '  ')).rejects.toMatchObject({
         code: PG.checkViolation,
       });
+    });
+  });
+
+  describe('storage locations and location labels (MM-T37)', () => {
+    async function addLocation(code: string, name = `Location ${code}`) {
+      const { rows } = await db.pool.query<{ id: string }>(
+        `INSERT INTO location (code, name, kind) VALUES ($1, $2, 'warehouse') RETURNING id`,
+        [code, name],
+      );
+      return rows[0]!.id;
+    }
+
+    async function locationJob(target = 'location') {
+      await db.pool.query(
+        `INSERT INTO printer (key, name, host) VALUES ('loc-printer', 'Loc', '10.0.0.9')
+         ON CONFLICT DO NOTHING`,
+      );
+      const { rows } = await db.pool.query<{ id: string }>(
+        `INSERT INTO print_job (kind, target_type, printer_key, template_version,
+                                requested_by_user_id, requested_by_name_snapshot)
+         VALUES ('initial', $1, 'loc-printer', 'location-v1', $2, 'Test AT') RETURNING id`,
+        [target, userId],
+      );
+      return rows[0]!.id;
+    }
+
+    it('keeps codes unique ignoring case', async () => {
+      await addLocation('SCH-A1');
+      await expect(addLocation('sch-a1')).rejects.toMatchObject({ code: PG.uniqueViolation });
+    });
+
+    it('records a reason exactly when a location is retired, and keeps area tidy', async () => {
+      const id = await addLocation('SCH-R1');
+      await expect(
+        db.pool.query('UPDATE location SET active = false WHERE id = $1', [id]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        db.pool.query(`UPDATE location SET retired_at = now() WHERE id = $1`, [id]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await db.pool.query(
+        `UPDATE location SET active = false, retired_at = now(), retired_reason = 'Shelf removed'
+         WHERE id = $1`,
+        [id],
+      );
+      for (const area of [' Bay 1', '', 'x'.repeat(61)]) {
+        await expect(
+          db.pool.query(`UPDATE location SET area = $1 WHERE code_normalized = 'SCH-A1'`, [area]),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      }
+      await db.pool.query(
+        `UPDATE location SET area = 'Warehouse C' WHERE code_normalized = 'SCH-A1'`,
+      );
+    });
+
+    it('never deletes a location and keeps the system flag and kind of Receiving lab', async () => {
+      const id = await addLocation('SCH-D1');
+      await expect(db.pool.query('DELETE FROM location WHERE id = $1', [id])).rejects.toMatchObject(
+        { code: PG.restrictViolation },
+      );
+      await expect(
+        db.pool.query(`UPDATE location SET is_system = true WHERE id = $1`, [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await expect(
+        db.pool.query(`UPDATE location SET kind = 'lab' WHERE code_normalized = 'RECEIVING'`),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      // Renaming the system location for display is allowed.
+      await db.pool.query(
+        `UPDATE location SET name = 'Receiving bench' WHERE code_normalized = 'RECEIVING'`,
+      );
+      await db.pool.query(
+        `UPDATE location SET name = 'Receiving lab' WHERE code_normalized = 'RECEIVING'`,
+      );
+    });
+
+    it('locks the code once a label is requested and only then accepts a location label', async () => {
+      const id = await addLocation('SCH-L1');
+      const jobId = await locationJob();
+      // No lock yet: a label can't be queued for it.
+      await expect(
+        db.pool.query(
+          `INSERT INTO print_job_location_item (print_job_id, location_id, position, code_snapshot,
+                                                name_snapshot)
+           VALUES ($1, $2, 1, 'SCH-L1', 'Location SCH-L1')`,
+          [jobId, id],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await db.pool.query('UPDATE location SET code_locked_at = now() WHERE id = $1', [id]);
+      // The label must carry the location's own code.
+      await expect(
+        db.pool.query(
+          `INSERT INTO print_job_location_item (print_job_id, location_id, position, code_snapshot,
+                                                name_snapshot)
+           VALUES ($1, $2, 1, 'SCH-L2', 'Location SCH-L1')`,
+          [jobId, id],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await db.pool.query(
+        `INSERT INTO print_job_location_item (print_job_id, location_id, position, code_snapshot,
+                                              name_snapshot)
+         VALUES ($1, $2, 1, 'SCH-L1', 'Location SCH-L1')`,
+        [jobId, id],
+      );
+      // Locked: the code and the lock itself can't change; the name still can.
+      await expect(
+        db.pool.query(`UPDATE location SET code = 'SCH-L9' WHERE id = $1`, [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await expect(
+        db.pool.query(`UPDATE location SET code_locked_at = NULL WHERE id = $1`, [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await db.pool.query(`UPDATE location SET name = 'Renamed shelf' WHERE id = $1`, [id]);
+      // A physical confirmation is recorded once and never moved.
+      await db.pool.query('UPDATE location SET label_printed_at = now() WHERE id = $1', [id]);
+      await expect(
+        db.pool.query('UPDATE location SET label_printed_at = NULL WHERE id = $1', [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+    });
+
+    it('never records a physical label without a code lock', async () => {
+      const id = await addLocation('SCH-P1');
+      await expect(
+        db.pool.query('UPDATE location SET label_printed_at = now() WHERE id = $1', [id]),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+
+    it('keeps storage-unit and location items on jobs of their own target type', async () => {
+      const id = await addLocation('SCH-T1');
+      await db.pool.query('UPDATE location SET code_locked_at = now() WHERE id = $1', [id]);
+      const unitJob = await locationJob('storage_unit');
+      const locJob = await locationJob('location');
+      await expect(
+        db.pool.query(
+          `INSERT INTO print_job_location_item (print_job_id, location_id, position, code_snapshot,
+                                                name_snapshot)
+           VALUES ($1, $2, 1, 'SCH-T1', 'Location')`,
+          [unitJob, id],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      const { storageUnitId } = await bucketSetup('DEMO-3701', 'BKT-2026-037001');
+      await expect(
+        db.pool.query(
+          `INSERT INTO print_job_item (print_job_id, storage_unit_id, position) VALUES ($1, $2, 1)`,
+          [locJob, storageUnitId],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        db.pool.query(`UPDATE print_job SET target_type = 'storage_unit' WHERE id = $1`, [locJob]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+    });
+
+    it('never places a storage unit in a retired location', async () => {
+      const retired = await addLocation('SCH-X1');
+      await db.pool.query(
+        `UPDATE location SET active = false, retired_at = now(), retired_reason = 'Gone'
+         WHERE id = $1`,
+        [retired],
+      );
+      const { storageUnitId, projectId, receiptId } = await bucketSetup(
+        'DEMO-3702',
+        'BKT-2026-037002',
+      );
+      await expect(
+        db.pool.query('UPDATE storage_unit SET current_location_id = $2 WHERE id = $1', [
+          storageUnitId,
+          retired,
+        ]),
+      ).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'storage_unit_location_active',
+      });
+      await expect(
+        insertStorageUnit(
+          db.pool,
+          { projectId, receiptId, locationId: retired },
+          { readableId: 'BKT-2026-037003' },
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      // Other changes to a unit already somewhere are unaffected.
+      await db.pool.query(`UPDATE storage_unit SET note = 'still fine' WHERE id = $1`, [
+        storageUnitId,
+      ]);
+    });
+
+    it('serialises retirement and an incoming unit: the move waits, then is refused', async () => {
+      const target = await addLocation('SCH-C1');
+      const { storageUnitId } = await bucketSetup('DEMO-3704', 'BKT-2026-037004');
+      const retirer = await db.pool.connect();
+      const mover = await db.pool.connect();
+      try {
+        await retirer.query('BEGIN');
+        await retirer.query('SELECT id FROM location WHERE id = $1 FOR UPDATE', [target]);
+        await mover.query('BEGIN');
+        // Blocks on the retirement's row lock.
+        const move = mover
+          .query('UPDATE storage_unit SET current_location_id = $2 WHERE id = $1', [
+            storageUnitId,
+            target,
+          ])
+          .then(
+            () => 'moved',
+            (error: { constraint?: string }) => error.constraint,
+          );
+        const occupants = await retirer.query<{ count: number }>(
+          `SELECT count(*)::int AS count FROM storage_unit WHERE current_location_id = $1`,
+          [target],
+        );
+        expect(occupants.rows[0]!.count).toBe(0);
+        await retirer.query(
+          `UPDATE location SET active = false, retired_at = now(), retired_reason = 'Closed'
+           WHERE id = $1`,
+          [target],
+        );
+        await retirer.query('COMMIT');
+        expect(await move).toBe('storage_unit_location_active');
+        await mover.query('ROLLBACK');
+      } finally {
+        retirer.release();
+        mover.release();
+      }
+    });
+
+    it('serialises an incoming unit and retirement: the retirement waits and sees the unit', async () => {
+      const target = await addLocation('SCH-C2');
+      const { storageUnitId } = await bucketSetup('DEMO-3705', 'BKT-2026-037005');
+      const retirer = await db.pool.connect();
+      const mover = await db.pool.connect();
+      try {
+        await mover.query('BEGIN');
+        await mover.query('UPDATE storage_unit SET current_location_id = $2 WHERE id = $1', [
+          storageUnitId,
+          target,
+        ]);
+        await retirer.query('BEGIN');
+        // Blocks on the move's key-share lock until it commits.
+        const lock = retirer.query('SELECT id FROM location WHERE id = $1 FOR UPDATE', [target]);
+        await mover.query('COMMIT');
+        await lock;
+        const occupants = await retirer.query<{ count: number }>(
+          `SELECT count(*)::int AS count FROM storage_unit WHERE current_location_id = $1`,
+          [target],
+        );
+        expect(occupants.rows[0]!.count).toBe(1);
+        await retirer.query('ROLLBACK');
+      } finally {
+        retirer.release();
+        mover.release();
+      }
     });
   });
 });

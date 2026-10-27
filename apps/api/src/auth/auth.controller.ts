@@ -55,6 +55,7 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'session.revoke',
   'printer.manage',
   'settings.drafts.manage',
+  'location.manage',
   'system.status.read',
 ];
 

@@ -1,10 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  InventoryItem,
-  InventoryLocation,
-  InventoryPage,
-  InventoryQuery,
-} from '@materialmule/shared';
+import type { InventoryItem, InventoryPage, InventoryQuery } from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
@@ -73,24 +68,11 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
   };
 }
 
-/** Every location, active first, for the inventory location filter. Locations are few (T37). */
-export async function listLocations(pool: Pool): Promise<InventoryLocation[]> {
-  const { rows } = await pool.query<InventoryLocation>(
-    `SELECT id, code, name, active FROM location ORDER BY active DESC, lower(name), code_normalized
-     LIMIT 500`,
-  );
-  return rows;
-}
-
 @Injectable()
 export class InventoryService {
   constructor(private readonly database: DatabaseService) {}
 
   query(query: InventoryQuery): Promise<InventoryPage> {
     return queryInventory(this.database.pool, query);
-  }
-
-  locations(): Promise<InventoryLocation[]> {
-    return listLocations(this.database.pool);
   }
 }

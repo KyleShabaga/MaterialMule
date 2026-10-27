@@ -64,7 +64,9 @@ function printJob(overrides: Partial<PrintJob> = {}): PrintJob {
     sentAt: null,
     physicallyConfirmedAt: null,
     physicallyConfirmedBy: null,
+    target: 'storage_unit',
     items: [{ storageUnitId: UNIT.id, readableId: UNIT.readableId, position: 1 }],
+    locations: [],
     ...overrides,
   };
 }

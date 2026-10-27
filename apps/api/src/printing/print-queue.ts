@@ -1,19 +1,30 @@
-import type { CreatePrintJobRequest, PrintHistoryResponse, PrintJob } from '@materialmule/shared';
+import {
+  locationPayload,
+  type CreateLocationLabelRequest,
+  type CreatePrintJobRequest,
+  type PrintHistoryResponse,
+  type PrintJob,
+} from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditReceiver } from '../audit/audit.js';
 import { actorFor } from '../auth/auth.controller.js';
 import type { AuthUser } from '../auth/policy.js';
 import { withTransaction } from '../db/transaction.js';
+import { LOCATION_TEMPLATE_VERSION } from '../labels/location-template-v1.js';
 import { TEMPLATE_VERSION } from '../labels/template-v1.js';
 import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 
 // Print queue data access (MM-T15). Requests only create jobs; the worker sends them. Nothing
 // here ever changes a receipt, storage unit or location: printing is separate from inventory.
+// A job prints storage-unit stickers or location labels (MM-T37), never both; a location job
+// names its locations directly, never through a stand-in storage unit or receipt.
 
 export type PrintErrorCode =
   | 'unknown_printer'
   | 'no_printer_configured'
   | 'unknown_storage_unit'
+  | 'unknown_location'
+  | 'location_retired'
   | 'receiver_required'
   | 'unknown_receiver'
   | 'not_found'
@@ -34,6 +45,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 interface JobRow {
   id: string;
   kind: PrintJob['kind'];
+  target_type: PrintJob['target'];
   printer_key: string;
   printer_name: string;
   template_version: string;
@@ -57,7 +69,7 @@ interface JobRow {
 }
 
 const SELECT_JOBS = `
-  SELECT j.id, j.kind, j.printer_key, p.name AS printer_name, j.template_version, j.status,
+  SELECT j.id, j.kind, j.target_type, j.printer_key, p.name AS printer_name, j.template_version, j.status,
          j.attempts, j.last_error, j.printer_message, j.created_at, j.updated_at, j.sent_at,
          j.physically_confirmed_at,
          -- MM-T65: each person as they were at the time (requester and receiver at the request,
@@ -89,6 +101,7 @@ type Queryable = Pool | PoolClient;
 async function loadJobs(db: Queryable, where: string, params: unknown[]): Promise<PrintJob[]> {
   const { rows } = await db.query<JobRow>(`${SELECT_JOBS} ${where}`, params);
   if (rows.length === 0) return [];
+  const jobIds = rows.map((row) => row.id);
   const items = await db.query<{
     print_job_id: string;
     storage_unit_id: string;
@@ -99,7 +112,7 @@ async function loadJobs(db: Queryable, where: string, params: unknown[]): Promis
      FROM print_job_item i JOIN storage_unit su ON su.id = i.storage_unit_id
      WHERE i.print_job_id = ANY($1::uuid[])
      ORDER BY i.print_job_id, i.position`,
-    [rows.map((row) => row.id)],
+    [jobIds],
   );
   const itemsByJob = new Map<string, PrintJob['items']>();
   for (const item of items.rows) {
@@ -111,14 +124,46 @@ async function loadJobs(db: Queryable, where: string, params: unknown[]): Promis
     });
     itemsByJob.set(item.print_job_id, list);
   }
-  return rows.map((row) => toPrintJob(row, itemsByJob.get(row.id) ?? []));
+  // Location labels as they were requested (code and name snapshots, MM-T37).
+  const locationItems = await db.query<{
+    print_job_id: string;
+    location_id: string;
+    code_snapshot: string;
+    name_snapshot: string;
+    position: number;
+  }>(
+    `SELECT print_job_id, location_id, code_snapshot, name_snapshot, position
+     FROM print_job_location_item
+     WHERE print_job_id = ANY($1::uuid[])
+     ORDER BY print_job_id, position`,
+    [jobIds],
+  );
+  const locationsByJob = new Map<string, PrintJob['locations']>();
+  for (const item of locationItems.rows) {
+    const list = locationsByJob.get(item.print_job_id) ?? [];
+    list.push({
+      locationId: item.location_id,
+      code: item.code_snapshot,
+      name: item.name_snapshot,
+      payload: locationPayload(item.code_snapshot),
+      position: item.position,
+    });
+    locationsByJob.set(item.print_job_id, list);
+  }
+  return rows.map((row) =>
+    toPrintJob(row, itemsByJob.get(row.id) ?? [], locationsByJob.get(row.id) ?? []),
+  );
 }
 
 function person(userId: string | null, name: string | null, initials: string | null) {
   return userId ? { userId, name: name ?? '', initials } : null;
 }
 
-function toPrintJob(row: JobRow, items: PrintJob['items']): PrintJob {
+function toPrintJob(
+  row: JobRow,
+  items: PrintJob['items'],
+  locations: PrintJob['locations'],
+): PrintJob {
   return {
     id: row.id,
     kind: row.kind,
@@ -144,7 +189,9 @@ function toPrintJob(row: JobRow, items: PrintJob['items']): PrintJob {
       row.confirmed_by_name,
       row.confirmed_by_initials,
     ),
+    target: row.target_type,
     items,
+    locations,
   };
 }
 
@@ -173,7 +220,10 @@ async function resolvePrinter(client: PoolClient, printerId: string | undefined)
   return printer;
 }
 
-/** The staff member credited at a shared LAB station: given, or the receipt's receiver. */
+/**
+ * The staff member credited at a shared LAB station: given, or the receipt's receiver when the
+ * job's units share exactly one. Location labels pass no receipt receivers, so LAB must choose.
+ */
 async function resolveReceiver(
   client: PoolClient,
   user: AuthUser,
@@ -279,6 +329,122 @@ export async function enqueuePrintJob(
   });
 }
 
+/**
+ * Queues one location label (MM-T37) through the same queue and worker as stickers.
+ *
+ * Code-lock boundary: the location row is locked FOR UPDATE, the job and its item (with the code
+ * and name snapshot) are written, and `code_locked_at` is set, all in this transaction. A code
+ * edit locks the same row first, so it either commits before this request (and the label carries
+ * the new code) or waits and then finds the code locked. From the first request on, the
+ * LOC-<CODE> payload can never change, whether the job is queued, sending, sent, failed or
+ * uncertain. `label_printed_at` is NOT set here: only a person's physical confirmation sets it.
+ *
+ * A LAB station must name the staff member printing: a location has no receipt receiver to fall
+ * back on. The kind (initial or reprint) follows the location's own print history.
+ */
+export async function enqueueLocationLabelJob(
+  pool: Pool,
+  user: AuthUser,
+  locationId: string,
+  request: CreateLocationLabelRequest,
+  requestId: string | null,
+): Promise<PrintJob> {
+  if (!UUID_PATTERN.test(locationId)) {
+    throw new PrintRequestError('unknown_location', 'Location not found.');
+  }
+  return withTransaction(pool, async (client) => {
+    const { rows: locations } = await client.query<{
+      id: string;
+      code_normalized: string;
+      name: string;
+      active: boolean;
+      code_locked_at: Date | null;
+    }>(
+      `SELECT id, code_normalized, name, active, code_locked_at
+       FROM location WHERE id = $1 FOR UPDATE`,
+      [locationId],
+    );
+    const location = locations[0];
+    if (!location) throw new PrintRequestError('unknown_location', 'Location not found.');
+    if (!location.active) {
+      throw new PrintRequestError(
+        'location_retired',
+        'This location is retired. Labels can only be printed for active locations.',
+      );
+    }
+    const printer = await resolvePrinter(client, request.printerId);
+    const receiver = await resolveReceiver(client, user, request.receiverUserId, []);
+
+    const { rows: earlier } = await client.query(
+      'SELECT 1 FROM print_job_location_item WHERE location_id = $1 LIMIT 1',
+      [locationId],
+    );
+    const kind: PrintJob['kind'] = earlier.length > 0 ? 'reprint' : 'initial';
+
+    if (location.code_locked_at === null) {
+      await client.query('UPDATE location SET code_locked_at = now() WHERE id = $1', [locationId]);
+    }
+
+    const actor = actorFor(user);
+    const { rows } = await client.query<{ id: string }>(
+      `INSERT INTO print_job (kind, target_type, printer_key, template_version, requested_by_user_id,
+                              requested_by_initials_snapshot, requested_by_name_snapshot,
+                              receiver_user_id, receiver_initials_snapshot, receiver_name_snapshot)
+       VALUES ($1, 'location', $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [
+        kind,
+        printer.key,
+        LOCATION_TEMPLATE_VERSION,
+        user.userId,
+        actor.initials,
+        actor.name,
+        receiver?.userId ?? null,
+        receiver?.initials ?? null,
+        receiver?.name ?? null,
+      ],
+    );
+    const jobId = rows[0]!.id;
+    await client.query(
+      `INSERT INTO print_job_location_item (print_job_id, location_id, position, code_snapshot,
+                                            name_snapshot)
+       VALUES ($1, $2, 1, $3, $4)`,
+      [jobId, locationId, location.code_normalized, location.name],
+    );
+
+    await recordAudit(client, {
+      action: kind === 'reprint' ? 'label.reprint_requested' : 'label.print_requested',
+      entityType: 'print_job',
+      entityId: jobId,
+      actor,
+      receiver,
+      after: {
+        kind,
+        target: 'location',
+        printerId: printer.key,
+        templateVersion: LOCATION_TEMPLATE_VERSION,
+        locationId,
+        locationCode: location.code_normalized,
+        payload: locationPayload(location.code_normalized),
+        ...(location.code_locked_at === null ? { codeLocked: true } : {}),
+      },
+      requestId,
+    });
+
+    return (await getPrintJob(client, jobId))!;
+  });
+}
+
+/** Every label job for the location, newest first (MM-T37). */
+export async function getLocationPrintJobs(db: Queryable, locationId: string): Promise<PrintJob[]> {
+  return loadJobs(
+    db,
+    `WHERE j.id IN (SELECT print_job_id FROM print_job_location_item WHERE location_id = $1)
+     ORDER BY j.created_at DESC, j.id DESC
+     LIMIT 100`,
+    [locationId],
+  );
+}
+
 /** Every print job that included the storage unit (UUID or readable ID), newest first. */
 export async function getPrintHistory(
   pool: Pool,
@@ -319,8 +485,12 @@ export async function confirmPhysicalPrint(
   return withTransaction(pool, async (client) => {
     const { rows } = await client.query<{
       status: PrintJob['status'];
+      target_type: PrintJob['target'];
       physically_confirmed_at: Date | null;
-    }>('SELECT status, physically_confirmed_at FROM print_job WHERE id = $1 FOR UPDATE', [jobId]);
+    }>(
+      'SELECT status, target_type, physically_confirmed_at FROM print_job WHERE id = $1 FOR UPDATE',
+      [jobId],
+    );
     const job = rows[0];
     if (!job) throw new PrintRequestError('not_found', 'Print job not found.');
     if (job.physically_confirmed_at === null) {
@@ -338,6 +508,10 @@ export async function confirmPhysicalPrint(
          WHERE id = $1`,
         [jobId, user.userId, user.initials, user.displayName],
       );
+      if (job.target_type === 'location') {
+        await confirmLocationLabels(client, user, jobId, job.status, requestId);
+        return (await getPrintJob(client, jobId))!;
+      }
       const { rows: items } = await client.query<{ readable_id: string }>(
         `SELECT su.readable_id FROM print_job_item i
          JOIN storage_unit su ON su.id = i.storage_unit_id
@@ -361,4 +535,58 @@ export async function confirmPhysicalPrint(
     }
     return (await getPrintJob(client, jobId))!;
   });
+}
+
+/**
+ * Physical confirmation of a location label job (MM-T37): the job's `label.physically_confirmed`
+ * event, and for each location the first confirmation is recorded on the location
+ * (`label_printed_at`) with a `location.label_printed` event. Only this path writes either.
+ */
+async function confirmLocationLabels(
+  client: PoolClient,
+  user: AuthUser,
+  jobId: string,
+  status: PrintJob['status'],
+  requestId: string | null,
+): Promise<void> {
+  const actor = actorFor(user);
+  const { rows: items } = await client.query<{ location_id: string; code_snapshot: string }>(
+    `SELECT location_id, code_snapshot FROM print_job_location_item
+     WHERE print_job_id = $1 ORDER BY position`,
+    [jobId],
+  );
+  const locationCodes = items.map((item) => item.code_snapshot);
+  await recordAudit(client, {
+    action: 'label.physically_confirmed',
+    entityType: 'print_job',
+    entityId: jobId,
+    actor,
+    before: { status },
+    after: {
+      target: 'location',
+      locationCodes,
+      ...(locationCodes.length === 1 ? { locationCode: locationCodes[0] } : {}),
+    },
+    requestId,
+  });
+  for (const item of items) {
+    const { rowCount } = await client.query(
+      `UPDATE location SET label_printed_at = now()
+       WHERE id = $1 AND label_printed_at IS NULL`,
+      [item.location_id],
+    );
+    await recordAudit(client, {
+      action: 'location.label_printed',
+      entityType: 'location',
+      entityId: item.location_id,
+      actor,
+      after: {
+        printJobId: jobId,
+        locationCode: item.code_snapshot,
+        payload: locationPayload(item.code_snapshot),
+        firstConfirmation: rowCount === 1,
+      },
+      requestId,
+    });
+  }
 }

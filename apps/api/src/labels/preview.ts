@@ -3,8 +3,8 @@ import {
   DOTS_PER_INCH,
   layoutStickerV1,
   TEMPLATE_VERSION,
+  type LabelLayout,
   type StickerInput,
-  type StickerLayout,
 } from './template-v1.js';
 
 export interface StickerPreview {
@@ -45,7 +45,7 @@ function escapeXml(value: string) {
     .replace(/'/g, '&apos;');
 }
 
-function code128Path(layout: StickerLayout): string {
+function code128Path(layout: LabelLayout): string {
   const { x, y, moduleWidth, barHeight, maxModules } = layout.code128;
   const pattern = code128Pattern(layout.symbolData);
   const modules = pattern.reduce((sum, width) => sum + width, 0);
@@ -62,7 +62,7 @@ function code128Path(layout: StickerLayout): string {
   return d;
 }
 
-function qrPath(layout: StickerLayout): string {
+function qrPath(layout: LabelLayout): string {
   const { x, y, magnification, maxModules } = layout.qr;
   const matrix = qrMatrix(layout.symbolData);
   if (matrix.length > maxModules) {
@@ -90,6 +90,15 @@ function qrPath(layout: StickerLayout): string {
  */
 export function renderPreviewSvg(input: StickerInput): StickerPreview {
   const layout = layoutStickerV1(input);
+  return {
+    svg: svgForLayout(layout),
+    warnings: layout.warnings,
+    templateVersion: TEMPLATE_VERSION,
+  };
+}
+
+/** Real-size SVG of any positioned label (sticker or location label, MM-T37). */
+export function svgForLayout(layout: LabelLayout): string {
   const { widthDots, heightDots } = layout;
   const texts = layout.texts.map(
     (text) =>
@@ -111,9 +120,5 @@ export function renderPreviewSvg(input: StickerInput): StickerPreview {
     `<path data-symbol="qr" fill="#000" d="${qrPath(layout)}"/>`,
     '</svg>',
   ];
-  return {
-    svg: svg.join('\n') + '\n',
-    warnings: layout.warnings,
-    templateVersion: TEMPLATE_VERSION,
-  };
+  return svg.join('\n') + '\n';
 }

@@ -30,6 +30,8 @@ import { HealthController } from './health/health.controller.js';
 import { InventoryController } from './inventory/inventory.controller.js';
 import { InventoryService } from './inventory/inventory.service.js';
 import { LabelsController } from './labels/labels.controller.js';
+import { LocationsController } from './locations/locations.controller.js';
+import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
@@ -83,6 +85,7 @@ export class AppModule {
         ReceiptsController,
         ReceivingLogController,
         InventoryController,
+        LocationsController,
         StorageUnitsController,
         StorageUnitCorrectionsController,
         SystemStatusController,
@@ -113,6 +116,7 @@ export class AppModule {
         ReceiptsService,
         ReceivingLogService,
         InventoryService,
+        LocationsService,
         StorageUnitsService,
         StorageUnitCorrectionsService,
         // Lab requests arrive with MM-T23; until then no unit has unresolved links.

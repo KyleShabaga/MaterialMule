@@ -25,6 +25,7 @@ import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
 import { ScanPage } from './scanning/ScanPage';
+import { LocationsPage } from './settings/locations/LocationsPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
@@ -102,10 +103,8 @@ export const routes: RouteObject[] = [
                     element: <ProfilePage />,
                   },
                   { path: 'staff', element: <StaffPage /> },
-                  {
-                    path: 'locations',
-                    element: <PlaceholderPage title="Locations" card="MM-T37" />,
-                  },
+                  // Storage locations and location labels (MM-T37).
+                  { path: 'locations', element: <LocationsPage /> },
                   { path: 'printers', element: <PrintersSettingsPage /> },
                   // Draft auto-delete (MM-T45): Admin and Lab Manager.
                   { path: 'receiving', element: <ReceivingSettingsPage /> },

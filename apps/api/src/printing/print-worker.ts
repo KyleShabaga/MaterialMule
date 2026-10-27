@@ -1,6 +1,7 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { withTransaction } from '../db/transaction.js';
+import { renderLocationLabelZpl } from '../labels/location-template-v1.js';
 import { renderZpl } from '../labels/zpl.js';
 import { statusAfterAttempt, MAX_PRINT_ATTEMPTS } from './status-rules.js';
 import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-client.js';
@@ -21,6 +22,9 @@ import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-clien
 // succeeded (reply lost), leaving the job `sending` although no byte went out. The worker keeps
 // the claim in memory and, before the next dispatch, puts the job back in the queue exactly as it
 // was. That printer gets nothing new meanwhile, so a job is never reset while it is being sent.
+//
+// Location labels (MM-T37) go through exactly the same claim, send, settle and recovery path; only
+// the rendering differs. They print the code and name recorded when the job was requested.
 
 export interface PrintWorkerOptions {
   /** How often to look for queued jobs when nothing woke the worker. */
@@ -53,7 +57,9 @@ interface ClaimedJob {
   attempts: number;
   templateVersion: string;
   target: PrinterTarget;
-  readableIds: string[];
+  /** What the job prints: storage units by readable ID, or location codes. */
+  labelTarget: 'storage_unit' | 'location';
+  labels: string[];
   zpl: string | null;
   renderError: string | null;
 }
@@ -355,12 +361,14 @@ export class PrintWorker {
         id: string;
         attempts: number;
         template_version: string;
+        target_type: 'storage_unit' | 'location';
         due: boolean;
         host: string;
         port: number;
         check_status: boolean;
       }>(
-        `SELECT j.id, j.attempts, j.template_version, j.next_attempt_at <= now() AS due,
+        `SELECT j.id, j.attempts, j.template_version, j.target_type,
+                j.next_attempt_at <= now() AS due,
                 p.host, p.port, p.check_status
          FROM print_job j JOIN printer p ON p.key = j.printer_key
          WHERE j.printer_key = $1 AND j.status = 'queued' AND p.enabled
@@ -379,59 +387,18 @@ export class PrintWorker {
         [row.id],
       );
 
-      // Current values: a reprint after a correction prints the corrected details.
-      const { rows: units } = await client.query<{
-        readable_id: string;
-        received_date: string;
-        project_number: string;
-        project_name: string;
-        test_holes: string[];
-      }>(
-        `SELECT su.readable_id, su.received_date::text AS received_date,
-                p.project_number, p.name AS project_name,
-                COALESCE(array_agg(th.name ORDER BY th.name_normalized)
-                           FILTER (WHERE th.id IS NOT NULL), '{}') AS test_holes
-         FROM print_job_item i
-         JOIN storage_unit su ON su.id = i.storage_unit_id
-         JOIN project p ON p.id = su.project_id
-         LEFT JOIN storage_unit_hole_summary s ON s.storage_unit_id = su.id
-         LEFT JOIN test_hole th ON th.id = s.test_hole_id
-         WHERE i.print_job_id = $1
-         GROUP BY i.position, su.id, p.id
-         ORDER BY i.position`,
-        [row.id],
-      );
-
-      let zpl: string | null = null;
-      let renderError: string | null = null;
-      try {
-        zpl = units
-          .map(
-            (unit) =>
-              renderZpl(
-                {
-                  storageUnitId: unit.readable_id,
-                  projectNumber: unit.project_number,
-                  projectName: unit.project_name,
-                  receivedDate: unit.received_date,
-                  testHoles: unit.test_holes,
-                },
-                row.template_version,
-              ).zpl,
-          )
-          .join('');
-      } catch {
-        renderError = 'The label could not be prepared';
-      }
+      const rendered =
+        row.target_type === 'location'
+          ? await renderLocationJob(client, row.id, row.template_version)
+          : await renderStorageUnitJob(client, row.id, row.template_version);
 
       return {
         id: row.id,
         attempts: row.attempts + 1,
         templateVersion: row.template_version,
         target: { host: row.host, port: row.port, checkStatus: row.check_status },
-        readableIds: units.map((unit) => unit.readable_id),
-        zpl,
-        renderError,
+        labelTarget: row.target_type,
+        ...rendered,
       };
     });
   }
@@ -474,11 +441,99 @@ export class PrintWorker {
           after: {
             status: next.status,
             attempts: job.attempts,
-            readableIds: job.readableIds,
-            unitCount: job.readableIds.length,
+            ...(job.labelTarget === 'location'
+              ? { target: 'location', locationCodes: job.labels, labelCount: job.labels.length }
+              : { readableIds: job.labels, unitCount: job.labels.length }),
           },
         });
       }
     });
+  }
+}
+
+interface RenderedJob {
+  labels: string[];
+  zpl: string | null;
+  renderError: string | null;
+}
+
+/** Stickers from the units' current values: a reprint after a correction prints the corrections. */
+async function renderStorageUnitJob(
+  client: PoolClient,
+  jobId: string,
+  templateVersion: string,
+): Promise<RenderedJob> {
+  const { rows: units } = await client.query<{
+    readable_id: string;
+    received_date: string;
+    project_number: string;
+    project_name: string;
+    test_holes: string[];
+  }>(
+    `SELECT su.readable_id, su.received_date::text AS received_date,
+            p.project_number, p.name AS project_name,
+            COALESCE(array_agg(th.name ORDER BY th.name_normalized)
+                       FILTER (WHERE th.id IS NOT NULL), '{}') AS test_holes
+     FROM print_job_item i
+     JOIN storage_unit su ON su.id = i.storage_unit_id
+     JOIN project p ON p.id = su.project_id
+     LEFT JOIN storage_unit_hole_summary s ON s.storage_unit_id = su.id
+     LEFT JOIN test_hole th ON th.id = s.test_hole_id
+     WHERE i.print_job_id = $1
+     GROUP BY i.position, su.id, p.id
+     ORDER BY i.position`,
+    [jobId],
+  );
+  const labels = units.map((unit) => unit.readable_id);
+  try {
+    const zpl = units
+      .map(
+        (unit) =>
+          renderZpl(
+            {
+              storageUnitId: unit.readable_id,
+              projectNumber: unit.project_number,
+              projectName: unit.project_name,
+              receivedDate: unit.received_date,
+              testHoles: unit.test_holes,
+            },
+            templateVersion,
+          ).zpl,
+      )
+      .join('');
+    return { labels, zpl, renderError: null };
+  } catch {
+    return { labels, zpl: null, renderError: 'The label could not be prepared' };
+  }
+}
+
+/**
+ * Location labels (MM-T37) from the code and name recorded with the job. The code is locked from
+ * the request on, so the payload is the one the location still carries.
+ */
+async function renderLocationJob(
+  client: PoolClient,
+  jobId: string,
+  templateVersion: string,
+): Promise<RenderedJob> {
+  const { rows } = await client.query<{ code_snapshot: string; name_snapshot: string }>(
+    `SELECT code_snapshot, name_snapshot FROM print_job_location_item
+     WHERE print_job_id = $1 ORDER BY position`,
+    [jobId],
+  );
+  const labels = rows.map((row) => row.code_snapshot);
+  try {
+    if (rows.length === 0) throw new Error('No labels');
+    const zpl = rows
+      .map((row) =>
+        renderLocationLabelZpl(
+          { code: row.code_snapshot, name: row.name_snapshot },
+          templateVersion,
+        ),
+      )
+      .join('');
+    return { labels, zpl, renderError: null };
+  } catch {
+    return { labels, zpl: null, renderError: 'The label could not be prepared' };
   }
 }

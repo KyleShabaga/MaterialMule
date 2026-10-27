@@ -149,4 +149,17 @@ describe('can', () => {
     const lab = user({ accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
     expect(can(lab, 'settings.drafts.manage')).toBe(false);
   });
+
+  it('MM-T37 T5: only admins and Lab Managers manage locations; everyone reads and prints', () => {
+    expect(can(user({ roles: ['lab_manager'] }), 'location.manage')).toBe(true);
+    expect(can(user({ roles: ['admin'] }), 'location.manage')).toBe(true);
+    expect(can(user(), 'location.manage')).toBe(false);
+    expect(can(user({ userId: 'u-pe' }), 'location.manage', project)).toBe(false);
+    expect(can(user({ status: 'pending', roles: ['admin'] }), 'location.manage')).toBe(false);
+    // LAB never manages locations, even with roles assigned by mistake.
+    const lab = user({ accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
+    expect(can(lab, 'location.manage')).toBe(false);
+    expect(can(lab, 'inventory.read')).toBe(true);
+    expect(can(lab, 'label.print')).toBe(true);
+  });
 });

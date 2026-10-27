@@ -37,6 +37,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | retention.manage (D05)            |     |                   |      ✓      |       |       ✓       |                     |
 | disposal.approve (D19)            |     |                   |      ✓      |       |       ✓       |                     |
 | settings.drafts.manage (MM-T45)   |     |                   |      ✓      |   ✓   |               |                     |
+| location.manage (MM-T37)          |     |                   |      ✓      |   ✓   |               |                     |
 | test.accept (D04)                 |     |                   |             |       |       ✓       |          ✓          |
 | program.close (D06)               |     |                   |             |       |       ✓       |                     |
 | acceptance_delegation.manage      |     |                   |             |       |       ✓       |                     |
@@ -208,3 +209,46 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   `afterDays` days ago, never one in the `confirming` state, and only when the setting was loaded
   successfully and is on. This amends the T11 decision that drafts are never deleted
   automatically (owner request 2026-10-26).
+
+## Storage locations (MM-T37)
+
+| Route                                              | Policy                                                |
+| -------------------------------------------------- | ----------------------------------------------------- |
+| `GET /api/locations?search=&includeRetired=`       | `inventory.read` (every active session, LAB included) |
+| `GET /api/locations/:id`                           | `inventory.read`                                      |
+| `GET /api/locations/:id/label/preview`             | `inventory.read` (read-only: no job, no code lock)    |
+| `POST /api/locations`                              | `location.manage` (Lab Manager and admin, no LAB)     |
+| `PATCH /api/locations/:id`                         | `location.manage`                                     |
+| `POST /api/locations/:id/retire {reason, version}` | `location.manage`                                     |
+| `POST /api/locations/:id/labels`                   | `label.print` (unchanged label-print permission)      |
+| `GET /api/scan/resolve?payload=`                   | `inventory.read`                                      |
+
+- **Who manages** (Kyle, 2026-10-26): admins and Lab Managers add, edit and retire locations.
+  Everyone else, LAB included, reads them and resolves scans. A LAB station never manages
+  locations, whoever is selected there: `receiverUserId` is attribution for printing only.
+- **Codes** are 2–20 letters, digits or hyphens, stored trimmed and upper case, unique ignoring
+  case (409 `location_code_exists`: "A location with code WH-C1 already exists."). Edits are
+  optimistic (`version`; a stale one gets 409 `version_conflict` with the current location).
+- **Receiving lab** is the system location receipt confirmation uses (D03): its display name can
+  change; its code, kind and area can't (422 `system_location`), and it can't be retired (422).
+- **Retiring** needs a reason. A location that still holds units (saved there and not disposed,
+  the Inventory "Current stock" filter) can't retire: 409 `location_occupied` with
+  `inStockCount`. A retired location stays on every record that names it, still resolves when
+  scanned (with `active: false`), can't be edited or printed, and the database refuses to place
+  a unit there (migration 0028). Locations are never deleted.
+- **Label payload** (owner approval 2026-10-25): both symbols carry exactly `LOC-<CODE>`, e.g.
+  `LOC-WH-C1`; never a URL or storage-unit data. The scan resolver answers
+  `{type: "location"}`, `{type: "storage_unit"}` or `{type: "unknown", reason}`.
+- **Code lock:** the first label request locks the code in the same transaction that queues the
+  job, under the location's row lock. After that the code (and so the payload) never changes;
+  the name still can. Edits take the same row lock, so an edit racing the first request either
+  commits first (the label carries the new code) or finds the code locked (422
+  `location_code_locked`).
+- **Printing** uses the same queue and worker as storage-unit stickers (no stand-in units or
+  receipts). A LAB station must choose the staff member printing (400 `receiver_required`): a
+  location has no receipt receiver to fall back on. "Sent to printer" is not a physical print:
+  only a person's "Labels came out OK"/"Mark as printed" sets the location's `label_printed_at`
+  and records `location.label_printed`.
+- **Audit events:** `location.created`, `location.updated` (changed fields before/after),
+  `location.retired` (reason), `location.label_printed` (at physical confirmation), plus the
+  print queue's `label.*` events with `target: "location"`.

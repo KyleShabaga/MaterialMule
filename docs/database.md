@@ -272,3 +272,31 @@ again changes nothing.
   audit trail: the latest `staff.preprovisioned` / `staff.initials_changed` event for the person,
   by a named person, that set exactly the current value. Other rows stay unconfirmed until an
   admin uses Confirm initials in Staff & access.
+
+## Storage locations and location labels (MM-T37, migration 0028)
+
+- **Location record.** `location` gains an optional `area` (trimmed, 1–60), `retired_at` and
+  `retired_reason` (present exactly when `active` is false), `updated_at` and `version`
+  (optimistic edits). Codes stay unique ignoring case through `code_normalized` (migration 0001).
+  Locations made inactive before 0028 got a placeholder retirement so the pairing rule holds.
+- **Guards (trigger `location_guard`).** Locations are never deleted; `is_system` never changes;
+  the system location's kind never changes; once `code_locked_at` is set the code and the lock are
+  fixed; the first `label_printed_at` is never moved. A CHECK keeps `label_printed_at` only on a
+  code-locked location.
+- **Code lock vs physical print.** `code_locked_at` is set in the transaction that queues the
+  location's first label (under `SELECT … FOR UPDATE` on the location, the same lock edits take),
+  so a queued, sending or uncertain label always carries the location's lasting code.
+  `label_printed_at` is set only when a person confirms a location label job physically printed.
+- **No units in a retired location.** A trigger on `storage_unit` inserts and
+  `current_location_id` changes locks the destination row `FOR KEY SHARE` and refuses an
+  inactive one (`storage_unit_location_active`). Retirement locks the row `FOR UPDATE` before
+  counting occupants (units not `disposed`), so a retirement and an incoming unit serialise: the
+  move waits and is refused, or the retirement waits and sees the unit (proved in
+  `schema.test.ts`). MM-T28 moves rely on this contract.
+- **Print queue targets.** `print_job.target_type` is `storage_unit` (default; `print_job_item`,
+  unchanged) or `location` (`print_job_location_item` with the code and name as requested). Item
+  triggers keep each item table on jobs of its own type and require a location label to carry the
+  location's locked code; the target type never changes. The worker, retries, uncertain outcomes,
+  claim/settlement recovery and physical confirmation are shared by both targets; location jobs
+  render template `location-v1` from the snapshots. No storage unit or receipt stands in for a
+  location.
