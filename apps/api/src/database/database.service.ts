@@ -3,7 +3,11 @@ import { Pool } from 'pg';
 import { APP_CONFIG } from '../config/config.constants.js';
 import type { AppConfig } from '../config/env.js';
 
-const CONNECT_TIMEOUT_MS = 2000;
+// Waiting for a connection and for a query: generous enough for a busy host (and a slow CI
+// runner) not to turn a momentary stall into a 500. The health check keeps its own short limit.
+const CONNECT_TIMEOUT_MS = 5000;
+const QUERY_TIMEOUT_MS = 15000;
+const PING_TIMEOUT_MS = 2000;
 
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
@@ -15,7 +19,7 @@ export class DatabaseService implements OnApplicationShutdown {
     this.pool = new Pool({
       connectionString: config.DATABASE_URL,
       connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
-      query_timeout: CONNECT_TIMEOUT_MS,
+      query_timeout: QUERY_TIMEOUT_MS,
       max: 10,
     });
     // An idle client losing its connection must not crash the process.
@@ -36,7 +40,15 @@ export class DatabaseService implements OnApplicationShutdown {
   /** True when the database answers a trivial query within the timeout. */
   async ping(): Promise<boolean> {
     try {
-      await this.pool.query('SELECT 1');
+      let timer: NodeJS.Timeout | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Query read timeout')), PING_TIMEOUT_MS);
+      });
+      try {
+        await Promise.race([this.pool.query('SELECT 1'), timeout]);
+      } finally {
+        clearTimeout(timer);
+      }
       return true;
     } catch (error) {
       this.logger.warn(`Database ping failed: ${(error as Error).message}`);

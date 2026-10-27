@@ -139,6 +139,9 @@ describe.runIf(testDatabaseUrl)('storage unit corrections API (MM-T13)', () => {
     });
     app = await createApp(config);
     await app.init();
+    // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+    // on the same server and can see a null address (flaky 'server.address() null').
+    await app.listen(0, '127.0.0.1');
     sessions = app.get(SessionService);
   });
 

@@ -137,6 +137,9 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
     });
     app = await createApp(config);
     await app.init();
+    // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+    // on the same server and can see a null address (flaky 'server.address() null').
+    await app.listen(0, '127.0.0.1');
     sessions = app.get(SessionService);
   });
 
@@ -477,6 +480,9 @@ describe.runIf(testDatabaseUrl)('receipt unit limit is configurable', () => {
         }),
       );
       await app.init();
+      // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+      // on the same server and can see a null address (flaky 'server.address() null').
+      await app.listen(0, '127.0.0.1');
       try {
         const session = await app.get(SessionService).create(userId, 'personal');
         const unit = (clientRowId: string) => ({
