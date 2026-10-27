@@ -90,6 +90,14 @@ Key rules enforced by the database:
 - **Audit events are append-only** (migration 0002): triggers reject `UPDATE`, `DELETE` and
   `TRUNCATE` even for the table owner. Record events with `recordAudit` (`apps/api/src/audit`)
   on the same transaction client as the change; actor initials and name are snapshots.
+- **Audit receivers are snapshots too (migration 0025, MM-T56).** An event that credits a
+  receiver (receipts, LAB-station prints, project and test-hole creation) stores
+  `receiver_initials_snapshot` and `receiver_name_snapshot` next to `receiver_user_id`. A
+  `NOT VALID` check refuses any new event with a receiver but no name snapshot, or snapshots
+  without a receiver; initials may be NULL for staff without confirmed initials. Older events
+  can't be backfilled (append-only), so storage unit history reads the event snapshot, then the
+  unit's receipt snapshot when the event credits the receipt's receiver, and only then the live
+  user.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
   so of two parallel creates exactly one succeeds and the other gets 409 with the existing row

@@ -12,7 +12,7 @@ import type {
   ReceiptUnitInput,
 } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
-import { recordAudit, type AuditActor } from '../audit/audit.js';
+import { recordAudit, type AuditActor, type AuditReceiver } from '../audit/audit.js';
 import type { AuthUser } from '../auth/policy.js';
 import { APP_CONFIG } from '../config/config.constants.js';
 import type { AppConfig } from '../config/env.js';
@@ -122,13 +122,18 @@ export class ReceiptsService {
         initials: account.initials,
         name: account.displayName,
       };
+      const receiverSnapshot: AuditReceiver = {
+        userId: receiver.id,
+        initials: receiver.initials,
+        name: receiver.name,
+      };
 
       await recordAudit(client, {
         action: 'receipt.confirmed',
         entityType: 'receipt',
         entityId: receiptId,
         actor,
-        receiverUserId: receiver.id,
+        receiver: receiverSnapshot,
         after: {
           projectNumber,
           receivedDate: request.receivedDate,
@@ -194,7 +199,7 @@ export class ReceiptsService {
           entityType: 'storage_unit',
           entityId: storageUnitId,
           actor,
-          receiverUserId: receiver.id,
+          receiver: receiverSnapshot,
           after: {
             readableId,
             receiptId,
