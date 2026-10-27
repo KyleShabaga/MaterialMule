@@ -1,5 +1,5 @@
 import type { MeResponse, StaffMember } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext } from '../../session/context';
@@ -146,6 +146,8 @@ describe('StaffPage', () => {
       state.admin = false;
       await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'J');
 
+      // Wait for the whole page to hand over, not just the first copy of the message.
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Add staff' })).toBeNull());
       expect(
         await screen.findByText('You no longer have permission to manage staff.'),
       ).toBeVisible();

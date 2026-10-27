@@ -259,7 +259,10 @@ function StaffDirectory({
       {list.state === 'loading' ? (
         <p aria-busy="true">Loading staff…</p>
       ) : list.state === 'error' ? (
-        <ErrorState message={list.message} onRetry={refresh} />
+        // A 403 hands over to StaffAccess's single message (MM-T52); don't show it twice.
+        list.forbidden ? null : (
+          <ErrorState message={list.message} onRetry={refresh} />
+        )
       ) : (
         <DataTable
           rows={list.data}
