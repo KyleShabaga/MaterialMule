@@ -1,4 +1,9 @@
-import { isPrintJobActive, type PrintHistoryResponse, type PrintJob } from '@materialmule/shared';
+import {
+  formatReceiver,
+  isPrintJobActive,
+  type PrintHistoryResponse,
+  type PrintJob,
+} from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { BandedCard, DataTable, ErrorState } from '../components/ui';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
@@ -20,10 +25,18 @@ const timeFormat = new Intl.DateTimeFormat('en-CA', {
   minute: '2-digit',
 });
 
+/**
+ * "LAB for JS · Jordan Smith": the account, and the receiver as they were when the job was
+ * requested (MM-T65) with initials and name, so people sharing initials are told apart (MM-T61).
+ */
 function who(job: PrintJob): string {
   const account = job.requestedBy.initials ?? job.requestedBy.name;
-  const receiver = job.receiver ? ` for ${job.receiver.initials ?? job.receiver.name}` : '';
-  return `${account}${receiver}`;
+  if (!job.receiver) return account;
+  const { initials, name } = job.receiver;
+  const receiver = initials
+    ? formatReceiver({ initials, displayName: name, position: null })
+    : name;
+  return `${account} for ${receiver}`;
 }
 
 /**

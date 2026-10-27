@@ -109,7 +109,11 @@ export function LabelPreviewPanel({
             {dual ? <span aria-hidden="true"> ↗</span> : null}
           </Link>
           {receipt && receipt.quantity > 1 ? (
-            <Link className="button" to={receiptPrintPath(receipt.id)} {...newTab}>
+            <Link
+              className="button"
+              to={receiptPrintPath(receipt.id, label.readableId)}
+              {...newTab}
+            >
               Print / Save all {receipt.quantity} labels of this receipt
             </Link>
           ) : null}

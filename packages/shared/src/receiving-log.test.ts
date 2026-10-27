@@ -4,6 +4,7 @@ import {
   receiptLogQuerySchema,
   receiptLogUnitCode,
   receiptReceiverQuerySchema,
+  splitReceiptLogSearch,
 } from './receiving-log';
 import { toFieldErrors } from './receipts';
 
@@ -11,6 +12,12 @@ const PROJECT = '00000000-0000-4000-8000-000000000201';
 const RECEIVER = '00000000-0000-4000-8000-000000000301';
 
 describe('receiving log query (MM-T51 T1)', () => {
+  it('splits search into lower-case words and keeps dashes as typed (its columns are not folded, MM-T59)', () => {
+    expect(splitReceiptLogSearch('  DEMO-2601   Alex demo-2601 ')).toEqual(['demo-2601', 'alex']);
+    expect(splitReceiptLogSearch('Bridge – North')).toEqual(['bridge', '–', 'north']);
+    expect(splitReceiptLogSearch(undefined)).toEqual([]);
+  });
+
   it('defaults to page 1 of 25 with no filters', () => {
     expect(receiptLogQuerySchema.parse({})).toEqual({ page: 1, pageSize: 25 });
   });

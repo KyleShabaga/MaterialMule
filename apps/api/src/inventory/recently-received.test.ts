@@ -107,13 +107,14 @@ describe.runIf(testDatabaseUrl)('GET /api/inventory/recently-received', () => {
     options: { minutesAgo?: number; confirmed?: boolean; attempts?: number } = {},
   ) {
     const { rows } = await db.pool.query<{ id: string }>(
-      `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id, status,
-                              attempts, sent_at, physically_confirmed_at,
-                              physically_confirmed_by_user_id, created_at)
-       VALUES ('initial', 'receiving', 'v1', $1, $2, $3,
+      `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                              requested_by_name_snapshot, status, attempts, sent_at,
+                              physically_confirmed_at, physically_confirmed_by_user_id,
+                              confirmed_by_name_snapshot, created_at)
+       VALUES ('initial', 'receiving', 'v1', $1, 'Test AT', $2, $3,
                CASE WHEN $2 = 'sent' THEN now() END,
                CASE WHEN $4 THEN now() END, CASE WHEN $4 THEN $1::uuid END,
-               now() - make_interval(mins => $5))
+               CASE WHEN $4 THEN 'Test AT' END, now() - make_interval(mins => $5))
        RETURNING id`,
       [at, status, options.attempts ?? 1, options.confirmed ?? false, options.minutesAgo ?? 0],
     );

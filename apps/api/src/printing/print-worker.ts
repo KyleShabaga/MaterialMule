@@ -16,6 +16,11 @@ import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-clien
 // outcome is kept in memory and saved again before the next dispatch. The job stays `sending`
 // meanwhile, so nothing else is sent to that printer and the labels are never resent. If the
 // process stops before the result is saved, startup recovery marks the job uncertain.
+//
+// Claim recovery (MM-T64): if a claim fails after its UPDATE ran, the COMMIT may still have
+// succeeded (reply lost), leaving the job `sending` although no byte went out. The worker keeps
+// the claim in memory and, before the next dispatch, puts the job back in the queue exactly as it
+// was. That printer gets nothing new meanwhile, so a job is never reset while it is being sent.
 
 export interface PrintWorkerOptions {
   /** How often to look for queued jobs when nothing woke the worker. */
@@ -53,6 +58,14 @@ interface ClaimedJob {
   renderError: string | null;
 }
 
+/** A claim that may have committed although it reported failure. Nothing was sent for it. */
+interface UnresolvedClaim {
+  jobId: string;
+  /** The job's attempts had the claim committed; only that exact claim is undone. */
+  attempts: number;
+  resolving: boolean;
+}
+
 /** An attempt whose transport finished but whose result is not saved yet. */
 interface UnsettledAttempt {
   job: ClaimedJob;
@@ -72,6 +85,8 @@ export class PrintWorker {
   private readonly inFlight = new Set<Promise<void>>();
   /** Per printer: the finished attempt waiting for its result to be saved (MM-T42). */
   private readonly unsettled = new Map<string, UnsettledAttempt>();
+  /** Per printer: the claim whose outcome is unknown (MM-T64). */
+  private readonly unresolvedClaims = new Map<string, UnresolvedClaim>();
 
   constructor(
     private readonly pool: Pool,
@@ -96,6 +111,7 @@ export class PrintWorker {
     // Last chance to save finished attempts. Any still unsaved stay `sending` and become
     // uncertain at the next start, which is the safe reading of an unrecorded send.
     await this.settlePending();
+    await this.resolveClaims();
     if (this.unsettled.size > 0) {
       this.log.warn(
         `Stopped with ${this.unsettled.size} print result(s) unsaved; they will be marked uncertain at the next start`,
@@ -173,6 +189,7 @@ export class PrintWorker {
   /** Starts the next due job on every idle printer. */
   private async dispatch(): Promise<void> {
     await this.settlePending();
+    await this.resolveClaims();
     // Printers whose oldest queued job is due and that have nothing mid-send.
     const { rows } = await this.pool.query<{ printer_key: string }>(
       `SELECT p.key AS printer_key
@@ -187,7 +204,13 @@ export class PrintWorker {
               LIMIT 1)`,
     );
     for (const { printer_key: printerKey } of rows) {
-      if (this.busyPrinters.has(printerKey) || this.unsettled.has(printerKey)) continue;
+      if (
+        this.busyPrinters.has(printerKey) ||
+        this.unsettled.has(printerKey) ||
+        this.unresolvedClaims.has(printerKey)
+      ) {
+        continue;
+      }
       this.busyPrinters.add(printerKey);
       const task = this.processNext(printerKey)
         .then((processed) => {
@@ -221,6 +244,36 @@ export class PrintWorker {
         this.log.error(`Print result still not saved, will retry: ${(error as Error).message}`);
       } finally {
         attempt.saving = false;
+      }
+    }
+  }
+
+  /**
+   * Puts back jobs whose claim may have committed although it reported failure. The UPDATE only
+   * matches the exact claim (still `sending`, same attempt count), and no byte was sent for it, so
+   * the job is queued again as it was and not counted as an attempt. If the claim had rolled back,
+   * nothing matches. Failures stay pending for the next dispatch.
+   */
+  private async resolveClaims(): Promise<void> {
+    for (const [printerKey, claim] of [...this.unresolvedClaims]) {
+      if (claim.resolving) continue;
+      claim.resolving = true;
+      try {
+        const { rowCount } = await this.pool.query(
+          `UPDATE print_job
+           SET status = 'queued', attempts = attempts - 1, updated_at = now()
+           WHERE id = $1 AND status = 'sending' AND attempts = $2`,
+          [claim.jobId, claim.attempts],
+        );
+        this.unresolvedClaims.delete(printerKey);
+        if (rowCount) {
+          this.log.warn('Print job claim was saved but not confirmed; job queued again, unsent');
+        }
+        this.wake();
+      } catch (error) {
+        this.log.error(`Print job claim still unresolved, will retry: ${(error as Error).message}`);
+      } finally {
+        claim.resolving = false;
       }
     }
   }
@@ -280,6 +333,21 @@ export class PrintWorker {
   }
 
   private async claim(printerKey: string): Promise<ClaimedJob | null> {
+    let claimed: UnresolvedClaim | null = null;
+    try {
+      return await this.claimInTransaction(printerKey, (claim) => (claimed = claim));
+    } catch (error) {
+      // Once the UPDATE was sent, the transaction may have committed: settle that before the
+      // printer gets anything else.
+      if (claimed) this.unresolvedClaims.set(printerKey, claimed);
+      throw error;
+    }
+  }
+
+  private async claimInTransaction(
+    printerKey: string,
+    onClaim: (claim: UnresolvedClaim) => void,
+  ): Promise<ClaimedJob | null> {
     return withTransaction(this.pool, async (client) => {
       // Oldest queued job first. If it is waiting for a retry, later jobs wait too, so labels
       // never come out of order.
@@ -304,6 +372,7 @@ export class PrintWorker {
       const row = rows[0];
       if (!row || !row.due) return null;
 
+      onClaim({ jobId: row.id, attempts: row.attempts + 1, resolving: false });
       await client.query(
         `UPDATE print_job SET status = 'sending', attempts = attempts + 1, updated_at = now()
          WHERE id = $1`,
