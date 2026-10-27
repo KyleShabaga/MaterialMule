@@ -70,7 +70,7 @@ export function TestSignInPage() {
       body: JSON.stringify({ fixtureKey: key }),
     });
     if (!response.ok) {
-      setError(`Sign-in failed (HTTP ${response.status}).`);
+      setError('Sign-in didn’t work. Try again.');
     }
     await refresh();
   }

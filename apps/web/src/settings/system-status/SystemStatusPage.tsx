@@ -29,7 +29,7 @@ async function fetchSystemStatus(): Promise<
       message:
         response.status === 403
           ? "You don't have permission to see system status."
-          : `Request failed (HTTP ${response.status}).`,
+          : "System status couldn't load. Try again.",
     };
   }
   const parsed = systemStatusResponseSchema.safeParse(await response.json().catch(() => null));

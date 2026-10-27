@@ -63,17 +63,26 @@ export function LabAccountCard() {
     const action = pending;
     setPending(null);
     setActionError(null);
-    const response =
-      action.kind === 'reset'
-        ? await apiFetch('/api/admin/lab/password', {
-            method: 'POST',
-            body: JSON.stringify({ newPassword: action.password }),
-          })
-        : await apiFetch(`/api/admin/users/${load.account.userId}/sessions/revoke`, {
-            method: 'POST',
-          });
+    let response: Response;
+    try {
+      response =
+        action.kind === 'reset'
+          ? await apiFetch('/api/admin/lab/password', {
+              method: 'POST',
+              body: JSON.stringify({ newPassword: action.password }),
+            })
+          : await apiFetch(`/api/admin/users/${load.account.userId}/sessions/revoke`, {
+              method: 'POST',
+            });
+    } catch {
+      // The request may or may not have arrived, so don't promise that nothing changed.
+      setActionError(
+        'Material Mule couldn’t be reached. Check the connection, then reload to see whether it worked.',
+      );
+      return;
+    }
     if (!response.ok) {
-      setActionError(`That didn’t work (HTTP ${response.status}). Nothing was changed.`);
+      setActionError('That didn’t work. Nothing was changed. Try again.');
       return;
     }
     if (action.kind === 'reset') {
