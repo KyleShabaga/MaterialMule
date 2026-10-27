@@ -57,9 +57,11 @@ test('MM-T61: print history says who marked an uncertain job printed and how oft
       ['uncertain', 1, '2026-10-26T16:00:00Z'],
     ] as const) {
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id, status,
-                                attempts, last_error, created_at)
-         SELECT 'initial', key, 'sticker-v1', $1, $2, $3, 'Printer dropped the connection', $4
+        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                                requested_by_name_snapshot, status, attempts, last_error,
+                                created_at)
+         SELECT 'initial', key, 'sticker-v1', $1, 'Alex Tester', $2, $3,
+                'Printer dropped the connection', $4
          FROM printer WHERE is_default
          RETURNING id`,
         [DEMO.at, status, attempts, createdAt],
