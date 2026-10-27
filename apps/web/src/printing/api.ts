@@ -51,7 +51,7 @@ async function callWithStatus<T>(
         ? body.message
         : response.status === 403
           ? "You don't have permission to do that."
-          : `Request failed (HTTP ${response.status}).`;
+          : 'Material Mule had a problem with that request. Try again.';
     return { ok: false, message, status: response.status };
   }
   const parsed = schema.safeParse(body);

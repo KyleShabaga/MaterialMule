@@ -60,8 +60,32 @@ export class LabAuthService {
     private readonly sessions: SessionService,
   ) {}
 
-  /** The LAB account row (seeded by reference data), with its password hash if one is set. */
-  private async findLab(client: PoolClient | DatabaseService['pool']): Promise<LabRow | null> {
+  /**
+   * The LAB account row (seeded by reference data), with its password hash if one is set.
+   *
+   * `lock` holds a row lock on LAB's app_user row until the transaction ends (MM-T40). LAB
+   * sign-in and the password reset both take it first, so "verify the password, create a
+   * session" never interleaves with "replace the password, revoke sessions": whichever arrives
+   * second waits, then reads the committed state.
+   * The lock is its own statement: after a lock wait, READ COMMITTED re-checks only the locked
+   * row, and joined rows (the password hash) would still come from the pre-wait snapshot. The
+   * following SELECT takes a fresh snapshot, so it sees a reset that committed while we waited.
+   * Lock order: the LAB app_user row, then sign_in_throttle rows; nothing that holds a throttle
+   * row ever waits for the LAB row, so the two cannot deadlock. FOR NO KEY UPDATE leaves
+   * foreign-key checks from other transactions (e.g. audit rows naming LAB) unblocked.
+   */
+  private async findLab(
+    client: PoolClient | DatabaseService['pool'],
+    lock = false,
+  ): Promise<LabRow | null> {
+    if (lock) {
+      await client.query(
+        `SELECT u.id FROM identity_link l JOIN app_user u ON u.id = l.user_id
+         WHERE l.provider = 'local_lab' AND l.tenant_id = '' AND l.subject = $1
+         FOR NO KEY UPDATE OF u`,
+        [LAB_USERNAME],
+      );
+    }
     const { rows } = await client.query<LabRow>(
       `SELECT u.id, u.account_type, u.status, u.display_name, c.password_hash
        FROM identity_link l
@@ -88,6 +112,9 @@ export class LabAuthService {
     ];
 
     return withTransaction(this.database.pool, async (client) => {
+      // Lock LAB before any throttle row (see findLab) and read its password hash only once the
+      // lock is held, so a concurrent password reset is entirely before or after this attempt.
+      const lab = usernameMatches ? await this.findLab(client, true) : null;
       // Lock the throttle rows so concurrent attempts are counted one after another.
       for (const key of keys) {
         await client.query(
@@ -102,7 +129,6 @@ export class LabAuthService {
          ORDER BY throttle_key FOR UPDATE`,
         [keys],
       );
-      const lab = await this.findLab(client);
       const entity = usernameMatches && lab ? { type: 'app_user', id: lab.id } : null;
       const auditFailure = (reason: string, extra: Record<string, unknown> = {}) =>
         recordAudit(client, {
@@ -214,7 +240,10 @@ export class LabAuthService {
   ): Promise<{ revokedSessions: number }> {
     const hash = await hashPassword(newPassword);
     return withTransaction(this.database.pool, async (client) => {
-      const lab = await this.findLab(client);
+      // The same lock as signIn (see findLab), taken before the throttle row. A sign-in that has
+      // already verified the old password commits its session first, and the revocation below
+      // then sees and revokes it; a sign-in that arrives later waits and checks the new hash.
+      const lab = await this.findLab(client, true);
       if (!lab) {
         throw new Error('The LAB account is missing; run npm run db:migrate to seed it.');
       }

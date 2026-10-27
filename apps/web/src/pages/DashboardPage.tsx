@@ -16,7 +16,7 @@ async function loadActivity(): Promise<Activity> {
     if (!response.ok) {
       return {
         state: 'error',
-        message: `Recent activity couldn't load (HTTP ${response.status}).`,
+        message: "Recent activity couldn't load. Try again.",
       };
     }
     return { state: 'ready', items: activityResponseSchema.parse(await response.json()) };

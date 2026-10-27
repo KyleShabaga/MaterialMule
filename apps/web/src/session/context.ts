@@ -31,7 +31,11 @@ export async function loadSession(): Promise<SessionState> {
     return { status: 'signed-out' };
   }
   if (!response.ok) {
-    return { status: 'error', message: `The API responded with HTTP ${response.status}.` };
+    return {
+      status: 'error',
+      message:
+        'The server had a problem. Reload the page in a minute; if it keeps happening, tell your administrator.',
+    };
   }
   const parsed = meResponseSchema.safeParse(await response.json());
   if (!parsed.success) {

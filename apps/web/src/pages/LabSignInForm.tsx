@@ -13,7 +13,7 @@ async function labSignInError(response: Response): Promise<string | null> {
     return `Too many failed attempts. Sign-in is paused for about ${minutes} minute${minutes === 1 ? '' : 's'}.`;
   }
   if (response.status === 400) return 'Enter the username and password.';
-  return `Sign-in failed (HTTP ${response.status}). Try again.`;
+  return 'Sign-in didn’t work. Try again.';
 }
 
 /**

@@ -36,7 +36,7 @@ export async function fetchDraftSettings(
     return { ok: false, message: UNREACHABLE };
   }
   if (!response.ok) {
-    return { ok: false, message: `The setting couldn't load (HTTP ${response.status}).` };
+    return { ok: false, message: "The setting couldn't load. Try again." };
   }
   const parsed = draftSettingsSchema.safeParse(await response.json().catch(() => null));
   return parsed.success
@@ -90,6 +90,6 @@ export async function saveDraftSettings(request: PutDraftSettingsRequest): Promi
     message:
       response.status === 403
         ? 'Only Lab Managers and administrators can change this.'
-        : `The setting couldn't be saved (HTTP ${response.status}).`,
+        : "The setting wasn't saved. Try again.",
   };
 }

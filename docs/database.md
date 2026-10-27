@@ -104,7 +104,10 @@ Key rules enforced by the database:
   accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
   Reference data seeds the LAB account (`app_user` 00000000-0000-4000-8000-000000000001 with a
   `local_lab` identity, subject `LAB`) without a password: an admin sets it in
-  Settings → Staff & access.
+  Settings → Staff & access. LAB sign-in and the LAB password reset each start by taking
+  `FOR NO KEY UPDATE` on LAB's `app_user` row, then read the hash in a new statement, then lock
+  `sign_in_throttle` rows (MM-T40). That lock order serialises "verify password, create session"
+  with "replace password, revoke sessions", so no old-password session outlives a reset.
 - **Staff (migration 0008, MM-T07).** Official initials are not unique. `expected_upn` (an
   admin's pre-provisioned work email) is unique ignoring case when set; `approved_by` and
   `approved_at` are set together; `disabled_reason` exists only on a disabled account. Receipts
@@ -231,3 +234,21 @@ drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `versio
 `version_conflict` with the current value), bumps it and records `settings.drafts_changed`
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
 again changes nothing.
+
+## Staff position and official initials (MM-T43, MM-T44, migration 0024)
+
+- **Position.** `position_set_at` records the person's first-login choice; the CHECK
+  `app_user_position_set_has_position` needs a position whenever it is set. When an admin sets a
+  position to Not set (`PATCH /api/staff/:id` with `position: null`), both are cleared in the same
+  statement, so `GET /api/me` reports `positionSetupRequired` again and the person chooses a
+  position at their next sign-in or page load. `staff.profile_changed` records the old position
+  and `positionSetAt`. A non-null position leaves `position_set_at` unchanged.
+- **Official initials.** Initials assigned by an admin are confirmed by that admin:
+  `POST /api/staff` and a `PATCH` that changes `officialInitials` (or submits the same value while
+  it is unconfirmed, audited as `staff.initials_confirmed`) write `initials_confirmed_by_user_id`
+  and `initials_confirmed_at` in the same transaction. Edits that omit initials, resubmitting
+  already-confirmed initials and Microsoft profile refreshes never change the pair.
+- **Migration 0024** recovers the pair for rows the earlier code left unconfirmed, only from the
+  audit trail: the latest `staff.preprovisioned` / `staff.initials_changed` event for the person,
+  by a named person, that set exactly the current value. Other rows stay unconfirmed until an
+  admin uses Confirm initials in Staff & access.

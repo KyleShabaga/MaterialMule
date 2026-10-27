@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import {
+  profileResponseSchema,
   receiverListResponseSchema,
   staffListResponseSchema,
   staffMemberSchema,
@@ -445,6 +446,250 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
     });
   });
 
+  describe('MM-T43: clearing a position after onboarding', () => {
+    const patchAs = (cookie: string, id: string, body: object) =>
+      http().patch(`/api/staff/${id}`).set('Cookie', cookie).set(CSRF_HEADER, '1').send(body);
+    const positionOf = async (id: string) =>
+      (
+        await db.pool.query<{ position: string | null; position_set_at: Date | null }>(
+          'SELECT position, position_set_at FROM app_user WHERE id = $1',
+          [id],
+        )
+      ).rows[0]!;
+
+    /** A fictional person who finished first-login position setup. */
+    async function onboarded(key: string, name: string, initials: string) {
+      await addUser(key, { name, initials, position: 'engineer' });
+      await db.pool.query('UPDATE app_user SET position_set_at = now() WHERE id = $1', [ids[key]]);
+    }
+
+    it('AC1 / AC2: Not set clears position and onboarding, then the person chooses again', async () => {
+      await onboarded('olive', 'Olive Onboarded', 'OO');
+      const before = await positionOf(ids.olive!);
+      expect(before.position_set_at).not.toBeNull();
+      const oliveCookie = await cookieFor('olive');
+      const meBefore = await http().get('/api/me').set('Cookie', oliveCookie);
+      expect(meBefore.body).toMatchObject({ position: 'engineer', positionSetupRequired: false });
+
+      // Review reproduction: this used to fail the CHECK app_user_position_set_has_position (500).
+      const cleared = await patchAs(await cookieFor('admin'), ids.olive!, { position: null });
+      expect(cleared.status).toBe(200);
+      expect(staffMemberSchema.parse(cleared.body)).toMatchObject({
+        position: null,
+        status: 'active',
+        roles: [],
+        officialInitials: 'OO',
+      });
+      expect(await positionOf(ids.olive!)).toEqual({ position: null, position_set_at: null });
+      expect((await listAuditForEntity(db.pool, 'app_user', ids.olive!))[0]).toMatchObject({
+        action: 'staff.profile_changed',
+        actorUserId: ids.admin,
+        before: { position: 'engineer', positionSetAt: before.position_set_at!.toISOString() },
+        after: { position: null, positionSetAt: null },
+      });
+
+      // Their session stays valid; the next page load asks for a position again.
+      const meAfter = await http().get('/api/me').set('Cookie', oliveCookie);
+      expect(meAfter.status).toBe(200);
+      expect(meAfter.body).toMatchObject({ position: null, positionSetupRequired: true });
+      const chosen = await post('/api/me/position', oliveCookie).send({ position: 'technician' });
+      expect(chosen.status).toBeLessThan(300);
+      expect((await http().get('/api/me').set('Cookie', oliveCookie)).body).toMatchObject({
+        position: 'technician',
+        positionSetupRequired: false,
+      });
+      // Saved once again: a second choice is refused as before.
+      expect(
+        (await post('/api/me/position', oliveCookie).send({ position: 'engineer' })).status,
+      ).toBe(409);
+    });
+
+    it('AC3: an edit that omits position leaves position and its metadata unchanged', async () => {
+      await onboarded('owen', 'Owen Onboarded', 'OW');
+      const before = await positionOf(ids.owen!);
+      const renamed = await patchAs(await cookieFor('admin'), ids.owen!, {
+        displayName: 'Owen Renamed',
+      });
+      expect(renamed.status).toBe(200);
+      expect(await positionOf(ids.owen!)).toEqual(before);
+    });
+
+    it('AC4: a non-null position edit keeps onboarding, other fields and roles', async () => {
+      await onboarded('opal', 'Opal Onboarded', 'OP');
+      await db.pool.query(
+        `INSERT INTO role_assignment (user_id, role) VALUES ($1, 'lab_manager')`,
+        [ids.opal],
+      );
+      const before = await positionOf(ids.opal!);
+      const changed = await patchAs(await cookieFor('admin'), ids.opal!, { position: 'pm_pe' });
+      expect(changed.status).toBe(200);
+      expect(changed.body).toMatchObject({
+        position: 'pm_pe',
+        displayName: 'Opal Onboarded',
+        officialInitials: 'OP',
+        roles: ['lab_manager'],
+        status: 'active',
+      });
+      expect(await positionOf(ids.opal!)).toEqual({
+        position: 'pm_pe',
+        position_set_at: before.position_set_at,
+      });
+    });
+
+    it('AC5: only admins may clear a position', async () => {
+      await onboarded('otto', 'Otto Onboarded', 'OT');
+      const before = await positionOf(ids.otto!);
+      for (const key of ['lm', 'lab', 'otto']) {
+        const refused = await patchAs(await cookieFor(key), ids.otto!, { position: null });
+        expect(refused.status).toBe(403);
+      }
+      expect(await positionOf(ids.otto!)).toEqual(before);
+    });
+  });
+
+  describe('MM-T44: admin-assigned initials are confirmed', () => {
+    const patchAs = (cookie: string, id: string, body: object) =>
+      http().patch(`/api/staff/${id}`).set('Cookie', cookie).set(CSRF_HEADER, '1').send(body);
+    const confirmationOf = async (id: string) =>
+      (
+        await db.pool.query<{
+          official_initials: string | null;
+          initials_confirmed_by_user_id: string | null;
+          initials_confirmed_at: Date | null;
+        }>(
+          `SELECT official_initials, initials_confirmed_by_user_id, initials_confirmed_at
+           FROM app_user WHERE id = $1`,
+          [id],
+        )
+      ).rows[0]!;
+    const profileOf = async (key: string) =>
+      profileResponseSchema.parse(
+        (
+          await http()
+            .get('/api/me/profile')
+            .set('Cookie', await cookieFor(key))
+        ).body,
+      );
+
+    it('AC1: pre-provisioning records the admin and time as the confirmation', async () => {
+      const started = new Date();
+      const created = await post('/api/staff', await cookieFor('admin')).send({
+        displayName: 'Review New Staff',
+        officialInitials: 'rs',
+        expectedUpn: 'rnewstaff@company.example',
+      });
+      expect(created.status).toBe(201);
+      expect(created.body).toMatchObject({ officialInitials: 'RS', initialsConfirmed: true });
+      ids.review = created.body.id;
+      types.review = 'personal';
+      const row = await confirmationOf(ids.review!);
+      expect(row.initials_confirmed_by_user_id).toBe(ids.admin);
+      expect(row.initials_confirmed_at!.getTime()).toBeGreaterThanOrEqual(started.getTime() - 1000);
+      // Review reproduction: this used to read officialInitials=RS; initialsConfirmed=false.
+      expect(await profileOf('review')).toMatchObject({
+        officialInitials: 'RS',
+        initialsConfirmed: true,
+      });
+      expect((await listAuditForEntity(db.pool, 'app_user', ids.review!))[0]).toMatchObject({
+        action: 'staff.preprovisioned',
+        actorUserId: ids.admin,
+      });
+    });
+
+    it('AC2: assigning or changing initials updates the confirmation pair together', async () => {
+      await addUser('nina', { name: 'Nina Noinitials', initials: null });
+      expect(await profileOf('nina')).toMatchObject({
+        officialInitials: null,
+        initialsConfirmed: false,
+      });
+      const admin = await cookieFor('admin');
+
+      const assigned = await patchAs(admin, ids.nina!, { officialInitials: 'nn' });
+      expect(assigned.body).toMatchObject({ officialInitials: 'NN', initialsConfirmed: true });
+      const first = await confirmationOf(ids.nina!);
+      expect(first).toMatchObject({
+        official_initials: 'NN',
+        initials_confirmed_by_user_id: ids.admin,
+      });
+      expect(await profileOf('nina')).toMatchObject({
+        officialInitials: 'NN',
+        initialsConfirmed: true,
+      });
+
+      const changed = await patchAs(admin, ids.nina!, { officialInitials: 'NX' });
+      expect(changed.status).toBe(200);
+      const second = await confirmationOf(ids.nina!);
+      expect(second.official_initials).toBe('NX');
+      expect(second.initials_confirmed_by_user_id).toBe(ids.admin);
+      expect(second.initials_confirmed_at!.getTime()).toBeGreaterThanOrEqual(
+        first.initials_confirmed_at!.getTime(),
+      );
+      const actions = (await listAuditForEntity(db.pool, 'app_user', ids.nina!)).map(
+        (e) => e.action,
+      );
+      expect(actions.filter((a) => a === 'staff.initials_changed')).toHaveLength(2);
+    });
+
+    it('AC3: an admin can explicitly confirm the same, unconfirmed value', async () => {
+      await addUser('uma', { name: 'Uma Unconfirmed', initials: 'UC' });
+      expect(await profileOf('uma')).toMatchObject({
+        officialInitials: 'UC',
+        initialsConfirmed: false,
+      });
+      const admin = await cookieFor('admin');
+      const confirmed = await patchAs(admin, ids.uma!, { officialInitials: 'uc' });
+      expect(confirmed.body).toMatchObject({ officialInitials: 'UC', initialsConfirmed: true });
+      expect(await profileOf('uma')).toMatchObject({
+        officialInitials: 'UC',
+        initialsConfirmed: true,
+      });
+      const history = await listAuditForEntity(db.pool, 'app_user', ids.uma!);
+      expect(history[0]).toMatchObject({
+        action: 'staff.initials_confirmed',
+        actorUserId: ids.admin,
+        after: { officialInitials: 'UC', initialsConfirmed: true },
+      });
+
+      // Submitting already-confirmed initials again keeps the original confirmation.
+      const kept = await confirmationOf(ids.uma!);
+      await patchAs(admin, ids.uma!, { officialInitials: 'UC' });
+      expect(await confirmationOf(ids.uma!)).toEqual(kept);
+      expect(await listAuditForEntity(db.pool, 'app_user', ids.uma!)).toHaveLength(history.length);
+    });
+
+    it('AC4: unrelated edits never rewrite initials or their confirmation', async () => {
+      await addUser('una', { name: 'Una Unrelated', initials: 'UN' });
+      const admin = await cookieFor('admin');
+      await patchAs(admin, ids.una!, { displayName: 'Una Renamed', position: 'technician' });
+      expect(await confirmationOf(ids.una!)).toEqual({
+        official_initials: 'UN',
+        initials_confirmed_by_user_id: null,
+        initials_confirmed_at: null,
+      });
+      await patchAs(admin, ids.una!, { officialInitials: 'UN' });
+      const confirmed = await confirmationOf(ids.una!);
+      await patchAs(admin, ids.una!, { displayName: 'Una Again', position: null });
+      expect(await confirmationOf(ids.una!)).toEqual(confirmed);
+    });
+
+    it('AC5: only admins assign initials, and duplicates stay allowed', async () => {
+      await addUser('dee', { name: 'Dee Duplicate', initials: 'DD' });
+      for (const key of ['lm', 'lab', 'dee']) {
+        const refused = await patchAs(await cookieFor(key), ids.dee!, { officialInitials: 'XY' });
+        expect(refused.status).toBe(403);
+      }
+      expect(await confirmationOf(ids.dee!)).toMatchObject({
+        official_initials: 'DD',
+        initials_confirmed_at: null,
+      });
+      const duplicate = await patchAs(await cookieFor('admin'), ids.dee!, {
+        officialInitials: 'JS',
+      });
+      expect(duplicate.status).toBe(200);
+      expect(duplicate.body).toMatchObject({ officialInitials: 'JS', initialsConfirmed: true });
+    });
+  });
+
   describe('T5 / AC7: last-admin protection', () => {
     it('refuses to let the last active admin drop their admin role or be disabled', async () => {
       const admin = await cookieFor('admin');
@@ -494,6 +739,62 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
 
       // The former admin's very next request is no longer allowed to manage staff.
       expect((await http().get('/api/staff').set('Cookie', admin)).status).toBe(403);
+    });
+  });
+
+  // MM-T48: permissions are read from role_assignment on every request (SessionService
+  // .authenticate), so a role change applies to existing sessions with no revocation needed.
+  describe('MM-T48: role changes reach existing sessions on their next request', () => {
+    const setRoles = (key: string, roles: string[], cookie: string) =>
+      http()
+        .put(`/api/staff/${ids[key]}/roles`)
+        .set('Cookie', cookie)
+        .set(CSRF_HEADER, '1')
+        .send({ roles, reason: 'MM-T48 test' });
+
+    it('AC1: removing Admin from a signed-in user makes their next admin-only request 403', async () => {
+      await addUser('riley', { name: 'Riley Admin', initials: 'RAD', roles: ['admin'] });
+      await addUser('sam', { name: 'Sam Admin', initials: 'SAD', roles: ['admin'] });
+      const riley = await cookieFor('riley'); // signed in before the change
+      expect((await http().get('/api/staff').set('Cookie', riley)).status).toBe(200);
+
+      const removed = await setRoles('riley', [], await cookieFor('sam'));
+      expect(removed.status).toBe(200);
+
+      const denied = await http().get('/api/staff').set('Cookie', riley);
+      expect(denied.status).toBe(403);
+      expect(denied.body).toMatchObject({ code: 'forbidden' });
+      // Still signed in, with the new roles.
+      const me = await http().get('/api/me').set('Cookie', riley);
+      expect(me.status).toBe(200);
+      expect(me.body.roles).toEqual([]);
+    });
+
+    it('a granted role also applies on the next request of an existing session', async () => {
+      await addUser('casey', { name: 'Casey Tech', initials: 'CT' });
+      const casey = await cookieFor('casey');
+      expect((await http().get('/api/staff').set('Cookie', casey)).status).toBe(403);
+      expect((await setRoles('casey', ['admin'], await cookieFor('sam'))).status).toBe(200);
+      expect((await http().get('/api/staff').set('Cookie', casey)).status).toBe(200);
+    });
+
+    it('disabling ends existing sessions; re-enabling does not bring them back', async () => {
+      await addUser('drew', { name: 'Drew Field', initials: 'DF' });
+      const drew = await cookieFor('drew');
+      const sam = await cookieFor('sam');
+      expect(
+        (await post(`/api/staff/${ids.drew}/disable`, sam).send({ reason: 'Leave' })).status,
+      ).toBe(200);
+      expect((await http().get('/api/me').set('Cookie', drew)).status).toBe(401);
+      expect((await post(`/api/staff/${ids.drew}/enable`, sam)).status).toBe(200);
+      expect((await http().get('/api/me').set('Cookie', drew)).status).toBe(401);
+      expect(
+        (
+          await http()
+            .get('/api/me')
+            .set('Cookie', await cookieFor('drew'))
+        ).status,
+      ).toBe(200);
     });
   });
 });

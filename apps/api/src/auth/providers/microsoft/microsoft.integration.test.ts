@@ -24,6 +24,7 @@ import { SESSION_COOKIE } from '../../session-cookie.js';
 import { SessionService } from '../../session.service.js';
 import { MICROSOFT_SCOPES } from './entra-provider.js';
 import { SIGN_IN_BINDING_COOKIE } from './microsoft-auth.controller.js';
+import { MicrosoftSignInRateLimit } from './microsoft-rate-limit.js';
 
 const REDIRECT_URI = 'http://localhost:5173/sign-in/microsoft/callback';
 const SECRET = 'test-session-secret-0123456789abcdef';
@@ -126,6 +127,8 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
   });
 
   beforeEach(() => {
+    // Every request here comes from one address; start each test under the MM-T48 limit.
+    app.get(MicrosoftSignInRateLimit).reset();
     for (const user of mock.users.values()) delete user.graphStatus;
     mock.users.get('nograph')!.graphStatus = 503;
   });
@@ -410,11 +413,28 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
   it('AC6: admin-confirmed initials survive a profile refresh', async () => {
     const admin = (await userByOid(oidOf('avery')))!;
     const riley = (await userByOid(oidOf('riley')))!;
-    await db.pool.query(
-      `UPDATE app_user SET official_initials = 'KCS', initials_confirmed_by_user_id = $2,
-              initials_confirmed_at = now() WHERE id = $1`,
-      [riley.id, admin.id],
-    );
+    // MM-T44: the admin assigns the initials through the real staff route, which confirms them.
+    const adminSession = await app.get(SessionService).create(admin.id, 'personal');
+    const assigned = await http()
+      .patch(`/api/staff/${riley.id}`)
+      .set('Cookie', `${SESSION_COOKIE}=${adminSession.token}`)
+      .set(CSRF_HEADER, '1')
+      .send({ officialInitials: 'KCS' });
+    expect(assigned.status).toBe(200);
+    const confirmation = async () =>
+      (
+        await db.pool.query(
+          `SELECT official_initials, initials_confirmed_by_user_id, initials_confirmed_at
+           FROM app_user WHERE id = $1`,
+          [riley.id],
+        )
+      ).rows[0];
+    const confirmedBefore = await confirmation();
+    expect(confirmedBefore).toMatchObject({
+      official_initials: 'KCS',
+      initials_confirmed_by_user_id: admin.id,
+    });
+    expect(confirmedBefore.initials_confirmed_at).not.toBeNull();
     const rileyMock = mock.users.get('riley')!;
     rileyMock.graph = { ...rileyMock.graph, givenName: 'Kim', surname: 'Other' };
     const { cookie } = await signIn('riley');
@@ -423,6 +443,8 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
       (await http().get('/api/me/profile').set('Cookie', cookie!)).body,
     );
     expect(profile).toMatchObject({ officialInitials: 'KCS', initialsConfirmed: true });
+    // The refresh on sign-in rewrote neither the initials nor who confirmed them, or when.
+    expect(await confirmation()).toEqual(confirmedBefore);
   });
 
   it('T07 AC6: first sign-in links the pre-provisioned staff entry by exact UPN', async () => {

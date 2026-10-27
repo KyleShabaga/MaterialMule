@@ -11,6 +11,11 @@ import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-clien
 // Guardrails: a job is claimed (status `sending`) and committed BEFORE any byte goes to the
 // printer, so a crash mid-send leaves evidence that is turned into `uncertain` on the next start.
 // Only `not_sent` outcomes are retried automatically; `uncertain` waits for a person.
+//
+// Settlement recovery (MM-T42): if saving an attempt's result fails (database briefly away), the
+// outcome is kept in memory and saved again before the next dispatch. The job stays `sending`
+// meanwhile, so nothing else is sent to that printer and the labels are never resent. If the
+// process stops before the result is saved, startup recovery marks the job uncertain.
 
 export interface PrintWorkerOptions {
   /** How often to look for queued jobs when nothing woke the worker. */
@@ -48,6 +53,15 @@ interface ClaimedJob {
   renderError: string | null;
 }
 
+/** An attempt whose transport finished but whose result is not saved yet. */
+interface UnsettledAttempt {
+  job: ClaimedJob;
+  outcome: SendOutcome;
+  permanent: boolean;
+  /** True while a save is in progress, so two dispatches never save it at once. */
+  saving: boolean;
+}
+
 export class PrintWorker {
   private running = false;
   private recovered = false;
@@ -56,6 +70,8 @@ export class PrintWorker {
   private wakeUp: (() => void) | null = null;
   private readonly busyPrinters = new Set<string>();
   private readonly inFlight = new Set<Promise<void>>();
+  /** Per printer: the finished attempt waiting for its result to be saved (MM-T42). */
+  private readonly unsettled = new Map<string, UnsettledAttempt>();
 
   constructor(
     private readonly pool: Pool,
@@ -77,6 +93,14 @@ export class PrintWorker {
     this.wakeUp?.();
     await this.loop;
     await Promise.allSettled([...this.inFlight]);
+    // Last chance to save finished attempts. Any still unsaved stay `sending` and become
+    // uncertain at the next start, which is the safe reading of an unrecorded send.
+    await this.settlePending();
+    if (this.unsettled.size > 0) {
+      this.log.warn(
+        `Stopped with ${this.unsettled.size} print result(s) unsaved; they will be marked uncertain at the next start`,
+      );
+    }
   }
 
   /** Heartbeat for Settings → System status (MM-T21): last poll that reached the database. */
@@ -148,6 +172,7 @@ export class PrintWorker {
 
   /** Starts the next due job on every idle printer. */
   private async dispatch(): Promise<void> {
+    await this.settlePending();
     // Printers whose oldest queued job is due and that have nothing mid-send.
     const { rows } = await this.pool.query<{ printer_key: string }>(
       `SELECT p.key AS printer_key
@@ -162,7 +187,7 @@ export class PrintWorker {
               LIMIT 1)`,
     );
     for (const { printer_key: printerKey } of rows) {
-      if (this.busyPrinters.has(printerKey)) continue;
+      if (this.busyPrinters.has(printerKey) || this.unsettled.has(printerKey)) continue;
       this.busyPrinters.add(printerKey);
       const task = this.processNext(printerKey)
         .then((processed) => {
@@ -177,6 +202,43 @@ export class PrintWorker {
           this.inFlight.delete(task);
         });
       this.inFlight.add(task);
+    }
+  }
+
+  /**
+   * Saves the results of finished attempts whose first save failed. The kept outcome is written
+   * as it was; ZPL is never sent again. Failures stay pending for the next dispatch.
+   */
+  private async settlePending(): Promise<void> {
+    for (const [printerKey, attempt] of [...this.unsettled]) {
+      if (attempt.saving) continue;
+      attempt.saving = true;
+      try {
+        await this.settle(attempt.job, attempt.outcome, attempt.permanent);
+        this.unsettled.delete(printerKey);
+        this.wake();
+      } catch (error) {
+        this.log.error(`Print result still not saved, will retry: ${(error as Error).message}`);
+      } finally {
+        attempt.saving = false;
+      }
+    }
+  }
+
+  /** Saves an attempt's result, or keeps it for settlePending when the database fails. */
+  private async settleOrKeep(
+    printerKey: string,
+    job: ClaimedJob,
+    outcome: SendOutcome,
+    permanent: boolean,
+  ): Promise<boolean> {
+    try {
+      await this.settle(job, outcome, permanent);
+      return true;
+    } catch (error) {
+      this.unsettled.set(printerKey, { job, outcome, permanent, saving: false });
+      this.log.error(`Print result not saved, will retry: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -206,8 +268,7 @@ export class PrintWorker {
         printerMessage: null,
       };
       // Bad label data won't fix itself: fail without retrying.
-      await this.settle(job, outcome, true);
-      return true;
+      return this.settleOrKeep(printerKey, job, outcome, true);
     }
     try {
       outcome = await this.transport.send(job.target, job.zpl);
@@ -215,8 +276,7 @@ export class PrintWorker {
       // The transport promises not to throw; if it does, bytes may have gone out.
       outcome = { result: 'uncertain', error: `Printer client error: ${(error as Error).message}` };
     }
-    await this.settle(job, outcome, false);
-    return true;
+    return this.settleOrKeep(printerKey, job, outcome, false);
   }
 
   private async claim(printerKey: string): Promise<ClaimedJob | null> {
@@ -320,7 +380,7 @@ export class PrintWorker {
     const printerMessage = outcome.result === 'not_sent' ? outcome.printerMessage : null;
 
     await withTransaction(this.pool, async (client) => {
-      await client.query(
+      const { rowCount } = await client.query(
         `UPDATE print_job
          SET status = $2,
              last_error = $3,
@@ -331,6 +391,9 @@ export class PrintWorker {
          WHERE id = $1 AND status = 'sending'`,
         [job.id, next.status, error, printerMessage, next.retryInMs ?? 0],
       );
+      // No row means an earlier save committed although its reply was lost (or the job was
+      // already reconciled): don't write the audit entry twice.
+      if (rowCount === 0) return;
       if (next.status === 'failed' || next.status === 'uncertain') {
         await recordAudit(client, {
           action: next.status === 'failed' ? 'label.print_failed' : 'label.print_uncertain',

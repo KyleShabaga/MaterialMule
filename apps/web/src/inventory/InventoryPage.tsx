@@ -11,7 +11,7 @@ import {
   type TestHole,
 } from '@materialmule/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { listTestHoles } from '../api/projects';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from './api';
@@ -19,6 +19,7 @@ import './inventory.css';
 import { ProjectFilter } from './ProjectFilter';
 import { CameraScanButton } from '../scanning/CameraScanButton';
 import { StorageUnitTable } from './StorageUnitTable';
+import { useLatestSearchParams } from './useLatestSearchParams';
 import {
   clearedInventoryQuery,
   hasActiveFilters,
@@ -46,7 +47,7 @@ function countLabel(total: number): string {
 
 /** Inventory: one row per storage unit, searched, filtered and paged on the server (MM-T12). */
 export function InventoryPage() {
-  const [params, setParams] = useSearchParams();
+  const [params, setParams] = useLatestSearchParams();
   const location = useLocation();
   const query = useMemo(() => readInventoryQuery(params), [params]);
   const requestKey = inventorySearchParams(query).toString();
@@ -107,10 +108,21 @@ export function InventoryPage() {
     };
   }, [query.projectId]);
 
-  /** Applies filter changes; any change other than the page returns to page 1. */
+  /**
+   * Applies filter changes to the latest URL (not this render's, MM-T46); any change other than
+   * the page returns to page 1.
+   */
   function update(changes: Partial<InventoryQuery>) {
-    const next = { ...query, page: 1, ...changes };
-    setParams(inventorySearchParams(next));
+    setParams((prev) =>
+      inventorySearchParams({ ...readInventoryQuery(prev), page: 1, ...changes }),
+    );
+  }
+
+  function turnPage(by: number) {
+    setParams((prev) => {
+      const latest = readInventoryQuery(prev);
+      return inventorySearchParams({ ...latest, page: Math.max(1, latest.page + by) });
+    });
   }
 
   const chips = activeChips(query, selectedProject, projectHoles, locations);
@@ -133,7 +145,6 @@ export function InventoryPage() {
       <CameraScanButton />
 
       <SearchForm
-        key={query.search ?? ''}
         initial={query.search ?? ''}
         onSearch={(search) => update({ search: search || undefined })}
       />
@@ -237,7 +248,11 @@ export function InventoryPage() {
         {hasActiveFilters(query) ? (
           <button
             type="button"
-            onClick={() => setParams(inventorySearchParams(clearedInventoryQuery(query)))}
+            onClick={() =>
+              setParams((prev) =>
+                inventorySearchParams(clearedInventoryQuery(readInventoryQuery(prev))),
+              )
+            }
           >
             Clear filters
           </button>
@@ -261,21 +276,13 @@ export function InventoryPage() {
 
       {page && page.total > page.pageSize ? (
         <nav className="pager" aria-label="Pages">
-          <button
-            type="button"
-            disabled={query.page <= 1}
-            onClick={() => update({ page: query.page - 1 })}
-          >
+          <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>
             Previous
           </button>
           <span>
             Page {query.page} of {totalPages}
           </span>
-          <button
-            type="button"
-            disabled={query.page >= totalPages}
-            onClick={() => update({ page: query.page + 1 })}
-          >
+          <button type="button" disabled={query.page >= totalPages} onClick={() => turnPage(1)}>
             Next
           </button>
         </nav>
@@ -360,6 +367,13 @@ function activeChips(
 function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: string) => void }) {
   const id = useId();
   const [text, setText] = useState(initial);
+  // Follow the URL's search (Clear filters, a removed chip, Back), but never wipe text typed since
+  // the box last matched it, e.g. typed right after Clear filters (MM-T46).
+  const [shown, setShown] = useState(initial);
+  if (initial !== shown) {
+    setShown(initial);
+    if (text === shown) setText(initial);
+  }
   function submit(event: FormEvent) {
     event.preventDefault();
     onSearch(text.trim());
