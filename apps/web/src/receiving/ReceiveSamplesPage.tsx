@@ -11,6 +11,11 @@ import {
   type DraftAutoDelete,
   type DraftSettingState,
 } from './drafts/auto-delete';
+import {
+  runDraftCleanup,
+  takeDraftCleanupNotice,
+  type CleanupResult,
+} from './drafts/cleanup-notice';
 import { DraftList } from './drafts/DraftList';
 import { newRecord, visibleTo, type StoredDraft } from './drafts/record';
 import { indexedDbDraftStore, toStorageError } from './drafts/store';
@@ -57,11 +62,6 @@ export function ReceiveSamplesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   /** Whether the first listing has been acted on (open the linked draft, or start a new one). */
   const decided = useRef(false);
-  /**
-   * The one clean-up run per page visit. A remount (StrictMode in development, or leaving while it
-   * runs) awaits the same run, so its "N drafts were deleted" notice is never lost (MM-T61).
-   */
-  const cleanupRun = useRef<Promise<string | null> | null>(null);
 
   const load = useCallback(async (): Promise<Listing> => {
     try {
@@ -93,32 +93,39 @@ export function ReceiveSamplesPage() {
     setListing(await load());
   }, [load, show]);
 
-  /** Deletes old drafts when the setting says so; returns the notice to show, if any. */
-  const cleanUp = useCallback(async (): Promise<string | null> => {
+  /** Deletes old drafts when the setting says so; returns the setting and how many went. */
+  const cleanUp = useCallback(async (): Promise<CleanupResult> => {
     const fetched = await fetchDraftSettings({ reportUnauthenticated: false });
     const setting: DraftSettingState = fetched.ok
       ? { ok: true, data: fetched.data }
       : { ok: false };
-    if (!setting.ok) return null;
-    setAutoDelete(setting.data.draftAutoDelete);
-    if (!setting.data.draftAutoDelete.enabled) return null;
+    if (!setting.ok) return { autoDelete: null, deleted: 0 };
+    const autoDelete = setting.data.draftAutoDelete;
+    if (!autoDelete.enabled) return { autoDelete, deleted: 0 };
     try {
       const { drafts } = await indexedDbDraftStore.list();
-      const deleted = await autoDeleteDrafts(indexedDbDraftStore, drafts, me, setting);
-      return deleted > 0 ? autoDeleteNotice(deleted, setting.data.draftAutoDelete.afterDays) : null;
+      return {
+        autoDelete,
+        deleted: await autoDeleteDrafts(indexedDbDraftStore, drafts, me, setting),
+      };
     } catch {
       // Storage problems show up in the listing that follows; nothing more to do here.
-      return null;
+      return { autoDelete, deleted: 0 };
     }
   }, [me]);
 
   useEffect(() => {
     let current = true;
     void (async () => {
-      cleanupRun.current ??= cleanUp();
-      const cleaned = await cleanupRun.current;
+      // One run per account at a time: a remount mid-run (StrictMode, or leaving and coming back)
+      // joins it. Its count waits for whichever Receive samples page is still open, then is shown
+      // once, so leaving during the clean-up never loses the notice (MM-T61).
+      const { autoDelete: setting } = await runDraftCleanup(me.id, cleanUp);
       const result = await load();
       if (!current) return;
+      const taken = takeDraftCleanupNotice(me.id);
+      const cleaned = taken ? autoDeleteNotice(taken.deleted, taken.afterDays) : null;
+      setAutoDelete(setting);
       setNotice(cleaned);
       setListing(result);
       if (decided.current) return;

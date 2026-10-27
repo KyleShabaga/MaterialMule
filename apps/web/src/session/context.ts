@@ -17,6 +17,11 @@ export interface SessionContextValue {
 
 export const SessionContext = createContext<SessionContextValue | null>(null);
 
+const UNREADABLE: SessionState = {
+  status: 'error',
+  message: 'Material Mule sent an answer this page can’t read. Reload the page to try again.',
+};
+
 export async function loadSession(): Promise<SessionState> {
   let response: Response;
   try {
@@ -40,12 +45,17 @@ export async function loadSession(): Promise<SessionState> {
         'The server had a problem. Reload the page in a minute; if it keeps happening, tell your administrator.',
     };
   }
-  const parsed = meResponseSchema.safeParse(await response.json());
+  // A successful answer can still be unreadable: empty, an HTML page from a proxy, malformed or
+  // cut off while being read. Each ends in the same recoverable error, never an endless Loading.
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return UNREADABLE;
+  }
+  const parsed = meResponseSchema.safeParse(body);
   if (!parsed.success) {
-    return {
-      status: 'error',
-      message: 'Material Mule sent an answer this page can’t read. Reload the page to try again.',
-    };
+    return UNREADABLE;
   }
   return parsed.data.status === 'pending'
     ? { status: 'pending', me: parsed.data }

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
 import { newDraft, newSummary, type ReceiptDraft } from '../draft';
+import { resetDraftCleanupForTests } from './cleanup-notice';
 import { newRecord, type StoredDraft } from './record';
 import { draftWritesSettled, indexedDbDraftStore as store } from './store';
 
@@ -137,6 +138,7 @@ async function stored(record: StoredDraft) {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  resetDraftCleanupForTests();
 });
 
 describe('Receiving drafts (MM-T11)', () => {
@@ -433,6 +435,97 @@ describe('Draft auto-delete on Receive samples (MM-T45)', () => {
     expect(await within(list).findByRole('status')).toHaveTextContent(
       '1 draft older than 90 days was deleted from this computer',
     );
+  });
+
+  describe('MM-T61 review follow-up: clean-up that finishes after the page was left', () => {
+    /** The drafts setting answers only when `release` is called, so the run can outlive the page. */
+    function gatedSetting() {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let calls = 0;
+      return {
+        handlers: {
+          'GET /api/settings/drafts': async () => {
+            calls += 1;
+            await gate;
+            return json(200, { draftAutoDelete: { enabled: true, afterDays: 90 }, version: 2 });
+          },
+        },
+        release: () => release(),
+        calls: () => calls,
+      };
+    }
+
+    async function leaveWhileCleaningUp(session: MeResponse) {
+      const old = await stored(savedDaysAgo(newRecord(filled(AT), session), 120));
+      const setting = gatedSetting();
+      const { router } = renderPage(session, setting.handlers);
+      await vi.waitFor(() => expect(setting.calls()).toBe(1));
+      // A real navigation: Receive samples unmounts while its clean-up is still running.
+      await router.navigate('/sample-storage');
+      await vi.waitFor(() =>
+        expect(screen.queryByRole('heading', { name: 'Receive samples' })).toBeNull(),
+      );
+      setting.release();
+      await vi.waitFor(async () => expect(await store.get(old.draftId)).toBeNull());
+      return { router, old };
+    }
+
+    const NOTICE = '1 draft older than 90 days was deleted from this computer';
+
+    it('shows the notice on a new Receive samples page after returning', async () => {
+      const { router } = await leaveWhileCleaningUp(me());
+      await router.navigate('/receiving-log/new');
+      const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+      expect(await within(list).findByRole('status')).toHaveTextContent(NOTICE);
+    });
+
+    it('shows the notice once: the next visit has none', async () => {
+      const { router } = await leaveWhileCleaningUp(me());
+      await router.navigate('/receiving-log/new');
+      const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+      await within(list).findByRole('status');
+
+      await router.navigate('/sample-storage');
+      await vi.waitFor(() =>
+        expect(screen.queryByRole('heading', { name: 'Receive samples' })).toBeNull(),
+      );
+      await router.navigate('/receiving-log/new');
+      await screen.findByRole('heading', { name: 'Receive samples' });
+      // Nothing left to list, so it goes straight to a new receipt, with no notice anywhere.
+      await screen.findByRole('combobox', { name: /Find project/ });
+      expect(screen.queryByText(NOTICE, { exact: false })).toBeNull();
+    });
+
+    it('never shows one account the notice from another account’s clean-up', async () => {
+      await leaveWhileCleaningUp(me());
+      await closeTab();
+      renderPage(PE_ME, setting(true, 90));
+      await screen.findByRole('heading', { name: 'Receive samples' });
+      await screen.findByRole('combobox', { name: /Find project/ });
+      expect(screen.queryByText(NOTICE, { exact: false })).toBeNull();
+
+      // The account that ran the clean-up still gets it.
+      await closeTab();
+      renderPage(me(), setting(true, 90));
+      const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+      expect(await within(list).findByRole('status')).toHaveTextContent(NOTICE);
+    });
+
+    it('still keeps confirming and other people’s drafts', async () => {
+      const confirming = await stored({
+        ...savedDaysAgo(newRecord(filled(AT), me()), 200),
+        step: 'review',
+        status: 'confirming',
+      });
+      const others = await stored(savedDaysAgo(newRecord(filled(PE), PE_ME), 300));
+      const { router } = await leaveWhileCleaningUp(me());
+      await router.navigate('/receiving-log/new');
+      const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+      expect(await within(list).findByRole('status')).toHaveTextContent(NOTICE);
+      expect(await store.get(confirming.draftId)).not.toBeNull();
+      expect(await store.get(others.draftId)).not.toBeNull();
+    });
   });
 
   it('stays on the list to show the notice when every draft was deleted', async () => {
