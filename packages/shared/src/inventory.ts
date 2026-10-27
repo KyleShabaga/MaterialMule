@@ -61,7 +61,7 @@ export function inventoryStatusFilterLabel(filter: InventoryStatusFilter): strin
 /**
  * Dashes people paste or type for a range: hyphens (U+2010, U+2011), figure/en/em dashes and the
  * horizontal bar (U+2012–U+2015), the minus sign (U+2212) and small/full-width hyphens. The
- * inventory search document folds exactly these to "-" (migration 0026), so keep the two in step.
+ * inventory search document folds exactly these to "-" (migration 0027), so keep the two in step.
  */
 const SEARCH_DASHES = /[‐-―−﹘﹣－]/g;
 

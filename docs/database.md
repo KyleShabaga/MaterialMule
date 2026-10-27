@@ -182,7 +182,7 @@ sorted and paged on the server (default 25, max 100, with the total).
   name. Each hole also appears as the app displays it ("th26-01: g1-s10", "th26-02: 3-5 ft"), and
   every dash (en/em dash, minus sign, Unicode hyphens) is folded to "-" in the document and in the
   search words (`splitInventorySearch`), so a summary copied from the table matches whichever dash
-  it holds (MM-T59, migration 0026; MM-T36 builds on that definition). Triggers on `storage_unit`, `storage_unit_hole_summary`, `project`, `test_hole` and
+  it holds (MM-T59, migration 0027; MM-T36 builds on that definition). Triggers on `storage_unit`, `storage_unit_hole_summary`, `project`, `test_hole` and
   `location` rebuild it in the same transaction as the change, so it is never stale. Each search
   word becomes `document LIKE '%word%'` (AND across words, wildcards escaped), backed by a
   `pg_trgm` GIN index. `pg_trgm` is a trusted extension created in `public`; the migration role
