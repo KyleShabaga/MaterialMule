@@ -51,10 +51,6 @@
   font-weight: 600;
 }
 
-.muted {
-  color: var(--muted);
-}
-
 .folder-path {
   display: flex;
   flex-wrap: wrap;

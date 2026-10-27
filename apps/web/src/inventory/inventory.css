@@ -38,14 +38,15 @@
   list-style: none;
   margin: 0.25rem 0 0;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   max-height: 16rem;
   overflow-y: auto;
 }
 
 .filter-options button {
   width: 100%;
+  justify-content: flex-start;
   text-align: left;
   border: none;
   border-radius: 0;
@@ -95,6 +96,7 @@
 }
 
 .unit-id {
+  font-family: var(--font-mono);
   font-size: 2rem;
   letter-spacing: 0.02em;
   margin-bottom: 0.25rem;
@@ -138,7 +140,7 @@
 
 /* Changed fields: a border and a "Changed" badge, never colour alone. */
 .correction-changed {
-  border-left-color: var(--accent, currentColor);
+  border-left-color: var(--info-line);
 }
 
 .correction-badge {
