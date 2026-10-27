@@ -62,7 +62,7 @@ export function PositionSetupPage() {
       });
       // 409: already saved (e.g. in another tab); either way setup is complete.
       if (!response.ok && response.status !== 409) {
-        setError(`Your position wasn’t saved (HTTP ${response.status}). Try again.`);
+        setError('Your position wasn’t saved. Try again.');
         return;
       }
       await refresh();

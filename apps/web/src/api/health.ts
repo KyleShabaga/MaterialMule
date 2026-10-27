@@ -16,7 +16,7 @@ export async function fetchHealth(fetchImpl: typeof fetch = fetch): Promise<Heal
 
   // 200 and 503 both carry a health body; anything else means the API itself is unavailable.
   if (response.status !== 200 && response.status !== 503) {
-    return { kind: 'unavailable', reason: `The API responded with HTTP ${response.status}.` };
+    return { kind: 'unavailable', reason: 'The server had a problem. Try again in a minute.' };
   }
 
   const parsed = healthResponseSchema.safeParse(await response.json().catch(() => null));

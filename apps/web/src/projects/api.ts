@@ -36,7 +36,7 @@ async function getJson<T>(
         ? 'Project not found.'
         : response.status === 403
           ? "You don't have permission to see this."
-          : `Request failed (HTTP ${response.status}).`;
+          : 'Material Mule had a problem loading this. Try again.';
     return { ok: false, notFound: response.status === 404, message };
   }
   const parsed = schema.safeParse(body);
@@ -101,5 +101,5 @@ export async function updateProject(id: string, body: UpdateProjectRequest): Pro
   if (response.status === 403) {
     return { kind: 'failed', message: "You don't have permission to make this change." };
   }
-  return { kind: 'failed', message: `Saving failed (HTTP ${response.status}).` };
+  return { kind: 'failed', message: "The project wasn't saved. Try again." };
 }

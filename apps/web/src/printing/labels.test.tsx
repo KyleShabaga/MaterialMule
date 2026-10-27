@@ -152,7 +152,8 @@ describe('LabelPreviewPanel', () => {
     const user = userEvent.setup();
     renderPanel({ storageUnit: 'BKT-2026-000014' });
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Request failed (HTTP 500).');
+    expect(alert).toHaveTextContent('Material Mule had a problem with that request. Try again.');
+    expect(alert).not.toHaveTextContent('500');
     await user.click(within(alert).getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('img')).toBeInTheDocument();
   });

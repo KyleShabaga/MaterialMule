@@ -77,7 +77,10 @@ async function attempt(body: string): Promise<ConfirmOutcome | 'retry'> {
   if (response.status === 401) {
     return { kind: 'unauthenticated' };
   }
-  return { kind: 'failed', message: `Confirmation failed (HTTP ${response.status}).` };
+  return {
+    kind: 'failed',
+    message: "The receipt wasn't confirmed. Check the details and try again.",
+  };
 }
 
 /** Confirms a receipt, retrying automatically (same key and body) when the answer is lost. */
