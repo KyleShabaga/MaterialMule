@@ -114,8 +114,12 @@ export class TestAuthController {
       [parsed.data.fixtureKey],
     );
     const user = rows[0];
-    if (!user || user.status !== 'active' || user.account_type !== 'test') {
+    if (!user || user.account_type !== 'test') {
       throw new NotFoundException({ code: 'unknown_fixture' });
+    }
+    // A known fixture person who was disabled (or isn't approved) says so, not "unknown" (MM-T61).
+    if (user.status !== 'active') {
+      throw new ForbiddenException({ code: 'fixture_not_active', status: user.status });
     }
 
     const session = await this.sessions.create(user.id, user.account_type);

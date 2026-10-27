@@ -55,7 +55,10 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
       }
       await onSignedIn();
     } catch {
-      setError({ message: 'The server could not be reached. Try again.', paused: false });
+      setError({
+        message: 'Material Mule couldn’t be reached. Check the connection and try again.',
+        paused: false,
+      });
     } finally {
       setBusy(false);
     }

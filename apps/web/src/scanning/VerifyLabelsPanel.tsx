@@ -32,8 +32,10 @@ export function VerifyLabelsPanel({
         const id = result.unit.readableId;
         if (!expectedIds.includes(id)) {
           const remaining = expectedIds.filter((expected) => !verified.has(expected));
-          const list = (remaining.length > 0 ? remaining : expectedIds).join(', ');
-          return { tone: 'warning', message: `Wrong label: scanned ${id} expected one of ${list}` };
+          const left = remaining.length > 0 ? remaining : expectedIds;
+          const expected =
+            left.length === 1 ? `Expected ${left[0]}.` : `Expected one of ${left.join(', ')}.`;
+          return { tone: 'warning', message: `Wrong label: scanned ${id}. ${expected}` };
         }
         if (verified.has(id)) return { tone: 'success', message: `${id} is already verified` };
         setVerified((previous) => new Set(previous).add(id));

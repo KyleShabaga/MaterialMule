@@ -463,7 +463,7 @@ describe('storage unit detail (MM-T12)', () => {
     expect(within(summaries).getByText('Lid taped')).toBeInTheDocument();
 
     const receipt = screen.getByRole('region', { name: 'Receipt' });
-    expect(within(receipt).getByText('AT — Alex Tester')).toBeInTheDocument();
+    expect(within(receipt).getByText('AT · Alex Tester')).toBeInTheDocument();
     expect(within(receipt).getByText('LAB')).toBeInTheDocument();
 
     const location = screen.getByRole('region', { name: 'Location and retention' });
@@ -471,7 +471,7 @@ describe('storage unit detail (MM-T12)', () => {
 
     const history = screen.getByRole('region', { name: 'History' });
     expect(await within(history).findByText('Storage unit created')).toBeInTheDocument();
-    expect(within(history).getByText('by LAB for AT — Alex Tester')).toBeInTheDocument();
+    expect(within(history).getByText('by LAB for AT · Alex Tester')).toBeInTheDocument();
 
     expect(await screen.findByRole('region', { name: 'Label' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '← Back to Sample Storage' })).toHaveAttribute(

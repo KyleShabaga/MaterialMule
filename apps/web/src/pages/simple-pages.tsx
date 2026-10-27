@@ -125,6 +125,9 @@ export function RequireActiveSession() {
       <main className="shell" role="alert">
         <h1>Material Mule is unavailable</h1>
         <p>{session.message}</p>
+        <button type="button" className="primary" onClick={() => window.location.reload()}>
+          Reload
+        </button>
       </main>
     );
   }

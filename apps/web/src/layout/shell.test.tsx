@@ -130,6 +130,18 @@ describe('route guard', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Your session has ended');
   });
 
+  it('MM-T61: an unreachable Material Mule says so in plain words and offers Reload', async () => {
+    renderAt('/', {
+      status: 'error',
+      message: 'Material Mule couldn’t be reached. Check the connection, then reload the page.',
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Material Mule is unavailable' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/API/);
+  });
+
   it('AC2: shows pending users only the access-pending page', async () => {
     const router = renderAt('/', {
       status: 'pending',

@@ -1,4 +1,9 @@
-import { type InventoryPage, type ProjectDetail, type StaffOption } from '@materialmule/shared';
+import {
+  formatPerson,
+  type InventoryPage,
+  type ProjectDetail,
+  type StaffOption,
+} from '@materialmule/shared';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { createTestHole } from '../api/projects';
@@ -17,7 +22,7 @@ const PROJECT_UNITS_PAGE_SIZE = 25;
 
 function personLabel(person: StaffOption | null): string {
   if (!person) return 'None';
-  return person.initials ? `${person.initials} — ${person.displayName}` : person.displayName;
+  return formatPerson(person.initials, person.displayName);
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -170,7 +175,8 @@ export function ProjectDetailPage() {
                   },
                   {
                     header: 'Received by',
-                    cell: (receipt) => `${receipt.receiver.initials} — ${receipt.receiver.name}`,
+                    cell: (receipt) =>
+                      formatPerson(receipt.receiver.initials, receipt.receiver.name),
                   },
                   { header: 'Units', cell: (receipt) => receipt.unitCount },
                 ]}

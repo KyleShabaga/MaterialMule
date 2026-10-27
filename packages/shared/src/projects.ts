@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { positionSchema } from './profile';
 
 // Projects and test holes for receiving (MM-T08). The API and the web app share these so both
 // trim and compare names the same way the database does (project_number_normalized and
@@ -52,6 +53,8 @@ export const staffOptionSchema = z.object({
   id: z.string(),
   displayName: z.string(),
   initials: z.string().nullable(),
+  /** Their position, where the list offers one (`GET /api/staff/active`, MM-T61); null if unset. */
+  position: positionSchema.nullable().optional(),
 });
 export type StaffOption = z.infer<typeof staffOptionSchema>;
 

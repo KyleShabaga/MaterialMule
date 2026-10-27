@@ -71,6 +71,14 @@ const CORRECTED_HISTORY: StorageUnitHistoryPage = {
   pageSize: 20,
 };
 
+const OTHER_PROJECT = {
+  id: '00000000-0000-4000-8000-000000000202',
+  projectNumber: 'DEMO-2602',
+  name: 'Hillside bridge',
+  client: 'Example Client',
+  pmPe: { id: 'u-pe', displayName: 'Pat Example', initials: 'PE' },
+};
+
 const EMPTY_HISTORY: StorageUnitHistoryPage = { items: [], total: 0, page: 1, pageSize: 20 };
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
@@ -110,6 +118,9 @@ function stubApi(api: Api) {
     if (url.pathname.endsWith('/print-history')) {
       return json(200, { storageUnit: { id: UNIT.id, readableId: UNIT.readableId }, jobs: [] });
     }
+    if (url.pathname === '/api/projects/search') return json(200, [OTHER_PROJECT]);
+    if (url.pathname === '/api/staff/active') return json(200, []);
+    if (url.pathname === `/api/projects/${OTHER_PROJECT.id}/test-holes`) return json(200, []);
     if (url.pathname === `/api/projects/${PROJECT.id}/test-holes`) {
       return json(200, [{ id: UNIT.holes[0]!.testHoleId, projectId: PROJECT.id, name: 'TH26-01' }]);
     }
@@ -275,6 +286,35 @@ describe('storage unit corrections (MM-T13)', () => {
     expect(
       screen.getByText('Someone else changed this unit. Review the latest values and try again.'),
     ).toBeInTheDocument();
+  });
+
+  it('MM-T61: Enter in the project search picks the match and never submits the form', async () => {
+    const patches = stubApi({ unit: UNIT, history: EMPTY_HISTORY, patch: () => json(500, {}) });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    const form = screen.getByRole('form', { name: 'Correct details' });
+    await user.click(within(form).getByRole('button', { name: 'Change project' }));
+    // Saving with no project chosen yet asks for one.
+    await user.type(within(form).getByLabelText('Reason for the correction'), 'wrong project');
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+    expect(
+      await within(form).findByText('Choose the new project, or keep the current one.'),
+    ).toBeInTheDocument();
+
+    const search = within(form).getByRole('combobox', { name: /Find project/ });
+    await user.type(search, 'DEMO-2602');
+    await within(form).findByRole('option', { name: /DEMO-2602/ });
+    await user.keyboard('{Enter}');
+
+    expect(within(form).getByLabelText('Project number')).toHaveValue('DEMO-2602');
+    // The project error is gone, and nothing was submitted.
+    expect(
+      within(form).queryByText('Choose the new project, or keep the current one.'),
+    ).not.toBeInTheDocument();
+    expect(patches).toHaveLength(0);
+    expect(within(form).queryByText(/Enter a reason/)).not.toBeInTheDocument();
   });
 
   it('AC5: lists unresolved lab requests when a project change is blocked', async () => {

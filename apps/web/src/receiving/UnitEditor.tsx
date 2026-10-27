@@ -11,6 +11,7 @@ export function UnitEditor({
   unit,
   index,
   projectId,
+  projectNumber = null,
   receiverUserId,
   online,
   errors,
@@ -21,6 +22,8 @@ export function UnitEditor({
   unit: UnitDraft;
   index: number;
   projectId: string | null;
+  /** Named in the message after a test hole is added here. */
+  projectNumber?: string | null;
   receiverUserId: string | null;
   online: boolean;
   errors: ReadonlyMap<string, string>;
@@ -70,6 +73,11 @@ export function UnitEditor({
               onQueryChange={(holeQuery) => onChange((current) => ({ ...current, holeQuery }))}
               receiverUserId={receiverUserId}
               online={online}
+              // Holes are shared project data, kept even if the draft is discarded (decided
+              // 2026-10-27, MM-T61).
+              addedNote={(name) =>
+                `Added test hole ${name}${projectNumber ? ` to ${projectNumber}` : ''}. It stays on the project even if you discard this draft.`
+              }
             />
           ) : (
             <p className="field-hint">Choose the project first, then this unit’s test holes.</p>

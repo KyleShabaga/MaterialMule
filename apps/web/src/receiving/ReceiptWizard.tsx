@@ -421,6 +421,7 @@ export function ReceiptWizard({
                   unit={unit}
                   index={index}
                   projectId={draft.project?.id ?? null}
+                  projectNumber={draft.project?.projectNumber ?? null}
                   receiverUserId={draft.receiver?.id ?? null}
                   online={online}
                   errors={errorByField}

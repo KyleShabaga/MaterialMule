@@ -57,6 +57,11 @@ export function ReceiveSamplesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   /** Whether the first listing has been acted on (open the linked draft, or start a new one). */
   const decided = useRef(false);
+  /**
+   * The one clean-up run per page visit. A remount (StrictMode in development, or leaving while it
+   * runs) awaits the same run, so its "N drafts were deleted" notice is never lost (MM-T61).
+   */
+  const cleanupRun = useRef<Promise<string | null> | null>(null);
 
   const load = useCallback(async (): Promise<Listing> => {
     try {
@@ -110,7 +115,8 @@ export function ReceiveSamplesPage() {
   useEffect(() => {
     let current = true;
     void (async () => {
-      const cleaned = await cleanUp();
+      cleanupRun.current ??= cleanUp();
+      const cleaned = await cleanupRun.current;
       const result = await load();
       if (!current) return;
       setNotice(cleaned);

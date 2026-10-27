@@ -156,3 +156,35 @@ describe.runIf(testDatabaseUrl)('storage unit history before MM-T56 (T2/AC2)', (
     });
   });
 });
+
+describe.runIf(testDatabaseUrl)('storage unit history order (MM-T61)', () => {
+  let harness: ReceivingHarness;
+
+  beforeAll(async () => {
+    harness = await bootReceivingHarness();
+  });
+
+  afterAll(async () => {
+    await harness?.close();
+  });
+
+  it('MM-T61: events of the same instant come out in the same order on every unit', async () => {
+    const lab = await harness.cookieFor('lab');
+    const confirmed = await harness.postReceipt(harness.receipt(3), lab);
+    expect(confirmed.status).toBe(201);
+    const units = (confirmed.body as { units: { suNumber: string }[] }).units;
+    expect(units).toHaveLength(3);
+    for (const unit of units) {
+      const response = await harness
+        .http()
+        .get(`/api/storage-units/${unit.suNumber}/history`)
+        .set('Cookie', lab);
+      const history = storageUnitHistoryPageSchema.parse(response.body);
+      // Newest first: the confirmation, then the unit's creation in the same transaction.
+      expect(history.items.map((event) => event.action)).toEqual([
+        'receipt.confirmed',
+        'storage_unit.created',
+      ]);
+    }
+  });
+});

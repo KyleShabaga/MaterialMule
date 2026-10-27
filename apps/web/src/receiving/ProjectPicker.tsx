@@ -11,6 +11,7 @@ import { createProject, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
 import { prefillFromQuery } from './prefill';
 import { useListHighlight } from '../components/useListHighlight';
+import { StaffOptionGroups } from '../projects/StaffOptionGroups';
 
 // Project combobox with inline "Add project" (MM-T08). The typed text lives in the receipt draft
 // (props), so nothing typed is lost while adding a project or while offline.
@@ -96,9 +97,11 @@ export function ProjectPicker({
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       highlight.previous();
-    } else if (event.key === 'Enter' && showList && results[active]) {
+    } else if (event.key === 'Enter') {
+      // Enter in the search box chooses the highlighted match; it never submits the whole form
+      // (the Correct details form, MM-T61).
       event.preventDefault();
-      choose(results[active]);
+      if (showList && results[active]) choose(results[active]);
     } else if (event.key === 'Escape') {
       setOpen(false);
     }
@@ -264,13 +267,7 @@ export function ProjectPicker({
                 onChange={(e) => setField('pmPeUserId')(e.target.value)}
               >
                 <option value="">Choose a staff member</option>
-                {staff.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.initials
-                      ? `${person.displayName} (${person.initials})`
-                      : person.displayName}
-                  </option>
-                ))}
+                <StaffOptionGroups staff={staff} />
               </select>
             )}
           </FormField>

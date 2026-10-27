@@ -71,7 +71,12 @@ export async function updateProject(id: string, body: UpdateProjectRequest): Pro
       body: JSON.stringify(body),
     });
   } catch {
-    return { kind: 'failed', message: UNREACHABLE };
+    // The save may have arrived before the connection dropped (MM-T61).
+    return {
+      kind: 'failed',
+      message:
+        "Material Mule couldn't be reached. Check the connection, then reload to see whether it was saved.",
+    };
   }
   const json: unknown = await response.json().catch(() => null);
   if (response.ok) {

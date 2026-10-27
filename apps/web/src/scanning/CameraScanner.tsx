@@ -223,9 +223,12 @@ export function CameraScanner({
       void tick();
     }
 
-    void start(devices);
+    // Start on the next task, not now: a mount that is cleaned up straight away (StrictMode in
+    // development) then never asks for the camera, so one tap is one request (MM-T61).
+    const starting = setTimeout(() => void start(devices), 0);
     return () => {
       cancelled = true;
+      clearTimeout(starting);
       clearTimeout(timer);
       stopStream(stream);
       streamRef.current = null;

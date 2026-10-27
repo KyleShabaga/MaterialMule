@@ -96,6 +96,13 @@ export function LabAccountCard({ onForbidden }: { onForbidden?: () => void }) {
       onForbidden?.();
       return;
     }
+    if (response.status >= 500) {
+      // A gateway or server error may come after the change was made: say so (MM-T61).
+      setActionError(
+        'Material Mule had a problem, so it isn’t clear whether this worked. Reload the page to check before trying again.',
+      );
+      return;
+    }
     if (!response.ok) {
       setActionError('That didn’t work. Nothing was changed. Try again.');
       return;

@@ -1,5 +1,6 @@
 import {
   describeStorageUnitCorrection,
+  formatPerson,
   formatStorageUnitHoleSummary,
   storageUnitHistoryActionLabel,
   storageUnitTypeLabel,
@@ -34,11 +35,6 @@ const timeFormat = new Intl.DateTimeFormat('en-CA', {
 
 function formatTime(iso: string) {
   return <time dateTime={iso}>{timeFormat.format(new Date(iso))}</time>;
-}
-
-function person(initials: string | null, name: string | null): string {
-  if (initials && name && initials !== name) return `${initials} — ${name}`;
-  return initials ?? name ?? 'Unknown';
 }
 
 /**
@@ -248,10 +244,10 @@ export function StorageUnitDetailPage() {
                 {unit.receipt.project.projectNumber} — {unit.receipt.project.name}
               </Detail>
               <Detail term="Received by">
-                {person(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
+                {formatPerson(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
               </Detail>
               <Detail term="Account">
-                {person(unit.receipt.account.initials, unit.receipt.account.name)}
+                {formatPerson(unit.receipt.account.initials, unit.receipt.account.name)}
               </Detail>
               <Detail term="Confirmed">{formatTime(unit.receipt.confirmedAt)}</Detail>
               <Detail term="Storage units in receipt">{unit.receipt.quantity}</Detail>
@@ -356,9 +352,9 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
                 ) : (
                   <>
                     <span>
-                      by {person(event.actor.initials, event.actor.name)}
+                      by {formatPerson(event.actor.initials, event.actor.name)}
                       {event.receiver
-                        ? ` for ${person(event.receiver.initials, event.receiver.name)}`
+                        ? ` for ${formatPerson(event.receiver.initials, event.receiver.name)}`
                         : ''}
                     </span>
                     {event.reason ? (

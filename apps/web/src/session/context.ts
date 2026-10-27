@@ -25,7 +25,10 @@ export async function loadSession(): Promise<SessionState> {
       credentials: 'same-origin',
     });
   } catch {
-    return { status: 'error', message: 'The API could not be reached.' };
+    return {
+      status: 'error',
+      message: 'Material Mule couldn’t be reached. Check the connection, then reload the page.',
+    };
   }
   if (response.status === 401) {
     return { status: 'signed-out' };
@@ -39,7 +42,10 @@ export async function loadSession(): Promise<SessionState> {
   }
   const parsed = meResponseSchema.safeParse(await response.json());
   if (!parsed.success) {
-    return { status: 'error', message: 'The API returned an unexpected response.' };
+    return {
+      status: 'error',
+      message: 'Material Mule sent an answer this page can’t read. Reload the page to try again.',
+    };
   }
   return parsed.data.status === 'pending'
     ? { status: 'pending', me: parsed.data }

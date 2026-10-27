@@ -71,7 +71,10 @@ export function TestSignInPage() {
       method: 'POST',
       body: JSON.stringify({ fixtureKey: key }),
     });
-    if (!response.ok) {
+    if (response.status === 403) {
+      // The person exists but is disabled or not yet approved (MM-T61).
+      setError('That test person isn’t active, so they can’t sign in. Pick someone else.');
+    } else if (!response.ok) {
       setError('Sign-in didn’t work. Try again.');
     }
     await refresh();

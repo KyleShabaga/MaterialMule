@@ -62,8 +62,7 @@ export function summarizeBackup(
     return {
       ...EMPTY_BACKUP,
       state: 'not_configured',
-      message:
-        'Backups are not set up on this server yet (BACKUP_STATUS_FILE is empty; backup design pending IT, D39).',
+      message: 'Backups are not set up on this server yet.',
     };
   }
   if (file.kind !== 'ok') {

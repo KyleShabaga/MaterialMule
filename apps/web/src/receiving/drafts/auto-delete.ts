@@ -20,6 +20,31 @@ function expired(record: StoredDraft, afterDays: number, now: Date): boolean {
   return Number.isFinite(saved) && now.getTime() - saved > afterDays * DAY_MS;
 }
 
+/**
+ * Calendar days until automatic clean-up deletes this draft (0 = today, 1 = tomorrow), or null
+ * when that is more than a week away, already due, or never (MM-T61).
+ */
+export function daysUntilAutoDelete(
+  record: StoredDraft,
+  setting: DraftAutoDelete,
+  now = new Date(),
+): number | null {
+  if (!setting.enabled || record.status === 'confirming') return null;
+  const saved = Date.parse(record.lastSavedAt);
+  if (!Number.isFinite(saved)) return null;
+  const deadline = saved + setting.afterDays * DAY_MS;
+  if (deadline < now.getTime()) return null;
+  // Calendar days on this computer, so "today" and "tomorrow" mean what they say.
+  const days = Math.round((startOfDay(deadline) - startOfDay(now.getTime())) / DAY_MS);
+  return days <= 7 ? days : null;
+}
+
+function startOfDay(time: number): number {
+  const day = new Date(time);
+  day.setHours(0, 0, 0, 0);
+  return day.getTime();
+}
+
 /** Whether automatic clean-up may delete this record now. */
 export function isAutoDeletable(
   record: StoredDraft,

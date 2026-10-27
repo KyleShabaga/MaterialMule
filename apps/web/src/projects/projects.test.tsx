@@ -240,7 +240,7 @@ describe('Project detail (MM-T35)', () => {
     renderAt(`/projects/${PROJECT_ID}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'DEMO-2601' })).toBeInTheDocument();
     const details = screen.getByRole('region', { name: 'Project details' });
-    expect(details).toHaveTextContent('PE — Pat Example');
+    expect(details).toHaveTextContent('PE · Pat Example');
     expect(within(details).getByText('P:\\Projects\\DEMO-2601')).toBeInTheDocument();
     expect(within(details).queryByRole('link')).not.toBeInTheDocument();
     expect(within(details).getByRole('button', { name: 'Copy' })).toBeInTheDocument();
@@ -300,6 +300,26 @@ describe('Project detail (MM-T35)', () => {
     expect(screen.queryByRole('button', { name: 'Edit project' })).not.toBeInTheDocument();
   });
 
+  it('MM-T61: a save cut off by the network says to reload and check', async () => {
+    stubApi((url, init) => {
+      if (url.pathname !== `/api/projects/${PROJECT_ID}`) return undefined;
+      if (init?.method === 'PATCH') throw new TypeError('Failed to fetch');
+      return json(200, detail());
+    });
+    renderAt(`/projects/${PROJECT_ID}`);
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit project' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit project' });
+    const name = within(dialog).getByRole('textbox', { name: 'Name' });
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Riverbank investigation phase 2');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(dialog).findByText(
+        "Material Mule couldn't be reached. Check the connection, then reload to see whether it was saved.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('edit: locked number, a required reason when changing the PM/PE, and field errors', async () => {
     const fetchMock = stubApi((url, init) => {
       if (url.pathname !== `/api/projects/${PROJECT_ID}`) return undefined;
@@ -326,7 +346,7 @@ describe('Project detail (MM-T35)', () => {
     // Changing the PM/PE needs a reason before anything is sent.
     await userEvent.selectOptions(
       within(dialog).getByRole('combobox', { name: 'PM/PE' }),
-      'DE — Dana Example',
+      'DE · Dana Example',
     );
     const path = within(dialog).getByRole('textbox', { name: 'Server folder path' });
     await userEvent.clear(path);
@@ -360,7 +380,7 @@ describe('Project detail (MM-T35)', () => {
       serverFolderPath: '',
     });
     expect(screen.getByRole('region', { name: 'Project details' })).toHaveTextContent(
-      'DE — Dana Example',
+      'DE · Dana Example',
     );
   });
 });

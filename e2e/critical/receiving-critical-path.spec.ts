@@ -136,7 +136,7 @@ test(
 
     await page.getByRole('link', { name: `Open ${id}` }).click();
     const receiptCard = page.getByRole('region', { name: 'Receipt' });
-    await expect(receiptCard).toContainText('JS — Jordan Smith');
+    await expect(receiptCard).toContainText('JS · Jordan Smith');
     await expect(receiptCard).toContainText('LAB');
     await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
       'TH26-02: ALL',
@@ -163,7 +163,7 @@ test(
     await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
     await form.getByLabel('Project name').fill('Example Ridge');
     await form.getByLabel('Client').fill('Example Client');
-    await form.getByLabel('PM/PE').selectOption({ label: 'Pat Example (PE)' });
+    await form.getByLabel('PM/PE').selectOption({ label: 'PE · Pat Example' });
     await form.getByRole('button', { name: 'Save project' }).click();
     await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
 
