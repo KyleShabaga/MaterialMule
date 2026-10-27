@@ -11,11 +11,12 @@ import {
   type TestHole,
 } from '@materialmule/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { listTestHoles } from '../api/projects';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
-import { fetchInventory, fetchLocations, fetchProject, lookupStorageUnit } from './api';
+import { fetchInventory, fetchLocations, fetchProject } from './api';
 import './inventory.css';
+import { LookUpId } from './LookUpId';
 import { ProjectFilter } from './ProjectFilter';
 import { CameraScanButton } from '../scanning/CameraScanButton';
 import { StorageUnitTable } from './StorageUnitTable';
@@ -379,59 +380,6 @@ function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: 
         />
         <button type="submit">Search</button>
       </div>
-    </form>
-  );
-}
-
-/** "Look up ID": manual entry of a storage unit ID (scanning reuses the same lookup, T16/T17). */
-function LookUpId() {
-  const id = useId();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (code.trim() === '') return;
-    setBusy(true);
-    setError(null);
-    const result = await lookupStorageUnit(code);
-    setBusy(false);
-    if (result.ok) {
-      navigate(`/sample-storage/${encodeURIComponent(result.data.readableId)}`, {
-        state: { from: location.search } satisfies InventoryLinkState,
-      });
-    } else {
-      setError(result.notFound ? 'No storage unit found' : result.message);
-    }
-  }
-
-  return (
-    <form className="lookup-id" aria-label="Look up ID" onSubmit={(event) => void submit(event)}>
-      <label htmlFor={id}>Look up ID</label>
-      <div className="inline-input">
-        <input
-          id={id}
-          type="text"
-          value={code}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="e.g. BKT-2026-000014"
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? `${id}-error` : undefined}
-          onChange={(event) => setCode(event.target.value)}
-        />
-        <button type="submit" disabled={busy}>
-          Open
-        </button>
-      </div>
-      {error ? (
-        <p id={`${id}-error`} className="field-error" role="alert">
-          {error}
-        </p>
-      ) : null}
     </form>
   );
 }

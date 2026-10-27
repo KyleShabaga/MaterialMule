@@ -1,10 +1,6 @@
-import {
-  systemStatusResponseSchema,
-  type BackupState,
-  type SystemStatusResponse,
-} from '@materialmule/shared';
+import { type BackupState, type SystemStatusResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
-import { apiFetch } from '../../api/client';
+import { fetchSystemStatus } from './api';
 import { EmptyState, ErrorState, StatusBadge, type BadgeTone } from '../../components/ui';
 import { formatAge, formatBytes, formatExpiry } from '../../lib/format';
 import { useMe } from '../../session/context';
@@ -13,30 +9,6 @@ type Load =
   | { state: 'loading' }
   | { state: 'error'; message: string }
   | { state: 'ready'; status: SystemStatusResponse };
-
-async function fetchSystemStatus(): Promise<
-  { ok: true; data: SystemStatusResponse } | { ok: false; message: string }
-> {
-  let response: Response;
-  try {
-    response = await apiFetch('/api/admin/system-status');
-  } catch {
-    return { ok: false, message: "Material Mule couldn't be reached. Check the connection." };
-  }
-  if (!response.ok) {
-    return {
-      ok: false,
-      message:
-        response.status === 403
-          ? "You don't have permission to see system status."
-          : `Request failed (HTTP ${response.status}).`,
-    };
-  }
-  const parsed = systemStatusResponseSchema.safeParse(await response.json().catch(() => null));
-  return parsed.success
-    ? { ok: true, data: parsed.data }
-    : { ok: false, message: 'Material Mule returned an unexpected response.' };
-}
 
 const BACKUP_BADGE: Record<BackupState, { tone: BadgeTone; text: string }> = {
   ok: { tone: 'success', text: 'OK' },

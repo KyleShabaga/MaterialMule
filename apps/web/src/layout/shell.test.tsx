@@ -183,7 +183,8 @@ describe('dashboard', () => {
   it('shows a retryable error when activity fails to load', async () => {
     renderAt('/', { status: 'active', me: me() });
     expect(await screen.findByText(/Recent activity couldn't load/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(within(activity).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('shows a not-found page for unknown paths inside the app', async () => {

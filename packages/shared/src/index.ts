@@ -1,5 +1,6 @@
 export * from './activity';
 export * from './corrections';
+export * from './dashboard';
 export * from './health';
 export * from './inventory';
 export * from './lab';
