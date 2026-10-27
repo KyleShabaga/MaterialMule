@@ -243,21 +243,28 @@ export function CorrectionForm({
   }
 
   const general = fieldError('changes');
+  const changedCount = [
+    typeChanged,
+    dateChanged,
+    projectChanged,
+    summariesChanged,
+    noteChanged,
+  ].filter(Boolean).length;
 
   return (
     <form
       className="card correction-form"
+      // Named by the page's "Correct details" heading (StorageUnitDetailPage).
       aria-labelledby="correction-heading"
       onSubmit={(event) => void submit(event)}
       noValidate
     >
-      <h2 id="correction-heading">Correct details</h2>
       <p className="field-hint">
         The storage unit ID {unit.readableId}, its saved location and the original receipt stay as
         they are.
       </p>
       {notice ? (
-        <p className="error-state" role="alert">
+        <p className="notice notice-warning" role="alert">
           {notice}
         </p>
       ) : null}
@@ -267,45 +274,48 @@ export function CorrectionForm({
         </p>
       ) : null}
 
-      <Changed when={typeChanged}>
-        <FormField id="correction-unitType" label="Type" error={fieldError('changes.unitType')}>
-          {(props) => (
-            <select
-              {...props}
-              value={unitType}
-              onChange={(e) => setUnitType(e.target.value as StorageUnitType)}
-            >
-              {typeOptions.map((type) => (
-                <option key={type} value={type}>
-                  {storageUnitTypeLabel(type)}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
-      </Changed>
+      <div className="correction-pair">
+        <Changed when={typeChanged}>
+          <FormField id="correction-unitType" label="Type" error={fieldError('changes.unitType')}>
+            {(props) => (
+              <select
+                {...props}
+                value={unitType}
+                onChange={(e) => setUnitType(e.target.value as StorageUnitType)}
+              >
+                {typeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    {storageUnitTypeLabel(type)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+        </Changed>
 
-      <Changed when={dateChanged}>
-        <FormField
-          id="correction-receivedDate"
-          label="Received date"
-          hint="The minimum retain-until date (received date + 1 year) follows it."
-          error={fieldError('changes.receivedDate')}
-        >
-          {(props) => (
-            <input
-              {...props}
-              type="date"
-              max={todayInEdmonton()}
-              value={receivedDate}
-              onChange={(e) => setReceivedDate(e.target.value)}
-            />
-          )}
-        </FormField>
-      </Changed>
+        <Changed when={dateChanged}>
+          <FormField
+            id="correction-receivedDate"
+            label="Received date"
+            hint={`${dateChanged ? `Was ${unit.receivedDate}. ` : ''}The minimum retain-until date (received date + 1 year) follows it.`}
+            error={fieldError('changes.receivedDate')}
+          >
+            {(props) => (
+              <input
+                {...props}
+                type="date"
+                max={todayInEdmonton()}
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+              />
+            )}
+          </FormField>
+        </Changed>
+      </div>
 
       <Changed when={projectChanged}>
-        <div id="correction-projectId">
+        <fieldset id="correction-projectId" className="correction-group">
+          <legend>Project</legend>
           {changingProject ? (
             <>
               <ProjectPicker
@@ -327,44 +337,48 @@ export function CorrectionForm({
               </button>
             </>
           ) : (
-            <p>
-              <span className="label">Project</span> {unit.project.projectNumber} —{' '}
-              {unit.project.name}{' '}
+            <div className="correction-project">
+              <p>
+                <span className="project-number">{unit.project.projectNumber}</span> ·{' '}
+                {unit.project.name} · <span className="muted">{unit.project.client}</span>
+              </p>
               <button type="button" onClick={() => setChangingProject(true)}>
                 Change project
               </button>
-            </p>
+            </div>
           )}
           {fieldError('changes.projectId') ? (
             <p className="field-error">{fieldError('changes.projectId')}</p>
           ) : null}
-        </div>
+        </fieldset>
       </Changed>
 
       <Changed when={projectChanged || summariesChanged}>
-        <div id="correction-holeSummaries">
-          {projectId ? (
-            <TestHolePicker
-              key={projectId}
-              projectId={projectId}
-              selected={summaries.map((summary) => summary.testHole)}
-              onChange={(holes: TestHole[]) =>
-                setSummaries((current) => {
-                  const byHole = new Map(current.map((s) => [s.testHole.id, s]));
-                  return holes.map((hole) => byHole.get(hole.id) ?? newSummary(hole));
-                })
-              }
-              query={holeQuery}
-              onQueryChange={setHoleQuery}
-              receiverUserId={null}
-              online={online}
-            />
-          ) : (
-            <p className="field-hint">Choose the new project, then this unit’s test holes.</p>
-          )}
-          {fieldError(SUMMARIES_PATH) ? (
-            <p className="field-error">{fieldError(SUMMARIES_PATH)}</p>
-          ) : null}
+        <div id="correction-holeSummaries" className="correction-holes">
+          <div>
+            {projectId ? (
+              <TestHolePicker
+                key={projectId}
+                projectId={projectId}
+                selected={summaries.map((summary) => summary.testHole)}
+                onChange={(holes: TestHole[]) =>
+                  setSummaries((current) => {
+                    const byHole = new Map(current.map((s) => [s.testHole.id, s]));
+                    return holes.map((hole) => byHole.get(hole.id) ?? newSummary(hole));
+                  })
+                }
+                query={holeQuery}
+                onQueryChange={setHoleQuery}
+                receiverUserId={null}
+                online={online}
+              />
+            ) : (
+              <p className="field-hint">Choose the new project, then this unit’s test holes.</p>
+            )}
+            {fieldError(SUMMARIES_PATH) ? (
+              <p className="field-error">{fieldError(SUMMARIES_PATH)}</p>
+            ) : null}
+          </div>
           {summaries.map((summary, index) => (
             <div key={summary.testHole.id}>
               <SummaryEditor
@@ -403,23 +417,25 @@ export function CorrectionForm({
         </FormField>
       </Changed>
 
-      <FormField
-        id="correction-reason"
-        label="Reason for the correction"
-        hint={`Required, at least ${STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH} characters. Shown in the history.`}
-        error={fieldError('reason')}
-      >
-        {(props) => (
-          <textarea
-            {...props}
-            rows={2}
-            maxLength={2000}
-            required
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        )}
-      </FormField>
+      <div className="correction-field">
+        <FormField
+          id="correction-reason"
+          label="Reason for the correction"
+          hint={`At least ${STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH} characters. Saved in the storage unit’s history.`}
+          error={fieldError('reason')}
+        >
+          {(props) => (
+            <textarea
+              {...props}
+              rows={2}
+              maxLength={2000}
+              required
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          )}
+        </FormField>
+      </div>
 
       {links.length > 0 ? (
         <div className="error-state" role="alert">
@@ -449,6 +465,11 @@ export function CorrectionForm({
         <button type="button" onClick={onCancel} disabled={saving}>
           Cancel
         </button>
+        <span className="field-hint" aria-live="polite">
+          {changedCount === 0
+            ? 'Nothing changed yet'
+            : `${changedCount} ${changedCount === 1 ? 'field' : 'fields'} changed`}
+        </span>
       </div>
       <p className="field-hint">
         Printed labels show the values at print time. Reprint if the label is now wrong.

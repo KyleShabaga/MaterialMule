@@ -197,6 +197,56 @@ describe('storage unit labels page', () => {
       true,
     );
   });
+
+  it('MM-T61: names the receiver by initials and name, so people sharing initials differ', async () => {
+    const atStation = (id: string, receiver: PrintJob['receiver']) =>
+      printJob({
+        id,
+        status: 'sent',
+        attempts: 1,
+        sentAt: '2026-10-26T16:00:02.000Z',
+        requestedBy: { userId: 'lab', initials: null, name: 'LAB' },
+        receiver,
+      });
+    stubApi((url) => {
+      if (url === `/api/storage-units/${UNIT.readableId}/print-history`) {
+        return json(200, {
+          storageUnit: UNIT,
+          jobs: [
+            atStation('00000000-0000-4000-8000-000000000911', {
+              userId: 'js1',
+              initials: 'JS',
+              name: 'Jordan Smith',
+            }),
+            atStation('00000000-0000-4000-8000-000000000912', {
+              userId: 'js2',
+              initials: 'JS',
+              name: 'Jamie Song',
+            }),
+            atStation('00000000-0000-4000-8000-000000000913', {
+              userId: 'nn',
+              initials: null,
+              name: 'Noor New',
+            }),
+            printJob({ status: 'sent', attempts: 1, sentAt: '2026-10-26T16:00:02.000Z' }),
+          ],
+        });
+      }
+      if (url === `/api/storage-units/${UNIT.readableId}`) return json(200, UNIT_DETAIL);
+      if (url.startsWith(`/api/storage-units/${UNIT.id}/history`)) {
+        return json(200, { items: [], total: 0, page: 1, pageSize: 20 });
+      }
+      return undefined;
+    });
+    renderRoute(`/sample-storage/${UNIT.readableId}`);
+
+    const history = await screen.findByRole('table', { name: /Print history/ });
+    expect(within(history).getByText('LAB for JS · Jordan Smith')).toBeInTheDocument();
+    expect(within(history).getByText('LAB for JS · Jamie Song')).toBeInTheDocument();
+    expect(within(history).getByText('LAB for Noor New')).toBeInTheDocument();
+    // A personal account printing for themselves is just their initials, as before.
+    expect(within(history).getByText('AT')).toBeInTheDocument();
+  });
 });
 
 describe('Settings → Printers', () => {

@@ -1727,6 +1727,12 @@ textarea {
   color: var(--ink);
 }
 
+.notice-warning {
+  border-color: var(--warning-line);
+  background: var(--warning-panel);
+  color: var(--warning-panel-ink);
+}
+
 .status-alert,
 .profile-warning {
   border-color: var(--warning-line);

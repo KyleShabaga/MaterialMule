@@ -27,12 +27,20 @@ import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-clien
 
 /** The worker's settlement UPDATE (the one that writes the attempt's result). */
 const SETTLEMENT_SQL = /UPDATE print_job\s+SET status = \$2/;
+/** The worker's claim UPDATE (queued → sending, before any byte goes out). */
+const CLAIM_SQL = /UPDATE print_job SET status = 'sending'/;
 
 class Faults {
   /** Settlement UPDATEs still to fail before they reach the database. */
   failSettlement = 0;
   /** Settlement COMMITs still to report failure AFTER they committed (reply lost). */
   loseCommitReply = 0;
+  /** Claim UPDATEs still to fail before they reach the database (MM-T64). */
+  failClaim = 0;
+  /** Claim COMMITs still to report failure AFTER they committed (reply lost, MM-T64). */
+  loseClaimCommitReply = 0;
+  /** The database goes away right after a claim's reply is lost (MM-T64). */
+  downAfterLostClaimReply = false;
   /** Database unreachable: every connect and query fails. */
   down = false;
   injected = 0;
@@ -53,6 +61,7 @@ function sqlOf(args: unknown[]): string {
 function faultyPool(pool: Pool, faults: Faults): Pool {
   const wrapClient = (client: PoolClient): PoolClient => {
     let settling = false;
+    let claiming = false;
     return new Proxy(client, {
       get(target, prop) {
         if (prop === 'query') {
@@ -66,6 +75,13 @@ function faultyPool(pool: Pool, faults: Faults): Pool {
               }
               settling = true;
             }
+            if (CLAIM_SQL.test(sql)) {
+              if (faults.failClaim > 0) {
+                faults.failClaim -= 1;
+                return faults.fail();
+              }
+              claiming = true;
+            }
             const result = await (target.query as (...a: unknown[]) => Promise<unknown>)(...args);
             if (sql === 'COMMIT' && settling) {
               settling = false;
@@ -74,6 +90,15 @@ function faultyPool(pool: Pool, faults: Faults): Pool {
                 return faults.fail();
               }
             }
+            if (sql === 'COMMIT' && claiming) {
+              claiming = false;
+              if (faults.loseClaimCommitReply > 0) {
+                faults.loseClaimCommitReply -= 1;
+                if (faults.downAfterLostClaimReply) faults.down = true;
+                return faults.fail();
+              }
+            }
+            if (sql === 'ROLLBACK') claiming = false;
             return result;
           };
         }
@@ -360,5 +385,71 @@ describe.runIf(testDatabaseUrl)('print settlement recovery (MM-T42)', () => {
       'label.print_uncertain',
       'label.reprint_requested',
     ]);
+  });
+
+  describe('a claim whose reply is lost (MM-T64)', () => {
+    it('T1/AC1–AC3: the job goes back to the queue without a restart and prints once, in order', async () => {
+      const before = await inventorySnapshot();
+      const first = await enqueue([units[0]!]);
+      const second = await enqueue([units[1]!]);
+      faults.loseClaimCommitReply = 1;
+
+      // The claim commits but the worker is told it failed; the same drain recovers.
+      await worker().drain();
+
+      expect(faults.injected).toBe(1);
+      expect(await status(first.id)).toBe('sent');
+      expect(await status(second.id)).toBe('sent');
+      expect(transport.payloads).toHaveLength(2);
+      expect(transport.payloads[0]).toContain(READABLE[0]);
+      expect(transport.payloads[1]).toContain(READABLE[1]);
+      // The lost claim isn't counted as an attempt and never made the job uncertain.
+      expect(await getPrintJob(db.pool, first.id)).toMatchObject({ attempts: 1, lastError: null });
+      expect(await auditActions(first.id)).toEqual(['label.reprint_requested']);
+      expect(await inventorySnapshot()).toEqual(before);
+    });
+
+    it('T2: a running worker keeps going through repeated lost or failed claims', async () => {
+      const first = await enqueue([units[0]!]);
+      const second = await enqueue([units[1]!]);
+      faults.loseClaimCommitReply = 3;
+      faults.failClaim = 2;
+
+      const w = worker();
+      w.start();
+      await expect.poll(() => status(second.id), { timeout: 5_000 }).toBe('sent');
+
+      expect(faults.injected).toBe(5);
+      expect(await getPrintJob(db.pool, first.id)).toMatchObject({ status: 'sent', attempts: 1 });
+      expect(await getPrintJob(db.pool, second.id)).toMatchObject({ status: 'sent', attempts: 1 });
+      expect(sendsOf(READABLE[0]!)).toBe(1);
+      expect(sendsOf(READABLE[1]!)).toBe(1);
+      expect(transport.payloads[0]).toContain(READABLE[0]);
+      expect(await auditActions(first.id)).toEqual(['label.reprint_requested']);
+      expect(await auditActions(second.id)).toEqual(['label.reprint_requested']);
+    });
+
+    it('a lost claim reply is resolved at shutdown, so a restart does not make it uncertain', async () => {
+      const first = await enqueue([units[0]!]);
+      faults.loseClaimCommitReply = 1;
+      faults.downAfterLostClaimReply = true;
+
+      const w = worker();
+      await expect(w.drain()).rejects.toThrow('injected');
+      expect(await status(first.id)).toBe('sending');
+      // The database is back as the service stops: the claim is undone before it exits.
+      faults.down = false;
+      await w.stop();
+      expect(await status(first.id)).toBe('queued');
+
+      await worker(db.pool).drain();
+      expect(await getPrintJob(db.pool, first.id)).toMatchObject({
+        status: 'sent',
+        attempts: 1,
+        lastError: null,
+      });
+      expect(sendsOf(READABLE[0]!)).toBe(1);
+      expect(await auditActions(first.id)).toEqual(['label.reprint_requested']);
+    });
   });
 });
