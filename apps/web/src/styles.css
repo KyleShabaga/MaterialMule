@@ -48,8 +48,6 @@
   --neutral-line: #94a3b8;
   --label-paper: #ffffff;
   --label-ink: #000000;
-  /* The logo mark is drawn for a navy ground, so its box stays navy in both themes. */
-  --mark-bg: #0b1c30;
   --scrim: rgb(15 23 42 / 45%);
 
   /* Shape, size */
@@ -271,7 +269,9 @@ button:disabled:hover {
   box-sizing: border-box;
   border: 1px solid var(--accent-line);
   border-radius: var(--radius-tag);
-  background: var(--mark-bg);
+  background: var(--card-head);
+  /* The donkey mark is drawn in currentColor: cyan in dark, blue in light. */
+  color: var(--accent);
 }
 
 .app-name {

@@ -156,7 +156,10 @@ favours fast reading, clear accountability (who did what, when) and honest statu
   cards, dialogs and drawers use `radius-control` (4px). Badges are told apart from buttons by size,
   mono type and having no hover state.
 - **Name and mark:** the product is **Material Mule** (renamed from Trapezoid on 2026-10-26). The
-  logo mark from Kyle's Figma sits in a 32px navy box in the header, beside the name in uppercase.
+  mark is the **walking donkey** (design system Logos, adopted 2026-10-26): a one-colour silhouette
+  drawn in `currentColor` (`apps/web/src/layout/DonkeyMark.tsx`), so it is `accent` — cyan in dark,
+  blue in light. It sits in a 32px `card-head` box with a 1px `accent-line` edge in the header (48px
+  on sign-in pages), always beside the name in uppercase, and is decorative (`aria-hidden`).
 
 ## Voice and wording
 
@@ -517,7 +520,8 @@ Found while writing this guide (main at 57978f3).
 - All text inputs are 16px; the skip link has an edge; storage unit IDs are mono.
 - The primary button keeps white text in both themes.
 - Destructive confirmations (Discard draft, Disable) use the red danger button.
-- The header shows the logo mark; the side menu shows Kyle's icons in `currentColor`.
+- The header shows the walking-donkey mark; the side menu shows Kyle's icons. Both use
+  `currentColor`.
 
 **Still open** (not styling, left for separate cards):
 
@@ -534,7 +538,7 @@ Found while writing this guide (main at 57978f3).
    setting** with the light and dark sets above.
 2. ~~Self-hosted Inter and JetBrains Mono~~ — **decided 2026-10-27: bundled** (`@fontsource`, see
    Typography).
-3. ~~Logo or wordmark~~ — **provided in Kyle's Figma (2026-10-26)**; the header uses the mark.
+3. ~~Logo or wordmark~~ — **the walking donkey (2026-10-26)**; the header uses the mark.
 4. ~~Uppercase mono status badges~~ — **adopted from Kyle's Figma screens.**
 5. **Storage unit ID badge with a barcode glyph** — not on the approved screens; not built.
 6. ~~Striped table rows~~ — **adopted** (`inset` on even rows).

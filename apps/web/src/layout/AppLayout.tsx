@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router';
 import { StatusBadge } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useMe, useSession } from '../session/context';
-import logoUrl from './logo.svg';
+import { DonkeyMark } from './DonkeyMark';
 import { accountBadge, visibleNavItems } from './nav';
 import { NavIcon } from './NavIcon';
 
@@ -30,7 +30,7 @@ export function AppLayout() {
         </button>
         <Link to="/" className="app-brand">
           <span className="app-mark">
-            <img src={logoUrl} alt="" width={26} height={26} />
+            <DonkeyMark />
           </span>
           <span className="app-name">Material Mule</span>
         </Link>
