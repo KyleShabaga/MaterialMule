@@ -145,28 +145,9 @@ No printer at all? Use **Preview label** on a unit's page (or on the receiving w
 step), then **Print / Save as PDF** and print or save at 100% / Actual size: each PDF page is one
 true-size 3.5 × 1.5 in label. Saving a PDF is not a label print and creates no print job (MM-T39).
 
-The receiving wizard that creates storage units arrives with MM-T10. Until then, create one from
-the browser console while signed in (for example as `at`):
-
-```js
-fetch('/api/receipts', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json', 'x-materialmule-csrf': '1' },
-  body: JSON.stringify({
-    idempotencyKey: crypto.randomUUID(),
-    projectId: '00000000-0000-4000-8000-000000000201',
-    receivedDate: '2026-10-26',
-    receiverUserId: '00000000-0000-4000-8000-000000000102',
-    units: [
-      {
-        clientRowId: 'r1',
-        unitType: 'bucket',
-        holeSummaries: [{ testHoleId: '00000000-0000-4000-8000-000000000301', type: 'all' }],
-      },
-    ],
-  }),
-}).then((r) => r.json());
-```
+Need a unit to print? Receive one: sign in as `at` (or `lab`), open **Receive samples**, choose
+project **DEMO-2601**, add a bucket with a summary for test hole **TH26-01**, review and confirm.
+The labels step then prints (or previews) its labels.
 
 ## Scanning without a handheld scanner
 
@@ -214,6 +195,14 @@ has the API serve the web build on `E2E_PORT` (default 3100). It also starts a f
 free. To run E2E in two checkouts at once, give each its own test database and port, e.g.
 `E2E_PORT=3107 npm run test:e2e`. Playwright won't reuse a server already on the port unless
 `E2E_REUSE_SERVER=1` is set.
+
+## Pull requests and CI
+
+`main` is protected: every change goes through a pull request, and GitHub's `verify` check
+(`.github/workflows/ci.yml`: verify and E2E on Windows) must pass on a branch that is up to date
+with `main` before it can merge. Draft PRs don't run CI until they're marked ready; merged branches
+are deleted automatically. CI doesn't replace the local gate: run `npm run verify` and
+`npm run test:e2e` on Windows before opening a PR.
 
 ## Troubleshooting
 
