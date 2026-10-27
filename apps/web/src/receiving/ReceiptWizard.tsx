@@ -1,5 +1,5 @@
 import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@materialmule/shared';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { BandedCard, ConfirmDialog, FormField } from '../components/ui';
@@ -74,6 +74,7 @@ export function ReceiptWizard({
   const online = useOnline();
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [staffError, setStaffError] = useState(false);
+  const [staffLoaded, setStaffLoaded] = useState(false);
   const {
     draft,
     record,
@@ -107,7 +108,11 @@ export function ReceiptWizard({
   useEffect(() => {
     let current = true;
     listActiveStaff().then(
-      (people) => current && setStaff(people),
+      (people) => {
+        if (!current) return;
+        setStaff(people);
+        setStaffLoaded(true);
+      },
       () => current && setStaffError(true),
     );
     return () => {
@@ -147,10 +152,19 @@ export function ReceiptWizard({
       units: current.units.map((u) => (u.clientRowId === clientRowId ? recipe(u) : u)),
     }));
 
-  function addUnit() {
+  /**
+   * Adds a unit and focuses its heading; with `toHoles` (the Alt+N shortcut, MM-T66 UI-05) its
+   * test hole search instead, so typing goes straight into it. Without a project there is no
+   * search yet, so the heading gets focus.
+   */
+  function addUnit(toHoles = false) {
     const unit = newUnit();
+    const index = draft.units.length;
     change((current) => ({ ...current, units: [...current.units, unit] }));
-    focusTarget.current = `unit-${unit.clientRowId}-heading`;
+    focusTarget.current =
+      toHoles && draft.project
+        ? fieldId(`units.${index}.holeSummaries`)
+        : `unit-${unit.clientRowId}-heading`;
   }
 
   function duplicate(clientRowId: string) {
@@ -254,14 +268,27 @@ export function ReceiptWizard({
     }
   }
 
-  function onDetailsKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    // Add unit shortcut (shown next to the button). Enter never submits the receipt: there is
-    // no form, and only Next moves on.
-    if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'n') {
+  // Add unit shortcut (shown next to the button), on the whole page while Details is open, so it
+  // still works after Enter has left a test hole search (MM-T66 UI-06 leaves focus on the page).
+  // Never while a dialog is open. Enter never submits the receipt: there is no form, and only
+  // Next moves on.
+  const addUnitByShortcut = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    addUnitByShortcut.current = () => addUnit(true);
+  });
+  useEffect(() => {
+    if (step !== 'details') return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== 'n')
+        return;
+      if (event.defaultPrevented || event.repeat) return;
+      if (document.querySelector('dialog[open]')) return;
       event.preventDefault();
-      addUnit();
+      addUnitByShortcut.current();
     }
-  }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [step]);
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
   const discardButton = (
@@ -323,7 +350,7 @@ export function ReceiptWizard({
       </h2>
 
       {step === 'details' ? (
-        <div className="receipt-draft wizard-step" onKeyDown={onDetailsKeyDown}>
+        <div className="receipt-draft wizard-step">
           {!online ? (
             <p className="badge badge-warning" role="status">
               Offline: your entries are kept here. Connect to add a project or test hole.
@@ -350,6 +377,8 @@ export function ReceiptWizard({
                   )
                 }
                 staff={staff}
+                pmPeOnly
+                staffReady={staffLoaded}
                 receiverUserId={draft.receiver?.id ?? null}
                 online={online}
               />
@@ -435,7 +464,7 @@ export function ReceiptWizard({
               {errorByField.get('units') ? (
                 <p className="field-error">{errorByField.get('units')}</p>
               ) : null}
-              <button type="button" onClick={addUnit} aria-keyshortcuts={ADD_UNIT_SHORTCUT}>
+              <button type="button" onClick={() => addUnit()} aria-keyshortcuts={ADD_UNIT_SHORTCUT}>
                 Add bucket
               </button>{' '}
               <span className="field-hint">Shortcut: {ADD_UNIT_SHORTCUT}</span>
@@ -448,10 +477,12 @@ export function ReceiptWizard({
             ) : null}
             <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
             <span className="wizard-actions-spacer" />
-            {discardButton}
-            <button type="button" className="primary" onClick={next}>
-              Next: Review
-            </button>
+            <div className="wizard-actions-buttons">
+              {discardButton}
+              <button type="button" className="primary" onClick={next}>
+                Next: Review
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -492,25 +523,27 @@ export function ReceiptWizard({
           <div className="wizard-actions">
             <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
             <span className="wizard-actions-spacer" />
-            {discardButton}
-            <button type="button" onClick={() => goToStep('details')} disabled={confirming}>
-              Back
-            </button>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => void confirm()}
-              disabled={!online || confirming}
-              aria-busy={confirming}
-            >
-              {confirming ? (
-                <>
-                  <span className="spinner" aria-hidden="true" /> Confirming…
-                </>
-              ) : (
-                'Confirm receipt'
-              )}
-            </button>
+            <div className="wizard-actions-buttons">
+              {discardButton}
+              <button type="button" onClick={() => goToStep('details')} disabled={confirming}>
+                Back
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => void confirm()}
+                disabled={!online || confirming}
+                aria-busy={confirming}
+              >
+                {confirming ? (
+                  <>
+                    <span className="spinner" aria-hidden="true" /> Confirming…
+                  </>
+                ) : (
+                  'Confirm receipt'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

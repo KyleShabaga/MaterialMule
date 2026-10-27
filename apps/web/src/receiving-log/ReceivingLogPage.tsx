@@ -254,7 +254,7 @@ export function ReceivingLogPage() {
             </div>
           )
         ) : (
-          <div className="receiving-log-table" aria-busy={loading}>
+          <div className="receiving-log-table table-stack" aria-busy={loading}>
             <ReceiptTable items={shown.items} linkState={linkState} />
           </div>
         )

@@ -98,6 +98,101 @@
   margin: 0 0 0 auto;
 }
 
+/* Standard / Compact table view (MM-T66 UI-10): two joined toggle buttons, the chosen one filled. */
+.view-switch {
+  display: inline-flex;
+}
+
+.view-switch button {
+  min-height: 36px;
+  border-radius: 0;
+}
+
+.view-switch button:first-child {
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+}
+
+.view-switch button:last-child {
+  margin-left: -1px;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.view-switch button[aria-pressed='true'] {
+  border-color: var(--info-line);
+  background: var(--accent-bg);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* Compact: one line per record, tighter rows; the table scrolls sideways inside its card when it
+   is wider than the screen, at every width (it never stacks into cards). Long project names and
+   test-hole lists end in "…"; the full text stays in the page and in the title. */
+.inventory-table-compact {
+  overflow-x: auto;
+}
+
+.inventory-table-compact .data-table th,
+.inventory-table-compact .data-table td {
+  padding: 0.3125rem 0.5rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.inventory-table-compact .unit-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inventory-table-compact .unit-cell .muted,
+.inventory-table-compact .hole-line,
+.inventory-table-compact .location-line {
+  display: inline-block;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.inventory-table-compact .hole-line {
+  max-width: 11rem;
+  font: 500 0.8125rem/1.25rem var(--font-mono);
+}
+
+.inventory-table-compact .location-line {
+  max-width: 7rem;
+}
+
+@media (max-width: 640px) {
+  .inventory-table-compact .data-table thead {
+    display: table-header-group;
+  }
+
+  .inventory-table-compact .data-table tr {
+    display: table-row;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  .inventory-table-compact .data-table tbody tr:nth-child(even) {
+    background: var(--inset);
+  }
+
+  .inventory-table-compact .data-table td {
+    display: table-cell;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .inventory-table-compact .data-table td::before {
+    content: none;
+  }
+
+  .view-switch button {
+    min-height: var(--target);
+  }
+}
+
 /* The results table and its pager on one card. */
 .table-card {
   margin-top: 1rem;
@@ -144,13 +239,20 @@
   text-decoration: underline;
 }
 
+/* Same height, type size and padding as .badge (MM-T66 UI-02); the width follows the text. */
 .type-tag {
-  padding: 0 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--badge-height);
+  box-sizing: border-box;
+  padding: 1px 0.5rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-tag);
   background: var(--card-head);
-  font: 600 0.625rem/1rem var(--font-mono);
-  letter-spacing: 0.08em;
+  font: 500 0.6875rem/1rem var(--font-mono);
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  white-space: nowrap;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -239,7 +341,7 @@
 .unit-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--gap-button);
 }
 
 .unit-actions .field-hint {
@@ -302,14 +404,18 @@
 }
 
 .note-tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--badge-height);
+  box-sizing: border-box;
   margin-left: 0.5rem;
-  padding: 0 0.4375rem;
+  padding: 1px 0.5rem;
+  vertical-align: middle;
   border: 1px solid var(--warning-line);
   border-radius: var(--radius-tag);
   background: var(--warning-panel);
   color: var(--warning-panel-ink);
-  font: 400 0.75rem/1.25rem var(--font-sans);
+  font: 400 0.75rem/1rem var(--font-sans);
 }
 
 /* History: the time in a column of its own, a line on the left; corrections get an amber line. */
@@ -360,6 +466,15 @@
 
 .correction-page .back-link .link-button {
   padding: 0;
+}
+
+/* MM-T66 UI-09: above 1280px (strictly) the storage unit page's cards stack in one column, full
+   width, in the same order as on tablets and phones (Summaries, History, Receipt, Location and
+   retention). 1025–1280px keeps the two columns. */
+@media (width > 1280px) {
+  .unit-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 1024px) {
