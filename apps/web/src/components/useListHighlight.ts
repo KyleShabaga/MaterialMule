@@ -8,10 +8,18 @@ import { useState } from 'react';
  * `listKey` identifies the current options (e.g. the query and the option IDs); a new key starts
  * the highlight again at the first option. With `startAtFirst` false (a list opened before
  * anything was typed) nothing is highlighted until an arrow key is pressed.
+ *
+ * The highlight is forgotten as soon as the key changes, so returning to an earlier query or list
+ * (A → ArrowDown → B → A) starts at the first option again instead of restoring A's old index.
  */
 export function useListHighlight(count: number, listKey: string, startAtFirst = true) {
   const start = startAtFirst ? 0 : -1;
   const [state, setState] = useState({ key: listKey, index: start });
+  if (state.key !== listKey) {
+    // Reset during render (React's "adjusting state when a prop changes"), not in an effect, so
+    // no frame ever shows or acts on the old index.
+    setState({ key: listKey, index: start });
+  }
   const index = state.key === listKey ? state.index : start;
   const active = count === 0 ? -1 : Math.min(index, count - 1);
 
