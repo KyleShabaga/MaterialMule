@@ -172,7 +172,7 @@ export function ProjectsPage() {
               : 'No projects yet. Projects are added while receiving samples.'}
           </EmptyState>
         ) : (
-          <div className="table-card projects-table">
+          <div className="table-card projects-table table-stack">
             <DataTable
               rows={page.items}
               rowKey={(project) => project.id}

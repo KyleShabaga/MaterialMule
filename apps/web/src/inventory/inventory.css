@@ -118,12 +118,12 @@
   background: var(--inset);
 }
 
-.inventory-table,
+/* Wrap between words only (MM-T60); the table itself is a .table-stack. */
 .unit-header,
-.details,
+.unit-columns .details,
 .hole-summaries,
 .history {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .unit-cell {

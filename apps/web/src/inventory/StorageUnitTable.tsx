@@ -64,7 +64,7 @@ export function StorageUnitTable({
     },
   ];
   return (
-    <div className="inventory-table">
+    <div className="inventory-table table-stack">
       <DataTable
         rows={items}
         rowKey={(item) => item.id}

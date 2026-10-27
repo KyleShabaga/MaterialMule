@@ -1660,6 +1660,58 @@ textarea {
   }
 }
 
+/* ---- Wide tables that stack by their own width (MM-T58, MM-T60) ---- */
+
+/* At tablet widths the side menu leaves a wide table too little room, so it stacks into the phone
+   cards whenever its box is narrower than 48rem, whatever the viewport. Text wraps only between
+   words: headers, badges, IDs, numbers and dates stay whole. */
+.table-stack {
+  container-type: inline-size;
+  overflow-wrap: break-word;
+}
+
+.table-stack th,
+.table-stack .badge {
+  white-space: nowrap;
+}
+
+@container (max-width: 47.99rem) {
+  .table-stack .data-table {
+    border: none;
+    background: none;
+  }
+
+  .table-stack .data-table thead {
+    display: none;
+  }
+
+  .table-stack .data-table tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--card);
+    margin: 0.5rem;
+  }
+
+  .table-stack .data-table tbody tr:nth-child(even) {
+    background: var(--card);
+  }
+
+  .table-stack .data-table td {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: none;
+  }
+
+  .table-stack .data-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    min-width: 6rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+}
+
 /* ---- Settings layouts (MM-T55 part D) ---- */
 
 /* Tiles: a small label over a value, on the shell ground inside a banded card. */

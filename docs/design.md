@@ -426,6 +426,11 @@ Use `BandedCard` (MM-T55) for every card the canvas draws with a header band:
   `data-label` above or beside the value; the row's main link (the storage unit ID) comes first and
   the whole card is ≥52px tall.
 - Wide tables on tablets scroll inside their own box (`overflow-x: auto`), never the page.
+- Wide tables beside the side menu (Sample Storage, Projects, a project's storage units) are
+  wrapped in `.table-stack` (MM-T58, MM-T60): they switch to the stacked cards when their own box is
+  narrower than 48rem, whatever the viewport. Text wraps only between words
+  (`overflow-wrap: break-word`, never `anywhere`); headers, badges, IDs, project numbers and dates
+  never break.
 - Future offline-queued rows (moves queued during a connection drop): 3px `sync-offline` left bar
   plus "Waiting to sync" text.
 
