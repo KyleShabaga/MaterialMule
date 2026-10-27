@@ -534,6 +534,17 @@ receiver selector, and times are local.
   dark backgrounds, steps in plain text, one label per page.
 - The storage unit ID is printed in text as well as the barcode, so a person can read it without a
   scanner.
+- **Labels section layout (decided by Kyle, 2026-10-26):** on a storage unit's page, the label
+  preview (true size, fit warnings, Zoom in, "Print / Save as PDF") sits **next to the print view**
+  (the instructions and one page per label) on desktop; on a phone the print view stacks below.
+  Canvas: "APPROVED — Labels: preview and print side by side".
+- **Guide pages:** two help pages are linked from the Labels section, not shown inline:
+  - **How to print labels** — the browser print settings as a numbered checklist (Print / Save as
+    PDF, scale 100% (Actual size), margins None, one 3.5 × 1.5 in label per page), light like the
+    print page.
+  - **What's on a label** — the label at twice the size with its 3.5 × 1.5 in size marked and each
+    part numbered (QR code, storage unit ID, project number, project name, test holes, Code 128
+    barcode, received date); parts with a fit warning are marked in amber with the warning text.
 
 ## Current app: gaps and inconsistencies
 
