@@ -259,11 +259,13 @@ Rules:
   step back.
 - Smallest text is 11px (`badge`, badges) and must still meet 4.5:1.
 
-**Fonts — Proposal — pending Kyle:** Inter and JetBrains Mono are both SIL Open Font Licence. They
-must be **self-hosted** in the web build (for example the `@fontsource` packages, MIT/OFL), never
-loaded from Google Fonts or another CDN — the host has no guaranteed internet and pages must load on
-the LAN alone. Fallback stack: `system-ui, 'Segoe UI', Roboto, sans-serif` and
-`ui-monospace, Consolas, monospace`. Until confirmed, the app keeps the system stack.
+**Fonts (decided by Kyle, 2026-10-27): bundled.** Inter and JetBrains Mono (SIL Open Font Licence)
+ship in the web build from the `@fontsource/inter` and `@fontsource/jetbrains-mono` packages,
+imported in `apps/web/src/main.tsx`: Latin subset, Inter 400–800 and JetBrains Mono 400–700,
+`font-display: swap`. Never load fonts from Google Fonts or another CDN: the host has no guaranteed
+internet and pages must load on the LAN alone. Fallbacks while they load: `system-ui, 'Segoe UI',
+Roboto, sans-serif` and `ui-monospace, 'Cascadia Mono', Consolas, monospace`. Add a weight only by
+importing its `latin-<weight>.css` next to the others.
 
 ## Layout and spacing
 
@@ -530,9 +532,8 @@ Found while writing this guide (main at 57978f3).
 
 1. ~~Dark-only app screens or follow the OS setting~~ — **decided 2026-10-26: follow the OS
    setting** with the light and dark sets above.
-2. **Self-hosted Inter and JetBrains Mono** (OFL; adds a font package and font files to the web
-   build), or keep the system fonts. Until decided, the app uses the system stacks (`system-ui`,
-   `ui-monospace`).
+2. ~~Self-hosted Inter and JetBrains Mono~~ — **decided 2026-10-27: bundled** (`@fontsource`, see
+   Typography).
 3. ~~Logo or wordmark~~ — **provided in Kyle's Figma (2026-10-26)**; the header uses the mark.
 4. ~~Uppercase mono status badges~~ — **adopted from Kyle's Figma screens.**
 5. **Storage unit ID badge with a barcode glyph** — not on the approved screens; not built.
