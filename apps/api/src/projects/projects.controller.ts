@@ -17,7 +17,7 @@ import {
   type ProjectDetail,
   type ProjectListPage,
   type ProjectSummary,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { actorFor, requestIdOf } from '../auth/auth.controller.js';
 import {
   ActiveUser,
@@ -34,7 +34,7 @@ export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
   /**
-   * Projects table (TRP-T35): `GET /api/projects?search=&mine=&sort=&dir=&page=&pageSize=` →
+   * Projects table (MM-T35): `GET /api/projects?search=&mine=&sort=&dir=&page=&pageSize=` →
    * `{items, total, page, pageSize}`. Every active session may read, LAB included.
    */
   @Get()
@@ -43,7 +43,7 @@ export class ProjectsController {
     return this.projects.list(parseBody(projectListQuerySchema, query), user.userId);
   }
 
-  /** Search by project number or name, prefix or contains, ignoring case (TRP-T08). */
+  /** Search by project number or name, prefix or contains, ignoring case (MM-T08). */
   @Get('search')
   @RequirePermission('inventory.read')
   search(@Query('q') q?: string, @Query('limit') limit?: string): Promise<ProjectSummary[]> {
@@ -54,7 +54,7 @@ export class ProjectsController {
     );
   }
 
-  /** Project detail (TRP-T35); a superset of the T08 summary. */
+  /** Project detail (MM-T35); a superset of the T08 summary. */
   @Get(':projectId')
   @RequirePermission('inventory.read')
   get(
@@ -77,7 +77,7 @@ export class ProjectsController {
   }
 
   /**
-   * Edit a project (TRP-T35). Project-scoped: the service allows admins and the project's PM/PE
+   * Edit a project (MM-T35). Project-scoped: the service allows admins and the project's PM/PE
    * (`project.edit`), and only admins to change the PM/PE (`project.pm_pe.change`).
    */
   @Patch(':projectId')

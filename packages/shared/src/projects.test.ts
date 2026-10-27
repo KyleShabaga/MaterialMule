@@ -15,7 +15,7 @@ import {
 
 const PM_PE = '00000000-0000-4000-8000-000000000101';
 
-describe('normalisation (TRP-T08 T1)', () => {
+describe('normalisation (MM-T08 T1)', () => {
   it('trims project numbers and compares them ignoring case', () => {
     expect(normalizeProjectNumber('  67997 ')).toBe('67997');
     expect(projectNumberKey(' Demo-2601 ')).toBe('demo-2601');
@@ -72,7 +72,7 @@ describe('createProjectRequestSchema', () => {
   });
 });
 
-describe('projects list query (TRP-T35)', () => {
+describe('projects list query (MM-T35)', () => {
   it('defaults to number A–Z, page 1 of 25, everyone’s projects', () => {
     const query = projectListQuerySchema.parse({});
     expect(query).toEqual({
@@ -98,7 +98,7 @@ describe('projects list query (TRP-T35)', () => {
   });
 });
 
-describe('project edit request (TRP-T35)', () => {
+describe('project edit request (MM-T35)', () => {
   it('trims values, turns a blank folder path into null and drops a blank reason', () => {
     expect(
       updateProjectRequestSchema.parse({

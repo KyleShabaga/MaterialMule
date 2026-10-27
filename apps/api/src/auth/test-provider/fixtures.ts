@@ -1,4 +1,4 @@
-// Development/test-only sign-in identities (TRP-T33). IDs and keys must match seed/dev.sql.
+// Development/test-only sign-in identities (MM-T33). IDs and keys must match seed/dev.sql.
 // These are fictional people; none has a Microsoft account, password or token.
 
 export interface TestFixture {

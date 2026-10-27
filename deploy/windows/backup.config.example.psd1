@@ -1,4 +1,4 @@
-# Trapezoid backup, restore and monitoring configuration (TRP-T21).
+# Material Mule backup, restore and monitoring configuration (MM-T21).
 #
 # ============================== PROPOSAL, PENDING IT (D39) ==============================
 # The backup design is IT's decision (App Idea D39). The values IT must decide are left EMPTY
@@ -11,9 +11,9 @@
 # account: read). This is a data file: PowerShell reads it without running code. No secrets: the
 # backup role's password lives in a pgpass file (PgPassFile) readable only by the backup account.
 @{
-    # The TRP-T20 host configuration (install root, current release, service, health URL).
-    HostConfigPath          = 'C:\Trapezoid\config\host.config.psd1'
-    # Goes into backup file names: trapezoid-<env>-<UTC timestamp>-<version>.dump
+    # The MM-T20 host configuration (install root, current release, service, health URL).
+    HostConfigPath          = 'C:\MaterialMule\config\host.config.psd1'
+    # Goes into backup file names: materialmule-<env>-<UTC timestamp>-<version>.dump
     EnvironmentName         = 'production'
 
     # --- IT DECISIONS (D39): all required, no defaults -------------------------------------------
@@ -32,15 +32,15 @@
     KeepWeekly              = $null
     KeepMonthly             = $null
     # Who owns backups and restore drills, and who receives alerts. Alerts are written to the
-    # Windows event log (source Trapezoid); IT's monitoring forwards them. No email from the app.
+    # Windows event log (source MaterialMule); IT's monitoring forwards them. No email from the app.
     BackupOwner             = ''
     AlertRecipient          = ''
     # $true only once IT confirms the location is encrypted at rest (BitLocker, encrypted NAS
-    # volume, ...). Trapezoid does not encrypt backups itself; $false refuses to run.
+    # volume, ...). Material Mule does not encrypt backups itself; $false refuses to run.
     TargetEncryptedAtRest   = $null
 
-    # --- Scheduled tasks (IT inputs; needed by Install-TrapezoidHost.ps1 -BackupConfigPath) -----
-    # Windows account both tasks run as: a gMSA ('DOMAIN\svc-trapezoid-bk$', preferred) or a local
+    # --- Scheduled tasks (IT inputs; needed by Install-MaterialMuleHost.ps1 -BackupConfigPath) -----
+    # Windows account both tasks run as: a gMSA ('DOMAIN\svc-materialmule-bk$', preferred) or a local
     # standard user. It needs write access to BackupTarget and read access to PgPassFile only.
     BackupAccount           = ''
     # Local times the backup runs, matching the RPO. Proposal: @('02:00') for a 24 h RPO, or
@@ -54,25 +54,25 @@
     DbHost                  = '127.0.0.1'
     DbPort                  = 5432
     # The production database: restore.ps1 refuses to restore into it.
-    DbName                  = 'trapezoid'
-    # Read-only role created by: cli.js setup-roles trapezoid_owner trapezoid_app trapezoid_backup
-    DbUser                  = 'trapezoid_backup'
+    DbName                  = 'materialmule'
+    # Read-only role created by: cli.js setup-roles materialmule_owner materialmule_app materialmule_backup
+    DbUser                  = 'materialmule_backup'
     # pgpass file with the backup role's password (runbook). Empty: PostgreSQL's default
     # (%APPDATA%\postgresql\pgpass.conf of the account running the task).
-    PgPassFile              = 'C:\Trapezoid\config\backup\pgpass.conf'
+    PgPassFile              = 'C:\MaterialMule\config\backup\pgpass.conf'
     # Role restore.ps1 uses to create the scratch database (password typed by the person).
     RestoreAdminUser        = 'postgres'
 
     # --- Folders (defaults shown; under <InstallRoot>\ops, readable by Administrators and the
     # backup account only, except status\ which the service account reads) ----------------------
-    # StagingDir            = 'C:\Trapezoid\ops\staging'
-    # StatusFile            = 'C:\Trapezoid\ops\status\backup-status.json'   (BACKUP_STATUS_FILE)
-    # MonitorStatusFile     = 'C:\Trapezoid\ops\status\monitor-status.json'
-    # OpsLogDir             = 'C:\Trapezoid\ops\logs'
-    # RestoreDrillLog       = 'C:\Trapezoid\ops\logs\restore-drills.jsonl'
+    # StagingDir            = 'C:\MaterialMule\ops\staging'
+    # StatusFile            = 'C:\MaterialMule\ops\status\backup-status.json'   (BACKUP_STATUS_FILE)
+    # MonitorStatusFile     = 'C:\MaterialMule\ops\status\monitor-status.json'
+    # OpsLogDir             = 'C:\MaterialMule\ops\logs'
+    # RestoreDrillLog       = 'C:\MaterialMule\ops\logs\restore-drills.jsonl'
 
     # --- Monitoring thresholds and log rotation --------------------------------------------------
-    EventLogSource          = 'Trapezoid'
+    EventLogSource          = 'MaterialMule'
     MinFreeSpaceGB          = 10
     PrintQueueMaxAgeMinutes = 15
     LogMaxSizeMB            = 10

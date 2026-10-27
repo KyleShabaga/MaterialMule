@@ -1,6 +1,6 @@
 /**
  * Makes the fake Zebra printer reset the connection part-way through the next print job whose
- * label data contains `marker` (e.g. a storage unit ID), once (TRP-T18). Other jobs, including
+ * label data contains `marker` (e.g. a storage unit ID), once (MM-T18). Other jobs, including
  * those from tests running in parallel, print normally.
  */
 export async function dropNextPrintJobContaining(marker: string): Promise<void> {

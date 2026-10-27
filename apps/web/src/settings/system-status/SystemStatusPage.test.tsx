@@ -1,4 +1,4 @@
-import type { MeResponse, SystemStatusResponse } from '@trapezoid/shared';
+import type { MeResponse, SystemStatusResponse } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -31,7 +31,7 @@ function status(overrides: Partial<SystemStatusResponse> = {}): SystemStatusResp
       lastRunResult: 'success',
       lastRunMessage: 'Backup copied and verified',
       lastSuccessAt: '2026-10-26T08:02:00Z',
-      lastSuccessFile: 'trapezoid-production-20261026T080000Z-0.2.0.dump',
+      lastSuccessFile: 'materialmule-production-20261026T080000Z-0.2.0.dump',
       lastSuccessSizeBytes: 2_500_000,
       rpoHours: 24,
       rtoHours: 4,
@@ -49,7 +49,7 @@ function status(overrides: Partial<SystemStatusResponse> = {}): SystemStatusResp
     printWorker: { running: true, lastPollAt: '2026-10-26T17:59:58.000Z' },
     disks: [
       {
-        label: 'Trapezoid host',
+        label: 'Material Mule host',
         freeBytes: 120_000_000_000,
         totalBytes: 500_000_000_000,
         measuredAt: '2026-10-26T18:00:00.000Z',
@@ -92,7 +92,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Settings → System status (TRP-T21)', () => {
+describe('Settings → System status (MM-T21)', () => {
   it('shows version, database, backup, print backlog and disk space to admins', async () => {
     stub(status());
     renderRoute(me());

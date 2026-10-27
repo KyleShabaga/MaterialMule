@@ -1,6 +1,6 @@
 /**
  * The benchmark drops and rebuilds its database, so it refuses anything that could be a real one
- * (TRP-T19): APP_ENV must not be production and the database name must contain "bench" or "test".
+ * (MM-T19): APP_ENV must not be production and the database name must contain "bench" or "test".
  * Messages name the rule, never the connection string (it holds a password).
  */
 export class BenchTargetRefusedError extends Error {

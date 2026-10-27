@@ -1,4 +1,4 @@
-import { POSITION_LABELS, profileResponseSchema, type ProfileResponse } from '@trapezoid/shared';
+import { POSITION_LABELS, profileResponseSchema, type ProfileResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../api/client';
 import { ErrorState } from '../components/ui';
@@ -26,7 +26,7 @@ const SOURCE_LABELS: Record<NonNullable<ProfileResponse['source']>, string> = {
 
 const RETRY_START = '/api/auth/microsoft/start?returnTo=%2Fsettings%2Fprofile';
 
-/** Settings → My profile (TRP-T05): imported fields, their source and freshness, and Retry. */
+/** Settings → My profile (MM-T05): imported fields, their source and freshness, and Retry. */
 export function ProfilePage() {
   const { refresh: refreshSession } = useSession();
   const [load, setLoad] = useState<Load>({ state: 'loading' });

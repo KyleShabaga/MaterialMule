@@ -1,11 +1,11 @@
-import { isMyProject, projectListQuerySchema } from '@trapezoid/shared';
+import { isMyProject, projectListQuerySchema } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { buildProjectListQuery } from './project-list-query.js';
 
 const ME = '00000000-0000-4000-8000-0000000000aa';
 const OTHER = '00000000-0000-4000-8000-0000000000bb';
 
-describe('"Only mine" predicate (TRP-T35 T1)', () => {
+describe('"Only mine" predicate (MM-T35 T1)', () => {
   it('includes projects where I am the PM/PE or the review engineer, nothing else', () => {
     expect(isMyProject({ pmPe: { id: ME }, reviewEngineer: null }, ME)).toBe(true);
     expect(isMyProject({ pmPe: { id: OTHER }, reviewEngineer: { id: ME } }, ME)).toBe(true);

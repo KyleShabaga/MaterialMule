@@ -2,9 +2,9 @@ import type {
   StorageUnitCorrectionField,
   StorageUnitHoleSummary,
   StorageUnitType,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 
-/** The correctable values of a storage unit (TRP-T13). Everything else is never corrected. */
+/** The correctable values of a storage unit (MM-T13). Everything else is never corrected. */
 export interface CorrectableValues {
   unitType: StorageUnitType;
   receivedDate: string;

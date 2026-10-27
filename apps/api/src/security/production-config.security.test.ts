@@ -19,12 +19,12 @@ import {
   type TestCertificate,
 } from '../test-support/self-signed-cert.js';
 
-// TRP-T18 security suite: the development/test-only sign-in (TRP-T33) can't be reached with a
+// MM-T18 security suite: the development/test-only sign-in (MM-T33) can't be reached with a
 // production configuration, however the environment is set. Fictional values only.
 
 const SESSION_SECRET = 'test-session-secret-0123456789abcdef';
 
-describe('security: test sign-in is refused in production (TRP-T33 via T18)', () => {
+describe('security: test sign-in is refused in production (MM-T33 via T18)', () => {
   it('a production config with ENABLE_TEST_AUTH=true is refused at startup, naming only the key', () => {
     const env = {
       APP_ENV: 'production',
@@ -81,7 +81,7 @@ describe('security: test sign-in is refused in production (TRP-T33 via T18)', ()
       await runSeed(db.pool, 'reference', 'production');
       cert = makeTestCertificate();
       ca = readFileSync(cert.certFile);
-      // Production must serve HTTPS (TRP-T20), so it gets a throwaway localhost certificate.
+      // Production must serve HTTPS (MM-T20), so it gets a throwaway localhost certificate.
       app = await createApp(
         loadConfig({
           APP_ENV: 'production',

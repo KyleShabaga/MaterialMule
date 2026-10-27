@@ -8,7 +8,7 @@ import {
   projectVersionConflictResponseSchema,
   validationErrorResponseSchema,
   type ProjectDetail,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { listAuditForEntity } from '../audit/audit.js';
@@ -25,8 +25,8 @@ import {
 } from '../test-support/database.js';
 import { receivingLabId } from '../test-support/fixtures.js';
 
-// TRP-T35: projects list, detail and edit. Every name and number below is fictional.
-describe.runIf(testDatabaseUrl)('projects list and detail (TRP-T35)', () => {
+// MM-T35: projects list, detail and edit. Every name and number below is fictional.
+describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let locationId: string;

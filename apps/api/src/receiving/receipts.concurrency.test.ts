@@ -1,4 +1,4 @@
-import type { ConfirmReceiptResponse } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTransaction } from '../db/transaction.js';
 import {
@@ -9,13 +9,13 @@ import {
 import { testDatabaseUrl } from '../test-support/database.js';
 import { bootReceivingHarness, type ReceivingHarness } from '../test-support/receiving-harness.js';
 
-// TRP-T18 card test T3 (concurrency) for receipts. Parallel corrections (version conflict) and
+// MM-T18 card test T3 (concurrency) for receipts. Parallel corrections (version conflict) and
 // parallel project / test-hole creation are already proven in corrections.integration.test.ts and
 // projects.test.ts; docs/testing/receiving-critical-path.md maps them. Fictional data only.
 
 const sequence = (id: string) => Number(id.slice(-6));
 
-describe.runIf(testDatabaseUrl)('concurrent receipts (TRP-T18 T3)', () => {
+describe.runIf(testDatabaseUrl)('concurrent receipts (MM-T18 T3)', () => {
   let h: ReceivingHarness;
 
   beforeAll(async () => {

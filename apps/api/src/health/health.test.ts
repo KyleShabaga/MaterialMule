@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { healthResponseSchema } from '@trapezoid/shared';
+import { healthResponseSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config/env.js';

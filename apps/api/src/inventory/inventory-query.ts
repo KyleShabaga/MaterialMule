@@ -2,7 +2,7 @@ import {
   inventorySortDirection,
   splitInventorySearch,
   type InventoryQuery,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { likeEscape } from '../projects/projects.service.js';
 
 /** Parameterised pieces of the inventory query. Values only ever travel as parameters. */
@@ -16,7 +16,7 @@ export interface InventorySql {
 }
 
 /**
- * Builds the inventory query (TRP-T12). Every search word must appear somewhere in the unit's
+ * Builds the inventory query (MM-T12). Every search word must appear somewhere in the unit's
  * search document (AND across words, any field); filters combine with AND. The storage unit ID
  * always ends the sort so pages never overlap or skip rows that share a received date.
  */

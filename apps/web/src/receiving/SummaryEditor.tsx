@@ -1,8 +1,8 @@
-import { HOLE_SUMMARY_TYPES, type HoleSummaryType } from '@trapezoid/shared';
+import { HOLE_SUMMARY_TYPES, type HoleSummaryType } from '@materialmule/shared';
 import { FormField } from '../components/ui';
 import { fieldId, SUMMARY_TYPE_LABEL, type SummaryDraft } from './draft';
 
-// SAMPLE#/DEPTH summary for one test hole in one storage unit (TRP-T10). One summary per hole:
+// SAMPLE#/DEPTH summary for one test hole in one storage unit (MM-T10). One summary per hole:
 // ALL, a sample range, a depth range in ft or m (no default, never converted) or custom text.
 
 export function SummaryEditor({

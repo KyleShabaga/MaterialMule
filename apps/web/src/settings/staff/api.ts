@@ -6,7 +6,7 @@ import {
   type StaffRole,
   type StaffStatus,
   type UpdateStaffRequest,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from '../../api/client';
 
 /** A failed staff API call with a message fit to show the admin. */

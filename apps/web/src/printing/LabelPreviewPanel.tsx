@@ -1,4 +1,4 @@
-import type { LabelPreview } from '@trapezoid/shared';
+import type { LabelPreview } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { EmptyState, ErrorState } from '../components/ui';
@@ -8,7 +8,7 @@ import './labels.css';
 import { receiptPrintPath, unitPrintPath } from './print-paths';
 
 /**
- * Preview label (TRP-T39): the unit's sticker exactly as T14 lays it out, at true size with a zoom
+ * Preview label (MM-T39): the unit's sticker exactly as T14 lays it out, at true size with a zoom
  * toggle, its fit warnings, and a link to the print view for Print / Save as PDF. Read-only: no
  * print job, no label print recorded.
  */

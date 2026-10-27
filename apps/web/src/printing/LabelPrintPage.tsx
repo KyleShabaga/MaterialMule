@@ -1,4 +1,4 @@
-import type { LabelPreview } from '@trapezoid/shared';
+import type { LabelPreview } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { EmptyState, ErrorState } from '../components/ui';
@@ -28,7 +28,7 @@ const PRINT_CSS = `
 type Labels = PreviewResult<LabelPreview[]>;
 
 /**
- * Print view (TRP-T39): one label, or every label of a receipt in order, with no app chrome so
+ * Print view (MM-T39): one label, or every label of a receipt in order, with no app chrome so
  * the browser's Print → Save as PDF gives a true-scale PDF. Saving a PDF never creates a print job
  * and is not recorded as a label print.
  */

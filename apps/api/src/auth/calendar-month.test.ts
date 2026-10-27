@@ -6,7 +6,7 @@ const EDMONTON = 'America/Edmonton';
 // (Alberta's clocks stay on UTC-6 from November 2026 in tzdata 2026c).
 const iso = (date: Date) => date.toISOString();
 
-// TRP-T06 T1: calendar-month expiry including the month-end clamp and DST.
+// MM-T06 T1: calendar-month expiry including the month-end clamp and DST.
 describe('addCalendarMonth in the business time zone', () => {
   it('AC1: keeps the local day and time a month later', () => {
     // 2026-04-25 09:15 MDT → 2026-05-25 09:15 MDT

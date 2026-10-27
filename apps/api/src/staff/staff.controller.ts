@@ -21,7 +21,7 @@ import {
   updateStaffRequestSchema,
   type ReceiverOption,
   type StaffMember,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { z } from 'zod';
 import { actorFor, requestIdOf } from '../auth/auth.controller.js';
 import {
@@ -51,7 +51,7 @@ function parse<Schema extends z.ZodType>(schema: Schema, value: unknown): z.outp
 const uuid = new ParseUUIDPipe();
 
 /**
- * Settings → Staff & access (TRP-T07). Every management route needs `staff.manage` (admin only;
+ * Settings → Staff & access (MM-T07). Every management route needs `staff.manage` (admin only;
  * LAB never). Receiver search is open to any active session, LAB included: choosing a receiver
  * is attribution, not authentication, and grants nothing.
  */

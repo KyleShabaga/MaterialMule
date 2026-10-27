@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { test, type Page } from '@playwright/test';
 import { withDatabase } from './db';
 
-// A real shared receiving-station (LAB) session for E2E (TRP-T18), without the LAB password.
+// A real shared receiving-station (LAB) session for E2E (MM-T18), without the LAB password.
 //
 // Signing in through the LAB form needs the shared password, and lab-login.spec.ts resets it,
 // which revokes every session of the seeded LAB account at once. So the critical-path tests use a
@@ -12,7 +12,7 @@ import { withDatabase } from './db';
 // API treats it like any LAB session; permissions come from account_type = 'shared_lab'.
 
 export const E2E_LAB_STATION_ID = '00000000-0000-4000-8000-0000000e1801';
-const SESSION_COOKIE = 'trapezoid_session';
+const SESSION_COOKIE = 'materialmule_session';
 
 async function ensureStationAccount() {
   await withDatabase((client) =>
@@ -28,7 +28,7 @@ async function ensureStationAccount() {
 /** Signs the page's browser context in as the shared LAB station; returns the session row ID. */
 export async function signInAsLabStation(page: Page): Promise<string> {
   await ensureStationAccount();
-  await page.request.post('/api/auth/sign-out', { headers: { 'x-trapezoid-csrf': '1' } });
+  await page.request.post('/api/auth/sign-out', { headers: { 'x-materialmule-csrf': '1' } });
   const token = randomBytes(32).toString('base64url');
   const sessionId = await withDatabase(async (client) => {
     const { rows } = await client.query<{ id: string }>(
@@ -48,7 +48,7 @@ export async function signInAsLabStation(page: Page): Promise<string> {
   return sessionId;
 }
 
-/** Ends a session as if its time had run out (the LAB month, TRP-T06). */
+/** Ends a session as if its time had run out (the LAB month, MM-T06). */
 export async function expireSession(sessionId: string): Promise<void> {
   await withDatabase((client) =>
     // Moves the whole month into the past (expires_at must stay after created_at).

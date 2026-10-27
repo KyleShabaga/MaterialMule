@@ -1,4 +1,4 @@
-// Operational status for Settings → System status (TRP-T21). Reads only: the backup status record
+// Operational status for Settings → System status (MM-T21). Reads only: the backup status record
 // written by deploy/windows/backup.ps1, the print queue, and free disk space.
 import { readFile, statfs } from 'node:fs/promises';
 import {
@@ -6,7 +6,7 @@ import {
   type BackupStatusFile,
   type DiskSpace,
   type SystemStatusResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool } from 'pg';
 
 type BackupSummary = SystemStatusResponse['backup'];

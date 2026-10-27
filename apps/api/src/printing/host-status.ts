@@ -1,4 +1,4 @@
-// Zebra host status (~HS) parsing (TRP-T15). The printer answers ~HS with three framed strings,
+// Zebra host status (~HS) parsing (MM-T15). The printer answers ~HS with three framed strings,
 // each <STX>…<ETX><CR><LF>:
 //
 //   1: aaa,b,c,dddd,eee,f,g,h,iii,j,k,l

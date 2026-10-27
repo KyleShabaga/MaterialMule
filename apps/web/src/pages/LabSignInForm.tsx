@@ -1,4 +1,4 @@
-import { LAB_USERNAME, signInLockedResponseSchema } from '@trapezoid/shared';
+import { LAB_USERNAME, signInLockedResponseSchema } from '@materialmule/shared';
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '../api/client';
 import { FormField } from '../components/ui';
@@ -17,7 +17,7 @@ async function labSignInError(response: Response): Promise<string | null> {
 }
 
 /**
- * Shared receiving station sign-in (TRP-T06). LAB is an app-managed account, not a Microsoft
+ * Shared receiving station sign-in (MM-T06). LAB is an app-managed account, not a Microsoft
  * account; its password is set by an administrator.
  */
 export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {

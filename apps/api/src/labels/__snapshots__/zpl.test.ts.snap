@@ -2,7 +2,7 @@
 
 exports[`renderZpl (T1 snapshot, determinism) > matches the stored snapshot for a standard unit 1`] = `
 "^XA
-^FX Trapezoid sticker-v1^FS
+^FX Material Mule sticker-v1^FS
 ^CI28
 ^PW1050
 ^LL450

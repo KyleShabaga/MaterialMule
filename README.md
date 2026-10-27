@@ -1,7 +1,10 @@
-# Trapezoid
+# Material Mule
 
 Laboratory sample receiving, storage-unit tracking and testing-program workflow. React web app,
 NestJS API and PostgreSQL, hosted on a Windows PC on the office network.
+
+Formerly named Trapezoid (renamed 2026-10-26). Git history, old branch names and PR titles, and the
+comments in applied migrations keep the old name and `TRP-Txx` card IDs (now `MM-Txx`).
 
 See [CLAUDE.md](CLAUDE.md) for layout, commands and conventions, [docs/database.md](docs/database.md)
 for the schema and [docs/permissions.md](docs/permissions.md) for who can do what.
@@ -18,9 +21,9 @@ for the schema and [docs/permissions.md](docs/permissions.md) for who can do wha
    The installer asks for a password for the `postgres` superuser; keep it for step 3.
 3. Create a role and two databases (development and test) in **psql** or pgAdmin:
    ```sql
-   CREATE ROLE trapezoid LOGIN PASSWORD 'choose-a-local-password';
-   CREATE DATABASE trapezoid_dev OWNER trapezoid;
-   CREATE DATABASE trapezoid_test OWNER trapezoid;
+   CREATE ROLE materialmule LOGIN PASSWORD 'choose-a-local-password';
+   CREATE DATABASE materialmule_dev OWNER materialmule;
+   CREATE DATABASE materialmule_test OWNER materialmule;
    ```
 
 ## First run
@@ -35,10 +38,10 @@ Only three keys are required; everything else in `.env.example` is optional with
 Edit both files:
 
 - `apps/api/.env`: `APP_ENV=development`,
-  `DATABASE_URL=postgres://trapezoid:<password>@127.0.0.1:5432/trapezoid_dev`, and
+  `DATABASE_URL=postgres://materialmule:<password>@127.0.0.1:5432/materialmule_dev`, and
   `ENABLE_TEST_AUTH=true` so you can sign in with the fictional test identities (below).
 - `apps/api/.env.test`: `APP_ENV=test`,
-  `DATABASE_URL=postgres://trapezoid:<password>@127.0.0.1:5432/trapezoid_test`
+  `DATABASE_URL=postgres://materialmule:<password>@127.0.0.1:5432/materialmule_test`
 - `SESSION_SECRET` in both (32+ characters): generate with
   `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
 
@@ -106,7 +109,7 @@ station.
 For real use, IT provides the tenant ID, client ID, secret and redirect URI (see the comments in
 `.env.example`). To try the flow locally with fictional accounts:
 
-1. Start the mock tenant: `npm run mock:idp -w @trapezoid/api` (listens on 127.0.0.1:4100;
+1. Start the mock tenant: `npm run mock:idp -w @materialmule/api` (listens on 127.0.0.1:4100;
    `MOCK_IDP_PORT` changes it).
 2. Add to `apps/api/.env`, then restart `npm run dev`:
    ```
@@ -128,7 +131,7 @@ Remove the `MICROSOFT_*` lines to turn it off again.
 
 ## Printing without a Zebra printer
 
-1. Start the fake printer: `npm run mock:printer -w @trapezoid/api` (listens on 127.0.0.1:9100
+1. Start the fake printer: `npm run mock:printer -w @materialmule/api` (listens on 127.0.0.1:9100
    and prints a line for each label it receives). `MOCK_PRINTER_MODE=hang` never answers,
    `MOCK_PRINTER_MODE=drop` cuts the connection mid-label, `MOCK_PRINTER_PAPER_OUT=1` reports
    out of labels; stop it to test a printer that is off.
@@ -140,15 +143,15 @@ Remove the `MICROSOFT_*` lines to turn it off again.
 
 No printer at all? Use **Preview label** on a unit's page (or on the receiving wizard's labels
 step), then **Print / Save as PDF** and print or save at 100% / Actual size: each PDF page is one
-true-size 3.5 × 1.5 in label. Saving a PDF is not a label print and creates no print job (TRP-T39).
+true-size 3.5 × 1.5 in label. Saving a PDF is not a label print and creates no print job (MM-T39).
 
-The receiving wizard that creates storage units arrives with TRP-T10. Until then, create one from
+The receiving wizard that creates storage units arrives with MM-T10. Until then, create one from
 the browser console while signed in (for example as `at`):
 
 ```js
 fetch('/api/receipts', {
   method: 'POST',
-  headers: { 'content-type': 'application/json', 'x-trapezoid-csrf': '1' },
+  headers: { 'content-type': 'application/json', 'x-materialmule-csrf': '1' },
   body: JSON.stringify({
     idempotencyKey: crypto.randomUUID(),
     projectId: '00000000-0000-4000-8000-000000000201',
@@ -167,19 +170,19 @@ fetch('/api/receipts', {
 
 ## Scanning without a handheld scanner
 
-The Zebra DS3678-XR (TRP-T16) is a USB keyboard that types the label's ID and then Enter, so you
+The Zebra DS3678-XR (MM-T16) is a USB keyboard that types the label's ID and then Enter, so you
 can try scanning by typing. Open **Sample Storage → Scan labels** (`/sample-storage/scan`), type
 an ID such as `BKT-2026-000001` into the focused scan field and press Enter. Scanner setup and the
 hardware test sheet: [docs/hardware/ds3678-xr.md](docs/hardware/ds3678-xr.md).
 
-Phones scan with **Scan with camera** (TRP-T17). The camera only works on HTTPS pages, or on
+Phones scan with **Scan with camera** (MM-T17). The camera only works on HTTPS pages, or on
 `http://127.0.0.1` on the PC itself, so test it from a phone through the host's HTTPS address
-(TRP-T20). Details and the device test sheet: [docs/hardware/phone-camera.md](docs/hardware/phone-camera.md).
+(MM-T20). Details and the device test sheet: [docs/hardware/phone-camera.md](docs/hardware/phone-camera.md).
 
 ## Receiving drafts
 
 Receive samples autosaves each receipt in progress as a draft in that browser only (IndexedDB,
-TRP-T11): there is no server copy, and another computer never sees it. Drafts not saved for over
+MM-T11): there is no server copy, and another computer never sees it. Drafts not saved for over
 30 days get a **Stale** badge. By default they are never deleted automatically.
 
 A Lab Manager or admin can turn on automatic clean-up in **Settings → Receiving** (MM-T45):
@@ -195,8 +198,8 @@ can't be loaded (offline, server error) nothing is deleted.
 npm run verify       # lint, typecheck, unit/integration tests, build, bundle secret scan
 npx playwright install chromium   # once
 npm run test:e2e     # browser tests, desktop and phone
-npm run test:security                    # permission sweep of every endpoint (TRP-T18)
-npm run test:e2e:critical               # receiving critical path only (TRP-T18)
+npm run test:security                    # permission sweep of every endpoint (MM-T18)
+npm run test:e2e:critical               # receiving critical path only (MM-T18)
 ```
 
 What the receiving regression suite covers, and its latest results:

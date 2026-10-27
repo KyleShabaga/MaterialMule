@@ -3,14 +3,14 @@ import {
   POSITION_LABELS,
   profileResponseSchema,
   type Position,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../session/context';
 
 /**
- * First-login position setup (TRP-T05). Shown after a person's first Microsoft sign-in until they
+ * First-login position setup (MM-T05). Shown after a person's first Microsoft sign-in until they
  * save, including on later sign-ins if they left without saving. The imported job title is only
  * a reference, and the choice grants no permission.
  */
@@ -78,7 +78,7 @@ export function PositionSetupPage() {
     <main className="shell">
       <h1>Welcome, {session.me.displayName}</h1>
       <p>
-        Choose your position. You do this once, and your work in Trapezoid is attributed to you.
+        Choose your position. You do this once, and your work in Material Mule is attributed to you.
       </p>
       <form onSubmit={(event) => void save(event)} noValidate>
         <fieldset className="position-options" aria-describedby="position-note">

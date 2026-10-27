@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// TRP-T07 T6. Each viewport approves its own seeded applicant (apps/api/seed/dev.sql), so the
+// MM-T07 T6. Each viewport approves its own seeded applicant (apps/api/seed/dev.sql), so the
 // desktop and phone runs never race for the same person.
 test('an admin approves a pending applicant', async ({ page }, testInfo) => {
   const applicant = testInfo.project.name.startsWith('phone') ? 'Casey Pending' : 'Riley Pending';

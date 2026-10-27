@@ -1,4 +1,4 @@
-// Calendar-month arithmetic in a named time zone (TRP-T06). LAB sessions last exactly one calendar
+// Calendar-month arithmetic in a named time zone (MM-T06). LAB sessions last exactly one calendar
 // month from sign-in "on the wall clock" of the business time zone, so a sign-in late on the last
 // evening of a month or across a DST change still ends at the same local time a month later.
 

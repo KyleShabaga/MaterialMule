@@ -1,4 +1,4 @@
-// Scan input rules shared by the handheld scanner (TRP-T16) and, later, the phone camera (T17).
+// Scan input rules shared by the handheld scanner (MM-T16) and, later, the phone camera (T17).
 // No timing heuristics: a scan is whatever the focused field holds when the scanner's Enter
 // suffix arrives. Validation and normalisation stay on the server (T12 lookup).
 

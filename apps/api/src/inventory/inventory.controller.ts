@@ -3,12 +3,12 @@ import {
   inventoryQuerySchema,
   type InventoryLocation,
   type InventoryPage,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { RequirePermission } from '../auth/auth.decorators.js';
 import { parseBody } from '../validation/parse-body.js';
 import { InventoryService } from './inventory.service.js';
 
-/** Inventory search (TRP-T12). Read-only; every active session, including LAB, may use it. */
+/** Inventory search (MM-T12). Read-only; every active session, including LAB, may use it. */
 @Controller()
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
@@ -23,7 +23,7 @@ export class InventoryController {
     return this.inventory.query(parseBody(inventoryQuerySchema, query));
   }
 
-  /** Read-only location list for the filter. Managing locations is TRP-T37. */
+  /** Read-only location list for the filter. Managing locations is MM-T37. */
   @Get('locations')
   @RequirePermission('inventory.read')
   locations(): Promise<InventoryLocation[]> {

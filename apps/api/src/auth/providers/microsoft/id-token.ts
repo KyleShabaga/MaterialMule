@@ -1,4 +1,4 @@
-// Claim checks for Microsoft Entra ID tokens (TRP-T05). openid-client has already verified the
+// Claim checks for Microsoft Entra ID tokens (MM-T05). openid-client has already verified the
 // signature against the tenant's keys and the standard claims; these checks repeat the ones that
 // matter for who may sign in, so a library default can't quietly loosen them.
 

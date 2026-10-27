@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
-import { systemStatusResponseSchema, type BackupStatusFile } from '@trapezoid/shared';
+import { systemStatusResponseSchema, type BackupStatusFile } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
@@ -27,7 +27,7 @@ function statusFile(overrides: Partial<BackupStatusFile> = {}): BackupStatusFile
     finishedAt: '2026-10-26T08:02:00Z',
     result: 'success' as const,
     message: 'Backup copied and verified',
-    file: 'trapezoid-production-20261026T080000Z-0.2.0.dump',
+    file: 'materialmule-production-20261026T080000Z-0.2.0.dump',
     sizeBytes: 1234,
     version: '0.2.0',
   };
@@ -44,7 +44,7 @@ function statusFile(overrides: Partial<BackupStatusFile> = {}): BackupStatusFile
   };
 }
 
-describe('summarizeBackup (TRP-T21)', () => {
+describe('summarizeBackup (MM-T21)', () => {
   it('says backups are not set up when no status file is configured', () => {
     expect(summarizeBackup(null, NOW)).toMatchObject({ state: 'not_configured' });
   });
@@ -97,7 +97,7 @@ describe('summarizeBackup (TRP-T21)', () => {
   });
 
   it('reads a status record written by PowerShell (UTF-8 with a byte order mark)', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'trapezoid-status-'));
+    const dir = mkdtempSync(join(tmpdir(), 'materialmule-status-'));
     try {
       const path = join(dir, 'backup-status.json');
       writeFileSync(path, `\uFEFF${JSON.stringify(statusFile())}`);
@@ -111,7 +111,7 @@ describe('summarizeBackup (TRP-T21)', () => {
   });
 });
 
-describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (TRP-T21)', () => {
+describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (MM-T21)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let dir: string;
@@ -123,7 +123,7 @@ describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (TRP-T21)', () => 
 
   beforeAll(async () => {
     db = await createMigratedSchema();
-    dir = mkdtempSync(join(tmpdir(), 'trapezoid-status-'));
+    dir = mkdtempSync(join(tmpdir(), 'materialmule-status-'));
     const statusPath = join(dir, 'backup-status.json');
     writeFileSync(statusPath, JSON.stringify(statusFile()));
 
@@ -200,7 +200,7 @@ describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (TRP-T21)', () => 
     expect(body.printQueue!.oldestQueuedAgeSeconds).toBeLessThan(900);
     expect(body.disks.map((disk) => disk.label)).toContain('Backup location');
     // Node can measure the host drive on Windows and Linux alike.
-    expect(body.disks.map((disk) => disk.label)).toContain('Trapezoid host');
+    expect(body.disks.map((disk) => disk.label)).toContain('Material Mule host');
     // Never leaks connection details.
     expect(JSON.stringify(body)).not.toMatch(/postgres:\/\//);
   });

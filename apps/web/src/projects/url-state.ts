@@ -2,9 +2,9 @@ import {
   PROJECT_LIST_PAGE_SIZE_DEFAULT,
   projectListQuerySchema,
   type ProjectListQuery,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 
-// Projects table state lives in the URL query (TRP-T35), using the API's parameter names, so a
+// Projects table state lives in the URL query (MM-T35), using the API's parameter names, so a
 // view can be shared and Back returns to it. "Only mine" is also remembered per user in local
 // storage and applies whenever the URL doesn't say.
 
@@ -45,7 +45,7 @@ export function projectListSearchParams(query: ProjectListQuery): URLSearchParam
 }
 
 function onlyMineKey(userId: string): string {
-  return `trapezoid.projects.onlyMine.${userId}`;
+  return `materialmule.projects.onlyMine.${userId}`;
 }
 
 /** The user's remembered "Only mine" choice; false when storage is unavailable. */

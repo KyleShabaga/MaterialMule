@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 
-// TRP-T10: the three-step receiving wizard against the real API (fictional DEMO-2601 data).
+// MM-T10: the three-step receiving wizard against the real API (fictional DEMO-2601 data).
 // Runs at desktop and phone widths (T7: every step without horizontal scrolling).
 
 const BKT_ID = /^BKT-\d{4}-\d{6}$/;
@@ -115,7 +115,7 @@ test('T3/AC1: two buckets for TH26-01, reviewed and confirmed with two BKT IDs',
     ],
   );
 
-  // Labels step: preview a label (TRP-T39) and print through the T15 queue; open a unit.
+  // Labels step: preview a label (MM-T39) and print through the T15 queue; open a unit.
   const units = page.getByRole('list', { name: 'New storage units' });
   await units.getByText('Preview label').first().click();
   await expect(units.getByRole('img', { name: `Label for storage unit ${ids[0]}` })).toBeVisible();
@@ -217,7 +217,7 @@ test('T5/AC3/AC4: validation per type blocks Next; 10.5 m is saved as 10.5 m', a
   ]);
 });
 
-// Also in the TRP-T18 critical path (offline: confirm blocked, reconnect and confirm).
+// Also in the MM-T18 critical path (offline: confirm blocked, reconnect and confirm).
 test(
   'T6/AC6/AC7: offline disables Confirm; Review → Step 1 → Review keeps everything',
   {

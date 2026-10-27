@@ -8,7 +8,7 @@ import { serveWebApp } from './web-static.js';
 
 /** Builds the configured application without listening, so tests and main.ts share one setup. */
 export async function createApp(config: AppConfig): Promise<INestApplication> {
-  // HTTPS when a certificate is configured (required in production, TRP-T20).
+  // HTTPS when a certificate is configured (required in production, MM-T20).
   const httpsOptions = httpsOptionsFrom(config);
   // Nest's HttpsOptions type lags Node's (e.g. minVersion); Nest passes it to https.createServer.
   const app = await NestFactory.create(AppModule.forRoot(config), {

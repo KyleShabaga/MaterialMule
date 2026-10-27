@@ -5,7 +5,7 @@ INSERT INTO location (code, name, kind, is_system, active)
 VALUES ('RECEIVING', 'Receiving lab', 'receiving_lab', true, true)
 ON CONFLICT (code_normalized) DO NOTHING;
 
--- The operational shared receiving account LAB (TRP-T06). It exists everywhere but can't sign in
+-- The operational shared receiving account LAB (MM-T06). It exists everywhere but can't sign in
 -- until an administrator sets its password (POST /api/admin/lab/password). It is not a Microsoft
 -- account and is unrelated to the development-only "Lab (test)" identity.
 INSERT INTO app_user (id, display_name, account_type, status)

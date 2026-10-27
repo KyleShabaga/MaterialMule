@@ -1,4 +1,4 @@
-import type { DraftSettings, MeResponse } from '@trapezoid/shared';
+import type { DraftSettings, MeResponse } from '@materialmule/shared';
 import { visibleTo, type StoredDraft } from './record';
 import type { DraftStore } from './store';
 

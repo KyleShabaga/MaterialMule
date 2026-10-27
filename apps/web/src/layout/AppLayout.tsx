@@ -26,7 +26,7 @@ export function AppLayout() {
         >
           Menu
         </button>
-        <span className="app-name">Trapezoid</span>
+        <span className="app-name">Material Mule</span>
         <div className="identity" aria-label="Signed in user">
           <span className="identity-name">
             {me.displayName}

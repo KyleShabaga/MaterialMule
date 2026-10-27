@@ -1,13 +1,13 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import { formatHostStatus, HOST_STATUS_REQUEST, type HostStatus } from '../printing/host-status.js';
 
-// A fake Zebra printer listening on raw TCP like port 9100 (TRP-T15 testing seam). It answers ~HS
+// A fake Zebra printer listening on raw TCP like port 9100 (MM-T15 testing seam). It answers ~HS
 // host-status queries and records the label bytes it receives. Behaviours:
 //   accept — read everything, then close cleanly (a working printer)
 //   hang   — accept the connection but never answer or close
 //   drop   — answer status, then reset the connection after `dropAfterBytes` label bytes
 // For "refused", use FakeZebraPrinter.unusedPort(): nothing listens there.
-// dropJobsContaining (TRP-T18) targets one job while others print normally: the next job whose
+// dropJobsContaining (MM-T18) targets one job while others print normally: the next job whose
 // label data contains a registered marker (e.g. a storage unit ID) is reset mid-stream, once.
 
 export type FakeZebraMode = 'accept' | 'hang' | 'drop';

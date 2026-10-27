@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchHealth, type HealthResult } from '../api/health';
 
-/** API and database status panel (TRP-T01), shown on the dashboard. */
+/** API and database status panel (MM-T01), shown on the dashboard. */
 export function SystemStatus() {
   // Each "Check again" bumps the attempt; a result only counts for the attempt that fetched it.
   const [attempt, setAttempt] = useState(0);

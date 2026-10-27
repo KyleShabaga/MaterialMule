@@ -6,7 +6,7 @@ import {
   type StorageUnitDetail,
   type StorageUnitHistoryPage,
   type StorageUnitLookupResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from './hole-summaries.js';
@@ -150,7 +150,7 @@ interface HistoryRow {
 
 /**
  * Audit history of a unit, newest first and paged: its own events plus its receipt's
- * confirmation. Print jobs have their own section (print history, TRP-T15).
+ * confirmation. Print jobs have their own section (print history, MM-T15).
  */
 export async function getStorageUnitHistory(
   pool: Pool,

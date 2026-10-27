@@ -76,7 +76,7 @@ export async function insertConfirmedBucket(): Promise<TestUnit> {
 }
 
 /**
- * A confirmed receipt of several buckets (TRP-T39), with receipt lines in the given order. IDs use
+ * A confirmed receipt of several buckets (MM-T39), with receipt lines in the given order. IDs use
  * issue year 2025 and consecutive random numbers, as insertConfirmedBucket does.
  */
 export async function insertConfirmedReceipt(

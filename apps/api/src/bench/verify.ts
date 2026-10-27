@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 
 /**
- * Correctness checks after a load run (TRP-T19 AC3, test plan T3). Each returns a list of problems;
+ * Correctness checks after a load run (MM-T19 AC3, test plan T3). Each returns a list of problems;
  * an empty list means consistent. They read the whole database, so they also cover the generated
  * history, not just the rows the load wrote.
  */

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Projects and test holes for receiving (TRP-T08). The API and the web app share these so both
+// Projects and test holes for receiving (MM-T08). The API and the web app share these so both
 // trim and compare names the same way the database does (project_number_normalized and
 // test_hole.name_normalized are lower(trimmed value)).
 
@@ -115,7 +115,7 @@ export const testHoleConflictResponseSchema = z.object({
 export type TestHoleConflictResponse = z.infer<typeof testHoleConflictResponseSchema>;
 
 /**
- * 400 body for invalid input, the same shape receipts use (`ReceiptErrorBody`, TRP-T09): one
+ * 400 body for invalid input, the same shape receipts use (`ReceiptErrorBody`, MM-T09): one
  * entry per problem with its field path. Never echoes the submitted values.
  */
 export const validationErrorResponseSchema = z.object({
@@ -141,7 +141,7 @@ export function projectLabel(project: Pick<ProjectSummary, 'projectNumber' | 'na
 }
 
 // ---------------------------------------------------------------------------------------------
-// Projects list and project detail (TRP-T35)
+// Projects list and project detail (MM-T35)
 // ---------------------------------------------------------------------------------------------
 
 export const PROJECT_LIST_SORTS = ['number', 'name', 'last_receipt'] as const;

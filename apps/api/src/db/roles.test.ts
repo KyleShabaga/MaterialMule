@@ -58,7 +58,7 @@ async function outcome(pool: Pool, sql: string): Promise<string> {
   }
 }
 
-describe.runIf(superuser)('least-privilege database roles (TRP-T20)', () => {
+describe.runIf(superuser)('least-privilege database roles (MM-T20)', () => {
   let scratch: TestSchema;
   let admin: Pool;
   let owner: Pool;

@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { meResponseSchema, profileResponseSchema } from '@trapezoid/shared';
+import { meResponseSchema, profileResponseSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { listAuditForEntity } from '../../../audit/audit.js';
@@ -34,8 +34,8 @@ function cookieValue(response: request.Response, name: string): string | undefin
   return cookie?.split(';')[0];
 }
 
-// TRP-T05 against a mock Entra tenant and mock Graph (fictional identities only).
-describe.runIf(testDatabaseUrl)('Microsoft sign-in (TRP-T05)', () => {
+// MM-T05 against a mock Entra tenant and mock Graph (fictional identities only).
+describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
   let db: TestSchema;
   let mock: MockOidc;
   let app: INestApplication;
@@ -228,7 +228,7 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (TRP-T05)', () => {
         .set('Cookie', cookie!)
         .set(CSRF_HEADER, '1')
         .send({ position });
-      // Approve (TRP-T07 will do this through the admin screen).
+      // Approve (MM-T07 will do this through the admin screen).
       await db.pool.query(`UPDATE app_user SET status = 'active' WHERE id = $1`, [
         (await userByOid(oidOf(key)))!.id,
       ]);

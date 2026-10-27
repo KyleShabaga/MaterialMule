@@ -3,7 +3,7 @@ import type {
   DraftSettings,
   DraftSettingsVersionConflictResponse,
   putDraftSettingsRequestSchema,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { z } from 'zod';
 import { recordAudit } from '../audit/audit.js';

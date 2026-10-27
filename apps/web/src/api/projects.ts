@@ -13,10 +13,10 @@ import {
   type ProjectSummary,
   type StaffOption,
   type TestHole,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from './client';
 
-// Project and test-hole lookup and creation for receiving (TRP-T08).
+// Project and test-hole lookup and creation for receiving (MM-T08).
 
 export class ApiError extends Error {
   constructor(readonly status: number) {

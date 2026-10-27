@@ -1,7 +1,7 @@
 // `npm run bench:load -- [--duration 120] [--warmup 15] [--rate 1] [--port 3219 | --url URL]
 //                        [--seed N] [--label text] [--out results.json] [--env-file F]`
 // --rate is requests per second per connection; 0 removes pacing (saturation run).
-// Runs the TRP-T19 concurrent workload against the benchmark database named in the env file
+// Runs the MM-T19 concurrent workload against the benchmark database named in the env file
 // (default apps/api/.env.bench). Without --url it starts the built API (apps/api/dist, so run
 // `npm run build` first) on 127.0.0.1:<port> with test sign-in enabled and stops it afterwards.
 // Then it checks correctness (unique IDs, consistent audit) and prints p50/p95/p99 per request kind.
@@ -12,7 +12,7 @@ import os from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import autocannon, { type AutocannonRequest, type AutocannonResult } from 'autocannon';
-import type { ConfirmReceiptResponse } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';
 import { parseArgs, useEnvFile } from './cli-args.js';
@@ -23,7 +23,7 @@ import { verifyIntegrity, type IntegrityReport } from './verify.js';
 import { buildScenarios, loadTargets, type PlannedRequest, type Scenario } from './workload.js';
 
 const API_DIR = fileURLToPath(new URL('../../', import.meta.url));
-const CSRF = { 'x-trapezoid-csrf': '1' };
+const CSRF = { 'x-materialmule-csrf': '1' };
 
 interface KindStats {
   latencies: number[];
@@ -187,7 +187,7 @@ async function main(): Promise<void> {
       const main = resolve(API_DIR, 'dist/main.js');
       if (!existsSync(main))
         throw new Error('apps/api/dist is missing: run `npm run build` first.');
-      const logFile = resolve(os.tmpdir(), `trapezoid-bench-api-${port}.log`);
+      const logFile = resolve(os.tmpdir(), `materialmule-bench-api-${port}.log`);
       const out = createWriteStream(logFile);
       api = spawn(process.execPath, [main], {
         cwd: API_DIR,
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
           HOST: '127.0.0.1',
           PORT: String(port),
           ENABLE_TEST_AUTH: 'true',
-          // Production logs at info (deploy/windows/trapezoid.env.example); keep that cost in.
+          // Production logs at info (deploy/windows/materialmule.env.example); keep that cost in.
           LOG_LEVEL: args.get('log-level') ?? 'info',
           WEB_DIST_DIR: '',
           LABEL_PRINTER_HOST: '',

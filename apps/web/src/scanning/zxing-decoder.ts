@@ -3,7 +3,7 @@ import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 import type { BarcodeDecoder } from './decoder';
 
 // Loaded on demand by decoder.ts. The WebAssembly file is bundled with the web app and served by
-// Trapezoid: the library's default would fetch it from a public CDN, which the office host can't
+// Material Mule: the library's default would fetch it from a public CDN, which the office host can't
 // reach and which would tell a third party the app is in use.
 
 export async function createZxingDecoder(): Promise<BarcodeDecoder> {

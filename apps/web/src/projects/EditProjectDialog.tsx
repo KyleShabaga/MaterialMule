@@ -3,7 +3,7 @@ import {
   type ProjectDetail,
   type StaffOption,
   type UpdateProjectRequest,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { FormField } from '../components/ui';
@@ -68,7 +68,7 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
 }
 
 /**
- * Edit project (TRP-T35): admins and the project's PM/PE change the number (until the first
+ * Edit project (MM-T35): admins and the project's PM/PE change the number (until the first
  * receipt), name, client, review engineer and server folder path; only admins change the PM/PE,
  * with a reason. Field errors show beside each input.
  */

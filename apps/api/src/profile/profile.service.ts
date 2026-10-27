@@ -6,7 +6,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import type { Position, ProfileResponse } from '@trapezoid/shared';
+import type { Position, ProfileResponse } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { MicrosoftTokenCache } from '../auth/providers/microsoft/token-cache.js';

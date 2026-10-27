@@ -47,7 +47,7 @@ export function renderZpl(
 
   const lines = [
     '^XA',
-    `^FX Trapezoid ${layout.templateVersion}^FS`,
+    `^FX Material Mule ${layout.templateVersion}^FS`,
     '^CI28',
     `^PW${layout.widthDots}`,
     `^LL${layout.heightDots}`,

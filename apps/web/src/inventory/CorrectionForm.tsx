@@ -13,7 +13,7 @@ import {
   type StorageUnitDetail,
   type StorageUnitType,
   type TestHole,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { FormField } from '../components/ui';
@@ -24,7 +24,7 @@ import { SummaryEditor } from '../receiving/SummaryEditor';
 import { TestHolePicker } from '../receiving/TestHolePicker';
 import { correctStorageUnit } from './api';
 
-// Correct a confirmed storage unit (TRP-T13, D45–D47): type, received date, project, test holes
+// Correct a confirmed storage unit (MM-T13, D45–D47): type, received date, project, test holes
 // and summaries, and note. The storage unit ID, saved location and receipt header never change.
 
 export const CONFLICT_MESSAGE =

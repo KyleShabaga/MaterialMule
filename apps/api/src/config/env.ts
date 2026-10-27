@@ -49,7 +49,7 @@ const envSchema = z.object({
     .default(50),
   // Optional: serve the built web app (apps/web/dist) from the API's origin, as production will.
   WEB_DIST_DIR: z.string().min(1).optional(),
-  // Optional receiving label printer (TRP-T15). Creates the "receiving" printer the first time
+  // Optional receiving label printer (MM-T15). Creates the "receiving" printer the first time
   // the API starts with it set; afterwards admins change printers under Settings → Printers.
   LABEL_PRINTER_HOST: z
     .string()
@@ -69,12 +69,12 @@ const envSchema = z.object({
     .min(1, { error: 'must not be blank' })
     .max(100, { error: 'must be at most 100 characters' })
     .default('Receiving ZD621'),
-  // Development/test-only fixture sign-in (TRP-T33). Refused in production by loadConfig.
+  // Development/test-only fixture sign-in (MM-T33). Refused in production by loadConfig.
   ENABLE_TEST_AUTH: z
     .enum(['true', 'false'], { error: 'must be true or false' })
     .default('false')
     .transform((value) => value === 'true'),
-  // Microsoft Entra ID sign-in (TRP-T05). Off unless tenant, client ID, secret and redirect URI
+  // Microsoft Entra ID sign-in (MM-T05). Off unless tenant, client ID, secret and redirect URI
   // are all set; they come from IT's app registration. A partial set is refused at startup.
   MICROSOFT_TENANT_ID: z
     .string()
@@ -104,14 +104,14 @@ const envSchema = z.object({
     .transform((value) => value.toLowerCase())
     .optional(),
   BOOTSTRAP_ADMIN_UPN: z.string().min(3).max(320).optional(),
-  // Internal HTTPS (TRP-T20): the API terminates TLS itself with the certificate IT issues for the
+  // Internal HTTPS (MM-T20): the API terminates TLS itself with the certificate IT issues for the
   // production host name. Either a PFX/PKCS#12 file (plus its passphrase, if any) or a PEM
   // certificate chain and key. Required in production; optional elsewhere.
   TLS_PFX_FILE: z.string().min(1).optional(),
   TLS_PFX_PASSPHRASE: z.string().min(1).optional(),
   TLS_CERT_FILE: z.string().min(1).optional(),
   TLS_KEY_FILE: z.string().min(1).optional(),
-  // Backup status record written by deploy/windows/backup.ps1 (TRP-T21), shown under Settings →
+  // Backup status record written by deploy/windows/backup.ps1 (MM-T21), shown under Settings →
   // System status. Unset until the backup design is approved (D39): the page then says so.
   BACKUP_STATUS_FILE: z.string().min(1).optional(),
 });
@@ -149,7 +149,7 @@ function crossFieldProblems(config: z.infer<typeof envSchema>): string[] {
   return problems;
 }
 
-/** Exactly one certificate form; production must serve HTTPS (TRP-T20). */
+/** Exactly one certificate form; production must serve HTTPS (MM-T20). */
 function tlsProblems(config: z.infer<typeof envSchema>): string[] {
   const pfx = config.TLS_PFX_FILE !== undefined;
   const pem = config.TLS_CERT_FILE !== undefined || config.TLS_KEY_FILE !== undefined;

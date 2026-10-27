@@ -1,9 +1,9 @@
 {
-  "name": "@trapezoid/shared",
+  "name": "@materialmule/shared",
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
-  "description": "Types and validation schemas shared by the Trapezoid API and web app.",
+  "description": "Types and validation schemas shared by the Material Mule API and web app.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

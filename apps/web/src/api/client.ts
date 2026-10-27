@@ -1,15 +1,15 @@
-import { CSRF_HEADER_NAME } from '@trapezoid/shared';
+import { CSRF_HEADER_NAME } from '@materialmule/shared';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** Fired when any API call reports the session is gone, so the app can send the user to sign in. */
-export const UNAUTHENTICATED_EVENT = 'trapezoid:unauthenticated';
+export const UNAUTHENTICATED_EVENT = 'materialmule:unauthenticated';
 
 /**
- * fetch() for the Trapezoid API: same-origin cookies, JSON accept header, and the CSRF header the
- * server requires on every state-changing request (TRP-T04). A 401 also fires
+ * fetch() for the Material Mule API: same-origin cookies, JSON accept header, and the CSRF header the
+ * server requires on every state-changing request (MM-T04). A 401 also fires
  * UNAUTHENTICATED_EVENT (which sends the user to sign in) unless `reportUnauthenticated` is false,
- * for screens that keep the user in place and offer Sign in themselves (TRP-T11 receiving).
+ * for screens that keep the user in place and offer Sign in themselves (MM-T11 receiving).
  * Callers always get the response.
  */
 export async function apiFetch(

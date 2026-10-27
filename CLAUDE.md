@@ -4,12 +4,12 @@ Guidance for Claude Code (and humans) working in this repository.
 
 ## What this is
 
-Trapezoid tracks laboratory sample **storage units** (buckets, Shelby tubes, bulk containers) for a
+Material Mule tracks laboratory sample **storage units** (buckets, Shelby tubes, bulk containers) for a
 geotechnical/materials consulting firm: receiving and labelling, inventory and location, lab testing
 programs (progress only), retention, and disposal.
 
 - Requirements: Notion page "App Idea" (decisions D01–D52).
-- Work items: Notion "Trapezoid — Development Board". Each card (TRP-Txx) has scope, acceptance
+- Work items: Notion "Material Mule — Development Board". Each card (MM-Txx) has scope, acceptance
   criteria (section 7) and a test plan (section 8). Implement one card per branch.
 - Hosting (D25): a regular Windows PC running the NestJS API as a Windows service, PostgreSQL on the
   same PC, and the React app in browsers on office computers and phones. No cloud, no off-site access.
@@ -21,36 +21,36 @@ apps/api         NestJS 12 backend, ESM ("type": "module"), routes under /api
 apps/web         React 19 + Vite browser app
 packages/shared  Types and zod schemas used by both (built with tsup to ESM + CJS)
 e2e              Playwright tests (desktop and phone viewports)
-deploy/windows   Host scripts: Install-TrapezoidHost, Deploy-Trapezoid (TRP-T20, docs/operations/runbook.md)
+deploy/windows   Host scripts: Install-MaterialMuleHost, Deploy-MaterialMule (MM-T20, docs/operations/runbook.md)
 scripts          Repo tooling (check-bundle-secrets.mjs, pack-release.mjs)
 ```
 
 ## Commands (run from the repo root)
 
-| Command                                  | What it does                                                                                                                                                   |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm ci`                                 | Install exactly what's in the lockfile                                                                                                                         |
-| `npm run dev`                            | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)                                                                                      |
-| `npm run lint`                           | ESLint (zero warnings) and Prettier check                                                                                                                      |
-| `npm run format`                         | Prettier write                                                                                                                                                 |
-| `npm run typecheck`                      | `tsc --noEmit` in every workspace                                                                                                                              |
-| `npm test`                               | Unit and integration tests (Vitest) in every workspace                                                                                                         |
-| `npm run build`                          | Build shared, API and web                                                                                                                                      |
-| `npm run check:bundle`                   | Fail if server config appears in the web bundle                                                                                                                |
-| `npm run test:deploy`                    | Deploy-script and release-packing tests (PowerShell 7, temp folders; part of `npm test`)                                                                       |
-| `npm run release:pack`                   | Pack `release/trapezoid-<version>-<commit>/` for the Windows host (after verify)                                                                               |
-| `npm run verify`                         | lint → typecheck → test → build → check:bundle (the gate for every card)                                                                                       |
-| `npm run test:e2e`                       | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on `E2E_PORT` (3100); fake printer on +1000, mock Microsoft tenant on +2000 |
-| `npm run db:migrate`                     | Apply pending migrations, then reference data (Receiving lab)                                                                                                  |
-| `npm run db:seed:dev`                    | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants); refused in production                                            |
-| `npm run db:reset:dev`                   | Re-apply the dev fixtures (names, roles, pending applicants) without changing IDs or audit                                                                     |
-| `npm run db:reset:test`                  | Drop and rebuild the test database from `apps/api/.env.test`                                                                                                   |
-| `npm run bench:seed`                     | Rebuild a bench DB with fictional ten-year / 5x data (TRP-T19; see docs/performance/README.md)                                                                 |
-| `npm run bench:load`                     | Concurrent workload and correctness checks against the built API; `bench:explain` for plans                                                                    |
-| `npm run mock:idp -w @trapezoid/api`     | Mock Microsoft tenant for local sign-in (127.0.0.1:4100); see README                                                                                           |
-| `npm run mock:printer -w @trapezoid/api` | Fake Zebra printer for local printing (127.0.0.1:9100); see README                                                                                             |
+| Command                                     | What it does                                                                                                                                                   |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                    | Install exactly what's in the lockfile                                                                                                                         |
+| `npm run dev`                               | Shared (watch) + API (watch, port 3000) + web (port 5173, proxies `/api`)                                                                                      |
+| `npm run lint`                              | ESLint (zero warnings) and Prettier check                                                                                                                      |
+| `npm run format`                            | Prettier write                                                                                                                                                 |
+| `npm run typecheck`                         | `tsc --noEmit` in every workspace                                                                                                                              |
+| `npm test`                                  | Unit and integration tests (Vitest) in every workspace                                                                                                         |
+| `npm run build`                             | Build shared, API and web                                                                                                                                      |
+| `npm run check:bundle`                      | Fail if server config appears in the web bundle                                                                                                                |
+| `npm run test:deploy`                       | Deploy-script and release-packing tests (PowerShell 7, temp folders; part of `npm test`)                                                                       |
+| `npm run release:pack`                      | Pack `release/materialmule-<version>-<commit>/` for the Windows host (after verify)                                                                            |
+| `npm run verify`                            | lint → typecheck → test → build → check:bundle (the gate for every card)                                                                                       |
+| `npm run test:e2e`                          | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on `E2E_PORT` (3100); fake printer on +1000, mock Microsoft tenant on +2000 |
+| `npm run db:migrate`                        | Apply pending migrations, then reference data (Receiving lab)                                                                                                  |
+| `npm run db:seed:dev`                       | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants); refused in production                                            |
+| `npm run db:reset:dev`                      | Re-apply the dev fixtures (names, roles, pending applicants) without changing IDs or audit                                                                     |
+| `npm run db:reset:test`                     | Drop and rebuild the test database from `apps/api/.env.test`                                                                                                   |
+| `npm run bench:seed`                        | Rebuild a bench DB with fictional ten-year / 5x data (MM-T19; see docs/performance/README.md)                                                                  |
+| `npm run bench:load`                        | Concurrent workload and correctness checks against the built API; `bench:explain` for plans                                                                    |
+| `npm run mock:idp -w @materialmule/api`     | Mock Microsoft tenant for local sign-in (127.0.0.1:4100); see README                                                                                           |
+| `npm run mock:printer -w @materialmule/api` | Fake Zebra printer for local printing (127.0.0.1:9100); see README                                                                                             |
 
-Per-workspace: `npm run <script> -w @trapezoid/api` (or `@trapezoid/web`, `@trapezoid/shared`).
+Per-workspace: `npm run <script> -w @materialmule/api` (or `@materialmule/web`, `@materialmule/shared`).
 Database details: [docs/database.md](docs/database.md). Migrations are forward-only SQL files in
 `apps/api/migrations`; never edit one that has been applied (the runner checks a checksum). Put
 integrity rules in the database and prove each in `apps/api/src/db/schema.test.ts`. API tests read
@@ -62,7 +62,7 @@ production-shaped (the API serves `apps/web/dist` via `WEB_DIST_DIR`, no dev pro
 parallel browsers made the API stall (AVG Web Shield); CI uses the default.
 
 Parallel worktrees: each worktree needs its own test database (point its `apps/api/.env.test` at
-e.g. `trapezoid_test_t07`) and its own E2E port (`E2E_PORT=3107 npm run test:e2e`), because E2E
+e.g. `materialmule_test_t07`) and its own E2E port (`E2E_PORT=3107 npm run test:e2e`), because E2E
 resets the database it runs against. Playwright never reuses a server already on the port unless
 `E2E_REUSE_SERVER=1` is set.
 

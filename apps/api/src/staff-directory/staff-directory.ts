@@ -1,4 +1,4 @@
-import type { StaffOption } from '@trapezoid/shared';
+import type { StaffOption } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 
 // Active staff who can be credited on a record: a project's PM/PE or the receiver of a receipt.

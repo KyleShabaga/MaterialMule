@@ -10,7 +10,7 @@ import type {
   StaffMember,
   StaffPosition,
   StaffRole,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
@@ -74,7 +74,7 @@ function likePattern(text: string): string {
   return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
-/** Identity details a Microsoft sign-in (TRP-T05) passes after validating the token. */
+/** Identity details a Microsoft sign-in (MM-T05) passes after validating the token. */
 export interface MicrosoftIdentity {
   tenantId: string;
   /** Immutable object ID (oid): the identity key. */
@@ -160,7 +160,7 @@ export async function linkPreprovisionedStaff(
   return matchId;
 }
 
-/** What a receipt stores about its receiver at selection time (TRP-T09 snapshots). */
+/** What a receipt stores about its receiver at selection time (MM-T09 snapshots). */
 export interface ReceiverSnapshot {
   userId: string;
   initials: string;
@@ -237,7 +237,7 @@ export class StaffService {
   }
 
   /**
-   * Snapshot of an active receiver for a receipt (TRP-T09/T10). Refuses anyone the selector
+   * Snapshot of an active receiver for a receipt (MM-T09/T10). Refuses anyone the selector
    * wouldn't offer, so free-text or disabled receivers can't be stored.
    */
   async receiverSnapshot(client: PoolClient, userId: string): Promise<ReceiverSnapshot> {
@@ -500,7 +500,7 @@ export class StaffService {
   }
 
   /**
-   * First-sign-in resolution for Microsoft (TRP-T05 calls this inside its sign-in transaction
+   * First-sign-in resolution for Microsoft (MM-T05 calls this inside its sign-in transaction
    * after validating the token). A known identity returns its user. Otherwise a pre-provisioned
    * entry is linked only on an exact (case-insensitive) UPN match with no identity attached;
    * anything else becomes a new pending user. Initials and names are never compared.

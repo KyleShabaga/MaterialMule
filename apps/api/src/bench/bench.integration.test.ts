@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ConfirmReceiptResponse } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
@@ -20,9 +20,9 @@ import { SeededRandom } from './random.js';
 import { datasetFingerprint, tableCounts, verifyIntegrity } from './verify.js';
 import { BENCH_RECEIVER_ID, loadTargets, receiptRequest } from './workload.js';
 
-// TRP-T19 test plan T3: the generator produces consistent, reproducible fictional data, and
+// MM-T19 test plan T3: the generator produces consistent, reproducible fictional data, and
 // concurrent receipt confirmations on top of it never duplicate an ID or skip authorization.
-describe.runIf(testDatabaseUrl)('benchmark dataset and post-load checks (TRP-T19)', () => {
+describe.runIf(testDatabaseUrl)('benchmark dataset and post-load checks (MM-T19)', () => {
   const schemas: TestSchema[] = [];
   let app: INestApplication;
   let db: TestSchema;

@@ -4,7 +4,7 @@ import {
   confirmReceiptResponseSchema,
   type ConfirmReceiptRequestInput,
   type ConfirmReceiptResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
@@ -22,7 +22,7 @@ import { insertProject, insertTestHole, receivingLabId } from '../test-support/f
 import { businessToday } from './receipts.service.js';
 
 // Fictional data only: project DEMO-2601, test holes TH26-01 / TH26-02, receiver AT.
-describe.runIf(testDatabaseUrl)('receipt confirmation API (TRP-T09)', () => {
+describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;
@@ -137,6 +137,9 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (TRP-T09)', () => {
     });
     app = await createApp(config);
     await app.init();
+    // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+    // on the same server and can see a null address (flaky 'server.address() null').
+    await app.listen(0, '127.0.0.1');
     sessions = app.get(SessionService);
   });
 
@@ -477,6 +480,9 @@ describe.runIf(testDatabaseUrl)('receipt unit limit is configurable', () => {
         }),
       );
       await app.init();
+      // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+      // on the same server and can see a null address (flaky 'server.address() null').
+      await app.listen(0, '127.0.0.1');
       try {
         const session = await app.get(SessionService).create(userId, 'personal');
         const unit = (clientRowId: string) => ({

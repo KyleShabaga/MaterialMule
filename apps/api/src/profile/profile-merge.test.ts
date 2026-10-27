@@ -26,7 +26,7 @@ const stored: ProfileFields = {
   office_location: 'Edmonton',
 };
 
-// TRP-T05 T2: profile merge rules.
+// MM-T05 T2: profile merge rules.
 describe('mergeProfile', () => {
   it('fills a new user from Graph', () => {
     const result = mergeProfile(null, graph(), identity);

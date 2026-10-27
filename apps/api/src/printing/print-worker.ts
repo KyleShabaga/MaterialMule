@@ -5,7 +5,7 @@ import { renderZpl } from '../labels/zpl.js';
 import { statusAfterAttempt, MAX_PRINT_ATTEMPTS } from './status-rules.js';
 import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-client.js';
 
-// Print queue worker (TRP-T15). Runs inside the API process (single host, D25). One job at a
+// Print queue worker (MM-T15). Runs inside the API process (single host, D25). One job at a
 // time per printer, oldest first, so labels come out in the order they were requested.
 //
 // Guardrails: a job is claimed (status `sending`) and committed BEFORE any byte goes to the
@@ -79,7 +79,7 @@ export class PrintWorker {
     await Promise.allSettled([...this.inFlight]);
   }
 
-  /** Heartbeat for Settings → System status (TRP-T21): last poll that reached the database. */
+  /** Heartbeat for Settings → System status (MM-T21): last poll that reached the database. */
   get health(): { running: boolean; lastPollAt: Date | null } {
     return { running: this.running, lastPollAt: this.lastPoll };
   }
@@ -124,7 +124,7 @@ export class PrintWorker {
          SET status = 'uncertain', last_error = $1, updated_at = now()
          WHERE status = 'sending'
          RETURNING id, attempts`,
-        ['Trapezoid restarted while sending these labels'],
+        ['Material Mule restarted while sending these labels'],
       );
       for (const job of rows) {
         await recordAudit(client, {

@@ -1,4 +1,4 @@
-import { meResponseSchema, type MeResponse } from '@trapezoid/shared';
+import { meResponseSchema, type MeResponse } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { apiFetch } from './api/client';
@@ -33,7 +33,7 @@ async function loadAll(): Promise<Load> {
 }
 
 /**
- * Development/test-only sign-in (TRP-T33). The server only exposes the fixture routes when
+ * Development/test-only sign-in (MM-T33). The server only exposes the fixture routes when
  * ENABLE_TEST_AUTH=true outside production, so in production this page shows "unavailable".
  */
 export function TestSignInPage() {
@@ -104,7 +104,7 @@ export function TestSignInPage() {
             Sign out
           </button>{' '}
           <Link className="button primary" to={returnTo}>
-            Continue to Trapezoid
+            Continue to Material Mule
           </Link>
         </p>
       ) : (

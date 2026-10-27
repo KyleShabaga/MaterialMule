@@ -8,7 +8,7 @@ import {
   QR,
 } from '../../apps/api/src/labels/template-v1';
 
-// TRP-T17 E2E: a fake phone camera. The "camera" films a real-size image of a T14 label (the same
+// MM-T17 E2E: a fake phone camera. The "camera" films a real-size image of a T14 label (the same
 // symbol data the printer gets), so the app's real decoder has to read it. Fictional data only.
 
 export interface Crop {

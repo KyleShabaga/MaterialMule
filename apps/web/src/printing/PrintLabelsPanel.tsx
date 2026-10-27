@@ -1,4 +1,4 @@
-import { isPrintJobActive, type PrintJob, type PrintJobKind } from '@trapezoid/shared';
+import { isPrintJobActive, type PrintJob, type PrintJobKind } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { confirmPhysicalPrint, requestPrint } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
@@ -6,7 +6,7 @@ import { usePrintJob } from './usePrintJob';
 
 /**
  * Print button with live status for a set of storage units, e.g. "Print all" on the labels step
- * after confirming a receipt (TRP-T10) or "Reprint label" on a unit's page. Printing never
+ * after confirming a receipt (MM-T10) or "Reprint label" on a unit's page. Printing never
  * changes the units; a reprint is a new job for the same issued IDs.
  */
 export function PrintLabelsPanel({

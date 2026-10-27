@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import express, { type NextFunction, type Request, type Response } from 'express';
 
 /**
- * Serves the built React app from the API's own origin (production layout, TRP-T20; also used by
+ * Serves the built React app from the API's own origin (production layout, MM-T20; also used by
  * E2E). Static files first; any other GET outside /api returns index.html so client-side routes
  * such as /sample-storage load. API routes are never shadowed.
  */

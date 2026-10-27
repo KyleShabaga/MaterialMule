@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { toFieldErrors, type FieldError, type ValidationErrorResponse } from '@trapezoid/shared';
+import { toFieldErrors, type FieldError, type ValidationErrorResponse } from '@materialmule/shared';
 import type { z } from 'zod';
 
-/** A 400 listing each problem by field, in the shape receipts use too (TRP-T09). */
+/** A 400 listing each problem by field, in the shape receipts use too (MM-T09). */
 export function validationError(errors: FieldError[]): BadRequestException {
   return new BadRequestException({
     code: 'validation_failed',

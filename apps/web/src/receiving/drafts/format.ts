@@ -1,7 +1,7 @@
-import type { ReceiverOption } from '@trapezoid/shared';
+import type { ReceiverOption } from '@materialmule/shared';
 import type { StoredDraft } from './record';
 
-// Text for the draft indicator and the draft list (TRP-T11), in the lab's time zone.
+// Text for the draft indicator and the draft list (MM-T11), in the lab's time zone.
 
 const TIME = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Edmonton',

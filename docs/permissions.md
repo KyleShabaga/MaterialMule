@@ -1,7 +1,7 @@
 # Permissions
 
 Enforced on the server by `apps/api/src/auth/policy.ts` (`can()`) and the global `AuthGuard`
-(TRP-T04). Source: App Idea §1 "Confirmed permissions" and §8 "Confirmed shared receiving
+(MM-T04). Source: App Idea §1 "Confirmed permissions" and §8 "Confirmed shared receiving
 account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in step.
 
 ## Rules
@@ -54,13 +54,13 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - Opaque random token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in production); only its
   SHA-256 is stored.
 - Absolute expiry, never extended: personal and test accounts 12 hours (`PERSONAL_SESSION_HOURS`,
-  owner decision 2026-10-25); LAB one calendar month (TRP-T06): the same local time in
+  owner decision 2026-10-25); LAB one calendar month (MM-T06): the same local time in
   `BUSINESS_TIME_ZONE` a month later, clamped to the month's last day (Jan 31 → Feb 28/29). The
   cookie's `Expires` equals the session expiry, so it survives a browser restart.
 - Revocable one at a time or all for a user; disabling a user revokes all of them in the same
   transaction.
 
-## Shared receiving account LAB (TRP-T06)
+## Shared receiving account LAB (MM-T06)
 
 - Username `LAB` (any case) and an app-managed password (`POST /api/auth/lab/sign-in`). It is not a
   Microsoft account and has nothing to do with the development-only "Lab (test)" identity.
@@ -76,7 +76,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - `lab.integration.test.ts` calls every endpoint outside the LAB column with a LAB session and
   expects 403 with nothing changed, so new endpoints are covered automatically.
 
-## Microsoft sign-in (TRP-T05)
+## Microsoft sign-in (MM-T05)
 
 - **Off by default.** It is enabled only when `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`,
   `MICROSOFT_CLIENT_SECRET` and `MICROSOFT_REDIRECT_URI` are all set; a partial set is refused at
@@ -97,7 +97,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   `GET /v1.0/me?$select=displayName,givenName,surname,mail,userPrincipalName,jobTitle,department,officeLocation`.
   A Graph failure never blocks sign-in: known values stay, and the person sees a Retry.
 - **New people** are created `pending` and see position setup, then access-pending until an admin
-  approves them (TRP-T07). **Position grants nothing.** **Official initials** are only ever set by
+  approves them (MM-T07). **Position grants nothing.** **Official initials** are only ever set by
   an admin; refresh never writes them.
 - **Bootstrap admin:** the account whose object ID matches `BOOTSTRAP_ADMIN_OBJECT_ID` (or, only
   when that is unset, whose UPN matches `BOOTSTRAP_ADMIN_UPN`) becomes active + admin at first
@@ -108,15 +108,15 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   URIs, admin consent for User.Read, technical owner), the optional `acct` ID-token claim, and
   reconciling sign-in timing (D38). Real-account verification (card test T6) waits for these.
 - **Tests** use a mock tenant and Graph (`apps/api/src/test-support/mock-oidc.ts`;
-  `npm run mock:idp -w @trapezoid/api` for E2E) with fictional identities only.
+  `npm run mock:idp -w @materialmule/api` for E2E) with fictional identities only.
 
 ## CSRF
 
-State-changing requests (`POST`, `PUT`, `PATCH`, `DELETE`) must send `x-trapezoid-csrf: 1`
-(`CSRF_HEADER_NAME` in `@trapezoid/shared`), and if the browser sends `Origin` it must match the
+State-changing requests (`POST`, `PUT`, `PATCH`, `DELETE`) must send `x-materialmule-csrf: 1`
+(`CSRF_HEADER_NAME` in `@materialmule/shared`), and if the browser sends `Origin` it must match the
 request's `Host`. The API enables no CORS, so another site can't send the header.
 
-## Staff & access (TRP-T07)
+## Staff & access (MM-T07)
 
 | Route                                       | Policy                      |
 | ------------------------------------------- | --------------------------- |
@@ -138,12 +138,12 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 - **Receiver selection is attribution, not authentication**: it grants nothing. Only active
   staff with official initials are offered; free text is never accepted.
 - **Pre-provisioned staff** are created active (the admin who adds them approves them). On a
-  first Microsoft sign-in (`StaffService.resolveMicrosoftSignIn`, called by TRP-T05) the entry is
+  first Microsoft sign-in (`StaffService.resolveMicrosoftSignIn`, called by MM-T05) the entry is
   linked only when the UPN matches the expected UPN exactly (ignoring case) and the entry has no
   sign-in identity yet. Initials and names are never compared; anyone else becomes a new pending
   user.
 
-## Projects (TRP-T35)
+## Projects (MM-T35)
 
 | Route                                    | Policy                                                |
 | ---------------------------------------- | ----------------------------------------------------- |

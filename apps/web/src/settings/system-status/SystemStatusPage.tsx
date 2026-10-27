@@ -2,7 +2,7 @@ import {
   systemStatusResponseSchema,
   type BackupState,
   type SystemStatusResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../api/client';
 import { EmptyState, ErrorState, StatusBadge, type BadgeTone } from '../../components/ui';
@@ -21,7 +21,7 @@ async function fetchSystemStatus(): Promise<
   try {
     response = await apiFetch('/api/admin/system-status');
   } catch {
-    return { ok: false, message: "Trapezoid couldn't be reached. Check the connection." };
+    return { ok: false, message: "Material Mule couldn't be reached. Check the connection." };
   }
   if (!response.ok) {
     return {
@@ -35,7 +35,7 @@ async function fetchSystemStatus(): Promise<
   const parsed = systemStatusResponseSchema.safeParse(await response.json().catch(() => null));
   return parsed.success
     ? { ok: true, data: parsed.data }
-    : { ok: false, message: 'Trapezoid returned an unexpected response.' };
+    : { ok: false, message: 'Material Mule returned an unexpected response.' };
 }
 
 const BACKUP_BADGE: Record<BackupState, { tone: BadgeTone; text: string }> = {
@@ -142,7 +142,7 @@ function PrintQueueSection({ status }: { status: SystemStatusResponse }) {
   );
 }
 
-/** Settings → System status (admin, TRP-T21). Read-only. */
+/** Settings → System status (admin, MM-T21). Read-only. */
 export function SystemStatusPage() {
   const me = useMe();
   const allowed = me.permissions.includes('system.status.read');

@@ -7,7 +7,7 @@ import { FakeZebraPrinter } from '../../apps/api/src/test-support/fake-zebra';
  * playwright.config.ts). It accepts every job like a working ZD621; fault cases (refused, hang,
  * dropped mid-stream) are covered by the API integration tests.
  *
- * TRP-T18: a small loopback control endpoint lets a test make one specific job fail mid-stream
+ * MM-T18: a small loopback control endpoint lets a test make one specific job fail mid-stream
  * (see e2e/support/printer.ts) without disturbing jobs from tests running in parallel. Its URL
  * reaches the test workers through E2E_FAKE_PRINTER_CONTROL_URL.
  */

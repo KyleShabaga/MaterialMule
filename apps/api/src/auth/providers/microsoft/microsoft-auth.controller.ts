@@ -14,7 +14,7 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { microsoftCallbackRequestSchema, type MicrosoftSignInError } from '@trapezoid/shared';
+import { microsoftCallbackRequestSchema, type MicrosoftSignInError } from '@materialmule/shared';
 import type { Response } from 'express';
 import { APP_CONFIG } from '../../../config/config.constants.js';
 import type { AppConfig } from '../../../config/env.js';
@@ -26,7 +26,7 @@ import { SessionService } from '../../session.service.js';
 import { MicrosoftSignInService } from './microsoft-sign-in.service.js';
 
 /** Ties a sign-in attempt to the browser that started it (login CSRF defence). */
-export const SIGN_IN_BINDING_COOKIE = 'trapezoid_ms_signin';
+export const SIGN_IN_BINDING_COOKIE = 'materialmule_ms_signin';
 const BINDING_PATH = '/api/auth/microsoft';
 
 const STATUS_FOR: Record<MicrosoftSignInError, number> = {
@@ -41,7 +41,7 @@ const STATUS_FOR: Record<MicrosoftSignInError, number> = {
 };
 
 /**
- * Microsoft sign-in (TRP-T05). `start` sends the browser to Microsoft; Microsoft redirects to
+ * Microsoft sign-in (MM-T05). `start` sends the browser to Microsoft; Microsoft redirects to
  * the web route /sign-in/microsoft/callback, which posts the result here. Both 404 while the
  * provider isn't configured.
  */

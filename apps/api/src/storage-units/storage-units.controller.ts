@@ -3,7 +3,7 @@ import type {
   StorageUnitDetail,
   StorageUnitHistoryPage,
   StorageUnitLookupResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { z } from 'zod';
 import { RequirePermission } from '../auth/auth.decorators.js';
 import { parseBody } from '../validation/parse-body.js';
@@ -26,7 +26,7 @@ const lookupQuerySchema = z.object({
   code: z.string({ error: 'is required' }).max(200, { error: 'is too long' }),
 });
 
-/** Storage unit lookup, detail and history (TRP-T12). Read-only for every active session. */
+/** Storage unit lookup, detail and history (MM-T12). Read-only for every active session. */
 @Controller('storage-units')
 export class StorageUnitsController {
   constructor(private readonly storageUnits: StorageUnitsService) {}

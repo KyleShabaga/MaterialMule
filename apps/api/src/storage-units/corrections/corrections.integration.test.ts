@@ -4,7 +4,7 @@ import {
   storageUnitHistoryPageSchema,
   type LabRequestLink,
   type StorageUnitDetail,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { CSRF_HEADER } from '../../auth/auth.guard.js';
@@ -28,7 +28,7 @@ import {
 import { LAB_REQUEST_LINK_CHECKER, type LabRequestLinkChecker } from './lab-request-links.js';
 
 // Fictional data only: projects DEMO-2601 (A) and DEMO-2602 (B), test holes TH26-01 / TH26-02.
-describe.runIf(testDatabaseUrl)('storage unit corrections API (TRP-T13)', () => {
+describe.runIf(testDatabaseUrl)('storage unit corrections API (MM-T13)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;
@@ -139,6 +139,9 @@ describe.runIf(testDatabaseUrl)('storage unit corrections API (TRP-T13)', () => 
     });
     app = await createApp(config);
     await app.init();
+    // Listen once: parallel supertest requests on a non-listening server each call listen(0)
+    // on the same server and can see a null address (flaky 'server.address() null').
+    await app.listen(0, '127.0.0.1');
     sessions = app.get(SessionService);
   });
 

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Put, Req } from '@nestjs/common';
-import { putDraftSettingsRequestSchema, type DraftSettings } from '@trapezoid/shared';
+import { putDraftSettingsRequestSchema, type DraftSettings } from '@materialmule/shared';
 import { requestIdOf } from '../auth/auth.controller.js';
 import {
   ActiveUser,

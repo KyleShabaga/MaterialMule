@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { SeededRandom } from './random.js';
 
 /**
- * Fictional benchmark dataset (TRP-T19). Sizes come from the owner-approved projection
+ * Fictional benchmark dataset (MM-T19). Sizes come from the owner-approved projection
  * (2026-10-25): ten years of about 20,000 storage units, 5,000 projects, 15,000 test holes,
  * 30,000 SAMPLE#/DEPTH summaries, 250,000 audit events and 25,000 print jobs; the stress case has
  * 5x the units and audit events (summaries follow the units, at 1.5 per unit).

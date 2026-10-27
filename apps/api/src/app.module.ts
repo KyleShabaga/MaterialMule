@@ -84,7 +84,7 @@ export class AppModule {
         SystemStatusController,
         LabelsController,
         SettingsController,
-        // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (TRP-T33).
+        // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (MM-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
       providers: [
@@ -109,9 +109,9 @@ export class AppModule {
         InventoryService,
         StorageUnitsService,
         StorageUnitCorrectionsService,
-        // Lab requests arrive with TRP-T23; until then no unit has unresolved links.
+        // Lab requests arrive with MM-T23; until then no unit has unresolved links.
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: NoLabRequestLinks },
-        // Default deny on every route (TRP-T04).
+        // Default deny on every route (MM-T04).
         { provide: APP_GUARD, useClass: AuthGuard },
       ],
     };

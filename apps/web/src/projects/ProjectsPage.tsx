@@ -3,7 +3,7 @@ import {
   type ProjectListItem,
   type ProjectListPage,
   type ProjectListQuery,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
@@ -35,7 +35,7 @@ function countLabel(total: number): string {
   return `${total.toLocaleString('en-CA')} ${total === 1 ? 'project' : 'projects'}`;
 }
 
-/** Projects table (TRP-T35): searched, filtered, sorted and paged on the server. */
+/** Projects table (MM-T35): searched, filtered, sorted and paged on the server. */
 export function ProjectsPage() {
   const me = useMe();
   const [params, setParams] = useSearchParams();

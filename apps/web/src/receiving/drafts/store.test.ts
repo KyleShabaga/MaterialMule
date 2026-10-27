@@ -10,7 +10,7 @@ import {
   toStorageError,
 } from './store';
 
-// IndexedDB draft store (TRP-T11 T1), against fake-indexeddb (see test-setup.ts).
+// IndexedDB draft store (MM-T11 T1), against fake-indexeddb (see test-setup.ts).
 
 const AT_ACCOUNT = { id: '00000000-0000-4000-8000-000000000102', accountType: 'test' as const };
 
@@ -40,7 +40,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('draft store (TRP-T11)', () => {
+describe('draft store (MM-T11)', () => {
   it('T1: creates its schema in an empty browser and round-trips records', async () => {
     expect(await store.list()).toEqual({ drafts: [], unreadable: 0 });
     const older = record('2026-10-26T16:00:00.000Z', 'older');

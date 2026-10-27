@@ -27,7 +27,7 @@ export function AccessPendingPage() {
       <h1>Access pending</h1>
       <p>
         You’re signed in as <strong>{session.me.displayName}</strong>, but an administrator still
-        needs to approve your access. You’ll be able to use Trapezoid once they do.
+        needs to approve your access. You’ll be able to use Material Mule once they do.
       </p>
       <button type="button" onClick={() => void signOut()}>
         Sign out
@@ -93,7 +93,7 @@ export function ErrorPage() {
       <h1>Something went wrong</h1>
       <p>{message}</p>
       <p>
-        <a href="/">Reload Trapezoid</a>
+        <a href="/">Reload Material Mule</a>
       </p>
     </main>
   );
@@ -113,7 +113,7 @@ export function RequireActiveSession() {
   if (session.status === 'error') {
     return (
       <main className="shell" role="alert">
-        <h1>Trapezoid is unavailable</h1>
+        <h1>Material Mule is unavailable</h1>
         <p>{session.message}</p>
       </main>
     );
@@ -126,7 +126,7 @@ export function RequireActiveSession() {
   if (session.status === 'pending') {
     return <Navigate to="/access-pending" replace />;
   }
-  // First-login position setup comes before anything else (TRP-T05).
+  // First-login position setup comes before anything else (MM-T05).
   if (session.me.positionSetupRequired) {
     return <Navigate to="/onboarding/position" replace />;
   }

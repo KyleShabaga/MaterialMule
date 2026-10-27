@@ -1,4 +1,4 @@
-import type { ReceiverOption } from '@trapezoid/shared';
+import type { ReceiverOption } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { newDraft } from '../draft';
 import {
@@ -11,7 +11,7 @@ import {
   withData,
 } from './record';
 
-// Draft record and history (TRP-T11 T2, part of T1). Fictional people only.
+// Draft record and history (MM-T11 T2, part of T1). Fictional people only.
 
 const LAB = { id: '00000000-0000-4000-8000-000000000001', accountType: 'shared_lab' as const };
 const AT_ACCOUNT = { id: '00000000-0000-4000-8000-000000000102', accountType: 'test' as const };
@@ -31,7 +31,7 @@ const PE: ReceiverOption = {
 const T0 = new Date('2026-10-26T16:00:00.000Z');
 const T1 = new Date('2026-10-26T16:42:00.000Z');
 
-describe('draft record (TRP-T11)', () => {
+describe('draft record (MM-T11)', () => {
   it('starts with a created entry, the owner and the idempotency key of the draft', () => {
     const data = newDraft(null, '2026-10-26');
     const record = newRecord(data, LAB, T0);

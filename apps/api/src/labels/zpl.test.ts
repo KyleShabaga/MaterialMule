@@ -222,7 +222,7 @@ describe('confirmed sticker fields only (AC4, AC5)', () => {
       sampleSummary: 'SAMPLE# 1-12 DEPTH 0.5-6.0 m',
       notes: 'Fragile, keep cold',
       location: 'Shelf A3',
-      url: 'https://trapezoid.test/units/BKT-2026-000014',
+      url: 'https://materialmule.test/units/BKT-2026-000014',
     } as StickerInput;
     const { zpl } = renderZpl(withExtras);
     expect(zpl).toBe(renderZpl(STANDARD_UNIT).zpl);

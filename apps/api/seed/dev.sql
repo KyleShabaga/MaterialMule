@@ -1,7 +1,7 @@
 -- Fictional development/test fixtures. Never run in production (the CLI refuses).
 -- Fixed UUIDs keep audit references stable: re-running this file (npm run db:reset:dev) restores
 -- fixture profile fields and roles but never changes an ID or touches audit history.
--- Sign-in keys must match apps/api/src/auth/test-provider/fixtures.ts (TRP-T33).
+-- Sign-in keys must match apps/api/src/auth/test-provider/fixtures.ts (MM-T33).
 
 INSERT INTO app_user (id, display_name, given_name, surname, official_initials, position, account_type, status)
 VALUES
@@ -10,10 +10,10 @@ VALUES
   ('00000000-0000-4000-8000-000000000103', 'Admin (test)', 'Admin',  'Test',    'ADM', NULL,          'test', 'active'),
   ('00000000-0000-4000-8000-000000000104', 'Lab (test)',   'Lab',    'Test',    'LAB', 'lab_manager', 'test', 'active'),
   ('00000000-0000-4000-8000-000000000105', 'Dana Example', 'Dana',   'Example', 'DE',  'engineer',    'test', 'active'),
-  -- Two staff sharing the initials JS, to exercise duplicate-initial handling (TRP-T07).
+  -- Two staff sharing the initials JS, to exercise duplicate-initial handling (MM-T07).
   ('00000000-0000-4000-8000-000000000106', 'Jordan Smith', 'Jordan', 'Smith',   'JS',  'technician',  'test', 'active'),
   ('00000000-0000-4000-8000-000000000107', 'Jamie Song',   'Jamie',  'Song',    'JS',  'engineer',    'test', 'active'),
-  -- Pending applicants with no sign-in identity, for the staff approval flow (TRP-T07): one per
+  -- Pending applicants with no sign-in identity, for the staff approval flow (MM-T07): one per
   -- E2E viewport so parallel runs never approve the same person. Re-seeding makes them pending.
   ('00000000-0000-4000-8000-000000000108', 'Riley Pending', 'Riley', 'Pending', NULL,  NULL,         'test', 'pending'),
   ('00000000-0000-4000-8000-000000000109', 'Casey Pending', 'Casey', 'Pending', NULL,  NULL,         'test', 'pending')
@@ -66,7 +66,7 @@ VALUES
   ('00000000-0000-4000-8000-000000000302', '00000000-0000-4000-8000-000000000201', 'TH26-02')
 ON CONFLICT (id) DO NOTHING;
 
--- Inventory demo (TRP-T12): a second project, a warehouse location and a few storage units with
+-- Inventory demo (MM-T12): a second project, a warehouse location and a few storage units with
 -- 2024 IDs (below 100000, so they never collide with IDs the app issues or E2E inserts). Fixed IDs;
 -- re-running changes nothing.
 INSERT INTO project (id, project_number, name, client, pm_pe_user_id)

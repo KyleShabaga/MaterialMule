@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import type { ActivityItem } from '@trapezoid/shared';
+import type { ActivityItem } from '@materialmule/shared';
 import { listRecentAudit } from '../audit/audit.js';
 import { RequirePermission } from '../auth/auth.decorators.js';
 import { DatabaseService } from '../database/database.service.js';
@@ -11,7 +11,7 @@ const MAX_LIMIT = 50;
 export class ActivityController {
   constructor(private readonly database: DatabaseService) {}
 
-  /** Latest receipt, print and correction events for the dashboard (TRP-T34). */
+  /** Latest receipt, print and correction events for the dashboard (MM-T34). */
   @Get('recent')
   @RequirePermission('inventory.read')
   async recent(@Query('limit') limit?: string): Promise<ActivityItem[]> {

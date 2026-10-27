@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { HOLE_SUMMARY_TYPES } from './receipts';
 
-// Storage unit inventory, search and detail (TRP-T12). One row per tracked storage unit; ordinary
+// Storage unit inventory, search and detail (MM-T12). One row per tracked storage unit; ordinary
 // samples are never inventory rows. Filtering, sorting and paging all happen on the server.
 
 export const STORAGE_UNIT_TYPES = ['bucket', 'shelby_tube', 'bulk_container'] as const;
@@ -160,7 +160,7 @@ export const inventoryLocationSchema = z.object({
 });
 export type InventoryLocation = z.infer<typeof inventoryLocationSchema>;
 
-/** `GET /api/locations`: read-only list for the location filter (management is TRP-T37). */
+/** `GET /api/locations`: read-only list for the location filter (management is MM-T37). */
 export const inventoryLocationListSchema = z.array(inventoryLocationSchema);
 
 const projectRef = z.object({
@@ -180,7 +180,7 @@ export const inventoryItemSchema = z.object({
   status: z.enum(STORAGE_UNIT_STATUSES),
   project: projectRef,
   holes: z.array(storageUnitHoleSummarySchema),
-  /** Last saved location (a pending move never replaces it, TRP-T28). */
+  /** Last saved location (a pending move never replaces it, MM-T28). */
   location: locationRef,
   receivedDate: z.string(),
 });
@@ -211,9 +211,9 @@ export const storageUnitDetailSchema = z.object({
   unitType: z.enum(STORAGE_UNIT_TYPES),
   status: z.enum(STORAGE_UNIT_STATUSES),
   note: z.string().nullable(),
-  /** Current received date; a correction (TRP-T13) may change it, the receipt header keeps its own. */
+  /** Current received date; a correction (MM-T13) may change it, the receipt header keeps its own. */
   receivedDate: z.string(),
-  /** Received date + 1 year until full retention rules arrive (TRP-T29). */
+  /** Received date + 1 year until full retention rules arrive (MM-T29). */
   minimumRetainUntil: z.string(),
   /** Bumped by every correction; a correction must send the version it was based on. */
   version: z.number(),

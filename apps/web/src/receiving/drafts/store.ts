@@ -1,11 +1,11 @@
 import { upgradeRecord, type StoredDraft } from './record';
 
-// IndexedDB store for receiving drafts on this browser (TRP-T11). A connection is opened per
+// IndexedDB store for receiving drafts on this browser (MM-T11). A connection is opened per
 // operation and closed again, so a newer tab can upgrade the schema without being blocked.
 // Every failure (blocked storage, private mode, full disk) is reported to the caller as a
 // DraftStorageError; nothing is swallowed, so the wizard never shows a failed save as saved.
 
-export const DRAFT_DB_NAME = 'trapezoid-drafts';
+export const DRAFT_DB_NAME = 'materialmule-drafts';
 /** IndexedDB schema version. Bump it and add a step in upgradeDatabase when stores change. */
 export const DRAFT_DB_VERSION = 1;
 export const DRAFT_STORE_NAME = 'receiptDrafts';
@@ -115,7 +115,7 @@ export async function draftWritesSettled(): Promise<void> {
 
 export interface DraftList {
   drafts: StoredDraft[];
-  /** Records this version can't read (e.g. saved by a newer Trapezoid); left untouched. */
+  /** Records this version can't read (e.g. saved by a newer Material Mule); left untouched. */
   unreadable: number;
 }
 

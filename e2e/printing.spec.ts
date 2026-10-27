@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertConfirmedBucket, withDatabase } from './support/db';
 
-// TRP-T15: labels go through the backend print queue to the (fake) network Zebra printer.
+// MM-T15: labels go through the backend print queue to the (fake) network Zebra printer.
 
 test('print, confirm and reprint a storage unit label without changing the unit', async ({
   page,

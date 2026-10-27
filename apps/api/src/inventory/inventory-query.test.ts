@@ -1,4 +1,4 @@
-import { inventoryQuerySchema } from '@trapezoid/shared';
+import { inventoryQuerySchema } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { buildInventoryQuery } from './inventory-query.js';
 
@@ -9,7 +9,7 @@ const LOCATION = '00000000-0000-4000-8000-000000000401';
 const build = (input: Record<string, string>) =>
   buildInventoryQuery(inventoryQuerySchema.parse(input));
 
-describe('inventory query builder (TRP-T12 T1)', () => {
+describe('inventory query builder (MM-T12 T1)', () => {
   it('defaults to Current stock, newest first, ID as tie-breaker, first page of 25', () => {
     const sql = build({});
     expect(sql.params).toEqual([]);

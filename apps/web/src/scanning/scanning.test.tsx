@@ -1,4 +1,4 @@
-import type { MeResponse, StorageUnitDetail } from '@trapezoid/shared';
+import type { MeResponse, StorageUnitDetail } from '@materialmule/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -9,7 +9,7 @@ import { SessionContext } from '../session/context';
 import { useScanner } from './useScanner';
 import { VerifyLabelsPanel } from './VerifyLabelsPanel';
 
-// TRP-T16: the DS3678-XR is a USB keyboard that types the symbol's data and then Enter, so every
+// MM-T16: the DS3678-XR is a USB keyboard that types the symbol's data and then Enter, so every
 // scan here is simulated keyboard input. Fictional data only (DEMO-2601, TH26-01).
 
 const me: MeResponse = {
@@ -204,7 +204,7 @@ describe('useScanner (T1)', () => {
   });
 });
 
-describe('Scan labels page (TRP-T16 lookup mode)', () => {
+describe('Scan labels page (MM-T16 lookup mode)', () => {
   it('opens the scanned unit, and the next scan replaces it', async () => {
     const { fetchMock } = stubApi();
     renderAt('/sample-storage/scan');
@@ -261,7 +261,7 @@ describe('Scan labels page (TRP-T16 lookup mode)', () => {
     await screen.findByRole('heading', { level: 1, name: 'Scan labels' });
     await userEvent.keyboard('BKT-2026-000014{Enter}');
     expect(await screen.findByRole('status')).toHaveTextContent(
-      "BKT-2026-000014: Trapezoid couldn't be reached",
+      "BKT-2026-000014: Material Mule couldn't be reached",
     );
     expect(screen.getByText('BKT-2026-000014', { selector: '.scan-last strong' })).toBeVisible();
 
@@ -294,7 +294,7 @@ describe('Scan labels page (TRP-T16 lookup mode)', () => {
   });
 });
 
-describe('Verify labels (TRP-T16)', () => {
+describe('Verify labels (MM-T16)', () => {
   it('AC6: marks matches and warns about a third unit’s label', async () => {
     const { fetchMock } = stubApi();
     render(

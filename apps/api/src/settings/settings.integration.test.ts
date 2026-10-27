@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { draftSettingsSchema } from '@trapezoid/shared';
+import { draftSettingsSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';

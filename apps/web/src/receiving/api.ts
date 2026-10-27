@@ -3,15 +3,15 @@ import {
   type ConfirmReceiptRequestInput,
   type ConfirmReceiptResponse,
   type FieldError,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
-// Receipt confirmation (TRP-T09 API) for the receiving wizard (TRP-T10).
+// Receipt confirmation (MM-T09 API) for the receiving wizard (MM-T10).
 
 export type ConfirmOutcome =
   | { kind: 'confirmed'; response: ConfirmReceiptResponse }
   | { kind: 'invalid'; errors: FieldError[] }
-  /** The session is gone (TRP-T04/T06): sign in again, then confirm the same draft. */
+  /** The session is gone (MM-T04/T06): sign in again, then confirm the same draft. */
   | { kind: 'unauthenticated' }
   /** No answer after every retry: the receipt may or may not exist; resending is safe. */
   | { kind: 'lost'; message: string }
@@ -25,7 +25,7 @@ export type ConfirmOutcome =
 export const CONFIRM_RETRY_DELAYS_MS = [500, 1500, 3000];
 
 const LOST =
-  "The connection dropped before Trapezoid answered. Your draft is kept; confirming again is safe and won't create duplicates.";
+  "The connection dropped before Material Mule answered. Your draft is kept; confirming again is safe and won't create duplicates.";
 
 function isFieldErrors(value: unknown): value is FieldError[] {
   return (
@@ -40,7 +40,7 @@ function isFieldErrors(value: unknown): value is FieldError[] {
 async function attempt(body: string): Promise<ConfirmOutcome | 'retry'> {
   let response: Response;
   try {
-    // The wizard keeps the user on the draft and offers Sign in itself (TRP-T11).
+    // The wizard keeps the user on the draft and offers Sign in itself (MM-T11).
     response = await apiFetch(
       '/api/receipts',
       { method: 'POST', body },

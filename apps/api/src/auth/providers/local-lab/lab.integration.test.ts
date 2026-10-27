@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants.js';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
-import { meResponseSchema } from '@trapezoid/shared';
+import { meResponseSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listAuditForEntity } from '../../../audit/audit.js';
@@ -28,7 +28,7 @@ const EDMONTON = 'America/Edmonton';
 // Generated per run, never committed (card test data rule).
 const newPassword = () => `lab-${randomBytes(12).toString('base64url')}`;
 
-describe.runIf(testDatabaseUrl)('operational LAB login (TRP-T06)', () => {
+describe.runIf(testDatabaseUrl)('operational LAB login (MM-T06)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;
@@ -144,7 +144,7 @@ describe.runIf(testDatabaseUrl)('operational LAB login (TRP-T06)', () => {
     const expiresHeader = /Expires=([^;]+)/.exec(cookie)?.[1];
     expect(expiresHeader).toBeDefined();
 
-    const token = /^trapezoid_session=([^;]+)/.exec(cookie)![1]!;
+    const token = /^materialmule_session=([^;]+)/.exec(cookie)![1]!;
     const me = meResponseSchema.parse(
       (await http().get('/api/me').set('Cookie', `${SESSION_COOKIE}=${token}`)).body,
     );
