@@ -1,6 +1,6 @@
 ---
 name: Material Mule
-theme: dark
+theme: system # follows prefers-color-scheme; these are the dark values, light values are under Colors
 colors:
   # Surfaces, darkest to lightest (tonal layers, no shadows)
   surface-base: '#090D16'
@@ -260,29 +260,34 @@ Changes from the starting palette, made to pass AA: urgent/danger text `#EF4444`
 4.3:1 on `#450A0A`); links and focus use `#60A5FA`, not `#2563EB`; input outlines use `#64748B`, not
 `#475569`; muted text on raised surfaces uses `#CBD5E1`.
 
-### Light theme — Proposal — pending Kyle
+### Light and dark themes
 
-The current app follows the operating system's light or dark setting. The starting direction is
-dark-only. Two options:
+**Decided by Kyle on 2026-10-26: the app follows the operating system's light or dark setting**
+(`prefers-color-scheme`). The front matter is the dark set; this is the light set, with the same
+token names. Print views and label previews are black on white in both.
 
-- **A (recommended): dark for all app screens.** One palette to test; suits the warehouse and core
-  library. Print views and label previews stay black on white.
-- **B: keep following the OS setting**, with this light set (all pairs measured):
-
-| Token          | Light value        | Check                         |
-| -------------- | ------------------ | ----------------------------- |
-| surface-canvas | #FFFFFF            |                               |
-| surface-card   | #F1F5F9            |                               |
-| text           | #0F172A            | 17.9:1 on white               |
-| text-muted     | #475569            | 7.6:1 on white, 6.9:1 on card |
-| border-control | #64748B            | 4.8:1 on white                |
-| primary        | #2563EB            | white text 5.2:1              |
-| link / focus   | #1D4ED8            | 6.1:1 on card                 |
-| danger         | #B91C1C on #FEF2F2 | 5.9:1                         |
-| warning        | #B45309 on #FFFBEB | 4.8:1                         |
-| success        | #047857 on #ECFDF5 | 5.2:1                         |
-| info           | #0369A1 on #F0F9FF | 5.6:1                         |
-| review         | #6D28D9 on #F5F3FF | 6.5:1                         |
+| Token                      | Light value                 | Check (WCAG AA)                           |
+| -------------------------- | --------------------------- | ----------------------------------------- |
+| surface-base               | #F8FAFC                     | Frame, side menu, input fill              |
+| surface-canvas             | #FFFFFF                     | Page content                              |
+| surface-card               | #F1F5F9                     | Cards, table header, hover                |
+| surface-raised             | #FFFFFF                     | Dialogs (with a 1px `border-strong` edge) |
+| border-subtle              | #E2E8F0                     | Dividers only                             |
+| border-strong              | #CBD5E1                     | Decorative outlines only                  |
+| border-control             | #64748B                     | 4.8 / 4.6 / 4.3:1 on canvas / base / card |
+| text                       | #0F172A                     | 17.9:1 on canvas, 16.3:1 on card          |
+| text-muted, -raised        | #475569                     | 7.6:1 on canvas, 6.9:1 on card            |
+| text-disabled              | #64748B                     | 4.8:1                                     |
+| primary / primary-active   | #2563EB / #1D4ED8           | White text 5.2 / 6.7:1                    |
+| link / focus               | #1D4ED8                     | 6.7:1 on canvas, 6.1:1 on card            |
+| secondary / -text          | #D97706 / #B45309           | Text 5.0:1 on canvas, 4.6:1 on card       |
+| danger text / bg / border  | #B91C1C / #FEF2F2 / #DC2626 | 5.9:1 on its bg, 5.9:1 on card            |
+| warning text / bg / border | #B45309 / #FFFBEB / #D97706 | 4.8:1 on its bg, 4.6:1 on card            |
+| info text / bg / border    | #0369A1 / #F0F9FF / #0284C7 | 5.6:1 on its bg, 5.4:1 on card            |
+| success text / bg / border | #047857 / #ECFDF5 / #059669 | 5.2:1 on its bg, 5.0:1 on card            |
+| neutral text / bg / border | #475569 / #F1F5F9 / #94A3B8 | 6.9:1 on its bg                           |
+| review text / bg / border  | #6D28D9 / #F5F3FF / #7C3AED | 6.5:1 on its bg                           |
+| sync-live / sync-offline   | #047857 / #B45309           | As success / warning text                 |
 
 ## Typography
 
@@ -574,7 +579,8 @@ Found while writing this guide (main at 57978f3). These are what the consistency
 
 ## Proposals — pending Kyle
 
-1. **Dark-only app screens** (option A) or keep following the OS light/dark setting (option B).
+1. ~~Dark-only app screens or follow the OS setting~~ — **decided 2026-10-26: follow the OS
+   setting** with the light and dark sets above.
 2. **Self-hosted Inter and JetBrains Mono** (OFL; adds a font package and some font files to the web build)
    or keep the system fonts.
 3. **Logo or wordmark** for Material Mule in the header and sign-in page.
@@ -582,8 +588,8 @@ Found while writing this guide (main at 57978f3). These are what the consistency
 5. **Storage unit ID badge with a barcode glyph** in tables and scan results.
 6. **Striped table rows** (alternating base/canvas) on desktop.
 
-Until Kyle decides, the code pass applies only what doesn't depend on these: token clean-up, touch
-targets, focus, contrast, disabled states, duplicated rules and hard-coded colours.
+Until Kyle decides 2–6, the code pass applies only what doesn't depend on them: the light and dark
+tokens, touch targets, focus, contrast, disabled states, duplicated rules and hard-coded colours.
 
 ## Not in V1 (reserved)
 
