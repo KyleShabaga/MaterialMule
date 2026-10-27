@@ -44,7 +44,7 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
     data.warehouse,
   );
   const receipt = page.getByRole('region', { name: 'Receipt' });
-  await expect(receipt).toContainText('AT — Alex Tester');
+  await expect(receipt).toContainText('AT · Alex Tester');
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
     'TH26-01: G1–S12',
   );

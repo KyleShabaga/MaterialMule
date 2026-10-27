@@ -1,4 +1,4 @@
-import type { StaffOption } from '@materialmule/shared';
+import type { Position, StaffOption } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuditReceiver } from '../audit/audit.js';
 
@@ -16,14 +16,18 @@ function toOption(row: StaffRow): StaffOption {
   return { id: row.id, displayName: row.display_name, initials: row.official_initials };
 }
 
-/** Every active staff member, by name. */
+/**
+ * Every active staff member, by name, with their position so pickers can list PM/PEs and
+ * engineers first (MM-T61). The list itself isn't narrowed: people added ahead of time have no
+ * position until their first sign-in.
+ */
 export async function listActiveStaff(pool: Pool): Promise<StaffOption[]> {
-  const { rows } = await pool.query<StaffRow>(
-    `SELECT id, display_name, official_initials FROM app_user
+  const { rows } = await pool.query<StaffRow & { position: Position | null }>(
+    `SELECT id, display_name, official_initials, position FROM app_user
      WHERE ${ACTIVE_STAFF}
      ORDER BY lower(display_name), official_initials NULLS LAST, id`,
   );
-  return rows.map(toOption);
+  return rows.map((row) => ({ ...toOption(row), position: row.position }));
 }
 
 /** The active staff member with `id`, or null when there is none (or it's the LAB account). */

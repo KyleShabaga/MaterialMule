@@ -363,4 +363,15 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
     const ids = staffOptionsResponseSchema.parse(response.body).map((s) => s.id);
     expect(ids.sort()).toEqual([users.pe, users.tech].sort());
   });
+
+  it('MM-T61: gives each person their position (null until chosen) for grouping', async () => {
+    await db.pool.query(
+      `UPDATE app_user SET position = 'pm_pe', position_set_at = now() WHERE id = $1`,
+      [users.pe],
+    );
+    const response = await get('/api/staff/active', cookies.lab!);
+    const staff = staffOptionsResponseSchema.parse(response.body);
+    expect(staff.find((s) => s.id === users.pe)?.position).toBe('pm_pe');
+    expect(staff.find((s) => s.id === users.tech)?.position).toBeNull();
+  });
 });

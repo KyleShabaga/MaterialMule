@@ -120,10 +120,19 @@ export type ReceiverOption = z.infer<typeof receiverOptionSchema>;
 export const receiverListResponseSchema = z.array(receiverOptionSchema);
 
 /** "JS · Jordan Smith (Tech)": how a receiver is shown everywhere, so duplicates are told apart. */
+/**
+ * A person as the app writes them everywhere (MM-T61): "JS · Jordan Smith", so people who share
+ * initials are told apart; just one part when the other is missing or the same.
+ */
+export function formatPerson(initials: string | null, name: string | null): string {
+  if (initials && name && initials !== name) return `${initials} · ${name}`;
+  return name ?? initials ?? 'Unknown';
+}
+
 export function formatReceiver(
   option: Pick<ReceiverOption, 'initials' | 'displayName' | 'position'>,
 ) {
-  const base = `${option.initials} · ${option.displayName}`;
+  const base = formatPerson(option.initials, option.displayName);
   return option.position ? `${base} (${POSITION_SHORT_LABELS[option.position]})` : base;
 }
 

@@ -7,6 +7,7 @@ import {
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { FormField } from '../components/ui';
+import { StaffOptionGroups } from './StaffOptionGroups';
 import { updateProject } from './api';
 
 type FieldErrors = Record<string, string[]>;
@@ -40,10 +41,6 @@ function rebase(typed: Draft, original: Draft, latest: Draft): Draft {
     if (typed[key] === original[key]) next[key] = latest[key];
   }
   return next;
-}
-
-function staffLabel(person: StaffOption): string {
-  return person.initials ? `${person.initials} — ${person.displayName}` : person.displayName;
 }
 
 /** Only the fields that differ from `project`, plus its version. */
@@ -107,12 +104,6 @@ export function EditProjectDialog({
       cancelled = true;
     };
   }, []);
-
-  /** Staff options, keeping the current person even if they're no longer active. */
-  function options(current: StaffOption | null): StaffOption[] {
-    if (!current || staff.some((person) => person.id === current.id)) return staff;
-    return [current, ...staff];
-  }
 
   const set = (field: keyof Draft) => (value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));
@@ -244,11 +235,7 @@ export function EditProjectDialog({
               disabled={!base.canChangePmPe}
               onChange={(event) => set('pmPeId')(event.target.value)}
             >
-              {options(base.pmPe).map((person) => (
-                <option key={person.id} value={person.id}>
-                  {staffLabel(person)}
-                </option>
-              ))}
+              <StaffOptionGroups staff={staff} current={base.pmPe} />
             </select>
           )}
         </FormField>
@@ -274,11 +261,7 @@ export function EditProjectDialog({
               onChange={(event) => set('reviewEngineerId')(event.target.value)}
             >
               <option value="">None</option>
-              {options(base.reviewEngineer).map((person) => (
-                <option key={person.id} value={person.id}>
-                  {staffLabel(person)}
-                </option>
-              ))}
+              <StaffOptionGroups staff={staff} current={base.reviewEngineer} />
             </select>
           )}
         </FormField>

@@ -11,6 +11,7 @@ import { createProject, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
 import { prefillFromQuery } from './prefill';
 import { useListHighlight } from '../components/useListHighlight';
+import { StaffOptionGroups } from '../projects/StaffOptionGroups';
 
 // Project combobox with inline "Add project" (MM-T08). The typed text lives in the receipt draft
 // (props), so nothing typed is lost while adding a project or while offline.
@@ -266,13 +267,7 @@ export function ProjectPicker({
                 onChange={(e) => setField('pmPeUserId')(e.target.value)}
               >
                 <option value="">Choose a staff member</option>
-                {staff.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.initials
-                      ? `${person.displayName} (${person.initials})`
-                      : person.displayName}
-                  </option>
-                ))}
+                <StaffOptionGroups staff={staff} />
               </select>
             )}
           </FormField>

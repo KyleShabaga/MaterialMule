@@ -240,7 +240,7 @@ describe('Project detail (MM-T35)', () => {
     renderAt(`/projects/${PROJECT_ID}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'DEMO-2601' })).toBeInTheDocument();
     const details = screen.getByRole('region', { name: 'Project details' });
-    expect(details).toHaveTextContent('PE — Pat Example');
+    expect(details).toHaveTextContent('PE · Pat Example');
     expect(within(details).getByText('P:\\Projects\\DEMO-2601')).toBeInTheDocument();
     expect(within(details).queryByRole('link')).not.toBeInTheDocument();
     expect(within(details).getByRole('button', { name: 'Copy' })).toBeInTheDocument();
@@ -346,7 +346,7 @@ describe('Project detail (MM-T35)', () => {
     // Changing the PM/PE needs a reason before anything is sent.
     await userEvent.selectOptions(
       within(dialog).getByRole('combobox', { name: 'PM/PE' }),
-      'DE — Dana Example',
+      'DE · Dana Example',
     );
     const path = within(dialog).getByRole('textbox', { name: 'Server folder path' });
     await userEvent.clear(path);
@@ -380,7 +380,7 @@ describe('Project detail (MM-T35)', () => {
       serverFolderPath: '',
     });
     expect(screen.getByRole('region', { name: 'Project details' })).toHaveTextContent(
-      'DE — Dana Example',
+      'DE · Dana Example',
     );
   });
 });

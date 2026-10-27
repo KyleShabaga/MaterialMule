@@ -33,7 +33,7 @@ test('T5: projects table → detail → add test hole (duplicate rejected) → e
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { level: 1, name: data.projectA })).toBeVisible();
   const details = page.getByRole('region', { name: 'Project details' });
-  await expect(details).toContainText('PE — Pat Example');
+  await expect(details).toContainText('PE · Pat Example');
   await expect(details).toContainText('3 units in stock of 4 units received');
   await expect(page.getByRole('table', { name: 'Receipts' }).locator('tbody tr')).toHaveCount(4);
   const units = page.getByRole('region', { name: 'Storage units' });

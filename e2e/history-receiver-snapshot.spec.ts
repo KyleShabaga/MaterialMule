@@ -35,7 +35,7 @@ test('T4: Sample Storage history shows the receiver at receipt after a rename', 
   const history = page.getByRole('list', { name: 'History events' });
   await expect(history.getByRole('listitem')).toHaveCount(2);
   for (const item of await history.getByRole('listitem').all()) {
-    await expect(item).toContainText(`for CQ — ${tag} Pending`);
+    await expect(item).toContainText(`for CQ · ${tag} Pending`);
   }
   await expect(history).not.toContainText('Renamed');
   await expect(history).not.toContainText('CR —');
