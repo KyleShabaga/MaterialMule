@@ -7,8 +7,9 @@ import {
   useLocation,
   useRouteError,
 } from 'react-router';
-import { EmptyState, PageHeader } from '../components/ui';
+import { EmptyState, PageHeader, StatusBadge } from '../components/ui';
 import { useMe, useSession } from '../session/context';
+import { AuthPage } from './AuthLayout';
 
 /** Signed in but not yet approved: no app data, only a way out (App Idea §8). */
 export function AccessPendingPage() {
@@ -23,16 +24,24 @@ export function AccessPendingPage() {
     return <Navigate to="/onboarding/position" replace />;
   }
   return (
-    <main className="shell">
-      <h1>Access pending</h1>
-      <p>
-        You’re signed in as <strong>{session.me.displayName}</strong>, but an administrator still
-        needs to approve your access. You’ll be able to use Material Mule once they do.
-      </p>
-      <button type="button" onClick={() => void signOut()}>
-        Sign out
-      </button>
-    </main>
+    <AuthPage wide>
+      <section className="auth-card" aria-labelledby="access-pending-title">
+        <div className="auth-card-head">
+          <h1 id="access-pending-title">Access pending</h1>
+          <StatusBadge tone="warning">Waiting for approval</StatusBadge>
+        </div>
+        <p className="auth-callout">
+          You’re signed in as <strong>{session.me.displayName}</strong>, but an administrator still
+          needs to approve your access. You’ll be able to use Material Mule once they do.
+        </p>
+        <div className="auth-actions">
+          <button type="button" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
+      </section>
+      <p className="field-hint">Need access sooner? Ask an administrator.</p>
+    </AuthPage>
   );
 }
 

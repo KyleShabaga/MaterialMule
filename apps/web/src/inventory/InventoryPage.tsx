@@ -142,15 +142,19 @@ export function InventoryPage() {
           </Link>
         }
       />
-      <LookUpId />
-      <CameraScanButton />
+      <div className="storage-tools">
+        <div className="tool-card">
+          <LookUpId />
+          <CameraScanButton />
+        </div>
+        <SearchForm
+          initial={query.search ?? ''}
+          onSearch={(search) => update({ search: search || undefined })}
+        />
+      </div>
 
-      <SearchForm
-        initial={query.search ?? ''}
-        onSearch={(search) => update({ search: search || undefined })}
-      />
-
-      <div className="filters inventory-filters" aria-label="Filters" role="group">
+      <fieldset className="tool-card inventory-filters">
+        <legend className="visually-hidden">Filters</legend>
         <ProjectFilter
           selected={selectedProject}
           selectedId={query.projectId}
@@ -223,27 +227,26 @@ export function InventoryPage() {
           }}
           options={SORT_OPTIONS.map((option) => ({ ...option }))}
         />
-      </div>
-
-      {chips.length > 0 ? (
-        <ul className="chips" aria-label="Active filters">
-          {chips.map((chip) => (
-            <li key={chip.key}>
-              {chip.label}
-              <button
-                type="button"
-                aria-label={`Remove filter ${chip.label}`}
-                onClick={() => update(chip.remove)}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      </fieldset>
 
       <div className="inventory-summary">
-        <p role="status" aria-live="polite" aria-busy={loading}>
+        {chips.length > 0 ? (
+          <ul className="chips" aria-label="Active filters">
+            {chips.map((chip) => (
+              <li key={chip.key}>
+                {chip.label}
+                <button
+                  type="button"
+                  aria-label={`Remove filter ${chip.label}`}
+                  onClick={() => update(chip.remove)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
           {page ? countLabel(page.total) : 'Loading…'}
         </p>
         {hasActiveFilters(query) ? (
@@ -271,22 +274,27 @@ export function InventoryPage() {
             {hasActiveFilters(query) ? 'this search and these filters' : 'yet'}.
           </EmptyState>
         ) : (
-          <StorageUnitTable items={page.items} linkState={linkState} />
+          <div className="table-card">
+            <StorageUnitTable items={page.items} linkState={linkState} />
+            {page.total > page.pageSize ? (
+              <nav className="pager" aria-label="Pages">
+                <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>
+                  Previous
+                </button>
+                <span>
+                  Page {query.page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={query.page >= totalPages}
+                  onClick={() => turnPage(1)}
+                >
+                  Next
+                </button>
+              </nav>
+            ) : null}
+          </div>
         )
-      ) : null}
-
-      {page && page.total > page.pageSize ? (
-        <nav className="pager" aria-label="Pages">
-          <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>
-            Previous
-          </button>
-          <span>
-            Page {query.page} of {totalPages}
-          </span>
-          <button type="button" disabled={query.page >= totalPages} onClick={() => turnPage(1)}>
-            Next
-          </button>
-        </nav>
       ) : null}
     </>
   );
@@ -380,23 +388,21 @@ function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: 
     onSearch(text.trim());
   }
   return (
-    <form
-      role="search"
-      aria-label="Search inventory"
-      className="inventory-search"
-      onSubmit={submit}
-    >
-      <label htmlFor={id}>Search</label>
+    <form role="search" aria-label="Search inventory" className="tool-card" onSubmit={submit}>
+      <label htmlFor={id}>Search inventory</label>
       <div className="inline-input">
         <input
           id={id}
           type="search"
           value={text}
-          placeholder="Storage unit ID, project, client, test hole, summary or location"
+          aria-describedby={`${id}-hint`}
           onChange={(event) => setText(event.target.value)}
         />
         <button type="submit">Search</button>
       </div>
+      <p id={`${id}-hint`} className="field-hint">
+        Storage unit ID, project, client, test hole, summary or location
+      </p>
     </form>
   );
 }

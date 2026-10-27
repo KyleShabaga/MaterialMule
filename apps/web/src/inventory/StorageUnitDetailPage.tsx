@@ -7,9 +7,9 @@ import {
   type StorageUnitHistoryEvent,
   type StorageUnitHistoryPage,
 } from '@materialmule/shared';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { BandedCard, EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
 import { useSession } from '../session/context';
@@ -57,7 +57,16 @@ export function StorageUnitDetailPage() {
     session.status === 'active' && session.me.permissions.includes('storage_unit.correct');
   const [correcting, setCorrecting] = useState(false);
   const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
+  const [corrected, setCorrected] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
+  // Correct details replaces the page (canvas): focus its heading on open, the button on close.
+  const correctionHeading = useRef<HTMLHeadingElement>(null);
+  const correctButton = useRef<HTMLButtonElement>(null);
+  const [focusAfter, setFocusAfter] = useState<'form' | 'page' | null>(null);
+  useEffect(() => {
+    if (focusAfter === 'form') correctionHeading.current?.focus();
+    if (focusAfter === 'page') correctButton.current?.focus();
+  }, [focusAfter, correcting]);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,55 +113,87 @@ export function StorageUnitDetailPage() {
   }
 
   const unit = result.data;
-  return (
-    <>
-      {back}
-      <div className="unit-header">
-        <h1 className="unit-id">{unit.readableId}</h1>
-        <p className="unit-meta">
-          <span>{storageUnitTypeLabel(unit.unitType)}</span>
-          <StorageUnitStatusBadge status={unit.status} />
-          <span>
-            Saved location: <strong>{unit.location.name}</strong>
-          </span>
-        </p>
-        {!canCorrect ? (
-          <p className="field-hint">Corrections need a personal account.</p>
-        ) : !correcting ? (
-          <button
-            type="button"
-            onClick={() => {
-              setCorrectionNotice(null);
-              setCorrecting(true);
-            }}
-          >
-            Correct details
-          </button>
-        ) : null}
-      </div>
 
-      {canCorrect && correcting ? (
+  function closeCorrection() {
+    setCorrecting(false);
+    setCorrectionNotice(null);
+    setFocusAfter('page');
+  }
+
+  if (canCorrect && correcting) {
+    return (
+      <div className="correction-page">
+        <p className="back-link">
+          <button type="button" className="link-button" onClick={closeCorrection}>
+            ← Back to {unit.readableId}
+          </button>
+        </p>
+        <div>
+          <h1 id="correction-heading" ref={correctionHeading} tabIndex={-1}>
+            Correct details
+          </h1>
+          <p className="correction-unit-id">{unit.readableId}</p>
+        </div>
         <CorrectionForm
           // A newer version (e.g. after a conflict) starts the form again from the latest values.
           key={unit.version}
           unit={unit}
           notice={correctionNotice}
-          onSaved={(corrected) => {
-            setResult({ key: readableId, ok: true, data: corrected });
-            setCorrecting(false);
-            setCorrectionNotice(null);
+          onSaved={(saved) => {
+            setResult({ key: readableId, ok: true, data: saved });
+            setCorrected(true);
             setHistoryVersion((count) => count + 1);
+            closeCorrection();
           }}
           onConflict={() => {
             setCorrectionNotice(CONFLICT_MESSAGE);
             setReloads((count) => count + 1);
             setHistoryVersion((count) => count + 1);
           }}
-          onCancel={() => {
-            setCorrecting(false);
-            setCorrectionNotice(null);
-          }}
+          onCancel={closeCorrection}
         />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {back}
+      <div className="unit-header">
+        <div className="unit-title">
+          <h1 className="unit-id">{unit.readableId}</h1>
+          <p className="unit-meta">
+            <span className="type-tag type-tag-accent">{storageUnitTypeLabel(unit.unitType)}</span>
+            <StorageUnitStatusBadge status={unit.status} />
+            <span className="muted">{unit.location.name}</span>
+          </p>
+        </div>
+        <div className="unit-actions">
+          {canCorrect ? (
+            <button
+              type="button"
+              className="primary"
+              ref={correctButton}
+              onClick={() => {
+                setCorrectionNotice(null);
+                setCorrected(false);
+                setCorrecting(true);
+                setFocusAfter('form');
+              }}
+            >
+              Correct details
+            </button>
+          ) : (
+            <p className="field-hint">Corrections need a personal account.</p>
+          )}
+        </div>
+      </div>
+
+      {corrected ? (
+        <p className="notice notice-success" role="status">
+          <strong>Details corrected.</strong> Printed labels show the values at print time. Reprint
+          if the label is now wrong.
+        </p>
       ) : null}
 
       <nav className="sub-nav" aria-label="Storage unit sections">
@@ -160,67 +201,79 @@ export function StorageUnitDetailPage() {
         <a href="#receipt">Receipt</a>
         <a href="#location">Location</a>
         <a href="#history">History</a>
-        <a href="#label-preview">Preview label</a>
-        <a href="#labels">Labels</a>
+        <a href="#label-preview">Labels</a>
       </nav>
 
-      <section className="card" id="summaries" aria-labelledby="summaries-heading">
-        <h2 id="summaries-heading">Summaries</h2>
-        <dl className="details">
-          <Detail term="Project">
-            {unit.project.projectNumber} — {unit.project.name}
-          </Detail>
-          <Detail term="Client">{unit.project.client}</Detail>
-          <Detail term="Received date">{unit.receivedDate}</Detail>
-        </dl>
-        <ul className="hole-summaries" aria-label="Test hole summaries">
-          {unit.holes.map((hole) => (
-            <li key={hole.testHoleId}>
-              <strong>{hole.testHoleName}</strong>: {formatStorageUnitHoleSummary(hole)}
-              {hole.note ? <span className="field-hint"> Note: {hole.note}</span> : null}
-            </li>
-          ))}
-        </ul>
-        <dl className="details">
-          <Detail term="Storage unit note">{unit.note ?? 'None'}</Detail>
-        </dl>
-      </section>
+      <div className="unit-columns">
+        <div className="unit-column">
+          <BandedCard id="summaries" title="Summaries">
+            <dl className="details">
+              <Detail term="Project">
+                <span className="project-number">{unit.project.projectNumber}</span> ·{' '}
+                {unit.project.name}
+              </Detail>
+              <Detail term="Client">{unit.project.client}</Detail>
+              <Detail term="Received date">
+                <span className="nowrap">{unit.receivedDate}</span>
+              </Detail>
+              <Detail term="Test holes">
+                <ul className="hole-summaries" aria-label="Test hole summaries">
+                  {unit.holes.map((hole) => (
+                    <li key={hole.testHoleId}>
+                      <strong>{hole.testHoleName}</strong>: {formatStorageUnitHoleSummary(hole)}
+                      {hole.note ? (
+                        <>
+                          {' '}
+                          <span className="note-tag">Note: {hole.note}</span>
+                        </>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </Detail>
+              <Detail term="Storage unit note">{unit.note ?? 'None'}</Detail>
+            </dl>
+          </BandedCard>
 
-      <section className="card" id="receipt" aria-labelledby="receipt-heading">
-        <h2 id="receipt-heading">Receipt</h2>
-        <p className="field-hint">As recorded at confirmation; corrections never change it.</p>
-        <dl className="details">
-          <Detail term="Received date">{unit.receipt.receivedDate}</Detail>
-          <Detail term="Project">
-            {unit.receipt.project.projectNumber} — {unit.receipt.project.name}
-          </Detail>
-          <Detail term="Received by">
-            {person(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
-          </Detail>
-          <Detail term="Account">
-            {person(unit.receipt.account.initials, unit.receipt.account.name)}
-          </Detail>
-          <Detail term="Confirmed">{formatTime(unit.receipt.confirmedAt)}</Detail>
-          <Detail term="Storage units in receipt">{unit.receipt.quantity}</Detail>
-          <Detail term="Description">{unit.receipt.description ?? 'None'}</Detail>
-        </dl>
-      </section>
+          <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
+        </div>
 
-      <section className="card" id="location" aria-labelledby="location-heading">
-        <h2 id="location-heading">Location and retention</h2>
-        <dl className="details">
-          <Detail term="Saved location">
-            {unit.location.name} ({unit.location.code})
-          </Detail>
-          <Detail term="Pending move">None. Queued moves arrive with MM-T28.</Detail>
-          <Detail term="Retain until (minimum)">{unit.minimumRetainUntil}</Detail>
-        </dl>
-        <p className="field-hint">
-          Received date + 1 year. Holds and full retention rules arrive with MM-T29.
-        </p>
-      </section>
+        <div className="unit-column">
+          <BandedCard id="receipt" title="Receipt">
+            <dl className="details">
+              <Detail term="Received date">
+                <span className="nowrap">{unit.receipt.receivedDate}</span>
+              </Detail>
+              <Detail term="Project">
+                {unit.receipt.project.projectNumber} — {unit.receipt.project.name}
+              </Detail>
+              <Detail term="Received by">
+                {person(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
+              </Detail>
+              <Detail term="Account">
+                {person(unit.receipt.account.initials, unit.receipt.account.name)}
+              </Detail>
+              <Detail term="Confirmed">{formatTime(unit.receipt.confirmedAt)}</Detail>
+              <Detail term="Storage units in receipt">{unit.receipt.quantity}</Detail>
+              <Detail term="Description">{unit.receipt.description ?? 'None'}</Detail>
+            </dl>
+            <p className="field-hint">As recorded at confirmation; corrections never change it.</p>
+          </BandedCard>
 
-      <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
+          <BandedCard id="location" title="Location and retention">
+            <dl className="details">
+              <Detail term="Saved location">
+                {unit.location.name} ({unit.location.code})
+              </Detail>
+              <Detail term="Pending move">None.</Detail>
+              <Detail term="Retain until (minimum)">
+                <span className="nowrap">{unit.minimumRetainUntil}</span>
+              </Detail>
+            </dl>
+            <p className="field-hint">Received date + 1 year.</p>
+          </BandedCard>
+        </div>
+      </div>
 
       {/* Groups, not regions: the "Label" region (T15) stays the only landmark named Label. */}
       <LabelPreviewPanel
@@ -284,35 +337,42 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
       <>
         <ol className="history" aria-label="History events">
           {result.data.items.map((event) => (
-            <li key={event.id}>
+            <li
+              key={event.id}
+              className={
+                event.action === 'storage_unit.corrected' ? 'history-event-corrected' : undefined
+              }
+            >
               <span className="history-when">{formatTime(event.occurredAt)}</span>{' '}
-              <strong>{storageUnitHistoryActionLabel(event.action)}</strong>{' '}
-              {event.action === 'storage_unit.corrected' ? (
-                // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
-                <span>
-                  {event.actor.initials ?? event.actor.name ?? 'Unknown'} changed{' '}
-                  {describeStorageUnitCorrection(event.before, event.after).join('; ')}
-                  {event.reason ? ` · Reason: ${event.reason}` : ''}
-                </span>
-              ) : (
-                <>
+              <span>
+                <strong>{storageUnitHistoryActionLabel(event.action)}</strong>{' '}
+                {event.action === 'storage_unit.corrected' ? (
+                  // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
                   <span>
-                    by {person(event.actor.initials, event.actor.name)}
-                    {event.receiver
-                      ? ` for ${person(event.receiver.initials, event.receiver.name)}`
-                      : ''}
+                    {event.actor.initials ?? event.actor.name ?? 'Unknown'} changed{' '}
+                    {describeStorageUnitCorrection(event.before, event.after).join('; ')}
+                    {event.reason ? ` · Reason: ${event.reason}` : ''}
                   </span>
-                  {event.reason ? (
-                    <span className="field-hint"> Reason: {event.reason}</span>
-                  ) : null}
-                  {changes(event).map((change) => (
-                    <span key={change} className="field-hint">
-                      {' '}
-                      {change}
+                ) : (
+                  <>
+                    <span>
+                      by {person(event.actor.initials, event.actor.name)}
+                      {event.receiver
+                        ? ` for ${person(event.receiver.initials, event.receiver.name)}`
+                        : ''}
                     </span>
-                  ))}
-                </>
-              )}
+                    {event.reason ? (
+                      <span className="field-hint"> Reason: {event.reason}</span>
+                    ) : null}
+                    {changes(event).map((change) => (
+                      <span key={change} className="field-hint">
+                        {' '}
+                        {change}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </span>
             </li>
           ))}
         </ol>
@@ -334,9 +394,8 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
   }
 
   return (
-    <section className="card" id="history" aria-labelledby="history-heading">
-      <h2 id="history-heading">History</h2>
+    <BandedCard id="history" title="History">
       {body}
-    </section>
+    </BandedCard>
   );
 }

@@ -98,6 +98,15 @@ Key rules enforced by the database:
   can't be backfilled (append-only), so storage unit history reads the event snapshot, then the
   unit's receipt snapshot when the event credits the receipt's receiver, and only then the live
   user.
+- **Print job people are snapshots (migration 0026, MM-T65).** A job stores the requester
+  (`requested_by_*_snapshot`) and any receiver it credits (`receiver_*_snapshot`, a print at a LAB
+  station) as of the request, and whoever confirmed the labels came out (`confirmed_by_*_snapshot`)
+  as of the confirmation (Kyle, 2026-10-27). The migration filled older jobs from their audit
+  events (print requested, physically confirmed), and the receiver also from a unit's receipt
+  when the job credits the receipt's receiver; jobs with neither stay NULL and print history shows
+  the live user for them. A trigger refuses a new job, a new or changed receiver, or a new
+  confirmation without the person's name snapshot, and refuses clearing one (a CHECK couldn't
+  spare the older rows, which still change status); a CHECK refuses snapshots without the person.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
   so of two parallel creates exactly one succeeds and the other gets 409 with the existing row
@@ -179,7 +188,10 @@ sorted and paged on the server (default 25, max 100, with the total).
 - **Search document.** `storage_unit_search` holds one lower-cased, newline-separated document per
   unit: ID, type, unit note, project number / name / client, each test-hole name with its
   SAMPLE#/DEPTH summary (Custom text and summary notes included) and the saved location's code and
-  name. Triggers on `storage_unit`, `storage_unit_hole_summary`, `project`, `test_hole` and
+  name. Each hole also appears as the app displays it ("th26-01: g1-s10", "th26-02: 3-5 ft"), and
+  every dash (en/em dash, minus sign, Unicode hyphens) is folded to "-" in the document and in the
+  search words (`splitInventorySearch`), so a summary copied from the table matches whichever dash
+  it holds (MM-T59, migration 0027; MM-T36 builds on that definition). Triggers on `storage_unit`, `storage_unit_hole_summary`, `project`, `test_hole` and
   `location` rebuild it in the same transaction as the change, so it is never stale. Each search
   word becomes `document LIKE '%word%'` (AND across words, wildcards escaped), backed by a
   `pg_trgm` GIN index. `pg_trgm` is a trusted extension created in `public`; the migration role

@@ -60,12 +60,24 @@ const SELECT_JOBS = `
   SELECT j.id, j.kind, j.printer_key, p.name AS printer_name, j.template_version, j.status,
          j.attempts, j.last_error, j.printer_message, j.created_at, j.updated_at, j.sent_at,
          j.physically_confirmed_at,
-         j.requested_by_user_id, rq.display_name AS requested_by_name,
-         rq.official_initials AS requested_by_initials,
-         j.receiver_user_id, rc.display_name AS receiver_name,
-         rc.official_initials AS receiver_initials,
+         -- MM-T65: each person as they were at the time (requester and receiver at the request,
+         -- confirmer at the confirmation); for older jobs without a snapshot (none in history
+         -- either), the person as they are now. Initials and name always come from one source.
+         j.requested_by_user_id,
+         CASE WHEN j.requested_by_name_snapshot IS NOT NULL THEN j.requested_by_name_snapshot
+              ELSE rq.display_name END AS requested_by_name,
+         CASE WHEN j.requested_by_name_snapshot IS NOT NULL THEN j.requested_by_initials_snapshot
+              ELSE rq.official_initials END AS requested_by_initials,
+         j.receiver_user_id,
+         CASE WHEN j.receiver_name_snapshot IS NOT NULL THEN j.receiver_name_snapshot
+              ELSE rc.display_name END AS receiver_name,
+         CASE WHEN j.receiver_name_snapshot IS NOT NULL THEN j.receiver_initials_snapshot
+              ELSE rc.official_initials END AS receiver_initials,
          j.physically_confirmed_by_user_id AS confirmed_by_user_id,
-         cf.display_name AS confirmed_by_name, cf.official_initials AS confirmed_by_initials
+         CASE WHEN j.confirmed_by_name_snapshot IS NOT NULL THEN j.confirmed_by_name_snapshot
+              ELSE cf.display_name END AS confirmed_by_name,
+         CASE WHEN j.confirmed_by_name_snapshot IS NOT NULL THEN j.confirmed_by_initials_snapshot
+              ELSE cf.official_initials END AS confirmed_by_initials
   FROM print_job j
   JOIN printer p ON p.key = j.printer_key
   JOIN app_user rq ON rq.id = j.requested_by_user_id
@@ -217,11 +229,23 @@ export async function enqueuePrintJob(
       ...new Set(ordered.map((unit) => unit.receiver_user_id)),
     ]);
 
+    const actor = actorFor(user);
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
-                              receiver_user_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [request.kind, printer.key, TEMPLATE_VERSION, user.userId, receiver?.userId ?? null],
+                              requested_by_initials_snapshot, requested_by_name_snapshot,
+                              receiver_user_id, receiver_initials_snapshot, receiver_name_snapshot)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [
+        request.kind,
+        printer.key,
+        TEMPLATE_VERSION,
+        user.userId,
+        actor.initials,
+        actor.name,
+        receiver?.userId ?? null,
+        receiver?.initials ?? null,
+        receiver?.name ?? null,
+      ],
     );
     const jobId = rows[0]!.id;
     await client.query(
@@ -237,7 +261,7 @@ export async function enqueuePrintJob(
       action: request.kind === 'reprint' ? 'label.reprint_requested' : 'label.print_requested',
       entityType: 'print_job',
       entityId: jobId,
-      actor: actorFor(user),
+      actor,
       receiver,
       after: {
         kind: request.kind,
@@ -309,9 +333,10 @@ export async function confirmPhysicalPrint(
       await client.query(
         `UPDATE print_job
          SET physically_confirmed_at = now(), physically_confirmed_by_user_id = $2,
+             confirmed_by_initials_snapshot = $3, confirmed_by_name_snapshot = $4,
              updated_at = now()
          WHERE id = $1`,
-        [jobId, user.userId],
+        [jobId, user.userId, user.initials, user.displayName],
       );
       const { rows: items } = await client.query<{ readable_id: string }>(
         `SELECT su.readable_id FROM print_job_item i

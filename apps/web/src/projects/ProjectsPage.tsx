@@ -7,6 +7,7 @@ import {
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
+import '../inventory/inventory.css';
 import { useMe } from '../session/context';
 import { fetchProjects, type LoadResult } from './api';
 import './projects.css';
@@ -73,17 +74,23 @@ export function ProjectsPage() {
   const mineId = useId();
   const sortId = useId();
 
+  /** "Only mine" is remembered per person (MM-T35). */
+  function setMine(mine: boolean) {
+    rememberOnlyMine(me.id, mine);
+    setRememberedMine(mine);
+    update({ mine });
+  }
+
   return (
     <>
       <PageHeader title="Projects" />
 
-      <SearchForm
-        key={query.search ?? ''}
-        initial={query.search ?? ''}
-        onSearch={(search) => update({ search: search || undefined })}
-      />
-
-      <div className="filters" role="group" aria-label="Filters">
+      <div className="tool-card project-tools" role="group" aria-label="Filters">
+        <SearchForm
+          key={query.search ?? ''}
+          initial={query.search ?? ''}
+          onSearch={(search) => update({ search: search || undefined })}
+        />
         {me.accountType !== 'shared_lab' ? (
           <label className="checkbox only-mine" htmlFor={mineId}>
             <input
@@ -91,10 +98,7 @@ export function ProjectsPage() {
               type="checkbox"
               checked={query.mine}
               onChange={(event) => {
-                const mine = event.target.checked;
-                rememberOnlyMine(me.id, mine);
-                setRememberedMine(mine);
-                update({ mine });
+                setMine(event.target.checked);
               }}
             />
             Only mine
@@ -122,9 +126,39 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      <p role="status" aria-live="polite" aria-busy={loading}>
-        {page ? countLabel(page.total) : 'Loading…'}
-      </p>
+      <div className="inventory-summary">
+        {query.search || query.mine ? (
+          <ul className="chips" aria-label="Active filters">
+            {query.search ? (
+              <li>
+                Search: {query.search}
+                <button
+                  type="button"
+                  aria-label={`Remove filter Search: ${query.search}`}
+                  onClick={() => update({ search: undefined })}
+                >
+                  ×
+                </button>
+              </li>
+            ) : null}
+            {query.mine ? (
+              <li>
+                Only mine: {me.initials ?? me.displayName}
+                <button
+                  type="button"
+                  aria-label="Remove filter Only mine"
+                  onClick={() => setMine(false)}
+                >
+                  ×
+                </button>
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
+        <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
+          {page ? countLabel(page.total) : 'Loading…'}
+        </p>
+      </div>
 
       {result && !result.ok ? (
         <ErrorState message={result.message} onRetry={() => setReloads((count) => count + 1)} />
@@ -138,7 +172,7 @@ export function ProjectsPage() {
               : 'No projects yet. Projects are added while receiving samples.'}
           </EmptyState>
         ) : (
-          <div className="projects-table">
+          <div className="table-card projects-table table-stack">
             <DataTable
               rows={page.items}
               rowKey={(project) => project.id}
@@ -149,6 +183,7 @@ export function ProjectsPage() {
                   header: 'Project',
                   cell: (project) => (
                     <Link
+                      className="project-link"
                       to={`/projects/${project.id}`}
                       state={linkState}
                       aria-label={`Open project ${project.projectNumber}`}
@@ -157,38 +192,52 @@ export function ProjectsPage() {
                     </Link>
                   ),
                 },
-                { header: 'Name', cell: (project) => project.name },
+                { header: 'Name', cell: (project) => <strong>{project.name}</strong> },
                 { header: 'Client', cell: (project) => project.client },
                 { header: 'PM/PE', cell: (project) => <PersonInitials project={project} /> },
-                { header: 'Test holes', cell: (project) => project.testHoleCount },
-                { header: 'In stock', cell: (project) => project.inStockUnitCount },
-                { header: 'Last receipt', cell: (project) => project.lastReceiptDate ?? '—' },
+                {
+                  header: 'Test holes',
+                  cell: (project) => <span className="number">{project.testHoleCount}</span>,
+                },
+                {
+                  header: 'In stock',
+                  cell: (project) => (
+                    <strong className="number">
+                      {project.inStockUnitCount} {project.inStockUnitCount === 1 ? 'unit' : 'units'}
+                    </strong>
+                  ),
+                },
+                {
+                  header: 'Last receipt',
+                  cell: (project) => (
+                    <span className="number nowrap">{project.lastReceiptDate ?? '—'}</span>
+                  ),
+                },
               ]}
             />
+            {page.total > page.pageSize ? (
+              <nav className="pager" aria-label="Pages">
+                <button
+                  type="button"
+                  disabled={query.page <= 1}
+                  onClick={() => update({ page: query.page - 1 })}
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {query.page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={query.page >= totalPages}
+                  onClick={() => update({ page: query.page + 1 })}
+                >
+                  Next
+                </button>
+              </nav>
+            ) : null}
           </div>
         )
-      ) : null}
-
-      {page && page.total > page.pageSize ? (
-        <nav className="pager" aria-label="Pages">
-          <button
-            type="button"
-            disabled={query.page <= 1}
-            onClick={() => update({ page: query.page - 1 })}
-          >
-            Previous
-          </button>
-          <span>
-            Page {query.page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={query.page >= totalPages}
-            onClick={() => update({ page: query.page + 1 })}
-          >
-            Next
-          </button>
-        </nav>
       ) : null}
     </>
   );
@@ -196,9 +245,10 @@ export function ProjectsPage() {
 
 function PersonInitials({ project }: { project: ProjectListItem }) {
   return (
-    <abbr title={project.pmPe.displayName}>
-      {project.pmPe.initials ?? project.pmPe.displayName}
-    </abbr>
+    <>
+      {project.pmPe.displayName}
+      {project.pmPe.initials ? ` (${project.pmPe.initials})` : ''}
+    </>
   );
 }
 
@@ -211,7 +261,7 @@ function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: 
   }
   return (
     <form role="search" aria-label="Search projects" className="projects-search" onSubmit={submit}>
-      <label htmlFor={id}>Search</label>
+      <label htmlFor={id}>Search projects</label>
       <div className="inline-input">
         <input
           id={id}

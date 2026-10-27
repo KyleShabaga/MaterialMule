@@ -207,12 +207,6 @@ button:disabled:hover {
   margin-top: -0.5rem;
 }
 
-.sign-in-options {
-  display: grid;
-  gap: 0.75rem;
-  justify-items: start;
-}
-
 /* ---- App layout ---- */
 
 .app {
@@ -423,6 +417,30 @@ button:disabled:hover {
 .card h2 {
   font-size: 1.0625rem;
   margin-top: 0;
+}
+
+/* Look-up, search and filter cards above a list (MM-T50): mono uppercase labels. */
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.tool-card label {
+  font: 600 0.6875rem/1rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.tool-card .field-hint {
+  margin: 0;
 }
 
 /* ---- Card with a header band (MM-T55, canvas "card header bands") ---- */
@@ -1642,6 +1660,58 @@ textarea {
   }
 }
 
+/* ---- Wide tables that stack by their own width (MM-T58, MM-T60) ---- */
+
+/* At tablet widths the side menu leaves a wide table too little room, so it stacks into the phone
+   cards whenever its box is narrower than 48rem, whatever the viewport. Text wraps only between
+   words: headers, badges, IDs, numbers and dates stay whole. */
+.table-stack {
+  container-type: inline-size;
+  overflow-wrap: break-word;
+}
+
+.table-stack th,
+.table-stack .badge {
+  white-space: nowrap;
+}
+
+@container (max-width: 47.99rem) {
+  .table-stack .data-table {
+    border: none;
+    background: none;
+  }
+
+  .table-stack .data-table thead {
+    display: none;
+  }
+
+  .table-stack .data-table tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--card);
+    margin: 0.5rem;
+  }
+
+  .table-stack .data-table tbody tr:nth-child(even) {
+    background: var(--card);
+  }
+
+  .table-stack .data-table td {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: none;
+  }
+
+  .table-stack .data-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    min-width: 6rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+}
+
 /* ---- Settings layouts (MM-T55 part D) ---- */
 
 /* Tiles: a small label over a value, on the shell ground inside a banded card. */
@@ -1725,6 +1795,12 @@ textarea {
   border-color: var(--success-line);
   background: var(--success-bg);
   color: var(--ink);
+}
+
+.notice-warning {
+  border-color: var(--warning-line);
+  background: var(--warning-panel);
+  color: var(--warning-panel-ink);
 }
 
 .status-alert,

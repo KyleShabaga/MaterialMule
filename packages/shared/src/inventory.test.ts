@@ -54,6 +54,28 @@ describe('inventory query (MM-T12)', () => {
     expect(splitInventorySearch('a b c d e f g h i j k l')).toHaveLength(10);
   });
 
+  it('folds en dashes, em dashes and minus signs to a hyphen, as the search document does (MM-T59)', () => {
+    const displayed = formatStorageUnitHoleSummary({
+      type: 'sample_range',
+      sampleFrom: 'G1',
+      sampleTo: 'S10',
+      depthFrom: null,
+      depthTo: null,
+      depthUnit: null,
+      customText: null,
+    });
+    expect(splitInventorySearch(displayed)).toEqual(['g1-s10']);
+    for (const search of ['G1-S10', 'G1–S10', 'G1—S10', 'G1−S10', 'G1‐S10']) {
+      expect(splitInventorySearch(search), search).toEqual(['g1-s10']);
+    }
+    expect(splitInventorySearch('TH26-01: 3–5 ft')).toEqual(['th26-01:', '3-5', 'ft']);
+    // A dash standing alone between spaced words is not a word.
+    expect(splitInventorySearch('G1 – S10')).toEqual(['g1', 's10']);
+    expect(splitInventorySearch('3 - 5 ft')).toEqual(['3', '5', 'ft']);
+    expect(splitInventorySearch(' – ')).toEqual([]);
+    expect(splitInventorySearch('G1–S10 g1-s10')).toEqual(['g1-s10']);
+  });
+
   it('normalises a typed storage unit ID by trimming and upper-casing', () => {
     expect(normalizeStorageUnitCode(' bkt-2026-000014 ')).toBe('BKT-2026-000014');
   });

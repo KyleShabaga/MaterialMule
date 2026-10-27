@@ -47,18 +47,18 @@ test('T5: projects table → detail → add test hole (duplicate rejected) → e
   // Add a hole, then try the same name with different case and a trailing space.
   const addHole = page.getByRole('textbox', { name: 'Add test hole' });
   await addHole.fill('TH26-03');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'Add test hole', exact: true }).click();
   await expect(page.getByText('Added test hole TH26-03.')).toBeVisible();
   await expect(holes.locator('li').filter({ hasText: 'TH26-03' })).toContainText('0 units');
   await addHole.fill('th26-01 ');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'Add test hole', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText('TH26-01 already exists in this project.');
   await expect(holes.locator('li')).toHaveCount(3);
 
   // Edit as the PM/PE: the number is locked (receipts exist); the PM/PE is admin-only.
   await page.getByRole('button', { name: 'Edit project' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit project' });
-  await expect(dialog.getByRole('textbox', { name: 'Project number' })).toBeDisabled();
+  await expect(dialog.getByRole('textbox', { name: 'Project number' })).toHaveAttribute('readonly');
   await expect(dialog.getByRole('combobox', { name: 'PM/PE' })).toBeDisabled();
   await dialog.getByRole('textbox', { name: 'Name' }).fill(`Inventory demo A ${data.tag}`);
   await dialog

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertConfirmedBucket, withDatabase } from './support/db';
+import { DEMO } from './support/receiving';
 
 // MM-T15: labels go through the backend print queue to the (fake) network Zebra printer.
 
@@ -44,6 +45,43 @@ test('print, confirm and reprint a storage unit label without changing the unit'
 
   // Printing never changes the unit: same ID, receipt, location, status and version.
   expect(await unitRow()).toEqual(before);
+});
+
+test('MM-T61: print history says who marked an uncertain job printed and how often a failed one tried', async ({
+  page,
+}) => {
+  const unit = await insertConfirmedBucket();
+  await withDatabase(async (client) => {
+    for (const [status, attempts, createdAt] of [
+      ['failed', 3, '2026-10-26T15:00:00Z'],
+      ['uncertain', 1, '2026-10-26T16:00:00Z'],
+    ] as const) {
+      const { rows } = await client.query<{ id: string }>(
+        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                                requested_by_name_snapshot, status, attempts, last_error,
+                                created_at)
+         SELECT 'initial', key, 'sticker-v1', $1, 'Alex Tester', $2, $3,
+                'Printer dropped the connection', $4
+         FROM printer WHERE is_default
+         RETURNING id`,
+        [DEMO.at, status, attempts, createdAt],
+      );
+      await client.query(
+        'INSERT INTO print_job_item (print_job_id, storage_unit_id, position) VALUES ($1, $2, 1)',
+        [rows[0]!.id, unit.id],
+      );
+    }
+  });
+
+  await signInAs(page, 'at');
+  await page.goto(`/sample-storage/${unit.readableId}`);
+  const history = page.getByRole('table', { name: `Print history for ${unit.readableId}` });
+  await expect(history.getByText('Tried 3 times. Fix the printer, then Reprint.')).toBeVisible();
+  await history.getByRole('button', { name: 'Mark as printed' }).click();
+  await expect(history.getByText('Marked as printed')).toBeVisible();
+  await expect(
+    history.getByText(/^The printer result was uncertain; AT · .+ marked it as printed\.$/),
+  ).toBeVisible();
 });
 
 test('admins see the configured label printer; others are told it is admin-only', async ({

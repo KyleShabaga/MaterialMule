@@ -2,7 +2,7 @@ import { type InventoryPage, type ProjectDetail, type StaffOption } from '@mater
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { createTestHole } from '../api/projects';
-import { DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { BandedCard, DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
 import { fetchInventory } from '../inventory/api';
 import '../inventory/inventory.css';
 import { StorageUnitTable, type StorageUnitLinkState } from '../inventory/StorageUnitTable';
@@ -92,32 +92,32 @@ export function ProjectDetailPage() {
   return (
     <>
       {back}
-      <PageHeader
-        title={project.projectNumber}
-        actions={
-          project.canEdit ? (
-            <button type="button" onClick={() => setEditing(true)}>
-              Edit project
-            </button>
-          ) : undefined
-        }
-      />
-      <p className="project-name">{project.name}</p>
-      <p className="notice" role="status">
+      <div className="project-header">
+        <div>
+          <h1 className="project-number-heading">{project.projectNumber}</h1>
+          <p className="project-name">{project.name}</p>
+        </div>
+        {project.canEdit ? (
+          <button type="button" onClick={() => setEditing(true)}>
+            Edit project
+          </button>
+        ) : null}
+      </div>
+      <p className={notice ? 'notice notice-success' : 'notice'} role="status">
         {notice}
       </p>
 
       <Section title="Project details">
-        <dl className="details">
+        <dl className="stat-tiles project-tiles">
           <Detail term="Client">{project.client}</Detail>
           <Detail term="PM/PE">{personLabel(project.pmPe)}</Detail>
           <Detail term="Review engineer">{personLabel(project.reviewEngineer)}</Detail>
-          <Detail term="Server folder">
-            {project.serverFolderPath ? <FolderPath path={project.serverFolderPath} /> : 'Not set'}
-          </Detail>
           <Detail term="Storage units">
-            {plural(project.inStockUnitCount, 'unit', 'units')} in stock of{' '}
+            <strong>{plural(project.inStockUnitCount, 'unit', 'units')}</strong> in stock of{' '}
             {plural(project.unitCount, 'unit', 'units')} received
+          </Detail>
+          <Detail term="Server folder" wide>
+            {project.serverFolderPath ? <FolderPath path={project.serverFolderPath} /> : 'Not set'}
           </Detail>
         </dl>
       </Section>
@@ -164,7 +164,10 @@ export function ProjectDetailPage() {
                 caption="Receipts"
                 empty="No receipts."
                 columns={[
-                  { header: 'Received', cell: (receipt) => receipt.receivedDate },
+                  {
+                    header: 'Received',
+                    cell: (receipt) => <span className="nowrap">{receipt.receivedDate}</span>,
+                  },
                   {
                     header: 'Received by',
                     cell: (receipt) => `${receipt.receiver.initials} — ${receipt.receiver.name}`,
@@ -184,7 +187,11 @@ export function ProjectDetailPage() {
 
       <Section
         title="Storage units"
-        actions={<Link to={sampleStorageLink(project.id)}>Open in Sample Storage</Link>}
+        actions={
+          <Link to={sampleStorageLink(project.id)} aria-label="Open in Sample Storage">
+            Open in Sample Storage →
+          </Link>
+        }
       >
         <ProjectUnits projectId={project.id} total={project.unitCount} reloadKey={reloads} />
       </Section>
@@ -214,24 +221,20 @@ function Section({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const id = useId();
   return (
-    <section className="card project-section" aria-labelledby={id}>
-      <div className="section-header">
-        <h2 id={id}>{title}</h2>
-        {actions}
-      </div>
+    <BandedCard className="project-section" title={title} aside={actions}>
       {children}
-    </section>
+    </BandedCard>
   );
 }
 
-function Detail({ term, children }: { term: string; children: ReactNode }) {
+/** One stat tile; `wide` spans the whole row (the server folder path and its Copy button). */
+function Detail({ term, wide, children }: { term: string; wide?: boolean; children: ReactNode }) {
   return (
-    <>
+    <div className={wide ? 'project-tile-wide' : undefined}>
       <dt>{term}</dt>
       <dd>{children}</dd>
-    </>
+    </div>
   );
 }
 
@@ -337,7 +340,7 @@ function AddTestHoleForm({
           onChange={(event) => setName(event.target.value)}
         />
         <button type="submit" disabled={busy}>
-          Add
+          Add test hole
         </button>
       </div>
       {error ? (

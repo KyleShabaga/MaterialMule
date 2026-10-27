@@ -8,6 +8,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../session/context';
+import { AuthPage } from './AuthLayout';
 
 /**
  * First-login position setup (MM-T05). Shown after a person's first Microsoft sign-in until they
@@ -38,7 +39,11 @@ export function PositionSetupPage() {
   }, []);
 
   if (session.status === 'loading') {
-    return <p className="shell">Loading…</p>;
+    return (
+      <AuthPage busy>
+        <p>Loading…</p>
+      </AuthPage>
+    );
   }
   if (session.status !== 'active' && session.status !== 'pending') {
     return <Navigate to="/sign-in" replace />;
@@ -75,12 +80,16 @@ export function PositionSetupPage() {
   }
 
   return (
-    <main className="shell">
-      <h1>Welcome, {session.me.displayName}</h1>
-      <p>
-        Choose your position. You do this once, and your work in Material Mule is attributed to you.
-      </p>
-      <form onSubmit={(event) => void save(event)} noValidate>
+    <AuthPage wide>
+      <div>
+        <p className="auth-eyebrow">First sign-in</p>
+        <h1>Welcome, {session.me.displayName}</h1>
+        <p className="auth-lead">
+          Choose your position. You do this once, and your work in Material Mule is attributed to
+          you.
+        </p>
+      </div>
+      <form className="position-form" onSubmit={(event) => void save(event)} noValidate>
         <fieldset className="position-options" aria-describedby="position-note">
           <legend>Your position</legend>
           {jobTitle ? <p className="field-hint">From Microsoft: {jobTitle}</p> : null}
@@ -100,7 +109,7 @@ export function PositionSetupPage() {
             </label>
           ))}
         </fieldset>
-        <p id="position-note" className="field-hint">
+        <p id="position-note" className="auth-callout">
           Your position describes your work. It doesn’t grant access: an administrator approves
           access, and project authority comes from project assignments.
         </p>
@@ -109,15 +118,15 @@ export function PositionSetupPage() {
             {error}
           </p>
         ) : null}
-        <p>
-          <button type="submit" className="primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>{' '}
+        <div className="auth-actions auth-actions-end">
           <button type="button" onClick={() => void signOut()}>
             Sign out
           </button>
-        </p>
+          <button type="submit" className="primary" disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </form>
-    </main>
+    </AuthPage>
   );
 }

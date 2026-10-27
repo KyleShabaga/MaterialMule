@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import {
   confirmReceiptResponseSchema,
+  formatStorageUnitHoleSummary,
   inventoryPageSchema,
   meResponseSchema,
   storageUnitDetailSchema,
@@ -253,6 +254,47 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     expect(ids(await inventory({ search: 's12' }))).toEqual([warehouseA]);
     // LIKE wildcards are literal.
     expect((await inventory({ search: '%' })).total).toBe(0);
+  });
+
+  it('MM-T59 T1/T2: finds a summary as displayed, with an en dash, hyphen, minus sign or spaces', async () => {
+    projects.dash = await insertProject(db.pool, 'DEMO-2604', users.pe!);
+    holes.dash1 = await insertTestHole(db.pool, projects.dash, 'TH26-01');
+    holes.dash2 = await insertTestHole(db.pool, projects.dash, 'TH26-02');
+    const sampleUnit = await addUnit({
+      project: 'dash',
+      holes: [['dash1', { type: 'sample_range', sampleFrom: 'G1', sampleTo: 'S10' }]],
+    });
+    const depthUnit = await addUnit({
+      project: 'dash',
+      holes: [['dash1', { type: 'depth_range', depthFrom: 3, depthTo: 5, depthUnit: 'ft' }]],
+    });
+    const customUnit = await addUnit({
+      project: 'dash',
+      holes: [['dash2', { type: 'custom', customText: 'Lot A–B fines' }]],
+    });
+    const search = async (text: string) =>
+      ids(await inventory({ search: text, projectId: projects.dash!, sort: 'id' }));
+
+    // Exactly as the table shows it, the summary alone and with its test hole (AC1).
+    const page = await inventory({ search: 'G1', projectId: projects.dash! });
+    const shown = page.items.flatMap((item) =>
+      item.holes.map((hole) => `${hole.testHoleName}: ${formatStorageUnitHoleSummary(hole)}`),
+    );
+    expect(shown).toEqual(['TH26-01: G1–S10']);
+    for (const text of ['G1–S10', 'TH26-01: G1–S10', 'G1-S10', 'G1−S10', 'G1 S10', 'G1 – S10']) {
+      expect(await search(text), text).toEqual([sampleUnit]);
+    }
+    for (const text of ['3–5 ft', 'TH26-01: 3–5 ft', '3-5 ft', '3−5 ft', '3 5 ft', '3 – 5 ft']) {
+      expect(await search(text), text).toEqual([depthUnit]);
+    }
+    // Custom text keeps whichever dash was typed; any dash finds it.
+    for (const text of ['Lot A–B', 'a-b fines', 'TH26-02: Lot A—B fines']) {
+      expect(await search(text), text).toEqual([customUnit]);
+    }
+    // Ranges still match by either end, and other ranges don't match.
+    expect(await search('S10')).toEqual([sampleUnit]);
+    expect(await search('G1–S12')).toEqual([]);
+    expect(await search('3–6 ft')).toEqual([]);
   });
 
   it('keeps search current when a project, test hole or location is renamed', async () => {

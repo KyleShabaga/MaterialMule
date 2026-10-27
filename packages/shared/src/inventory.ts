@@ -58,10 +58,26 @@ export function inventoryStatusFilterLabel(filter: InventoryStatusFilter): strin
   }
 }
 
+/**
+ * Dashes people paste or type for a range: hyphens (U+2010, U+2011), figure/en/em dashes and the
+ * horizontal bar (U+2012–U+2015), the minus sign (U+2212) and small/full-width hyphens. The
+ * inventory search document folds exactly these to "-" (migration 0027), so keep the two in step.
+ */
+const SEARCH_DASHES = /[‐-―−﹘﹣－]/g;
+
 /** Search words: split on whitespace, lower-cased, duplicates dropped, at most 10. */
-export function splitInventorySearch(search: string | undefined): string[] {
+export function splitSearchWords(search: string | undefined): string[] {
   const words = (search ?? '').toLowerCase().split(/\s+/).filter(Boolean);
   return [...new Set(words)].slice(0, INVENTORY_SEARCH_MAX_WORDS);
+}
+
+/**
+ * Inventory search words (MM-T59): every dash folded to "-" first, so "G1–S10" copied from the
+ * table matches like "G1-S10", and a dash standing alone between spaced words ("G1 – S10") dropped.
+ */
+export function splitInventorySearch(search: string | undefined): string[] {
+  const folded = (search ?? '').replace(SEARCH_DASHES, '-');
+  return splitSearchWords(folded.replace(/(^|\s)-+(?=\s|$)/g, ' '));
 }
 
 /** What a typed or scanned storage unit ID is compared as: trimmed and upper case. */

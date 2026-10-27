@@ -38,9 +38,11 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   expect(filteredUrl).toContain('projectId=');
 
   // Open the detail page from the row.
-  await page.getByRole('link', { name: `View ${data.a1}` }).click();
+  await page.getByRole('link', { name: data.a1, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
-  await expect(page.getByText(`Saved location: ${data.warehouse}`)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+    data.warehouse,
+  );
   const receipt = page.getByRole('region', { name: 'Receipt' });
   await expect(receipt).toContainText('AT — Alex Tester');
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
@@ -94,6 +96,50 @@ test('AC4: Look up ID opens a unit from a lower-case ID with a trailing space', 
   await page.getByRole('button', { name: 'Open' }).click();
   await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.b1}$`));
   await expect(page.getByRole('heading', { level: 1, name: data.b1 })).toBeVisible();
+});
+
+test('MM-T59 T3: a summary copied from the table finds its units', async ({ page }) => {
+  const data = await insertInventoryFixture();
+  await withDatabase((client) =>
+    client.query(
+      `UPDATE storage_unit_hole_summary
+       SET summary_type = 'depth_range', sample_from = NULL, sample_to = NULL,
+           depth_from = 3, depth_to = 5, depth_unit = 'ft'
+       WHERE storage_unit_id = (SELECT id FROM storage_unit WHERE readable_id = $1)`,
+      [data.aOtherHole],
+    ),
+  );
+  await signInAs(page, 'at');
+  await page.goto(`/sample-storage?search=${data.tag}`);
+  const table = page.getByRole('table', { name: 'Storage units' });
+  const row = (id: string) => table.locator('tbody tr').filter({ hasText: id });
+  const search = async (text: string) => {
+    await page.getByRole('searchbox', { name: 'Search' }).fill(`${text} ${data.tag}`);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+  };
+
+  // Copy both summaries exactly as shown, en dash included, before any search narrows the table.
+  const depth = (
+    await row(data.aOtherHole)
+      .getByText(/^TH26-02: /)
+      .innerText()
+  ).trim();
+  const sample = (
+    await row(data.a1)
+      .getByText(/^TH26-01: /)
+      .innerText()
+  ).trim();
+  expect(depth).toBe('TH26-02: 3–5 ft');
+  expect(sample).toBe('TH26-01: G1–S12');
+
+  await search(depth);
+  await expect(table.locator('tbody tr')).toHaveCount(1);
+  await expect(row(data.aOtherHole)).toBeVisible();
+
+  await search(sample);
+  // Current stock: a1, b1 and aReceiving hold TH26-01 G1–S12; aDisposed is hidden.
+  await expect(table.locator('tbody tr')).toHaveCount(3);
+  for (const id of [data.a1, data.b1, data.aReceiving]) await expect(row(id)).toBeVisible();
 });
 
 test('T7: at phone width rows become cards with no horizontal scroll', async ({

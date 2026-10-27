@@ -14,7 +14,8 @@ export interface StorageUnitLinkState {
 
 /**
  * One row per storage unit (MM-T12). Shared by Sample Storage and the project detail page
- * (MM-T35), which leaves out the project column because every row is the same project.
+ * (MM-T35), which leaves out the project column because every row is the same project. The
+ * storage unit ID is the link to its page (MM-T50 canvas), so there is no separate View column.
  */
 export function StorageUnitTable({
   items,
@@ -30,8 +31,14 @@ export function StorageUnitTable({
       header: 'Storage unit',
       cell: (item) => (
         <span className="unit-cell">
-          <strong>{item.readableId}</strong>
-          <span>{storageUnitTypeLabel(item.unitType)}</span>
+          <Link
+            className="unit-link"
+            to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
+            state={linkState}
+          >
+            {item.readableId}
+          </Link>
+          <span className="type-tag">{storageUnitTypeLabel(item.unitType)}</span>
         </span>
       ),
     },
@@ -41,8 +48,8 @@ export function StorageUnitTable({
             header: 'Project',
             cell: (item: InventoryItem) => (
               <span className="unit-cell">
-                <span>{item.project.projectNumber}</span>
-                <span>{item.project.name}</span>
+                <span className="project-number">{item.project.projectNumber}</span>
+                <span className="muted">{item.project.name}</span>
               </span>
             ),
           },
@@ -50,26 +57,14 @@ export function StorageUnitTable({
       : []),
     { header: 'Test holes', cell: (item) => <HoleList item={item} /> },
     { header: 'Location', cell: (item) => item.location.name },
-    { header: 'Received', cell: (item) => item.receivedDate },
+    { header: 'Received', cell: (item) => <span className="nowrap">{item.receivedDate}</span> },
     {
       header: 'Status',
       cell: (item) => <StorageUnitStatusBadge status={item.status} />,
     },
-    {
-      header: 'View',
-      cell: (item) => (
-        <Link
-          to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
-          state={linkState}
-          aria-label={`View ${item.readableId}`}
-        >
-          View
-        </Link>
-      ),
-    },
   ];
   return (
-    <div className="inventory-table">
+    <div className="inventory-table table-stack">
       <DataTable
         rows={items}
         rowKey={(item) => item.id}
@@ -85,7 +80,7 @@ function HoleList({ item }: { item: InventoryItem }) {
   return (
     <ul className="hole-list">
       {item.holes.map((hole) => (
-        <li key={hole.testHoleId}>
+        <li key={hole.testHoleId} className="hole-tag">
           {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
         </li>
       ))}

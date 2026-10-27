@@ -1,11 +1,26 @@
-/* ---- Inventory and storage unit detail (MM-T12) ---- */
+/* ---- Inventory and storage unit detail (MM-T12; canvas layout MM-T50) ---- */
 
-.lookup-id,
-.inventory-search {
+/* Look up ID beside Search inventory, then the filters, each on its own card. */
+.storage-tools {
   display: grid;
-  gap: 0.25rem;
-  margin-top: 1rem;
-  max-width: 40rem;
+  grid-template-columns: minmax(0, 23.75rem) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.lookup-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lookup-id input {
+  font-family: var(--font-mono);
+}
+
+.tool-card .camera-scan-button {
+  align-self: flex-start;
+  margin-top: 0;
 }
 
 .inline-input {
@@ -19,8 +34,21 @@
   min-width: 0;
 }
 
+.tool-card.inventory-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem 0.875rem;
+  margin-top: 1rem;
+}
+
 .inventory-filters .form-field {
-  min-width: 10rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.inventory-filters select,
+.inventory-filters input {
+  width: 100%;
 }
 
 .project-filter {
@@ -53,26 +81,107 @@
   background: transparent;
 }
 
+/* Active filter chips on the left, the count and Clear filters on the right. */
 .inventory-summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1rem;
+  margin-top: 1rem;
 }
 
-.inventory-table,
+.inventory-summary .chips {
+  margin: 0;
+}
+
+.inventory-count {
+  margin: 0 0 0 auto;
+}
+
+/* The results table and its pager on one card. */
+.table-card {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.table-card .data-table {
+  border: none;
+}
+
+.table-card .pager {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line);
+  background: var(--inset);
+}
+
+/* Wrap between words only (MM-T60); the table itself is a .table-stack. */
 .unit-header,
-.details,
+.unit-columns .details,
 .hole-summaries,
 .history {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .unit-cell {
   display: grid;
+  justify-items: start;
+  gap: 0.25rem;
 }
 
-.hole-list,
+.unit-link {
+  font: 700 0.875rem/1.25rem var(--font-mono);
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.unit-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.type-tag {
+  padding: 0 0.375rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-tag);
+  background: var(--card-head);
+  font: 600 0.625rem/1rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.project-number {
+  font: 500 0.8125rem/1.125rem var(--font-mono);
+  color: var(--accent-ink);
+  white-space: nowrap;
+}
+
+.hole-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hole-tag {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-tag);
+  background: var(--shell);
+  font: 500 0.8125rem/1.125rem var(--font-mono);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
 .hole-summaries,
 .history {
   margin: 0;
@@ -95,29 +204,212 @@
   margin: 0;
 }
 
+/* The ID large on the left, type, status and location under it; actions on the right. */
+.unit-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.unit-title {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .unit-id {
-  font-family: var(--font-mono);
-  font-size: 2rem;
+  margin: 0;
+  font: 700 2rem/2.5rem var(--font-mono);
   letter-spacing: 0.02em;
-  margin-bottom: 0.25rem;
 }
 
 .unit-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
-  margin-top: 0;
+  gap: 0.5rem 0.625rem;
+  margin: 0;
+}
+
+.unit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.unit-actions .field-hint {
+  margin: 0;
+}
+
+.unit-header + .notice {
+  margin-top: 1rem;
+}
+
+.unit-header ~ .sub-nav {
+  margin: 1.25rem 0 0;
+}
+
+.type-tag-accent {
+  border-color: var(--accent-line);
+  background: var(--accent-bg);
+  color: var(--accent-ink);
+}
+
+/* Summaries and History on the left, Receipt and Location on the right; one column on tablets. */
+.unit-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0 1.25rem;
+  align-items: start;
+}
+
+.unit-column {
+  min-width: 0;
+}
+
+.unit-columns .banded-card {
+  margin-top: 1.25rem;
+}
+
+/* One row per field: the label on the left, the value on the right (stacked on phones). */
+.unit-columns .details {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.875rem;
+  margin: 0;
+}
+
+.unit-columns .details > div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 0.125rem 1.25rem;
+}
+
+.unit-columns .banded-card-body > .field-hint {
+  margin: 0.875rem 0 0;
+}
+
+.unit-columns .hole-summaries {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+}
+
+.note-tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0 0.4375rem;
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-tag);
+  background: var(--warning-panel);
+  color: var(--warning-panel-ink);
+  font: 400 0.75rem/1.25rem var(--font-sans);
+}
+
+/* History: the time in a column of its own, a line on the left; corrections get an amber line. */
+.unit-columns .history {
+  gap: 0.875rem;
+  padding: 0;
+  list-style: none;
+}
+
+.unit-columns .history li {
+  display: grid;
+  grid-template-columns: 11.5rem minmax(0, 1fr);
+  gap: 0.25rem 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--line);
+}
+
+.unit-columns .history li.history-event-corrected {
+  border-left-color: var(--warning-line);
+}
+
+.history-when {
+  font: 400 0.75rem/1.25rem var(--font-mono);
+  color: var(--muted);
+}
+
+/* ---- Correct details (MM-T13; its own view since MM-T50) ---- */
+
+.correction-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 51.25rem;
+}
+
+.correction-page h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.correction-unit-id {
+  margin: 0.25rem 0 0;
+  font: 600 0.9375rem/1.25rem var(--font-mono);
+  color: var(--accent-ink);
+}
+
+.correction-page .back-link .link-button {
+  padding: 0;
+}
+
+@media (max-width: 1024px) {
+  .unit-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .storage-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tool-card.inventory-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
-  .inventory-filters .form-field {
-    min-width: 0;
-    flex: 1 1 100%;
+  .tool-card.inventory-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tool-card .camera-scan-button {
+    align-self: stretch;
+  }
+
+  .inventory-count {
+    margin-left: 0;
   }
 
   .unit-id {
     font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .unit-actions,
+  .unit-actions button {
+    width: 100%;
+  }
+
+  .unit-columns .history li,
+  .unit-columns .details > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .unit-columns .details dd {
+    margin-bottom: 0;
+  }
+
+  .correction-pair {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .inventory-table .data-table td::before {
@@ -129,7 +421,63 @@
 
 .correction-form {
   display: grid;
+  gap: 1rem;
+  margin-top: 0;
+}
+
+.correction-form > .field-hint,
+.correction-form > .notice {
+  margin: 0;
+}
+
+.correction-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+/* Project and Test holes: nested groups on the inset ground, like each summary. */
+.correction-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--inset);
+}
+
+.correction-group legend {
+  padding: 0 0.375rem;
+  font: 600 0.6875rem/1.4 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.correction-project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.correction-project p {
+  margin: 0;
+}
+
+.correction-holes {
+  display: grid;
   gap: 0.75rem;
+}
+
+.correction-holes .picker,
+.correction-holes .hole-summary {
+  margin: 0;
+}
+
+.correction-form .form-actions {
+  align-items: center;
 }
 
 .correction-field {

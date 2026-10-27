@@ -429,6 +429,11 @@ Use `BandedCard` (MM-T55) for every card the canvas draws with a header band:
   `data-label` above or beside the value; the row's main link (the storage unit ID) comes first and
   the whole card is ≥52px tall.
 - Wide tables on tablets scroll inside their own box (`overflow-x: auto`), never the page.
+- Wide tables beside the side menu (Sample Storage, Projects, a project's storage units) are
+  wrapped in `.table-stack` (MM-T58, MM-T60): they switch to the stacked cards when their own box is
+  narrower than 48rem, whatever the viewport. Text wraps only between words
+  (`overflow-wrap: break-word`, never `anywhere`); headers, badges, IDs, project numbers and dates
+  never break.
 - Future offline-queued rows (moves queued during a connection drop): 3px `sync-offline` left bar
   plus "Waiting to sync" text.
 
@@ -539,6 +544,67 @@ Approved by Kyle on 2026-10-27 (canvas: "APPROVED — Dashboard"); built in
   with `system.status.read` — the Label printer card (waiting to print, not sure if printed, print
   worker state) from Settings → System status.
 - The old API/database health panel is no longer on the dashboard; admins see it in System status.
+
+## Sample Storage
+
+Built to the canvas artboards "Sample Storage — list", "Storage unit detail", "Correct details" and
+"Print status — every state" in MM-T50 (`apps/web/src/inventory/`).
+
+- **List:** Look up ID (with Scan with camera) beside Search inventory, each on its own card; the
+  filters in a four-column card (two on tablets, one on phones); active filter chips, the count and
+  Clear filters on one line; the results table and its pager on one card. The storage unit ID is
+  the row's link (no View column); its type is a small mono tag under it, the project number is
+  mono `accent-ink`, test holes are mono tags, and IDs and dates never break.
+- **Detail:** the ID large with its type tag, status and location under it, and Correct details
+  (primary) on the right. Summaries and History on the left, Receipt and Location and retention on
+  the right (one column at 1024px and below), each a `BandedCard` with label-left rows. The label
+  preview and print view (MM-T55) and the Labels section run full width below.
+- **Correct details** replaces the page with its own heading and a "← Back to <ID>" button; focus
+  moves to the heading and back to the Correct details button. Type and Received date sit side by
+  side; Project and Test holes are inset groups; the count of changed fields sits beside the
+  buttons. A version conflict is an amber notice; a saved correction shows "Details corrected."
+- Print status chips already used the artboard's wording and actions (`printJobStatusText`).
+- Look-up, search and filter cards above a list use `.tool-card` (`styles.css`): `card` fill, 1px
+  `line`, mono uppercase labels. Sample Storage and Projects share it.
+
+## Projects
+
+Built to "Projects — list", "Project detail" and "Edit project dialog" in MM-T50
+(`apps/web/src/projects/`).
+
+- **List:** Search projects, Only mine and Sort by on one `.tool-card`; active filters (Search,
+  "Only mine: <initials>") as chips with the count; the table and pager on one card. The project
+  number (mono, accent) links to the project; PM/PE reads "Pat Example (PE)".
+- **Detail:** the project number large in mono with the name under it and Edit project on the
+  right; Project details as stat tiles (Client, PM/PE, Review engineer, Storage units) with the
+  server folder and Copy on a full-width tile; Test holes (one row each, unit count on the right,
+  "Add test hole") beside Receipts; Storage units with "Open in Sample Storage →" in the band.
+- **Edit project:** the project number beside the title; a locked number is read-only (not
+  disabled) so it can be copied; Name and Client side by side; a save conflict is an amber notice.
+
+## Sign-in pages
+
+Built to the canvas "Sign-in screens" in MM-T50 (`apps/web/src/pages/AuthLayout.tsx`,
+`auth.css`). Every standalone page (sign in, test sign-in, Microsoft sign-in errors, access
+pending, first sign-in) is one centred column on the page ground, 30rem wide (40rem for pages with
+lists or choices), without the app header or menu.
+
+- **Sign in:** the mark in a 48px box beside "Material Mule", the product line, an amber notice when
+  a session ended, "Sign in with Microsoft" (full width, with Microsoft's four squares), an "or"
+  rule, the LAB card (title, "For the receiving PC that several people share.", full-width "Sign
+  in as LAB"), and the dashed test sign-in link. Repeated wrong LAB passwords turn the card's
+  error into an amber panel with a "Paused" badge and "An administrator can reset the LAB password
+  to end the pause sooner."
+- **Microsoft sign-in errors:** one amber-edged card for every refusal: icon box, "Microsoft
+  sign-in" eyebrow, the error's own title and next step, Try again and "← Back to sign-in".
+- **Access pending:** a card with a "Waiting for approval" badge, the explanation and Sign out.
+- **First sign-in:** "First sign-in" eyebrow, the welcome heading, each position as a choice card
+  (the chosen one in `accent-bg`), the note that a position grants no access, then Sign out and
+  Save on the right.
+- **Test sign-in:** amber "Development and test only" notice, the current identity with its
+  initials, then a "Sign in as" card listing each fictional person with a "Signed in" marker.
+- Not built (pending Kyle, MM-T50 section 2): Show password, "Check again" on Access pending, the
+  Access pending detail fields. The canvas footer's app version is not shown (open item 3 below).
 
 ## Current app: gaps and inconsistencies
 
