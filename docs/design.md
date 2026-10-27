@@ -574,6 +574,30 @@ Built to "Projects — list", "Project detail" and "Edit project dialog" in MM-T
 - **Edit project:** the project number beside the title; a locked number is read-only (not
   disabled) so it can be copied; Name and Client side by side; a save conflict is an amber notice.
 
+## Sign-in pages
+
+Built to the canvas "Sign-in screens" in MM-T50 (`apps/web/src/pages/AuthLayout.tsx`,
+`auth.css`). Every standalone page (sign in, test sign-in, Microsoft sign-in errors, access
+pending, first sign-in) is one centred column on the page ground, 30rem wide (40rem for pages with
+lists or choices), without the app header or menu.
+
+- **Sign in:** the mark in a 48px box beside "Material Mule", the product line, an amber notice when
+  a session ended, "Sign in with Microsoft" (full width, with Microsoft's four squares), an "or"
+  rule, the LAB card (title, "For the receiving PC that several people share.", full-width "Sign
+  in as LAB"), and the dashed test sign-in link. Repeated wrong LAB passwords turn the card's
+  error into an amber panel with a "Paused" badge and "An administrator can reset the LAB password
+  to end the pause sooner."
+- **Microsoft sign-in errors:** one amber-edged card for every refusal: icon box, "Microsoft
+  sign-in" eyebrow, the error's own title and next step, Try again and "← Back to sign-in".
+- **Access pending:** a card with a "Waiting for approval" badge, the explanation and Sign out.
+- **First sign-in:** "First sign-in" eyebrow, the welcome heading, each position as a choice card
+  (the chosen one in `accent-bg`), the note that a position grants no access, then Sign out and
+  Save on the right.
+- **Test sign-in:** amber "Development and test only" notice, the current identity with its
+  initials, then a "Sign in as" card listing each fictional person with a "Signed in" marker.
+- Not built (pending Kyle, MM-T50 section 2): Show password, "Check again" on Access pending, the
+  Access pending detail fields. The canvas footer's app version is not shown (open item 3 below).
+
 ## Current app: gaps and inconsistencies
 
 Found while writing this guide (main at 57978f3).

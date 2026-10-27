@@ -207,12 +207,6 @@ button:disabled:hover {
   margin-top: -0.5rem;
 }
 
-.sign-in-options {
-  display: grid;
-  gap: 0.75rem;
-  justify-items: start;
-}
-
 /* ---- App layout ---- */
 
 .app {

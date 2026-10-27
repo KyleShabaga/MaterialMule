@@ -137,6 +137,8 @@ describe('route guard', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Access pending' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/access-pending');
+    expect(screen.getByText('Waiting for approval')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 });

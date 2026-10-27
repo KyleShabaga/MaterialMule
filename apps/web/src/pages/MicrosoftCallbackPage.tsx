@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { apiFetch } from '../api/client';
 import { useSession } from '../session/context';
+import { AuthPage } from './AuthLayout';
 
 /** What each refusal means for the person, and what they can do next. */
 const SIGN_IN_ERROR_MESSAGES: Record<MicrosoftSignInError, { title: string; body: string }> = {
@@ -97,22 +98,51 @@ export function MicrosoftCallbackPage() {
 
   if (!error) {
     return (
-      <main className="shell" aria-busy="true">
+      <AuthPage busy>
         <p>Finishing Microsoft sign-in…</p>
-      </main>
+      </AuthPage>
     );
   }
+  // Every refusal uses this layout, with its own title and next step (canvas "Microsoft
+  // sign-in error").
   const message = SIGN_IN_ERROR_MESSAGES[error];
   return (
-    <main className="shell" role="alert">
-      <h1>{message.title}</h1>
-      <p>{message.body}</p>
-      <p>
-        <a className="button primary" href="/api/auth/microsoft/start?switch=1">
-          Try again
-        </a>{' '}
-        <Link to="/sign-in">Back to sign-in</Link>
-      </p>
-    </main>
+    <AuthPage wide role="alert">
+      <section className="auth-card auth-problem" aria-labelledby="ms-error-title">
+        <WarningIcon />
+        <div className="auth-problem-text">
+          <p className="auth-eyebrow">Microsoft sign-in</p>
+          <h1 id="ms-error-title">{message.title}</h1>
+          <p>{message.body}</p>
+          <div className="auth-actions">
+            <a className="button primary" href="/api/auth/microsoft/start?switch=1">
+              Try again
+            </a>
+            <Link to="/sign-in">← Back to sign-in</Link>
+          </div>
+        </div>
+      </section>
+    </AuthPage>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <span className="auth-problem-icon" aria-hidden="true">
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+        <path d="M12 9v4M12 17h.01" />
+      </svg>
+    </span>
   );
 }
