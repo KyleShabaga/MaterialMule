@@ -3,6 +3,8 @@ export function unitPrintPath(storageUnit: string) {
   return `/labels/print/unit/${encodeURIComponent(storageUnit)}`;
 }
 
-export function receiptPrintPath(receiptId: string) {
-  return `/labels/print/receipt/${encodeURIComponent(receiptId)}`;
+/** `fromUnit`: the readable ID of the unit it was opened from, for the back link (MM-T61). */
+export function receiptPrintPath(receiptId: string, fromUnit?: string) {
+  const path = `/labels/print/receipt/${encodeURIComponent(receiptId)}`;
+  return fromUnit ? `${path}?${new URLSearchParams({ from: fromUnit }).toString()}` : path;
 }

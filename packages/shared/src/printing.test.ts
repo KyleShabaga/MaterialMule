@@ -33,6 +33,41 @@ describe('printJobStatusText', () => {
     expect(job({ status: 'uncertain', physicallyConfirmedAt: at }).label).toBe('Marked as printed');
   });
 
+  it('MM-T61: an uncertain job marked printed says so and who confirmed it', () => {
+    const at = '2026-10-26T16:00:00.000Z';
+    expect(
+      job({
+        status: 'uncertain',
+        physicallyConfirmedAt: at,
+        physicallyConfirmedBy: { userId: 'u1', initials: 'JS', name: 'Jordan Smith' },
+      }),
+    ).toEqual({
+      label: 'Marked as printed',
+      tone: 'success',
+      hint: 'The printer result was uncertain; JS · Jordan Smith marked it as printed.',
+    });
+    expect(
+      job({
+        status: 'uncertain',
+        physicallyConfirmedAt: at,
+        physicallyConfirmedBy: { userId: 'u2', initials: null, name: 'Noor New' },
+      }).hint,
+    ).toBe('The printer result was uncertain; Noor New marked it as printed.');
+    // Without the person (e.g. the dashboard's latest print), it still says it was uncertain.
+    expect(job({ status: 'uncertain', physicallyConfirmedAt: at }).hint).toBe(
+      'The printer result was uncertain; a person marked it as printed.',
+    );
+  });
+
+  it('MM-T61: a failed job says how many attempts were made', () => {
+    expect(job({ status: 'failed', attempts: 3 }).hint).toBe(
+      'Tried 3 times. Fix the printer, then Reprint.',
+    );
+    expect(job({ status: 'failed', attempts: 1 }).hint).toBe(
+      'Tried once. Fix the printer, then Reprint.',
+    );
+  });
+
   it('shows printer messages such as out of labels', () => {
     expect(job({ status: 'failed', printerMessage: 'Printer out of labels' }).label).toBe(
       'Printer out of labels — not printed',

@@ -45,23 +45,27 @@ export const DEFAULT_ZEBRA_TCP_OPTIONS: ZebraTcpOptions = {
   sendTimeoutMs: 20_000,
 };
 
-function describeSocketError(error: NodeJS.ErrnoException): string {
+/** Plain words for a socket error; the raw code never reaches a person (MM-T61). */
+export function describeSocketError(error: NodeJS.ErrnoException): string {
   switch (error.code) {
     case 'ECONNREFUSED':
       return 'Printer refused the connection';
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
+    case 'ENETDOWN':
+    case 'EHOSTDOWN':
       return 'Printer is not reachable on the network';
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
       return 'Printer host name not found';
     case 'ECONNRESET':
+    case 'ECONNABORTED':
     case 'EPIPE':
       return 'Printer dropped the connection';
     case 'ETIMEDOUT':
       return 'Printer did not respond';
     default:
-      return `Printer connection error (${error.code ?? 'unknown'})`;
+      return 'Material Mule could not talk to the printer';
   }
 }
 
