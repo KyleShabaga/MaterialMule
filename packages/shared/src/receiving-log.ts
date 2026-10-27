@@ -3,7 +3,7 @@ import {
   STORAGE_UNIT_STATUSES,
   STORAGE_UNIT_TYPES,
   normalizeStorageUnitCode,
-  splitInventorySearch,
+  splitSearchWords,
   storageUnitHoleSummarySchema,
 } from './inventory';
 
@@ -15,8 +15,12 @@ export const RECEIPT_LOG_PAGE_SIZE_DEFAULT = 25;
 export const RECEIPT_LOG_PAGE_SIZE_MAX = 100;
 export const RECEIPT_LOG_SEARCH_MAX_LENGTH = 200;
 
-/** Search words for the receipt list: the inventory's rules (lower case, unique, at most 10). */
-export const splitReceiptLogSearch = splitInventorySearch;
+/**
+ * Search words for the receipt list: lower case, unique, at most 10. Dashes stay as typed: the
+ * columns it matches (project number and name, receiver) are not dash-folded like the inventory's
+ * search document (MM-T59).
+ */
+export const splitReceiptLogSearch = splitSearchWords;
 
 /** The search as a storage unit ID, compared exactly (trimmed, upper case). */
 export const receiptLogUnitCode = (search: string | undefined) =>
