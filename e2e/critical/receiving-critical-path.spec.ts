@@ -136,7 +136,7 @@ test(
 
     await page.getByRole('link', { name: `Open ${id}` }).click();
     const receiptCard = page.getByRole('region', { name: 'Receipt' });
-    await expect(receiptCard).toContainText('JS — Jordan Smith');
+    await expect(receiptCard).toContainText('JS · Jordan Smith');
     await expect(receiptCard).toContainText('LAB');
     await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
       'TH26-02: ALL',
