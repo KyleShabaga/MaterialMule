@@ -222,3 +222,21 @@ drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `versio
 `version_conflict` with the current value), bumps it and records `settings.drafts_changed`
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
 again changes nothing.
+
+## Staff position and official initials (MM-T43, MM-T44, migration 0024)
+
+- **Position.** `position_set_at` records the person's first-login choice; the CHECK
+  `app_user_position_set_has_position` needs a position whenever it is set. When an admin sets a
+  position to Not set (`PATCH /api/staff/:id` with `position: null`), both are cleared in the same
+  statement, so `GET /api/me` reports `positionSetupRequired` again and the person chooses a
+  position at their next sign-in or page load. `staff.profile_changed` records the old position
+  and `positionSetAt`. A non-null position leaves `position_set_at` unchanged.
+- **Official initials.** Initials assigned by an admin are confirmed by that admin:
+  `POST /api/staff` and a `PATCH` that changes `officialInitials` (or submits the same value while
+  it is unconfirmed, audited as `staff.initials_confirmed`) write `initials_confirmed_by_user_id`
+  and `initials_confirmed_at` in the same transaction. Edits that omit initials, resubmitting
+  already-confirmed initials and Microsoft profile refreshes never change the pair.
+- **Migration 0024** recovers the pair for rows the earlier code left unconfirmed, only from the
+  audit trail: the latest `staff.preprovisioned` / `staff.initials_changed` event for the person,
+  by a named person, that set exactly the current value. Other rows stay unconfirmed until an
+  admin uses Confirm initials in Staff & access.
