@@ -519,7 +519,9 @@ button:disabled:hover {
   font: 500 0.6875rem/1.3 var(--font-mono);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  white-space: nowrap;
+  /* Some statuses are a sentence (the offline notice); they wrap rather than widen the page. */
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .badge-neutral {
