@@ -324,7 +324,7 @@
 
 .dash-activity li {
   display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
+  grid-template-columns: 8.5rem minmax(0, 1fr);
   gap: 0.625rem;
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--line);
