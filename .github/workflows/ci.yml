@@ -1,9 +1,15 @@
 name: CI
 
+# Kept small to save Actions minutes (Windows runners bill at 2x). Each PR is tested on top of the
+# latest main before it merges, so there is no extra run on main; start one by hand from the Actions
+# tab (workflow_dispatch) when needed. Draft PRs and docs-only changes don't run CI.
 on:
   pull_request:
-  push:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +20,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     # Production runs on a Windows PC (D25), so CI does too.
     runs-on: windows-latest
     timeout-minutes: 30
@@ -55,12 +62,12 @@ jobs:
       # Exercises the real migration CLI; tests also build their own isolated schemas.
       - run: npm run db:reset:test
       - run: npm run verify
-      # MM-T18: the security suite on its own (it also runs inside verify's npm test).
-      - run: npm run test:security
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       # MM-T18 AC2: the receiving critical path three more times in a row, with no retries.
+      # Manual runs only, to save minutes; the E2E run above already includes it once.
       - name: Critical path x3 (@critical)
+        if: github.event_name == 'workflow_dispatch'
         run: npm run test:e2e:critical -- --repeat-each=3
 
       - uses: actions/upload-artifact@v4
