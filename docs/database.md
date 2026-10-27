@@ -98,6 +98,15 @@ Key rules enforced by the database:
   can't be backfilled (append-only), so storage unit history reads the event snapshot, then the
   unit's receipt snapshot when the event credits the receipt's receiver, and only then the live
   user.
+- **Print job people are snapshots (migration 0026, MM-T65).** A job stores the requester
+  (`requested_by_*_snapshot`) and any receiver it credits (`receiver_*_snapshot`, a print at a LAB
+  station) as of the request, and whoever confirmed the labels came out (`confirmed_by_*_snapshot`)
+  as of the confirmation (Kyle, 2026-10-27). The migration filled older jobs from their audit
+  events (print requested, physically confirmed), and the receiver also from a unit's receipt
+  when the job credits the receipt's receiver; jobs with neither stay NULL and print history shows
+  the live user for them. A trigger refuses a new job, a new or changed receiver, or a new
+  confirmation without the person's name snapshot, and refuses clearing one (a CHECK couldn't
+  spare the older rows, which still change status); a CHECK refuses snapshots without the person.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
   so of two parallel creates exactly one succeeds and the other gets 409 with the existing row

@@ -475,8 +475,9 @@ describe.runIf(isWindows && testDatabaseUrl)(
         `INSERT INTO printer (key, name, host, enabled) VALUES ('receiving', 'Receiving', '127.0.0.1', false)`,
       );
       await pool.query(
-        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id, created_at)
-       VALUES ('initial', 'receiving', 'v1', $1, now() - interval '30 minutes')`,
+        `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                               requested_by_name_snapshot, created_at)
+       VALUES ('initial', 'receiving', 'v1', $1, 'Test AT', now() - interval '30 minutes')`,
         [user],
       );
 
