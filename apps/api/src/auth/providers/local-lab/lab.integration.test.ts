@@ -311,8 +311,23 @@ describe.runIf(testDatabaseUrl)('operational LAB login (MM-T06)', () => {
   });
 
   it('only admins may set the LAB password or see its state', async () => {
+    const credential = async () =>
+      (
+        await db.pool.query<{ password_hash: string; updated_at: Date }>(
+          'SELECT password_hash, updated_at FROM local_credential WHERE user_id = $1',
+          [LAB_ID],
+        )
+      ).rows[0];
+    const before = await credential();
     const tech = await cookieFor(techId);
-    expect((await resetPassword(newPassword(), tech)).status).toBe(403);
+    const labCookie = sessionCookieOf(await labSignIn('LAB', password)).split(';')[0]!;
+    const attempted = newPassword();
+    expect((await resetPassword(attempted, tech)).status).toBe(403);
+    // MM-T40 AC4: LAB itself can't reset its password either, and neither refusal changes it.
+    expect((await resetPassword(attempted, labCookie)).status).toBe(403);
+    expect(await credential()).toEqual(before);
+    expect((await labSignIn('LAB', attempted)).status).toBe(401);
+    expect((await http().get('/api/me').set('Cookie', labCookie)).status).toBe(200);
     expect((await http().get('/api/admin/lab').set('Cookie', tech)).status).toBe(403);
 
     const admin = await http()

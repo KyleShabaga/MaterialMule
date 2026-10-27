@@ -54,7 +54,7 @@ export function ProfilePage() {
         return;
       }
       if (!response.ok) {
-        setNotice(`The refresh didn’t work (HTTP ${response.status}). Try again later.`);
+        setNotice('The refresh didn’t work. Try again later.');
         return;
       }
       const profile = profileResponseSchema.parse(await response.json());

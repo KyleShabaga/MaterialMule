@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { withTransaction } from '../db/transaction.js';
 import {
   createMigratedSchema,
@@ -43,11 +43,12 @@ describe('issuanceYear', () => {
 describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
   let db: TestSchema;
 
-  beforeAll(async () => {
+  // Counters can never be deleted or lowered (MM-T47), so each test starts from its own schema.
+  beforeEach(async () => {
     db = await createMigratedSchema();
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await db?.drop();
   });
 
@@ -56,12 +57,7 @@ describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
       allocateStorageUnitIds(client, holder, count, { issuedAt, timeZone: EDMONTON }),
     );
 
-  async function resetCounters() {
-    await db.pool.query('DELETE FROM storage_unit_annual_counter');
-  }
-
   it('AC1: 20 concurrent receipts of 3 get 60 distinct IDs, contiguous per receipt', async () => {
-    await resetCounters();
     const issuedAt = new Date('2026-10-25T18:00:00Z');
     const results = await Promise.all(
       Array.from({ length: 20 }, () => allocate('bucket', 3, issuedAt)),
@@ -80,7 +76,6 @@ describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
   });
 
   it('AC2: a rolled-back allocation consumes no committed number', async () => {
-    await resetCounters();
     const issuedAt = new Date('2026-10-25T18:00:00Z');
     const committed = await allocate('bucket', 2, issuedAt);
     await expect(
@@ -96,7 +91,6 @@ describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
   });
 
   it('AC3: rolls over to 000001 at midnight Edmonton time on January 1', async () => {
-    await resetCounters();
     // Late on Dec 31 and early on Jan 1 in Edmonton under either UTC offset (see issuanceYear test).
     const lastMinute = await allocate('bucket', 1, new Date('2027-01-01T05:30:00Z'));
     const firstMinute = await allocate('bucket', 1, new Date('2027-01-01T07:30:00Z'));
@@ -105,14 +99,12 @@ describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
   });
 
   it('AC4: a receipt dated 2026-12-20 confirmed on 2027-01-03 gets a 2027 ID', async () => {
-    await resetCounters();
     // Only the confirmation instant is an input; the received date can't influence the year.
     const result = await allocate('bucket', 1, new Date('2027-01-03T16:00:00Z'));
     expect(result.ids[0]).toMatch(/^BKT-2027-/);
   });
 
   it('AC5: overflow past 999999 raises a typed error and commits nothing', async () => {
-    await resetCounters();
     await db.pool.query(
       `INSERT INTO storage_unit_annual_counter (prefix, year, last_value) VALUES ('BKT', 2026, 999999)`,
     );
@@ -126,7 +118,6 @@ describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
   });
 
   it('AC8: each prefix has its own counter', async () => {
-    await resetCounters();
     const issuedAt = new Date('2026-10-25T18:00:00Z');
     const first = await Promise.all(
       (['bucket', 'shelby_tube', 'core_box', 'generic'] as const).map((holder) =>

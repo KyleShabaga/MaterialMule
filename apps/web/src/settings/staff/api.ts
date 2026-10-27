@@ -31,7 +31,7 @@ async function readError(response: Response): Promise<StaffApiError> {
     (typeof body.message === 'string' ? body.message : null) ??
     (response.status === 403
       ? 'You no longer have permission to manage staff.'
-      : `The request failed (HTTP ${response.status}).`);
+      : "That change didn't go through. Try again.");
   return new StaffApiError(message, body.code ?? null);
 }
 

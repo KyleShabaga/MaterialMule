@@ -25,6 +25,7 @@ interface StaffRow {
   id: string;
   display_name: string;
   official_initials: string | null;
+  initials_confirmed: boolean;
   position: StaffPosition | null;
   account_type: StaffMember['accountType'];
   status: StaffMember['status'];
@@ -40,8 +41,9 @@ interface StaffRow {
 }
 
 const SELECT_STAFF = `
-  SELECT u.id, u.display_name, u.official_initials, u.position, u.account_type, u.status,
-         u.work_email, u.sign_in_username, u.expected_upn, u.approved_at, u.disabled_reason,
+  SELECT u.id, u.display_name, u.official_initials,
+         u.initials_confirmed_at IS NOT NULL AS initials_confirmed,
+         u.position, u.account_type, u.status, u.work_email, u.sign_in_username, u.expected_upn, u.approved_at, u.disabled_reason,
          u.created_at,
          COALESCE((SELECT array_agg(r.role ORDER BY r.role) FROM role_assignment r
                    WHERE r.user_id = u.id), '{}') AS roles,
@@ -54,6 +56,7 @@ function toMember(row: StaffRow): StaffMember {
     id: row.id,
     displayName: row.display_name,
     officialInitials: row.official_initials,
+    initialsConfirmed: row.initials_confirmed,
     position: row.position,
     accountType: row.account_type,
     status: row.status,
@@ -279,10 +282,14 @@ export class StaffService {
           message: 'Someone with that work email is already in the staff list.',
         });
       }
+      // The admin adding the entry assigns its official initials, so they are confirmed by that
+      // admin in the same statement (MM-T44).
       const { rows } = await client.query<{ id: string }>(
         `INSERT INTO app_user (display_name, official_initials, position, account_type, status,
-                               expected_upn, approved_by, approved_at)
-         VALUES ($1, $2, $3, 'personal', 'active', $4, $5, now())
+                               expected_upn, approved_by, approved_at,
+                               initials_confirmed_by_user_id, initials_confirmed_at)
+         VALUES ($1, $2, $3, 'personal', 'active', $4, $5, now(),
+                 $5, CASE WHEN $5::uuid IS NULL THEN NULL ELSE now() END)
          RETURNING id`,
         [
           input.displayName,
@@ -433,6 +440,15 @@ export class StaffService {
   /**
    * Edits official initials, position or display name on a user's behalf. History keeps the old
    * values: receipts and audit events hold their own snapshots (AC4).
+   *
+   * Official initials (MM-T44): submitting them assigns them, so the confirmation pair records
+   * this admin and time whenever the value changes or was not confirmed yet (submitting the same,
+   * unconfirmed value is an explicit confirmation). Already-confirmed, unchanged initials keep
+   * their original confirmation, and an edit that omits initials never touches it.
+   *
+   * Position (MM-T43): "Not set" (null) also clears position_set_at, so the person is asked to
+   * choose a position again at their next sign-in or page load (GET /api/me then reports
+   * positionSetupRequired). A non-null position leaves position_set_at as it was.
    */
   async update(
     id: string,
@@ -442,10 +458,13 @@ export class StaffService {
     return withTransaction(this.database.pool, async (client) => {
       const { rows } = await client.query<{
         official_initials: string | null;
+        initials_confirmed_at: Date | null;
         position: StaffPosition | null;
+        position_set_at: Date | null;
         display_name: string;
       }>(
-        'SELECT official_initials, position, display_name FROM app_user WHERE id = $1 FOR UPDATE',
+        `SELECT official_initials, initials_confirmed_at, position, position_set_at, display_name
+         FROM app_user WHERE id = $1 FOR UPDATE`,
         [id],
       );
       if (rows.length === 0) {
@@ -457,13 +476,33 @@ export class StaffService {
         position: patch.position === undefined ? old.position : patch.position,
         display_name: patch.displayName ?? old.display_name,
       };
+      const initialsChanged = next.official_initials !== old.official_initials;
+      const confirmInitials =
+        patch.officialInitials !== undefined &&
+        change.actor.userId !== null &&
+        (initialsChanged || old.initials_confirmed_at === null);
+      // The CHECK app_user_position_set_has_position needs both cleared together.
+      const reopenPosition = next.position === null && old.position_set_at !== null;
       await client.query(
-        `UPDATE app_user SET official_initials = $2, position = $3, display_name = $4,
-                             updated_at = now()
+        `UPDATE app_user
+         SET official_initials = $2, position = $3, display_name = $4,
+             position_set_at = CASE WHEN $5 THEN NULL ELSE position_set_at END,
+             initials_confirmed_by_user_id =
+               CASE WHEN $6 THEN $7::uuid ELSE initials_confirmed_by_user_id END,
+             initials_confirmed_at = CASE WHEN $6 THEN now() ELSE initials_confirmed_at END,
+             updated_at = now()
          WHERE id = $1`,
-        [id, next.official_initials, next.position, next.display_name],
+        [
+          id,
+          next.official_initials,
+          next.position,
+          next.display_name,
+          reopenPosition,
+          confirmInitials,
+          change.actor.userId,
+        ],
       );
-      if (next.official_initials !== old.official_initials) {
+      if (initialsChanged) {
         await recordAudit(client, {
           action: 'staff.initials_changed',
           entityType: 'app_user',
@@ -473,12 +512,26 @@ export class StaffService {
           after: { officialInitials: next.official_initials },
           requestId: change.requestId,
         });
+      } else if (confirmInitials) {
+        await recordAudit(client, {
+          action: 'staff.initials_confirmed',
+          entityType: 'app_user',
+          entityId: id,
+          actor: change.actor,
+          before: { officialInitials: old.official_initials, initialsConfirmed: false },
+          after: { officialInitials: next.official_initials, initialsConfirmed: true },
+          requestId: change.requestId,
+        });
       }
       const before: Record<string, unknown> = {};
       const after: Record<string, unknown> = {};
       if (next.position !== old.position) {
         before.position = old.position;
         after.position = next.position;
+      }
+      if (reopenPosition) {
+        before.positionSetAt = old.position_set_at!.toISOString();
+        after.positionSetAt = null;
       }
       if (next.display_name !== old.display_name) {
         before.displayName = old.display_name;
