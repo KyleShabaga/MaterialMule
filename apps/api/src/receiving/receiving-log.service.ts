@@ -33,7 +33,8 @@ export function buildReceiptLogWhere(query: ReceiptLogQuery): { where: string; p
   const words = splitReceiptLogSearch(query.search);
   if (words.length > 0) {
     // Every word must match the project number or name, or the receiver's snapshot name or
-    // initials (AND across words); or the whole search is one of the receipt's storage unit IDs.
+    // initials (AND across words); or the whole search is one of the receipt's storage unit IDs,
+    // found once through the unique readable_id rather than per receipt.
     const wordMatches = words.map((word) => {
       const like = param(`%${likeEscape(word)}%`);
       return `(p.project_number_normalized LIKE ${like} OR lower(p.name) LIKE ${like}
@@ -42,8 +43,8 @@ export function buildReceiptLogWhere(query: ReceiptLogQuery): { where: string; p
     });
     where.push(
       `((${wordMatches.join(' AND ')})
-        OR EXISTS (SELECT 1 FROM storage_unit su
-                   WHERE su.receipt_id = r.id AND su.readable_id = ${param(receiptLogUnitCode(query.search))}))`,
+        OR r.id IN (SELECT su.receipt_id FROM storage_unit su
+                    WHERE su.readable_id = ${param(receiptLogUnitCode(query.search))}))`,
     );
   }
   if (query.projectId) where.push(`r.project_id = ${param(query.projectId)}`);
