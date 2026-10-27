@@ -166,12 +166,26 @@ export async function getStorageUnitHistory(
     `SELECT count(*)::int AS total FROM audit_event e WHERE ${where}`,
     [unit.id, unit.receipt_id],
   );
+  // The receiver as they were at the event (MM-T56): the event's own snapshot; for events written
+  // before migration 0025, the unit's receipt snapshot when the event credits that receiver; only
+  // then the person as they are now. Initials and name always come from the same source.
   const { rows } = await pool.query<HistoryRow>(
     `SELECT e.id, e.occurred_at, e.action, e.actor_initials_snapshot, e.actor_name_snapshot,
-            e.actor_account_type, r.official_initials AS receiver_initials,
-            r.display_name AS receiver_name, e.reason, e.before_values, e.after_values
+            e.actor_account_type,
+            CASE
+              WHEN e.receiver_name_snapshot IS NOT NULL THEN e.receiver_initials_snapshot
+              WHEN e.receiver_user_id = rc.receiver_user_id THEN rc.receiver_initials_snapshot
+              ELSE u.official_initials
+            END AS receiver_initials,
+            CASE
+              WHEN e.receiver_name_snapshot IS NOT NULL THEN e.receiver_name_snapshot
+              WHEN e.receiver_user_id = rc.receiver_user_id THEN rc.receiver_name_snapshot
+              ELSE u.display_name
+            END AS receiver_name,
+            e.reason, e.before_values, e.after_values
      FROM audit_event e
-     LEFT JOIN app_user r ON r.id = e.receiver_user_id
+     LEFT JOIN receipt rc ON rc.id = $2
+     LEFT JOIN app_user u ON u.id = e.receiver_user_id AND e.receiver_name_snapshot IS NULL
      WHERE ${where}
      ORDER BY e.occurred_at DESC, e.id DESC
      LIMIT $3 OFFSET $4`,

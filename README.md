@@ -160,6 +160,17 @@ Phones scan with **Scan with camera** (MM-T17). The camera only works on HTTPS p
 `http://127.0.0.1` on the PC itself, so test it from a phone through the host's HTTPS address
 (MM-T20). Details and the device test sheet: [docs/hardware/phone-camera.md](docs/hardware/phone-camera.md).
 
+## Receiving Log
+
+**Receiving Log** (`/receiving-log`, MM-T51) lists confirmed receipts, one row per receipt,
+newest confirmation first: received date, project, received by (initials and name), number of
+storage units and when and from which account (e.g. LAB) it was confirmed. Search by project
+number or name, received-by name or initials, or an exact storage unit ID, and filter by project,
+received by and received-date range; filters and page stay in the URL. Open a receipt
+(`/receiving-log/:receiptId`) for its original header and every storage unit it created, with
+links to each unit, label previews and **Print labels**. Opening a receipt never prints. Drafts
+that aren't confirmed stay on their computer and open from **Receive samples**.
+
 ## Receiving drafts
 
 Receive samples autosaves each receipt in progress as a draft in that browser only (IndexedDB,
