@@ -155,7 +155,7 @@ describe('dashboard', () => {
             actorInitials: 'AT',
             actorName: 'Alex Tester',
             summary: 'AT received BKT-2026-000014 for DEMO-2601',
-            href: '/receiving-log/r1',
+            href: '/sample-storage?receiptId=r1&status=all',
           },
         ],
       },
@@ -170,7 +170,7 @@ describe('dashboard', () => {
     const link = await screen.findByRole('link', {
       name: 'AT received BKT-2026-000014 for DEMO-2601',
     });
-    expect(link).toHaveAttribute('href', '/receiving-log/r1');
+    expect(link).toHaveAttribute('href', '/sample-storage?receiptId=r1&status=all');
   });
 
   it('shows the empty state when nothing has happened yet', async () => {
@@ -183,7 +183,8 @@ describe('dashboard', () => {
   it('shows a retryable error when activity fails to load', async () => {
     renderAt('/', { status: 'active', me: me() });
     expect(await screen.findByText(/Recent activity couldn't load/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(within(activity).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('shows a not-found page for unknown paths inside the app', async () => {

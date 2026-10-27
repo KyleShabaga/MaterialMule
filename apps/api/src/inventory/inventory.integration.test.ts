@@ -78,6 +78,8 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     note?: string;
     readableId?: string;
     unitType?: 'bucket' | 'shelby_tube';
+    /** Defaults to a new receipt for this unit alone. */
+    receiptId?: string;
   }
 
   /** Inserts one unit directly (the receipt API is exercised separately in AC7). */
@@ -87,7 +89,7 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     const prefix = unitType === 'bucket' ? 'BKT' : 'ST';
     const readableId = spec.readableId ?? `${prefix}-2025-${String(sequence).padStart(6, '0')}`;
     const projectId = projects[spec.project]!;
-    const receiptId = await insertReceipt(db.pool, projectId, users.at!);
+    const receiptId = spec.receiptId ?? (await insertReceipt(db.pool, projectId, users.at!));
     await db.pool.query(
       `INSERT INTO storage_unit (readable_id, id_prefix, issued_year, issued_holder_kind,
                                  receipt_id, project_id, unit_type, holder_kind,
@@ -328,6 +330,44 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     const atBench = await inventory({ locationId: locations.bench!, type: 'shelby_tube' });
     expect(ids(atBench)).toEqual([tube]);
     expect((await inventory({ locationId: locations.wh!, type: 'shelby_tube' })).total).toBe(0);
+  });
+
+  it('filters by receipt, including disposed units under All statuses', async () => {
+    const receiptId = await insertReceipt(db.pool, projects.p2!, users.at!);
+    const kept = await addUnit({ project: 'p2', holes: [['p2th1', ALL]], receiptId });
+    const gone = await addUnit({
+      project: 'p2',
+      holes: [['p2th1', ALL]],
+      receiptId,
+      status: 'disposed',
+    });
+    await addUnit({ project: 'p2', holes: [['p2th1', ALL]] });
+    const all = await inventory({ receiptId, status: 'all', sort: 'id' });
+    expect(ids(all)).toEqual([kept, gone].sort());
+    expect(ids(await inventory({ receiptId }))).toEqual([kept]);
+    expect(ids(await inventory({ receiptId, status: 'all' }, 'lab')).sort()).toEqual(
+      [kept, gone].sort(),
+    );
+
+    const bad = await http()
+      .get('/api/inventory?receiptId=not-a-uuid')
+      .set('Cookie', await cookieFor('at'));
+    expect(bad.status).toBe(400);
+    expect(bad.body).toMatchObject({
+      code: 'validation_failed',
+      errors: [expect.objectContaining({ field: 'receiptId' })],
+    });
+    expect(JSON.stringify(bad.body)).not.toContain('not-a-uuid');
+
+    const path = `/api/inventory?receiptId=${receiptId}&status=all`;
+    expect((await http().get(path)).status).toBe(401);
+    expect(
+      (
+        await http()
+          .get(path)
+          .set('Cookie', await cookieFor('pend'))
+      ).status,
+    ).toBe(403);
   });
 
   it('AC5 (T4): 120 units with equal received dates page at 25 without overlap or gaps', async () => {
