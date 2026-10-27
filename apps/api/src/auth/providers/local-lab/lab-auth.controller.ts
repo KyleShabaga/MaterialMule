@@ -29,14 +29,10 @@ import {
   type AuthenticatedRequest,
 } from '../../auth.decorators.js';
 import { CSRF_HEADER } from '../../auth.guard.js';
+import { clientAddressOf } from '../../client-address.js';
 import type { AuthUser } from '../../policy.js';
 import { SESSION_COOKIE, sessionCookieOptions } from '../../session-cookie.js';
 import { LabAuthService } from './lab-auth.service.js';
-
-/** The connecting address, for rate limiting. The API is reached directly on the LAN (D25). */
-function clientAddressOf(request: AuthenticatedRequest): string | null {
-  return request.socket.remoteAddress ?? null;
-}
 
 /** `POST /api/auth/lab/sign-in`: the shared receiving station signs in as LAB (MM-T06). */
 @Controller('auth/lab')

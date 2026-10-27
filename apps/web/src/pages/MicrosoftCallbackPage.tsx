@@ -42,6 +42,10 @@ const SIGN_IN_ERROR_MESSAGES: Record<MicrosoftSignInError, { title: string; body
     title: 'Microsoft sign-in didn’t work',
     body: 'Something went wrong while checking your Microsoft sign-in. Try again in a moment.',
   },
+  rate_limited: {
+    title: 'Too many sign-in attempts',
+    body: 'There have been too many sign-in attempts from this device. Wait a few minutes, then try again.',
+  },
 };
 
 const isKnownError = (code: unknown): code is MicrosoftSignInError =>

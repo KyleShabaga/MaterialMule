@@ -496,4 +496,60 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       expect((await http().get('/api/staff').set('Cookie', admin)).status).toBe(403);
     });
   });
+
+  // MM-T48: permissions are read from role_assignment on every request (SessionService
+  // .authenticate), so a role change applies to existing sessions with no revocation needed.
+  describe('MM-T48: role changes reach existing sessions on their next request', () => {
+    const setRoles = (key: string, roles: string[], cookie: string) =>
+      http()
+        .put(`/api/staff/${ids[key]}/roles`)
+        .set('Cookie', cookie)
+        .set(CSRF_HEADER, '1')
+        .send({ roles, reason: 'MM-T48 test' });
+
+    it('AC1: removing Admin from a signed-in user makes their next admin-only request 403', async () => {
+      await addUser('riley', { name: 'Riley Admin', initials: 'RAD', roles: ['admin'] });
+      await addUser('sam', { name: 'Sam Admin', initials: 'SAD', roles: ['admin'] });
+      const riley = await cookieFor('riley'); // signed in before the change
+      expect((await http().get('/api/staff').set('Cookie', riley)).status).toBe(200);
+
+      const removed = await setRoles('riley', [], await cookieFor('sam'));
+      expect(removed.status).toBe(200);
+
+      const denied = await http().get('/api/staff').set('Cookie', riley);
+      expect(denied.status).toBe(403);
+      expect(denied.body).toMatchObject({ code: 'forbidden' });
+      // Still signed in, with the new roles.
+      const me = await http().get('/api/me').set('Cookie', riley);
+      expect(me.status).toBe(200);
+      expect(me.body.roles).toEqual([]);
+    });
+
+    it('a granted role also applies on the next request of an existing session', async () => {
+      await addUser('casey', { name: 'Casey Tech', initials: 'CT' });
+      const casey = await cookieFor('casey');
+      expect((await http().get('/api/staff').set('Cookie', casey)).status).toBe(403);
+      expect((await setRoles('casey', ['admin'], await cookieFor('sam'))).status).toBe(200);
+      expect((await http().get('/api/staff').set('Cookie', casey)).status).toBe(200);
+    });
+
+    it('disabling ends existing sessions; re-enabling does not bring them back', async () => {
+      await addUser('drew', { name: 'Drew Field', initials: 'DF' });
+      const drew = await cookieFor('drew');
+      const sam = await cookieFor('sam');
+      expect(
+        (await post(`/api/staff/${ids.drew}/disable`, sam).send({ reason: 'Leave' })).status,
+      ).toBe(200);
+      expect((await http().get('/api/me').set('Cookie', drew)).status).toBe(401);
+      expect((await post(`/api/staff/${ids.drew}/enable`, sam)).status).toBe(200);
+      expect((await http().get('/api/me').set('Cookie', drew)).status).toBe(401);
+      expect(
+        (
+          await http()
+            .get('/api/me')
+            .set('Cookie', await cookieFor('drew'))
+        ).status,
+      ).toBe(200);
+    });
+  });
 });

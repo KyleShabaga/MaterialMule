@@ -84,5 +84,7 @@ export const MICROSOFT_SIGN_IN_ERRORS = [
   'expired_attempt',
   'not_configured',
   'sign_in_failed',
+  /** Too many sign-in requests from this address (HTTP 429, MM-T48). */
+  'rate_limited',
 ] as const;
 export type MicrosoftSignInError = (typeof MICROSOFT_SIGN_IN_ERRORS)[number];
