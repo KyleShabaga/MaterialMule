@@ -134,12 +134,12 @@ don't build them until Kyle confirms.
 
 ## Who uses it, and where
 
-| Setting                        | Device and input                                                        | What that means for the UI                                                                                   |
-| ------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Office desks                   | Windows PCs, mouse and keyboard, sometimes two monitors                 | Dense tables are fine; keep every action reachable by keyboard.                                              |
-| Receiving station (shared LAB) | Shared PC signed in as LAB, DS3678-XR scanner (keyboard wedge)          | One person after another; show who is receiving, keep scan focus, big status text readable from a step back. |
-| Warehouse and core library     | Phones on the office/warehouse Wi-Fi, phone camera for occasional scans | Single column, ≥44px targets, sticky primary action, readable under fluorescent light and glare.             |
-| Label printer                  | Zebra ZD621, 3.5 × 1.5 in labels                                        | Labels and print views are black on white and never follow the screen theme.                                 |
+| Setting                    | Device and input                                                        | What that means for the UI                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Office desks               | Windows PCs, mouse and keyboard, sometimes two monitors                 | Dense tables are fine; keep every action reachable by keyboard.                                              |
+| Shared lab computers (LAB) | One or more shared PCs signed in as LAB, DS3678-XR scanner (wedge)      | One person after another; show who is receiving, keep scan focus, big status text readable from a step back. |
+| Warehouse and core library | Phones on the office/warehouse Wi-Fi, phone camera for occasional scans | Single column, ≥44px targets, sticky primary action, readable under fluorescent light and glare.             |
+| Label printer              | Zebra ZD621, 3.5 × 1.5 in labels                                        | Labels and print views are black on white and never follow the screen theme.                                 |
 
 There is no off-site access and no installed phone app (D22, D25). Pages must work in current Edge
 and Chrome on Windows, and Safari and Chrome on phones.
@@ -499,6 +499,10 @@ receiver selector, and times are local.
 
 ## Shared receiving station (LAB)
 
+- LAB is one shared account that can be signed in on several lab computers at the same time
+  (MM-T06; Settings → Staff & access lists the signed-in stations and can sign them all out). It
+  holds only the LAB column in `docs/permissions.md`: receiving, test holes, look-up, scanning and
+  label printing, never corrections or settings. Don't describe it as "the receiving PC".
 - The header always shows **"Shared station: LAB"** and the session end time, so nobody mistakes it
   for a personal sign-in.
 - The person receiving is chosen with the receiver selector on each receipt; their name shows on
@@ -521,7 +525,9 @@ receiver selector, and times are local.
   preview (true size, fit warnings, Zoom in, "Print / Save as PDF") sits **next to the print view**
   (the instructions and one page per label) on desktop; on a phone the print view stacks below.
   Canvas: "APPROVED — Labels: preview and print side by side".
-- **Guide pages:** two help pages are linked from the Labels section, not shown inline:
+- **Guide pages (designed, not built yet; MM-T55 follow-up):** two help pages to be linked from the
+  Labels section. Until they exist, the print page states the print settings inline ("100%
+  (Actual size)", margins None); don't link to pages that aren't there:
   - **How to print labels** — the browser print settings as a numbered checklist (Print / Save as
     PDF, scale 100% (Actual size), margins None, one 3.5 × 1.5 in label per page), light like the
     print page.
@@ -594,10 +600,13 @@ lists or choices), without the app header or menu.
 
 - **Sign in:** the mark in a 48px box beside "Material Mule", the product line, an amber notice when
   a session ended, "Sign in with Microsoft" (full width, with Microsoft's four squares), an "or"
-  rule, the LAB card (title, "For the receiving PC that several people share.", full-width "Sign
-  in as LAB"), and the dashed test sign-in link. Repeated wrong LAB passwords turn the card's
-  error into an amber panel with a "Paused" badge and "An administrator can reset the LAB password
-  to end the pause sooner."
+  rule, the LAB card (title, "For the shared lab computers. Each receipt records who received it,
+  so pick your own name.", full-width "Sign in as LAB"), and the dashed test sign-in link.
+  Repeated wrong LAB passwords turn the card's error into an amber panel with a "Paused" badge,
+  the wait time, and: wait for the pause to end; if the password is lost an administrator can
+  reset it, which signs out every LAB computer and may not end the pause on this computer. (The
+  pause counts failures for the LAB account and for the computer's address; a reset clears only
+  the account count, MM-T50. Never promise that a reset ends the pause.)
 - **Microsoft sign-in errors:** one amber-edged card for every refusal: icon box, "Microsoft
   sign-in" eyebrow, the error's own title and next step, Try again and "← Back to sign-in".
 - **Access pending:** a card with a "Waiting for approval" badge, the explanation and Sign out.
@@ -631,15 +640,23 @@ Found while writing this guide (main at 57978f3).
 - The header shows the walking-donkey mark; the side menu shows Kyle's icons. Both use
   `currentColor`.
 
-**Still open** (not styling, left for separate cards):
+**Since done** (reconciled 2026-10-27 against main):
 
-1. Many error messages still include raw HTTP codes, e.g. "Your position wasn’t saved (HTTP 500)."
-   and "That didn’t work (HTTP 409)." (`PositionSetupPage`, `LabAccountCard`, several `api.ts`).
-2. The screens on the canvas reorganise several pages (card header bands, the Receive samples bottom
-   bar, the Settings layouts, the Labels section beside the print view); this pass restyles the
-   existing structure only. MM-T55 rebuilds them: part A adds `BandedCard`, parts B–D apply it to
-   Labels, Receive samples and Settings.
-3. The header doesn't show the app version yet (the Figma shows it under the name).
+- Raw HTTP codes in messages: replaced with plain wording (PR #47, MM-T61 #67).
+- Page rebuilds to the canvas: Labels, Receive samples and Settings with `BandedCard` (MM-T55,
+  #54–#57); Sample Storage, Projects and the sign-in pages (MM-T50, #62–#64). Person names read
+  "JS · Jordan Smith" everywhere (MM-T61).
+
+**Still open** (left for separate cards; not a backlog for MM-T50):
+
+1. The header doesn't show the app version yet (the Figma shows it under the name).
+2. The two label guide pages (Labels and print views, above) are designed but not built.
+3. Canvas extras pending Kyle (MM-T50 section 2): Show password, "Check again" and detail fields
+   on Access pending, the Add staff "how they'll appear" preview, the Edit project "Changed" bar.
+4. Documented deviations awaiting acceptance: no header "Reprint label" on the storage unit page
+   (the Labels section has it), no receipt unit-ID list (the API gives the count), no sign-in
+   footer version.
+5. Owner visual acceptance against the artboards (desktop/phone, light/dark) is still pending.
 
 ## Proposals — pending Kyle
 
