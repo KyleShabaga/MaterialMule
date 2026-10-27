@@ -100,6 +100,8 @@ interface Api {
   unit: StorageUnitDetail;
   history: StorageUnitHistoryPage;
   patch: (body: unknown) => Response;
+  /** Project search answer for a query; defaults to DEMO-2602 for every query. */
+  projects?: (query: string) => unknown[];
 }
 
 function stubApi(api: Api) {
@@ -118,7 +120,9 @@ function stubApi(api: Api) {
     if (url.pathname.endsWith('/print-history')) {
       return json(200, { storageUnit: { id: UNIT.id, readableId: UNIT.readableId }, jobs: [] });
     }
-    if (url.pathname === '/api/projects/search') return json(200, [OTHER_PROJECT]);
+    if (url.pathname === '/api/projects/search') {
+      return json(200, api.projects?.(url.searchParams.get('q') ?? '') ?? [OTHER_PROJECT]);
+    }
     if (url.pathname === '/api/staff/active') return json(200, []);
     if (url.pathname === `/api/projects/${OTHER_PROJECT.id}/test-holes`) return json(200, []);
     if (url.pathname === `/api/projects/${PROJECT.id}/test-holes`) {
@@ -315,6 +319,45 @@ describe('storage unit corrections (MM-T13)', () => {
     ).not.toBeInTheDocument();
     expect(patches).toHaveLength(0);
     expect(within(form).queryByText(/Enter a reason/)).not.toBeInTheDocument();
+  });
+
+  it('MM-T62: after a query round trip, Enter in the project search picks the first match', async () => {
+    const third = {
+      ...OTHER_PROJECT,
+      id: '00000000-0000-4000-8000-000000000203',
+      projectNumber: 'DEMO-2603',
+      name: 'Old Mill Road',
+    };
+    const patches = stubApi({
+      unit: UNIT,
+      history: EMPTY_HISTORY,
+      patch: () => json(500, {}),
+      projects: (query) => [OTHER_PROJECT, third].filter((p) => p.projectNumber.includes(query)),
+    });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    const form = screen.getByRole('form', { name: 'Correct details' });
+    await user.click(within(form).getByRole('button', { name: 'Change project' }));
+    const search = within(form).getByRole('combobox', { name: /Find project/ });
+    // Only the search's own list (the form has other selects with options).
+    const matches = () =>
+      within(document.getElementById(search.getAttribute('aria-controls')!)!).getAllByRole(
+        'option',
+      );
+    await user.type(search, 'DEMO');
+    await waitFor(() => expect(matches()).toHaveLength(2));
+    await user.keyboard('{ArrowDown}');
+    await user.type(search, '-2603');
+    await waitFor(() => expect(matches()).toHaveLength(1));
+    await user.keyboard('{Backspace}'.repeat(5));
+    await waitFor(() => expect(matches()).toHaveLength(2));
+    expect(search).toHaveAttribute('aria-activedescendant', matches()[0]!.id);
+    await user.keyboard('{Enter}');
+
+    expect(within(form).getByLabelText('Project number')).toHaveValue('DEMO-2602');
+    expect(patches).toHaveLength(0);
   });
 
   it('AC5: lists unresolved lab requests when a project change is blocked', async () => {
