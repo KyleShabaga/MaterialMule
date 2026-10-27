@@ -425,6 +425,69 @@ button:disabled:hover {
   margin-top: 0;
 }
 
+/* ---- Card with a header band (MM-T55, canvas "card header bands") ---- */
+
+.banded-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.banded-card-attention {
+  border-color: var(--warning-line);
+}
+
+.banded-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--card-head);
+}
+
+.banded-card-titles {
+  min-width: 0;
+}
+
+.banded-card-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+}
+
+.banded-card-subtitle {
+  margin: 0.125rem 0 0;
+  color: var(--muted);
+}
+
+.banded-card-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--muted);
+}
+
+.banded-card-body {
+  padding: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .banded-card-head {
+    padding: 0.75rem 1rem;
+  }
+
+  .banded-card-body {
+    padding: 1rem;
+  }
+}
+
 .receive-button {
   font-size: 1.1rem;
   min-height: var(--target);

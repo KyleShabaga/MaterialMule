@@ -11,6 +11,56 @@ export function PageHeader({ title, actions }: { title: string; actions?: ReactN
   );
 }
 
+/**
+ * Card with a header band (MM-T55): heading, optional subtitle, and meta text, badges or actions on
+ * the right. The section is named by its heading. `tone="attention"` adds the amber edge for
+ * handover, offline and pending cards; the heading must still say why.
+ */
+export function BandedCard({
+  title,
+  subtitle,
+  aside,
+  tone = 'default',
+  as: Tag = 'section',
+  id,
+  className,
+  children,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  /** Right side of the band: meta text, status badges or buttons. */
+  aside?: ReactNode;
+  tone?: 'default' | 'attention';
+  as?: 'section' | 'div';
+  id?: string;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const headingId = useId();
+  const classes = ['banded-card', tone === 'attention' ? 'banded-card-attention' : null, className]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <Tag
+      id={id}
+      className={classes}
+      aria-labelledby={headingId}
+      role={Tag === 'div' ? 'group' : undefined}
+    >
+      <div className="banded-card-head">
+        <div className="banded-card-titles">
+          <h2 id={headingId} className="banded-card-title">
+            {title}
+          </h2>
+          {subtitle ? <p className="banded-card-subtitle">{subtitle}</p> : null}
+        </div>
+        {aside ? <div className="banded-card-aside">{aside}</div> : null}
+      </div>
+      {children ? <div className="banded-card-body">{children}</div> : null}
+    </Tag>
+  );
+}
+
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
 /** Status shown as text, with colour only as a supplement. */

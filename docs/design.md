@@ -399,6 +399,15 @@ or "Selected" text.
 `card-title`. Attention cards (handover, offline, pending staff) add a 1px `warning-line` and a
 heading that says why — never the border alone.
 
+Use `BandedCard` (MM-T55) for every card the canvas draws with a header band:
+
+- The band (`card-head`, 1px `line` under it, 12px × 20px padding; 16px sides on phones) holds the
+  `h2` on the left, an optional `muted` subtitle under it, and on the right (`aside`) meta text in
+  mono, status badges or small buttons. The aside wraps under the title on narrow screens.
+- The body sits below with 20px padding (16px on phones). Leave out `children` for a band-only card.
+- The card is a `<section>` named by its heading (`aria-labelledby`); pass `as="div"` for a named
+  group inside another section. `tone="attention"` gives the amber edge.
+
 ### Data tables → stacked cards
 
 - Use `DataTable` (real `<table>`, `<th scope="col">`, a visually hidden `<caption>`).
@@ -529,7 +538,8 @@ Found while writing this guide (main at 57978f3).
    and "That didn’t work (HTTP 409)." (`PositionSetupPage`, `LabAccountCard`, several `api.ts`).
 2. The screens on the canvas reorganise several pages (card header bands, the Receive samples bottom
    bar, the Settings layouts, the Labels section beside the print view); this pass restyles the
-   existing structure only.
+   existing structure only. MM-T55 rebuilds them: part A adds `BandedCard`, parts B–D apply it to
+   Labels, Receive samples and Settings.
 3. The header doesn't show the app version yet (the Figma shows it under the name).
 
 ## Proposals — pending Kyle
