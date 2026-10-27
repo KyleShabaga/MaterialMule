@@ -1,10 +1,11 @@
 import type { CreatePrintJobRequest, PrintHistoryResponse, PrintJob } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
-import { recordAudit } from '../audit/audit.js';
+import { recordAudit, type AuditReceiver } from '../audit/audit.js';
 import { actorFor } from '../auth/auth.controller.js';
 import type { AuthUser } from '../auth/policy.js';
 import { withTransaction } from '../db/transaction.js';
 import { TEMPLATE_VERSION } from '../labels/template-v1.js';
+import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 
 // Print queue data access (MM-T15). Requests only create jobs; the worker sends them. Nothing
 // here ever changes a receipt, storage unit or location: printing is separate from inventory.
@@ -166,21 +167,18 @@ async function resolveReceiver(
   user: AuthUser,
   requested: string | undefined,
   receiptReceivers: string[],
-): Promise<string | null> {
+): Promise<AuditReceiver | null> {
   if (user.accountType !== 'shared_lab') return null;
   const receiverId =
     requested ?? (receiptReceivers.length === 1 ? receiptReceivers[0]! : undefined);
   if (!receiverId) {
     throw new PrintRequestError('receiver_required', 'Choose who is printing these labels.');
   }
-  const { rows } = await client.query(
-    `SELECT 1 FROM app_user WHERE id = $1 AND status = 'active' AND account_type <> 'shared_lab'`,
-    [receiverId],
-  );
-  if (rows.length === 0) {
+  const staff = await findActiveStaff(client, receiverId);
+  if (!staff) {
     throw new PrintRequestError('unknown_receiver', 'That staff member was not found.');
   }
-  return receiverId;
+  return auditReceiver(staff);
 }
 
 /**
@@ -215,7 +213,7 @@ export async function enqueuePrintJob(
     const byId = new Map(units.map((unit) => [unit.id, unit]));
     const ordered = request.storageUnitIds.map((id) => byId.get(id)!);
 
-    const receiverId = await resolveReceiver(client, user, request.receiverUserId, [
+    const receiver = await resolveReceiver(client, user, request.receiverUserId, [
       ...new Set(ordered.map((unit) => unit.receiver_user_id)),
     ]);
 
@@ -223,7 +221,7 @@ export async function enqueuePrintJob(
       `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
                               receiver_user_id)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [request.kind, printer.key, TEMPLATE_VERSION, user.userId, receiverId],
+      [request.kind, printer.key, TEMPLATE_VERSION, user.userId, receiver?.userId ?? null],
     );
     const jobId = rows[0]!.id;
     await client.query(
@@ -240,7 +238,7 @@ export async function enqueuePrintJob(
       entityType: 'print_job',
       entityId: jobId,
       actor: actorFor(user),
-      receiverUserId: receiverId,
+      receiver,
       after: {
         kind: request.kind,
         printerId: printer.key,

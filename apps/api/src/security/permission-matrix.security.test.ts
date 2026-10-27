@@ -190,6 +190,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       .replace(':userId', ids.victim!)
       .replace(':projectId', ids.project!)
       .replace(':suNumber', ids.readableId!)
+      .replace(':receiptId', ids.receipt!)
       .replace(':id', idParam);
   }
 
@@ -245,6 +246,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
     const hole = await insertTestHole(db.pool, ids.project, 'TH26-01');
     const locationId = await receivingLabId(db.pool);
     const receiptId = await insertReceipt(db.pool, ids.project, technician, 1);
+    ids.receipt = receiptId;
     ids.readableId = 'BKT-2026-000014';
     ids.unit = await insertStorageUnit(
       db.pool,

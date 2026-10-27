@@ -29,7 +29,7 @@ import { can, type AuthUser } from '../auth/policy.js';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
-import { findActiveStaff } from '../staff-directory/staff-directory.js';
+import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
 import { buildProjectListQuery } from './project-list-query.js';
 
@@ -178,7 +178,10 @@ export class ProjectsService {
           message: 'PM/PE must be an active staff member',
         });
       }
-      if (input.receiverUserId && !(await findActiveStaff(client, input.receiverUserId))) {
+      const receiver = input.receiverUserId
+        ? await findActiveStaff(client, input.receiverUserId)
+        : null;
+      if (input.receiverUserId && !receiver) {
         errors.push({
           field: 'receiverUserId',
           code: 'not_active_staff',
@@ -206,7 +209,7 @@ export class ProjectsService {
         entityType: 'project',
         entityId: id,
         actor,
-        receiverUserId: input.receiverUserId ?? null,
+        receiver: receiver && auditReceiver(receiver),
         after: {
           projectNumber: project.projectNumber,
           name: project.name,

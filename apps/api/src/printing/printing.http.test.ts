@@ -238,6 +238,9 @@ describe.runIf(testDatabaseUrl)('printing API (MM-T15)', () => {
       action: 'label.reprint_requested',
       actorAccountType: 'shared_lab',
       receiverUserId: users.admin,
+      // MM-T56: the receiver as they were when the job was requested.
+      receiverInitials: 'ADMIN',
+      receiverName: 'User admin',
     });
   });
 

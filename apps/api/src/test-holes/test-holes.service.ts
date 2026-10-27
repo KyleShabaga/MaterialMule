@@ -11,7 +11,7 @@ import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { likeEscape } from '../projects/projects.service.js';
-import { findActiveStaff } from '../staff-directory/staff-directory.js';
+import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
 
 export type CreateTestHoleInput = z.output<typeof createTestHoleRequestSchema>;
@@ -73,7 +73,10 @@ export class TestHolesService {
   ): Promise<TestHole> {
     const created = await withTransaction(this.database.pool, async (client) => {
       const project = await this.requireProject(client, projectId);
-      if (input.receiverUserId && !(await findActiveStaff(client, input.receiverUserId))) {
+      const receiver = input.receiverUserId
+        ? await findActiveStaff(client, input.receiverUserId)
+        : null;
+      if (input.receiverUserId && !receiver) {
         throw validationError([
           {
             field: 'receiverUserId',
@@ -98,7 +101,7 @@ export class TestHolesService {
         entityType: 'test_hole',
         entityId: row.id,
         actor,
-        receiverUserId: input.receiverUserId ?? null,
+        receiver: receiver && auditReceiver(receiver),
         after: { projectId, projectNumber: project.project_number, name: row.name },
         requestId,
       });
