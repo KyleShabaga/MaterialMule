@@ -53,6 +53,8 @@ import { TestHolesController } from './test-holes/test-holes.controller.js';
 import { TestHolesService } from './test-holes/test-holes.service.js';
 import { ReceiptsController } from './receiving/receipts.controller.js';
 import { ReceiptsService } from './receiving/receipts.service.js';
+import { ReceivingLogController } from './receiving/receiving-log.controller.js';
+import { ReceivingLogService } from './receiving/receiving-log.service.js';
 import { SettingsController } from './settings/settings.controller.js';
 import { UsersService } from './users/users.service.js';
 
@@ -79,6 +81,7 @@ export class AppModule {
         StaffDirectoryController,
         StaffController,
         ReceiptsController,
+        ReceivingLogController,
         InventoryController,
         StorageUnitsController,
         StorageUnitCorrectionsController,
@@ -108,6 +111,7 @@ export class AppModule {
         ProjectsService,
         TestHolesService,
         ReceiptsService,
+        ReceivingLogService,
         InventoryService,
         StorageUnitsService,
         StorageUnitCorrectionsService,
