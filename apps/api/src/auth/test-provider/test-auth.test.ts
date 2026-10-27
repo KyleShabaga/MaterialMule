@@ -156,10 +156,28 @@ describe.runIf(testDatabaseUrl)('test sign-in (MM-T33)', () => {
 
   it('rejects unknown fixtures and missing CSRF header', async () => {
     expect((await signIn(enabledApp, 'nobody')).response.status).toBe(404);
+    expect((await signIn(enabledApp, 'nobody')).response.body).toMatchObject({
+      code: 'unknown_fixture',
+    });
     const noCsrf = await request(enabledApp.getHttpServer())
       .post('/api/auth/test/sign-in')
       .send({ fixtureKey: 'admin' });
     expect(noCsrf.status).toBe(403);
+  });
+
+  it('MM-T61: a disabled fixture person gets its own error, and no session', async () => {
+    await db.pool.query(
+      `UPDATE app_user SET status = 'disabled', disabled_reason = 'MM-T61 test'
+       WHERE id = (SELECT user_id FROM identity_link WHERE provider = 'test' AND subject = 'js-eng')`,
+    );
+    const { response, cookie } = await signIn(enabledApp, 'js-eng');
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ code: 'fixture_not_active', status: 'disabled' });
+    expect(cookie).toBeUndefined();
+    await db.pool.query(
+      `UPDATE app_user SET status = 'active', disabled_reason = NULL
+       WHERE id = (SELECT user_id FROM identity_link WHERE provider = 'test' AND subject = 'js-eng')`,
+    );
   });
 
   it('AC3: without the flag the routes don’t exist and no session is created', async () => {

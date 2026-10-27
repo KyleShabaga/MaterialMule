@@ -231,6 +231,12 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(await within(chips).findByText('TH26-03')).toBeInTheDocument();
     expect(within(chips).getByText('TH26-01')).toBeInTheDocument();
     expect(sent).toEqual({ name: 'TH26-03', receiverUserId: AT.id });
+    // MM-T61: the hole is saved on the project at once, and the message says so.
+    expect(
+      screen.getByText(
+        `Added test hole TH26-03 to ${westPine.projectNumber}. It stays on the project even if you discard this draft.`,
+      ),
+    ).toBeInTheDocument();
 
     // An exact match (ignoring case) offers the hole itself, never "Add".
     await user.type(holeInput, 'th26-02');

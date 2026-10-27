@@ -67,6 +67,45 @@ describe('toActivityItem (T1)', () => {
     ).toBe('AT reprinted the label for BKT-2026-000014');
   });
 
+  it('MM-T61: at a LAB station names the receiver as recorded, not just the account', () => {
+    const lab = {
+      actorInitials: null,
+      actorName: 'LAB',
+      receiverInitials: 'RE',
+      receiverName: 'Riley Example',
+    };
+    expect(
+      toActivityItem(
+        event({
+          ...lab,
+          after: {
+            readableIds: ['BKT-2026-000032', 'BKT-2026-000033', 'BKT-2026-000034'],
+            projectNumber: 'DEMO-2601',
+          },
+        }),
+      ).summary,
+    ).toBe('LAB for RE received BKT-2026-000032 and 2 more for DEMO-2601');
+    expect(
+      toActivityItem(
+        event({
+          ...lab,
+          action: 'label.print_requested',
+          after: { readableIds: ['BKT-2026-000032', 'BKT-2026-000033'] },
+        }),
+      ).summary,
+    ).toBe('LAB printed labels for BKT-2026-000032 and 1 more (for RE)');
+    // Personal accounts are unchanged, even with a receiver on the event.
+    expect(
+      toActivityItem(
+        event({
+          actorAccountType: 'personal',
+          receiverInitials: 'RE',
+          after: { readableIds: ['BKT-2026-000032'], projectNumber: 'DEMO-2601' },
+        }),
+      ).summary,
+    ).toBe('AT received BKT-2026-000032 for DEMO-2601');
+  });
+
   it('never exposes raw before/after values', () => {
     const item = toActivityItem(
       event({ before: { secretish: 'old-value' }, after: { unitCount: 2, other: 'x-value' } }),

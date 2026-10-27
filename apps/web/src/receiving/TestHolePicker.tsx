@@ -23,6 +23,7 @@ export function TestHolePicker({
   onQueryChange,
   receiverUserId,
   online,
+  addedNote,
 }: {
   projectId: string;
   selected: TestHole[];
@@ -31,6 +32,12 @@ export function TestHolePicker({
   onQueryChange: (query: string) => void;
   receiverUserId: string | null;
   online: boolean;
+  /**
+   * What to say after a new hole is added (it is saved on the project at once, MM-T61), e.g.
+   * "Added test hole TH26-05 to DEMO-2601. It stays on the project even if you discard this
+   * draft." Nothing is said when left out.
+   */
+  addedNote?: (holeName: string) => string;
 }) {
   const id = useId();
   const [loaded, setLoaded] = useState<{ projectId: string; holes: Holes } | null>(null);
@@ -108,6 +115,8 @@ export function TestHolePicker({
         );
         if (result.kind === 'exists') {
           setMessage({ tone: 'info', text: `${hole.name} already exists; it's now selected.` });
+        } else if (addedNote) {
+          setMessage({ tone: 'info', text: addedNote(hole.name) });
         }
         select(hole);
       } else {

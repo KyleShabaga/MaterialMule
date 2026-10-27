@@ -45,13 +45,20 @@ function units(d: DisplayDetails): string {
 export function toActivityItem(event: AuditEvent): ActivityItem {
   const d = details(event);
   const who = event.actorInitials ?? event.actorName ?? 'Someone';
+  // At a shared LAB station the account isn't the person: name the receiver as recorded at the
+  // time (MM-T56 snapshot), e.g. "LAB for RE received …" (decided 2026-10-27, MM-T61).
+  const receiver =
+    event.actorAccountType === 'shared_lab'
+      ? (event.receiverInitials ?? event.receiverName ?? null)
+      : null;
   const forProject = d.projectNumber ? ` for ${d.projectNumber}` : '';
+  const forReceiver = receiver ? ` (for ${receiver})` : '';
   let summary: string;
   let href: string | null = null;
 
   switch (event.action) {
     case 'receipt.confirmed':
-      summary = `${who} received ${units(d)}${forProject}`;
+      summary = `${receiver ? `${who} for ${receiver}` : who} received ${units(d)}${forProject}`;
       // All statuses, so units of the receipt that were later disposed still show.
       href = event.entityId
         ? `/sample-storage?receiptId=${encodeURIComponent(event.entityId)}&status=all`
@@ -62,10 +69,10 @@ export function toActivityItem(event: AuditEvent): ActivityItem {
       href = d.readableId ? `/sample-storage/${d.readableId}` : null;
       break;
     case 'label.print_requested':
-      summary = `${who} printed labels for ${units(d)}`;
+      summary = `${who} printed labels for ${units(d)}${forReceiver}`;
       break;
     case 'label.reprint_requested':
-      summary = `${who} reprinted the label for ${units(d)}`;
+      summary = `${who} reprinted the label for ${units(d)}${forReceiver}`;
       href = d.readableId ? `/sample-storage/${d.readableId}` : null;
       break;
     default:
