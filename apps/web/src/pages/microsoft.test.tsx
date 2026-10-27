@@ -1,5 +1,5 @@
 import type { MeResponse, ProfileResponse } from '@materialmule/shared';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -222,7 +222,9 @@ describe('My profile', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Profile refreshed from Microsoft.')).toBeInTheDocument();
-    expect(screen.getByText('riley.mail@example.test')).toBeInTheDocument();
+    // MM-T55: the email shows in "Signed in as" and in the My profile card.
+    const card = screen.getByRole('region', { name: 'My profile' });
+    expect(within(card).getByText('riley.mail@example.test')).toBeInTheDocument();
     expect(calls.some((c) => c.url === '/api/me/profile/refresh')).toBe(true);
   });
 });

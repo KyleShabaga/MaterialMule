@@ -1641,3 +1641,351 @@ textarea {
     min-width: 6rem;
   }
 }
+
+/* ---- Settings layouts (MM-T55 part D) ---- */
+
+/* Tiles: a small label over a value, on the shell ground inside a banded card. */
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.stat-tiles-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stat-tiles-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.stat-tiles > div {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--shell);
+  min-width: 0;
+}
+
+.stat-tiles dt {
+  font: 600 0.6875rem/1rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat-tiles dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.stat-number {
+  font: 700 1.625rem/2rem var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-note {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.stat-mono {
+  font-family: var(--font-mono);
+}
+
+.stat-tiles > .stat-tile-warning {
+  border-color: var(--warning-line);
+}
+
+.stat-tile-warning dt,
+.stat-tile-warning dd {
+  color: var(--warning);
+}
+
+.stat-tiles > .stat-tile-danger {
+  border-color: var(--danger-line);
+}
+
+.stat-tile-danger dt,
+.stat-tile-danger dd {
+  color: var(--danger);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.notice-success {
+  border-color: var(--success-line);
+  background: var(--success-bg);
+  color: var(--ink);
+}
+
+.status-alert,
+.profile-warning {
+  border-color: var(--warning-line);
+  background: var(--warning-panel);
+  color: var(--warning-panel-ink);
+}
+
+/* My profile: who is signed in beside the banded profile card. */
+.profile-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.profile-warning p {
+  flex: 1 1 20rem;
+  margin: 0;
+}
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: 18.75rem minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.profile-layout > .banded-card {
+  margin-top: 0;
+}
+
+.profile-who {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.profile-initials {
+  display: inline-grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-tag);
+  background: var(--card-head);
+  font: 700 1.5rem/1 var(--font-mono);
+  color: var(--accent-ink);
+}
+
+.profile-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.profile-email {
+  margin: 0.125rem 0 0;
+  font: 400 0.8125rem/1.125rem var(--font-mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.profile-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+}
+
+.profile-chip {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-tag);
+  background: var(--card-head);
+  font-size: 0.8125rem;
+}
+
+.profile-card .banded-card-body {
+  padding: 0;
+}
+
+.profile-fields {
+  margin: 0;
+}
+
+/* One striped row per field: label left, value right; stacked on phones. */
+.profile-fields dt,
+.profile-fields dd {
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-fields {
+  display: grid;
+  grid-template-columns: 13.75rem minmax(0, 1fr);
+}
+
+.profile-fields dt {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.profile-fields dd {
+  overflow-wrap: anywhere;
+}
+
+.profile-fields dt:nth-of-type(even),
+.profile-fields dd:nth-of-type(even) {
+  background: var(--inset);
+}
+
+.profile-unconfirmed {
+  color: var(--warning);
+}
+
+/* Staff & access */
+.filter-bar {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.field-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--line);
+}
+
+/* Printers: the configured printers beside a dashed "Add a printer" card. */
+.printers-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.printers-layout .banded-card {
+  margin-top: 0;
+}
+
+.printers-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.printer-form-new {
+  border-style: dashed;
+  border-color: var(--line-control);
+}
+
+.printer-form .banded-card-body {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.printer-form input:not([type='checkbox']) {
+  max-width: none;
+}
+
+.field-pair-port {
+  grid-template-columns: minmax(0, 1fr) 7.5rem;
+}
+
+.checkbox-group {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+/* System status */
+.status-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.disk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1.25rem;
+}
+
+.disk-label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.disk-label .stat-mono {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.disk-bar {
+  height: 0.625rem;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-tag);
+  background: var(--shell);
+  overflow: hidden;
+}
+
+.disk-bar > div {
+  height: 100%;
+  background: var(--primary);
+}
+
+@media (max-width: 1024px) {
+  .profile-layout,
+  .printers-layout,
+  .status-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stat-tiles-2,
+  .stat-tiles-3,
+  .field-pair,
+  .field-pair-port {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-fields dt {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .profile-fields dd {
+    padding-top: 0.25rem;
+  }
+
+  .lab-actions button {
+    flex: 1 1 100%;
+  }
+}

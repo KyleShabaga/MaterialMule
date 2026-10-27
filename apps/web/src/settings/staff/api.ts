@@ -14,8 +14,14 @@ export class StaffApiError extends Error {
   constructor(
     message: string,
     readonly code: string | null,
+    /** HTTP status; 403 means the caller is no longer an administrator (MM-T52). */
+    readonly status: number | null = null,
   ) {
     super(message);
+  }
+
+  get forbidden(): boolean {
+    return this.status === 403;
   }
 }
 
@@ -32,7 +38,7 @@ async function readError(response: Response): Promise<StaffApiError> {
     (response.status === 403
       ? 'You no longer have permission to manage staff.'
       : "That change didn't go through. Try again.");
-  return new StaffApiError(message, body.code ?? null);
+  return new StaffApiError(message, body.code ?? null, response.status);
 }
 
 async function send(path: string, method: string, body?: unknown): Promise<StaffMember> {
