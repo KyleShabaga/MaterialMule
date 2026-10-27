@@ -125,10 +125,16 @@ describe('LAB sign-in form', () => {
     expect(await screen.findByText(/paused for about 14 minutes/)).toBeInTheDocument();
     // MM-T50: the paused state is an amber panel with the way out, and a "Paused" badge.
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'An administrator can reset the LAB password to end the pause sooner.',
+      'Wait until the pause ends, then sign in with the correct password. If the password is lost, ask an administrator to reset it. A reset signs out every LAB computer and may not end the pause on this computer.',
     );
     const card = screen.getByRole('region', { name: 'Shared receiving station (LAB)' });
     expect(within(card).getByText('Paused')).toBeInTheDocument();
+    // A reset clears only the account count, not this computer's address count, so the card must
+    // never promise it ends the pause; and LAB isn't tied to one receiving PC.
+    expect(card).not.toHaveTextContent(/sooner|receiving PC/);
+    expect(card).toHaveTextContent(
+      'For the shared lab computers. Each receipt records who received it, so pick your own name.',
+    );
     expect(screen.queryByText('The username or password is incorrect.')).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain('not-the-password');
   });

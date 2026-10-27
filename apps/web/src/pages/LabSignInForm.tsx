@@ -27,6 +27,21 @@ async function labSignInError(response: Response): Promise<SignInFailure | null>
 }
 
 /**
+ * LAB can be signed in on several shared lab computers at once (MM-T06, "Sign out all LAB
+ * stations"); who received each unit is chosen on every receipt, not taken from the account.
+ */
+export const LAB_HINT =
+  'For the shared lab computers. Each receipt records who received it, so pick your own name.';
+
+/**
+ * The pause counts failed attempts for the LAB account and for this computer's address. An
+ * administrator's password reset clears only the account count and signs out every LAB computer
+ * (MM-T06), so it can't promise to end this computer's pause (MM-T50).
+ */
+export const PAUSED_HELP =
+  'Wait until the pause ends, then sign in with the correct password. If the password is lost, ask an administrator to reset it. A reset signs out every LAB computer and may not end the pause on this computer.';
+
+/**
  * Shared receiving station sign-in (MM-T06). LAB is an app-managed account, not a Microsoft
  * account; its password is set by an administrator.
  */
@@ -69,7 +84,7 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
       <div className="auth-card-head">
         <div>
           <h2 id="lab-sign-in">Shared receiving station (LAB)</h2>
-          <p className="field-hint">For the receiving PC that several people share.</p>
+          <p className="field-hint">{LAB_HINT}</p>
         </div>
         {error?.paused ? <StatusBadge tone="warning">Paused</StatusBadge> : null}
       </div>
@@ -103,7 +118,7 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
         {error?.paused ? (
           <div className="notice notice-warning" role="alert">
             <p>{error.message}</p>
-            <p>An administrator can reset the LAB password to end the pause sooner.</p>
+            <p>{PAUSED_HELP}</p>
           </div>
         ) : null}
         <button type="submit" className="primary" disabled={busy || !password}>
