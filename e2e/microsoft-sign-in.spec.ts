@@ -63,7 +63,7 @@ test('AC1: the bootstrap administrator gets in as an active admin', async ({ pag
 
   await page.goto('/settings/profile');
   await expect(page.getByText('Operations Manager')).toBeVisible();
-  await expect(page.getByText('Microsoft 365 profile')).toBeVisible();
+  await expect(page.getByText('Microsoft 365 profile', { exact: true })).toBeVisible();
 });
 
 test('a cancelled Microsoft sign-in explains itself and signs nobody in', async ({ page }) => {
