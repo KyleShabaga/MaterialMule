@@ -72,6 +72,7 @@ function renderPage(
   session: MeResponse,
   extra: Record<string, Handler> = {},
   path = '/receiving-log/new',
+  { strict = false }: { strict?: boolean } = {},
 ) {
   const api: Record<string, Handler> = {
     'GET /api/projects/search': () => json(200, [project]),
@@ -105,6 +106,8 @@ function renderPage(
     >
       <RouterProvider router={router} />
     </SessionContext.Provider>,
+    // StrictMode mounts twice, as in development, cancelling the first effect run.
+    { reactStrictMode: strict },
   );
   return { router, refresh };
 }
@@ -360,13 +363,75 @@ describe('Draft auto-delete on Receive samples (MM-T45)', () => {
     expect(await store.get(others.draftId)).not.toBeNull();
 
     const [first, second] = within(list).getAllByRole('listitem');
-    // Newest first: the 45-day draft says when it goes; the confirming one keeps T11 wording.
+    // Newest first: the rule is stated once above the list (MM-T61), not in each Stale block.
     expect(within(first!).getByText('Stale').parentElement).toHaveTextContent(
-      'Not saved for over 30 days. Deleted automatically after 90 days without changes. Review it, then confirm or discard it.',
+      'Stale Not saved for over 30 days. Review it, then confirm or discard it.',
     );
     expect(within(second!).getByText('Confirmation interrupted')).toBeInTheDocument();
     expect(within(second!).getByText('Stale').parentElement).toHaveTextContent(
       'Stale Not saved for over 30 days. Review it, then confirm or discard it.',
+    );
+  });
+
+  it('MM-T61 T2b: states the rule, when a draft goes, and that an interrupted one never does', async () => {
+    const soon = await stored(savedDaysAgo(newRecord(filled(AT), me()), 24));
+    const tomorrow = await stored(savedDaysAgo(newRecord(filled(null), me()), 29));
+    const fresh = await stored(savedDaysAgo(newRecord(filled(AT), me()), 2));
+    const interrupted = await stored({
+      ...savedDaysAgo(newRecord(filled(AT), me()), 25),
+      step: 'review',
+      status: 'confirming',
+    });
+    renderPage(me(), setting(true, 30));
+
+    expect(
+      await screen.findByText(
+        'Drafts are deleted automatically after 30 days without changes (set by an administrator).',
+      ),
+    ).toBeInTheDocument();
+    const list = screen.getByRole('region', { name: 'Drafts on this computer' });
+    expect(within(list).getByText('Deleted in 6 days unless you change it.')).toBeInTheDocument();
+    expect(within(list).getByText('Deleted tomorrow unless you change it.')).toBeInTheDocument();
+    expect(within(list).getAllByText(/unless you change it/)).toHaveLength(2);
+    expect(
+      within(list).getByText('Never deleted automatically: resume to finish confirming.'),
+    ).toBeInTheDocument();
+    expect(await store.get(fresh.draftId)).not.toBeNull();
+    expect(await store.get(soon.draftId)).not.toBeNull();
+    expect(await store.get(tomorrow.draftId)).not.toBeNull();
+    expect(await store.get(interrupted.draftId)).not.toBeNull();
+  });
+
+  it('MM-T61 T2b: with auto-delete off, none of the auto-delete lines appear', async () => {
+    await stored(savedDaysAgo(newRecord(filled(AT), me()), 24));
+    await stored({
+      ...savedDaysAgo(newRecord(filled(AT), me()), 25),
+      step: 'review',
+      status: 'confirming',
+    });
+    renderPage(me(), setting(false, 30));
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    await within(list).findByText('Confirmation interrupted');
+    expect(screen.queryByText(/deleted automatically/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/unless you change it/)).not.toBeInTheDocument();
+  });
+
+  it('MM-T61 T2: keeps the clean-up notice when the first effect run is cancelled', async () => {
+    await stored(savedDaysAgo(newRecord(filled(AT), me()), 120));
+    // The first (cancelled) run gets the setting at once and deletes the draft; a second run,
+    // if any, gets it later and finds nothing left to delete.
+    let calls = 0;
+    const slowAfterFirst = {
+      'GET /api/settings/drafts': async () => {
+        calls += 1;
+        if (calls > 1) await new Promise((resolve) => setTimeout(resolve, 100));
+        return json(200, { draftAutoDelete: { enabled: true, afterDays: 90 }, version: 2 });
+      },
+    };
+    renderPage(me(), slowAfterFirst, undefined, { strict: true });
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    expect(await within(list).findByRole('status')).toHaveTextContent(
+      '1 draft older than 90 days was deleted from this computer',
     );
   });
 
