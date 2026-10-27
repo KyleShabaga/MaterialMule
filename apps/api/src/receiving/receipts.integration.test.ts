@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import {
+  confirmReceiptRequestSchema,
   confirmReceiptResponseSchema,
   type ConfirmReceiptRequestInput,
   type ConfirmReceiptResponse,
@@ -9,6 +10,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
+import type { AuthUser } from '../auth/policy.js';
 import { SessionService } from '../auth/session.service.js';
 import { loadConfig } from '../config/env.js';
 import { createApp } from '../create-app.js';
@@ -19,7 +21,7 @@ import {
   type TestSchema,
 } from '../test-support/database.js';
 import { insertProject, insertTestHole, receivingLabId } from '../test-support/fixtures.js';
-import { businessToday } from './receipts.service.js';
+import { businessToday, ReceiptsService } from './receipts.service.js';
 
 // Fictional data only: project DEMO-2601, test holes TH26-01 / TH26-02, receiver AT.
 describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
@@ -365,6 +367,58 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
     expect(response.status).toBe(401);
     expect(response.body).toMatchObject({ code: 'unauthenticated' });
     expect(await snapshot()).toEqual(before);
+  });
+
+  describe('ID year = confirmation date in America/Edmonton, never the received date (MM-T49)', () => {
+    const lab = (): AuthUser => ({
+      userId: users.lab!,
+      sessionId: randomUUID(),
+      accountType: 'shared_lab',
+      status: 'active',
+      roles: [],
+      displayName: 'Lab (shared)',
+      initials: 'LAB',
+    });
+
+    /** Confirms a TH26-01 bucket received on `receivedDate` with the clock at `now`. */
+    async function confirmAt(receivedDate: string, now: Date) {
+      const body = confirmReceiptRequestSchema.parse({
+        ...twoBuckets({ receivedDate }),
+        units: [twoBuckets().units[0]],
+      });
+      const result = await app.get(ReceiptsService).confirm(body, lab(), { now });
+      expect(result.created).toBe(true);
+      const { suNumber, storageUnitId } = result.response.units[0]!;
+      const { rows } = await db.pool.query(
+        `SELECT su.readable_id, su.id_prefix, su.issued_year, su.received_date::text AS received_date,
+                r.received_date::text AS receipt_received_date, r.confirmed_at
+         FROM storage_unit su JOIN receipt r ON r.id = su.receipt_id WHERE su.id = $1`,
+        [storageUnitId],
+      );
+      return { suNumber, row: rows[0] as Record<string, unknown> };
+    }
+
+    it('received 2026-12-20, confirmed 2027-01-03 → a 2027 ID', async () => {
+      // 2027-01-03 11:00 in Edmonton (MST, UTC−7).
+      const confirmedAt = new Date('2027-01-03T18:00:00Z');
+      const { suNumber, row } = await confirmAt('2026-12-20', confirmedAt);
+      expect(suNumber).toMatch(/^BKT-2027-\d{6}$/);
+      expect(row).toEqual({
+        readable_id: suNumber,
+        id_prefix: 'BKT',
+        issued_year: 2027,
+        received_date: '2026-12-20',
+        receipt_received_date: '2026-12-20',
+        confirmed_at: confirmedAt,
+      });
+    });
+
+    it('uses the Edmonton date, not UTC: 2027-01-01 05:30 UTC is still 2026 in Edmonton', async () => {
+      // 2026-12-31 22:30 in Edmonton; already 2027 in UTC.
+      const { suNumber, row } = await confirmAt('2026-12-20', new Date('2027-01-01T05:30:00Z'));
+      expect(suNumber).toMatch(/^BKT-2026-\d{6}$/);
+      expect(row).toMatchObject({ issued_year: 2026, received_date: '2026-12-20' });
+    });
   });
 
   describe('validation (400 with field errors)', () => {

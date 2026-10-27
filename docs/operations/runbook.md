@@ -237,7 +237,10 @@ This is the routine task (AC6). Allow 10 minutes, outside busy receiving hours.
 
 1. Tell the lab the app will be unavailable for about a minute.
 2. **Back up the database.** Once backups are set up (`BackupScript` and `BackupConfig` in
-   `host.config.psd1`), the deploy script runs `backup.ps1` first and stops if it fails. Until
+   `host.config.psd1`), the deploy script runs `backup.ps1` first and stops if it fails. It
+   counts the backup as failed (exit code 3, nothing changed) when the script throws, writes an
+   error, exits non-zero, or its last native command (e.g. `pg_dump.exe`) exits non-zero; a
+   custom `BackupScript` must therefore end with its backup tool's exit code (MM-T41). Until
    then, take a manual backup:
    ```powershell
    $file = "E:\backups\materialmule-manual-$(Get-Date -Format yyyyMMdd-HHmm).dump"
