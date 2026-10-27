@@ -1,5 +1,5 @@
 import type { MeResponse } from '@materialmule/shared';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -310,6 +310,58 @@ describe('Scan with camera button (MM-T17)', () => {
     expect(await screen.findByRole('dialog', { name: 'Scan with camera' })).toBeVisible();
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole('heading', { name: 'Camera access is blocked' })).toBeVisible();
+    Reflect.deleteProperty(navigator, 'mediaDevices');
+    Reflect.deleteProperty(window, 'isSecureContext');
+  });
+
+  it('MM-T61: one tap asks for the camera once, even in StrictMode', async () => {
+    stubApi();
+    const camera = fakeCamera();
+    const { factory } = fakeDecoder();
+    render(
+      <CameraScanner
+        onClose={vi.fn()}
+        onFound={vi.fn()}
+        devices={camera.devices}
+        secureContext
+        decoderFactory={factory}
+        readFrame={frame}
+      />,
+      { reactStrictMode: true },
+    );
+    expect(await screen.findByText('Point at the label')).toBeVisible();
+    expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(camera.live()).toHaveLength(1);
+  });
+
+  it('MM-T61: closing the camera returns focus to Scan with camera', async () => {
+    stubApi();
+    const getUserMedia = vi.fn(async () => {
+      throw new DOMException('denied', 'NotAllowedError');
+    });
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia },
+      configurable: true,
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/sample-storage'] });
+    render(
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <RouterProvider router={router} />
+      </SessionContext.Provider>,
+    );
+    const button = await screen.findByRole('button', { name: 'Scan with camera' });
+    await userEvent.click(button);
+    const dialog = await screen.findByRole('dialog', { name: 'Scan with camera' });
+    await userEvent.click(within(dialog).getByRole('button', { name: /Close/ }));
+    expect(screen.queryByRole('dialog', { name: 'Scan with camera' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scan with camera' })).toHaveFocus();
     Reflect.deleteProperty(navigator, 'mediaDevices');
     Reflect.deleteProperty(window, 'isSecureContext');
   });

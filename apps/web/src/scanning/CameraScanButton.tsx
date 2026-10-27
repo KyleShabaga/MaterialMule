@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { CameraScanner } from './CameraScanner';
 import { readDecoderPreference } from './decoder';
@@ -9,17 +9,27 @@ import { readDecoderPreference } from './decoder';
  */
 export function CameraScanButton() {
   const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   return (
     <>
-      <button type="button" className="camera-scan-button" onClick={() => setOpen(true)}>
+      <button
+        ref={button}
+        type="button"
+        className="camera-scan-button"
+        onClick={() => setOpen(true)}
+      >
         Scan with camera
       </button>
       {open ? (
         <CameraScanner
           decoderPreference={readDecoderPreference(location.search)}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            // Back where the person was, not the page body (MM-T61).
+            button.current?.focus();
+          }}
           onFound={(unit) => {
             setOpen(false);
             navigate(`/sample-storage/${encodeURIComponent(unit.readableId)}`, {

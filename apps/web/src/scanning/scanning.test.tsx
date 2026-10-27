@@ -310,9 +310,7 @@ describe('Verify labels (MM-T16)', () => {
 
     await userEvent.keyboard('ST-2026-000003{Enter}');
     expect(
-      await screen.findByText(
-        'Wrong label: scanned ST-2026-000003 expected one of BKT-2026-000015',
-      ),
+      await screen.findByText('Wrong label: scanned ST-2026-000003. Expected BKT-2026-000015.'),
     ).toBeVisible();
     expect(screen.getByText('1 of 2 labels verified')).toBeVisible();
 

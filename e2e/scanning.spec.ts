@@ -217,7 +217,7 @@ test('T4/AC6: Verify labels marks matches and warns about a third unit’s label
   // A third unit's label: wrong-label warning naming what's still expected.
   await scan(page, other.a1);
   await expect(panel.getByRole('status')).toHaveText(
-    `Check: Wrong label: scanned ${other.a1} expected one of ${ids[1]}`,
+    `Check: Wrong label: scanned ${other.a1}. Expected ${ids[1]}.`,
   );
   await expect(panel.getByText('1 of 2 labels verified')).toBeVisible();
 
