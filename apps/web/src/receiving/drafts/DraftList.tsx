@@ -115,6 +115,7 @@ export function DraftList({
         open={discarding !== null}
         title="Discard this draft?"
         confirmLabel="Discard draft"
+        danger
         onConfirm={() => void discard()}
         onCancel={() => setDiscarding(null)}
       >

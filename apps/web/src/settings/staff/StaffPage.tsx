@@ -540,7 +540,12 @@ function StaffDrawer({
           </button>
         ) : null}
         {member.status !== 'disabled' ? (
-          <button type="button" disabled={busy} onClick={() => setConfirm('disable')}>
+          <button
+            type="button"
+            className="danger"
+            disabled={busy}
+            onClick={() => setConfirm('disable')}
+          >
             {member.status === 'pending' ? 'Reject (disable)…' : 'Disable access…'}
           </button>
         ) : (
@@ -565,6 +570,7 @@ function StaffDrawer({
             : `Remove admin from ${member.displayName}?`
         }
         confirmLabel={confirm === 'disable' ? 'Disable' : 'Remove admin'}
+        danger
         onConfirm={() => void confirmAction()}
         onCancel={() => {
           setConfirm(null);
