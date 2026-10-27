@@ -36,7 +36,7 @@ interface SessionRow {
   roles: Role[];
 }
 
-/** Server-side, revocable sessions (TRP-T04). Expiry is absolute: sessions never slide. */
+/** Server-side, revocable sessions (MM-T04). Expiry is absolute: sessions never slide. */
 @Injectable()
 export class SessionService {
   constructor(
@@ -46,7 +46,7 @@ export class SessionService {
 
   /**
    * Expiry for a new session: LAB one calendar month at the same local time in the business time
-   * zone (App Idea §8, TRP-T06), others a fixed number of hours. Always decided here, never by
+   * zone (App Idea §8, MM-T06), others a fixed number of hours. Always decided here, never by
    * the client, and stored on the session row.
    */
   expiryFor(accountType: AccountType, issuedAt: Date): Date {

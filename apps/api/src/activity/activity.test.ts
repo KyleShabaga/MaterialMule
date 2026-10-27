@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { activityResponseSchema, authProvidersResponseSchema } from '@trapezoid/shared';
+import { activityResponseSchema, authProvidersResponseSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { recordAudit, type AuditEvent } from '../audit/audit.js';

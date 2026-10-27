@@ -22,7 +22,7 @@ import {
   type StaffOption,
   type createProjectRequestSchema,
   type updateProjectRequestSchema,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { z } from 'zod';
 import { can, type AuthUser } from '../auth/policy.js';
@@ -67,7 +67,7 @@ function toSummary(row: ProjectRow): ProjectSummary {
   };
 }
 
-// Projects list and detail (TRP-T35). Counts are computed by query, never stored.
+// Projects list and detail (MM-T35). Counts are computed by query, never stored.
 
 const SELECT_PROJECT_WITH_PEOPLE = `
   SELECT p.id, p.project_number, p.name, p.client,
@@ -224,7 +224,7 @@ export class ProjectsService {
     throw await this.conflict(input.projectNumber);
   }
 
-  /** One page of the projects table with its total (TRP-T35). */
+  /** One page of the projects table with its total (MM-T35). */
   async list(query: ProjectListQuery, userId: string): Promise<ProjectListPage> {
     const sql = buildProjectListQuery(query, userId);
     const pool = this.database.pool;
@@ -278,7 +278,7 @@ export class ProjectsService {
     return rows[0] ?? null;
   }
 
-  /** Header, test holes with unit counts and receipts, plus what `user` may edit (TRP-T35). */
+  /** Header, test holes with unit counts and receipts, plus what `user` may edit (MM-T35). */
   async detail(client: Pool | PoolClient, id: string, user: AuthUser): Promise<ProjectDetail> {
     const row = await this.detailRow(client, id);
     if (!row) {
@@ -357,7 +357,7 @@ export class ProjectsService {
   }
 
   /**
-   * Edits a project (TRP-T35, owner decision 2026-10-25): admins and the project's current PM/PE
+   * Edits a project (MM-T35, owner decision 2026-10-25): admins and the project's current PM/PE
    * may edit; only admins change the PM/PE (with a reason); the number locks once any receipt
    * exists. Optimistic: a stale `version` gets 409 with the current project. Only changed fields
    * are written and audited; a save that changes nothing returns the project untouched.

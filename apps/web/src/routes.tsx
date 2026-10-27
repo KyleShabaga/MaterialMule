@@ -33,7 +33,7 @@ const featureRoutes: RouteObject[] = [
     ? [
         {
           path: 'lab-testing-worklist',
-          element: <PlaceholderPage title="Lab Testing Worklist" card="TRP-T24" />,
+          element: <PlaceholderPage title="Lab Testing Worklist" card="MM-T24" />,
         },
       ]
     : []),
@@ -41,7 +41,7 @@ const featureRoutes: RouteObject[] = [
     ? [
         {
           path: 'testing-programs',
-          element: <PlaceholderPage title="Testing Programs" card="TRP-T23" />,
+          element: <PlaceholderPage title="Testing Programs" card="MM-T23" />,
         },
       ]
     : []),
@@ -49,7 +49,7 @@ const featureRoutes: RouteObject[] = [
     ? [
         {
           path: 'disposal-retention',
-          element: <PlaceholderPage title="Disposal & Retention" card="TRP-T29" />,
+          element: <PlaceholderPage title="Disposal & Retention" card="MM-T29" />,
         },
       ]
     : []),
@@ -67,7 +67,7 @@ export const routes: RouteObject[] = [
       {
         element: <RequireActiveSession />,
         children: [
-          // Label print views (TRP-T39): no app chrome, one 3.5 x 1.5 in label per page.
+          // Label print views (MM-T39): no app chrome, one 3.5 x 1.5 in label per page.
           { path: '/labels/print/unit/:id', element: <LabelPrintPage scope="unit" /> },
           { path: '/labels/print/receipt/:id', element: <LabelPrintPage scope="receipt" /> },
           {
@@ -77,18 +77,18 @@ export const routes: RouteObject[] = [
               { index: true, element: <DashboardPage /> },
               {
                 path: 'receiving-log',
-                element: <PlaceholderPage title="Receiving Log" card="TRP-T10" />,
+                element: <PlaceholderPage title="Receiving Log" card="MM-T10" />,
               },
               { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
-              // Inventory and storage unit detail (TRP-T12). The menu calls it Sample Storage; the
+              // Inventory and storage unit detail (MM-T12). The menu calls it Sample Storage; the
               // card's /inventory and /storage-units/:suNumber paths redirect here.
               { path: 'sample-storage', element: <InventoryPage /> },
-              // Handheld scanner lookup mode (TRP-T16); static, so it wins over :readableId.
+              // Handheld scanner lookup mode (MM-T16); static, so it wins over :readableId.
               { path: 'sample-storage/scan', element: <ScanPage /> },
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
-              // Projects list and detail (TRP-T35).
+              // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },
               {
@@ -103,12 +103,12 @@ export const routes: RouteObject[] = [
                   { path: 'staff', element: <StaffPage /> },
                   {
                     path: 'locations',
-                    element: <PlaceholderPage title="Locations" card="TRP-T37" />,
+                    element: <PlaceholderPage title="Locations" card="MM-T37" />,
                   },
                   { path: 'printers', element: <PrintersSettingsPage /> },
                   // Draft auto-delete (MM-T45): Admin and Lab Manager.
                   { path: 'receiving', element: <ReceivingSettingsPage /> },
-                  // Admin-only operational status (TRP-T21).
+                  // Admin-only operational status (MM-T21).
                   { path: 'system-status', element: <SystemStatusPage /> },
                 ],
               },

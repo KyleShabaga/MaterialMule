@@ -1,8 +1,8 @@
-import type { ReceiverOption } from '@trapezoid/shared';
+import type { ReceiverOption } from '@materialmule/shared';
 import type { SaveState } from '../useReceiptDraft';
 import { formatSavedTime, receiverText } from './format';
 
-// Saved-state indicator in the wizard header (TRP-T11): "Draft saved 10:42 · Receiver: AT", or
+// Saved-state indicator in the wizard header (MM-T11): "Draft saved 10:42 · Receiver: AT", or
 // a warning when storage failed. It only ever says "saved" for a write storage confirmed.
 
 export function DraftStatusLine({

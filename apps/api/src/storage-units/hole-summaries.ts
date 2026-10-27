@@ -1,4 +1,4 @@
-import type { StorageUnitHoleSummary } from '@trapezoid/shared';
+import type { StorageUnitHoleSummary } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 
 interface SummaryRow {

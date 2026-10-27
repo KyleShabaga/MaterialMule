@@ -20,7 +20,7 @@ export interface ScanLookup {
 }
 
 /**
- * A scanner whose every scan is looked up with T12's lookup (TRP-T16). Only the newest scan's
+ * A scanner whose every scan is looked up with T12's lookup (MM-T16). Only the newest scan's
  * answer is kept; a duplicate inside the window makes no request. Lookups are never queued: if
  * one fails the value stays on screen with Retry.
  */

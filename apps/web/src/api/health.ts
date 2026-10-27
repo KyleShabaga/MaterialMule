@@ -1,4 +1,4 @@
-import { healthResponseSchema, type HealthResponse } from '@trapezoid/shared';
+import { healthResponseSchema, type HealthResponse } from '@materialmule/shared';
 
 export type HealthResult =
   | { kind: 'ok'; health: HealthResponse }

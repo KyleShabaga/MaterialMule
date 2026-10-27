@@ -9,7 +9,7 @@ import { toFieldErrors } from './receipts';
 const HOLE = '00000000-0000-4000-8000-000000000301';
 const PROJECT = '00000000-0000-4000-8000-000000000201';
 
-describe('minimumRetainUntil (TRP-T13)', () => {
+describe('minimumRetainUntil (MM-T13)', () => {
   it('adds one year, turning 29 February into 28 February', () => {
     expect(minimumRetainUntil('2026-10-21')).toBe('2027-10-21');
     expect(minimumRetainUntil('2028-02-29')).toBe('2029-02-28');

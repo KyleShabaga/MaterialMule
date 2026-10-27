@@ -4,7 +4,7 @@ import { PLACES } from './generate.js';
 import type { SeededRandom } from './random.js';
 
 /**
- * The TRP-T19 workload (owner-approved 2026-10-25): 10 active users, 2 receiving stations and
+ * The MM-T19 workload (owner-approved 2026-10-25): 10 active users, 2 receiving stations and
  * 2 scanner sessions, plus a probe client that checks authorization keeps refusing. Each scenario
  * is one autocannon instance; every connection is one person or device.
  *

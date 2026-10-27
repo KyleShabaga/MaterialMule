@@ -7,7 +7,7 @@ import {
 } from './inventory';
 import { holeSummaryInputSchema, RECEIPT_UNIT_TYPES } from './receipts';
 
-// Corrections to a confirmed storage unit, `PATCH /api/storage-units/:id` (TRP-T13, D45–D47).
+// Corrections to a confirmed storage unit, `PATCH /api/storage-units/:id` (MM-T13, D45–D47).
 // A correction changes current values only: the storage unit ID, saved location, print history
 // and the original receipt header are never rewritten.
 
@@ -41,7 +41,7 @@ export const storageUnitCorrectionRequestSchema = z
     // Strict: anything else (the ID, location, receipt header…) can't be corrected here.
     changes: z.strictObject(
       {
-        /** Only Bucket exists until TRP-T36; the field is modelled now. */
+        /** Only Bucket exists until MM-T36; the field is modelled now. */
         unitType: z.enum(RECEIPT_UNIT_TYPES, { error: 'must be bucket' }).optional(),
         /** Absent: unchanged. Null or blank: clear the note. */
         note: z
@@ -117,7 +117,7 @@ export type UnresolvedLabLinksResponse = z.infer<typeof unresolvedLabLinksRespon
 
 /**
  * Minimum retain-until date shown on a unit: received date + 1 year (29 February becomes
- * 28 February). Full retention rules, holds and extensions arrive with TRP-T29.
+ * 28 February). Full retention rules, holds and extensions arrive with MM-T29.
  */
 export function minimumRetainUntil(receivedDate: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(receivedDate);

@@ -1,4 +1,4 @@
-import type { Printer, putPrintersRequestSchema } from '@trapezoid/shared';
+import type { Printer, putPrintersRequestSchema } from '@materialmule/shared';
 import type { Pool } from 'pg';
 import type { z } from 'zod';
 import { recordAudit } from '../audit/audit.js';
@@ -7,7 +7,7 @@ import type { AuthUser } from '../auth/policy.js';
 import type { AppConfig } from '../config/env.js';
 import { withTransaction } from '../db/transaction.js';
 
-// Printer configuration (TRP-T15). Server-side only: print requests name a printer key, never an
+// Printer configuration (MM-T15). Server-side only: print requests name a printer key, never an
 // address. Printers are never deleted (jobs reference them); turn one off with `enabled`.
 
 export const CONFIG_PRINTER_KEY = 'receiving';

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// TRP-T05 against the mock Microsoft tenant (apps/api/src/test-support/mock-oidc.ts). Every
+// MM-T05 against the mock Microsoft tenant (apps/api/src/test-support/mock-oidc.ts). Every
 // account here is fictional. Real-account verification (card T6) is manual and needs IT's
 // app registration.
 
@@ -37,7 +37,7 @@ test('T5: position setup interrupted, resumed and saved once', async ({ page }, 
 
   // Saved once: the API refuses a second save, and the next sign-in skips setup.
   const again = await page.request.post('/api/me/position', {
-    headers: { 'x-trapezoid-csrf': '1' },
+    headers: { 'x-materialmule-csrf': '1' },
     data: { position: 'technician' },
   });
   expect(again.status()).toBe(409);

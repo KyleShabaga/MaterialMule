@@ -1,4 +1,4 @@
-import type { StorageUnitLookupResponse } from '@trapezoid/shared';
+import type { StorageUnitLookupResponse } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { scanLookup } from './api';
 import {
@@ -43,7 +43,7 @@ function stopStream(stream: MediaStream | null) {
 }
 
 /**
- * Full-screen phone-camera scanner (TRP-T17). It only exists after the user taps "Scan with
+ * Full-screen phone-camera scanner (MM-T17). It only exists after the user taps "Scan with
  * camera", so the camera permission prompt never appears before that. Decodes Code 128 or QR
  * locally through the decoder adapter (~10 fps, capped resolution), looks the code up once with
  * T12's lookup and hands the unit to `onFound`. The stream stops on close, unmount (route
@@ -347,7 +347,7 @@ const PROBLEM_TEXT: Record<CameraProblem, { title: string; body: string[] }> = {
   insecure: {
     title: 'The camera needs a secure (HTTPS) connection',
     body: [
-      'Browsers only allow the camera on pages opened with https://. Open Trapezoid at its https:// office address (ask whoever looks after the Trapezoid PC), then try again.',
+      'Browsers only allow the camera on pages opened with https://. Open Material Mule at its https:// office address (ask whoever looks after the Material Mule PC), then try again.',
       'Until then, type the storage unit ID below.',
     ],
   },
@@ -361,7 +361,9 @@ const PROBLEM_TEXT: Record<CameraProblem, { title: string; body: string[] }> = {
   },
   no_camera: {
     title: 'No camera found',
-    body: ['This device or browser has no camera Trapezoid can use. Type the ID below instead.'],
+    body: [
+      'This device or browser has no camera Material Mule can use. Type the ID below instead.',
+    ],
   },
   in_use: {
     title: 'The camera is busy',

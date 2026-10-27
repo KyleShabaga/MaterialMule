@@ -4,7 +4,7 @@ import type {
   MeResponse,
   StorageUnitDetail,
   StorageUnitHistoryPage,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -14,7 +14,7 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { inventorySearchParams, readInventoryQuery } from './url-state';
 
-// Fictional data only (TRP-T12): DEMO-2601, TH26-01, receiver AT.
+// Fictional data only (MM-T12): DEMO-2601, TH26-01, receiver AT.
 
 const PROJECT = {
   id: '00000000-0000-4000-8000-000000000201',
@@ -180,7 +180,7 @@ describe('inventory URL state', () => {
   });
 });
 
-describe('Sample Storage inventory (TRP-T12)', () => {
+describe('Sample Storage inventory (MM-T12)', () => {
   it('shows the count and rows, and sends search and filters to the server via the URL', async () => {
     const fetchMock = stubApi((url) => {
       if (url.pathname === '/api/inventory') {
@@ -292,7 +292,7 @@ describe('Sample Storage inventory (TRP-T12)', () => {
   });
 });
 
-describe('storage unit detail (TRP-T12)', () => {
+describe('storage unit detail (MM-T12)', () => {
   function stubDetail() {
     return stubApi((url) => {
       if (url.pathname === `/api/storage-units/${DETAIL.readableId}`) return json(200, DETAIL);

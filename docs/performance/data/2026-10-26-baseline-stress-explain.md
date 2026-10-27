@@ -1,4 +1,4 @@
-# EXPLAIN (ANALYZE, BUFFERS): trapezoid_test_t19
+# EXPLAIN (ANALYZE, BUFFERS): materialmule_test_t19
 
 Seed 20261025, 5 draws per request kind, run 2026-10-26T21:51:43.808Z.
 Database execution time per request (all statements of the endpoint), warm cache.

@@ -1,8 +1,8 @@
-// Packs a self-contained release folder for the Windows host (TRP-T20):
-//   release/trapezoid-<version>/ with the built API and web app, migrations, reference seed,
+// Packs a self-contained release folder for the Windows host (MM-T20):
+//   release/materialmule-<version>/ with the built API and web app, migrations, reference seed,
 //   production node_modules (from the lockfile) and the deploy scripts, plus release.json.
 // Run after `npm run verify` (it needs the builds). Copy the folder to the host and run
-// deploy\windows\Deploy-Trapezoid.ps1 -Release <folder>. See docs/operations/runbook.md.
+// deploy\windows\Deploy-MaterialMule.ps1 -Release <folder>. See docs/operations/runbook.md.
 //
 // Usage: node scripts/pack-release.mjs [--out <dir>] [--allow-dirty] [--skip-install]
 //   --skip-install leaves out node_modules (for tests only; such a release cannot run).
@@ -26,14 +26,14 @@ export const RELEASE_FILES = [
   'apps/api/seed/reference.sql',
   'apps/web/package.json',
   'apps/web/dist',
-  'deploy/windows/Deploy-Trapezoid.ps1',
-  'deploy/windows/Install-TrapezoidHost.ps1',
-  'deploy/windows/TrapezoidHosting.psm1',
+  'deploy/windows/Deploy-MaterialMule.ps1',
+  'deploy/windows/Install-MaterialMuleHost.ps1',
+  'deploy/windows/MaterialMuleHosting.psm1',
   'deploy/windows/host.config.example.psd1',
-  'deploy/windows/trapezoid.env.example',
+  'deploy/windows/materialmule.env.example',
   'deploy/windows/migrate.env.example',
-  // Backups, restore drills and monitoring (TRP-T21).
-  'deploy/windows/TrapezoidOps.psm1',
+  // Backups, restore drills and monitoring (MM-T21).
+  'deploy/windows/MaterialMuleOps.psm1',
   'deploy/windows/backup.ps1',
   'deploy/windows/restore.ps1',
   'deploy/windows/monitor.ps1',
@@ -74,7 +74,7 @@ export function releaseVersion(root = ROOT, { allowDirty = false } = {}) {
  * absolute junctions, which would point back at the build machine once the folder is copied.
  */
 function materializeWorkspaces(dir) {
-  const scope = join(dir, 'node_modules', '@trapezoid');
+  const scope = join(dir, 'node_modules', '@materialmule');
   rmSync(scope, { recursive: true, force: true });
   mkdirSync(join(scope, 'shared'), { recursive: true });
   cpSync(join(dir, 'packages/shared/package.json'), join(scope, 'shared/package.json'));
@@ -89,7 +89,7 @@ export function packRelease({ root = ROOT, out, allowDirty = false, skipInstall 
   }
   const { version, commit } = releaseVersion(root, { allowDirty });
   const outDir = resolve(out ?? join(root, 'release'));
-  const dir = join(outDir, `trapezoid-${version}`);
+  const dir = join(outDir, `materialmule-${version}`);
   if (existsSync(dir)) {
     throw new Error(`${dir} already exists; delete it first.`);
   }

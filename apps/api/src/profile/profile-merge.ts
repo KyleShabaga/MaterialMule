@@ -1,4 +1,4 @@
-// Merging Microsoft profile data into the app user (TRP-T05). Pure, so the rules are unit tested.
+// Merging Microsoft profile data into the app user (MM-T05). Pure, so the rules are unit tested.
 // - A successful Graph read is the truth, including fields that are now blank.
 // - A failed read never overwrites a known value: the last known profile stays.
 // - Official initials are confirmed by an admin and are never set or changed here.

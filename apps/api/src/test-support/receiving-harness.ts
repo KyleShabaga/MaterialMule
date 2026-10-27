@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import type { INestApplication } from '@nestjs/common';
-import type { ConfirmReceiptRequestInput } from '@trapezoid/shared';
+import type { ConfirmReceiptRequestInput } from '@materialmule/shared';
 import request from 'supertest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
@@ -12,7 +12,7 @@ import { runSeed } from '../db/seed.js';
 import { createMigratedSchema, databaseUrlForSchema, type TestSchema } from './database.js';
 import { insertProject, insertTestHole } from './fixtures.js';
 
-// A listening API on its own schema with fictional receiving data (TRP-T18 concurrency and
+// A listening API on its own schema with fictional receiving data (MM-T18 concurrency and
 // failure-injection tests): the reference seed (LAB, Receiving lab), receiver AT, PM/PE PE and
 // project DEMO-2601 with TH26-01 and TH26-02. stop() and start() simulate the API process going
 // away and coming back on the same database.

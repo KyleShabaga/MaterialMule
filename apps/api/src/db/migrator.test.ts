@@ -92,7 +92,7 @@ describe.runIf(testDatabaseUrl)('migrate', () => {
               (SELECT count(*)::int FROM local_credential) AS passwords,
               (SELECT count(*)::int FROM location) AS locations`,
     );
-    // TRP-T06: the shared LAB account exists, but with no password until an admin sets one.
+    // MM-T06: the shared LAB account exists, but with no password until an admin sets one.
     expect(rows[0]).toEqual({ projects: 0, people: 0, lab: 1, passwords: 0, locations: 1 });
   });
 
@@ -109,7 +109,7 @@ describe.runIf(testDatabaseUrl)('migrate', () => {
       { project_number: 'DEMO-2601', holes: 3 },
       { project_number: 'DEMO-2602', holes: 3 },
     ]);
-    // Inventory demo units (TRP-T12), with their search documents.
+    // Inventory demo units (MM-T12), with their search documents.
     const units = await db.pool.query(
       `SELECT count(*)::int AS units, (SELECT count(*)::int FROM storage_unit_search) AS indexed
        FROM storage_unit`,

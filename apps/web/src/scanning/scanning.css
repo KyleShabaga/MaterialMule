@@ -1,4 +1,4 @@
-/* ---- Scanning (TRP-T16) ---- */
+/* ---- Scanning (MM-T16) ---- */
 
 .scan-panel {
   position: relative;
@@ -166,7 +166,7 @@
   max-width: 48rem;
 }
 
-/* ---- Phone-camera scanner (TRP-T17) ---- */
+/* ---- Phone-camera scanner (MM-T17) ---- */
 
 .camera-scan-button {
   margin-top: 0.75rem;

@@ -3,7 +3,7 @@ import { signInAs } from './support/auth';
 import { cameraState, installFakeCamera, labelCrop, labelImage } from './support/fake-camera';
 import { insertInventoryFixture } from './support/inventory';
 
-// TRP-T17: phone-camera scanning against a fake camera that films a generated T14 label, decoded
+// MM-T17: phone-camera scanning against a fake camera that films a generated T14 label, decoded
 // by the app's real decoder (ZXing WebAssembly; headless Chromium has no BarcodeDetector).
 // 127.0.0.1 counts as a secure context, as HTTPS will on the office network (T20).
 
@@ -51,7 +51,7 @@ for (const symbol of ['code128', 'qr'] as const) {
     expect(lookups).toEqual([data.a1]);
     // AC5: leaving the scanner stopped the camera.
     expect(await cameraState(page)).toEqual({ calls: 1, live: 0 });
-    // The decoder came from Trapezoid itself, as WebAssembly.
+    // The decoder came from Material Mule itself, as WebAssembly.
     expect(wasm).toEqual(['application/wasm']);
   });
 }

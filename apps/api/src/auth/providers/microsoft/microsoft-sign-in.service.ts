@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import type { MicrosoftCallbackRequest, MicrosoftSignInError } from '@trapezoid/shared';
+import type { MicrosoftCallbackRequest, MicrosoftSignInError } from '@materialmule/shared';
 import { recordAudit, type AuditActor } from '../../../audit/audit.js';
 import { APP_CONFIG } from '../../../config/config.constants.js';
 import type { AppConfig } from '../../../config/env.js';
@@ -55,10 +55,10 @@ export function reasonForProviderError(input: MicrosoftCallbackRequest): Microso
 }
 
 /**
- * Orchestrates Microsoft sign-in (TRP-T05): remembers each attempt server-side (state, nonce,
+ * Orchestrates Microsoft sign-in (MM-T05): remembers each attempt server-side (state, nonce,
  * PKCE verifier, bound to the browser by a cookie), completes it through the provider, links the
  * identity on tenant + object ID, imports the profile from Graph, applies the bootstrap admin,
- * and issues the app session from TRP-T04.
+ * and issues the app session from MM-T04.
  */
 @Injectable()
 export class MicrosoftSignInService {
@@ -176,7 +176,7 @@ export class MicrosoftSignInService {
       const claims = { name: identity.name, preferredUsername: identity.preferredUsername };
       let created = false;
 
-      // First sign-in for someone an admin added ahead of time (TRP-T07 AC6): link that entry
+      // First sign-in for someone an admin added ahead of time (MM-T07 AC6): link that entry
       // instead of creating a new pending user. Graph's UPN is preferred over the token claim.
       const upn = graph?.userPrincipalName ?? identity.preferredUsername;
       if (!row && upn) {

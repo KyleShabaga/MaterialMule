@@ -4,7 +4,7 @@
 //
 // Usage: node scripts/check-bundle-secrets.mjs      (repo: apps/web/dist with apps/api/.env*)
 //        node scripts/check-bundle-secrets.mjs --dir <web dist> --logs <log dir> --env-file <env>
-//        (production host, TRP-T20; each option may repeat). Logs are checked for values only:
+//        (production host, MM-T20; each option may repeat). Logs are checked for values only:
 //        a log may name a setting ("DATABASE_URL is required") but must never hold its value.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';

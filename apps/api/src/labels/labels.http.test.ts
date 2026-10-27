@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import type { INestApplication } from '@nestjs/common';
 import { Resvg } from '@resvg/resvg-js';
-import { labelPreviewSchema, receiptLabelPreviewsSchema } from '@trapezoid/shared';
+import { labelPreviewSchema, receiptLabelPreviewsSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
@@ -59,7 +59,7 @@ async function decode(svg: string) {
     .sort();
 }
 
-describe.runIf(testDatabaseUrl)('label preview API (TRP-T39)', () => {
+describe.runIf(testDatabaseUrl)('label preview API (MM-T39)', () => {
   let db: TestSchema;
   let app: INestApplication;
   const cookies: Record<string, string> = {};

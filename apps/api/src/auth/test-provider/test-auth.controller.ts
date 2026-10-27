@@ -39,7 +39,7 @@ export interface TestFixtureView {
 }
 
 /**
- * Development/test-only sign-in (TRP-T33). AppModule registers this controller only when
+ * Development/test-only sign-in (MM-T33). AppModule registers this controller only when
  * APP_ENV is development or test AND ENABLE_TEST_AUTH=true; production can't even start with
  * the flag set, so these routes 404 there. No passwords, tokens or Microsoft calls are involved.
  */

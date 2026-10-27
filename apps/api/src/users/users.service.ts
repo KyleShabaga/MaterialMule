@@ -6,7 +6,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 
 /**
- * Refuses a change that would leave no active admin (TRP-T07 AC7). Locks every admin role row
+ * Refuses a change that would leave no active admin (MM-T07 AC7). Locks every admin role row
  * first, so two admins demoting or disabling each other at the same time are serialized and the
  * second one sees the first one's change. Call inside the transaction that makes the change.
  */
@@ -29,7 +29,7 @@ export async function assertAnotherActiveAdmin(
     throw new UnprocessableEntityException({
       code: 'last_admin',
       message:
-        'Trapezoid needs at least one active administrator. Make someone else an admin first.',
+        'Material Mule needs at least one active administrator. Make someone else an admin first.',
     });
   }
 }
@@ -43,7 +43,7 @@ export class UsersService {
 
   /**
    * Disables a user and revokes every session in the same transaction, so the next request with
-   * any of their cookies fails. History keeps their attribution. Used by staff admin (TRP-T07).
+   * any of their cookies fails. History keeps their attribution. Used by staff admin (MM-T07).
    */
   async disable(
     userId: string,

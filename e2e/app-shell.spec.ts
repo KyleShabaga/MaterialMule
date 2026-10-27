@@ -8,7 +8,7 @@ test('signed-out visitors land on sign-in and return to where they were going', 
   await expect(page).toHaveURL(/\/sign-in\?returnTo=%2Fprojects/);
   await page.getByRole('link', { name: 'Test sign-in (development only)' }).click();
   await page.getByRole('button', { name: 'Alex Tester' }).click();
-  await page.getByRole('link', { name: 'Continue to Trapezoid' }).click();
+  await page.getByRole('link', { name: 'Continue to Material Mule' }).click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
 });
@@ -35,7 +35,7 @@ test('AC1/AC4: header identity, menu and Receive samples', async ({ page }) => {
 
   await menu.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('link', { name: 'Receive samples' }).click();
-  // The open receipt draft's ID is added to the URL (TRP-T11).
+  // The open receipt draft's ID is added to the URL (MM-T11).
   await expect(page).toHaveURL(/\/receiving-log\/new(\?draft=[\w-]+)?$/);
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();
 });

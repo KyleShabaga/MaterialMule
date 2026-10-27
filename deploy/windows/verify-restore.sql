@@ -1,4 +1,4 @@
--- Trapezoid restore verification (TRP-T21). Read-only: safe on production and on a restored copy.
+-- Material Mule restore verification (MM-T21). Read-only: safe on production and on a restored copy.
 --
 -- backup.ps1 runs it against production around each pg_dump and stores the output with the backup
 -- (<name>.manifest.json); restore.ps1 runs it against the restored database and compares the two

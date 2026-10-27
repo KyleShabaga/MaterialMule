@@ -6,7 +6,7 @@ import {
   type StorageUnitDetail,
   type StorageUnitHistoryEvent,
   type StorageUnitHistoryPage,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { EmptyState, ErrorState, PageHeader } from '../components/ui';
@@ -42,8 +42,8 @@ function person(initials: string | null, name: string | null): string {
 }
 
 /**
- * Storage unit detail (TRP-T12): project and client, SAMPLE#/DEPTH summaries, receipt, saved
- * location, history and labels. Personal accounts can correct details (TRP-T13); moves (T28) and
+ * Storage unit detail (MM-T12): project and client, SAMPLE#/DEPTH summaries, receipt, saved
+ * location, history and labels. Personal accounts can correct details (MM-T13); moves (T28) and
  * holds (T29) arrive with their cards.
  */
 export function StorageUnitDetailPage() {
@@ -212,11 +212,11 @@ export function StorageUnitDetailPage() {
           <Detail term="Saved location">
             {unit.location.name} ({unit.location.code})
           </Detail>
-          <Detail term="Pending move">None. Queued moves arrive with TRP-T28.</Detail>
+          <Detail term="Pending move">None. Queued moves arrive with MM-T28.</Detail>
           <Detail term="Retain until (minimum)">{unit.minimumRetainUntil}</Detail>
         </dl>
         <p className="field-hint">
-          Received date + 1 year. Holds and full retention rules arrive with TRP-T29.
+          Received date + 1 year. Holds and full retention rules arrive with MM-T29.
         </p>
       </section>
 

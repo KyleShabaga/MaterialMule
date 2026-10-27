@@ -10,7 +10,7 @@ import type {
   ConfirmReceiptResponse,
   FieldError,
   ReceiptUnitInput,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import type { AuthUser } from '../auth/policy.js';
@@ -52,7 +52,7 @@ interface ExistingReceipt {
 }
 
 /**
- * Online receipt confirmation (TRP-T09): turns a completed receiving draft into a receipt and its
+ * Online receipt confirmation (MM-T09): turns a completed receiving draft into a receipt and its
  * storage units in one transaction, safe to retry with the same idempotency key.
  *
  * Isolation: READ COMMITTED is enough. ID allocation serialises on the counter row lock

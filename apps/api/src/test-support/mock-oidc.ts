@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { SignJWT, exportJWK, generateKeyPair, type JWK } from 'jose';
 
-// A fake Microsoft Entra ID tenant plus Microsoft Graph /me, for tests only (TRP-T05). Every user
+// A fake Microsoft Entra ID tenant plus Microsoft Graph /me, for tests only (MM-T05). Every user
 // and identifier here is fictional. It speaks just enough OpenID Connect for the real client code:
 // discovery, JWKS, an authorize endpoint (a page of buttons, or an automatic choice for API
 // tests), a token endpoint that checks PKCE and the client secret, and Graph /v1.0/me.
@@ -123,7 +123,7 @@ export function fictionalUsers(): MockUser[] {
       extraClaims: { idp: 'https://sts.windows.net/99999999-8888-4777-8666-555555555555/' },
     }),
     user('nograph', 8, 'Graph Failure', { graphStatus: 503 }),
-    // Added by an admin before their first sign-in (TRP-T07 AC6).
+    // Added by an admin before their first sign-in (MM-T07 AC6).
     user('jordan', 9, 'Jordan Ahead'),
   ];
 }

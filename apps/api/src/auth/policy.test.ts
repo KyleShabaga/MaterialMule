@@ -124,7 +124,7 @@ describe('can', () => {
     expect(can(delegate, 'program.priority.set', project)).toBe(false);
   });
 
-  it('TRP-T35: admins and the project PM/PE edit a project; only admins change the PM/PE', () => {
+  it('MM-T35: admins and the project PM/PE edit a project; only admins change the PM/PE', () => {
     const admin = user({ userId: 'u-admin', roles: ['admin'] });
     const pe = user({ userId: 'u-pe' });
     const lm = user({ userId: 'u-lm', roles: ['lab_manager'] });

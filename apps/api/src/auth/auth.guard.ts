@@ -12,7 +12,7 @@ import { can } from './policy.js';
 import { SESSION_COOKIE, readCookie } from './session-cookie.js';
 import { SessionService } from './session.service.js';
 
-export const CSRF_HEADER = 'x-trapezoid-csrf';
+export const CSRF_HEADER = 'x-materialmule-csrf';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**

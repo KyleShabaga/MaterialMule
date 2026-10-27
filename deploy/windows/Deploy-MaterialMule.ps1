@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-Deploys a packed Trapezoid release on the Windows host, or rolls back to an earlier one (TRP-T20).
+Deploys a packed Material Mule release on the Windows host, or rolls back to an earlier one (MM-T20).
 
 .DESCRIPTION
 Deploy: back up the database (BackupScript) -> copy the release to releases\<version> -> stop the
@@ -17,10 +17,10 @@ release is unchanged.
 Run from an elevated PowerShell 7 prompt on the host. See docs\operations\runbook.md.
 
 .EXAMPLE
-.\Deploy-Trapezoid.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -Release D:\trapezoid-0.2.0-ab12cd3 -WhatIf
+.\Deploy-MaterialMule.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -Release D:\materialmule-0.2.0-ab12cd3 -WhatIf
 
 .EXAMPLE
-.\Deploy-Trapezoid.ps1 -ConfigPath C:\Trapezoid\config\host.config.psd1 -Rollback
+.\Deploy-MaterialMule.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -Rollback
 #>
 [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Deploy')]
 param(
@@ -33,14 +33,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 # Reuses the module if it is already loaded (the automated tests load it first).
-Import-Module (Join-Path $PSScriptRoot 'TrapezoidHosting.psm1')
+Import-Module (Join-Path $PSScriptRoot 'MaterialMuleHosting.psm1')
 
 try {
-    $config = Get-TrapezoidHostConfig -Path $ConfigPath
+    $config = Get-MaterialMuleHostConfig -Path $ConfigPath
     if ($PSCmdlet.ParameterSetName -eq 'Rollback') {
-        $result = Invoke-TrapezoidRollback -Config $config -ToVersion $ToVersion -WhatIf:$WhatIfPreference
+        $result = Invoke-MaterialMuleRollback -Config $config -ToVersion $ToVersion -WhatIf:$WhatIfPreference
     } else {
-        $result = Invoke-TrapezoidDeploy -Config $config -ReleasePath $Release -SkipBackup:$SkipBackup -WhatIf:$WhatIfPreference
+        $result = Invoke-MaterialMuleDeploy -Config $config -ReleasePath $Release -SkipBackup:$SkipBackup -WhatIf:$WhatIfPreference
     }
 } catch {
     Write-Host "Stopped: $($_.Exception.Message)" -ForegroundColor Red

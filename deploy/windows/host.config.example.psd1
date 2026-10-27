@@ -1,36 +1,36 @@
-# Trapezoid host configuration (TRP-T20). Copy to <InstallRoot>\config\host.config.psd1 on the host
+# Material Mule host configuration (MM-T20). Copy to <InstallRoot>\config\host.config.psd1 on the host
 # and fill in the values marked IT INPUT. This is a data file: PowerShell reads it without running
 # code. It holds no secrets; those live in the env files below.
 @{
     # Where releases, configuration, logs and the service wrapper live.
-    InstallRoot             = 'C:\Trapezoid'
+    InstallRoot             = 'C:\MaterialMule'
     # Windows service name (also the WinSW id).
-    ServiceName             = 'Trapezoid'
+    ServiceName             = 'MaterialMule'
     # Node.js 24 LTS, installed by hand (runbook step 1).
     NodeExe                 = 'C:\Program Files\nodejs\node.exe'
 
-    # Env files. Defaults: <InstallRoot>\config\trapezoid.env (service account can read) and
+    # Env files. Defaults: <InstallRoot>\config\materialmule.env (service account can read) and
     # <InstallRoot>\config\admin\migrate.env (administrators only). Uncomment to override.
-    # ServiceEnvFile        = 'C:\Trapezoid\config\trapezoid.env'
-    # MigrationEnvFile      = 'C:\Trapezoid\config\admin\migrate.env'
+    # ServiceEnvFile        = 'C:\MaterialMule\config\materialmule.env'
+    # MigrationEnvFile      = 'C:\MaterialMule\config\admin\migrate.env'
 
     # IT INPUT: the production host name IT approves, with the certificate issued for it.
-    HealthUrl               = 'https://trapezoid.example.internal/api/health'
+    HealthUrl               = 'https://materialmule.example.internal/api/health'
     HealthTimeoutSeconds    = 90
     ServiceStopTimeoutSeconds = 60
     # Releases kept on disk for rollback (at least 2).
     KeepReleases            = 5
 
-    # Pre-deploy database backup (TRP-T21). The backup design is deferred (D39): until IT has
+    # Pre-deploy database backup (MM-T21). The backup design is deferred (D39): until IT has
     # decided and backup.config.psd1 is filled in, leave both empty, back up by hand and deploy
     # with -SkipBackup. Then set:
-    #   BackupScript = 'C:\Trapezoid\current\deploy\windows\backup.ps1'
-    #   BackupConfig = 'C:\Trapezoid\config\backup.config.psd1'
+    #   BackupScript = 'C:\MaterialMule\current\deploy\windows\backup.ps1'
+    #   BackupConfig = 'C:\MaterialMule\config\backup.config.psd1'
     BackupScript            = ''
     BackupConfig            = ''
 
     # IT INPUT: dedicated low-privilege account the service runs as. Recommended: the virtual
-    # account 'NT SERVICE\Trapezoid' (no password) or a gMSA 'DOMAIN\svc-trapezoid$'. A normal
+    # account 'NT SERVICE\MaterialMule' (no password) or a gMSA 'DOMAIN\svc-materialmule$'. A normal
     # account with a password also works: WinSW then prompts for it at install.
     ServiceAccount          = ''
 

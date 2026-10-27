@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { LabRequestLink } from '@trapezoid/shared';
+import type { LabRequestLink } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 
 /**
@@ -13,7 +13,7 @@ export interface LabRequestLinkChecker {
 
 export const LAB_REQUEST_LINK_CHECKER = Symbol('LabRequestLinkChecker');
 
-/** Lab requests don't exist until TRP-T23, so nothing can be linked yet. */
+/** Lab requests don't exist until MM-T23, so nothing can be linked yet. */
 @Injectable()
 export class NoLabRequestLinks implements LabRequestLinkChecker {
   unresolvedLinks(): Promise<LabRequestLink[]> {

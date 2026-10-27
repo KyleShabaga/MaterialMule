@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Label preview (TRP-T39): the T14 sticker as a real-size SVG, for the screen and for
+// Label preview (MM-T39): the T14 sticker as a real-size SVG, for the screen and for
 // Print → Save as PDF. Previewing never creates a print job or an audit event.
 
 /** `GET /api/storage-units/:id/label/preview`. */

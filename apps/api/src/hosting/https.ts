@@ -23,7 +23,7 @@ function readKeyFile(key: 'TLS_PFX_FILE' | 'TLS_CERT_FILE' | 'TLS_KEY_FILE', pat
 }
 
 /**
- * HTTPS options for the configured certificate (TRP-T20), or undefined when the API serves plain
+ * HTTPS options for the configured certificate (MM-T20), or undefined when the API serves plain
  * HTTP (development, test, E2E). TLS 1.2 is the floor; Node's default ciphers apply.
  */
 export function httpsOptionsFrom(config: AppConfig): ServerOptions | undefined {

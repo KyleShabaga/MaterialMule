@@ -1,4 +1,4 @@
-/* Label preview and print view (TRP-T39). The print page's @page rule lives in LabelPrintPage. */
+/* Label preview and print view (MM-T39). The print page's @page rule lives in LabelPrintPage. */
 
 .label-preview-frame {
   overflow-x: auto;

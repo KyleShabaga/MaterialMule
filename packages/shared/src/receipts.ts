@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Online receipt confirmation, `POST /api/receipts` (TRP-T09). Receiving is per storage unit with
+// Online receipt confirmation, `POST /api/receipts` (MM-T09). Receiving is per storage unit with
 // one SAMPLE#/DEPTH summary per test hole; there are no individual sample records here.
 
 /** Hard limit on storage units per receipt (owner decision 2026-10-25; also a database CHECK). */
@@ -9,7 +9,7 @@ export const MAX_UNITS_PER_RECEIPT = 50;
 export const HOLE_SUMMARY_TYPES = ['all', 'sample_range', 'depth_range', 'custom'] as const;
 export type HoleSummaryType = (typeof HOLE_SUMMARY_TYPES)[number];
 
-/** Unit types this increment can confirm. Shelby tubes and bulk containers arrive in TRP-T36. */
+/** Unit types this increment can confirm. Shelby tubes and bulk containers arrive in MM-T36. */
 export const RECEIPT_UNIT_TYPES = ['bucket'] as const;
 
 /** Largest depth `numeric(8, 2)` can hold. */
@@ -53,7 +53,7 @@ export const holeSummaryInputSchema = z
     note: optionalText(500),
   })
   .superRefine((summary, ctx) => {
-    // Same shape rules as the database's summary_shape_check (TRP-T02).
+    // Same shape rules as the database's summary_shape_check (MM-T02).
     const issue = (field: string, code: string, message: string) =>
       ctx.addIssue({ code: 'custom', path: [field], message, params: { code } });
     const mustBeEmpty = (fields: (keyof typeof summary)[]) => {

@@ -1,4 +1,4 @@
-import type { ConfirmReceiptResponse } from '@trapezoid/shared';
+import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
@@ -8,8 +8,8 @@ import { VerifyLabelsPanel } from '../scanning/VerifyLabelsPanel';
 import { formatSummaryValue, unitName, type ReceiptDraft } from './draft';
 
 /**
- * Step 3 (TRP-T10): the issued storage unit IDs (BKT- for buckets) with Print all, Print one
- * (TRP-T15 print queue), Preview label and Print / Save as PDF (TRP-T39) and Open storage unit.
+ * Step 3 (MM-T10): the issued storage unit IDs (BKT- for buckets) with Print all, Print one
+ * (MM-T15 print queue), Preview label and Print / Save as PDF (MM-T39) and Open storage unit.
  * Print views open in a new tab so this step stays on screen.
  */
 export function LabelsStep({

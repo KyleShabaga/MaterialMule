@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { percentile, summarise } from './stats.js';
 
-describe('latency percentiles (TRP-T19)', () => {
+describe('latency percentiles (MM-T19)', () => {
   it('uses the nearest rank', () => {
     const values = Array.from({ length: 100 }, (_, i) => i + 1);
     expect(percentile(values, 50)).toBe(50);

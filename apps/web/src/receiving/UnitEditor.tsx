@@ -11,7 +11,7 @@ import { SummaryEditor } from './SummaryEditor';
 import { TestHolePicker } from './TestHolePicker';
 
 /**
- * One storage unit row (TRP-T10): its type, the test holes it holds with one summary each, and
+ * One storage unit row (MM-T10): its type, the test holes it holds with one summary each, and
  * an optional note. Never asks for individual samples.
  */
 export function UnitEditor({

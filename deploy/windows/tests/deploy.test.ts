@@ -1,4 +1,4 @@
-// Automated tests for the Windows deploy scripts (TRP-T20). They run the real PowerShell scripts
+// Automated tests for the Windows deploy scripts (MM-T20). They run the real PowerShell scripts
 // against temp folders. Only Windows service control is faked (tests/harness.ps1): nothing here
 // registers a service, opens a firewall port or changes system settings.
 import { spawnSync } from 'node:child_process';
@@ -86,7 +86,7 @@ function makeRelease(
   version: string,
   options: { healthy?: boolean; migrationFails?: boolean } = {},
 ): string {
-  const dir = join(parent, `trapezoid-${version}`);
+  const dir = join(parent, `materialmule-${version}`);
   mkdirSync(join(dir, 'apps', 'api', 'dist', 'db'), { recursive: true });
   mkdirSync(join(dir, 'apps', 'web', 'dist'), { recursive: true });
   writeFileSync(
@@ -103,7 +103,7 @@ function makeRelease(
   return dir;
 }
 
-describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
+describe.runIf(isWindows)('Deploy-MaterialMule.ps1 (MM-T20)', () => {
   let work: string;
   let root: string;
   let port: number;
@@ -131,7 +131,7 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
   const deploy = (...args: string[]) => pwsh(['-File', HARNESS, ...args], env);
 
   beforeAll(async () => {
-    work = mkdtempSync(join(tmpdir(), 'trapezoid-deploy-'));
+    work = mkdtempSync(join(tmpdir(), 'materialmule-deploy-'));
     root = join(work, 'host');
     sources = join(work, 'incoming');
     mkdirSync(join(root, 'config', 'admin'), { recursive: true });
@@ -146,7 +146,7 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
     };
     // Fictional connection strings: which one reaches the migration step is what matters.
     writeFileSync(
-      join(root, 'config', 'trapezoid.env'),
+      join(root, 'config', 'materialmule.env'),
       'APP_ENV=production\nDATABASE_URL=postgres://fake_app@127.0.0.1:5432/fake\n',
     );
     writeFileSync(
@@ -157,7 +157,7 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
     writeFileSync(backup, `Add-Content -LiteralPath $env:T20_FAKE_LOG -Value 'backup'\n`);
     const common = {
       InstallRoot: root,
-      ServiceName: 'TrapezoidT20TestNoSuchService',
+      ServiceName: 'MaterialMuleT20TestNoSuchService',
       NodeExe: process.execPath,
       HealthUrl: `http://127.0.0.1:${port}/api/health`,
       HealthTimeoutSeconds: 8,
@@ -192,7 +192,7 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
   });
 
   it('refuses to deploy without a backup step, before changing anything', () => {
-    const release = join(sources, 'trapezoid-1.0.0-aaaaaa1');
+    const release = join(sources, 'materialmule-1.0.0-aaaaaa1');
     const result = deploy('-ConfigPath', configNoBackup, '-Release', release);
     expect(result.code, result.output).toBe(3);
     expect(result.output).toContain('No BackupScript is configured');
@@ -201,7 +201,7 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
   });
 
   it('installs the first release: migrate as the migration role, start, health check', async () => {
-    const release = join(sources, 'trapezoid-1.0.0-aaaaaa1');
+    const release = join(sources, 'materialmule-1.0.0-aaaaaa1');
     const result = deploy('-ConfigPath', config, '-Release', release);
     expect(result.code, result.output).toBe(0);
     expect(log()).toEqual([
@@ -271,7 +271,7 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
       '-ConfigPath',
       config,
       '-Release',
-      join(sources, 'trapezoid-1.0.0-aaaaaa1'),
+      join(sources, 'materialmule-1.0.0-aaaaaa1'),
     );
     expect(result.code, result.output).toBe(3);
     expect(result.output).toContain('already on this host');
@@ -298,11 +298,11 @@ describe.runIf(isWindows)('Deploy-Trapezoid.ps1 (TRP-T20)', () => {
   });
 });
 
-describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
+describe.runIf(isWindows)('host setup helpers (MM-T20)', () => {
   let work: string;
 
   beforeAll(() => {
-    work = mkdtempSync(join(tmpdir(), 'trapezoid-host-'));
+    work = mkdtempSync(join(tmpdir(), 'materialmule-host-'));
   });
 
   afterAll(() => {
@@ -310,7 +310,7 @@ describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
   });
 
   function moduleCommand(script: string) {
-    const module = psString(join(SCRIPTS, 'TrapezoidHosting.psm1'));
+    const module = psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'));
     return pwsh([
       '-Command',
       `$ErrorActionPreference = 'Stop'; Import-Module ${module}; ${script}`,
@@ -320,12 +320,12 @@ describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
   it('writes a WinSW service definition: automatic, restarts with backoff, no password', () => {
     const configPath = join(work, 'svc.psd1');
     writeConfig(configPath, {
-      InstallRoot: 'C:\\Trapezoid',
-      HealthUrl: 'https://trapezoid.example.internal/api/health',
-      ServiceAccount: 'NT SERVICE\\Trapezoid',
+      InstallRoot: 'C:\\MaterialMule',
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceAccount: 'NT SERVICE\\MaterialMule',
     });
     const result = moduleCommand(
-      `New-TrapezoidServiceXml -Config (Get-TrapezoidHostConfig -Path ${psString(configPath)})`,
+      `New-MaterialMuleServiceXml -Config (Get-MaterialMuleHostConfig -Path ${psString(configPath)})`,
     );
     expect(result.code, result.output).toBe(0);
     const xml = result.output;
@@ -335,23 +335,25 @@ describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
     expect(xml.match(/<onfailure action="restart"/g)).toHaveLength(3);
     expect(xml).toContain('<resetfailure>1 hour</resetfailure>');
     expect(xml).toContain('<stopparentprocessfirst>true</stopparentprocessfirst>');
-    expect(xml).toContain('"C:\\Trapezoid\\current\\apps\\api\\dist\\main.js"');
-    expect(xml).toContain('<env name="ENV_FILE" value="C:\\Trapezoid\\config\\trapezoid.env" />');
-    expect(xml).toContain('<logpath>C:\\Trapezoid\\logs</logpath>');
+    expect(xml).toContain('"C:\\MaterialMule\\current\\apps\\api\\dist\\main.js"');
+    expect(xml).toContain(
+      '<env name="ENV_FILE" value="C:\\MaterialMule\\config\\materialmule.env" />',
+    );
+    expect(xml).toContain('<logpath>C:\\MaterialMule\\logs</logpath>');
     expect(xml).toContain('<domain>NT SERVICE</domain>');
-    expect(xml).toContain('<user>Trapezoid</user>');
+    expect(xml).toContain('<user>MaterialMule</user>');
     expect(xml).not.toMatch(/<password>/i);
   });
 
   it('leaves an account with a password out of the service file', () => {
     const configPath = join(work, 'svc-password.psd1');
     writeConfig(configPath, {
-      InstallRoot: 'C:\\Trapezoid',
-      HealthUrl: 'https://trapezoid.example.internal/api/health',
-      ServiceAccount: 'EXAMPLE\\svc-trapezoid',
+      InstallRoot: 'C:\\MaterialMule',
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceAccount: 'EXAMPLE\\svc-materialmule',
     });
     const result = moduleCommand(
-      `New-TrapezoidServiceXml -Config (Get-TrapezoidHostConfig -Path ${psString(configPath)})`,
+      `New-MaterialMuleServiceXml -Config (Get-MaterialMuleHostConfig -Path ${psString(configPath)})`,
     );
     expect(result.code, result.output).toBe(0);
     expect(result.output).not.toContain('<serviceaccount>');
@@ -359,8 +361,8 @@ describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
 
   it('rejects unknown or missing settings', () => {
     const configPath = join(work, 'bad.psd1');
-    writeConfig(configPath, { InstallRoot: 'C:\\Trapezoid', HelthUrl: 'typo' });
-    const result = moduleCommand(`Get-TrapezoidHostConfig -Path ${psString(configPath)}`);
+    writeConfig(configPath, { InstallRoot: 'C:\\MaterialMule', HelthUrl: 'typo' });
+    const result = moduleCommand(`Get-MaterialMuleHostConfig -Path ${psString(configPath)}`);
     expect(result.code).not.toBe(0);
     expect(result.output).toContain("Unknown setting 'HelthUrl'");
   });
@@ -389,13 +391,15 @@ describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
       'host all all 127.0.0.1/32 scram-sha-256\nhost all all ::1/128 scram-sha-256\n',
     );
 
-    const openResult = moduleCommand(`Test-TrapezoidDatabaseExposure -DataDir ${psString(open)}`);
+    const openResult = moduleCommand(
+      `Test-MaterialMuleDatabaseExposure -DataDir ${psString(open)}`,
+    );
     expect(openResult.output).toContain("listen_addresses includes '*'");
     expect(openResult.output).toContain('pg_hba.conf allows host connections from 0.0.0.0/0');
     expect(openResult.output).toContain('pg_hba.conf trusts 0.0.0.0/0 without a password');
 
     const closedResult = moduleCommand(
-      `(Test-TrapezoidDatabaseExposure -DataDir ${psString(closed)}).Count`,
+      `(Test-MaterialMuleDatabaseExposure -DataDir ${psString(closed)}).Count`,
     );
     expect(closedResult.output.trim()).toBe('0');
   });
@@ -408,15 +412,15 @@ describe.runIf(isWindows)('host setup helpers (TRP-T20)', () => {
     const configPath = join(work, 'install.psd1');
     writeConfig(configPath, {
       InstallRoot: root,
-      ServiceName: 'TrapezoidT20TestNoSuchService',
-      HealthUrl: 'https://trapezoid.example.internal/api/health',
-      ServiceAccount: 'NT SERVICE\\TrapezoidT20TestNoSuchService',
-      PostgresServiceName: 'TrapezoidT20TestNoSuchPostgres',
+      ServiceName: 'MaterialMuleT20TestNoSuchService',
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceAccount: 'NT SERVICE\\MaterialMuleT20TestNoSuchService',
+      PostgresServiceName: 'MaterialMuleT20TestNoSuchPostgres',
       PostgresDataDir: pgData,
     });
     const result = pwsh([
       '-File',
-      join(SCRIPTS, 'Install-TrapezoidHost.ps1'),
+      join(SCRIPTS, 'Install-MaterialMuleHost.ps1'),
       '-ConfigPath',
       configPath,
       '-WhatIf',

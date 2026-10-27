@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { withDatabase } from './db';
 
-// Shared steps for the TRP-T18 critical-path suite: the receiving wizard driven like a person
+// Shared steps for the MM-T18 critical-path suite: the receiving wizard driven like a person
 // would, and a receipt confirmed straight through the API (as the signed-in page) when a test is
 // about what happens to units afterwards. Fictional data only: DEMO-2601, TH26-01/02, AT.
 
@@ -14,7 +14,7 @@ export const DEMO = {
   jordanSmith: '00000000-0000-4000-8000-000000000106',
 };
 
-const CSRF = { 'x-trapezoid-csrf': '1' };
+const CSRF = { 'x-materialmule-csrf': '1' };
 export const BKT_ID = /^BKT-\d{4}-\d{6}$/;
 
 /** A per-test marker (e.g. in a receipt description) so parallel runs never see each other. */
@@ -65,7 +65,7 @@ export async function chooseReceiver(page: Page, search: string, option: string 
 /** Issued storage unit IDs on the labels step, in unit order. */
 export async function issuedIds(page: Page): Promise<string[]> {
   const list = page.getByRole('list', { name: 'New storage units' });
-  // Confirmation retries a lost answer after 0.5 s, 1.5 s and 3 s (TRP-T10), so allow for them.
+  // Confirmation retries a lost answer after 0.5 s, 1.5 s and 3 s (MM-T10), so allow for them.
   await expect(list).toBeVisible({ timeout: 15_000 });
   const ids = await list.getByRole('heading').allTextContents();
   for (const id of ids) expect(id).toMatch(BKT_ID);

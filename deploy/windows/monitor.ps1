@@ -1,8 +1,8 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-Operational health check for the Trapezoid host (TRP-T21), run every 5 minutes by the
-"Trapezoid Monitor" scheduled task.
+Operational health check for the Material Mule host (MM-T21), run every 5 minutes by the
+"Material Mule Monitor" scheduled task.
 
 .DESCRIPTION
 Checks the Windows service, GET /api/health (service and database), the age and result of the
@@ -14,22 +14,22 @@ it changes nothing in the app or the database.
 Exit codes: 0 all checks pass, 1 at least one problem, 2 refused (configuration incomplete).
 
 .EXAMPLE
-.\monitor.ps1 -ConfigPath C:\Trapezoid\config\backup.config.psd1
+.\monitor.ps1 -ConfigPath C:\MaterialMule\config\backup.config.psd1
 #>
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$ConfigPath)
 
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'TrapezoidOps.psm1')
+Import-Module (Join-Path $PSScriptRoot 'MaterialMuleOps.psm1')
 
 try {
-    $config = Get-TrapezoidBackupConfig -Path $ConfigPath -Purpose Monitor
+    $config = Get-MaterialMuleBackupConfig -Path $ConfigPath -Purpose Monitor
 } catch {
     Write-Host "Refused: $($_.Exception.Message)" -ForegroundColor Red
     exit 2
 }
 
-$result = Invoke-TrapezoidMonitorRun -Config $config
+$result = Invoke-MaterialMuleMonitorRun -Config $config
 if ($result.Ok) {
     Write-Host 'All checks pass.'
     exit 0

@@ -1,4 +1,4 @@
-// Tests for scripts/pack-release.mjs (TRP-T20) against a throwaway git repository, so they need
+// Tests for scripts/pack-release.mjs (MM-T20) against a throwaway git repository, so they need
 // no build and no network (--skip-install leaves out node_modules).
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain ESM script without type declarations
 import { packRelease, RELEASE_FILES } from '../scripts/pack-release.mjs';
 
-const MODULE = resolve(import.meta.dirname, 'windows', 'TrapezoidHosting.psm1');
+const MODULE = resolve(import.meta.dirname, 'windows', 'MaterialMuleHosting.psm1');
 
 function write(root: string, path: string, content = 'x') {
   mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -23,12 +23,12 @@ function git(root: string, ...args: string[]) {
   ).trim();
 }
 
-describe('pack-release (TRP-T20)', () => {
+describe('pack-release (MM-T20)', () => {
   let repo: string;
   let out: string;
 
   beforeAll(() => {
-    repo = mkdtempSync(join(tmpdir(), 'trapezoid-pack-'));
+    repo = mkdtempSync(join(tmpdir(), 'materialmule-pack-'));
     out = join(repo, 'release');
     for (const file of RELEASE_FILES as string[]) {
       if (/\.\w+$/.test(file)) write(repo, file, '{}');
@@ -58,14 +58,14 @@ describe('pack-release (TRP-T20)', () => {
     const commit = git(repo, 'rev-parse', '--short=7', 'HEAD');
     const { dir, manifest } = packRelease({ root: repo, out, skipInstall: true });
     expect(manifest.version).toBe(`0.4.2-${commit}`);
-    expect(dir).toBe(join(out, `trapezoid-0.4.2-${commit}`));
+    expect(dir).toBe(join(out, `materialmule-0.4.2-${commit}`));
     for (const file of [
       'apps/api/dist/main.js',
       'apps/api/dist/db/cli.js',
       'apps/api/migrations/0001_initial_schema.sql',
       'apps/api/seed/reference.sql',
       'apps/web/dist/index.html',
-      'deploy/windows/Deploy-Trapezoid.ps1',
+      'deploy/windows/Deploy-MaterialMule.ps1',
       'deploy/windows/backup.ps1',
       'deploy/windows/restore.ps1',
       'deploy/windows/verify-restore.sql',
@@ -81,7 +81,7 @@ describe('pack-release (TRP-T20)', () => {
   });
 
   it('never includes env files, development fixtures or sources', () => {
-    const dir = join(out, `trapezoid-0.4.2-${git(repo, 'rev-parse', '--short=7', 'HEAD')}`);
+    const dir = join(out, `materialmule-0.4.2-${git(repo, 'rev-parse', '--short=7', 'HEAD')}`);
     expect(existsSync(join(dir, 'apps/api/.env'))).toBe(false);
     expect(existsSync(join(dir, 'apps/api/seed/dev.sql'))).toBe(false);
     expect(existsSync(join(dir, 'apps/api/src'))).toBe(false);
@@ -104,7 +104,7 @@ describe('pack-release (TRP-T20)', () => {
   });
 
   it.runIf(process.platform === 'win32')('produces a folder the deploy script accepts', () => {
-    const dir = join(out, `trapezoid-0.4.2-${git(repo, 'rev-parse', '--short=7', 'HEAD')}`);
+    const dir = join(out, `materialmule-0.4.2-${git(repo, 'rev-parse', '--short=7', 'HEAD')}`);
     const quoted = (value: string) => `'${value.replace(/'/g, "''")}'`;
     const result = spawnSync(
       'pwsh',
@@ -112,7 +112,7 @@ describe('pack-release (TRP-T20)', () => {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        `Import-Module ${quoted(MODULE)}; (Read-TrapezoidRelease -Path ${quoted(dir)}).version`,
+        `Import-Module ${quoted(MODULE)}; (Read-MaterialMuleRelease -Path ${quoted(dir)}).version`,
       ],
       { encoding: 'utf8' },
     );

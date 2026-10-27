@@ -3,7 +3,7 @@ import {
   receiverListResponseSchema,
   staffListResponseSchema,
   staffMemberSchema,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { listAuditForEntity } from '../audit/audit.js';
@@ -24,7 +24,7 @@ import { StaffService } from './staff.service.js';
 
 type AccountType = 'personal' | 'shared_lab' | 'test';
 
-describe.runIf(testDatabaseUrl)('staff directory and receiver selector (TRP-T07)', () => {
+describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;

@@ -2,7 +2,7 @@ import {
   normalizeStorageUnitCode,
   type LabelPreview,
   type ReceiptLabelPreviews,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { renderPreviewSvg } from './preview.js';
 

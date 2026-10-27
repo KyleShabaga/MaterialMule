@@ -1,11 +1,11 @@
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
-import type { LabelPreview, ReceiptLabelPreviews } from '@trapezoid/shared';
+import type { LabelPreview, ReceiptLabelPreviews } from '@materialmule/shared';
 import { RequirePermission } from '../auth/auth.decorators.js';
 import { DatabaseService } from '../database/database.service.js';
 import { getLabelPreview, getReceiptLabelPreviews } from './label-preview.js';
 
 /**
- * Label preview (TRP-T39): the T14 sticker SVG for the screen and for Print → Save as PDF. Same
+ * Label preview (MM-T39): the T14 sticker SVG for the screen and for Print → Save as PDF. Same
  * permission as reading the unit. Never creates a print job, changes a unit or writes an audit
  * event: saving a PDF is not a label print.
  */

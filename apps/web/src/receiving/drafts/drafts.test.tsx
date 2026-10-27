@@ -1,4 +1,4 @@
-import type { MeResponse, ProjectSummary, ReceiverOption, TestHole } from '@trapezoid/shared';
+import type { MeResponse, ProjectSummary, ReceiverOption, TestHole } from '@materialmule/shared';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -10,7 +10,7 @@ import { newDraft, newSummary, type ReceiptDraft } from '../draft';
 import { newRecord, type StoredDraft } from './record';
 import { draftWritesSettled, indexedDbDraftStore as store } from './store';
 
-// Receiving drafts in the browser (TRP-T11), against fake-indexeddb. Fictional data only.
+// Receiving drafts in the browser (MM-T11), against fake-indexeddb. Fictional data only.
 
 const AT: ReceiverOption = {
   id: '00000000-0000-4000-8000-000000000102',
@@ -136,7 +136,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Receiving drafts (TRP-T11)', () => {
+describe('Receiving drafts (MM-T11)', () => {
   it('AC1: edits autosave; reopening lists the draft and resumes it with every field intact', async () => {
     const user = userEvent.setup();
     renderPage(me());

@@ -63,7 +63,7 @@ export interface CompletedSignIn {
   accessTokenExpiresAt: Date;
 }
 
-/** An external identity provider the app can sign people in with (TRP-T05 provider abstraction). */
+/** An external identity provider the app can sign people in with (MM-T05 provider abstraction). */
 export interface ExternalIdentityProvider {
   readonly id: 'microsoft';
   beginSignIn(options: { selectAccount: boolean }): Promise<AuthorizationRequest>;

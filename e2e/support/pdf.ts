@@ -5,7 +5,7 @@ import { inflateSync } from 'node:zlib';
 import { Resvg } from '@resvg/resvg-js';
 import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
 
-// Reads the barcodes in a PDF that Chromium printed (TRP-T39). Chromium (Skia) writes the label's
+// Reads the barcodes in a PDF that Chromium printed (MM-T39). Chromium (Skia) writes the label's
 // SVG as vector paths in each page's content stream, so this turns each page's filled paths back
 // into an SVG, rasterises it at 300 dpi with resvg and decodes it with ZXing, as the T14 label
 // tests do. Text is skipped: only the barcodes matter here. Supports exactly the operators Skia

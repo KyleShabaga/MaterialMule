@@ -1,4 +1,4 @@
-// Runs the fictional Microsoft tenant for E2E (TRP-T05): `tsx src/test-support/mock-oidc-cli.ts`.
+// Runs the fictional Microsoft tenant for E2E (MM-T05): `tsx src/test-support/mock-oidc-cli.ts`.
 // MOCK_IDP_PORT picks the port. Never used outside tests.
 import { startMockOidc } from './mock-oidc.js';
 

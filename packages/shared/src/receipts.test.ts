@@ -39,7 +39,7 @@ function summaryErrors(summary: Record<string, unknown>) {
   return result.success ? [] : toFieldErrors(result.error).map((e) => `${e.field}:${e.code}`);
 }
 
-describe('confirmReceiptRequestSchema (TRP-T09 T1)', () => {
+describe('confirmReceiptRequestSchema (MM-T09 T1)', () => {
   it('accepts a valid receipt and normalises optional text to null', () => {
     const parsed = confirmReceiptRequestSchema.parse(request({ description: '   ' }));
     expect(parsed.description).toBeNull();

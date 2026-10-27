@@ -3,7 +3,7 @@ import { signInAs } from './support/auth';
 import { insertConfirmedBucket, insertConfirmedReceipt, withDatabase } from './support/db';
 import { decodePdfPage, decodeSvg, readPdfPages } from './support/pdf';
 
-// TRP-T39: label preview on the unit page and the true-size print view for Save as PDF.
+// MM-T39: label preview on the unit page and the true-size print view for Save as PDF.
 
 const symbols = (id: string) => [
   ['Code128', id],

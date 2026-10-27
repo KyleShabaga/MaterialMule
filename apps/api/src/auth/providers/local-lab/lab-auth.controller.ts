@@ -17,7 +17,7 @@ import {
   labPasswordResetRequestSchema,
   labSignInRequestSchema,
   type LabAccountResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { Response } from 'express';
 import { APP_CONFIG } from '../../../config/config.constants.js';
 import type { AppConfig } from '../../../config/env.js';
@@ -38,7 +38,7 @@ function clientAddressOf(request: AuthenticatedRequest): string | null {
   return request.socket.remoteAddress ?? null;
 }
 
-/** `POST /api/auth/lab/sign-in`: the shared receiving station signs in as LAB (TRP-T06). */
+/** `POST /api/auth/lab/sign-in`: the shared receiving station signs in as LAB (MM-T06). */
 @Controller('auth/lab')
 export class LabAuthController {
   constructor(
@@ -88,7 +88,7 @@ export class LabAuthController {
   }
 }
 
-/** Administration of the LAB account. Lives in the staff admin area (TRP-T07). */
+/** Administration of the LAB account. Lives in the staff admin area (MM-T07). */
 @Controller('admin/lab')
 export class LabAdminController {
   constructor(private readonly lab: LabAuthService) {}

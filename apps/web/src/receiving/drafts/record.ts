@@ -1,7 +1,7 @@
-import type { MeResponse, ReceiverOption } from '@trapezoid/shared';
+import type { MeResponse, ReceiverOption } from '@materialmule/shared';
 import { newUuid, type ReceiptDraft } from '../draft';
 
-// A receiving draft as stored on this workstation (TRP-T11). Drafts live only in this browser's
+// A receiving draft as stored on this workstation (MM-T11). Drafts live only in this browser's
 // IndexedDB: no server copy, no cross-device sync (App Idea §3). They hold business data only,
 // never a token or password, and never a storage unit ID (IDs exist only after confirmation).
 
@@ -41,7 +41,7 @@ export type DraftHistoryEntry =
 export interface StoredDraft {
   version: typeof DRAFT_RECORD_VERSION;
   draftId: string;
-  /** Same key as `data.idempotencyKey`; every confirmation attempt reuses it (TRP-T09). */
+  /** Same key as `data.idempotencyKey`; every confirmation attempt reuses it (MM-T09). */
   idempotencyKey: string;
   owner: { accountId: string; type: DraftOwnerType };
   /** Snapshot of `data.receiver`, for the draft list. */
@@ -143,7 +143,7 @@ export function isStale(record: Pick<StoredDraft, 'lastSavedAt'>, now = new Date
 /** One step per older version: RECORD_MIGRATIONS[n] turns a version-n record into n + 1. */
 export type RecordMigrations = Record<number, (record: Record<string, unknown>) => unknown>;
 
-/** Version 1 is the first stored format (TRP-T11), so nothing needs upgrading yet. */
+/** Version 1 is the first stored format (MM-T11), so nothing needs upgrading yet. */
 export const RECORD_MIGRATIONS: RecordMigrations = {};
 
 function isObject(value: unknown): value is Record<string, unknown> {

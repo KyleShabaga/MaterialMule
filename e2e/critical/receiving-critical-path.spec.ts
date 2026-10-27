@@ -20,11 +20,11 @@ import {
   unitState,
 } from '../support/receiving';
 
-// TRP-T18: the receiving critical path, end to end against the production-shaped build, at
+// MM-T18: the receiving critical path, end to end against the production-shaped build, at
 // desktop and phone widths. Run just these with `npm run test:e2e:critical`.
 // Each test makes its own fictional receipts, tagged with a unique description or project
 // number, so parallel workers and viewports never see each other's data. Traceability:
-// docs/testing/receiving-critical-path.md. Scenarios that need TRP-T11 (draft autosave, LAB
+// docs/testing/receiving-critical-path.md. Scenarios that need MM-T11 (draft autosave, LAB
 // session expiry mid-draft) are listed there as pending until T11 is merged.
 
 const critical = { tag: '@critical' };
@@ -37,7 +37,7 @@ test(
     await signInAs(page, 'at');
     await openWizard(page);
     await chooseDemoProject(page);
-    // A personal account is the receiver by default (TRP-T10 AC5).
+    // A personal account is the receiver by default (MM-T10 AC5).
     await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
       /^AT · Alex Tester/,
     );
@@ -322,7 +322,7 @@ test(
     await page.goto('/sample-storage/scan');
     const field = page.getByRole('textbox', { name: 'Scan a storage unit label' });
     await expect(field).toBeFocused();
-    // The DS3678-XR is a keyboard: the label's data, then its Enter suffix (TRP-T16).
+    // The DS3678-XR is a keyboard: the label's data, then its Enter suffix (MM-T16).
     await page.keyboard.type(unit!.suNumber);
     await page.keyboard.press('Enter');
     await expect(page.getByRole('status').filter({ hasText: unit!.suNumber })).toHaveText(
@@ -372,7 +372,7 @@ test(
     await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
     const refused = await page.request.patch(`/api/storage-units/${unit!.storageUnitId}`, {
-      headers: { 'x-trapezoid-csrf': '1' },
+      headers: { 'x-materialmule-csrf': '1' },
       data: {
         version: corrected[0]!.version,
         reason: 'LAB tries a correction',

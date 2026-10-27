@@ -3,7 +3,7 @@ import {
   labAccountResponseSchema,
   labPasswordResetRequestSchema,
   type LabAccountResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../../api/client';
 import { ConfirmDialog, ErrorState, FormField } from '../../components/ui';
@@ -90,7 +90,7 @@ export function LabAccountCard() {
     <section className="card" aria-labelledby="lab-account">
       <h2 id="lab-account">Shared receiving account (LAB)</h2>
       <p className="field-hint">
-        LAB is managed in Trapezoid, not a Microsoft account. It can receive, search and print
+        LAB is managed in Material Mule, not a Microsoft account. It can receive, search and print
         labels only.
       </p>
       {load.state === 'loading' ? <p>Loading…</p> : null}

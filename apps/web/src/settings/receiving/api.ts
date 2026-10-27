@@ -5,14 +5,14 @@ import {
   type DraftSettings,
   type FieldError,
   type PutDraftSettingsRequest,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from '../../api/client';
 
 // Draft auto-delete setting (MM-T45). Every call resolves; failures carry a readable message.
 
 export const DRAFT_SETTINGS_PATH = '/api/settings/drafts';
 
-const UNREACHABLE = "Trapezoid couldn't be reached. Check the connection.";
+const UNREACHABLE = "Material Mule couldn't be reached. Check the connection.";
 
 export type LoadResult = { ok: true; data: DraftSettings } | { ok: false; message: string };
 
@@ -41,7 +41,7 @@ export async function fetchDraftSettings(
   const parsed = draftSettingsSchema.safeParse(await response.json().catch(() => null));
   return parsed.success
     ? { ok: true, data: parsed.data }
-    : { ok: false, message: 'Trapezoid returned an unexpected response.' };
+    : { ok: false, message: 'Material Mule returned an unexpected response.' };
 }
 
 export async function saveDraftSettings(request: PutDraftSettingsRequest): Promise<SaveResult> {
@@ -59,7 +59,7 @@ export async function saveDraftSettings(request: PutDraftSettingsRequest): Promi
     const parsed = draftSettingsSchema.safeParse(body);
     return parsed.success
       ? { ok: true, data: parsed.data }
-      : { ok: false, kind: 'failed', message: 'Trapezoid returned an unexpected response.' };
+      : { ok: false, kind: 'failed', message: 'Material Mule returned an unexpected response.' };
   }
   if (response.status === 409) {
     const conflict = draftSettingsVersionConflictResponseSchema.safeParse(body);

@@ -1,8 +1,8 @@
-import { isPrintJobActive, type PrintJob } from '@trapezoid/shared';
+import { isPrintJobActive, type PrintJob } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { fetchPrintJob } from './api';
 
-/** How often a queued or sending job is re-read (card TRP-T15: every 2 s while active). */
+/** How often a queued or sending job is re-read (card MM-T15: every 2 s while active). */
 export const PRINT_POLL_MS = 2_000;
 
 /**

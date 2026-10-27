@@ -1,8 +1,8 @@
-import type { ActivityItem } from '@trapezoid/shared';
+import type { ActivityItem } from '@materialmule/shared';
 import type { AuditEvent } from '../audit/audit.js';
 
 /**
- * Event types shown on the dashboard (TRP-T34). Producers (T09 receipts, T13 corrections, T15
+ * Event types shown on the dashboard (MM-T34). Producers (T09 receipts, T13 corrections, T15
  * printing) put the display details below into `after` so summaries never expose raw JSON.
  */
 export const DASHBOARD_ACTIONS = [

@@ -63,7 +63,7 @@ function getOverHttps(
   });
 }
 
-describe('HTTPS hosting (TRP-T20)', () => {
+describe('HTTPS hosting (MM-T20)', () => {
   let app: INestApplication | undefined;
 
   afterEach(async () => {

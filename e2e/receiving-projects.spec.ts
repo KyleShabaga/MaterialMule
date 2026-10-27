@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// TRP-T08 T5: pick an existing project, add a new project, add a hole, and the rest of the
+// MM-T08 T5: pick an existing project, add a new project, add a hole, and the rest of the
 // receipt draft stays as entered. Projects are fictional; numbers are unique per run and viewport.
 
 test('T5: pick a project, add a project and a hole, draft fields intact', async ({

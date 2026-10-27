@@ -36,7 +36,9 @@ describe('hashToken', () => {
 
 describe('readCookie', () => {
   it('finds the named cookie among others', () => {
-    expect(readCookie('a=1; trapezoid_session=tok%2Ben; b=2', 'trapezoid_session')).toBe('tok+en');
+    expect(readCookie('a=1; materialmule_session=tok%2Ben; b=2', 'materialmule_session')).toBe(
+      'tok+en',
+    );
   });
 
   it('returns undefined when absent or malformed', () => {

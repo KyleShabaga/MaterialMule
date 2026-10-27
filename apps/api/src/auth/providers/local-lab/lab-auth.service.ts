@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { LAB_USERNAME, type LabAccountResponse } from '@trapezoid/shared';
+import { LAB_USERNAME, type LabAccountResponse } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../../../audit/audit.js';
 import { DatabaseService } from '../../../database/database.service.js';
@@ -48,7 +48,7 @@ interface ThrottleRow {
 const ANONYMOUS: AuditActor = { userId: null, accountType: 'system', initials: null, name: null };
 
 /**
- * The `local_lab` identity provider (TRP-T06): username LAB plus an app-managed Argon2id password.
+ * The `local_lab` identity provider (MM-T06): username LAB plus an app-managed Argon2id password.
  * It never calls Microsoft or Graph. Brute-force protection counts failures per account and per
  * client address, refuses further attempts for a while once either reaches the limit, and audits
  * every failure and lockout.

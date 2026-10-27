@@ -1,4 +1,4 @@
-import { formatReceiver, projectLabel } from '@trapezoid/shared';
+import { formatReceiver, projectLabel } from '@materialmule/shared';
 import type { ReactNode } from 'react';
 import {
   formatSummaryValue,
@@ -8,7 +8,7 @@ import {
   type ReceiptDraft,
 } from './draft';
 
-/** Step 2: everything entered, read-only and grouped per unit, with Edit links (TRP-T10). */
+/** Step 2: everything entered, read-only and grouped per unit, with Edit links (MM-T10). */
 export function ReceiptReview({
   draft,
   onEditDetails,

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// TRP-T06 T6. One test, desktop only: setting the LAB password signs out every LAB station, so a
+// MM-T06 T6. One test, desktop only: setting the LAB password signs out every LAB station, so a
 // second project running this in parallel would sign this one out.
 test('T6/AC4: an admin sets the LAB password; LAB stays signed in after the browser reopens', async ({
   page,
@@ -37,7 +37,7 @@ test('T6/AC4: an admin sets the LAB password; LAB stays signed in after the brow
   await expect(header).toContainText('Session ends');
 
   // The cookie is persistent, lasting about a calendar month (28–31 days).
-  const cookie = (await station.cookies()).find((c) => c.name === 'trapezoid_session');
+  const cookie = (await station.cookies()).find((c) => c.name === 'materialmule_session');
   const days = ((cookie?.expires ?? 0) * 1000 - Date.now()) / 86_400_000;
   expect(days).toBeGreaterThan(27.9);
   expect(days).toBeLessThan(31.1);

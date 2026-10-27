@@ -1,8 +1,8 @@
-import type { ReceiverOption } from '@trapezoid/shared';
+import type { ReceiverOption } from '@materialmule/shared';
 import { ReceiverSelect } from '../../components/ReceiverSelect';
 
 /**
- * Shown when a LAB draft is resumed at the shared station (TRP-T11): the receiver stays as it
+ * Shown when a LAB draft is resumed at the shared station (MM-T11): the receiver stays as it
  * was until someone explicitly picks another person, and that choice is recorded in the draft's
  * history. Picking nobody changes nothing.
  */

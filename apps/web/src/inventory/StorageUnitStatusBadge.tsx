@@ -1,4 +1,4 @@
-import { storageUnitStatusLabel, type StorageUnitStatus } from '@trapezoid/shared';
+import { storageUnitStatusLabel, type StorageUnitStatus } from '@materialmule/shared';
 import { StatusBadge, type BadgeTone } from '../components/ui';
 
 const TONES: Record<StorageUnitStatus, BadgeTone> = {

@@ -1,8 +1,8 @@
-// Barcode decoder adapter (TRP-T17), so the camera scanner doesn't care which decoder runs and
+// Barcode decoder adapter (MM-T17), so the camera scanner doesn't care which decoder runs and
 // the choice can change after the device spike. Two implementations:
 //   native — the browser's BarcodeDetector (Android Chrome and some others), when it supports
 //            both Code 128 and QR;
-//   zxing  — zxing-wasm (MIT), ZXing-C++ compiled to WebAssembly, served from Trapezoid itself
+//   zxing  — zxing-wasm (MIT), ZXing-C++ compiled to WebAssembly, served from Material Mule itself
 //            (never a CDN) and loaded only when the camera is opened.
 // "auto" (the default) prefers native and falls back to zxing. `?decoder=zxing` or
 // `?decoder=native` on the page forces one, for comparing them on a phone.

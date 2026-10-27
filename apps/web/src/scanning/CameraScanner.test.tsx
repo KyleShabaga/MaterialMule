@@ -1,4 +1,4 @@
-import type { MeResponse } from '@trapezoid/shared';
+import type { MeResponse } from '@materialmule/shared';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -9,7 +9,7 @@ import { SessionContext } from '../session/context';
 import { CameraScanner, type CameraDevices } from './CameraScanner';
 import type { BarcodeDecoder, DecodedSymbol } from './decoder';
 
-// TRP-T17 with a fake camera: a fake MediaStream, a fake decoder and a frame reader that always
+// MM-T17 with a fake camera: a fake MediaStream, a fake decoder and a frame reader that always
 // has a frame. Real decoding of generated label images is covered by e2e/camera-scan.spec.ts.
 
 const json = (status: number, body: unknown) =>
@@ -102,7 +102,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('CameraScanner (TRP-T17)', () => {
+describe('CameraScanner (MM-T17)', () => {
   it('AC3: a label held in view opens the unit once, after "Found …"', async () => {
     const fetchMock = stubApi();
     const camera = fakeCamera();
@@ -267,7 +267,7 @@ describe('CameraScanner (TRP-T17)', () => {
   });
 });
 
-describe('Scan with camera button (TRP-T17)', () => {
+describe('Scan with camera button (MM-T17)', () => {
   const me: MeResponse = {
     id: 'u1',
     displayName: 'Dana Example',

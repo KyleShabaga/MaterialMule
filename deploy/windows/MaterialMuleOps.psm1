@@ -1,18 +1,18 @@
 #Requires -Version 7.2
-# Trapezoid backup, restore and monitoring helpers (TRP-T21). Used by backup.ps1, restore.ps1,
-# monitor.ps1 and Install-TrapezoidHost.ps1; see docs/operations/runbook.md. Nothing runs on import.
+# Material Mule backup, restore and monitoring helpers (MM-T21). Used by backup.ps1, restore.ps1,
+# monitor.ps1 and Install-MaterialMuleHost.ps1; see docs/operations/runbook.md. Nothing runs on import.
 #
 # The backup design is deferred to IT (D39): location, owner, RPO/RTO, retention and the alert
 # recipient have NO defaults here. Every script refuses to run until backup.config.psd1 sets them.
-# Alerts go to the Windows event log (source "Trapezoid") and the status record; the app sends no
+# Alerts go to the Windows event log (source "MaterialMule") and the status record; the app sends no
 # email. Passwords never pass through these scripts: PostgreSQL tools read them from a pgpass file
 # (PgPassFile) or the PGPASSWORD of the person running a restore.
 
 Set-StrictMode -Version 3.0
 
-Import-Module (Join-Path $PSScriptRoot 'TrapezoidHosting.psm1')
+Import-Module (Join-Path $PSScriptRoot 'MaterialMuleHosting.psm1')
 
-$script:BackupNamePattern = '^trapezoid-(?<env>[a-z0-9]{1,20})-(?<stamp>\d{8}T\d{6}Z)-(?<version>[0-9A-Za-z.+_-]{1,64})\.dump$'
+$script:BackupNamePattern = '^materialmule-(?<env>[a-z0-9]{1,20})-(?<stamp>\d{8}T\d{6}Z)-(?<version>[0-9A-Za-z.+_-]{1,64})\.dump$'
 $script:VersionPattern = '^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$'
 $script:DatabaseNamePattern = '^[a-z_][a-z0-9_]{0,62}$'
 $script:EventIds = @{
@@ -32,11 +32,11 @@ $script:D39Settings = @(
     'BackupOwner', 'AlertRecipient', 'TargetEncryptedAtRest'
 )
 
-function Get-TrapezoidBackupConfig {
+function Get-MaterialMuleBackupConfig {
     <#
     .SYNOPSIS
     Reads backup.config.psd1 (a data file: no code runs), validates it for the given purpose and
-    fills in derived paths from the host configuration (TRP-T20).
+    fills in derived paths from the host configuration (MM-T20).
     .PARAMETER Purpose
     Backup and Monitor need every D39 decision; Restore needs only the database settings; Install
     also needs the backup account and schedule.
@@ -63,7 +63,7 @@ function Get-TrapezoidBackupConfig {
         BackupOwner             = $null
         AlertRecipient          = $null
         TargetEncryptedAtRest   = $null
-        # Scheduled tasks (IT inputs, only needed by Install-TrapezoidHost.ps1).
+        # Scheduled tasks (IT inputs, only needed by Install-MaterialMuleHost.ps1).
         BackupAccount           = $null
         BackupTimes             = @()
         MonitorIntervalMinutes  = 5
@@ -72,8 +72,8 @@ function Get-TrapezoidBackupConfig {
         PgBinDir                = 'C:\Program Files\PostgreSQL\17\bin'
         DbHost                  = '127.0.0.1'
         DbPort                  = 5432
-        DbName                  = 'trapezoid'
-        DbUser                  = 'trapezoid_backup'
+        DbName                  = 'materialmule'
+        DbUser                  = 'materialmule_backup'
         PgPassFile              = ''
         RestoreAdminUser        = 'postgres'
         # Folders (defaults under <InstallRoot>\ops).
@@ -84,7 +84,7 @@ function Get-TrapezoidBackupConfig {
         OpsLogDir               = $null
         RestoreDrillLog         = $null
         # Monitoring and logs.
-        EventLogSource          = 'Trapezoid'
+        EventLogSource          = 'MaterialMule'
         MinFreeSpaceGB          = 10
         PrintQueueMaxAgeMinutes = 15
         LogMaxSizeMB            = 10
@@ -133,7 +133,7 @@ function Get-TrapezoidBackupConfig {
             throw 'TargetEncryptedAtRest must be $true or $false'
         }
         if (-not $config.TargetEncryptedAtRest) {
-            throw 'TargetEncryptedAtRest is $false: Trapezoid does not encrypt backups itself, so the backup location must be encrypted at rest (e.g. BitLocker or an encrypted NAS share; IT decision, D39)'
+            throw 'TargetEncryptedAtRest is $false: Material Mule does not encrypt backups itself, so the backup location must be encrypted at rest (e.g. BitLocker or an encrypted NAS share; IT decision, D39)'
         }
     }
     if ([string]$config.EnvironmentName -cnotmatch '^[a-z0-9]{1,20}$') {
@@ -150,7 +150,7 @@ function Get-TrapezoidBackupConfig {
         if ([string]$time -notmatch '^([01]\d|2[0-3]):[0-5]\d$') { throw "BackupTimes entry '$time' must look like 02:30" }
     }
 
-    $hostConfig = Get-TrapezoidHostConfig -Path ([string]$config.HostConfigPath)
+    $hostConfig = Get-MaterialMuleHostConfig -Path ([string]$config.HostConfigPath)
     $config.Host = $hostConfig
     if (-not $config.OpsDir) { $config.OpsDir = Join-Path $hostConfig.InstallRoot 'ops' }
     if (-not $config.StagingDir) { $config.StagingDir = Join-Path $config.OpsDir 'staging' }
@@ -164,7 +164,7 @@ function Get-TrapezoidBackupConfig {
 
 # --- Logs, rotation and alerts ---------------------------------------------------------------------
 
-function Write-TrapezoidOpsLog {
+function Write-MaterialMuleOpsLog {
     <#
     .SYNOPSIS
     Appends a line to <OpsLogDir>\<Log>.log (rotated by size) and echoes it.
@@ -184,16 +184,16 @@ function Write-TrapezoidOpsLog {
     }
     if (Test-Path -LiteralPath $Config.OpsLogDir -PathType Container) {
         $file = Join-Path $Config.OpsLogDir "$Log.log"
-        Invoke-TrapezoidLogRotation -Path $file -MaxSizeMB $Config.LogMaxSizeMB -KeepFiles $Config.LogKeepFiles
+        Invoke-MaterialMuleLogRotation -Path $file -MaxSizeMB $Config.LogMaxSizeMB -KeepFiles $Config.LogKeepFiles
         Add-Content -LiteralPath $file -Value $line -Encoding utf8
     }
 }
 
-function Write-TrapezoidEventLog {
+function Write-MaterialMuleEventLog {
     <#
     .SYNOPSIS
     Writes to the Windows Application log under the registered source. Never registers a source
-    (Install-TrapezoidHost.ps1 does that, elevated): if it is missing, says so and returns $false.
+    (Install-MaterialMuleHost.ps1 does that, elevated): if it is missing, says so and returns $false.
     #>
     [CmdletBinding()]
     param(
@@ -204,18 +204,18 @@ function Write-TrapezoidEventLog {
     )
     # Reading the registry needs no elevation, unlike EventLog.SourceExists.
     if (-not (Test-Path -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\$Source")) {
-        Write-Warning "Event log source '$Source' is not registered (run Install-TrapezoidHost.ps1 -BackupConfigPath ...); alert recorded in the status file only"
+        Write-Warning "Event log source '$Source' is not registered (run Install-MaterialMuleHost.ps1 -BackupConfigPath ...); alert recorded in the status file only"
         return $false
     }
     [System.Diagnostics.EventLog]::WriteEntry($Source, $Message, [System.Diagnostics.EventLogEntryType]$EntryType, $EventId)
     return $true
 }
 
-function Send-TrapezoidAlert {
+function Send-MaterialMuleAlert {
     <#
     .SYNOPSIS
     Raises an alert through the channel IT approved: the Windows event log (which IT's monitoring
-    forwards to the agreed recipient) plus the status record. No email from the app (TRP-T21).
+    forwards to the agreed recipient) plus the status record. No email from the app (MM-T21).
     #>
     [CmdletBinding()]
     param(
@@ -226,7 +226,7 @@ function Send-TrapezoidAlert {
     )
     $text = "$Message`r`nOwner: $($Config.BackupOwner). Alert recipient: $($Config.AlertRecipient). Runbook: docs\operations\runbook.md"
     try {
-        $null = Write-TrapezoidEventLog -Source $Config.EventLogSource -EntryType $EntryType -EventId $script:EventIds[$Event] -Message $text
+        $null = Write-MaterialMuleEventLog -Source $Config.EventLogSource -EntryType $EntryType -EventId $script:EventIds[$Event] -Message $text
     } catch {
         Write-Warning "Could not write to the Windows event log: $($_.Exception.Message)"
     }
@@ -249,7 +249,7 @@ function Save-JsonAtomically {
     Move-Item -LiteralPath $temp -Destination $Path -Force
 }
 
-function Get-TrapezoidReleaseVersion {
+function Get-MaterialMuleReleaseVersion {
     <#
     .SYNOPSIS
     Version of the release the service runs (current\release.json), or 'unknown'.
@@ -268,7 +268,7 @@ function Get-TrapezoidReleaseVersion {
     return 'unknown'
 }
 
-function Get-TrapezoidFreeSpace {
+function Get-MaterialMuleFreeSpace {
     <#
     .SYNOPSIS
     Free and total bytes of the drive holding Path, or $null (e.g. a UNC share) where unknown.
@@ -286,7 +286,7 @@ function Get-TrapezoidFreeSpace {
     }
 }
 
-function Invoke-TrapezoidPgTool {
+function Invoke-MaterialMulePgTool {
     <#
     .SYNOPSIS
     Runs a PostgreSQL client tool non-interactively (-w: never prompts for a password). The
@@ -320,7 +320,7 @@ function Get-ConnectionArgs($Config, [string]$User, [string]$Database) {
     return @('-h', [string]$Config.DbHost, '-p', [string]$Config.DbPort, '-U', $User, '-d', $Database)
 }
 
-function Invoke-TrapezoidVerification {
+function Invoke-MaterialMuleVerification {
     <#
     .SYNOPSIS
     Runs verify-restore.sql (read-only) and returns its "check|value" lines.
@@ -328,14 +328,14 @@ function Invoke-TrapezoidVerification {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Config, [Parameter(Mandatory)][string]$User, [Parameter(Mandatory)][string]$Database)
     $sql = Join-Path $PSScriptRoot 'verify-restore.sql'
-    $result = Invoke-TrapezoidPgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-A', '-t', '-F', '|', '-v', 'ON_ERROR_STOP=1') + (Get-ConnectionArgs $Config $User $Database) + @('-f', $sql))
+    $result = Invoke-MaterialMulePgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-A', '-t', '-F', '|', '-v', 'ON_ERROR_STOP=1') + (Get-ConnectionArgs $Config $User $Database) + @('-f', $sql))
     if ($result.ExitCode -ne 0) {
         throw "Verification queries failed on $Database (psql exit code $($result.ExitCode)): $(($result.Errors | Select-Object -First 3) -join ' ')"
     }
     return @($result.Output | Where-Object { $_ -and $_.Trim() })
 }
 
-function Compare-TrapezoidVerification {
+function Compare-MaterialMuleVerification {
     <#
     .SYNOPSIS
     Line-by-line differences between two verification outputs (empty = they match).
@@ -369,14 +369,14 @@ function Compare-TrapezoidVerification {
 
 # --- Retention -----------------------------------------------------------------------------------
 
-function Get-TrapezoidBackupSet {
+function Get-MaterialMuleBackupSet {
     <#
     .SYNOPSIS
     Complete backups in a folder for one environment (a .dump with its .sha256), newest first.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$EnvironmentName)
-    $sets = foreach ($file in Get-ChildItem -LiteralPath $Path -File -Filter 'trapezoid-*.dump') {
+    $sets = foreach ($file in Get-ChildItem -LiteralPath $Path -File -Filter 'materialmule-*.dump') {
         if ($file.Name -cnotmatch $script:BackupNamePattern -or $Matches.env -ne $EnvironmentName) { continue }
         $base = $file.Name.Substring(0, $file.Name.Length - '.dump'.Length)
         if (-not (Test-Path -LiteralPath (Join-Path $Path "$base.sha256") -PathType Leaf)) { continue }
@@ -389,7 +389,7 @@ function Get-TrapezoidBackupSet {
     return @($sets | Sort-Object Time -Descending)
 }
 
-function Select-TrapezoidBackupsToKeep {
+function Select-MaterialMuleBackupsToKeep {
     <#
     .SYNOPSIS
     Grandfather-father-son retention: every backup from the last 24 hours, plus the newest backup
@@ -455,7 +455,7 @@ function Get-RedactedEnvText {
     return ($out -join "`r`n")
 }
 
-function New-TrapezoidConfigBundle {
+function New-MaterialMuleConfigBundle {
     <#
     .SYNOPSIS
     Zips the host and backup configuration, the redacted service env file and release.json.
@@ -470,14 +470,14 @@ function New-TrapezoidConfigBundle {
         Copy-Item -LiteralPath ([string]$Config.HostConfigPath) -Destination (Join-Path $work 'host.config.psd1')
         Copy-Item -LiteralPath $Config.ConfigPath -Destination (Join-Path $work 'backup.config.psd1')
         if (Test-Path -LiteralPath $Config.Host.ServiceEnvFile -PathType Leaf) {
-            Set-Content -LiteralPath (Join-Path $work 'trapezoid.env.redacted') -Value (Get-RedactedEnvText -Path $Config.Host.ServiceEnvFile) -Encoding utf8
+            Set-Content -LiteralPath (Join-Path $work 'materialmule.env.redacted') -Value (Get-RedactedEnvText -Path $Config.Host.ServiceEnvFile) -Encoding utf8
         }
         $release = Join-Path $Config.Host.CurrentLink 'release.json'
         if (Test-Path -LiteralPath $release -PathType Leaf) {
             Copy-Item -LiteralPath $release -Destination (Join-Path $work 'release.json')
         }
         Set-Content -LiteralPath (Join-Path $work 'README.txt') -Encoding utf8 -Value @(
-            'Trapezoid configuration at backup time (TRP-T21). Secrets are NOT included:'
+            'Material Mule configuration at backup time (MM-T21). Secrets are NOT included:'
             'restore them from the password manager entry IT owns (docs\operations\runbook.md).'
         )
         Compress-Archive -Path (Join-Path $work '*') -DestinationPath $Destination -Force
@@ -486,7 +486,7 @@ function New-TrapezoidConfigBundle {
     }
 }
 
-function Save-TrapezoidBackupStatus {
+function Save-MaterialMuleBackupStatus {
     <#
     .SYNOPSIS
     Writes the status record the API shows (Settings → System status) and the monitor checks.
@@ -515,7 +515,7 @@ function Save-TrapezoidBackupStatus {
     Save-JsonAtomically -Path $Config.StatusFile -Value $status
 }
 
-function Invoke-TrapezoidBackupRun {
+function Invoke-MaterialMuleBackupRun {
     <#
     .SYNOPSIS
     One backup: verification manifest -> pg_dump (custom format) -> manifest again -> config
@@ -526,8 +526,8 @@ function Invoke-TrapezoidBackupRun {
     param([Parameter(Mandatory)]$Config, [string]$Reason = 'Scheduled')
 
     $started = Get-Date
-    $version = Get-TrapezoidReleaseVersion -Config $Config
-    $base = 'trapezoid-{0}-{1}-{2}' -f $Config.EnvironmentName, $started.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'"), $version
+    $version = Get-MaterialMuleReleaseVersion -Config $Config
+    $base = 'materialmule-{0}-{1}-{2}' -f $Config.EnvironmentName, $started.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'"), $version
     $files = [ordered]@{
         Dump     = "$base.dump"
         Manifest = "$base.manifest.json"
@@ -538,10 +538,10 @@ function Invoke-TrapezoidBackupRun {
         foreach ($step in @(
                 "run verify-restore.sql on $($Config.DbName) as $($Config.DbUser) (read-only)",
                 "pg_dump --format=custom $($Config.DbName) -> $(Join-Path $Config.StagingDir $files.Dump)",
-                "zip host/backup configuration, redacted trapezoid.env and release.json -> $($files.Bundle)",
+                "zip host/backup configuration, redacted materialmule.env and release.json -> $($files.Bundle)",
                 "write SHA-256 checksums -> $($files.Checksum)",
                 "copy to $($Config.BackupTarget) and re-check the checksum there",
-                "keep the last 24 h plus $($Config.KeepDaily) daily, $($Config.KeepWeekly) weekly, $($Config.KeepMonthly) monthly; delete older trapezoid-$($Config.EnvironmentName)-* backups there",
+                "keep the last 24 h plus $($Config.KeepDaily) daily, $($Config.KeepWeekly) weekly, $($Config.KeepMonthly) monthly; delete older materialmule-$($Config.EnvironmentName)-* backups there",
                 "write the status record $($Config.StatusFile)",
                 "on failure: Windows event log ($($Config.EventLogSource), event $($script:EventIds.BackupFailed)) for $($Config.AlertRecipient)")) {
             Write-Host "What if: $step"
@@ -552,17 +552,17 @@ function Invoke-TrapezoidBackupRun {
     foreach ($dir in $Config.StagingDir, $Config.OpsLogDir) {
         if (-not (Test-Path -LiteralPath $dir -PathType Container)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     }
-    $log = { param($message, $level = 'INFO') Write-TrapezoidOpsLog -Config $Config -Log backup -Message $message -Level $level }
+    $log = { param($message, $level = 'INFO') Write-MaterialMuleOpsLog -Config $Config -Log backup -Message $message -Level $level }
     & $log "Backup started ($Reason): $($Config.DbName) -> $($Config.BackupTarget) as $base"
     $staged = @($files.Values | ForEach-Object { Join-Path $Config.StagingDir $_ })
     $sizeBytes = $null
     $targetSpace = $null
     try {
         $connection = Get-ConnectionArgs $Config $Config.DbUser $Config.DbName
-        $before = Invoke-TrapezoidVerification -Config $Config -User $Config.DbUser -Database $Config.DbName
+        $before = Invoke-MaterialMuleVerification -Config $Config -User $Config.DbUser -Database $Config.DbName
 
         $dumpPath = Join-Path $Config.StagingDir $files.Dump
-        $dump = Invoke-TrapezoidPgTool -Config $Config -Tool pg_dump -Arguments (@('--format=custom', '--file', $dumpPath) + $connection)
+        $dump = Invoke-MaterialMulePgTool -Config $Config -Tool pg_dump -Arguments (@('--format=custom', '--file', $dumpPath) + $connection)
         if ($dump.ExitCode -ne 0) {
             throw "pg_dump failed (exit code $($dump.ExitCode)): $(($dump.Errors | Select-Object -First 3) -join ' ')"
         }
@@ -571,8 +571,8 @@ function Invoke-TrapezoidBackupRun {
 
         # Counts taken just before and after the dump. Equal (audit events are append-only and
         # every change writes one) means the dump holds exactly these values.
-        $after = Invoke-TrapezoidVerification -Config $Config -User $Config.DbUser -Database $Config.DbName
-        $stable = (@(Compare-TrapezoidVerification -Expected $before -Actual $after).Count -eq 0)
+        $after = Invoke-MaterialMuleVerification -Config $Config -User $Config.DbUser -Database $Config.DbName
+        $stable = (@(Compare-MaterialMuleVerification -Expected $before -Actual $after).Count -eq 0)
         if (-not $stable) { & $log 'Data changed while the dump ran; the restore check will report the differences' 'WARN' }
         Save-JsonAtomically -Path (Join-Path $Config.StagingDir $files.Manifest) -Value ([ordered]@{
                 createdAt = ConvertTo-UtcText $started
@@ -582,7 +582,7 @@ function Invoke-TrapezoidBackupRun {
                 checks    = @($after)
             })
 
-        New-TrapezoidConfigBundle -Config $Config -Destination (Join-Path $Config.StagingDir $files.Bundle)
+        New-MaterialMuleConfigBundle -Config $Config -Destination (Join-Path $Config.StagingDir $files.Bundle)
         $sums = foreach ($name in $files.Dump, $files.Manifest, $files.Bundle) {
             '{0} *{1}' -f (Get-FileHash -LiteralPath (Join-Path $Config.StagingDir $name) -Algorithm SHA256).Hash.ToLowerInvariant(), $name
         }
@@ -598,11 +598,11 @@ function Invoke-TrapezoidBackupRun {
             Copy-Item -LiteralPath (Join-Path $Config.StagingDir $name) -Destination $partial -Force
             Move-Item -LiteralPath $partial -Destination (Join-Path $Config.BackupTarget $name) -Force
         }
-        $check = Test-TrapezoidBackupChecksum -DumpPath (Join-Path $Config.BackupTarget $files.Dump)
+        $check = Test-MaterialMuleBackupChecksum -DumpPath (Join-Path $Config.BackupTarget $files.Dump)
         if (-not $check.Valid) { throw "Checksum mismatch at the backup location: $($check.Problem)" }
 
-        $sets = Get-TrapezoidBackupSet -Path $Config.BackupTarget -EnvironmentName $Config.EnvironmentName
-        $keep = Select-TrapezoidBackupsToKeep -Backups $sets -KeepDaily $Config.KeepDaily -KeepWeekly $Config.KeepWeekly -KeepMonthly $Config.KeepMonthly
+        $sets = Get-MaterialMuleBackupSet -Path $Config.BackupTarget -EnvironmentName $Config.EnvironmentName
+        $keep = Select-MaterialMuleBackupsToKeep -Backups $sets -KeepDaily $Config.KeepDaily -KeepWeekly $Config.KeepWeekly -KeepMonthly $Config.KeepMonthly
         foreach ($set in $sets) {
             if ($keep -contains $set.Base) { continue }
             & $log "Retention: deleting $($set.Base)"
@@ -611,17 +611,17 @@ function Invoke-TrapezoidBackupRun {
             }
         }
         foreach ($path in $staged) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
-        $targetSpace = Get-TrapezoidFreeSpace -Path $Config.BackupTarget
+        $targetSpace = Get-MaterialMuleFreeSpace -Path $Config.BackupTarget
         $result = 'success'
         $message = "Backup copied and verified ($([math]::Round($sizeBytes / 1MB, 1)) MB$(if (-not $stable) { '; data changed during the dump' }))"
     } catch {
         $result = 'failed'
         $message = $_.Exception.Message
         # Keep only this run's local copy (it can be copied by hand); older staged runs go.
-        Get-ChildItem -LiteralPath $Config.StagingDir -File -Filter 'trapezoid-*' -ErrorAction SilentlyContinue |
+        Get-ChildItem -LiteralPath $Config.StagingDir -File -Filter 'materialmule-*' -ErrorAction SilentlyContinue |
             Where-Object { -not $_.Name.StartsWith($base) } |
             Remove-Item -Force -ErrorAction SilentlyContinue
-        $targetSpace = Get-TrapezoidFreeSpace -Path $Config.BackupTarget
+        $targetSpace = Get-MaterialMuleFreeSpace -Path $Config.BackupTarget
     }
     $run = [ordered]@{
         startedAt  = ConvertTo-UtcText $started
@@ -632,18 +632,18 @@ function Invoke-TrapezoidBackupRun {
         sizeBytes  = if ($result -eq 'success') { $sizeBytes } else { $null }
         version    = $version
     }
-    Save-TrapezoidBackupStatus -Config $Config -Run $run -TargetSpace $targetSpace
+    Save-MaterialMuleBackupStatus -Config $Config -Run $run -TargetSpace $targetSpace
     if ($result -eq 'success') {
         & $log "Backup succeeded: $($files.Dump)"
-        Send-TrapezoidAlert -Config $Config -EntryType Information -Event BackupSucceeded -Message "Trapezoid backup succeeded: $($files.Dump)"
+        Send-MaterialMuleAlert -Config $Config -EntryType Information -Event BackupSucceeded -Message "Material Mule backup succeeded: $($files.Dump)"
     } else {
         & $log "Backup FAILED: $message" 'ERROR'
-        Send-TrapezoidAlert -Config $Config -EntryType Error -Event BackupFailed -Message "Trapezoid backup FAILED: $message"
+        Send-MaterialMuleAlert -Config $Config -EntryType Error -Event BackupFailed -Message "Material Mule backup FAILED: $message"
     }
     return [pscustomobject]$run
 }
 
-function Test-TrapezoidBackupChecksum {
+function Test-MaterialMuleBackupChecksum {
     <#
     .SYNOPSIS
     Checks every file listed in <base>.sha256 next to a dump. The dump itself must be listed.
@@ -674,7 +674,7 @@ function Test-TrapezoidBackupChecksum {
 
 # --- Restore ---------------------------------------------------------------------------------------
 
-function Assert-TrapezoidRestoreTarget {
+function Assert-MaterialMuleRestoreTarget {
     <#
     .SYNOPSIS
     Refuses any restore target that is not a new, clearly named scratch database: never the
@@ -692,11 +692,11 @@ function Assert-TrapezoidRestoreTarget {
         throw "Refusing to restore into the system database '$TargetDatabase'"
     }
     if ($TargetDatabase -notmatch 'restore') {
-        throw "Target database '$TargetDatabase' must contain 'restore' in its name (e.g. trapezoid_restore_20261026), so it can't be mistaken for production"
+        throw "Target database '$TargetDatabase' must contain 'restore' in its name (e.g. materialmule_restore_20261026), so it can't be mistaken for production"
     }
 }
 
-function Invoke-TrapezoidRestoreRun {
+function Invoke-MaterialMuleRestoreRun {
     <#
     .SYNOPSIS
     Restore drill: checksum -> refuse unsafe targets -> CREATE DATABASE (new only) -> pg_restore
@@ -709,20 +709,20 @@ function Invoke-TrapezoidRestoreRun {
         [Parameter(Mandatory)][string]$BackupFile,
         [Parameter(Mandatory)][string]$TargetDatabase,
         [switch]$DropAfterVerify,
-        # Keep owners and grants (trapezoid_owner, trapezoid_app, ...; the roles must exist): for a
+        # Keep owners and grants (materialmule_owner, materialmule_app, ...; the roles must exist): for a
         # copy that may later replace production by the runbook's manual recovery steps.
         [switch]$KeepOwnership
     )
     $restoreOptions = if ($KeepOwnership) { @('--exit-on-error') } else { @('--no-owner', '--no-privileges', '--exit-on-error') }
-    Assert-TrapezoidRestoreTarget -Config $Config -TargetDatabase $TargetDatabase
+    Assert-MaterialMuleRestoreTarget -Config $Config -TargetDatabase $TargetDatabase
     $dumpPath = (Resolve-Path -LiteralPath $BackupFile -ErrorAction Stop).Path
-    $check = Test-TrapezoidBackupChecksum -DumpPath $dumpPath
+    $check = Test-MaterialMuleBackupChecksum -DumpPath $dumpPath
     if (-not $check.Valid) { throw "Backup failed its checksum check: $($check.Problem)" }
     $manifestPath = $dumpPath -replace '\.dump$', '.manifest.json'
     $manifest = if (Test-Path -LiteralPath $manifestPath -PathType Leaf) { Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json } else { $null }
 
     $admin = [string]$Config.RestoreAdminUser
-    $exists = Invoke-TrapezoidPgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1') + (Get-ConnectionArgs $Config $admin 'postgres') + @('-c', "SELECT count(*) FROM pg_database WHERE datname = '$TargetDatabase'"))
+    $exists = Invoke-MaterialMulePgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1') + (Get-ConnectionArgs $Config $admin 'postgres') + @('-c', "SELECT count(*) FROM pg_database WHERE datname = '$TargetDatabase'"))
     if ($exists.ExitCode -ne 0) {
         throw "Could not connect as $admin (set PGPASSWORD or PgPassFile): $(($exists.Errors | Select-Object -First 2) -join ' ')"
     }
@@ -743,21 +743,21 @@ function Invoke-TrapezoidRestoreRun {
     }
 
     if (-not (Test-Path -LiteralPath $Config.OpsLogDir -PathType Container)) { New-Item -ItemType Directory -Path $Config.OpsLogDir -Force | Out-Null }
-    $log = { param($message, $level = 'INFO') Write-TrapezoidOpsLog -Config $Config -Log restore -Message $message -Level $level }
+    $log = { param($message, $level = 'INFO') Write-MaterialMuleOpsLog -Config $Config -Log restore -Message $message -Level $level }
     $started = Get-Date
     & $log "Restore drill: $(Split-Path -Leaf $dumpPath) -> new database $TargetDatabase"
     $created = $false
     $differences = @()
     try {
-        $create = Invoke-TrapezoidPgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-v', 'ON_ERROR_STOP=1') + (Get-ConnectionArgs $Config $admin 'postgres') + @('-c', "CREATE DATABASE `"$TargetDatabase`""))
+        $create = Invoke-MaterialMulePgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-v', 'ON_ERROR_STOP=1') + (Get-ConnectionArgs $Config $admin 'postgres') + @('-c', "CREATE DATABASE `"$TargetDatabase`""))
         if ($create.ExitCode -ne 0) { throw "CREATE DATABASE failed: $(($create.Errors | Select-Object -First 2) -join ' ')" }
         $created = $true
-        $restore = Invoke-TrapezoidPgTool -Config $Config -Tool pg_restore -Arguments ($restoreOptions + (Get-ConnectionArgs $Config $admin $TargetDatabase) + @($dumpPath))
+        $restore = Invoke-MaterialMulePgTool -Config $Config -Tool pg_restore -Arguments ($restoreOptions + (Get-ConnectionArgs $Config $admin $TargetDatabase) + @($dumpPath))
         if ($restore.ExitCode -ne 0) { throw "pg_restore failed (exit code $($restore.ExitCode)): $(($restore.Errors | Select-Object -First 3) -join ' ')" }
-        $actual = Invoke-TrapezoidVerification -Config $Config -User $admin -Database $TargetDatabase
+        $actual = Invoke-MaterialMuleVerification -Config $Config -User $admin -Database $TargetDatabase
         foreach ($line in $actual) { & $log "  $line" }
         if ($manifest) {
-            $differences = @(Compare-TrapezoidVerification -Expected @($manifest.checks) -Actual $actual)
+            $differences = @(Compare-MaterialMuleVerification -Expected @($manifest.checks) -Actual $actual)
             $result = if ($differences.Count -eq 0) { 'verified' } else { 'mismatch' }
             if ($differences.Count -gt 0 -and -not $manifest.stable) {
                 $differences = @($differences) + 'note: data changed while this backup was taken, so small count differences are expected'
@@ -770,7 +770,7 @@ function Invoke-TrapezoidRestoreRun {
         $differences = @($_.Exception.Message)
     } finally {
         if ($created -and $DropAfterVerify) {
-            $drop = Invoke-TrapezoidPgTool -Config $Config -Tool psql -Arguments (@('-X', '-q') + (Get-ConnectionArgs $Config $admin 'postgres') + @('-c', "DROP DATABASE IF EXISTS `"$TargetDatabase`""))
+            $drop = Invoke-MaterialMulePgTool -Config $Config -Tool psql -Arguments (@('-X', '-q') + (Get-ConnectionArgs $Config $admin 'postgres') + @('-c', "DROP DATABASE IF EXISTS `"$TargetDatabase`""))
             if ($drop.ExitCode -ne 0) { & $log "Could not drop $TargetDatabase; drop it by hand" 'WARN' }
         }
     }
@@ -789,18 +789,18 @@ function Invoke-TrapezoidRestoreRun {
     $summary = "Restore drill $result in $([math]::Round($duration.TotalMinutes, 1)) min: $($record.backup) -> $TargetDatabase"
     if ($result -eq 'verified') {
         & $log $summary
-        Send-TrapezoidAlert -Config $Config -EntryType Information -Event RestoreVerified -Message $summary
+        Send-MaterialMuleAlert -Config $Config -EntryType Information -Event RestoreVerified -Message $summary
     } else {
         foreach ($difference in $differences) { & $log "  $difference" 'WARN' }
         & $log $summary 'ERROR'
-        Send-TrapezoidAlert -Config $Config -EntryType Error -Event RestoreFailed -Message "$summary`r`n$($differences -join "`r`n")"
+        Send-MaterialMuleAlert -Config $Config -EntryType Error -Event RestoreFailed -Message "$summary`r`n$($differences -join "`r`n")"
     }
     return [pscustomobject]@{ Result = $result; Differences = @($differences); DurationSeconds = $record.durationSeconds }
 }
 
 # --- Monitoring ------------------------------------------------------------------------------------
 
-function Invoke-TrapezoidMonitorRun {
+function Invoke-MaterialMuleMonitorRun {
     <#
     .SYNOPSIS
     Health check (every 5 minutes by default): service, /api/health, latest backup age against the
@@ -844,7 +844,7 @@ function Invoke-TrapezoidMonitorRun {
         }
     }
 
-    $queue = Invoke-TrapezoidPgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-A', '-t') + (Get-ConnectionArgs $Config $Config.DbUser $Config.DbName) + @('-c', "SELECT coalesce(floor(extract(epoch FROM now() - min(created_at)) / 60)::int, -1) FROM print_job WHERE status = 'queued'"))
+    $queue = Invoke-MaterialMulePgTool -Config $Config -Tool psql -Arguments (@('-X', '-q', '-A', '-t') + (Get-ConnectionArgs $Config $Config.DbUser $Config.DbName) + @('-c', "SELECT coalesce(floor(extract(epoch FROM now() - min(created_at)) / 60)::int, -1) FROM print_job WHERE status = 'queued'"))
     if ($queue.ExitCode -eq 0) {
         $minutes = [int](($queue.Output -join '').Trim())
         $checks.printQueueOldestMinutes = $minutes
@@ -863,7 +863,7 @@ function Invoke-TrapezoidMonitorRun {
     if ($Config.Host.PostgresDataDir) { $disks.database = [string]$Config.Host.PostgresDataDir }
     $checks.disks = [ordered]@{}
     foreach ($name in $disks.Keys) {
-        $space = Get-TrapezoidFreeSpace -Path $disks[$name]
+        $space = Get-MaterialMuleFreeSpace -Path $disks[$name]
         if ($space) {
             $freeGB = [math]::Round($space.FreeBytes / 1GB, 1)
             $checks.disks[$name] = $freeGB
@@ -887,21 +887,21 @@ function Invoke-TrapezoidMonitorRun {
         })
     if (-not (Test-Path -LiteralPath $Config.OpsLogDir -PathType Container)) { New-Item -ItemType Directory -Path $Config.OpsLogDir -Force | Out-Null }
     if ($new.Count -gt 0) {
-        foreach ($problem in $new) { Write-TrapezoidOpsLog -Config $Config -Log monitor -Level WARN -Message $problem }
-        Send-TrapezoidAlert -Config $Config -EntryType Warning -Event MonitorProblem -Message "Trapezoid monitoring found a problem:`r`n$($new -join "`r`n")"
+        foreach ($problem in $new) { Write-MaterialMuleOpsLog -Config $Config -Log monitor -Level WARN -Message $problem }
+        Send-MaterialMuleAlert -Config $Config -EntryType Warning -Event MonitorProblem -Message "Material Mule monitoring found a problem:`r`n$($new -join "`r`n")"
     } elseif ($problems.Count -eq 0 -and $previous.Count -gt 0) {
-        Write-TrapezoidOpsLog -Config $Config -Log monitor -Message 'All checks pass again'
-        Send-TrapezoidAlert -Config $Config -EntryType Information -Event MonitorRecovered -Message 'Trapezoid monitoring: all checks pass again'
+        Write-MaterialMuleOpsLog -Config $Config -Log monitor -Message 'All checks pass again'
+        Send-MaterialMuleAlert -Config $Config -EntryType Information -Event MonitorRecovered -Message 'Material Mule monitoring: all checks pass again'
     }
     return [pscustomobject]@{ Ok = ($problems.Count -eq 0); Problems = @($problems); New = $new; Checks = $checks }
 }
 
-# --- Scheduled tasks (registered by Install-TrapezoidHost.ps1) ----------------------------------------
+# --- Scheduled tasks (registered by Install-MaterialMuleHost.ps1) ----------------------------------------
 
-function Get-TrapezoidScheduledTaskPlan {
+function Get-MaterialMuleScheduledTaskPlan {
     <#
     .SYNOPSIS
-    The scheduled tasks Install-TrapezoidHost.ps1 registers: the backup at BackupTimes and the
+    The scheduled tasks Install-MaterialMuleHost.ps1 registers: the backup at BackupTimes and the
     monitor every MonitorIntervalMinutes, both as BackupAccount, whether or not anyone is signed in.
     #>
     [CmdletBinding()]
@@ -910,9 +910,9 @@ function Get-TrapezoidScheduledTaskPlan {
     $common = "-NoProfile -NonInteractive -File"
     return @(
         [pscustomobject]@{
-            Name        = 'Trapezoid Backup'
-            Path        = '\Trapezoid\'
-            Description = "pg_dump of $($Config.DbName) to $($Config.BackupTarget) (TRP-T21). Owner: $($Config.BackupOwner)."
+            Name        = 'Material Mule Backup'
+            Path        = '\MaterialMule\'
+            Description = "pg_dump of $($Config.DbName) to $($Config.BackupTarget) (MM-T21). Owner: $($Config.BackupOwner)."
             Execute     = $Config.PwshExe
             Arguments   = "$common `"$(Join-Path $scripts 'backup.ps1')`" -ConfigPath `"$($Config.ConfigPath)`""
             Times       = @($Config.BackupTimes)
@@ -920,9 +920,9 @@ function Get-TrapezoidScheduledTaskPlan {
             TimeLimit   = [TimeSpan]::FromHours(2)
         },
         [pscustomobject]@{
-            Name        = 'Trapezoid Monitor'
-            Path        = '\Trapezoid\'
-            Description = 'Service, health, backup age, print queue and disk space checks (TRP-T21).'
+            Name        = 'Material Mule Monitor'
+            Path        = '\MaterialMule\'
+            Description = 'Service, health, backup age, print queue and disk space checks (MM-T21).'
             Execute     = $Config.PwshExe
             Arguments   = "$common `"$(Join-Path $scripts 'monitor.ps1')`" -ConfigPath `"$($Config.ConfigPath)`""
             Times       = @()
@@ -932,9 +932,9 @@ function Get-TrapezoidScheduledTaskPlan {
     )
 }
 
-Export-ModuleMember -Function Get-TrapezoidBackupConfig, Write-TrapezoidOpsLog, Write-TrapezoidEventLog,
-    Send-TrapezoidAlert, Get-TrapezoidReleaseVersion, Get-TrapezoidFreeSpace, Invoke-TrapezoidPgTool,
-    Invoke-TrapezoidVerification, Compare-TrapezoidVerification, Get-TrapezoidBackupSet,
-    Select-TrapezoidBackupsToKeep, Get-RedactedEnvText, Save-TrapezoidBackupStatus,
-    Invoke-TrapezoidBackupRun, Test-TrapezoidBackupChecksum, Assert-TrapezoidRestoreTarget,
-    Invoke-TrapezoidRestoreRun, Invoke-TrapezoidMonitorRun, Get-TrapezoidScheduledTaskPlan
+Export-ModuleMember -Function Get-MaterialMuleBackupConfig, Write-MaterialMuleOpsLog, Write-MaterialMuleEventLog,
+    Send-MaterialMuleAlert, Get-MaterialMuleReleaseVersion, Get-MaterialMuleFreeSpace, Invoke-MaterialMulePgTool,
+    Invoke-MaterialMuleVerification, Compare-MaterialMuleVerification, Get-MaterialMuleBackupSet,
+    Select-MaterialMuleBackupsToKeep, Get-RedactedEnvText, Save-MaterialMuleBackupStatus,
+    Invoke-MaterialMuleBackupRun, Test-MaterialMuleBackupChecksum, Assert-MaterialMuleRestoreTarget,
+    Invoke-MaterialMuleRestoreRun, Invoke-MaterialMuleMonitorRun, Get-MaterialMuleScheduledTaskPlan

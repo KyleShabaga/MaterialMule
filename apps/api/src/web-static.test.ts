@@ -14,10 +14,10 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
 
   beforeAll(async () => {
     // A dot folder above the build (as in a .claude/worktrees checkout) must not hide it.
-    base = mkdtempSync(join(tmpdir(), 'trapezoid-web-'));
+    base = mkdtempSync(join(tmpdir(), 'materialmule-web-'));
     dist = join(base, '.hidden-parent', 'dist');
     mkdirSync(join(dist, 'assets'), { recursive: true });
-    writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Trapezoid</title>');
+    writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Material Mule</title>');
     writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("app")');
     app = await createApp(
       loadConfig({
@@ -46,7 +46,7 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
     for (const path of ['/', '/sample-storage', '/settings/staff']) {
       const response = await request(app.getHttpServer()).get(path);
       expect(response.status, path).toBe(200);
-      expect(response.text).toContain('<title>Trapezoid</title>');
+      expect(response.text).toContain('<title>Material Mule</title>');
     }
   });
 
@@ -54,11 +54,11 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
     expect((await request(app.getHttpServer()).get('/api/me')).status).toBe(401);
     const missing = await request(app.getHttpServer()).get('/api/does-not-exist');
     expect(missing.status).toBe(404);
-    expect(missing.text).not.toContain('<title>Trapezoid</title>');
+    expect(missing.text).not.toContain('<title>Material Mule</title>');
   });
 
   it('refuses a directory without index.html', async () => {
-    const empty = mkdtempSync(join(tmpdir(), 'trapezoid-empty-'));
+    const empty = mkdtempSync(join(tmpdir(), 'materialmule-empty-'));
     await expect(
       createApp(
         loadConfig({

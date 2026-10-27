@@ -1,4 +1,8 @@
-import { confirmReceiptRequestSchema, type ProjectSummary, type TestHole } from '@trapezoid/shared';
+import {
+  confirmReceiptRequestSchema,
+  type ProjectSummary,
+  type TestHole,
+} from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import {
   duplicateUnit,
@@ -18,7 +22,7 @@ import {
   type UnitDraft,
 } from './draft';
 
-// TRP-T10 T1 (summary validation through the shared T09 schema) and T2 (quantity). Fictional data.
+// MM-T10 T1 (summary validation through the shared T09 schema) and T2 (quantity). Fictional data.
 
 const project: ProjectSummary = {
   id: '00000000-0000-4000-8000-000000000201',

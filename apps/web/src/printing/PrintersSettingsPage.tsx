@@ -1,4 +1,4 @@
-import type { Printer } from '@trapezoid/shared';
+import type { Printer } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { EmptyState, ErrorState, FormField } from '../components/ui';
 import { useMe } from '../session/context';
@@ -139,7 +139,7 @@ function PrinterForm({
   );
 }
 
-/** Settings → Printers (admin, TRP-T15). Addresses live only on the server. */
+/** Settings → Printers (admin, MM-T15). Addresses live only on the server. */
 export function PrintersSettingsPage() {
   const me = useMe();
   const allowed = me.permissions.includes('printer.manage');

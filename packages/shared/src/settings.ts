@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // App settings (MM-T45). `draftAutoDelete`: whether each browser deletes its own receiving drafts
-// (TRP-T11) that haven't been saved for `afterDays` days. Off by default; drafts that were being
+// (MM-T11) that haven't been saved for `afterDays` days. Off by default; drafts that were being
 // confirmed are never deleted. Read by every active session, changed by Admin and Lab Manager.
 
 export const DRAFT_AUTO_DELETE_MIN_DAYS = 30;

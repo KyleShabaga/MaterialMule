@@ -2,7 +2,7 @@ import {
   DRAFT_AUTO_DELETE_MAX_DAYS,
   DRAFT_AUTO_DELETE_MIN_DAYS,
   type DraftSettings,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ErrorState, FormField } from '../../components/ui';
 import { useMe } from '../../session/context';

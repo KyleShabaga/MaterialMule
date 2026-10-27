@@ -1,11 +1,11 @@
 import { Body, Controller, NotFoundException, Param, Patch } from '@nestjs/common';
-import { storageUnitCorrectionRequestSchema, type StorageUnitDetail } from '@trapezoid/shared';
+import { storageUnitCorrectionRequestSchema, type StorageUnitDetail } from '@materialmule/shared';
 import { CurrentUser, RequirePermission } from '../../auth/auth.decorators.js';
 import type { AuthUser } from '../../auth/policy.js';
 import { parseBody } from '../../validation/parse-body.js';
 import { StorageUnitCorrectionsService } from './corrections.service.js';
 
-/** Corrections to a confirmed storage unit (TRP-T13). Personal accounts only; LAB gets 403. */
+/** Corrections to a confirmed storage unit (MM-T13). Personal accounts only; LAB gets 403. */
 @Controller('storage-units')
 export class StorageUnitCorrectionsController {
   constructor(private readonly corrections: StorageUnitCorrectionsService) {}

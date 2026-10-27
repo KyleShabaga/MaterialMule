@@ -9,15 +9,15 @@ import {
   type ProjectListPage,
   type ProjectSummary,
   type UpdateProjectRequest,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
-// Projects list, detail and edit (TRP-T35). Every call resolves; failures carry a readable message.
+// Projects list, detail and edit (MM-T35). Every call resolves; failures carry a readable message.
 
 export type LoadResult<T> =
   { ok: true; data: T } | { ok: false; notFound: boolean; message: string };
 
-const UNREACHABLE = "Trapezoid couldn't be reached. Check the connection.";
+const UNREACHABLE = "Material Mule couldn't be reached. Check the connection.";
 
 async function getJson<T>(
   path: string,
@@ -42,7 +42,7 @@ async function getJson<T>(
   const parsed = schema.safeParse(body);
   return parsed.success
     ? { ok: true, data: parsed.data }
-    : { ok: false, notFound: false, message: 'Trapezoid returned an unexpected response.' };
+    : { ok: false, notFound: false, message: 'Material Mule returned an unexpected response.' };
 }
 
 /** `params` is the page's own URL query, which uses the API's parameter names. */

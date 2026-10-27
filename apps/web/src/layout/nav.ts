@@ -1,4 +1,4 @@
-import type { MeResponse } from '@trapezoid/shared';
+import type { MeResponse } from '@materialmule/shared';
 import { FEATURES, type FeatureFlag } from '../features';
 
 export interface NavItem {
@@ -7,7 +7,7 @@ export interface NavItem {
   feature?: FeatureFlag;
 }
 
-/** Side menu in the order Kyle set on 2026-10-25 (TRP-T34, decision #8). */
+/** Side menu in the order Kyle set on 2026-10-25 (MM-T34, decision #8). */
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/', label: 'Dashboard' },
   { to: '/receiving-log', label: 'Receiving Log' },

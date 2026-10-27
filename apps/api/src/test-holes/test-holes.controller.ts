@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
-import { createTestHoleRequestSchema, type TestHole } from '@trapezoid/shared';
+import { createTestHoleRequestSchema, type TestHole } from '@materialmule/shared';
 import { actorFor, requestIdOf } from '../auth/auth.controller.js';
 import {
   CurrentUser,
@@ -14,7 +14,7 @@ import { TestHolesService } from './test-holes.service.js';
 export class TestHolesController {
   constructor(private readonly testHoles: TestHolesService) {}
 
-  /** Holes in the project matching `q` (contains, ignoring case), TRP-T08. */
+  /** Holes in the project matching `q` (contains, ignoring case), MM-T08. */
   @Get()
   @RequirePermission('inventory.read')
   list(

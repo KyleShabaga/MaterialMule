@@ -12,7 +12,7 @@ import {
   type StorageUnitHoleSummary,
   type StorageUnitType,
   type UnresolvedLabLinksResponse,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit } from '../../audit/audit.js';
 import type { AuthUser } from '../../auth/policy.js';
@@ -46,7 +46,7 @@ interface LockedUnit {
 }
 
 /**
- * Corrections to a confirmed storage unit (TRP-T13, D45–D47). One transaction per save: lock the
+ * Corrections to a confirmed storage unit (MM-T13, D45–D47). One transaction per save: lock the
  * unit, check its version, validate, update the unit, replace its summaries as a set, bump the
  * version and append one `storage_unit.corrected` audit event holding only the changed fields.
  * The readable ID, saved location, print history and receipt header are never touched (the

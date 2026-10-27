@@ -7,7 +7,7 @@ import {
   storageUnitDetailSchema,
   storageUnitHistoryPageSchema,
   type InventoryPage,
-} from '@trapezoid/shared';
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
@@ -31,7 +31,7 @@ import {
 } from '../test-support/fixtures.js';
 
 // Fictional data only: projects DEMO-2601 / DEMO-2602, test holes TH26-01 / TH26-02.
-describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (TRP-T12)', () => {
+describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;

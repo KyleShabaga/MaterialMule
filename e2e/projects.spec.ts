@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertInventoryFixture } from './support/inventory';
 
-// TRP-T35: projects table, project detail, add test hole and edit. Each test makes its own tagged
+// MM-T35: projects table, project detail, add test hole and edit. Each test makes its own tagged
 // fictional projects (via the T12 inventory fixture), so viewports never see each other's rows.
 
 async function horizontalOverflow(page: Page): Promise<number> {

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // E2E runs production-shaped: the built API serves the built web app from one origin (as on the
-// Windows host, TRP-T20), so no dev proxy sits between the browser and the API. The API reads
+// Windows host, MM-T20), so no dev proxy sits between the browser and the API. The API reads
 // apps/api/.env.test (copy from .env.example); CI writes one before running.
 // E2E_PORT lets several worktrees run E2E side by side (each with its own .env.test database).
 const PORT = Number(process.env.E2E_PORT ?? 3100);
@@ -9,11 +9,11 @@ const isCI = Boolean(process.env.CI);
 // Never silently reuse a server already on the port: it could be another worktree's build.
 // Set E2E_REUSE_SERVER=1 only when you started this checkout's server yourself.
 const reuseServer = !isCI && process.env.E2E_REUSE_SERVER === '1';
-// A fake Zebra printer (raw TCP, like port 9100) that the API prints to during E2E (TRP-T15).
+// A fake Zebra printer (raw TCP, like port 9100) that the API prints to during E2E (MM-T15).
 // Started by e2e/support/global-setup.ts; 1000 above the app port so worktrees don't collide.
 const FAKE_PRINTER_PORT = PORT + 1000;
 process.env.E2E_FAKE_PRINTER_PORT = String(FAKE_PRINTER_PORT);
-// A fictional Microsoft tenant + Graph for Microsoft sign-in tests (TRP-T05), 2000 above the app.
+// A fictional Microsoft tenant + Graph for Microsoft sign-in tests (MM-T05), 2000 above the app.
 const MOCK_IDP_PORT = Number(process.env.E2E_MOCK_IDP_PORT ?? PORT + 2000);
 const MOCK_IDP_URL = `http://127.0.0.1:${MOCK_IDP_PORT}`;
 // Fictional IDs that match apps/api/src/test-support/mock-oidc.ts. Never real tenant/object IDs.
@@ -43,7 +43,7 @@ export default defineConfig({
   webServer: [
     {
       name: 'mock-microsoft',
-      command: 'npm run mock:idp -w @trapezoid/api',
+      command: 'npm run mock:idp -w @materialmule/api',
       port: MOCK_IDP_PORT,
       reuseExistingServer: reuseServer,
       timeout: 60_000,
@@ -55,9 +55,9 @@ export default defineConfig({
       name: 'app',
       // Fresh test database with fictional fixtures, both builds, then the API with test sign-in on.
       command:
-        'npm run db:reset:test -w @trapezoid/api && npm run db:seed:dev -w @trapezoid/api' +
-        ' && npm run build -w @trapezoid/web && npm run build -w @trapezoid/api' +
-        ' && npm run start -w @trapezoid/api',
+        'npm run db:reset:test -w @materialmule/api && npm run db:seed:dev -w @materialmule/api' +
+        ' && npm run build -w @materialmule/web && npm run build -w @materialmule/api' +
+        ' && npm run start -w @materialmule/api',
       // Wait on the port, not /api/health: a 503 (database down) would never count as ready,
       // and the smoke test reports the database state more clearly than a startup timeout.
       port: PORT,

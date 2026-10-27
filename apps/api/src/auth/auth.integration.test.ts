@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { PATH_METADATA } from '@nestjs/common/constants.js';
-import { meResponseSchema } from '@trapezoid/shared';
+import { meResponseSchema } from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { listAuditForEntity } from '../audit/audit.js';
@@ -19,7 +19,7 @@ import { CSRF_HEADER } from './auth.guard.js';
 import { SESSION_COOKIE } from './session-cookie.js';
 import { SessionService } from './session.service.js';
 
-describe.runIf(testDatabaseUrl)('authorization and sessions (TRP-T04)', () => {
+describe.runIf(testDatabaseUrl)('authorization and sessions (MM-T04)', () => {
   let db: TestSchema;
   let app: INestApplication;
   let sessions: SessionService;
@@ -206,7 +206,7 @@ describe.runIf(testDatabaseUrl)('authorization and sessions (TRP-T04)', () => {
       .set('Cookie', cookie)
       .set(CSRF_HEADER, '1');
     expect(response.status).toBe(204);
-    expect(response.headers['set-cookie']?.[0]).toMatch(/^trapezoid_session=;/);
+    expect(response.headers['set-cookie']?.[0]).toMatch(/^materialmule_session=;/);
     expect((await http().get('/api/me').set('Cookie', cookie)).status).toBe(401);
     expect(await listAuditForEntity(db.pool, 'session', session.sessionId)).toHaveLength(1);
   });
@@ -237,8 +237,8 @@ describe.runIf(testDatabaseUrl)('authorization and sessions (TRP-T04)', () => {
         .post('/api/auth/sign-out')
         .set('Cookie', cookie)
         .set(CSRF_HEADER, '1')
-        .set('Host', 'trapezoid.local')
-        .set('Origin', 'https://trapezoid.local');
+        .set('Host', 'materialmule.local')
+        .set('Origin', 'https://materialmule.local');
       expect(response.status).toBe(204);
     });
   });

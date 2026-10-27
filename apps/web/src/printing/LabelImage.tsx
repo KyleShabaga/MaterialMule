@@ -1,5 +1,5 @@
 /**
- * The T14 sticker SVG shown as an image (TRP-T39). The SVG comes from the server, built from
+ * The T14 sticker SVG shown as an image (MM-T39). The SVG comes from the server, built from
  * escaped values; loading it through an <img> data URL means nothing in it can run or touch the
  * page, and user text is never injected as markup.
  */

@@ -1,4 +1,4 @@
-import type { MeResponse, StorageUnitDetail, StorageUnitHistoryPage } from '@trapezoid/shared';
+import type { MeResponse, StorageUnitDetail, StorageUnitHistoryPage } from '@materialmule/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 
-// Fictional data only (TRP-T13): BKT-2026-000014 in DEMO-2601, test hole TH26-01, user KCS.
+// Fictional data only (MM-T13): BKT-2026-000014 in DEMO-2601, test hole TH26-01, user KCS.
 
 const PROJECT = {
   id: '00000000-0000-4000-8000-000000000201',
@@ -140,7 +140,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('storage unit corrections (TRP-T13)', () => {
+describe('storage unit corrections (MM-T13)', () => {
   it('AC1: corrects the received date with a reason, then shows the new values and history', async () => {
     const corrected: StorageUnitDetail = {
       ...UNIT,
