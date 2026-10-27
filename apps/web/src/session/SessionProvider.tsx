@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { UNAUTHENTICATED_EVENT, apiFetch } from '../api/client';
-import { SessionContext, loadSession, type SessionState } from './context';
+import { SessionContext, loadSession as loadSessionOnce, type SessionState } from './context';
 import { rememberStation } from './station';
+
+/** loadSession that always settles in a state, so the app can never stay on Loading (MM-T61). */
+function loadSession(): Promise<SessionState> {
+  return loadSessionOnce().catch(() => ({
+    status: 'error',
+    message: 'Material Mule couldn’t load this page. Reload the page to try again.',
+  }));
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
