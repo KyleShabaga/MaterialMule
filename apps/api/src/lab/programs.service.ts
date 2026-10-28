@@ -108,6 +108,7 @@ interface LineRow {
   acknowledged_depths: string[];
   source_display_snapshot: string | null;
   coverage_captured_at: Date | null;
+  amendment_id: string | null;
 }
 
 const num = (value: string | null) => (value === null ? null : Number(value));
@@ -708,7 +709,8 @@ async function loadLineRows(db: Db, programId: string): Promise<LineRow[]> {
   const { rows } = await db.query<LineRow>(
     `SELECT id, line_number, source_kind, test_hole_id, source_storage_unit_id,
             source_bulk_group_id, scope, sample_label, depth_mode, depth_from, depth_to,
-            depth_unit, acknowledged_depths, source_display_snapshot, coverage_captured_at
+            depth_unit, acknowledged_depths, source_display_snapshot, coverage_captured_at,
+            amendment_id
      FROM test_line WHERE program_id = $1 ORDER BY line_number`,
     [programId],
   );
@@ -852,10 +854,48 @@ async function saveLines(client: PoolClient, program: ProgramRow, lines: DraftLi
   }
 }
 
+/**
+ * Depth discrepancy of a Specific line an amendment is about to add (MM-T26), checked exactly as
+ * submission checks a draft line: other depths of the same sample need acknowledging.
+ */
+export async function amendmentLineDiscrepancy(
+  db: Db,
+  program: { id: string; project_id: string },
+  line: {
+    id: string;
+    source: LabSourceRef;
+    sampleLabel: string;
+    depthMode: 'point' | 'interval';
+    depthFrom: number;
+    depthTo: number | null;
+    depthUnit: 'ft' | 'm';
+    acknowledgedDepths: string[];
+  },
+): Promise<DepthDiscrepancy | null> {
+  return discrepancyFor(db, program, {
+    id: line.id,
+    line_number: 0,
+    source_kind: line.source.kind,
+    test_hole_id: line.source.kind === 'test_hole' ? line.source.id : null,
+    source_storage_unit_id: line.source.kind === 'standalone_unit' ? line.source.id : null,
+    source_bulk_group_id: line.source.kind === 'standalone_bulk_group' ? line.source.id : null,
+    scope: 'specific',
+    sample_label: line.sampleLabel,
+    depth_mode: line.depthMode,
+    depth_from: String(line.depthFrom),
+    depth_to: line.depthTo === null ? null : String(line.depthTo),
+    depth_unit: line.depthUnit,
+    acknowledged_depths: line.acknowledgedDepths.map(depthKey),
+    source_display_snapshot: null,
+    coverage_captured_at: null,
+    amendment_id: null,
+  });
+}
+
 /** Depth discrepancies of a Specific line against every submitted request and its own draft. */
 async function discrepancyFor(
   db: Db,
-  program: ProgramRow,
+  program: Pick<ProgramRow, 'id' | 'project_id'>,
   line: LineRow,
 ): Promise<DepthDiscrepancy | null> {
   const source = sourceOf(line);
@@ -1043,11 +1083,21 @@ export async function loadProgram(db: Db, row: ProgramRow): Promise<LabProgram> 
       test_subgroup_snapshot: string | null;
       status: TestRequest['status'];
       version: number;
+      repeat_of_id: string | null;
+      amendment_id: string | null;
+      identity_revision: number;
+      sample_label_override: string | null;
+      depth_mode_override: 'point' | 'interval' | null;
+      depth_from_override: string | null;
+      depth_to_override: string | null;
+      depth_unit_override: 'ft' | 'm' | null;
     }>(
       `SELECT id, line_id, test_type_id, test_code_snapshot, test_name_snapshot,
               test_description_snapshot, test_group_snapshot, test_subgroup_snapshot, status,
-              version
-       FROM test_request WHERE program_id = $1 ORDER BY sort_order, test_code_snapshot`,
+              version, repeat_of_id, amendment_id, identity_revision, sample_label_override,
+              depth_mode_override, depth_from_override, depth_to_override, depth_unit_override
+       FROM test_request WHERE program_id = $1
+       ORDER BY sort_order, test_code_snapshot, created_at, id`,
       [row.id],
     );
     for (const r of requestRows) {
@@ -1063,6 +1113,19 @@ export async function loadProgram(db: Db, row: ProgramRow): Promise<LabProgram> 
           subgroupName: r.test_subgroup_snapshot,
           status: r.status,
           version: r.version,
+          repeatOfId: r.repeat_of_id,
+          amendmentId: r.amendment_id,
+          identityRevision: r.identity_revision,
+          identity:
+            r.sample_label_override && r.depth_mode_override && r.depth_unit_override
+              ? {
+                  sampleLabel: r.sample_label_override,
+                  depthMode: r.depth_mode_override,
+                  depthFrom: num(r.depth_from_override)!,
+                  depthTo: num(r.depth_to_override),
+                  depthUnit: r.depth_unit_override,
+                }
+              : null,
         },
       ]);
     }
@@ -1076,9 +1139,10 @@ export async function loadProgram(db: Db, row: ProgramRow): Promise<LabProgram> 
       unit_type_snapshot: string;
       contents_snapshot: string | null;
       received_date_snapshot: string;
+      amendment_id: string | null;
     }>(
       `SELECT line_id, storage_unit_id, receipt_id, included, matching_basis,
-              unit_readable_id_snapshot, unit_type_snapshot, contents_snapshot,
+              unit_readable_id_snapshot, unit_type_snapshot, contents_snapshot, amendment_id,
               to_char(received_date_snapshot, 'YYYY-MM-DD') AS received_date_snapshot
        FROM program_scope_snapshot WHERE program_id = $1
        ORDER BY included DESC, received_date_snapshot, unit_readable_id_snapshot COLLATE "C"`,
@@ -1096,6 +1160,7 @@ export async function loadProgram(db: Db, row: ProgramRow): Promise<LabProgram> 
           receiptId: s.receipt_id,
           included: s.included,
           matchingBasis: s.matching_basis,
+          amendmentId: s.amendment_id,
         },
       ]);
     }
@@ -1126,6 +1191,7 @@ export async function loadProgram(db: Db, row: ProgramRow): Promise<LabProgram> 
       requests: requests.get(line.id) ?? [],
       coverage: coverage.get(line.id) ?? [],
       coverageCapturedAt: line.coverage_captured_at?.toISOString() ?? null,
+      amendmentId: line.amendment_id,
     });
   }
 

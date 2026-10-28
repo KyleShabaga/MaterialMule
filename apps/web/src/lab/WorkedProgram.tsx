@@ -2,6 +2,7 @@ import {
   COMMENT_MAX_LENGTH,
   STATUS_TRANSITIONS,
   formatAttribution,
+  formatLineDepth,
   formatPerson,
   programLabel,
   type LabComment,
@@ -25,6 +26,8 @@ import {
   type WriteResult,
 } from './api';
 import { FrozenLine, ProgramSummary } from './ProgramDetailPage';
+import { AmendProgram, ChangeAcceptedTest } from './AmendmentControls';
+import { ProgramLifecycle, RequestLifecycle } from './LifecycleControls';
 import { ReviewControls } from './ReviewControls';
 
 // A submitted program being worked (MM-T24): per-test status buttons along the one path, the
@@ -469,6 +472,8 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
       ) : null}
       {work ? (
         <>
+          <ProgramLifecycle program={program} work={work} onDone={after} />
+          <AmendProgram program={program} work={work} onDone={after} />
           <PriorityControl program={program} work={work} onChanged={after} />
           {program.lines.map((line) => (
             <FrozenLine
@@ -483,6 +488,15 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                 return (
                   <>
                     {changed ? <span className="field-hint">{changed}</span> : null}
+                    {request.identity ? (
+                      <span className="field-hint">
+                        Sample now {request.identity.sampleLabel} at{' '}
+                        {formatLineDepth(request.identity)}
+                      </span>
+                    ) : null}
+                    {request.amendmentId ? (
+                      <span className="field-hint">Added by amendment</span>
+                    ) : null}
                     {tested.length > 0 ? (
                       <StatusBadge tone="info">
                         Used: {tested.map((unit) => unit.readableId).join(', ')}
@@ -490,6 +504,13 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                     ) : null}
                     <StatusAction request={request} line={line} work={work} onDone={after} />
                     <ReviewControls testRequestId={request.id} work={work} onDone={after} />
+                    <RequestLifecycle
+                      request={request}
+                      program={program}
+                      work={work}
+                      onDone={after}
+                    />
+                    <ChangeAcceptedTest request={request} line={line} work={work} onDone={after} />
                   </>
                 );
               }}

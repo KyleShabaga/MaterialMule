@@ -49,6 +49,10 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   // MM-T25
   'acceptance_delegation.read',
   'test.correction_done',
+  // MM-T26
+  'lab_program.amend',
+  'test.cancel_request',
+  'program.close_request',
   'storage_unit.dispose_scan',
   'location_conflict.resolve',
   'test_catalog.manage',

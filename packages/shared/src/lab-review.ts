@@ -143,13 +143,27 @@ export const reviewEventSchema = z.object({
 });
 export type ReviewEvent = z.infer<typeof reviewEventSchema>;
 
+/** Correction items (MM-T25); cancellation and closure requests (MM-T26). */
+export const ACTION_ITEM_KINDS = ['correction', 'cancellation_request', 'closure_request'] as const;
+export type ActionItemKind = (typeof ACTION_ITEM_KINDS)[number];
+
+export const ACTION_ITEM_KIND_LABEL: Record<ActionItemKind, string> = {
+  correction: 'Correction for the Lab Manager',
+  cancellation_request: 'Cancellation requested',
+  closure_request: 'Closure requested',
+};
+
 export const actionItemSchema = z.object({
   id: z.string(),
-  kind: z.literal('correction'),
+  kind: z.enum(ACTION_ITEM_KINDS),
   targetRole: z.literal('lab_manager').nullable(),
-  testRequestId: z.string(),
+  /** The test it concerns; null for a closure request (it concerns the program). */
+  testRequestId: z.string().nullable(),
+  /** The return comment of a correction, or the requester's reason. */
   comment: z.string(),
   status: z.enum(['open', 'resolved']),
+  /** How it was resolved (null while open, and for corrections resolved before MM-T26). */
+  resolution: z.enum(['correction_done', 'cancelled', 'closed']).nullable(),
   createdAt: z.string(),
   createdBy: personSnapshotSchema,
   resolvedAt: z.string().nullable(),

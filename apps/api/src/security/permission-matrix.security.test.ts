@@ -80,6 +80,10 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/test-requests/:id/accept': 'test.accept',
   'POST /api/projects/:projectId/acceptance-delegates': 'acceptance_delegation.manage',
   'DELETE /api/projects/:projectId/acceptance-delegates/:id': 'acceptance_delegation.manage',
+  // MM-T26: closing by the project's PM/PE; reopening and cancelling by PM/PE or Lab Manager.
+  'POST /api/lab-programs/:id/close': 'program.close',
+  'POST /api/lab-programs/:id/reopen': 'program.reopen',
+  'POST /api/test-requests/:id/cancel': 'test.cancel',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */

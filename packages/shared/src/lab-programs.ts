@@ -258,6 +258,8 @@ export const TEST_REQUEST_STATUSES = [
   'completed',
   'review',
   'accepted',
+  // MM-T26: resolved for closure, never acceptance.
+  'cancelled',
 ] as const;
 export type TestRequestStatus = (typeof TEST_REQUEST_STATUSES)[number];
 
@@ -268,7 +270,18 @@ export const TEST_REQUEST_STATUS_LABEL: Record<TestRequestStatus, string> = {
   // The review sub-state (Awaiting review, Returned to Lab Manager, …) is shown beside it (MM-T25).
   review: 'In review',
   accepted: 'Accepted',
+  cancelled: 'Cancelled',
 };
+
+/** A request's own Specific sample/depth after an accepted-request change (MM-T26). */
+export const requestIdentitySchema = z.object({
+  sampleLabel: z.string(),
+  depthMode: z.enum(DEPTH_MODES),
+  depthFrom: z.number(),
+  depthTo: z.number().nullable(),
+  depthUnit: z.enum(['ft', 'm']),
+});
+export type RequestIdentity = z.infer<typeof requestIdentitySchema>;
 
 export const testRequestSchema = z.object({
   id: z.string(),
@@ -280,6 +293,11 @@ export const testRequestSchema = z.object({
   subgroupName: z.string().nullable(),
   status: z.enum(TEST_REQUEST_STATUSES),
   version: z.number().int(),
+  /** MM-T26: the original this repeats, the amendment that added it, and its own identity. */
+  repeatOfId: z.string().nullable().default(null),
+  amendmentId: z.string().nullable().default(null),
+  identityRevision: z.number().int().default(0),
+  identity: requestIdentitySchema.nullable().default(null),
 });
 export type TestRequest = z.infer<typeof testRequestSchema>;
 
@@ -292,6 +310,8 @@ export const coverageUnitSchema = z.object({
   receiptId: z.string(),
   included: z.boolean(),
   matchingBasis: z.enum(MATCHING_BASES),
+  /** The amendment that added it to a submitted program (MM-T26); null if frozen at submission. */
+  amendmentId: z.string().nullable().default(null),
 });
 export type CoverageUnit = z.infer<typeof coverageUnitSchema>;
 
@@ -315,6 +335,8 @@ export const labLineSchema = z.object({
   /** Submitted: frozen coverage (included and reviewed-excluded units). */
   coverage: z.array(coverageUnitSchema),
   coverageCapturedAt: z.string().nullable(),
+  /** The amendment that added this line after submission (MM-T26). */
+  amendmentId: z.string().nullable().default(null),
 });
 export type LabLine = z.infer<typeof labLineSchema>;
 

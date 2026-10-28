@@ -13,6 +13,7 @@ import {
   reviewActionsSchema,
   reviewEventSchema,
 } from './lab-review';
+import { programLifecycleSchema, requestLifecycleSchema } from './lab-lifecycle';
 
 // Lab worklist, per-test progress, priority and comments (MM-T24).
 //
@@ -31,6 +32,8 @@ export const STATUS_TRANSITIONS: Readonly<
   // Review decisions and acceptance have their own endpoints (MM-T25, lab-review.ts).
   review: null,
   accepted: null,
+  // Cancellation, repeats and accepted-request changes have their own endpoints (MM-T26).
+  cancelled: null,
 };
 
 /** True when `from → to` is one of this card's moves. */
@@ -179,6 +182,8 @@ export const requestProgressSchema = z.object({
   acceptedViaDelegation: z.boolean(),
   /** What the signed-in account may do to this test now. */
   reviewActions: reviewActionsSchema,
+  /** Cancellation, repeat links and lifecycle actions (MM-T26). */
+  lifecycle: requestLifecycleSchema,
 });
 export type RequestProgress = z.infer<typeof requestProgressSchema>;
 
@@ -193,8 +198,10 @@ export const programWorkSchema = z.object({
   comments: z.array(labCommentSchema),
   /** Review decisions and acceptances, oldest first (MM-T25). */
   reviewEvents: z.array(reviewEventSchema),
-  /** Correction items for the Lab Manager, open and resolved. */
+  /** Correction items, cancellation and closure requests, open and resolved. */
   actionItems: z.array(actionItemSchema),
+  /** Open/Closed, closure eligibility, lifecycle history and allowed actions (MM-T26). */
+  lifecycle: programLifecycleSchema,
 });
 export type ProgramWork = z.infer<typeof programWorkSchema>;
 

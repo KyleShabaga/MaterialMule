@@ -32,6 +32,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test.review                                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| lab_program.amend (T26)                     |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| test.cancel_request (T26)                   |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
@@ -352,4 +355,32 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   acceptances made before it keep their delegate attribution. History is kept.
 - **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
   retry key (409), transition (422 `invalid_transition` / `review_not_complete`). Details:
+  [lab-review-lifecycle.md](lab-review-lifecycle.md).
+
+## Program lifecycle, cancellation and repeats (MM-T26)
+
+| Route                                        | Policy                                                      |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| `POST /api/lab-programs/:id/close`           | active user; handler checks `program.close` (project PM/PE) |
+| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (PM/PE or LM)  |
+| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                 |
+| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (PM/PE or LM)     |
+| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                   |
+| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                     |
+| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)          |
+| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                         |
+| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                        |
+
+- **LAB:** 403 on every route above, whoever the station selects. Its T23/T24 allow-list
+  (create/submit, progress, comments) never covers amendments, repeats, cancellation, closure,
+  reopening or their requests.
+- **Close** (D06): only the project's PM/PE, never a delegate, Lab Manager or admin alone. Needs at
+  least one test request and every request Accepted or Cancelled with a reason (422
+  `empty_program` / `closure_blocked` with the blockers). Closing never changes a storage unit,
+  retention, hold or disposal.
+- **Reopen and cancel** (D07): the project's PM/PE or a Lab Manager, with a nonblank reason.
+  Others ask instead (`cancel-request`, `close-request`), which creates an action item for the
+  people who decide; the test or program is unchanged until they act.
+- **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
+  retry key (409, also `already_requested`), transition or closure rule (422). Details:
   [lab-review-lifecycle.md](lab-review-lifecycle.md).
