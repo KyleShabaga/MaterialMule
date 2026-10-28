@@ -76,6 +76,10 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'PATCH /api/projects/:projectId': 'project.edit',
   // MM-T24: the project's PM/PE or a Lab Manager.
   'PATCH /api/lab-programs/:id/priority': 'program.priority.set',
+  // MM-T25: acceptance by the test's project PM/PE or delegate; delegates managed by the PM/PE.
+  'POST /api/test-requests/:id/accept': 'test.accept',
+  'POST /api/projects/:projectId/acceptance-delegates': 'acceptance_delegation.manage',
+  'DELETE /api/projects/:projectId/acceptance-delegates/:id': 'acceptance_delegation.manage',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */

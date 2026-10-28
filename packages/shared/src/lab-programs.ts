@@ -252,14 +252,22 @@ export const lineTestSchema = z.object({
 });
 export type LineTest = z.infer<typeof lineTestSchema>;
 
-export const TEST_REQUEST_STATUSES = ['requested', 'in_progress', 'completed', 'review'] as const;
+export const TEST_REQUEST_STATUSES = [
+  'requested',
+  'in_progress',
+  'completed',
+  'review',
+  'accepted',
+] as const;
 export type TestRequestStatus = (typeof TEST_REQUEST_STATUSES)[number];
 
 export const TEST_REQUEST_STATUS_LABEL: Record<TestRequestStatus, string> = {
   requested: 'Requested',
   in_progress: 'In progress',
   completed: 'Completed',
-  review: 'Awaiting review',
+  // The review sub-state (Awaiting review, Returned to Lab Manager, …) is shown beside it (MM-T25).
+  review: 'In review',
+  accepted: 'Accepted',
 };
 
 export const testRequestSchema = z.object({

@@ -50,6 +50,8 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
        WHERE table_schema = current_schema() ORDER BY table_name`,
     );
     expect(rows.map((r) => r.table_name)).toEqual([
+      'acceptance_delegation',
+      'action_item',
       'app_user',
       'audit_event',
       'bulk_group',
@@ -87,6 +89,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'test_line_test',
       'test_line_unit_choice',
       'test_request',
+      'test_request_review_event',
       'test_request_status_history',
       'test_request_unit_link',
       'test_subgroup',
