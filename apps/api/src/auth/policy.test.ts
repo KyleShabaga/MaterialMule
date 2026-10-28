@@ -52,6 +52,8 @@ describe('can', () => {
       'storage_unit.dispose_scan',
       // MM-T28: LAB moves units but only a personal account settles a location conflict.
       'location_conflict.resolve',
+      // MM-T36: removal after testing is personal-only, whoever the station selects.
+      'storage_unit.tested_removal',
       'staff.manage',
       'disposal.approve',
       'printer.manage',

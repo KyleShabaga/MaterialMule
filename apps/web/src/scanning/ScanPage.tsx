@@ -1,4 +1,5 @@
 import {
+  TESTED_CONTENTS_LABEL,
   formatStorageUnitHoleSummary,
   parseScanPayload,
   storageUnitTypeLabel,
@@ -116,13 +117,23 @@ function ScannedUnit({ readableId }: { readableId: string }) {
           <dd>{storageUnitTypeLabel(detail.unitType)}</dd>
           <dt>Status</dt>
           <dd>
-            <StorageUnitStatusBadge status={detail.status} />
+            <StorageUnitStatusBadge
+              status={detail.status}
+              testedRemovalReason={detail.testing?.removal?.reason ?? null}
+            />
           </dd>
+          {detail.testing?.contentsDestroyed && detail.status !== 'disposed' ? (
+            // MM-T36: tested, still on the shelf until its removal is confirmed.
+            <>
+              <dt>Contents</dt>
+              <dd>{TESTED_CONTENTS_LABEL}</dd>
+            </>
+          ) : null}
           <dt>Project</dt>
           <dd>
             {detail.project.projectNumber} · {detail.project.name}
           </dd>
-          <dt>Saved location</dt>
+          <dt>{detail.status === 'disposed' ? 'Last saved location' : 'Saved location'}</dt>
           <dd>{detail.location.name}</dd>
           <dt>Test holes</dt>
           <dd>

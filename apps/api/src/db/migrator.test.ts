@@ -19,7 +19,9 @@ describe('readMigrations', () => {
   });
 });
 
-describe.runIf(testDatabaseUrl)('migrate', () => {
+// Each test applies every migration to a fresh schema; under the full parallel suite that can
+// pass the 5 s default on this PC, so allow 30 s as the permission-matrix sweep does.
+describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
   let db: TestSchema | undefined;
 
   afterEach(async () => {

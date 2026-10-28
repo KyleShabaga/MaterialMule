@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { locationConflictSummarySchema } from './moves';
 import { HOLE_SUMMARY_TYPES } from './receipts';
 import { bulkGroupDetailSchema, bulkMembershipSchema, sampleIdentitySchema } from './samples';
+import { TESTED_REMOVAL_REASONS, storageUnitTestingSchema } from './tested-removal';
 
 // Storage unit inventory, search and detail (MM-T12). One row per tracked storage unit; ordinary
 // samples are never inventory rows. Filtering, sorting and paging all happen on the server.
@@ -211,6 +212,13 @@ export const inventoryItemSchema = z.object({
   /** Last saved location (a pending move never replaces it, MM-T28). */
   location: locationRef,
   receivedDate: z.string(),
+  /**
+   * MM-T36: the post-testing route that disposed this unit ("Disposed after testing"), or null.
+   * Optional so older fixtures stay valid.
+   */
+  testedRemovalReason: z.enum(TESTED_REMOVAL_REASONS).nullable().optional(),
+  /** MM-T36: a tested Shelby tube still on the shelf: its contents are disposed after testing. */
+  contentsDestroyed: z.boolean().optional(),
 });
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 
@@ -257,6 +265,11 @@ export const storageUnitDetailSchema = z.object({
    * by the API; optional so older fixtures stay valid.
    */
   locationConflict: locationConflictSummarySchema.nullable().optional(),
+  /**
+   * MM-T36 tested-unit evidence, contents and post-testing removal. Always sent by the API;
+   * optional so older fixtures stay valid.
+   */
+  testing: storageUnitTestingSchema.optional(),
   /** The original receipt header, as recorded at confirmation; corrections never rewrite it. */
   receipt: z.object({
     id: z.string(),
@@ -319,6 +332,8 @@ export function storageUnitHistoryActionLabel(action: string): string {
       return 'Location conflict';
     case 'storage_unit.location_conflict_resolved':
       return 'Location confirmed';
+    case 'disposal.removed':
+      return 'Disposed after testing';
     default:
       return action;
   }

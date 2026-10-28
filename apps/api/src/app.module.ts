@@ -65,6 +65,8 @@ import {
 } from './storage-units/corrections/lab-request-links.js';
 import { StorageUnitsController } from './storage-units/storage-units.controller.js';
 import { StorageUnitsService } from './storage-units/storage-units.service.js';
+import { TestedRemovalController } from './storage-units/tested-removal/tested-removal.controller.js';
+import { TestedRemovalService } from './storage-units/tested-removal/tested-removal.service.js';
 import { SystemStatusController } from './system-status/system-status.controller.js';
 import { TestHolesController } from './test-holes/test-holes.controller.js';
 import { TestHolesService } from './test-holes/test-holes.service.js';
@@ -104,6 +106,7 @@ export class AppModule {
         StorageUnitsController,
         StorageUnitCorrectionsController,
         BulkGroupsController,
+        TestedRemovalController,
         MovesController,
         CatalogueController,
         LabProgramsController,
@@ -142,6 +145,7 @@ export class AppModule {
         StorageUnitsService,
         StorageUnitCorrectionsService,
         BulkGroupsService,
+        TestedRemovalService,
         MovesService,
         CatalogueService,
         LabProgramsService,

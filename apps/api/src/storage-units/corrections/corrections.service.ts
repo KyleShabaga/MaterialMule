@@ -121,6 +121,20 @@ export class StorageUnitCorrectionsService {
         }
       }
 
+      // MM-T36: a unit removed after testing keeps the type its removal rested on.
+      if (diff.fields.includes('unitType')) {
+        const { rows: removed } = await client.query(
+          'SELECT 1 FROM tested_unit_removal WHERE storage_unit_id = $1',
+          [unit.id],
+        );
+        if (removed.length > 0) {
+          throw new ConflictException({
+            code: 'tested_removal_recorded',
+            message: 'This unit was removed after testing; its type can’t change.',
+          });
+        }
+      }
+
       const rewriteSummaries =
         diff.fields.includes('project') || diff.fields.includes('holeSummaries');
       if (rewriteSummaries) {

@@ -17,7 +17,8 @@ import { loadSampleIdentities } from '../storage-units/sample-identity.js';
 // bulk-sample group. Standalone locations are free text on each tube or group (MM-T36), so two
 // with equal text stay two sources; nothing here matches sources by name.
 //
-// Candidates of a source are its units that still exist physically (not disposed):
+// Candidates of a source are its units still available for testing: not disposed and, for a
+// Shelby tube, contents not destroyed by an earlier completed test (MM-T36):
 //   test hole  → units with a summary for the hole, tubes sourced from it, buckets of bulk groups
 //                sourced from it;
 //   standalone → the tube itself, or the group's member buckets.
@@ -28,6 +29,9 @@ import { loadSampleIdentities } from '../storage-units/sample-identity.js';
 // it, and both outcomes are frozen. Nothing ever claims complete G/S coverage silently.
 
 type Db = Pool | PoolClient;
+
+/** A unit (alias su) that can still be tested: not disposed, contents not destroyed (MM-T36). */
+const AVAILABLE = `su.status <> 'disposed' AND shelby_contents_destroyed_by_program(su.id) IS NULL`;
 
 export interface Candidate {
   storageUnitId: string;
@@ -96,7 +100,7 @@ export async function listSources(db: Db, projectId: string): Promise<LabSource[
             NULL AS readable_id, NULL AS sample_reference, NULL::numeric AS depth_from,
             NULL::numeric AS depth_to, NULL AS depth_unit,
             (SELECT count(*)::int FROM storage_unit su
-             WHERE su.project_id = th.project_id AND su.status <> 'disposed'
+             WHERE su.project_id = th.project_id AND ${AVAILABLE}
                AND (su.source_test_hole_id = th.id
                     OR EXISTS (SELECT 1 FROM storage_unit_hole_summary h
                                WHERE h.storage_unit_id = su.id AND h.test_hole_id = th.id)
@@ -110,12 +114,12 @@ export async function listSources(db: Db, projectId: string): Promise<LabSource[
             1, 2, lower(su.source_location_reference) || ' ' || su.readable_id
      FROM storage_unit su
      WHERE su.project_id = $1 AND su.unit_type = 'shelby_tube'
-       AND su.source_type = 'standalone_location' AND su.status <> 'disposed'
+       AND su.source_type = 'standalone_location' AND ${AVAILABLE}
      UNION ALL
      SELECT 'standalone_bulk_group', g.id, NULL, g.source_location_reference, NULL,
             g.sample_reference, g.depth_from, g.depth_to, g.depth_unit,
             (SELECT count(*)::int FROM storage_unit su
-             WHERE su.bulk_group_id = g.id AND su.status <> 'disposed'),
+             WHERE su.bulk_group_id = g.id AND ${AVAILABLE}),
             3, lower(g.source_location_reference) || ' ' || lower(g.sample_reference)
      FROM bulk_group g
      WHERE g.project_id = $1 AND g.source_type = 'standalone_location'
@@ -196,7 +200,7 @@ export async function resolveSource(
 }
 
 /**
- * Units of `source` that still exist (not disposed), oldest first. `lock` takes FOR SHARE on each
+ * Units of `source` still available for testing (see AVAILABLE), oldest first. `lock` takes FOR SHARE on each
  * unit so a concurrent project correction waits for the submission (and then sees its links).
  */
 export async function sourceCandidates(
@@ -205,7 +209,7 @@ export async function sourceCandidates(
   source: LabSourceRef,
   options: { lock?: boolean } = {},
 ): Promise<Candidate[]> {
-  const live = `su.project_id = $2 AND su.status <> 'disposed'`;
+  const live = `su.project_id = $2 AND ${AVAILABLE}`;
   let sql: string;
   if (source.kind === 'test_hole') {
     sql = `SELECT ${UNIT_COLUMNS}, 'hole_summary' AS basis, h.summary_type, h.sample_from,

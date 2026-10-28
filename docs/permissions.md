@@ -37,6 +37,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| storage_unit.tested_removal (T36)           |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
 | program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
@@ -325,7 +326,7 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   bulk-sample bucket needs `testedStorageUnitIds` (422 `tested_units_required`; an empty list says
   none of them was used). Each unit must be in that line's coverage, in the program's project and
   not disposed (422 `unit_not_covered` / `unit_disposed`). Completion changes no unit; physical
-  removal is MM-T36's separate personal-account action (not built yet).
+  removal is MM-T36's separate personal-account action (see "Tested-unit removal").
 - **Comments:** nonblank, the author only (for LAB, the same selected person), within 15 minutes
   of posting on the server clock (409 `edit_window_closed`); edits never restart the window and
   every text is kept. There is no delete.
@@ -384,3 +385,33 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 - **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
   retry key (409, also `already_requested`), transition or closure rule (422). Details:
   [lab-review-lifecycle.md](lab-review-lifecycle.md).
+
+## Tested-unit removal (MM-T36)
+
+| Route                                        | Policy                                                       |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| `POST /api/storage-units/:id/tested-removal` | `storage_unit.tested_removal` (personal accounts; never LAB) |
+
+- **Who:** any active personal account confirms that a tested Shelby tube or tested bulk soil
+  bucket has physically left the lab. LAB is refused (403) before the body is read, whoever its
+  station would select, and a selected person never lends their roles. No PM/PE or Lab Manager
+  disposal approval is needed.
+- **Evidence:** the request names `testRequestId`, a completed test that linked this exact unit
+  (MM-T24 `test_request_unit_link`, request not cancelled, same project). A shared hole, source,
+  bulk group, receipt, coverage or a sibling's test is never evidence (422 `no_tested_evidence`).
+  `confirmPhysicalRemoval: true` is required: completion alone never removes a unit.
+- **Which units:** Shelby tubes (`tested_shelby`) and buckets holding a bulk soil sample
+  (`tested_bulk`). Ordinary buckets: 422 `not_eligible_unit_type`. A unit disposed some other way:
+  422 `storage_unit_disposed`.
+- **Exception:** no retention wait, extension or hold, disposal approval, disposal scan or
+  program closure is checked; review and acceptance may stay open. Removal changes no test
+  request, review, acceptance or program.
+- **Checks in order:** permission (403), unit (404), retry key (exact retry 200 `replayed`;
+  different intent 409 `idempotency_key_reused`), already removed (409 `already_removed` with the
+  recorded removal), unit type and status (422), version (409 `version_conflict`), evidence (422),
+  open location conflict (409 `location_conflict_open`: confirm the location first).
+- **Further testing:** a Shelby tube's contents are used up by its first completed test (shown
+  "Disposed after testing" while the tube itself stays tracked until its removal is confirmed). New
+  programs no longer cover it, and another program can't link it as tested (422
+  `unit_contents_destroyed`); tests of the same program may still record it. A disposed unit is
+  never covered or linked.

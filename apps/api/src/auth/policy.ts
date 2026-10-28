@@ -51,6 +51,8 @@ export type Permission =
   | 'storage_unit.dispose_scan'
   // Confirm a unit's actual location to settle a move conflict (MM-T28, D29)
   | 'location_conflict.resolve'
+  // MM-T36: confirm a tested Shelby tube or bulk bucket was physically removed
+  | 'storage_unit.tested_removal'
   // Lab Manager (and PM/PE of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
@@ -112,6 +114,8 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   'storage_unit.dispose_scan',
   // LAB records moves but never settles a conflict, whoever is selected at the station (D29).
   'location_conflict.resolve',
+  // MM-T36 post-testing removal: never LAB, whoever a station selects.
+  'storage_unit.tested_removal',
 ]);
 
 /** Granted by the lab_manager role regardless of project. */

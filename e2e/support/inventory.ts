@@ -25,7 +25,9 @@ export interface InventoryFixture {
 }
 
 export async function insertInventoryFixture(): Promise<InventoryFixture> {
-  const tag = `Q${randomInt(10_000, 99_999)}`;
+  // Nine digits: with five, two of the run's many fixtures drew the same tag and the warehouse
+  // code (WH-<tag>, at most 20 characters) collided on CI.
+  const tag = `Q${randomInt(100_000_000, 1_000_000_000)}`;
   // 2024 numbers below 100000 are reserved for the dev seed (apps/api/seed/dev.sql).
   const base = randomInt(100_000, 990_000);
   let next = 0;
