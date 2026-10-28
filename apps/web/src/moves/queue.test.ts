@@ -2,7 +2,13 @@ import type { MoveRequest } from '@materialmule/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { inBatch, type BatchItem } from './batch';
 import { isoWithOffset } from './format';
-import { classifyResponse, drainQueue, predecessorFor, retryDelay, type SendOutcome } from './queue';
+import {
+  classifyResponse,
+  drainQueue,
+  predecessorFor,
+  retryDelay,
+  type SendOutcome,
+} from './queue';
 import {
   indexedDbMoveStore as store,
   MOVE_DB_NAME,
@@ -19,7 +25,11 @@ const TECH = '00000000-0000-4000-8000-000000000102';
 const STATION = '3b4b0c5e-2d0a-4f7e-9a51-6f0c7c0b9e02';
 const C1 = { id: '00000000-0000-4000-8000-000000000601', code: 'WH-C1', name: 'Warehouse C1' };
 const C2 = { id: '00000000-0000-4000-8000-000000000602', code: 'WH-C2', name: 'Warehouse C2' };
-const RECEIVING = { id: '00000000-0000-4000-8000-000000000600', code: 'RECEIVING', name: 'Receiving lab' };
+const RECEIVING = {
+  id: '00000000-0000-4000-8000-000000000600',
+  code: 'RECEIVING',
+  name: 'Receiving lab',
+};
 const U1 = { id: '00000000-0000-4000-8000-000000000501', readableId: 'BKT-2026-000014' };
 const U2 = { id: '00000000-0000-4000-8000-000000000502', readableId: 'BKT-2026-000015' };
 
@@ -158,7 +168,9 @@ describe('draining the queue (T1)', () => {
   it('P08: no answer keeps the move pending with the same ID; the next drain resends it unchanged', async () => {
     const move = await store.add(newMove(U1, C2));
     const unavailable = vi.fn(async (): Promise<SendOutcome> => ({ kind: 'unavailable' }));
-    expect((await drainQueue({ store, accountId: LAB, send: unavailable })).stop).toBe('unavailable');
+    expect((await drainQueue({ store, accountId: LAB, send: unavailable })).stop).toBe(
+      'unavailable',
+    );
     expect(await states()).toEqual([['BKT-2026-000014', 'WH-C2', 'pending']]);
     const send = vi.fn(async (request: MoveRequest) => saved(request, 2));
     await drainQueue({ store, accountId: LAB, send });
