@@ -7,9 +7,13 @@ import {
 import { apiFetch } from '../api/client';
 
 export async function fetchCandidates(projectId: string): Promise<DisposalCandidates | null> {
-  const response = await apiFetch(`/api/disposal/eligible?projectId=${projectId}`);
-  if (!response.ok) return null;
-  return disposalCandidatesSchema.parse(await response.json());
+  try {
+    const response = await apiFetch(`/api/disposal/eligible?projectId=${projectId}`);
+    if (!response.ok) return null;
+    return disposalCandidatesSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
 }
 
 type Outcome = { ok: true } | { ok: false; message: string };
