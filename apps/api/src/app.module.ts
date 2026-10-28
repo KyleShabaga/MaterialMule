@@ -33,6 +33,8 @@ import { CatalogueController } from './lab/catalogue.controller.js';
 import { CatalogueService } from './lab/catalogue.service.js';
 import { LabProgramsController } from './lab/programs.controller.js';
 import { LabProgramsService } from './lab/programs.service.js';
+import { LabReviewController } from './lab/review.controller.js';
+import { LabReviewService } from './lab/review.service.js';
 import { LabWorkController } from './lab/work.controller.js';
 import { LabWorkService } from './lab/work.service.js';
 import { LabelsController } from './labels/labels.controller.js';
@@ -103,6 +105,7 @@ export class AppModule {
         CatalogueController,
         LabProgramsController,
         LabWorkController,
+        LabReviewController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -139,6 +142,7 @@ export class AppModule {
         CatalogueService,
         LabProgramsService,
         LabWorkService,
+        LabReviewService,
         // Units referenced by open testing programs block project corrections (MM-T23, D47).
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: ProgramLabRequestLinks },
         // Default deny on every route (MM-T04).

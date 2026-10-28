@@ -31,12 +31,14 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | test.progress (D08, T24)                    |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test.review                                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
 | program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
 | test.cancel (D07)                           |     |                   |      ✓      |       |       ✓       |                     |
+| test.correction_done (T25)                  |     |                   |      ✓      |       |               |                     |
 | retention.manage (D05)                      |     |                   |      ✓      |       |       ✓       |                     |
 | disposal.approve (D19)                      |     |                   |      ✓      |       |       ✓       |                     |
 | settings.drafts.manage (MM-T45)             |     |                   |      ✓      |   ✓   |               |                     |
@@ -326,3 +328,28 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   every text is kept. There is no delete.
 - **Retries:** every action carries `idempotencyKey`; an exact retry returns the original result
   with no new history, and the same key with a different intent is 409 `idempotency_key_reused`.
+
+## Review corrections and delegated acceptance (MM-T25)
+
+| Route                                                      | Policy                                                     |
+| ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `POST /api/test-requests/:id/review`                       | `test.review` (personal accounts; `complete` or `return`)  |
+| `POST /api/test-requests/:id/correction-done`              | `test.correction_done` (Lab Manager role only)             |
+| `POST /api/test-requests/:id/accept`                       | active user; handler checks `test.accept` for the project  |
+| `GET /api/projects/:projectId/acceptance-delegates`        | `acceptance_delegation.read` (personal accounts)           |
+| `POST /api/projects/:projectId/acceptance-delegates`       | active user; handler checks `acceptance_delegation.manage` |
+| `DELETE /api/projects/:projectId/acceptance-delegates/:id` | active user; handler checks `acceptance_delegation.manage` |
+
+- **LAB:** 403 on every route above, whoever the station selects. LAB still sends tests to review
+  under MM-T24; the person it names is attribution only.
+- **Acceptance** (D04): the project's PM/PE, or a person with an active delegation for that
+  project. The Lab Manager and admin roles alone never accept. Delegation grants acceptance only:
+  never closure (D06), priority (D50), cancellation or delegation management.
+- **Corrections:** only the Lab Manager role marks a returned correction done (not PM/PE, admin
+  or a delegate through those roles). A fresh review is always needed before acceptance.
+- **Delegation:** only the project's PM/PE grants and revokes, for active staff other than
+  themselves (422 `invalid_delegate`, `already_delegated`). Revocation takes effect at once;
+  acceptances made before it keep their delegate attribution. History is kept.
+- **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
+  retry key (409), transition (422 `invalid_transition` / `review_not_complete`). Details:
+  [lab-review-lifecycle.md](lab-review-lifecycle.md).

@@ -7,6 +7,12 @@ import {
   type ProgramPriority,
   type TestRequestStatus,
 } from './lab-programs';
+import {
+  REVIEW_STATES,
+  actionItemSchema,
+  reviewActionsSchema,
+  reviewEventSchema,
+} from './lab-review';
 
 // Lab worklist, per-test progress, priority and comments (MM-T24).
 //
@@ -22,7 +28,9 @@ export const STATUS_TRANSITIONS: Readonly<
   requested: { to: 'in_progress', action: 'Start' },
   in_progress: { to: 'completed', action: 'Mark completed' },
   completed: { to: 'review', action: 'Send to review' },
+  // Review decisions and acceptance have their own endpoints (MM-T25, lab-review.ts).
   review: null,
+  accepted: null,
 };
 
 /** True when `from → to` is one of this card's moves. */
@@ -46,12 +54,13 @@ const versionSchema = z.number({ error: 'is required' }).int().min(1);
 
 /**
  * `POST /api/test-requests/:id/status`. `to` also accepts 'accepted' so a jump there is refused
- * as an invalid transition (or 403 for LAB) instead of a shape error. `testedStorageUnitIds` lists
+ * as an invalid transition (or 403 for LAB) instead of a shape error: acceptance is
+ * `POST /api/test-requests/:id/accept` (MM-T25). `testedStorageUnitIds` lists
  * the exact physical units used; it is required when completing a test whose frozen coverage
  * includes a Shelby tube or bulk-sample bucket (an empty list then says none of them was used).
  */
 export const changeTestStatusRequestSchema = z.strictObject({
-  to: z.enum([...TEST_REQUEST_STATUSES, 'accepted'], { error: 'must be a test status' }),
+  to: z.enum(TEST_REQUEST_STATUSES, { error: 'must be a test status' }),
   version: versionSchema,
   idempotencyKey: idSchema,
   actingStaffUserId: idSchema.optional(),
@@ -163,6 +172,13 @@ export const requestProgressSchema = z.object({
   version: z.number().int(),
   /** Frozen coverage includes a Shelby tube or bulk-sample bucket: completion names the units. */
   needsTestedUnits: z.boolean(),
+  /** Review sub-state while in Review (MM-T25), null otherwise. */
+  reviewState: z.enum(REVIEW_STATES).nullable(),
+  acceptedAt: z.string().nullable(),
+  acceptedBy: personSnapshotSchema.nullable(),
+  acceptedViaDelegation: z.boolean(),
+  /** What the signed-in account may do to this test now. */
+  reviewActions: reviewActionsSchema,
 });
 export type RequestProgress = z.infer<typeof requestProgressSchema>;
 
@@ -175,6 +191,10 @@ export const programWorkSchema = z.object({
   testedUnits: z.array(testedUnitSchema),
   priorityHistory: z.array(priorityEventSchema),
   comments: z.array(labCommentSchema),
+  /** Review decisions and acceptances, oldest first (MM-T25). */
+  reviewEvents: z.array(reviewEventSchema),
+  /** Correction items for the Lab Manager, open and resolved. */
+  actionItems: z.array(actionItemSchema),
 });
 export type ProgramWork = z.infer<typeof programWorkSchema>;
 

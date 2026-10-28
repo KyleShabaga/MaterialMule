@@ -417,3 +417,26 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   `completedTestEvidence()` in `apps/api/src/lab/work.service.ts` reads it for MM-T36's removal.
 - The T13 link checker also counts these links, so a tested unit can't change project while its
   program is open.
+
+## Lab review and acceptance (MM-T25, migration 0040)
+
+- `test_request.status` adds `accepted`. `test_request.review_state` (awaiting_review, returned,
+  correction_done, review_complete) is set exactly while the status is `review`; entering Review
+  sets `awaiting_review`. A trigger allows only the confirmed review moves, refuses
+  review → accepted unless the review is complete, and refuses any change outside a submitted
+  program. Returning never moves a test back to In progress; review_complete → returned is not
+  allowed (unresolved edge, see [lab-review-lifecycle.md](lab-review-lifecycle.md)).
+- `accepted_at`, `accepted_by_user_id` and `accepted_via_delegation_id` are set exactly while the
+  status is `accepted` (MM-T26's accepted-request change must clear them; the
+  `test_request_review_event` row keeps the historical acceptance).
+- `test_request_review_event` (append-only): review_completed, returned, correction_done and
+  accepted, with the personal account's snapshots, the comment or note (required for returns and
+  corrections), correction cycle, delegation used, retry key and intent hash.
+- `action_item`: minimal work items (MM-T25 `correction` for the Lab Manager role). One open
+  correction per test (partial unique index); an item is resolved once and never deleted.
+  MM-T26 adds kinds; MM-T27 turns items into notifications.
+- `acceptance_delegation`: grants per project and person with granted/revoked actor snapshots.
+  At most one active grant per project and person (partial unique index); grants are never
+  deleted and are revoked once. Acceptance takes `FOR SHARE` on the actor's active grant and
+  revocation `FOR UPDATE`, so the two commit in one order.
+- `completedTestEvidence()` also returns each linked test's current `request_status`.

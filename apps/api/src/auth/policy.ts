@@ -41,6 +41,8 @@ export type Permission =
   // Personal accounts only
   | 'storage_unit.correct'
   | 'test.review'
+  // Read a project's acceptance delegates (MM-T25)
+  | 'acceptance_delegation.read'
   | 'storage_unit.dispose_scan'
   // Confirm a unit's actual location to settle a move conflict (MM-T28, D29)
   | 'location_conflict.resolve'
@@ -49,6 +51,8 @@ export type Permission =
   | 'program.priority.set'
   | 'program.reopen'
   | 'test.cancel'
+  // Mark a returned correction done (MM-T25): Lab Manager only, never through PM/PE or admin
+  | 'test.correction_done'
   | 'retention.manage'
   | 'disposal.approve'
   // Lab Manager and Admin (MM-T45, MM-T37)
@@ -95,6 +99,7 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   ...LAB_PERMISSIONS,
   'storage_unit.correct',
   'test.review',
+  'acceptance_delegation.read',
   'storage_unit.dispose_scan',
   // LAB records moves but never settles a conflict, whoever is selected at the station (D29).
   'location_conflict.resolve',
@@ -106,6 +111,7 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'program.priority.set',
   'program.reopen',
   'test.cancel',
+  'test.correction_done',
   'retention.manage',
   'disposal.approve',
   // Draft auto-delete setting (MM-T45, owner request 2026-10-26).
