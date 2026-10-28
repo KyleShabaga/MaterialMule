@@ -31,9 +31,14 @@ import {
   type TestCatalogue,
   type TestTemplate,
   type UpdateLabProgramRequestInput,
+  amendmentResultSchema,
+  laterReceiptsSchema,
   lifecycleRequestResultSchema,
   programLifecycleResultSchema,
   testRequestResultSchema,
+  type AmendProgramRequestInput,
+  type ChangeTestRequestInput,
+  type LaterReceipts,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
@@ -290,3 +295,14 @@ export const repeatTest = (
   write(requestPath(testRequestId, 'repeat'), 'POST', body, (b) =>
     testRequestResultSchema.parse(b),
   );
+
+export const changeTestRequest = (testRequestId: string, body: ChangeTestRequestInput) =>
+  write(`/api/test-requests/${encodeURIComponent(testRequestId)}`, 'PATCH', body, (b) =>
+    testRequestResultSchema.parse(b),
+  );
+
+export const fetchLaterReceipts = (programId: string): Promise<LaterReceipts> =>
+  getJson(programPath(programId, 'later-receipts'), (b) => laterReceiptsSchema.parse(b));
+
+export const amendProgram = (programId: string, body: AmendProgramRequestInput) =>
+  write(programPath(programId, 'amend'), 'POST', body, (b) => amendmentResultSchema.parse(b));

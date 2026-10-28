@@ -35,6 +35,7 @@ function work(
     canCancel: false,
     canRequestCancel: false,
     canRepeat: false,
+    canChange: false,
   };
   return {
     programId: program.id,
@@ -73,6 +74,9 @@ function work(
       closeBlockedReason: null,
       canRequestClose: true,
       canReopen: false,
+      canAmend: false,
+      amendments: [],
+      identityRevisions: [],
       ...lifecycle,
     },
   };

@@ -41,6 +41,7 @@ function work(
           canCancel: false,
           canRequestCancel: false,
           canRepeat: false,
+          canChange: false,
         },
       },
     ],
@@ -61,6 +62,9 @@ function work(
       closeBlockedReason: 'not_pm_pe',
       canRequestClose: false,
       canReopen: false,
+      canAmend: false,
+      amendments: [],
+      identityRevisions: [],
     },
     ...extra,
   };
