@@ -1,5 +1,5 @@
 import {
-  SHELBY_CONTENTS_DESTROYED_LABEL,
+  TESTED_CONTENTS_LABEL,
   formatStorageUnitHoleSummary,
   parseScanPayload,
   storageUnitTypeLabel,
@@ -126,7 +126,7 @@ function ScannedUnit({ readableId }: { readableId: string }) {
             // MM-T36: tested, still on the shelf until its removal is confirmed.
             <>
               <dt>Contents</dt>
-              <dd>{SHELBY_CONTENTS_DESTROYED_LABEL}</dd>
+              <dd>{TESTED_CONTENTS_LABEL}</dd>
             </>
           ) : null}
           <dt>Project</dt>

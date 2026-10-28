@@ -15,8 +15,12 @@ export type TestedRemovalReason = (typeof TESTED_REMOVAL_REASONS)[number];
 
 /** Whole-unit disposition after confirmed removal. */
 export const DISPOSED_AFTER_TESTING_LABEL = 'Disposed after testing';
-/** A tested Shelby tube's contents, from completion on (the tube may still be on the shelf). */
-export const SHELBY_CONTENTS_DESTROYED_LABEL = 'Destroyed during testing — unusable';
+/**
+ * A tested Shelby tube's contents, from completion on, while the tube may still be on the shelf.
+ * Same words as the whole-unit disposition (owner decision 2026-10-27): the contents are gone and
+ * can't be tested again; the tube stays tracked until its removal is confirmed.
+ */
+export const TESTED_CONTENTS_LABEL = DISPOSED_AFTER_TESTING_LABEL;
 
 export function testedRemovalReasonLabel(reason: TestedRemovalReason): string {
   return reason === 'tested_shelby' ? 'tested Shelby tube' : 'tested bulk sample';

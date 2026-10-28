@@ -1,5 +1,5 @@
 import {
-  SHELBY_CONTENTS_DESTROYED_LABEL,
+  TESTED_CONTENTS_LABEL,
   storageUnitTypeLabel,
   type InventoryItem,
 } from '@materialmule/shared';
@@ -97,8 +97,8 @@ export function StorageUnitTable({
           />
           {item.contentsDestroyed && item.status !== 'disposed' ? (
             // MM-T36: tested, still on the shelf until its removal is confirmed.
-            <span className="type-tag" title={SHELBY_CONTENTS_DESTROYED_LABEL}>
-              Contents destroyed
+            <span className="type-tag" title={`Contents: ${TESTED_CONTENTS_LABEL}`}>
+              Tested
             </span>
           ) : null}
         </span>

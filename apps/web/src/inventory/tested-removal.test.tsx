@@ -169,7 +169,8 @@ describe('MM-T36 removal after testing', () => {
     });
     renderAt(`/sample-storage/${TESTED.readableId}`);
     const section = await screen.findByRole('region', { name: 'Testing and removal' });
-    expect(within(section).getByText('Destroyed during testing — unusable')).toBeInTheDocument();
+    expect(within(section).getByText('Disposed after testing')).toBeInTheDocument();
+    expect(section).toHaveTextContent('Can’t be tested again');
     expect(section).toHaveTextContent('LAB for JS · Jordan Smith');
     expect(screen.getByText('In stock')).toBeInTheDocument();
     const retention = screen.getByRole('region', { name: 'Location and retention' });
@@ -279,11 +280,11 @@ describe('MM-T36 removal after testing', () => {
     expect(await screen.findByText('2 storage units')).toBeInTheDocument();
     const [, removed, tested] = screen.getAllByRole('row');
     expect(within(removed!).getByText('Disposed after testing')).toBeInTheDocument();
-    expect(within(removed!).queryByText('Contents destroyed')).toBeNull();
+    expect(within(removed!).queryByText('Tested')).toBeNull();
     expect(within(tested!).getByText('In stock')).toBeInTheDocument();
-    expect(within(tested!).getByText('Contents destroyed')).toHaveAttribute(
+    expect(within(tested!).getByText('Tested')).toHaveAttribute(
       'title',
-      'Destroyed during testing — unusable',
+      'Contents: Disposed after testing',
     );
   });
 });

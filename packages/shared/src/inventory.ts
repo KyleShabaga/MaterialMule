@@ -217,7 +217,7 @@ export const inventoryItemSchema = z.object({
    * Optional so older fixtures stay valid.
    */
   testedRemovalReason: z.enum(TESTED_REMOVAL_REASONS).nullable().optional(),
-  /** MM-T36: a Shelby tube whose contents were destroyed during testing (still on the shelf). */
+  /** MM-T36: a tested Shelby tube still on the shelf: its contents are disposed after testing. */
   contentsDestroyed: z.boolean().optional(),
 });
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;

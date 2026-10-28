@@ -410,7 +410,8 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   different intent 409 `idempotency_key_reused`), already removed (409 `already_removed` with the
   recorded removal), unit type and status (422), version (409 `version_conflict`), evidence (422),
   open location conflict (409 `location_conflict_open`: confirm the location first).
-- **Further testing:** a Shelby tube's contents are destroyed by its first completed test. New
+- **Further testing:** a Shelby tube's contents are used up by its first completed test (shown
+  "Disposed after testing" while the tube itself stays tracked until its removal is confirmed). New
   programs no longer cover it, and another program can't link it as tested (422
   `unit_contents_destroyed`); tests of the same program may still record it. A disposed unit is
   never covered or linked.

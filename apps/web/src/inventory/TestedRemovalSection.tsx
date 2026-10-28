@@ -1,6 +1,6 @@
 import {
   DISPOSED_AFTER_TESTING_LABEL,
-  SHELBY_CONTENTS_DESTROYED_LABEL,
+  TESTED_CONTENTS_LABEL,
   formatPerson,
   testedRemovalReasonLabel,
   type StorageUnitDetail,
@@ -61,7 +61,16 @@ export function TestedRemovalSection({
             <dt>Contents</dt>
             <dd>
               {testing.contentsDestroyed ? (
-                <strong>{SHELBY_CONTENTS_DESTROYED_LABEL}</strong>
+                <>
+                  <strong>{TESTED_CONTENTS_LABEL}</strong>
+                  {testing.removal ? null : (
+                    <span className="field-hint">
+                      {' '}
+                      Can’t be tested again. The tube stays tracked here until its removal is
+                      confirmed.
+                    </span>
+                  )}
+                </>
               ) : (
                 'Available for testing'
               )}

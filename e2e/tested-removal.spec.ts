@@ -171,7 +171,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   // LAB sees the tested tube but no removal action, and the API refuses it outright.
   await row.getByRole('link', { name: tubeA!.readableId }).click();
   const section = page.getByRole('region', { name: 'Testing and removal' });
-  await expect(section).toContainText('Destroyed during testing — unusable');
+  await expect(section).toContainText('Can’t be tested again');
   await expect(section.getByRole('button', { name: /Confirm removal/ })).toHaveCount(0);
   const labAttempt = await page.request.post(`/api/storage-units/${tubeA!.id}/tested-removal`, {
     headers: CSRF,
