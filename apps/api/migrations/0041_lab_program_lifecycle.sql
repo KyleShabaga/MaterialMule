@@ -67,11 +67,8 @@ DECLARE
   total integer;
   unresolved integer;
 BEGIN
-  IF NEW.status = 'closed' AND OLD.status IS DISTINCT FROM 'closed' THEN
-    IF OLD.status <> 'submitted' THEN
-      RAISE EXCEPTION 'only an open program can be closed'
-        USING ERRCODE = 'check_violation', CONSTRAINT = 'lab_program_closure';
-    END IF;
+  -- A draft is refused by lab_program_guard (restrict_violation); this checks open programs.
+  IF NEW.status = 'closed' AND OLD.status = 'submitted' THEN
     SELECT count(*),
            count(*) FILTER (WHERE NOT (status = 'accepted'
                                        OR (status = 'cancelled' AND cancel_reason IS NOT NULL)))
