@@ -164,6 +164,12 @@ export function useMoveQueue({
       if (mounted.current) setStatus({ kind: 'storage', message: toStorageError(error).message });
     } finally {
       draining.current = false;
+      // A move queued after the loop's last check (while this drain was finishing) asked for
+      // another pass; run it now rather than leaving the move until the next online event.
+      if (again.current && mounted.current) {
+        again.current = false;
+        void drainRef.current();
+      }
     }
   }, [accountId, announce, reload, send, store]);
   useEffect(() => {
