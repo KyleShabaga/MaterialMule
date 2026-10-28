@@ -43,6 +43,7 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'storage_unit.correct',
   'lab_program.read',
   'lab_program.manage',
+  'lab_comment.write',
   'test.progress',
   'test.review',
   'storage_unit.dispose_scan',

@@ -1,10 +1,12 @@
-import { Navigate, type RouteObject } from 'react-router';
+import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { InventoryPage } from './inventory/InventoryPage';
 import { LabTestingLayout } from './lab/LabTestingLayout';
 import { ProgramDetailPage } from './lab/ProgramDetailPage';
 import { ProgramEditor } from './lab/ProgramEditor';
 import { ProgramsPage } from './lab/ProgramsPage';
+import { WorkedProgram } from './lab/WorkedProgram';
+import { WorklistPage } from './lab/WorklistPage';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
 import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
@@ -40,14 +42,23 @@ const featureRoutes: RouteObject[] = [
   ...(FEATURES.labTesting
     ? [
         {
-          // One Lab Testing area (MM-T23); its Worklist tab and default arrive with MM-T24.
+          // One Lab Testing area (MM-T23/T24): Worklist (default) and Programs tabs.
           path: 'lab-testing',
-          element: <LabTestingLayout />,
+          element: <LabTestingLayout worklist />,
           children: [
-            { index: true, element: <Navigate to="programs" replace /> },
+            { index: true, element: <WorklistPage /> },
             { path: 'programs', element: <ProgramsPage /> },
             { path: 'programs/new', element: <ProgramEditor draft={null} /> },
-            { path: 'programs/:programId', element: <ProgramDetailPage /> },
+            {
+              path: 'programs/:programId',
+              element: (
+                <ProgramDetailPage
+                  renderSubmitted={(program, reload) => (
+                    <WorkedProgram program={program} reload={reload} />
+                  )}
+                />
+              ),
+            },
           ],
         },
       ]

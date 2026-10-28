@@ -25,9 +25,12 @@ type Load =
 export function FrozenLine({
   line,
   testActions,
+  statusOf,
   children,
 }: {
   line: LabLine;
+  /** The live status (MM-T24); the program's own copy otherwise. */
+  statusOf?: (request: TestRequest) => TestRequest['status'];
   /** Per-test controls added by MM-T24 (status buttons, who/when). */
   testActions?: (request: TestRequest) => ReactNode;
   children?: ReactNode;
@@ -40,7 +43,9 @@ export function FrozenLine({
         {line.requests.map((request) => (
           <li key={request.id}>
             <span title={request.description}>{requestName(request)}</span>{' '}
-            <StatusBadge tone="info">{TEST_REQUEST_STATUS_LABEL[request.status]}</StatusBadge>
+            <StatusBadge tone="info">
+              {TEST_REQUEST_STATUS_LABEL[statusOf ? statusOf(request) : request.status]}
+            </StatusBadge>
             {testActions ? testActions(request) : null}
           </li>
         ))}

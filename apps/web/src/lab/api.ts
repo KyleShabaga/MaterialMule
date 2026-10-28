@@ -1,11 +1,19 @@
 import {
+  labCommentSchema,
   labProgramListSchema,
   labProgramReviewSchema,
   labProgramSchema,
   labSourceListSchema,
   labSourceUnitListSchema,
+  programWorkSchema,
   testCatalogueSchema,
   testTemplateListSchema,
+  worklistSchema,
+  type AddCommentRequestInput,
+  type ChangeTestStatusRequestInput,
+  type EditCommentRequestInput,
+  type ProgramWork,
+  type Worklist,
   type CreateLabProgramRequestInput,
   type DiscardLabProgramRequest,
   type FieldError,
@@ -138,3 +146,44 @@ export const catalogueWrite = <T>(
   body: unknown,
   parse: (b: unknown) => T,
 ) => write(path, method, body, parse);
+
+// ---------------------------------------------------------------------------------------------
+// Worklist and progress (MM-T24)
+// ---------------------------------------------------------------------------------------------
+
+export const fetchWorklist = (query: {
+  priority?: string;
+  projectId?: string;
+  open?: boolean;
+  testTypeId?: string;
+}): Promise<Worklist> => {
+  const params = new URLSearchParams();
+  if (query.priority) params.set('priority', query.priority);
+  if (query.projectId) params.set('projectId', query.projectId);
+  if (query.open) params.set('open', 'true');
+  if (query.testTypeId) params.set('testTypeId', query.testTypeId);
+  return getJson(`/api/worklist?${params.toString()}`, (b) => worklistSchema.parse(b));
+};
+
+export const fetchWork = (programId: string): Promise<ProgramWork> =>
+  getJson(`/api/lab-programs/${encodeURIComponent(programId)}/work`, (b) =>
+    programWorkSchema.parse(b),
+  );
+
+export const changeStatus = (testRequestId: string, body: ChangeTestStatusRequestInput) =>
+  write(`/api/test-requests/${encodeURIComponent(testRequestId)}/status`, 'POST', body, (b) => b);
+
+export const changePriority = (
+  programId: string,
+  body: { priority: 'normal' | 'urgent'; version: number; idempotencyKey: string },
+) => write(`/api/lab-programs/${encodeURIComponent(programId)}/priority`, 'PATCH', body, (b) => b);
+
+export const addComment = (programId: string, body: AddCommentRequestInput) =>
+  write(`/api/lab-programs/${encodeURIComponent(programId)}/comments`, 'POST', body, (b) =>
+    labCommentSchema.parse(b),
+  );
+
+export const editComment = (commentId: string, body: EditCommentRequestInput) =>
+  write(`/api/comments/${encodeURIComponent(commentId)}`, 'PATCH', body, (b) =>
+    labCommentSchema.parse(b),
+  );

@@ -27,6 +27,9 @@ const LAB_ALLOWED: Permission[] = [
   // MM-T23: LAB enters programs with a required Requested by person per action.
   'lab_program.read',
   'lab_program.manage',
+  // MM-T24: progress and comments with a required per-action person.
+  'test.progress',
+  'lab_comment.write',
 ];
 
 describe('can', () => {
