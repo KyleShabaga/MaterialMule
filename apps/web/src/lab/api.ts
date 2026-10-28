@@ -31,6 +31,9 @@ import {
   type TestCatalogue,
   type TestTemplate,
   type UpdateLabProgramRequestInput,
+  lifecycleRequestResultSchema,
+  programLifecycleResultSchema,
+  testRequestResultSchema,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
@@ -233,4 +236,57 @@ export const revokeDelegate = (projectId: string, delegationId: string) =>
     'DELETE',
     undefined,
     (b) => acceptanceDelegatesSchema.parse(b),
+  );
+
+// Program lifecycle, cancellation and repeats (MM-T26).
+
+const programPath = (programId: string, action: string) =>
+  `/api/lab-programs/${encodeURIComponent(programId)}/${action}`;
+
+export const closeProgram = (
+  programId: string,
+  body: { version: number; idempotencyKey: string },
+) =>
+  write(programPath(programId, 'close'), 'POST', body, (b) =>
+    programLifecycleResultSchema.parse(b),
+  );
+
+export const reopenProgram = (
+  programId: string,
+  body: { reason: string; version: number; idempotencyKey: string },
+) =>
+  write(programPath(programId, 'reopen'), 'POST', body, (b) =>
+    programLifecycleResultSchema.parse(b),
+  );
+
+export const requestClosure = (
+  programId: string,
+  body: { reason: string; idempotencyKey: string },
+) =>
+  write(programPath(programId, 'close-request'), 'POST', body, (b) =>
+    lifecycleRequestResultSchema.parse(b),
+  );
+
+export const cancelTest = (
+  testRequestId: string,
+  body: { reason: string; version: number; idempotencyKey: string },
+) =>
+  write(requestPath(testRequestId, 'cancel'), 'POST', body, (b) =>
+    testRequestResultSchema.parse(b),
+  );
+
+export const requestCancellation = (
+  testRequestId: string,
+  body: { reason: string; idempotencyKey: string },
+) =>
+  write(requestPath(testRequestId, 'cancel-request'), 'POST', body, (b) =>
+    lifecycleRequestResultSchema.parse(b),
+  );
+
+export const repeatTest = (
+  testRequestId: string,
+  body: { version: number; idempotencyKey: string },
+) =>
+  write(requestPath(testRequestId, 'repeat'), 'POST', body, (b) =>
+    testRequestResultSchema.parse(b),
   );

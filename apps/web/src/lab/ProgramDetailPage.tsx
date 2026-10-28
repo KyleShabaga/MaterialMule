@@ -41,7 +41,7 @@ export function FrozenLine({
     <BandedCard title={`Line ${line.lineNumber} · ${lineTitle(line)}`} headingLevel={3}>
       <ul className="request-list">
         {line.requests.map((request) => (
-          <li key={request.id}>
+          <li key={request.id} id={`request-${request.id}`}>
             <span title={request.description}>{requestName(request)}</span>{' '}
             <StatusBadge tone="info">
               {TEST_REQUEST_STATUS_LABEL[statusOf ? statusOf(request) : request.status]}

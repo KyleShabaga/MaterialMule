@@ -25,6 +25,7 @@ import {
   type WriteResult,
 } from './api';
 import { FrozenLine, ProgramSummary } from './ProgramDetailPage';
+import { ProgramLifecycle, RequestLifecycle } from './LifecycleControls';
 import { ReviewControls } from './ReviewControls';
 
 // A submitted program being worked (MM-T24): per-test status buttons along the one path, the
@@ -469,6 +470,7 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
       ) : null}
       {work ? (
         <>
+          <ProgramLifecycle program={program} work={work} onDone={after} />
           <PriorityControl program={program} work={work} onChanged={after} />
           {program.lines.map((line) => (
             <FrozenLine
@@ -490,6 +492,12 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                     ) : null}
                     <StatusAction request={request} line={line} work={work} onDone={after} />
                     <ReviewControls testRequestId={request.id} work={work} onDone={after} />
+                    <RequestLifecycle
+                      request={request}
+                      program={program}
+                      work={work}
+                      onDone={after}
+                    />
                   </>
                 );
               }}
