@@ -13,6 +13,7 @@ import {
   type TestRequest,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
+import { Link } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { ErrorState, StatusBadge } from '../components/ui';
 import { shortDateTime } from '../dashboard/format';
@@ -499,7 +500,17 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                     ) : null}
                     {tested.length > 0 ? (
                       <StatusBadge tone="info">
-                        Used: {tested.map((unit) => unit.readableId).join(', ')}
+                        Used:{' '}
+                        {tested.map((unit, index) => (
+                          // The unit's page shows its evidence and, for a personal account, the
+                          // separate removal after testing (MM-T36).
+                          <span key={unit.storageUnitId}>
+                            {index > 0 ? ', ' : null}
+                            <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
+                              {unit.readableId}
+                            </Link>
+                          </span>
+                        ))}
                       </StatusBadge>
                     ) : null}
                     <StatusAction request={request} line={line} work={work} onDone={after} />

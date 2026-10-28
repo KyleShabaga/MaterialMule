@@ -1,5 +1,6 @@
 import {
   bulkGroupSummarySchema,
+  confirmTestedRemovalResponseSchema,
   inventoryLocationListSchema,
   inventoryPageSchema,
   projectSummarySchema,
@@ -10,6 +11,8 @@ import {
   validationErrorResponseSchema,
   type BulkGroupSummary,
   type ChangeBulkGroupRequestInput,
+  type ConfirmTestedRemovalRequest,
+  type ConfirmTestedRemovalResponse,
   type CorrectBulkGroupRequestInput,
   type FieldError,
   type InventoryLocation,
@@ -204,4 +207,53 @@ export function correctBulkGroup(
   body: CorrectBulkGroupRequestInput,
 ): Promise<BulkCorrectionResult<BulkGroupSummary>> {
   return patchBulk(`/api/bulk-groups/${encodeURIComponent(groupId)}`, body, bulkGroupSummarySchema);
+}
+
+/** Outcome of `POST /api/storage-units/:id/tested-removal` (MM-T36). */
+export type TestedRemovalResult =
+  | { kind: 'removed'; response: ConfirmTestedRemovalResponse }
+  | { kind: 'refused'; status: number; code: string | null; message: string }
+  | { kind: 'unreachable' };
+
+export async function confirmTestedRemoval(
+  storageUnitId: string,
+  body: ConfirmTestedRemovalRequest,
+): Promise<TestedRemovalResult> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      `/api/storage-units/${encodeURIComponent(storageUnitId)}/tested-removal`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
+  } catch {
+    return { kind: 'unreachable' };
+  }
+  const json = (await response.json().catch(() => null)) as {
+    code?: string;
+    message?: string;
+  } | null;
+  if (response.ok) {
+    const parsed = confirmTestedRemovalResponseSchema.safeParse(json);
+    return parsed.success
+      ? { kind: 'removed', response: parsed.data }
+      : {
+          kind: 'refused',
+          status: 500,
+          code: null,
+          message: 'Material Mule returned an unexpected response.',
+        };
+  }
+  const code = json?.code ?? null;
+  const message =
+    response.status === 403
+      ? 'Removal after testing needs a personal account.'
+      : code === 'version_conflict'
+        ? 'This unit changed since you opened it. Review the latest and confirm again.'
+        : code === 'already_removed'
+          ? 'This unit was already removed after testing.'
+          : (json?.message ?? 'The removal wasn’t recorded. Try again.');
+  return { kind: 'refused', status: response.status, code, message };
 }

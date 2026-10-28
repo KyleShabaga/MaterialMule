@@ -1,4 +1,8 @@
-import { storageUnitTypeLabel, type InventoryItem } from '@materialmule/shared';
+import {
+  SHELBY_CONTENTS_DESTROYED_LABEL,
+  storageUnitTypeLabel,
+  type InventoryItem,
+} from '@materialmule/shared';
 import { Link } from 'react-router';
 import { DataTable, type Column } from '../components/ui';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
@@ -85,7 +89,20 @@ export function StorageUnitTable({
     { header: 'Received', cell: (item) => <span className="nowrap">{item.receivedDate}</span> },
     {
       header: 'Status',
-      cell: (item) => <StorageUnitStatusBadge status={item.status} />,
+      cell: (item) => (
+        <span className="unit-cell">
+          <StorageUnitStatusBadge
+            status={item.status}
+            testedRemovalReason={item.testedRemovalReason ?? null}
+          />
+          {item.contentsDestroyed && item.status !== 'disposed' ? (
+            // MM-T36: tested, still on the shelf until its removal is confirmed.
+            <span className="type-tag" title={SHELBY_CONTENTS_DESTROYED_LABEL}>
+              Contents destroyed
+            </span>
+          ) : null}
+        </span>
+      ),
     },
   ];
   return (

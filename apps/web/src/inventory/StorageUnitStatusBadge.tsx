@@ -1,4 +1,9 @@
-import { storageUnitStatusLabel, type StorageUnitStatus } from '@materialmule/shared';
+import {
+  DISPOSED_AFTER_TESTING_LABEL,
+  storageUnitStatusLabel,
+  type StorageUnitStatus,
+  type TestedRemovalReason,
+} from '@materialmule/shared';
 import { StatusBadge, type BadgeTone } from '../components/ui';
 
 const TONES: Record<StorageUnitStatus, BadgeTone> = {
@@ -7,6 +12,19 @@ const TONES: Record<StorageUnitStatus, BadgeTone> = {
   disposed: 'neutral',
 };
 
-export function StorageUnitStatusBadge({ status }: { status: StorageUnitStatus }) {
-  return <StatusBadge tone={TONES[status]}>{storageUnitStatusLabel(status)}</StatusBadge>;
+/** A unit disposed through the post-testing route reads "Disposed after testing" (MM-T36). */
+export function StorageUnitStatusBadge({
+  status,
+  testedRemovalReason = null,
+}: {
+  status: StorageUnitStatus;
+  testedRemovalReason?: TestedRemovalReason | null;
+}) {
+  return (
+    <StatusBadge tone={TONES[status]}>
+      {status === 'disposed' && testedRemovalReason
+        ? DISPOSED_AFTER_TESTING_LABEL
+        : storageUnitStatusLabel(status)}
+    </StatusBadge>
+  );
 }

@@ -7,6 +7,7 @@ import {
   storageUnitHistoryActionLabel,
   samplingSourceName,
   storageUnitTypeLabel,
+  testedRetentionNote,
   type StorageUnitDetail,
   type StorageUnitHistoryEvent,
   type StorageUnitHistoryPage,
@@ -24,6 +25,7 @@ import { CONFLICT_MESSAGE, CorrectionForm } from './CorrectionForm';
 import type { InventoryLinkState } from './InventoryPage';
 import './inventory.css';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
+import { TestedRemovalSection } from './TestedRemovalSection';
 
 type Loaded<T> =
   | { key: string; ok: true; data: T }
@@ -59,6 +61,10 @@ export function StorageUnitDetailPage() {
   // Confirming a conflicted unit's actual location: personal accounts only (MM-T28, D29).
   const canResolve =
     session.status === 'active' && session.me.permissions.includes('location_conflict.resolve');
+  // Removal after testing: personal accounts only, never LAB (MM-T36).
+  const canRemoveTested =
+    session.status === 'active' && session.me.permissions.includes('storage_unit.tested_removal');
+  const [removalNotice, setRemovalNotice] = useState<string | null>(null);
   const [resolvedNotice, setResolvedNotice] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
@@ -120,6 +126,10 @@ export function StorageUnitDetailPage() {
   }
 
   const unit = result.data;
+  // Tested (exact-unit evidence) or removed after testing: retention doesn't apply (MM-T36).
+  const retentionExempt = Boolean(
+    unit.testing?.reason && (unit.testing.removal || unit.testing.evidence.length > 0),
+  );
 
   function closeCorrection() {
     setCorrecting(false);
@@ -171,7 +181,10 @@ export function StorageUnitDetailPage() {
           <h1 className="unit-id">{unit.readableId}</h1>
           <p className="unit-meta">
             <span className="type-tag type-tag-accent">{storageUnitTypeLabel(unit.unitType)}</span>
-            <StorageUnitStatusBadge status={unit.status} />
+            <StorageUnitStatusBadge
+              status={unit.status}
+              testedRemovalReason={unit.testing?.removal?.reason ?? null}
+            />
             <span className="muted">{unit.location.name}</span>
             {unit.locationConflict ? (
               <StatusBadge tone="danger">Location conflict</StatusBadge>
@@ -225,6 +238,12 @@ export function StorageUnitDetailPage() {
         />
       ) : null}
 
+      {removalNotice ? (
+        <p className="notice notice-success" role="status">
+          {removalNotice}
+        </p>
+      ) : null}
+
       {bulkNotice ? (
         <p className="notice notice-success" role="status">
           {bulkNotice}
@@ -234,6 +253,7 @@ export function StorageUnitDetailPage() {
       <nav className="sub-nav" aria-label="Storage unit sections">
         <a href="#summaries">Summaries</a>
         {unit.bulkGroup ? <a href="#bulk-sample">Bulk sample</a> : null}
+        {unit.testing?.reason ? <a href="#testing">Testing</a> : null}
         <a href="#receipt">Receipt</a>
         <a href="#location">Location</a>
         <a href="#history">History</a>
@@ -305,6 +325,21 @@ export function StorageUnitDetailPage() {
             />
           ) : null}
 
+          {unit.testing ? (
+            <TestedRemovalSection
+              key={unit.version}
+              unit={unit}
+              testing={unit.testing}
+              canRemove={canRemoveTested}
+              onRemoved={(message) => {
+                setRemovalNotice(message);
+                setHistoryVersion((count) => count + 1);
+                setReloads((count) => count + 1);
+              }}
+              onStale={() => setReloads((count) => count + 1)}
+            />
+          ) : null}
+
           <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
         </div>
 
@@ -338,11 +373,16 @@ export function StorageUnitDetailPage() {
               <Detail term="Pending move">
                 <PendingMoveNote unitId={unit.id} />
               </Detail>
-              <Detail term="Retain until (minimum)">
-                <span className="nowrap">{unit.minimumRetainUntil}</span>
-              </Detail>
+              {retentionExempt ? (
+                // MM-T36: the post-testing route ignores retention, extensions and holds.
+                <Detail term="Retention">{testedRetentionNote(unit.testing!.reason!)}</Detail>
+              ) : (
+                <Detail term="Retain until (minimum)">
+                  <span className="nowrap">{unit.minimumRetainUntil}</span>
+                </Detail>
+              )}
             </dl>
-            <p className="field-hint">Received date + 1 year.</p>
+            {retentionExempt ? null : <p className="field-hint">Received date + 1 year.</p>}
           </BandedCard>
         </div>
       </div>
