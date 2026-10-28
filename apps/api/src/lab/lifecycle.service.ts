@@ -30,6 +30,7 @@ import { can, type AuthUser, type ProjectContext } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { parseBody } from '../validation/parse-body.js';
+import { loadAmendments, loadIdentityRevisions } from './amendments.service.js';
 import { actorOf } from './attribution.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -763,7 +764,7 @@ export async function loadProgramLifecycle(
   requests: LifecycleRequestRow[],
   user: AuthUser,
 ): Promise<ProgramLifecycle> {
-  const [program, events] = await Promise.all([
+  const [program, events, amendments, identityRevisions] = await Promise.all([
     db.query<{
       status: 'submitted' | 'closed';
       version: number;
@@ -791,6 +792,8 @@ export async function loadProgramLifecycle(
        FROM program_lifecycle_event WHERE program_id = $1 ORDER BY occurred_at, id`,
       [programId],
     ),
+    loadAmendments(db, programId),
+    loadIdentityRevisions(db, programId),
   ]);
   const row = program.rows[0]!;
   const context: ProjectContext = { pmPeUserId: row.pm_pe_user_id };
@@ -838,6 +841,9 @@ export async function loadProgramLifecycle(
     closeBlockedReason,
     canRequestClose: personal && open && can(user, 'program.close_request'),
     canReopen: personal && !open && can(user, 'program.reopen', context),
+    canAmend: personal && open && can(user, 'lab_program.amend'),
+    amendments,
+    identityRevisions,
   };
 }
 
@@ -867,5 +873,6 @@ export function requestLifecycle(
     canRequestCancel: live && cancellable && can(context.user, 'test.cancel_request'),
     canRepeat:
       live && REPEATABLE_STATUSES.includes(row.status) && can(context.user, 'lab_program.amend'),
+    canChange: live && row.status === 'accepted' && can(context.user, 'lab_program.amend'),
   };
 }

@@ -367,6 +367,9 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 | `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (PM/PE or LM)     |
 | `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                   |
 | `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                     |
+| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)          |
+| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                         |
+| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                        |
 
 - **LAB:** 403 on every route above, whoever the station selects. Its T23/T24 allow-list
   (create/submit, progress, comments) never covers amendments, repeats, cancellation, closure,

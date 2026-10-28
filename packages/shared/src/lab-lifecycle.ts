@@ -205,6 +205,187 @@ export const repeatTestRequestSchema = z.strictObject({
 export type RepeatTestRequest = z.output<typeof repeatTestRequestSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// Accepted-request changes (D09) and amendments (D02)
+// ---------------------------------------------------------------------------------------------
+
+const depthNumber = z
+  .number({ error: 'must be a number' })
+  .min(0, { error: 'must be 0 or more' })
+  .max(999_999.99, { error: 'is too large' })
+  .refine((value) => Math.round(value * 100) / 100 === value, {
+    error: 'must have at most two decimal places',
+  });
+
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+
+/** A complete Specific sample identity (label, single depth or interval, unit). */
+export const sampleIdentityInputSchema = z
+  .strictObject({
+    sampleLabel: z
+      .string({ error: 'is required' })
+      .trim()
+      .min(1, { error: 'Enter the sample label' })
+      .max(40, { error: 'must be at most 40 characters' })
+      .refine((value) => !CONTROL_CHARACTERS.test(value), {
+        error: 'can’t contain control characters',
+      }),
+    depthMode: z.enum(['point', 'interval'], { error: 'must be point or interval' }),
+    depthFrom: depthNumber,
+    depthTo: depthNumber.nullish().transform((value) => value ?? null),
+    depthUnit: z.enum(['ft', 'm'], { error: 'must be ft or m' }),
+  })
+  .superRefine((value, ctx) => {
+    if (value.depthMode === 'point' && value.depthTo !== null) {
+      ctx.addIssue({ code: 'custom', path: ['depthTo'], message: 'is only for an interval' });
+    }
+    if (value.depthMode === 'interval' && value.depthTo === null) {
+      ctx.addIssue({ code: 'custom', path: ['depthTo'], message: 'Enter where the interval ends' });
+    }
+    if (value.depthTo !== null && value.depthTo < value.depthFrom) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['depthTo'],
+        message: 'must be greater than or equal to depth from',
+      });
+    }
+  });
+export type SampleIdentityInput = z.output<typeof sampleIdentityInputSchema>;
+
+/**
+ * `PATCH /api/test-requests/:id`: change the sample/depth (Specific lines) and/or the requested
+ * test of an Accepted request. Only that request returns to Requested (D09).
+ */
+export const changeTestRequestSchema = z
+  .strictObject({
+    identity: sampleIdentityInputSchema.optional(),
+    testTypeId: idSchema.optional(),
+    reason: reasonSchema,
+    version: versionSchema,
+    idempotencyKey: idSchema,
+  })
+  .refine((value) => value.identity !== undefined || value.testTypeId !== undefined, {
+    error: 'Change the sample, depth or test',
+    path: ['identity'],
+  });
+export type ChangeTestRequest = z.output<typeof changeTestRequestSchema>;
+export type ChangeTestRequestInput = z.input<typeof changeTestRequestSchema>;
+
+const idList = (label: string, max: number) =>
+  z
+    .array(idSchema, { error: `must be a list of ${label} IDs` })
+    .max(max)
+    .superRefine((ids, ctx) => {
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({ code: 'custom', message: `lists a ${label} more than once` });
+      }
+    });
+
+/** A new line added by an amendment: complete, with the coverage the requester reviewed. */
+export const amendmentLineInputSchema = z.strictObject({
+  source: z.strictObject({
+    kind: z.enum(['test_hole', 'standalone_unit', 'standalone_bulk_group']),
+    id: idSchema,
+  }),
+  scope: z.enum(['all', 'grabs', 'spt', 'specific']),
+  identity: sampleIdentityInputSchema.nullish().transform((value) => value ?? null),
+  testTypeIds: idList('test', 100).min(1, { error: 'Pick at least one test' }),
+  /** Grabs/SPT units explicitly included after review, or the units linked to a Specific sample. */
+  unitIds: idList('storage unit', 200).default([]),
+  /** Included coverage the requester reviewed (ALL/Grabs/SPT); must match the server's. */
+  reviewedCoverageUnitIds: idList('storage unit', 500).default([]),
+  /** Different depths of the same sample the requester acknowledged, e.g. ["7.5 ft"]. */
+  acknowledgedDepths: z.array(z.string().max(60)).max(50).default([]),
+});
+export type AmendmentLineInput = z.output<typeof amendmentLineInputSchema>;
+
+/** `POST /api/lab-programs/:id/amend` (D02): explicit additions to an open program. */
+export const amendProgramRequestSchema = z
+  .strictObject({
+    version: versionSchema,
+    idempotencyKey: idSchema,
+    reason: z
+      .string()
+      .trim()
+      .max(LIFECYCLE_REASON_MAX_LENGTH)
+      .nullish()
+      .transform((value) => (value ? value : null)),
+    addTests: z
+      .array(z.strictObject({ lineId: idSchema, testTypeIds: idList('test', 100).min(1) }))
+      .max(200)
+      .default([]),
+    addLines: z.array(amendmentLineInputSchema).max(50).default([]),
+    /** Later receipts to include in an ALL/Grabs/SPT line: the exact units reviewed. */
+    includeLaterReceipts: z
+      .array(z.strictObject({ lineId: idSchema, unitIds: idList('storage unit', 500).min(1) }))
+      .max(200)
+      .default([]),
+  })
+  .refine(
+    (value) =>
+      value.addTests.length + value.addLines.length + value.includeLaterReceipts.length > 0,
+    { error: 'An amendment needs at least one change', path: ['addTests'] },
+  );
+export type AmendProgramRequest = z.output<typeof amendProgramRequestSchema>;
+export type AmendProgramRequestInput = z.input<typeof amendProgramRequestSchema>;
+
+export const amendmentSchema = z.object({
+  id: z.string(),
+  amendmentNumber: z.number().int(),
+  reason: z.string().nullable(),
+  addedLineIds: z.array(z.string()),
+  addedRequestIds: z.array(z.string()),
+  addedUnitReadableIds: z.array(z.string()),
+  person: personSnapshotSchema,
+  createdAt: z.string(),
+});
+export type Amendment = z.infer<typeof amendmentSchema>;
+
+export const identityRevisionSchema = z.object({
+  id: z.string(),
+  testRequestId: z.string(),
+  revisionNumber: z.number().int(),
+  before: z.object({ test: z.string(), sample: z.string().nullable() }),
+  after: z.object({ test: z.string(), sample: z.string().nullable() }),
+  reason: z.string(),
+  person: personSnapshotSchema,
+  changedAt: z.string(),
+});
+export type IdentityRevision = z.infer<typeof identityRevisionSchema>;
+
+/** `GET /api/lab-programs/:id/later-receipts`: units received since each line's coverage froze. */
+export const laterReceiptsSchema = z.object({
+  programId: z.string(),
+  version: z.number().int(),
+  lines: z.array(
+    z.object({
+      lineId: z.string(),
+      lineNumber: z.number().int(),
+      scope: z.enum(['all', 'grabs', 'spt']),
+      /** Not yet covered. ALL units are includable as they are; Grabs/SPT have unknown G/S. */
+      units: z.array(
+        z.object({
+          storageUnitId: z.string(),
+          readableId: z.string(),
+          unitType: z.string(),
+          contents: z.string().nullable(),
+          receivedDate: z.string(),
+          unknownClassification: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+});
+export type LaterReceipts = z.infer<typeof laterReceiptsSchema>;
+
+export const amendmentResultSchema = z.object({
+  programId: z.string(),
+  amendmentId: z.string(),
+  version: z.number().int(),
+});
+export type AmendmentResult = z.infer<typeof amendmentResultSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // Responses
 // ---------------------------------------------------------------------------------------------
 
@@ -261,6 +442,10 @@ export const programLifecycleSchema = z.object({
   closeBlockedReason: z.enum(Object.keys(CLOSE_BLOCKED_REASONS) as [CloseBlockedReason]).nullable(),
   canRequestClose: z.boolean(),
   canReopen: z.boolean(),
+  /** Add lines/tests or include later receipts (open program, personal account). */
+  canAmend: z.boolean(),
+  amendments: z.array(amendmentSchema),
+  identityRevisions: z.array(identityRevisionSchema),
 });
 export type ProgramLifecycle = z.infer<typeof programLifecycleSchema>;
 
@@ -274,6 +459,8 @@ export const requestLifecycleSchema = z.object({
   canCancel: z.boolean(),
   canRequestCancel: z.boolean(),
   canRepeat: z.boolean(),
+  /** Change the sample/depth/test of this Accepted test (resets only it to Requested). */
+  canChange: z.boolean(),
 });
 export type RequestLifecycle = z.infer<typeof requestLifecycleSchema>;
 

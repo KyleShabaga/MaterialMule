@@ -464,3 +464,18 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   program. `resolution` records `correction_done`, `cancelled` or `closed`. Cancelling a test
   resolves its open correction and cancellation request; closing resolves the closure request.
 - `completedTestEvidence()` leaves out tests that are now cancelled (MM-T36 contract).
+
+## Lab amendments and accepted-request changes (MM-T26, migration 0042)
+
+- `program_amendment` (append-only, numbered per program): reason, the requester, and a `details`
+  record of exactly what it added; `added_unit_readable_ids` lists later receipts it included.
+  `test_line`, `test_request` and `program_scope_snapshot` rows an amendment adds carry its
+  `amendment_id`. The guards accept such rows only for an open program and the amendment's own
+  program; frozen coverage is still never changed or removed, and drafts keep their rules.
+- `test_request.identity_revision` and `*_override` columns: an accepted-request change (D09)
+  moves only that request accepted → requested with revision + 1, may replace its test snapshot
+  and give it its own Specific sample/depth (the line is shared with its other tests).
+  `test_request_identity_revision` (append-only) keeps before/after, reason and actor. The status
+  guard refuses accepted → requested without a new revision.
+- `test_request_unit_link` is unique per completion and unit (was per request and unit), so a test
+  completed again after a reset keeps both completions' evidence.

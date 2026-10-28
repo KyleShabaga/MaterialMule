@@ -306,6 +306,7 @@ export function lineCoverage(
     receiptId: c.receiptId,
     included,
     matchingBasis: basis,
+    amendmentId: null,
   });
   switch (scope) {
     case 'all':
