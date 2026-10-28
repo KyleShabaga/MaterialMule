@@ -465,7 +465,7 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
             >
               <span className="history-when">{formatTime(event.occurredAt)}</span>{' '}
               <span>
-                <strong>{storageUnitHistoryActionLabel(event.action)}</strong>{' '}
+                <strong>{storageUnitHistoryActionLabel(event.action, event.after)}</strong>{' '}
                 {event.action === 'storage_unit.corrected' ? (
                   // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
                   <span>

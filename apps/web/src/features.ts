@@ -9,7 +9,7 @@ export const FEATURES = {
    */
   labTesting: true,
   /** MM-T29 / MM-T30 */
-  disposalRetention: false,
+  disposalRetention: true,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURES;

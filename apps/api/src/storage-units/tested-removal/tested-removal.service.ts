@@ -331,9 +331,10 @@ export class TestedRemovalService {
       }
 
       const { rows: updated } = await client.query<{ version: number }>(
-        `UPDATE storage_unit SET status = 'disposed', version = version + 1, updated_at = now()
+        `UPDATE storage_unit SET status = 'disposed', version = version + 1, updated_at = now(),
+                disposed_at = now(), disposed_by_user_id = $2
          WHERE id = $1 RETURNING version`,
-        [unit.id],
+        [unit.id, user.userId],
       );
       const { rows: inserted } = await client.query<RemovalRow>(
         `INSERT INTO tested_unit_removal

@@ -46,6 +46,8 @@ import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
 import { MovesController } from './moves/moves.controller.js';
 import { ActionItemsController } from './notifications/action-items.controller.js';
+import { DisposalController } from './disposal/disposal.controller.js';
+import { DisposalService } from './disposal/disposal.service.js';
 import { BusinessClock } from './retention/business-clock.js';
 import { RetentionController } from './retention/retention.controller.js';
 import { RetentionService } from './retention/retention.service.js';
@@ -121,6 +123,7 @@ export class AppModule {
         LabLifecycleController,
         ActionItemsController,
         RetentionController,
+        DisposalController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -165,6 +168,7 @@ export class AppModule {
         EmailWorkerService,
         BusinessClock,
         RetentionService,
+        DisposalService,
         // Units referenced by open testing programs block project corrections (MM-T23, D47).
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: ProgramLabRequestLinks },
         // Default deny on every route (MM-T04).

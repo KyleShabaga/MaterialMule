@@ -2352,3 +2352,40 @@ textarea {
   margin: 0 0 0.5rem;
   font-weight: 600;
 }
+
+/* Disposal (MM-T30): approval lists and the distinct disposal scan mode. */
+.disposal-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.disposal-scan-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.disposal-scan-banner h1 {
+  margin: 0 0 0.25rem;
+  color: var(--danger);
+}
+
+.disposal-scan-form {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
+
+.disposal-scan-results {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  padding: 0;
+  list-style: none;
+}
