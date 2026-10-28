@@ -46,6 +46,9 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'lab_comment.write',
   'test.progress',
   'test.review',
+  // MM-T25
+  'acceptance_delegation.read',
+  'test.correction_done',
   'storage_unit.dispose_scan',
   'location_conflict.resolve',
   'test_catalog.manage',
