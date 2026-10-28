@@ -32,6 +32,11 @@ import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { parseBody } from '../validation/parse-body.js';
 import { actorOf, receiverOf, resolveActingPerson } from './attribution.js';
+import {
+  loadProgramLifecycle,
+  requestLifecycle,
+  type LifecycleRequestRow,
+} from './lifecycle.service.js';
 import { activeDelegateIds } from './review.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -181,6 +186,7 @@ export class LabWorkService {
           pmPeUserId: program.pm_pe_user_id,
           acceptanceDelegateUserIds: delegates,
         }),
+        pmPeUserId: program.pm_pe_user_id,
       },
     });
   }
@@ -757,25 +763,26 @@ export async function loadWork(
   options: {
     canChangePriority: boolean;
     /** The signed-in account's review/acceptance standing on this program (MM-T25). */
-    review: { user: AuthUser; programOpen: boolean; canAccept: boolean };
+    review: { user: AuthUser; programOpen: boolean; canAccept: boolean; pmPeUserId: string };
   },
 ): Promise<ProgramWork> {
   const [requests, history, links, priority, comments, reviewEvents, actionItems] =
     await Promise.all([
-      db.query<{
-        id: string;
-        status: TestRequestStatus;
-        version: number;
-        needs_units: boolean;
-        review_state: ReviewState | null;
-        accepted_at: Date | null;
-        accepted_by_user_id: string | null;
-        accepted_by_initials: string | null;
-        accepted_by_name: string | null;
-        accepted_via_delegation_id: string | null;
-      }>(
+      db.query<
+        LifecycleRequestRow & {
+          version: number;
+          needs_units: boolean;
+          accepted_at: Date | null;
+          accepted_by_user_id: string | null;
+          accepted_by_initials: string | null;
+          accepted_by_name: string | null;
+          accepted_via_delegation_id: string | null;
+        }
+      >(
         `SELECT r.id, r.status, r.version, r.review_state, r.accepted_at, r.accepted_by_user_id,
-              r.accepted_via_delegation_id,
+              r.accepted_via_delegation_id, r.cancel_reason, r.cancelled_at,
+              r.cancelled_by_user_id, r.cancelled_by_initials_snapshot,
+              r.cancelled_by_name_snapshot, r.repeat_of_id,
               (SELECT e.initials_snapshot FROM test_request_review_event e
                WHERE e.test_request_id = r.id AND e.kind = 'accepted'
                ORDER BY e.occurred_at DESC LIMIT 1) AS accepted_by_initials,
@@ -787,7 +794,7 @@ export async function loadWork(
                       WHERE s.line_id = r.line_id AND s.included
                         AND (su.unit_type = 'shelby_tube' OR su.bulk_group_id IS NOT NULL))
                 AS needs_units
-       FROM test_request r WHERE r.program_id = $1`,
+       FROM test_request r WHERE r.program_id = $1 ORDER BY r.created_at, r.id`,
         [programId],
       ),
       db.query<{
@@ -855,23 +862,38 @@ export async function loadWork(
         id: string;
         entity_id: string;
         status: 'open' | 'resolved';
+        kind: 'correction' | 'cancellation_request' | 'closure_request';
         target_role: 'lab_manager' | null;
         created_at: Date;
         resolved_at: Date | null;
+        resolution: 'correction_done' | 'cancelled' | 'closed' | null;
         comment: string;
         user_id: string;
         initials_snapshot: string | null;
         name_snapshot: string;
       }>(
-        `SELECT a.id, a.entity_id, a.status, a.target_role, a.created_at, a.resolved_at,
-              e.comment, e.user_id, e.initials_snapshot, e.name_snapshot
-       FROM action_item a JOIN test_request_review_event e ON e.id = a.opened_by_event_id
+        // Corrections take their comment and author from the return; requests carry their own.
+        `SELECT a.id, a.entity_id, a.kind, a.status, a.target_role, a.created_at, a.resolved_at,
+              a.resolution,
+              coalesce(e.comment, a.reason) AS comment,
+              coalesce(e.user_id, a.created_by_user_id) AS user_id,
+              CASE WHEN e.id IS NULL THEN a.created_by_initials_snapshot
+                   ELSE e.initials_snapshot END AS initials_snapshot,
+              coalesce(e.name_snapshot, a.created_by_name_snapshot) AS name_snapshot
+       FROM action_item a LEFT JOIN test_request_review_event e ON e.id = a.opened_by_event_id
        WHERE a.program_id = $1 ORDER BY a.created_at, a.id`,
         [programId],
       ),
     ]);
-  const { user, programOpen, canAccept } = options.review;
+  const { user, programOpen, canAccept, pmPeUserId } = options.review;
   const personal = user.accountType !== 'shared_lab';
+  const repeats = new Map<string, string[]>();
+  for (const row of requests.rows) {
+    if (row.repeat_of_id) {
+      repeats.set(row.repeat_of_id, [...(repeats.get(row.repeat_of_id) ?? []), row.id]);
+    }
+  }
+  const lifecycle = await loadProgramLifecycle(db, programId, requests.rows, user);
   return {
     programId,
     canChangePriority: options.canChangePriority,
@@ -891,6 +913,11 @@ export async function loadWork(
         : null,
       acceptedViaDelegation: row.accepted_via_delegation_id !== null,
       reviewActions: reviewActions(row.review_state, { personal, programOpen, canAccept, user }),
+      lifecycle: requestLifecycle(row, repeats.get(row.id) ?? [], {
+        user,
+        programOpen,
+        pmPeUserId,
+      }),
     })),
     statusHistory: history.rows.map((row) => ({
       id: row.id,
@@ -939,15 +966,17 @@ export async function loadWork(
     })),
     actionItems: actionItems.rows.map((row) => ({
       id: row.id,
-      kind: 'correction' as const,
+      kind: row.kind,
       targetRole: row.target_role,
-      testRequestId: row.entity_id,
+      testRequestId: row.kind === 'closure_request' ? null : row.entity_id,
       comment: row.comment,
       status: row.status,
+      resolution: row.resolution,
       createdAt: row.created_at.toISOString(),
       createdBy: { userId: row.user_id, initials: row.initials_snapshot, name: row.name_snapshot },
       resolvedAt: row.resolved_at?.toISOString() ?? null,
     })),
+    lifecycle,
   };
 }
 
@@ -988,7 +1017,9 @@ function reviewActions(
 
 /**
  * Completed-test evidence for one physical unit, for MM-T36's post-testing removal: the tests
- * completed with this exact unit linked (never coverage, source, group or receipt).
+ * completed with this exact unit linked (never coverage, source, group or receipt). A cancelled
+ * test is not evidence (MM-T26, tested-bulk amendment); a test reset by an accepted-request change
+ * or one with a repeat keeps its historical completion, because the physical testing happened.
  */
 export async function completedTestEvidence(db: Db, storageUnitId: string) {
   const { rows } = await db.query<{
@@ -997,16 +1028,16 @@ export async function completedTestEvidence(db: Db, storageUnitId: string) {
     test_code: string;
     completed_at: Date;
     status_history_id: string;
-    /** The test's current status (MM-T25 adds accepted; MM-T26 adds cancelled). */
+    /** The test's current status (MM-T25 adds accepted). Never cancelled: see below. */
     request_status: TestRequestStatus;
   }>(
-    `SELECT l.test_request_id, lp.program_number, r.test_code_snapshot AS test_code, r.status AS request_status,
-            h.changed_at AS completed_at, h.id AS status_history_id
+    `SELECT l.test_request_id, lp.program_number, r.test_code_snapshot AS test_code,
+            r.status AS request_status, h.changed_at AS completed_at, h.id AS status_history_id
      FROM test_request_unit_link l
      JOIN test_request_status_history h ON h.id = l.status_history_id
      JOIN test_request r ON r.id = l.test_request_id
      JOIN lab_program lp ON lp.id = r.program_id
-     WHERE l.storage_unit_id = $1 AND h.to_status = 'completed'
+     WHERE l.storage_unit_id = $1 AND h.to_status = 'completed' AND r.status <> 'cancelled'
      ORDER BY h.changed_at`,
     [storageUnitId],
   );

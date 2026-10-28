@@ -43,6 +43,11 @@ export type Permission =
   | 'test.review'
   // Read a project's acceptance delegates (MM-T25)
   | 'acceptance_delegation.read'
+  // Change a submitted program (MM-T26): amendments, accepted-request changes and repeats
+  | 'lab_program.amend'
+  // Ask the people who decide to cancel a test or close a program (MM-T26)
+  | 'test.cancel_request'
+  | 'program.close_request'
   | 'storage_unit.dispose_scan'
   // Confirm a unit's actual location to settle a move conflict (MM-T28, D29)
   | 'location_conflict.resolve'
@@ -100,6 +105,10 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   'storage_unit.correct',
   'test.review',
   'acceptance_delegation.read',
+  // MM-T26: LAB's T23/T24 allow-list never covers these, whoever is selected at the station.
+  'lab_program.amend',
+  'test.cancel_request',
+  'program.close_request',
   'storage_unit.dispose_scan',
   // LAB records moves but never settles a conflict, whoever is selected at the station (D29).
   'location_conflict.resolve',

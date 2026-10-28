@@ -71,6 +71,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'print_job_item',
       'print_job_location_item',
       'printer',
+      'program_lifecycle_event',
       'program_priority_history',
       'program_scope_snapshot',
       'project',

@@ -612,14 +612,29 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
   });
 
   it('a closed program refuses review decisions', async () => {
+    // Since MM-T26 a program closes only with every test resolved, so close it for real.
     const t = await inReview();
-    await h.db.pool.query(`UPDATE lab_program SET status = 'closed' WHERE id = $1`, [t.program.id]);
-    const refused = await review(t.id, { action: 'complete', version: t.version }, 'tech');
+    const done = await review(t.id, { action: 'complete', version: t.version }, 'tech');
+    const accepted = await accept(t.id, done.body.version as number, 'pe');
+    expect(accepted.status, JSON.stringify(accepted.body)).toBe(200);
+    const { rows } = await h.db.pool.query<{ version: number }>(
+      'SELECT version FROM lab_program WHERE id = $1',
+      [t.program.id],
+    );
+    const closed = await h.send(
+      'post',
+      `/api/lab-programs/${t.program.id}/close`,
+      { version: rows[0]!.version, idempotencyKey: newKey() },
+      'pe',
+    );
+    expect(closed.status, JSON.stringify(closed.body)).toBe(200);
+    const refused = await review(
+      t.id,
+      { action: 'complete', version: accepted.body.version },
+      'tech',
+    );
     expect(refused.status).toBe(422);
     expect(refused.body.code).toBe('program_not_open');
-    await h.db.pool.query(`UPDATE lab_program SET status = 'submitted' WHERE id = $1`, [
-      t.program.id,
-    ]);
   });
 
   it('Lane B contract: completedTestEvidence reports the test’s current status', async () => {

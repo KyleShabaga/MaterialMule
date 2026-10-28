@@ -440,3 +440,27 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   deleted and are revoked once. Acceptance takes `FOR SHARE` on the actor's active grant and
   revocation `FOR UPDATE`, so the two commit in one order.
 - `completedTestEvidence()` also returns each linked test's current `request_status`.
+
+## Lab program lifecycle, cancellation and repeats (MM-T26, migration 0041)
+
+- `lab_program` gains `closed_at`, `closed_by_user_id` and name/initials snapshots, set exactly
+  while the status is `closed` (cleared on reopen). `program_lifecycle_event` (append-only) keeps
+  every close and reopen (reason required for reopen) with the personal account, retry key and
+  intent hash.
+- `lab_program_closure_guard`: closing needs at least one test request and every request
+  Accepted or Cancelled with a reason. An empty program is never closable. The service locks the
+  program `FOR UPDATE` and its requests `FOR SHARE` before checking, so a cancellation, review or
+  repeat in flight commits first or waits.
+- `test_request.status` adds `cancelled` (from requested, in progress, completed or review; never
+  from accepted), with `cancel_reason`, `cancelled_at` and actor snapshots set exactly while
+  cancelled. Cancelled is final.
+- `test_request.repeat_of_id` links a repeat to an original of the same program, line and test. A
+  repeat may be inserted only while the program is open and starts Requested; it records its
+  creator, retry key and intent hash. The one-request-per-line-and-test key now applies to
+  originals only (`repeat_of_id IS NULL`).
+- `action_item` adds `cancellation_request` (on a test, for the Lab Manager role and the project's
+  PM/PE) and `closure_request` (on the program, for its PM/PE), each with the requester's reason,
+  snapshots, retry key and hash. There is at most one open request of each kind per test or
+  program. `resolution` records `correction_done`, `cancelled` or `closed`. Cancelling a test
+  resolves its open correction and cancellation request; closing resolves the closure request.
+- `completedTestEvidence()` leaves out tests that are now cancelled (MM-T36 contract).
