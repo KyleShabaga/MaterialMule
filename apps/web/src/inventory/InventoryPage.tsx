@@ -143,9 +143,14 @@ export function InventoryPage() {
       <PageHeader
         title="Sample Storage"
         actions={
-          <Link className="button" to="/sample-storage/scan">
-            Scan labels
-          </Link>
+          <>
+            <Link className="button" to="/sample-storage/scan">
+              Scan labels
+            </Link>
+            <Link className="button" to="/sample-storage/move">
+              Move units
+            </Link>
+          </>
         }
       />
       <div className="storage-tools">

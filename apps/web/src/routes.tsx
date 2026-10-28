@@ -30,6 +30,7 @@ import {
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
+import { MovePage } from './moves/MovePage';
 import { ScanPage } from './scanning/ScanPage';
 import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCatalogueSettings';
 import { LocationsPage } from './settings/locations/LocationsPage';
@@ -102,6 +103,8 @@ export const routes: RouteObject[] = [
               { path: 'sample-storage', element: <InventoryPage /> },
               // Handheld scanner lookup mode (MM-T16); static, so it wins over :readableId.
               { path: 'sample-storage/scan', element: <ScanPage /> },
+              // Destination scans and queued moves (MM-T28); static, like scan.
+              { path: 'sample-storage/move', element: <MovePage /> },
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },

@@ -39,6 +39,8 @@ import { LabelsController } from './labels/labels.controller.js';
 import { LocationsController } from './locations/locations.controller.js';
 import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { MovesController } from './moves/moves.controller.js';
+import { MovesService } from './moves/moves.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
@@ -97,6 +99,7 @@ export class AppModule {
         StorageUnitsController,
         StorageUnitCorrectionsController,
         BulkGroupsController,
+        MovesController,
         CatalogueController,
         LabProgramsController,
         LabWorkController,
@@ -132,6 +135,7 @@ export class AppModule {
         StorageUnitsService,
         StorageUnitCorrectionsService,
         BulkGroupsService,
+        MovesService,
         CatalogueService,
         LabProgramsService,
         LabWorkService,

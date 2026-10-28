@@ -42,6 +42,8 @@ export type Permission =
   | 'storage_unit.correct'
   | 'test.review'
   | 'storage_unit.dispose_scan'
+  // Confirm a unit's actual location to settle a move conflict (MM-T28, D29)
+  | 'location_conflict.resolve'
   // Lab Manager (and PM/PE of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
@@ -94,6 +96,8 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   'storage_unit.correct',
   'test.review',
   'storage_unit.dispose_scan',
+  // LAB records moves but never settles a conflict, whoever is selected at the station (D29).
+  'location_conflict.resolve',
 ]);
 
 /** Granted by the lab_manager role regardless of project. */

@@ -339,6 +339,41 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   showed (422 `bulk_group_changed` otherwise); an identity correction takes `FOR UPDATE`, so the two
   serialise. Concurrent joins don't block each other.
 
+## Storage moves and location conflicts (MM-T28, migration 0035)
+
+- **Tables.** `movement_event` keeps every move the server accepted: `move` (saved location
+  changed, or confirmed in place), `contested` (held because the unit changed after the scan) and
+  `resolution` (a person confirmed the actual location). It stores from/to locations, the base and
+  resulting versions, the saving account (from the session) with snapshots, the LAB "Moved by"
+  person with snapshots, the browser's station ID (random per browser profile; not a session or
+  token), the device's reported `scanned_at` and the server's `saved_at`. `location_conflict`
+  holds one open conflict per unit (partial unique index) with a `version` that goes up as
+  attempts join it, then its single resolution. `move_action` is the idempotency record of each
+  client intent (`client_move_id`): saving account, station, request hash, predecessor, and the
+  outcome (`saved` or `conflict`) a retry is answered with. All three are append-or-settle:
+  triggers refuse updates and deletes of events and actions, and a conflict changes only from
+  open to resolved, once. A disposed unit's location can never change
+  (`storage_unit_disposed_stays_put`).
+- **Lock order.** `storage_unit` `FOR UPDATE` → destination `location` `FOR KEY SHARE` →
+  `location_conflict` `FOR UPDATE`. Corrections (T13) and bulk-group changes (T36) take the unit
+  lock first too; location retirement (T37) locks only the location `FOR UPDATE`, so a move and a
+  retirement serialise on the location row without deadlock (the move sees the retirement → 422
+  `location_retired`, or the retirement counts the unit → 409 `location_occupied`). A removal or
+  disposal that holds the unit lock is seen by the waiting move (422 `storage_unit_disposed`).
+- **Versions.** `storage_unit.version` is the general version (corrections bump it too). A move
+  applies only when the unit still has the scan's base version (or, for a move linked to an
+  earlier queued move of the same unit, account and station, that move's resulting version);
+  otherwise, or while a conflict is open, it becomes a contested attempt. Never decided by scan
+  time, never rebased. A scan at the unit's own saved location confirms it there without a new
+  version. A resolution always bumps the version.
+- **Idempotency.** The first delivery of an ID inserts its `move_action` in the same transaction
+  as the event, location/version change, conflict and audit; a concurrent second delivery waits
+  on the unit lock, then replays the recorded outcome (200, or 409 with the same conflict IDs). A
+  conflict is a committed outcome, not a rolled-back error. Another account using a committed ID,
+  or the same ID with a different intent, gets 409 `idempotency_key_reused` and learns nothing.
+- **Tests.** `apps/api/src/moves/moves.integration.test.ts` races requests behind a row lock held
+  on a separate connection, releasing it once `pg_stat_activity` shows every request waiting.
+
 ## Lab test catalogue and testing programs (MM-T23, migration 0030)
 
 - **Catalogue:** `test_group` → `test_subgroup` (optional) → `test_type`. A test keeps its exact

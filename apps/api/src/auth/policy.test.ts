@@ -50,6 +50,8 @@ describe('can', () => {
       'storage_unit.correct',
       'test_catalog.manage',
       'storage_unit.dispose_scan',
+      // MM-T28: LAB moves units but only a personal account settles a location conflict.
+      'location_conflict.resolve',
       'staff.manage',
       'disposal.approve',
       'printer.manage',

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { locationConflictSummarySchema } from './moves';
 import { HOLE_SUMMARY_TYPES } from './receipts';
 import { bulkGroupDetailSchema, bulkMembershipSchema, sampleIdentitySchema } from './samples';
 
@@ -251,6 +252,11 @@ export const storageUnitDetailSchema = z.object({
   /** The unit's bulk group with every member bucket and its own place in it (MM-T36). */
   bulkGroup: bulkGroupDetailSchema.nullable(),
   location: locationRef,
+  /**
+   * Open location conflict (MM-T28): the saved location needs a person to confirm it. Always sent
+   * by the API; optional so older fixtures stay valid.
+   */
+  locationConflict: locationConflictSummarySchema.nullable().optional(),
   /** The original receipt header, as recorded at confirmation; corrections never rewrite it. */
   receipt: z.object({
     id: z.string(),
@@ -307,6 +313,12 @@ export function storageUnitHistoryActionLabel(action: string): string {
       return 'Bulk sample created';
     case 'bulk_group.corrected':
       return 'Bulk sample corrected';
+    case 'storage_unit.moved':
+      return 'Moved';
+    case 'storage_unit.location_conflict':
+      return 'Location conflict';
+    case 'storage_unit.location_conflict_resolved':
+      return 'Location confirmed';
     default:
       return action;
   }

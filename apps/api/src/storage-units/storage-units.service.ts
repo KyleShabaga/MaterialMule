@@ -9,6 +9,7 @@ import {
 } from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
+import { openConflictSummary } from '../moves/moves.service.js';
 import { loadHoleSummaries } from './hole-summaries.js';
 import { loadBulkGroupMembers, loadSampleIdentities } from './sample-identity.js';
 
@@ -139,6 +140,7 @@ export async function getStorageUnitDetail(
       members: await loadBulkGroupMembers(pool, group.groupId),
     },
     location: { id: row.location_id, code: row.location_code, name: row.location_name },
+    locationConflict: await openConflictSummary(pool, row.id),
     receipt: {
       id: row.receipt_id,
       receivedDate: row.receipt_received_date,

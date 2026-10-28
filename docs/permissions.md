@@ -32,6 +32,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test.review                                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
 | program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
@@ -254,6 +255,14 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 - **Audit events:** `location.created`, `location.updated` (changed fields before/after),
   `location.retired` (reason), `location.label_printed` (at physical confirmation), plus the
   print queue's `label.*` events with `target: "location"`.
+
+## Storage moves (MM-T28)
+
+LAB records moves (`storage_unit.move`, owner decision 2026-10-25) and must name the staff member
+moving the units ("Moved by"); that person is attribution only. Only an active personal (or test)
+account confirms a conflicted unit's actual location (`location_conflict.resolve`, D29); LAB is
+refused even when a Lab Manager is selected at the station. A queued move is only ever sent by the
+account that scanned it (`captureContext.accountId` must equal the session's account).
 
 ## Lab test catalogue and testing programs (MM-T23)
 

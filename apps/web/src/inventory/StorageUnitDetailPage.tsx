@@ -13,7 +13,8 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { BandedCard, EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { BandedCard, EmptyState, ErrorState, PageHeader, StatusBadge } from '../components/ui';
+import { LocationConflictSection, PendingMoveNote } from '../moves/LocationConflictSection';
 import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
 import { useSession } from '../session/context';
@@ -55,6 +56,10 @@ export function StorageUnitDetailPage() {
   const { session } = useSession();
   const canCorrect =
     session.status === 'active' && session.me.permissions.includes('storage_unit.correct');
+  // Confirming a conflicted unit's actual location: personal accounts only (MM-T28, D29).
+  const canResolve =
+    session.status === 'active' && session.me.permissions.includes('location_conflict.resolve');
+  const [resolvedNotice, setResolvedNotice] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
   const [corrected, setCorrected] = useState(false);
@@ -168,6 +173,9 @@ export function StorageUnitDetailPage() {
             <span className="type-tag type-tag-accent">{storageUnitTypeLabel(unit.unitType)}</span>
             <StorageUnitStatusBadge status={unit.status} />
             <span className="muted">{unit.location.name}</span>
+            {unit.locationConflict ? (
+              <StatusBadge tone="danger">Location conflict</StatusBadge>
+            ) : null}
           </p>
         </div>
         <div className="unit-actions">
@@ -196,6 +204,25 @@ export function StorageUnitDetailPage() {
           <strong>Details corrected.</strong> Printed labels show the values at print time. Reprint
           if the label is now wrong.
         </p>
+      ) : null}
+
+      {resolvedNotice ? (
+        <p className="notice notice-success" role="status">
+          <strong>Location confirmed.</strong> Both moves and your confirmation are in the history.
+        </p>
+      ) : null}
+
+      {unit.locationConflict ? (
+        <LocationConflictSection
+          key={`${unit.locationConflict.id}-${unit.locationConflict.version}`}
+          conflictId={unit.locationConflict.id}
+          canResolve={canResolve}
+          onResolved={() => {
+            setResolvedNotice(true);
+            setHistoryVersion((count) => count + 1);
+            setReloads((count) => count + 1);
+          }}
+        />
       ) : null}
 
       {bulkNotice ? (
@@ -308,7 +335,9 @@ export function StorageUnitDetailPage() {
               <Detail term="Saved location">
                 {unit.location.name} ({unit.location.code})
               </Detail>
-              <Detail term="Pending move">None.</Detail>
+              <Detail term="Pending move">
+                <PendingMoveNote unitId={unit.id} />
+              </Detail>
               <Detail term="Retain until (minimum)">
                 <span className="nowrap">{unit.minimumRetainUntil}</span>
               </Detail>

@@ -1,5 +1,6 @@
 import {
   formatStorageUnitHoleSummary,
+  parseScanPayload,
   storageUnitTypeLabel,
   type StorageUnitDetail,
 } from '@materialmule/shared';
@@ -50,6 +51,10 @@ export function ScanPage() {
             <button type="button" onClick={lookup.retry}>
               Retry
             </button>
+          ) : state.kind === 'done' && parseScanPayload(state.code).type === 'location' ? (
+            <Link className="button" to="/sample-storage/move">
+              Move units
+            </Link>
           ) : null
         }
       />
@@ -71,7 +76,15 @@ function statusView(state: ScanLookupState, notice: string | null): ScanStatusVi
         case 'found':
           return { tone: 'success', message: `Found ${state.result.unit.readableId}`, detail };
         case 'not_found':
-          return { tone: 'error', message: `No storage unit found for ${code}`, detail };
+          // A location label (MM-T37) is not a storage unit; lookup never moves anything (MM-T28).
+          return parseScanPayload(state.code).type === 'location'
+            ? {
+                tone: 'warning',
+                message: `${code} is a location label`,
+                detail:
+                  detail ?? 'Lookup only opens storage units. To move units there, use Move units.',
+              }
+            : { tone: 'error', message: `No storage unit found for ${code}`, detail };
         case 'unavailable':
           return { tone: 'error', message: `${code}: ${state.result.message}`, detail };
         case 'error':

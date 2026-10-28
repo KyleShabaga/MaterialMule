@@ -7,6 +7,7 @@ export * from './lab';
 export * from './locations';
 export * from './labels';
 export * from './me';
+export * from './moves';
 export * from './printing';
 export * from './profile';
 export * from './projects';

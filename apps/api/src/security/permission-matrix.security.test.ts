@@ -418,5 +418,8 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       expect(problems).toEqual([]);
       expect(refusals).toBeGreaterThan(0);
     },
+    // Two table fingerprints per refused route: with the T23/T24 and T28 routes and tables, a
+    // caller refused everywhere takes ~7 s locally, past the 5 s default.
+    30_000,
   );
 });
