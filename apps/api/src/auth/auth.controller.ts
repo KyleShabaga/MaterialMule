@@ -59,6 +59,8 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   // MM-T27
   'action_item.read',
   'action_item.reassign',
+  // MM-T29
+  'retention.request',
   'test_catalog.manage',
   'program.priority.set',
   'program.reopen',

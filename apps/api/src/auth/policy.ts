@@ -55,6 +55,8 @@ export type Permission =
   | 'storage_unit.tested_removal'
   // MM-T27: one's own Action requests inbox and notification preferences (never LAB)
   | 'action_item.read'
+  // MM-T29: ask the project's PM/PE or a Lab Manager for a hold or extension (never LAB)
+  | 'retention.request'
   // Lab Manager (and PM/PE of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
@@ -123,6 +125,8 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   // MM-T27: a LAB station has no inbox or preferences of its own and never borrows the
   // selected person's.
   'action_item.read',
+  // MM-T29: retention requests; LAB never asks or decides, whoever is selected.
+  'retention.request',
 ]);
 
 /** Granted by the lab_manager role regardless of project. */

@@ -4,6 +4,7 @@ import {
   type ProjectDetail,
   type StaffOption,
 } from '@materialmule/shared';
+import { ProjectRetentionSection } from '../retention/RetentionSections';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { createTestHole } from '../api/projects';
@@ -202,6 +203,9 @@ export function ProjectDetailPage() {
       >
         <ProjectUnits projectId={project.id} total={project.unitCount} reloadKey={reloads} />
       </Section>
+
+      {/* MM-T29: project-wide holds, extensions and retention requests. */}
+      <ProjectRetentionSection projectId={project.id} />
 
       {me.permissions.includes('acceptance_delegation.read') ? (
         <AcceptanceDelegatesSection projectId={project.id} />

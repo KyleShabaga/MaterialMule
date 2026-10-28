@@ -39,6 +39,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.tested_removal (T36)           |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | action_item.read (T27)                      |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| retention.request (T29)                     |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
 | program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
@@ -447,3 +448,27 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   false (startup refuses true) until IT approves the sending configuration: rows wait unsent, and
   development and tests never send email. Routine moves, receipts, comments and test progress
   create no action item and no email.
+
+## Retention (MM-T29)
+
+| Route                                                                     | Policy                                             |
+| ------------------------------------------------------------------------- | -------------------------------------------------- |
+| `GET /api/storage-units/:id/retention`, `GET /api/projects/:id/retention` | `inventory.read` (LAB too; `canManage` false)      |
+| `POST /api/retention/holds`, `…/extensions`                               | `retention.manage` for that project (handler)      |
+| `POST /api/retention/holds/:id/release`, `…/extensions/:id/release`       | `retention.manage` for that project (handler)      |
+| `POST /api/retention/requests`                                            | `retention.request` (personal accounts; never LAB) |
+| `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)      |
+
+- **Who decides:** the project's PM/PE or a Lab Manager (D05). Admin alone doesn't. Others get
+  403 `forbidden` with `canRequest: true` and ask instead; the request is one shared action item
+  for the PM/PE and every Lab Manager (MM-T27). Approving creates the hold or extension as the
+  decider and resolves the item; declining needs a reason. A requester can't decide their own
+  request unless they hold that authority anyway.
+- **LAB:** 403 on every change and request, whoever its station selects; it may read retention.
+- **Concurrency:** releases need the current `version` (409 `stale_retention`), are recorded
+  once (409 `already_released`; an exact retry returns the same result), and concurrent holds or
+  extensions are separate rows with their own history. Decided requests: 409 `request_decided`.
+- **Tested units:** a Shelby tube or bulk soil bucket with completed-test evidence linked to that
+  exact unit shows "Retention: Not applicable". Holds and extensions are not released or changed
+  by that; they keep covering every other unit, and the MM-T36 route ignores them for that unit
+  only.

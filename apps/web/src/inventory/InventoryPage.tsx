@@ -1,4 +1,6 @@
 import {
+  INVENTORY_RETENTION_FILTERS,
+  INVENTORY_RETENTION_FILTER_LABEL,
   INVENTORY_STATUS_FILTERS,
   STORAGE_UNIT_TYPES,
   inventoryStatusFilterLabel,
@@ -219,6 +221,20 @@ export function InventoryPage() {
             label: inventoryStatusFilterLabel(status),
           }))}
         />
+        <SelectFilter
+          label="Retention"
+          value={query.retention ?? ''}
+          onChange={(value) =>
+            update({ retention: (value || undefined) as InventoryQuery['retention'] })
+          }
+          options={[
+            { value: '', label: 'Any' },
+            ...INVENTORY_RETENTION_FILTERS.map((value) => ({
+              value,
+              label: INVENTORY_RETENTION_FILTER_LABEL[value],
+            })),
+          ]}
+        />
         <DateFilter
           label="Received from"
           value={query.receivedFrom ?? ''}
@@ -377,6 +393,13 @@ function activeChips(
       key: 'status',
       label: `Status: ${inventoryStatusFilterLabel(query.status)}`,
       remove: { status: 'current' },
+    });
+  }
+  if (query.retention) {
+    chips.push({
+      key: 'retention',
+      label: `Retention: ${INVENTORY_RETENTION_FILTER_LABEL[query.retention]}`,
+      remove: { retention: undefined },
     });
   }
   if (query.receivedFrom) {

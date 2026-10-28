@@ -80,6 +80,12 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'program_scope_snapshot',
       'project',
       'receipt',
+      'retention_extension',
+      'retention_extension_unit',
+      'retention_hold',
+      'retention_hold_unit',
+      'retention_request',
+      'retention_request_unit',
       'role_assignment',
       'schema_migration',
       'session',
@@ -103,6 +109,10 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'test_template_item',
       'test_type',
       'tested_unit_removal',
+      // MM-T29 views (the one retention calculation).
+      'unit_retention',
+      'unit_retention_extension',
+      'unit_retention_hold',
     ]);
     // No individual sample inventory at receiving.
     expect(rows.map((r) => r.table_name)).not.toContain('sample');

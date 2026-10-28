@@ -2314,3 +2314,41 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* Retention (MM-T29): holds, extensions, requests. */
+.retention-history {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.retention-item {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+
+.retention-item p {
+  margin: 0 0 0.25rem;
+}
+
+.retention-form {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 32rem;
+  margin-top: 0.75rem;
+}
+
+.retention-form fieldset,
+.retention-amount {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.retention-summary {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}

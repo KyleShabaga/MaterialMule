@@ -20,7 +20,10 @@ export interface InventorySql {
  * search document (AND across words, any field); filters combine with AND. The storage unit ID
  * always ends the sort so pages never overlap or skip rows that share a received date.
  */
-export function buildInventoryQuery(query: InventoryQuery): InventorySql {
+export function buildInventoryQuery(
+  query: InventoryQuery,
+  options: { asOf?: string } = {},
+): InventorySql {
   const params: unknown[] = [];
   const where: string[] = [];
   const param = (value: unknown) => {
@@ -69,9 +72,18 @@ export function buildInventoryQuery(query: InventoryQuery): InventorySql {
     where.push(`su.received_date <= ${param(query.receivedTo)}::date`);
   }
 
+  // MM-T29: the one retention calculation (unit_retention). "Eligible by date" is reached on the
+  // effective retain-until date itself, in the business time zone.
+  if (query.retention === 'on_hold') {
+    where.push(`ur.active_hold_count > 0`);
+  } else if (query.retention === 'eligible_by_date') {
+    where.push(`ur.effective_retain_until <= ${param(options.asOf ?? null)}::date`);
+  }
+
   const fromWhere = [
     'FROM storage_unit su',
     words.length > 0 ? 'JOIN storage_unit_search s ON s.storage_unit_id = su.id' : '',
+    query.retention ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
     where.length > 0 ? `WHERE ${where.join('\n  AND ')}` : '',
   ]
     .filter(Boolean)
