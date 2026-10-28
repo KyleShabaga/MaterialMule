@@ -18,3 +18,4 @@ export * from './staff';
 export * from './system-status';
 export * from './lab-catalogue';
 export * from './lab-programs';
+export * from './lab-worklist';

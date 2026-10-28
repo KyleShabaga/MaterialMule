@@ -23,7 +23,13 @@ async function addTestType(page: Page, code: string, description: string, name?:
 }
 
 async function startProgram(page: Page) {
+  // MM-T24: the Worklist is the default tab; programs are one tab away.
   await page.goto('/lab-testing');
+  await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Lab Testing' })
+    .getByRole('link', { name: 'Programs' })
+    .click();
   await expect(page.getByRole('heading', { name: 'Programs', level: 2 })).toBeVisible();
   await page.getByRole('link', { name: 'New program' }).click();
   await page.getByLabel('Project', { exact: true }).fill('DEMO-2601');

@@ -28,7 +28,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | storage_unit.move (#21)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | lab_program.read / lab_program.manage (T23) |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.correct (D45–D47)              |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test.progress (D08) / test.review           |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| test.progress (D08, T24)                    |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| test.review                                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
@@ -281,3 +283,37 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 - **Concurrency:** edits and submission are optimistic (409 `version_conflict` with `current`);
   submission is idempotent on `idempotencyKey` (an exact retry returns the original program; a
   different key on a submitted program gets 409 `not_draft`). Creation is idempotent too.
+
+## Lab worklist, progress, priority and comments (MM-T24)
+
+| Route                                                      | Policy                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------- |
+| `GET /api/worklist?priority=&projectId=&open=&testTypeId=` | `lab_program.read`                                      |
+| `GET /api/lab-programs/:id/work`                           | `lab_program.read`                                      |
+| `POST /api/test-requests/:id/status`                       | `test.progress` (LAB too, with `actingStaffUserId`)     |
+| `PATCH /api/lab-programs/:id/priority`                     | active user; handler checks `program.priority.set`      |
+| `POST /api/lab-programs/:id/comments`                      | `lab_comment.write` (LAB too, with `actingStaffUserId`) |
+| `PATCH /api/comments/:id`                                  | `lab_comment.write`; only the author, within 15 minutes |
+
+- **Shared LAB stations** (Kyle, 2026-10-27): LAB may Start, Mark completed and Send to review,
+  and add or edit its comments, naming "Who is doing this?" on every request (an active staff
+  member with confirmed initials, checked each time). History shows "LAB for person". LAB never
+  changes priority, never accepts or reviews (a jump to `accepted` is 403 for LAB, 422 for a
+  personal account), never closes programs and never removes tested units, whoever it selects.
+- **Priority** (D50): only the project's PM/PE or a Lab Manager (403 otherwise, checked before
+  the body is validated). Every change is kept in `program_priority_history` with old, new,
+  person and time; it never changes a test status.
+- **Transitions:** one table (`STATUS_TRANSITIONS` in `@materialmule/shared`): Requested → In
+  progress → Completed → Awaiting review. Order of checks: authority (403), version (409
+  `version_conflict` with the current status), transition (422 `invalid_transition`). Draft and
+  closed programs aren't workable (422 `program_not_open`).
+- **Exact tested units:** completing a test whose frozen coverage includes a Shelby tube or a
+  bulk-sample bucket needs `testedStorageUnitIds` (422 `tested_units_required`; an empty list says
+  none of them was used). Each unit must be in that line's coverage, in the program's project and
+  not disposed (422 `unit_not_covered` / `unit_disposed`). Completion changes no unit; physical
+  removal is MM-T36's separate personal-account action (not built yet).
+- **Comments:** nonblank, the author only (for LAB, the same selected person), within 15 minutes
+  of posting on the server clock (409 `edit_window_closed`); edits never restart the window and
+  every text is kept. There is no delete.
+- **Retries:** every action carries `idempotencyKey`; an exact retry returns the original result
+  with no new history, and the same key with a different intent is 409 `idempotency_key_reused`.

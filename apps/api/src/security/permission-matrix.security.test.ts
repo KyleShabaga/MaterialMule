@@ -74,6 +74,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-T45: every station reads the draft auto-delete setting; only PUT is restricted.
   'GET /api/settings/drafts': null,
   'PATCH /api/projects/:projectId': 'project.edit',
+  // MM-T24: the project's PM/PE or a Lab Manager.
+  'PATCH /api/lab-programs/:id/priority': 'program.priority.set',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */

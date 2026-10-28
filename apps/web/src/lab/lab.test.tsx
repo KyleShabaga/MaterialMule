@@ -107,6 +107,7 @@ function renderAt(
     if (url.startsWith('/api/test-catalogue')) return json(200, catalogue);
     if (url.startsWith('/api/test-templates')) return json(200, templates);
     if (url.startsWith('/api/lab-programs')) return json(200, { items: [], total: 0 });
+    if (url.startsWith('/api/worklist')) return json(200, { items: [] });
     if (url.startsWith('/api/projects/search')) {
       return json(200, [
         {
@@ -156,12 +157,17 @@ afterEach(() => {
 });
 
 describe('Lab Testing (MM-T23)', () => {
-  it('one Lab Testing menu item opens Programs; no dead Worklist tab before MM-T24', async () => {
+  it('AC11: one Lab Testing menu item opens the Worklist by default, with Programs and New program', async () => {
+    const user = userEvent.setup();
     const { router } = renderAt(me(), '/lab-testing');
-    expect(await screen.findByRole('heading', { name: 'Programs' })).toBeVisible();
-    expect(router.state.location.pathname).toBe('/lab-testing/programs');
+    expect(await screen.findByRole('heading', { name: 'Worklist' })).toBeVisible();
+    expect(router.state.location.pathname).toBe('/lab-testing');
+    expect(
+      await screen.findByText('Nothing waiting. Submitted programs appear here.'),
+    ).toBeVisible();
     const tabs = screen.getByRole('navigation', { name: 'Lab Testing' });
-    expect(within(tabs).queryByRole('link', { name: 'Worklist' })).toBeNull();
+    await user.click(within(tabs).getByRole('link', { name: 'Programs' }));
+    expect(await screen.findByRole('heading', { name: 'Programs' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'New program' })).toBeVisible();
   });
 

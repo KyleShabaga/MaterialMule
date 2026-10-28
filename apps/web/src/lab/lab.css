@@ -172,3 +172,55 @@
     min-height: 44px;
   }
 }
+
+/* MM-T24 worklist and progress */
+.worklist-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.action-panel {
+  flex: 1 1 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-control);
+  background: var(--inset, var(--card));
+}
+
+.action-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.comment-list {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+
+.comment {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.comment-meta {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.comment-box textarea,
+.comment textarea {
+  width: 100%;
+  min-height: 4rem;
+}
+
+.priority-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
