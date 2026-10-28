@@ -224,3 +224,37 @@
   align-items: center;
   margin: 0.75rem 0;
 }
+
+/* Review corrections and acceptance (MM-T25). */
+.review-controls {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.review-return {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--warning, var(--accent-line));
+  border-radius: var(--radius-control);
+  background: var(--inset, var(--card));
+}
+
+.review-history ol {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.action-panel textarea {
+  width: 100%;
+  min-height: 4rem;
+}

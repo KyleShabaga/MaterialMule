@@ -25,6 +25,7 @@ import {
   type WriteResult,
 } from './api';
 import { FrozenLine, ProgramSummary } from './ProgramDetailPage';
+import { ReviewControls } from './ReviewControls';
 
 // A submitted program being worked (MM-T24): per-test status buttons along the one path, the
 // exact units used when completing, priority with history, and comment threads. A shared LAB
@@ -488,6 +489,7 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                       </StatusBadge>
                     ) : null}
                     <StatusAction request={request} line={line} work={work} onDone={after} />
+                    <ReviewControls testRequestId={request.id} work={work} onDone={after} />
                   </>
                 );
               }}

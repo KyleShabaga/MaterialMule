@@ -12,6 +12,7 @@ import { fetchInventory } from '../inventory/api';
 import '../inventory/inventory.css';
 import { StorageUnitTable, type StorageUnitLinkState } from '../inventory/StorageUnitTable';
 import { useMe } from '../session/context';
+import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
 import { EditProjectDialog } from './EditProjectDialog';
 import type { ProjectLinkState } from './ProjectsPage';
@@ -201,6 +202,10 @@ export function ProjectDetailPage() {
       >
         <ProjectUnits projectId={project.id} total={project.unitCount} reloadKey={reloads} />
       </Section>
+
+      {me.permissions.includes('acceptance_delegation.read') ? (
+        <AcceptanceDelegatesSection projectId={project.id} />
+      ) : null}
 
       {editing ? (
         <EditProjectDialog

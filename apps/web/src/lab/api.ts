@@ -1,5 +1,7 @@
 import {
+  acceptanceDelegatesSchema,
   labCommentSchema,
+  reviewResultSchema,
   labProgramListSchema,
   labProgramReviewSchema,
   labProgramSchema,
@@ -9,7 +11,9 @@ import {
   testCatalogueSchema,
   testTemplateListSchema,
   worklistSchema,
+  type AcceptanceDelegates,
   type AddCommentRequestInput,
+  type ReviewDecisionRequestInput,
   type ChangeTestStatusRequestInput,
   type EditCommentRequestInput,
   type ProgramWork,
@@ -47,13 +51,16 @@ async function getJson<T>(path: string, parse: (body: unknown) => T): Promise<T>
 
 async function write<T>(
   path: string,
-  method: 'POST' | 'PATCH',
+  method: 'POST' | 'PATCH' | 'DELETE',
   body: unknown,
   parse: (body: unknown) => T,
 ): Promise<WriteResult<T>> {
   let response: Response;
   try {
-    response = await apiFetch(path, { method, body: JSON.stringify(body) });
+    response = await apiFetch(path, {
+      method,
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
   } catch {
     return { ok: false, kind: 'network' };
   }
@@ -186,4 +193,44 @@ export const addComment = (programId: string, body: AddCommentRequestInput) =>
 export const editComment = (commentId: string, body: EditCommentRequestInput) =>
   write(`/api/comments/${encodeURIComponent(commentId)}`, 'PATCH', body, (b) =>
     labCommentSchema.parse(b),
+  );
+
+// Review corrections and delegated acceptance (MM-T25).
+
+const requestPath = (testRequestId: string, action: string) =>
+  `/api/test-requests/${encodeURIComponent(testRequestId)}/${action}`;
+
+export const reviewDecision = (testRequestId: string, body: ReviewDecisionRequestInput) =>
+  write(requestPath(testRequestId, 'review'), 'POST', body, (b) => reviewResultSchema.parse(b));
+
+export const markCorrectionDone = (
+  testRequestId: string,
+  body: { note: string; version: number; idempotencyKey: string; actionItemId?: string },
+) =>
+  write(requestPath(testRequestId, 'correction-done'), 'POST', body, (b) =>
+    reviewResultSchema.parse(b),
+  );
+
+export const acceptTest = (
+  testRequestId: string,
+  body: { version: number; idempotencyKey: string },
+) => write(requestPath(testRequestId, 'accept'), 'POST', body, (b) => reviewResultSchema.parse(b));
+
+const delegatesPath = (projectId: string) =>
+  `/api/projects/${encodeURIComponent(projectId)}/acceptance-delegates`;
+
+export const fetchDelegates = (projectId: string): Promise<AcceptanceDelegates> =>
+  getJson(delegatesPath(projectId), (b) => acceptanceDelegatesSchema.parse(b));
+
+export const grantDelegate = (
+  projectId: string,
+  body: { delegateUserId: string; idempotencyKey: string },
+) => write(delegatesPath(projectId), 'POST', body, (b) => acceptanceDelegatesSchema.parse(b));
+
+export const revokeDelegate = (projectId: string, delegationId: string) =>
+  write(
+    `${delegatesPath(projectId)}/${encodeURIComponent(delegationId)}`,
+    'DELETE',
+    undefined,
+    (b) => acceptanceDelegatesSchema.parse(b),
   );
