@@ -119,7 +119,7 @@ test('T6: LAB has no bell, inbox or preferences, whoever the station would selec
 }) => {
   await signInAsLabStation(page);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Sample Storage', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Action requests/ })).toHaveCount(0);
   for (const path of [
     '/api/action-items',
