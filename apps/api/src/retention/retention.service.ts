@@ -81,6 +81,25 @@ export class RetentionService {
     private readonly clock: BusinessClock,
   ) {}
 
+  /**
+   * Refuses (403) before a body is read when `user` can't manage retention anywhere: not LAB, a
+   * Lab Manager, or the PM/PE of at least one project. Each handler still checks the project.
+   */
+  async assertMayManage(user: AuthUser): Promise<void> {
+    if (user.accountType === 'shared_lab' || user.status !== 'active') throw forbidden();
+    if (can(user, 'retention.manage')) return;
+    const { rows } = await this.database.pool.query(
+      'SELECT 1 FROM project WHERE pm_pe_user_id = $1 LIMIT 1',
+      [user.userId],
+    );
+    if (rows.length === 0) {
+      throw new ForbiddenException({
+        code: 'forbidden',
+        canRequest: can(user, 'retention.request'),
+      });
+    }
+  }
+
   async unit(user: AuthUser, idOrCode: string): Promise<StorageUnitRetention> {
     const { rows } = await this.database.pool.query<{
       id: string;

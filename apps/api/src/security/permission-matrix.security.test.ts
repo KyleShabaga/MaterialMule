@@ -84,6 +84,14 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/lab-programs/:id/close': 'program.close',
   'POST /api/lab-programs/:id/reopen': 'program.reopen',
   'POST /api/test-requests/:id/cancel': 'test.cancel',
+  // MM-T29: holds, extensions, releases and request decisions by the project's PM/PE or a Lab
+  // Manager.
+  'POST /api/retention/holds': 'retention.manage',
+  'POST /api/retention/holds/:id/release': 'retention.manage',
+  'POST /api/retention/extensions': 'retention.manage',
+  'POST /api/retention/extensions/:id/release': 'retention.manage',
+  'POST /api/retention/requests/:id/approve': 'retention.manage',
+  'POST /api/retention/requests/:id/decline': 'retention.manage',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */

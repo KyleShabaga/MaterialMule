@@ -16,7 +16,7 @@ test('T5: request → approve on the project page → On hold → release, with 
   const unit = await insertConfirmedBucket();
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${unit.readableId}`);
-  const card = page.getByRole('region', { name: 'Retention' });
+  const card = page.getByRole('region', { name: 'Retention', exact: true });
   await expect(card).toContainText('Retain until 2026-11-03');
   await expect(card).toContainText('Minimum retain-until2026-11-03');
   await card.getByRole('button', { name: 'Request hold or extension' }).click();
@@ -36,7 +36,7 @@ test('T5: request → approve on the project page → On hold → release, with 
   await expect(item).toContainText('LM · PM/PE:');
   await item.getByRole('link', { name: 'Open' }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${DEMO_PROJECT_ID}#retention$`));
-  const section = page.getByRole('region', { name: 'Retention' });
+  const section = page.getByRole('region', { name: 'Retention', exact: true });
   const request = section
     .getByRole('listitem', { name: 'Hold request' })
     .filter({ hasText: unit.readableId });
@@ -70,7 +70,7 @@ test('T7: a LAB station sees retention but can neither change nor request it', a
   const unit = await insertConfirmedBucket();
   await signInAsLabStation(page);
   await page.goto(`/sample-storage/${unit.readableId}`);
-  const card = page.getByRole('region', { name: 'Retention' });
+  const card = page.getByRole('region', { name: 'Retention', exact: true });
   await expect(card).toContainText('Retain until 2026-11-03');
   await expect(card.getByRole('button', { name: /hold or extension/ })).toHaveCount(0);
   const attempt = await page.request.post('/api/retention/holds', {

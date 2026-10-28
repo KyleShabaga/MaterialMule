@@ -359,7 +359,9 @@ test(
     await expect(form).toBeHidden();
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
     // D46: retention follows the corrected date; the ID and location stay.
-    await expect(page.getByText('2027-10-19')).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Location and retention' }).getByText('2027-10-19'),
+    ).toBeVisible();
     await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
       'Receiving lab',
     );

@@ -40,49 +40,46 @@ export class RetentionController {
   @Post('retention/holds')
   @HttpCode(201)
   @ActiveUser()
-  placeHold(
+  async placeHold(
     @Body() body: unknown,
     @CurrentUser() user: AuthUser,
   ): Promise<RetentionMutationResult> {
-    if (user.accountType === 'shared_lab') return this.retention.placeHold(user, body as never);
+    await this.retention.assertMayManage(user);
     return this.retention.placeHold(user, parseBody(placeHoldSchema, body));
   }
 
   @Post('retention/holds/:id/release')
   @HttpCode(200)
   @ActiveUser()
-  releaseHold(
+  async releaseHold(
     @Param('id') id: string,
     @Body() body: unknown,
     @CurrentUser() user: AuthUser,
   ): Promise<RetentionMutationResult> {
-    if (user.accountType === 'shared_lab')
-      return this.retention.release(user, 'hold', id, body as never);
+    await this.retention.assertMayManage(user);
     return this.retention.release(user, 'hold', id, parseBody(releaseRetentionSchema, body));
   }
 
   @Post('retention/extensions')
   @HttpCode(201)
   @ActiveUser()
-  setExtension(
+  async setExtension(
     @Body() body: unknown,
     @CurrentUser() user: AuthUser,
   ): Promise<RetentionMutationResult> {
-    if (user.accountType === 'shared_lab') return this.retention.setExtension(user, body as never);
+    await this.retention.assertMayManage(user);
     return this.retention.setExtension(user, parseBody(setExtensionSchema, body));
   }
 
   @Post('retention/extensions/:id/release')
   @HttpCode(200)
   @ActiveUser()
-  releaseExtension(
+  async releaseExtension(
     @Param('id') id: string,
     @Body() body: unknown,
     @CurrentUser() user: AuthUser,
   ): Promise<RetentionMutationResult> {
-    if (user.accountType === 'shared_lab') {
-      return this.retention.release(user, 'extension', id, body as never);
-    }
+    await this.retention.assertMayManage(user);
     return this.retention.release(user, 'extension', id, parseBody(releaseRetentionSchema, body));
   }
 
@@ -96,9 +93,8 @@ export class RetentionController {
   @Post('retention/requests/:id/approve')
   @HttpCode(200)
   @ActiveUser()
-  approve(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
-    if (user.accountType === 'shared_lab')
-      return this.retention.decide(user, id, 'approved', body as never);
+  async approve(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
+    await this.retention.assertMayManage(user);
     return this.retention.decide(
       user,
       id,
@@ -110,9 +106,8 @@ export class RetentionController {
   @Post('retention/requests/:id/decline')
   @HttpCode(200)
   @ActiveUser()
-  decline(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
-    if (user.accountType === 'shared_lab')
-      return this.retention.decide(user, id, 'declined', body as never);
+  async decline(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
+    await this.retention.assertMayManage(user);
     return this.retention.decide(
       user,
       id,
