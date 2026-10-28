@@ -15,9 +15,12 @@ function useLoad<T>(load: () => Promise<T | null>) {
   const reload = useCallback(() => setTick((n) => n + 1), []);
   useEffect(() => {
     let active = true;
-    void load().then((next) => {
-      if (active) setData(next);
-    });
+    // A failed read (offline, unmounted mid-request) leaves the section hidden; never rejects.
+    load()
+      .catch(() => null)
+      .then((next) => {
+        if (active) setData(next);
+      });
     return () => {
       active = false;
     };
