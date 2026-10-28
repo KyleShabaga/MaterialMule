@@ -30,6 +30,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | lab_program.manage                |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test.progress (D08) / test.review |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.dispose_scan (#24)   |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| location_conflict.resolve (D29)   |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)         |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)        |     |                   |      ✓      |       |       ✓       |                     |
 | program.reopen                    |     |                   |      ✓      |       |       ✓       |                     |

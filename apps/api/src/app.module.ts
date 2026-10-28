@@ -33,6 +33,8 @@ import { LabelsController } from './labels/labels.controller.js';
 import { LocationsController } from './locations/locations.controller.js';
 import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { MovesController } from './moves/moves.controller.js';
+import { MovesService } from './moves/moves.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
@@ -91,6 +93,7 @@ export class AppModule {
         StorageUnitsController,
         StorageUnitCorrectionsController,
         BulkGroupsController,
+        MovesController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -123,6 +126,7 @@ export class AppModule {
         StorageUnitsService,
         StorageUnitCorrectionsService,
         BulkGroupsService,
+        MovesService,
         // Lab requests arrive with MM-T23; until then no unit has unresolved links.
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: NoLabRequestLinks },
         // Default deny on every route (MM-T04).
