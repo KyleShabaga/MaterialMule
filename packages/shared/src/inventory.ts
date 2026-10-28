@@ -104,12 +104,18 @@ const optionalParam = <S extends z.ZodType>(schema: S) =>
  * MM-T29 retention filters: units under an active hold, or whose effective retain-until date has
  * been reached (date only; full disposal eligibility is MM-T30's).
  */
-export const INVENTORY_RETENTION_FILTERS = ['on_hold', 'eligible_by_date'] as const;
+export const INVENTORY_RETENTION_FILTERS = [
+  'on_hold',
+  'eligible_by_date',
+  // MM-T30: full standard eligibility (date, no hold, covering programs closed, in stock).
+  'eligible_for_disposal',
+] as const;
 export type InventoryRetentionFilter = (typeof INVENTORY_RETENTION_FILTERS)[number];
 
 export const INVENTORY_RETENTION_FILTER_LABEL: Record<InventoryRetentionFilter, string> = {
   on_hold: 'On hold',
   eligible_by_date: 'Eligible by date',
+  eligible_for_disposal: 'Eligible for disposal',
 };
 
 export const inventoryQuerySchema = z.object({
@@ -336,7 +342,10 @@ export const storageUnitHistoryPageSchema = z.object({
 export type StorageUnitHistoryPage = z.infer<typeof storageUnitHistoryPageSchema>;
 
 /** Plain-language name of a storage unit history event. */
-export function storageUnitHistoryActionLabel(action: string): string {
+export function storageUnitHistoryActionLabel(
+  action: string,
+  after?: Record<string, unknown> | null,
+): string {
   switch (action) {
     case 'receipt.confirmed':
       return 'Receipt confirmed';
@@ -357,7 +366,14 @@ export function storageUnitHistoryActionLabel(action: string): string {
     case 'storage_unit.location_conflict_resolved':
       return 'Location confirmed';
     case 'disposal.removed':
-      return 'Disposed after testing';
+      // MM-T30's standard scan records route 'standard'; MM-T36's post-testing route doesn't.
+      return after?.route === 'standard' ? 'Disposed' : 'Disposed after testing';
+    case 'disposal.approved':
+      return 'Approved for disposal';
+    case 'disposal.approval_revoked':
+      return 'Disposal approval revoked';
+    case 'disposal.blocked':
+      return 'Disposal scan refused';
     default:
       return action;
   }

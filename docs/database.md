@@ -538,3 +538,20 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   nullable for that kind only) and resolutions `approved` / `declined`.
 - A received-date correction (MM-T13) changes `storage_unit.received_date`; the view recomputes
   at once and the correction history keeps the old date. Program closure touches none of this.
+
+## Standard disposal (MM-T30, migration 0065)
+
+- `unit_open_covering_programs(unit)`: not-closed programs that froze the unit into coverage,
+  chose it, name it (or its bulk group) as the source, linked it as tested, or have a test-hole
+  line on a hole the unit belongs to. `unit_disposal_eligible(unit, as_of, allow_approved)`: in
+  stock (or approved, for the removal recheck), `unit_retention.effective_retain_until <= as_of`,
+  no active hold, no open covering program. Inventory's `eligible_for_disposal` filter and the
+  API both use it.
+- `disposal_approval`: one live (not revoked) approval per unit (`disposal_approval_live_key`);
+  batches share `batch_id` and the retry key; revoked or used once, never deleted.
+- `disposal_removal`: one standard disposition per unit (unique `storage_unit_id` and
+  `approval_id`), with last-location and actor snapshots; append-only; its guard requires the
+  unit disposed at that location under a used approval and no MM-T36 removal.
+- `storage_unit.disposed_at` / `disposed_by_user_id` are set by both routes (backfilled from
+  `tested_unit_removal`). `storage_unit_disposed_final` refuses any status change away from
+  `disposed`.

@@ -56,6 +56,8 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'app_user',
       'audit_event',
       'bulk_group',
+      'disposal_approval',
+      'disposal_removal',
       'draft_auto_delete_setting',
       'email_outbox',
       'identity_link',

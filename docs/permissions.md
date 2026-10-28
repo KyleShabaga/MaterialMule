@@ -472,3 +472,29 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   exact unit shows "Retention: Not applicable". Holds and extensions are not released or changed
   by that; they keep covering every other unit, and the MM-T36 route ignores them for that unit
   only.
+
+## Standard disposal (MM-T30)
+
+| Route                                     | Policy                                                     |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| `GET /api/disposal/eligible?projectId=`   | `inventory.read` (`canApprove` says whether to offer it)   |
+| `POST /api/disposal/approvals`            | `disposal.approve` for each unit's project (handler)       |
+| `POST /api/disposal/approvals/:id/revoke` | `disposal.approve` for that project (handler)              |
+| `POST /api/disposal/remove`               | `storage_unit.dispose_scan` (personal accounts; never LAB) |
+
+- **Eligibility** is the database's (`unit_disposal_eligible`): in stock, effective retain-until
+  reached (MM-T29), no active hold, every covering program closed (including a program on the
+  unit's hole that it was received after). Ineligible units carry reasons ("Retain until …",
+  "On hold: …", "Program LP-… open").
+- **Approval** (project PM/PE or Lab Manager, single or batch, all or nothing) marks units
+  `approved_for_disposal`; it never disposes. Revoking needs a reason and returns the unit to stock.
+- **Removal** is the online-only Disposal scan. It locks the unit, needs a live approval and
+  rechecks eligibility and open location conflicts at that moment: 200 Disposed; 422 Not approved
+  or Blocked with reasons (audited `disposal.blocked`); 404 unknown ID. Offline the screen is
+  disabled and nothing is queued. Concurrent scans dispose once; a retry with the same key
+  returns the recorded result.
+- **LAB:** 403 on approval, revocation and removal (and on MM-T36's post-testing removal),
+  whoever its station selects. Ordinary move routes never change a unit's status; a disposed
+  unit is refused by moves, queued-move replay and test linking, and never returns to stock.
+- **Tested units** use MM-T36's separate route, which needs no approval, scan, retention or
+  program closure.

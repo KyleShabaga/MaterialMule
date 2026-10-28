@@ -1,6 +1,8 @@
 import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { ActionRequestsPage } from './action-requests/ActionRequestsPage';
+import { DisposalPage } from './disposal/DisposalPage';
+import { DisposalScanPage } from './disposal/DisposalScanPage';
 import { InventoryPage } from './inventory/InventoryPage';
 import { LabTestingLayout } from './lab/LabTestingLayout';
 import { ProgramDetailPage } from './lab/ProgramDetailPage';
@@ -24,7 +26,6 @@ import {
   AccessPendingPage,
   ErrorPage,
   NotFoundPage,
-  PlaceholderPage,
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
@@ -69,8 +70,10 @@ const featureRoutes: RouteObject[] = [
     ? [
         {
           path: 'disposal-retention',
-          element: <PlaceholderPage title="Disposal & Retention" card="MM-T29" />,
+          element: <DisposalPage />,
         },
+        // Distinct, online-only disposal scan mode (MM-T30); not Move mode.
+        { path: 'disposal-retention/scan', element: <DisposalScanPage /> },
       ]
     : []),
 ];

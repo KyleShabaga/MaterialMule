@@ -92,6 +92,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/retention/extensions/:id/release': 'retention.manage',
   'POST /api/retention/requests/:id/approve': 'retention.manage',
   'POST /api/retention/requests/:id/decline': 'retention.manage',
+  // MM-T30: standard disposal approval and revocation by the project's PM/PE or a Lab Manager.
+  'POST /api/disposal/approvals': 'disposal.approve',
+  'POST /api/disposal/approvals/:id/revoke': 'disposal.approve',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */

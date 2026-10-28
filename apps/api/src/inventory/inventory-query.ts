@@ -78,6 +78,8 @@ export function buildInventoryQuery(
     where.push(`ur.active_hold_count > 0`);
   } else if (query.retention === 'eligible_by_date') {
     where.push(`ur.effective_retain_until <= ${param(options.asOf ?? null)}::date`);
+  } else if (query.retention === 'eligible_for_disposal') {
+    where.push(`unit_disposal_eligible(su.id, ${param(options.asOf ?? null)}::date)`);
   }
 
   const fromWhere = [
