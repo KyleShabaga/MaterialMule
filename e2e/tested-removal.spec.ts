@@ -195,7 +195,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   await expect(page.getByText(/recorded as disposed after testing/)).toBeVisible();
   await expect(page.locator('.unit-meta')).toContainText('Disposed after testing');
   await expect(section).toContainText('last location Receiving lab');
-  await expect(page.getByRole('region', { name: 'History' })).toContainText(
+  await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText(
     'Disposed after testing',
   );
 
