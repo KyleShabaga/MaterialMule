@@ -16,6 +16,7 @@ import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { likeEscape } from '../projects/projects.service.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
+import { loadSampleIdentities, membershipOf } from '../storage-units/sample-identity.js';
 
 // Receiving Log (MM-T51): read-only views of confirmed receipts. Nothing here writes, audits or
 // queues printing. Each receipt is one row: the list never joins its storage units, so a
@@ -166,10 +167,9 @@ export async function getReceiptDetail(
      ORDER BY su.readable_id COLLATE "C"`,
     [receiptId],
   );
-  const holes = await loadHoleSummaries(
-    pool,
-    units.rows.map((unit) => unit.id),
-  );
+  const ids = units.rows.map((unit) => unit.id);
+  const holes = await loadHoleSummaries(pool, ids);
+  const identities = await loadSampleIdentities(pool, ids);
   return {
     ...toItem(row),
     description: row.description,
@@ -186,6 +186,8 @@ export async function getReceiptDetail(
         client: unit.client,
       },
       holes: holes.get(unit.id) ?? [],
+      sample: identities.get(unit.id)?.sample ?? null,
+      bulkGroup: membershipOf(identities.get(unit.id)),
       location: { id: unit.location_id, code: unit.location_code, name: unit.location_name },
     })),
   };

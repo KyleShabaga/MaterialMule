@@ -52,6 +52,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
     expect(rows.map((r) => r.table_name)).toEqual([
       'app_user',
       'audit_event',
+      'bulk_group',
       'draft_auto_delete_setting',
       'identity_link',
       'local_credential',
@@ -342,16 +343,17 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
         ]),
       ).rejects.toMatchObject({ code: PG.checkViolation });
 
-      // D45: correcting the type to a bulk container keeps BKT-2026-000010.
+      // D45: correcting the type keeps BKT-2026-000010. (A bulk soil bucket now needs a bulk
+      // group, MM-T36, so the example correction is to a Shelby tube.)
       await db.pool.query(
-        `UPDATE storage_unit SET unit_type = 'bulk_container', holder_kind = 'bucket' WHERE id = $1`,
+        `UPDATE storage_unit SET unit_type = 'shelby_tube', holder_kind = 'shelby_tube' WHERE id = $1`,
         [unitId],
       );
       const { rows } = await db.pool.query(
         'SELECT readable_id, unit_type FROM storage_unit WHERE id = $1',
         [unitId],
       );
-      expect(rows[0]).toEqual({ readable_id: 'BKT-2026-000010', unit_type: 'bulk_container' });
+      expect(rows[0]).toEqual({ readable_id: 'BKT-2026-000010', unit_type: 'shelby_tube' });
     });
 
     it('keeps independent annual counters per prefix', async () => {

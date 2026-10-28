@@ -44,7 +44,7 @@ describe('confirmReceiptRequestSchema (MM-T09 T1)', () => {
     const parsed = confirmReceiptRequestSchema.parse(request({ description: '   ' }));
     expect(parsed.description).toBeNull();
     expect(parsed.units[0]!.note).toBeNull();
-    expect(parsed.units[0]!.holeSummaries[0]).toMatchObject({
+    expect(parsed.units[0]!.holeSummaries![0]).toMatchObject({
       type: 'sample_range',
       sampleFrom: 'G1',
       sampleTo: 'S12',
@@ -184,12 +184,20 @@ describe('confirmReceiptRequestSchema (MM-T09 T1)', () => {
     ]);
   });
 
-  it('accepts only buckets in this increment', () => {
+  it('accepts buckets and Shelby tubes only (MM-T36)', () => {
+    const generic = request({
+      units: [{ ...request().units[0]!, unitType: 'bulk_container' as never }],
+    });
+    expect(errorsFor(generic)).toEqual([
+      expect.objectContaining({ field: 'units.0.unitType', code: 'invalid_value' }),
+    ]);
+    // A tube summarised per test hole is refused: it has a sampling source instead.
     const tube = request({
-      units: [{ ...request().units[0]!, unitType: 'shelby_tube' as never }],
+      units: [{ ...request().units[0]!, unitType: 'shelby_tube' }],
     });
     expect(errorsFor(tube)).toEqual([
-      expect.objectContaining({ field: 'units.0.unitType', code: 'invalid_value' }),
+      expect.objectContaining({ field: 'units.0.sample', code: 'required' }),
+      expect.objectContaining({ field: 'units.0.holeSummaries', code: 'not_allowed' }),
     ]);
   });
 

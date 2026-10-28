@@ -472,15 +472,12 @@ async function renderStorageUnitJob(
   }>(
     `SELECT su.readable_id, su.received_date::text AS received_date,
             p.project_number, p.name AS project_name,
-            COALESCE(array_agg(th.name ORDER BY th.name_normalized)
-                       FILTER (WHERE th.id IS NOT NULL), '{}') AS test_holes
+            -- Same origin names as the label preview (migration 0029, MM-T36).
+            storage_unit_origin_names(su.id) AS test_holes
      FROM print_job_item i
      JOIN storage_unit su ON su.id = i.storage_unit_id
      JOIN project p ON p.id = su.project_id
-     LEFT JOIN storage_unit_hole_summary s ON s.storage_unit_id = su.id
-     LEFT JOIN test_hole th ON th.id = s.test_hole_id
      WHERE i.print_job_id = $1
-     GROUP BY i.position, su.id, p.id
      ORDER BY i.position`,
     [jobId],
   );

@@ -10,6 +10,8 @@ import { useListHighlight } from '../components/useListHighlight';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing
 // matches exactly (MM-T08). Names are kept as typed (trimmed): never renamed or re-yeared.
+// With `single` (MM-T36: a Shelby tube's or bulk sample's sampling source) choosing a hole
+// replaces the one chosen; keyboard, Enter/close/blur and add behaviour are the same.
 
 type Holes = { state: 'loading' } | { state: 'error' } | { state: 'ready'; holes: TestHole[] };
 
@@ -24,6 +26,8 @@ export function TestHolePicker({
   receiverUserId,
   online,
   addedNote,
+  single = false,
+  legend = 'Test holes',
 }: {
   projectId: string;
   selected: TestHole[];
@@ -38,6 +42,9 @@ export function TestHolePicker({
    * draft." Nothing is said when left out.
    */
   addedNote?: (holeName: string) => string;
+  /** Exactly one hole: a new choice replaces the current one. */
+  single?: boolean;
+  legend?: string;
 }) {
   const id = useId();
   const [loaded, setLoaded] = useState<{ projectId: string; holes: Holes } | null>(null);
@@ -83,7 +90,9 @@ export function TestHolePicker({
   const active = highlight.active;
 
   function select(hole: TestHole) {
-    if (!selectedIds.has(hole.id)) {
+    if (single) {
+      onChange([hole]);
+    } else if (!selectedIds.has(hole.id)) {
       onChange([...selected, hole]);
     }
     onQueryChange('');
@@ -173,9 +182,9 @@ export function TestHolePicker({
 
   return (
     <fieldset className="picker">
-      <legend>Test holes</legend>
+      <legend>{legend}</legend>
       {selected.length > 0 ? (
-        <ul className="chips" aria-label="Selected test holes">
+        <ul className="chips" aria-label={single ? 'Selected test hole' : 'Selected test holes'}>
           {selected.map((hole) => (
             <li key={hole.id}>
               {hole.name}
@@ -191,7 +200,9 @@ export function TestHolePicker({
         </ul>
       ) : null}
       <div className="form-field combobox">
-        <label htmlFor={`${id}-search`}>Find or add a test hole</label>
+        <label htmlFor={`${id}-search`}>
+          {single && selected.length > 0 ? 'Change the test hole' : 'Find or add a test hole'}
+        </label>
         <input
           ref={input}
           id={`${id}-search`}
@@ -216,7 +227,7 @@ export function TestHolePicker({
             id={listboxId}
             role="listbox"
             aria-label="Test holes"
-            aria-multiselectable="true"
+            aria-multiselectable={single ? undefined : 'true'}
             className="listbox"
           >
             {options.map((option, index) => (

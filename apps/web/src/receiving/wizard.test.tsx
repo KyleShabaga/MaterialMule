@@ -465,7 +465,7 @@ describe('Receiving wizard (MM-T10)', () => {
         within(table)
           .getAllByRole('columnheader')
           .map((th) => th.textContent),
-      ).toEqual(['Storage unit', 'Type', 'Test holes (SAMPLE#/DEPTH)', 'Note', 'Actions']);
+      ).toEqual(['Storage unit', 'Type', 'Sampling source (SAMPLE#/DEPTH)', 'Note', 'Actions']);
       const [, first, second] = within(table).getAllByRole('row');
       expect(within(first!).getByRole('rowheader')).toHaveTextContent('Bucket 1');
       expect(first).toHaveTextContent('TH26-01 G1–S4');

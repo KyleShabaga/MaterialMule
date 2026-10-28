@@ -300,3 +300,41 @@ again changes nothing.
   claim/settlement recovery and physical confirmation are shared by both targets; location jobs
   render template `location-v1` from the snapshots. No storage unit or receipt stands in for a
   location.
+
+## Shelby tubes, sampling sources and bulk groups (MM-T36, migration 0029)
+
+Receiving increment only. Tested-unit removal ("Disposed after testing") is **not** in 0029: it
+needs exact-unit completion evidence from MM-T23/T24 first.
+
+- **Sampling source vs storage location.** A Shelby tube's source (`storage_unit.source_type`:
+  `test_hole` with `source_test_hole_id`, or `standalone_location` with a nonblank free-text
+  `source_location_reference`) is where the material came from; `current_location_id` is where the
+  unit is now. There is no table of standalone locations and equal text never merges sources (owner
+  decision 2026-10-27). Optional `sample_reference` and `sample_depth_from`/`_to`/`_unit` complete a
+  tube's identity. The source hole FK carries `project_id`, so it is always the unit's project.
+- **Bulk groups.** `bulk_group` holds a bulk sample's identity once: project, source (same two
+  kinds, hole FK project-scoped), required `sample_reference` (usually B1, never forced or
+  unique), required `depth_from` + `depth_unit`, optional `depth_to` and `description`, `version`
+  (bumped by identity corrections), creator, and the creating receipt + its request key (so a retry
+  returns the same group IDs). IDs are random UUIDs: no group letters. The project never changes.
+- **Members.** A bulk soil bucket is `unit_type = 'bulk_container'`, `holder_kind = 'bucket'`,
+  BKT- ID, with `bulk_group_id` (FK carries `project_id`). `storage_unit_contents_by_type_check`:
+  ordinary buckets have neither source nor group; Shelby tubes may have a source (tubes from before
+  0029 may not) and never a group; bulk buckets always have a group and no own source; generic CT
+  `bulk_container` units (separate rules) have neither. "Bucket n of N" is computed when read
+  (received date, then readable ID) and never stored.
+- **One contents summary.** Triggers refuse hole summaries on a unit with a source or a group,
+  and refuse giving a source or group to a unit that has hole summaries
+  (`storage_unit_one_contents_summary`).
+- **Search.** `storage_unit_search_document` is redefined from 0027's version (all 0027 forms and
+  the dash folding kept) to add the source name, sample reference, depth (separate ends and
+  joined), the group description, "bulk soil sample", and the identity as displayed
+  ("th26-21: b1 at 1.5-2 m"). Triggers now also refresh a unit when its source, sample or group
+  changes, every member when its group's identity changes, and tubes/bulk buckets when their source
+  hole is renamed. 0029 rebuilds every document.
+- **Sticker origin.** `storage_unit_origin_names(unit_id)` gives the existing origin line: hole
+  names, a tube's source, or a bulk group's source. The label preview and the print worker both
+  use it; sample references, depths, group IDs and bucket counts never reach the sticker.
+- **Concurrency.** A receipt joining a group reads it `FOR SHARE` and names the identity version it
+  showed (422 `bulk_group_changed` otherwise); an identity correction takes `FOR UPDATE`, so the two
+  serialise. Concurrent joins don't block each other.

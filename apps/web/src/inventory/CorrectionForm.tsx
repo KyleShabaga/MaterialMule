@@ -1,5 +1,5 @@
 import {
-  RECEIPT_UNIT_TYPES,
+  CORRECTION_UNIT_TYPES,
   STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH,
   storageUnitCorrectionRequestSchema,
   storageUnitTypeLabel,
@@ -185,11 +185,14 @@ export function CorrectionForm({
   }
   const fieldError = (field: string) => errorByField.get(field) ?? null;
 
-  const typeOptions = [...new Set<StorageUnitType>([unit.unitType, ...RECEIPT_UNIT_TYPES])];
+  const typeOptions = [...new Set<StorageUnitType>([unit.unitType, ...CORRECTION_UNIT_TYPES])];
+  // A Shelby tube with a sampling source or a bulk soil bucket (MM-T36): its source or bulk
+  // sample is its only contents summary, so type, project and test holes aren't corrected here.
+  const hasSample = unit.sample !== null;
 
   function request(): StorageUnitCorrectionRequestInput {
     const changes: StorageUnitCorrectionRequestInput['changes'] = {};
-    if (typeChanged) changes.unitType = unitType as (typeof RECEIPT_UNIT_TYPES)[number];
+    if (typeChanged) changes.unitType = unitType as (typeof CORRECTION_UNIT_TYPES)[number];
     if (dateChanged) changes.receivedDate = receivedDate;
     if (noteChanged) changes.note = note;
     if (changingProject && projectId === null) changes.projectId = '';
@@ -274,24 +277,34 @@ export function CorrectionForm({
         </p>
       ) : null}
 
+      {hasSample ? (
+        <p className="field-hint">
+          {unit.bulkGroup
+            ? 'This bucket holds a bulk soil sample: change its bulk sample from the Bulk sample section.'
+            : 'This Shelby tube’s sampling source can’t be corrected here yet.'}{' '}
+          Type and project stay as they are.
+        </p>
+      ) : null}
       <div className="correction-pair">
-        <Changed when={typeChanged}>
-          <FormField id="correction-unitType" label="Type" error={fieldError('changes.unitType')}>
-            {(props) => (
-              <select
-                {...props}
-                value={unitType}
-                onChange={(e) => setUnitType(e.target.value as StorageUnitType)}
-              >
-                {typeOptions.map((type) => (
-                  <option key={type} value={type}>
-                    {storageUnitTypeLabel(type)}
-                  </option>
-                ))}
-              </select>
-            )}
-          </FormField>
-        </Changed>
+        {hasSample ? null : (
+          <Changed when={typeChanged}>
+            <FormField id="correction-unitType" label="Type" error={fieldError('changes.unitType')}>
+              {(props) => (
+                <select
+                  {...props}
+                  value={unitType}
+                  onChange={(e) => setUnitType(e.target.value as StorageUnitType)}
+                >
+                  {typeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {storageUnitTypeLabel(type)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </FormField>
+          </Changed>
+        )}
 
         <Changed when={dateChanged}>
           <FormField
@@ -313,95 +326,103 @@ export function CorrectionForm({
         </Changed>
       </div>
 
-      <Changed when={projectChanged}>
-        <fieldset id="correction-projectId" className="correction-group">
-          <legend>Project</legend>
-          {changingProject ? (
-            <>
-              <ProjectPicker
-                value={newProject}
-                query={projectQuery}
-                onQueryChange={setProjectQuery}
-                onSelect={(project) => {
-                  setNewProject(project);
-                  // A project is chosen now: its "choose the new project" error no longer applies.
-                  if (project) {
-                    setErrors((current) => current.filter((e) => e.field !== 'changes.projectId'));
-                  }
-                  // Test holes belong to one project: choose them again in the new one.
-                  setSummaries(project?.id === unit.project.id ? initialSummaries : []);
-                  setHoleQuery('');
-                }}
-                staff={staff}
-                receiverUserId={null}
-                online={online}
-              />
-              <button type="button" onClick={keepProject}>
-                Keep {unit.project.projectNumber}
-              </button>
-            </>
-          ) : (
-            <div className="correction-project">
-              <p>
-                <span className="project-number">{unit.project.projectNumber}</span> ·{' '}
-                {unit.project.name} · <span className="muted">{unit.project.client}</span>
-              </p>
-              <button type="button" onClick={() => setChangingProject(true)}>
-                Change project
-              </button>
-            </div>
-          )}
-          {fieldError('changes.projectId') ? (
-            <p className="field-error">{fieldError('changes.projectId')}</p>
-          ) : null}
-        </fieldset>
-      </Changed>
-
-      <Changed when={projectChanged || summariesChanged}>
-        <div id="correction-holeSummaries" className="correction-holes">
-          <div>
-            {projectId ? (
-              <TestHolePicker
-                key={projectId}
-                projectId={projectId}
-                selected={summaries.map((summary) => summary.testHole)}
-                onChange={(holes: TestHole[]) =>
-                  setSummaries((current) => {
-                    const byHole = new Map(current.map((s) => [s.testHole.id, s]));
-                    return holes.map((hole) => byHole.get(hole.id) ?? newSummary(hole));
-                  })
-                }
-                query={holeQuery}
-                onQueryChange={setHoleQuery}
-                receiverUserId={null}
-                online={online}
-              />
-            ) : (
-              <p className="field-hint">Choose the new project, then this unit’s test holes.</p>
-            )}
-            {fieldError(SUMMARIES_PATH) ? (
-              <p className="field-error">{fieldError(SUMMARIES_PATH)}</p>
-            ) : null}
-          </div>
-          {summaries.map((summary, index) => (
-            <div key={summary.testHole.id}>
-              <SummaryEditor
-                summary={summary}
-                path={`${SUMMARIES_PATH}.${index}`}
-                errors={errorByField}
-                onChange={(changes) =>
-                  setSummaries((current) =>
-                    current.map((s, i) => (i === index ? { ...s, ...changes } : s)),
-                  )
-                }
-              />
-              {fieldError(`${SUMMARIES_PATH}.${index}.testHoleId`) ? (
-                <p className="field-error">{fieldError(`${SUMMARIES_PATH}.${index}.testHoleId`)}</p>
+      {hasSample ? null : (
+        <>
+          <Changed when={projectChanged}>
+            <fieldset id="correction-projectId" className="correction-group">
+              <legend>Project</legend>
+              {changingProject ? (
+                <>
+                  <ProjectPicker
+                    value={newProject}
+                    query={projectQuery}
+                    onQueryChange={setProjectQuery}
+                    onSelect={(project) => {
+                      setNewProject(project);
+                      // A project is chosen now: its "choose the new project" error no longer applies.
+                      if (project) {
+                        setErrors((current) =>
+                          current.filter((e) => e.field !== 'changes.projectId'),
+                        );
+                      }
+                      // Test holes belong to one project: choose them again in the new one.
+                      setSummaries(project?.id === unit.project.id ? initialSummaries : []);
+                      setHoleQuery('');
+                    }}
+                    staff={staff}
+                    receiverUserId={null}
+                    online={online}
+                  />
+                  <button type="button" onClick={keepProject}>
+                    Keep {unit.project.projectNumber}
+                  </button>
+                </>
+              ) : (
+                <div className="correction-project">
+                  <p>
+                    <span className="project-number">{unit.project.projectNumber}</span> ·{' '}
+                    {unit.project.name} · <span className="muted">{unit.project.client}</span>
+                  </p>
+                  <button type="button" onClick={() => setChangingProject(true)}>
+                    Change project
+                  </button>
+                </div>
+              )}
+              {fieldError('changes.projectId') ? (
+                <p className="field-error">{fieldError('changes.projectId')}</p>
               ) : null}
+            </fieldset>
+          </Changed>
+
+          <Changed when={projectChanged || summariesChanged}>
+            <div id="correction-holeSummaries" className="correction-holes">
+              <div>
+                {projectId ? (
+                  <TestHolePicker
+                    key={projectId}
+                    projectId={projectId}
+                    selected={summaries.map((summary) => summary.testHole)}
+                    onChange={(holes: TestHole[]) =>
+                      setSummaries((current) => {
+                        const byHole = new Map(current.map((s) => [s.testHole.id, s]));
+                        return holes.map((hole) => byHole.get(hole.id) ?? newSummary(hole));
+                      })
+                    }
+                    query={holeQuery}
+                    onQueryChange={setHoleQuery}
+                    receiverUserId={null}
+                    online={online}
+                  />
+                ) : (
+                  <p className="field-hint">Choose the new project, then this unit’s test holes.</p>
+                )}
+                {fieldError(SUMMARIES_PATH) ? (
+                  <p className="field-error">{fieldError(SUMMARIES_PATH)}</p>
+                ) : null}
+              </div>
+              {summaries.map((summary, index) => (
+                <div key={summary.testHole.id}>
+                  <SummaryEditor
+                    summary={summary}
+                    path={`${SUMMARIES_PATH}.${index}`}
+                    errors={errorByField}
+                    onChange={(changes) =>
+                      setSummaries((current) =>
+                        current.map((s, i) => (i === index ? { ...s, ...changes } : s)),
+                      )
+                    }
+                  />
+                  {fieldError(`${SUMMARIES_PATH}.${index}.testHoleId`) ? (
+                    <p className="field-error">
+                      {fieldError(`${SUMMARIES_PATH}.${index}.testHoleId`)}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Changed>
+          </Changed>
+        </>
+      )}
 
       <Changed when={noteChanged}>
         <FormField

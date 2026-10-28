@@ -1,6 +1,6 @@
 import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@materialmule/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { listActiveStaff } from '../api/projects';
+import { listActiveStaff, listBulkGroups } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { BandedCard, ConfirmDialog, FormField } from '../components/ui';
 import { useOnline } from '../lib/online';
@@ -27,7 +27,7 @@ import { focusField } from './focus';
 import { LabelsStep } from './LabelsStep';
 import { ProjectPicker } from './ProjectPicker';
 import { ReceiptReview } from './ReviewStep';
-import { UnitEditor } from './UnitEditor';
+import { UnitEditor, type BulkGroupsState } from './UnitEditor';
 import { useReceiptDraft } from './useReceiptDraft';
 
 // Receiving wizard (MM-T10): Details and storage units → Review receipt → Labels and finish.
@@ -104,6 +104,12 @@ export function ReceiptWizard({
   const [result, setResult] = useState<ConfirmReceiptResponse | null>(null);
   /** Element id to focus after the next render (a unit heading, the step heading, a field). */
   const focusTarget = useRef<string | null>(null);
+  const bulkGroups = useProjectBulkGroups(
+    draft.project?.id ?? null,
+    draft.units.some((unit) => unit.unitType === 'bucket' && unit.bulk),
+    // A refused confirmation may mean a chosen bulk sample was corrected: offer the new identity.
+    serverProblems.length,
+  );
 
   useEffect(() => {
     let current = true;
@@ -440,8 +446,10 @@ export function ReceiptWizard({
               </p>
             </div>
             <p className="field-hint">
-              One summary per test hole (ALL, sample range, depth range or custom). Individual
-              samples are listed later, in lab requests.
+              Each physical bucket or Shelby tube is one storage unit with its own ID. A bucket
+              holds samples summarised per test hole (ALL, sample range, depth range or custom) or
+              one bulk soil sample; a Shelby tube has its own sampling source. Individual samples
+              are listed later, in lab requests.
             </p>
             <div className="unit-list">
               {draft.units.map((unit, index) => (
@@ -449,6 +457,8 @@ export function ReceiptWizard({
                   key={unit.clientRowId}
                   unit={unit}
                   index={index}
+                  draft={draft}
+                  bulkGroups={bulkGroups}
                   projectId={draft.project?.id ?? null}
                   projectNumber={draft.project?.projectNumber ?? null}
                   receiverUserId={draft.receiver?.id ?? null}
@@ -467,7 +477,11 @@ export function ReceiptWizard({
               <button type="button" onClick={() => addUnit()} aria-keyshortcuts={ADD_UNIT_SHORTCUT}>
                 Add bucket
               </button>{' '}
-              <span className="field-hint">Shortcut: {ADD_UNIT_SHORTCUT}</span>
+              {/* Alt+N (MM-T66 UI-05) still lands in the new bucket's test-hole search: the
+                  holder and Bulk soil sample controls above it are a Shift+Tab away (MM-T36). */}
+              <span className="field-hint">
+                Shortcut: {ADD_UNIT_SHORTCUT} (adds a bucket and goes to its test-hole search)
+              </span>
             </div>
           </section>
 
@@ -571,4 +585,36 @@ export function ReceiptWizard({
       </ConfirmDialog>
     </div>
   );
+}
+
+/**
+ * The project's existing bulk samples for every bulk row (MM-T36), loaded once a bucket is marked
+ * Bulk soil sample and again after the server refuses the receipt (`reload` changes).
+ */
+function useProjectBulkGroups(
+  projectId: string | null,
+  needed: boolean,
+  reload: number,
+): BulkGroupsState {
+  const [loaded, setLoaded] = useState<{ key: string; state: BulkGroupsState } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const key = `${projectId}|${reload}|${attempt}`;
+  useEffect(() => {
+    if (!projectId || !needed) return;
+    let current = true;
+    listBulkGroups(projectId).then(
+      (groups) => current && setLoaded({ key, state: { state: 'ready', groups } }),
+      () =>
+        current &&
+        setLoaded({
+          key,
+          state: { state: 'error', retry: () => setAttempt((n) => n + 1) },
+        }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [projectId, needed, key]);
+  if (!projectId || !needed) return { state: 'idle' };
+  return loaded?.key === key ? loaded.state : { state: 'loading' };
 }

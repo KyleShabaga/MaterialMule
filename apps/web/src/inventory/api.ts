@@ -1,4 +1,5 @@
 import {
+  bulkGroupSummarySchema,
   inventoryLocationListSchema,
   inventoryPageSchema,
   projectSummarySchema,
@@ -7,6 +8,9 @@ import {
   storageUnitLookupResponseSchema,
   unresolvedLabLinksResponseSchema,
   validationErrorResponseSchema,
+  type BulkGroupSummary,
+  type ChangeBulkGroupRequestInput,
+  type CorrectBulkGroupRequestInput,
   type FieldError,
   type InventoryLocation,
   type InventoryPage,
@@ -140,4 +144,64 @@ export async function correctStorageUnit(
   }
   if (response.status === 404) return { kind: 'error', message: 'No storage unit found.' };
   return { kind: 'error', message: "The correction wasn't saved. Try again." };
+}
+
+/** Outcome of a bulk sample correction (MM-T36): the saved value, or why it wasn't saved. */
+export type BulkCorrectionResult<T> =
+  | { kind: 'saved'; value: T }
+  | { kind: 'conflict' }
+  | { kind: 'invalid'; errors: FieldError[] }
+  | { kind: 'error'; message: string };
+
+async function patchBulk<T>(
+  path: string,
+  body: unknown,
+  schema: Schema<T>,
+): Promise<BulkCorrectionResult<T>> {
+  let response: Response;
+  try {
+    response = await apiFetch(path, { method: 'PATCH', body: JSON.stringify(body) });
+  } catch {
+    return { kind: 'error', message: "Material Mule couldn't be reached. Check the connection." };
+  }
+  const json: unknown = await response.json().catch(() => null);
+  if (response.ok) {
+    const parsed = schema.safeParse(json);
+    return parsed.success
+      ? { kind: 'saved', value: parsed.data }
+      : { kind: 'error', message: 'Material Mule returned an unexpected response.' };
+  }
+  if (response.status === 409) return { kind: 'conflict' };
+  if (response.status === 400 || response.status === 422) {
+    const invalid = validationErrorResponseSchema.safeParse({
+      ...(json as object),
+      code: 'validation_failed',
+    });
+    if (invalid.success) return { kind: 'invalid', errors: invalid.data.errors };
+  }
+  if (response.status === 403) {
+    return { kind: 'error', message: 'Corrections need a personal account.' };
+  }
+  if (response.status === 404) return { kind: 'error', message: 'Not found. Reload the page.' };
+  return { kind: 'error', message: "The correction wasn't saved. Try again." };
+}
+
+/** `PATCH /api/storage-units/:id/bulk-group`: move a bulk soil bucket to another bulk sample. */
+export function changeBulkGroup(
+  storageUnitId: string,
+  body: ChangeBulkGroupRequestInput,
+): Promise<BulkCorrectionResult<StorageUnitDetail>> {
+  return patchBulk(
+    `/api/storage-units/${encodeURIComponent(storageUnitId)}/bulk-group`,
+    body,
+    storageUnitDetailSchema,
+  );
+}
+
+/** `PATCH /api/bulk-groups/:id`: correct a bulk sample's identity for all its buckets. */
+export function correctBulkGroup(
+  groupId: string,
+  body: CorrectBulkGroupRequestInput,
+): Promise<BulkCorrectionResult<BulkGroupSummary>> {
+  return patchBulk(`/api/bulk-groups/${encodeURIComponent(groupId)}`, body, bulkGroupSummarySchema);
 }

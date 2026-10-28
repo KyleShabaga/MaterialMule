@@ -1,12 +1,12 @@
 import type { MeResponse, ReceiverOption } from '@materialmule/shared';
-import { newUuid, type ReceiptDraft } from '../draft';
+import { newUuid, normalizeUnit, type ReceiptDraft, type UnitDraft } from '../draft';
 
 // A receiving draft as stored on this workstation (MM-T11). Drafts live only in this browser's
 // IndexedDB: no server copy, no cross-device sync (App Idea §3). They hold business data only,
 // never a token or password, and never a storage unit ID (IDs exist only after confirmation).
 
 /** Bump when the record shape changes, and add a step to RECORD_MIGRATIONS. */
-export const DRAFT_RECORD_VERSION = 1;
+export const DRAFT_RECORD_VERSION = 2;
 
 /**
  * Drafts not saved for this long are flagged for review. They are deleted automatically only when
@@ -143,8 +143,29 @@ export function isStale(record: Pick<StoredDraft, 'lastSavedAt'>, now = new Date
 /** One step per older version: RECORD_MIGRATIONS[n] turns a version-n record into n + 1. */
 export type RecordMigrations = Record<number, (record: Record<string, unknown>) => unknown>;
 
-/** Version 1 is the first stored format (MM-T11), so nothing needs upgrading yet. */
-export const RECORD_MIGRATIONS: RecordMigrations = {};
+/**
+ * Version 1 (MM-T11): every unit row was an ordinary bucket. Version 2 (MM-T36) adds the holder
+ * type, bulk soil sample choice and Shelby tube sample to each row; a version-1 row becomes an
+ * ordinary bucket exactly as it was saved.
+ */
+export const RECORD_MIGRATIONS: RecordMigrations = {
+  1: (record) => {
+    const data = isObject(record.data) ? record.data : {};
+    const units = Array.isArray(data.units) ? data.units : [];
+    return {
+      ...record,
+      version: 2,
+      data: {
+        ...data,
+        units: units.map((unit: unknown) =>
+          isObject(unit) && typeof unit.clientRowId === 'string'
+            ? normalizeUnit(unit as Partial<UnitDraft> & { clientRowId: string })
+            : unit,
+        ),
+      },
+    };
+  },
+};
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

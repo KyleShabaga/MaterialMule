@@ -114,7 +114,7 @@ describe.runIf(testDatabaseUrl)('receipt failure injection (MM-T18 T4, AC3)', ()
     async (point) => {
       // Three units, the third with a G21–S29 summary (the injection points above rely on it).
       const body = h.receipt(3);
-      expect(body.units[2]!.holeSummaries[0]).toMatchObject({ sampleFrom: 'G21' });
+      expect(body.units[2]!.holeSummaries![0]).toMatchObject({ sampleFrom: 'G21' });
       const cookie = await h.cookieFor('lab');
       const firstSequence = await nextBucketSequence();
       const before = await h.snapshot();

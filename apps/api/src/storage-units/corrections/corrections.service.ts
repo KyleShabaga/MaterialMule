@@ -39,6 +39,8 @@ interface LockedUnit {
   version: number;
   unit_type: StorageUnitType;
   holder_kind: string;
+  /** True for a Shelby tube with a sampling source or a bulk soil bucket (MM-T36). */
+  has_sample_identity: boolean;
   note: string | null;
   received_date: string;
   project_id: string;
@@ -73,6 +75,25 @@ export class StorageUnitCorrectionsService {
       if (!unit) return null;
       if (unit.version !== request.version) {
         throw new ConflictException({ code: 'version_conflict', currentVersion: unit.version });
+      }
+      // A Shelby tube's source or a bulk bucket's group is its only contents summary (MM-T36):
+      // type, project and hole-summary changes would leave it with none, or two. Bulk buckets
+      // change group through PATCH /storage-units/:id/bulk-group; tube source corrections are a
+      // later increment. Received date and note can be corrected as for any unit.
+      if (unit.has_sample_identity) {
+        const blocked = (['unitType', 'projectId', 'holeSummaries'] as const).filter(
+          (field) => request.changes[field] !== undefined,
+        );
+        if (blocked.length > 0) {
+          throw new UnprocessableEntityException({
+            code: 'not_correctable_for_contents',
+            errors: blocked.map((field) => ({
+              field: `changes.${field}`,
+              code: 'not_correctable_for_contents',
+              message: 'is not corrected here for a Shelby tube or bulk soil bucket',
+            })),
+          });
+        }
       }
 
       const current: CorrectableValues = {
@@ -173,6 +194,7 @@ export class StorageUnitCorrectionsService {
     const byUuid = UUID_PATTERN.test(idOrCode);
     const { rows } = await client.query<LockedUnit>(
       `SELECT su.id, su.version, su.unit_type, su.holder_kind, su.note,
+              (su.source_type IS NOT NULL OR su.bulk_group_id IS NOT NULL) AS has_sample_identity,
               su.received_date::text AS received_date, su.project_id, p.project_number
        FROM storage_unit su
        JOIN project p ON p.id = su.project_id

@@ -12,6 +12,7 @@ export * from './profile';
 export * from './projects';
 export * from './receipts';
 export * from './receiving-log';
+export * from './samples';
 export * from './settings';
 export * from './staff';
 export * from './system-status';

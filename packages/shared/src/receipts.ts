@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  newBulkGroupInputSchema,
+  receiptBulkGroupRefSchema,
+  shelbySampleInputSchema,
+} from './samples';
 
 // Online receipt confirmation, `POST /api/receipts` (MM-T09). Receiving is per storage unit with
 // one SAMPLE#/DEPTH summary per test hole; there are no individual sample records here.
@@ -9,8 +14,13 @@ export const MAX_UNITS_PER_RECEIPT = 50;
 export const HOLE_SUMMARY_TYPES = ['all', 'sample_range', 'depth_range', 'custom'] as const;
 export type HoleSummaryType = (typeof HOLE_SUMMARY_TYPES)[number];
 
-/** Unit types this increment can confirm. Shelby tubes and bulk containers arrive in MM-T36. */
-export const RECEIPT_UNIT_TYPES = ['bucket'] as const;
+/**
+ * Physical holders a receipt can confirm (MM-T36). A bucket with `bulkGroup` holds a bulk soil
+ * sample (stored as unit type bulk_container, still a BKT- bucket); without it, it holds samples
+ * summarised per test hole. Each Shelby tube is its own ST- unit with a sampling source.
+ */
+export const RECEIPT_UNIT_TYPES = ['bucket', 'shelby_tube'] as const;
+export type ReceiptUnitType = (typeof RECEIPT_UNIT_TYPES)[number];
 
 /** Largest depth `numeric(8, 2)` can hold. */
 const MAX_DEPTH = 999_999.99;
@@ -102,15 +112,53 @@ export const receiptUnitInputSchema = z
       .trim()
       .min(1, { error: 'is required' })
       .max(64, { error: 'must be at most 64 characters' }),
-    unitType: z.enum(RECEIPT_UNIT_TYPES, { error: 'must be bucket' }),
+    unitType: z.enum(RECEIPT_UNIT_TYPES, { error: 'must be bucket or shelby_tube' }),
     note: optionalText(2000),
-    holeSummaries: z
-      .array(holeSummaryInputSchema, { error: 'is required' })
-      .min(1, { error: 'needs at least one test hole summary' }),
+    /** Ordinary buckets only: one SAMPLE#/DEPTH summary per test hole. */
+    holeSummaries: z.array(holeSummaryInputSchema, { error: 'is required' }).optional(),
+    /** Shelby tubes only: sampling source, sample reference and depth (MM-T36). */
+    sample: shelbySampleInputSchema.optional(),
+    /** Bulk soil buckets only: the bulk group the bucket belongs to (MM-T36). */
+    bulkGroup: receiptBulkGroupRefSchema.optional(),
   })
   .superRefine((unit, ctx) => {
+    const issue = (path: (string | number)[], code: string, message: string) =>
+      ctx.addIssue({ code: 'custom', path, message, params: { code } });
+    const summaryCount = unit.holeSummaries?.length ?? 0;
+    // One contents summary per unit (MM-T36): hole summaries, a tube's sample or a bulk group.
+    if (unit.unitType === 'shelby_tube') {
+      if (unit.sample === undefined) issue(['sample'], 'required', 'is required for a Shelby tube');
+      if (unit.bulkGroup !== undefined) {
+        issue(['bulkGroup'], 'not_allowed', 'only a bucket can hold a bulk soil sample');
+      }
+      if (summaryCount > 0) {
+        issue(['holeSummaries'], 'not_allowed', 'a Shelby tube has a sampling source instead');
+      }
+    } else if (unit.bulkGroup !== undefined) {
+      if (summaryCount > 0) {
+        issue(
+          ['holeSummaries'],
+          'not_allowed',
+          "a bulk soil bucket's only contents summary is its bulk sample",
+        );
+      }
+      if (unit.sample !== undefined) {
+        issue(
+          ['sample'],
+          'not_allowed',
+          'a bulk soil bucket takes its source from its bulk sample',
+        );
+      }
+    } else {
+      if (summaryCount === 0) {
+        issue(['holeSummaries'], 'too_small', 'needs at least one test hole summary');
+      }
+      if (unit.sample !== undefined) {
+        issue(['sample'], 'not_allowed', 'only a Shelby tube has its own sampling source');
+      }
+    }
     const seen = new Set<string>();
-    unit.holeSummaries.forEach((summary, index) => {
+    unit.holeSummaries?.forEach((summary, index) => {
       if (seen.has(summary.testHoleId)) {
         ctx.addIssue({
           code: 'custom',
@@ -139,8 +187,57 @@ export const confirmReceiptRequestSchema = z
       .max(MAX_UNITS_PER_RECEIPT, {
         error: `can have at most ${MAX_UNITS_PER_RECEIPT} storage units`,
       }),
+    /** New bulk groups this receipt creates, each used by at least one bucket (MM-T36). */
+    bulkGroups: z
+      .array(newBulkGroupInputSchema, { error: 'must be a list' })
+      .max(MAX_UNITS_PER_RECEIPT, {
+        error: `can have at most ${MAX_UNITS_PER_RECEIPT} bulk samples`,
+      })
+      .optional(),
   })
   .superRefine((receipt, ctx) => {
+    const issue = (path: (string | number)[], code: string, message: string) =>
+      ctx.addIssue({ code: 'custom', path, message, params: { code } });
+    const groupKeys = new Set<string>();
+    receipt.bulkGroups?.forEach((group, index) => {
+      if (groupKeys.has(group.key)) {
+        issue(['bulkGroups', index, 'key'], 'duplicate_bulk_group', 'appears more than once');
+      }
+      groupKeys.add(group.key);
+    });
+    const usedKeys = new Set<string>();
+    const joinedVersions = new Map<string, number | undefined>();
+    receipt.units.forEach((unit, index) => {
+      const ref = unit.bulkGroup;
+      if (ref?.newGroupKey !== undefined) {
+        usedKeys.add(ref.newGroupKey);
+        if (!groupKeys.has(ref.newGroupKey)) {
+          issue(
+            ['units', index, 'bulkGroup', 'newGroupKey'],
+            'unknown_bulk_group',
+            'names a new bulk sample this receipt does not describe',
+          );
+        }
+      } else if (ref?.existingId !== undefined && ref.version !== undefined) {
+        // Every bucket joining one group must have been shown the same identity.
+        if (
+          joinedVersions.has(ref.existingId) &&
+          joinedVersions.get(ref.existingId) !== ref.version
+        ) {
+          issue(
+            ['units', index, 'bulkGroup', 'version'],
+            'conflicting_group_version',
+            'differs from another bucket joining the same bulk sample',
+          );
+        }
+        joinedVersions.set(ref.existingId, ref.version);
+      }
+    });
+    receipt.bulkGroups?.forEach((group, index) => {
+      if (!usedKeys.has(group.key)) {
+        issue(['bulkGroups', index], 'unused_bulk_group', 'is not used by any bucket');
+      }
+    });
     const seen = new Set<string>();
     receipt.units.forEach((unit, index) => {
       if (seen.has(unit.clientRowId)) {
@@ -168,8 +265,12 @@ export const confirmReceiptResponseSchema = z.object({
       storageUnitId: z.string(),
       /** Permanent readable ID printed on the label, e.g. BKT-2026-000001. */
       suNumber: z.string(),
+      /** The bulk group a bulk soil bucket joined or created (MM-T36); absent otherwise. */
+      bulkGroupId: z.string().optional(),
     }),
   ),
+  /** IDs of the bulk groups this receipt created, by their `key` (MM-T36). */
+  bulkGroups: z.array(z.object({ key: z.string(), bulkGroupId: z.string() })).optional(),
 });
 
 export type ConfirmReceiptResponse = z.infer<typeof confirmReceiptResponseSchema>;

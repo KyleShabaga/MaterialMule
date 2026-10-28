@@ -1,8 +1,11 @@
 import {
+  SAMPLING_SOURCE_TYPE_LABEL,
   describeStorageUnitCorrection,
+  formatDepth,
   formatPerson,
   formatStorageUnitHoleSummary,
   storageUnitHistoryActionLabel,
+  samplingSourceName,
   storageUnitTypeLabel,
   type StorageUnitDetail,
   type StorageUnitHistoryEvent,
@@ -15,6 +18,7 @@ import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
 import { useSession } from '../session/context';
 import { fetchStorageUnit, fetchStorageUnitHistory } from './api';
+import { BulkSampleSection } from './BulkSampleSection';
 import { CONFLICT_MESSAGE, CorrectionForm } from './CorrectionForm';
 import type { InventoryLinkState } from './InventoryPage';
 import './inventory.css';
@@ -54,6 +58,8 @@ export function StorageUnitDetailPage() {
   const [correcting, setCorrecting] = useState(false);
   const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
   const [corrected, setCorrected] = useState(false);
+  /** Message after a bulk sample correction (MM-T36). */
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [historyVersion, setHistoryVersion] = useState(0);
   // Correct details replaces the page (canvas): focus its heading on open, the button on close.
   const correctionHeading = useRef<HTMLHeadingElement>(null);
@@ -192,8 +198,15 @@ export function StorageUnitDetailPage() {
         </p>
       ) : null}
 
+      {bulkNotice ? (
+        <p className="notice notice-success" role="status">
+          {bulkNotice}
+        </p>
+      ) : null}
+
       <nav className="sub-nav" aria-label="Storage unit sections">
         <a href="#summaries">Summaries</a>
+        {unit.bulkGroup ? <a href="#bulk-sample">Bulk sample</a> : null}
         <a href="#receipt">Receipt</a>
         <a href="#location">Location</a>
         <a href="#history">History</a>
@@ -212,24 +225,58 @@ export function StorageUnitDetailPage() {
               <Detail term="Received date">
                 <span className="nowrap">{unit.receivedDate}</span>
               </Detail>
-              <Detail term="Test holes">
-                <ul className="hole-summaries" aria-label="Test hole summaries">
-                  {unit.holes.map((hole) => (
-                    <li key={hole.testHoleId}>
-                      <strong>{hole.testHoleName}</strong>: {formatStorageUnitHoleSummary(hole)}
-                      {hole.note ? (
-                        <>
-                          {' '}
-                          <span className="note-tag">Note: {hole.note}</span>
-                        </>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </Detail>
+              {unit.sample ? (
+                // MM-T36: where the material came from (never its storage location).
+                <>
+                  <Detail term="Sampling source">
+                    {samplingSourceName(unit.sample.source)}{' '}
+                    <span className="muted">
+                      ({SAMPLING_SOURCE_TYPE_LABEL[unit.sample.source.type]})
+                    </span>
+                  </Detail>
+                  <Detail term="Sample reference">{unit.sample.sampleReference ?? 'None'}</Detail>
+                  <Detail term="Depth">
+                    {formatDepth(
+                      unit.sample.depthFrom,
+                      unit.sample.depthTo,
+                      unit.sample.depthUnit,
+                    ) || 'None'}
+                  </Detail>
+                </>
+              ) : (
+                <Detail term="Test holes">
+                  <ul className="hole-summaries" aria-label="Test hole summaries">
+                    {unit.holes.map((hole) => (
+                      <li key={hole.testHoleId}>
+                        <strong>{hole.testHoleName}</strong>: {formatStorageUnitHoleSummary(hole)}
+                        {hole.note ? (
+                          <>
+                            {' '}
+                            <span className="note-tag">Note: {hole.note}</span>
+                          </>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </Detail>
+              )}
               <Detail term="Storage unit note">{unit.note ?? 'None'}</Detail>
             </dl>
           </BandedCard>
+
+          {unit.bulkGroup ? (
+            <BulkSampleSection
+              // A correction elsewhere (or a conflict reload) starts the section afresh.
+              key={`${unit.version}-${unit.bulkGroup.version}`}
+              unit={unit}
+              canCorrect={canCorrect}
+              onChanged={(changed, message) => {
+                setResult({ key: readableId, ok: true, data: changed });
+                setBulkNotice(message);
+                setHistoryVersion((count) => count + 1);
+              }}
+            />
+          ) : null}
 
           <HistorySection storageUnitId={unit.id} refresh={historyVersion} />
         </div>

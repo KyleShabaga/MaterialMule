@@ -3,17 +3,24 @@ import type { ReactNode } from 'react';
 import { BandedCard } from '../components/ui';
 import { useMediaQuery, WIDE_SCREEN } from '../components/useMediaQuery';
 import {
+  bulkChoiceText,
+  bulkSamplesInDraft,
+  formatSampleDraft,
   formatSummaryValue,
   formatUnitCount,
+  unitKindLabel,
   unitName,
-  UNIT_TYPE_LABEL,
   type ReceiptDraft,
+  type UnitDraft,
 } from './draft';
 
 /**
  * Step 2: everything entered, read-only and grouped per unit, with Edit links (MM-T10). Above
  * 1280px (MM-T66) the Details card is one compact strip (UI-11, CSS) and the units are one table
  * with shared headers and a row per unit (UI-08); at 1280px and below each unit has its own card.
+ * Both show each unit's holder and contents (MM-T36): hole summaries, a Shelby tube's sampling
+ * source, or a bulk soil bucket's bulk sample with its place among this receipt's buckets; the
+ * receipt's bulk samples are then listed with their bucket counts.
  */
 export function ReceiptReview({
   draft,
@@ -60,6 +67,7 @@ export function ReceiptReview({
       ) : (
         <UnitCards draft={draft} onEditUnit={onEditUnit} />
       )}
+      <BulkSamples draft={draft} wide={wide} />
     </>
   );
 }
@@ -67,6 +75,33 @@ export function ReceiptReview({
 function summaryText(summary: ReceiptDraft['units'][number]['summaries'][number]): string {
   const note = summary.note.trim();
   return `${formatSummaryValue(summary)}${note ? ` (note: ${note})` : ''}`;
+}
+
+/** "bucket 1 of 2 in this receipt" for a bulk row, counted among this receipt's buckets. */
+function bulkPosition(draft: ReceiptDraft, unit: UnitDraft): string {
+  const group = bulkSamplesInDraft(draft).find((g) => g.rows.some((r) => r.unit === unit));
+  if (!group) return '';
+  const position = group.rows.findIndex((r) => r.unit === unit) + 1;
+  return `bucket ${position} of ${group.rows.length} in this receipt`;
+}
+
+/** A unit's contents as review lines: hole summaries, a tube's source, or its bulk sample. */
+function contentLines(draft: ReceiptDraft, unit: UnitDraft): { label: string; text: string }[] {
+  if (unit.unitType === 'shelby_tube') {
+    return [{ label: 'Sampling source', text: formatSampleDraft(unit.tube) }];
+  }
+  if (unit.bulk) {
+    return [
+      {
+        label: 'Bulk sample',
+        text: `${bulkChoiceText(draft, unit)} · ${bulkPosition(draft, unit)}`,
+      },
+    ];
+  }
+  return unit.summaries.map((summary) => ({
+    label: summary.testHole.name,
+    text: summaryText(summary),
+  }));
 }
 
 /** Above 1280px: every unit in one table, one compact row each, Edit at the end (UI-08). */
@@ -86,7 +121,7 @@ function UnitTable({
             <tr>
               <th scope="col">Storage unit</th>
               <th scope="col">Type</th>
-              <th scope="col">Test holes (SAMPLE#/DEPTH)</th>
+              <th scope="col">Sampling source (SAMPLE#/DEPTH)</th>
               <th scope="col">Note</th>
               {onEditUnit ? (
                 <th scope="col">
@@ -101,13 +136,12 @@ function UnitTable({
               return (
                 <tr key={unit.clientRowId}>
                   <th scope="row">{name}</th>
-                  <td>{UNIT_TYPE_LABEL[unit.unitType]}</td>
+                  <td>{unitKindLabel(unit)}</td>
                   <td>
                     <ul className="review-summaries">
-                      {unit.summaries.map((summary) => (
-                        <li key={summary.testHole.id}>
-                          <span className="review-hole">{summary.testHole.name}</span>{' '}
-                          {summaryText(summary)}
+                      {contentLines(draft, unit).map((line) => (
+                        <li key={line.label}>
+                          <span className="review-hole">{line.label}</span> {line.text}
                         </li>
                       ))}
                     </ul>
@@ -167,10 +201,10 @@ function UnitCards({
           >
             <dl className="details">
               <dt>Type</dt>
-              <dd>{UNIT_TYPE_LABEL[unit.unitType]}</dd>
-              {unit.summaries.map((summary) => (
-                <SummaryRow key={summary.testHole.id} name={summary.testHole.name}>
-                  {summaryText(summary)}
+              <dd>{unitKindLabel(unit)}</dd>
+              {contentLines(draft, unit).map((line) => (
+                <SummaryRow key={line.label} name={line.label}>
+                  {line.text}
                 </SummaryRow>
               ))}
               {unit.note.trim() ? (
@@ -184,6 +218,56 @@ function UnitCards({
         );
       })}
     </>
+  );
+}
+
+/**
+ * This receipt's bulk samples, each with its physical buckets (a one-bucket sample is valid).
+ * Storage unit IDs are issued only at confirmation, so buckets are named by row here; the Labels
+ * step lists each BKT ID.
+ */
+function BulkSamples({ draft, wide }: { draft: ReceiptDraft; wide: boolean }) {
+  const samples = bulkSamplesInDraft(draft);
+  if (samples.length === 0) return null;
+  const count = (n: number) => `${n} bucket${n === 1 ? '' : 's'}`;
+  const joined = (existing: (typeof samples)[number]['existing']) =>
+    existing ? `existing bulk sample, ${count(existing.memberCount)} already` : 'new bulk sample';
+  return (
+    <BandedCard className="review-section review-bulk" title="Bulk samples in this receipt">
+      {wide ? (
+        <table className="data-table review-units-table">
+          <caption className="visually-hidden">Bulk samples in this receipt</caption>
+          <thead>
+            <tr>
+              <th scope="col">Bulk sample</th>
+              <th scope="col">Buckets in this receipt</th>
+              <th scope="col">Storage units</th>
+            </tr>
+          </thead>
+          <tbody>
+            {samples.map((sample) => (
+              <tr key={sample.key}>
+                <th scope="row">
+                  {sample.text} <span className="field-hint">({joined(sample.existing)})</span>
+                </th>
+                <td>{count(sample.rows.length)}</td>
+                <td>{sample.rows.map((r) => unitName(r.index, r.unit)).join(', ')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <dl className="details">
+          {samples.map((sample) => (
+            <SummaryRow key={sample.key} name={sample.text}>
+              {`${count(sample.rows.length)} (${joined(sample.existing)}): ${sample.rows
+                .map((r) => unitName(r.index, r.unit))
+                .join(', ')}`}
+            </SummaryRow>
+          ))}
+        </dl>
+      )}
+    </BandedCard>
   );
 }
 

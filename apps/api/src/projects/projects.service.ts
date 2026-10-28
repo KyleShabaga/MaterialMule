@@ -294,11 +294,16 @@ export class ProjectsService {
       name: string;
       unit_count: number;
     }>(
-      `SELECT th.id, th.project_id, th.name, count(h.storage_unit_id)::int AS unit_count
+      // Units from each hole: hole summaries, Shelby tubes sourced from it and bulk buckets whose
+      // group is sourced from it (MM-T36). A unit is counted once per hole it names.
+      `SELECT th.id, th.project_id, th.name,
+              ((SELECT count(*) FROM storage_unit_hole_summary h WHERE h.test_hole_id = th.id)
+               + (SELECT count(*) FROM storage_unit su WHERE su.source_test_hole_id = th.id)
+               + (SELECT count(*) FROM storage_unit su
+                  JOIN bulk_group g ON g.id = su.bulk_group_id
+                  WHERE g.test_hole_id = th.id))::int AS unit_count
          FROM test_hole th
-         LEFT JOIN storage_unit_hole_summary h ON h.test_hole_id = th.id
          WHERE th.project_id = $1
-         GROUP BY th.id
          ORDER BY th.name_normalized, th.id`,
       [id],
     );

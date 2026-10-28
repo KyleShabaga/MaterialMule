@@ -404,6 +404,18 @@ second; the arrows wrap. A list opened before typing starts with nothing highlig
 at phone width. Hover and the active option use `card`; the chosen option also shows a check
 or "Selected" text.
 
+**Receiving unit rows (MM-T36).** Each row starts with a "Physical holder" select (Bucket,
+Shelby tube) and, for buckets, a "Bulk soil sample" checkbox with its hint. These are native
+controls, not comboboxes, so they need no highlight logic. A Shelby tube or a new bulk sample has a
+"Sampling source" radio group (Test hole / Standalone sampling location); the test hole uses the
+same `TestHolePicker` in single mode (choosing replaces; Enter selects, closes and blurs; a failed
+add keeps focus), and a standalone location is a required "Location reference" text field, never a
+list. A bulk bucket's "Bulk sample" select offers New bulk sample, "Same as Bucket n" for earlier
+new samples of the receipt, and the project's existing samples by source · reference · depth with
+their bucket count. Alt+N still adds a bucket and focuses its test-hole search (the holder controls
+are one Shift+Tab away). Review shows the holder/contents in both layouts (cards ≤ 1280px, the wide
+table above) and a "Bulk samples in this receipt" list with bucket counts.
+
 ### Cards
 
 `card` fill, 1px `line`, 4px corners (`radius-control`), 20px padding (16px on phones), and a `card-head` header band. A card heading is
@@ -609,6 +621,16 @@ Built to the canvas artboards "Sample Storage — list", "Storage unit detail", 
   moves to the heading and back to the Correct details button. Type and Received date sit side by
   side; Project and Test holes are inset groups; the count of changed fields sits beside the
   buttons. A version conflict is an amber notice; a saved correction shows "Details corrected."
+- **Shelby tubes and bulk samples (MM-T36):** the contents column is headed "Sampling source"
+  (neutral wording, not "Test holes"). Ordinary buckets keep their hole tags; a Shelby tube shows
+  its source as one tag ("Embankment Location 03: T5 at 10–12 ft"); a bulk soil bucket shows its
+  bulk sample ("TH26-21: B1 at 1.5–2 m") and an info-tone `.badge.badge-bulk`
+  "Bulk sample · B1 · bucket 1 of 2". Compact rows keep everything on one `.hole-line`
+  ("… · bucket 1 of 2", full text in `title`), so a record never takes two lines. The type tag
+  says "Shelby tube" or "Bulk soil sample"; the ID stays the BKT-/ST- storage unit ID. The detail
+  page shows Sampling source / Sample reference / Depth instead of Test holes, and a bulk bucket
+  gets a "Bulk sample" card listing every bucket of the sample (own ID, status, location) with
+  Change bulk sample and Correct bulk sample for personal accounts (reason required).
 - Print status chips already used the artboard's wording and actions (`printJobStatusText`).
 - Look-up, search and filter cards above a list use `.tool-card` (`styles.css`): `card` fill, 1px
   `line`, mono uppercase labels. Sample Storage and Projects share it.

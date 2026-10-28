@@ -7,6 +7,7 @@ import {
 import type { Pool } from 'pg';
 import { wallClockAt } from '../auth/calendar-month.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
+import { loadSampleIdentities, membershipOf } from '../storage-units/sample-identity.js';
 
 // Dashboard "Recently received" (approved design 2026-10-27). Same order as the inventory's
 // received-date sort (newest date first, then storage unit ID), so it uses the same index and
@@ -122,10 +123,9 @@ export async function queryRecentlyReceived(
   ]);
 
   const rows = page.rows;
-  const holes = await loadHoleSummaries(
-    pool,
-    rows.map((row) => row.id),
-  );
+  const ids = rows.map((row) => row.id);
+  const holes = await loadHoleSummaries(pool, ids);
+  const identities = await loadSampleIdentities(pool, ids);
   const count = counts.rows[0]!;
   return {
     items: rows.map((row) => ({
@@ -143,6 +143,8 @@ export async function queryRecentlyReceived(
         client: row.client,
       },
       holes: holes.get(row.id) ?? [],
+      sample: identities.get(row.id)?.sample ?? null,
+      bulkGroup: membershipOf(identities.get(row.id)),
       location: { id: row.location_id, code: row.location_code, name: row.location_name },
       latestPrint:
         row.print_status === null

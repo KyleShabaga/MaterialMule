@@ -6,6 +6,7 @@ import {
   splitSearchWords,
   storageUnitHoleSummarySchema,
 } from './inventory';
+import { bulkMembershipSchema, sampleIdentitySchema } from './samples';
 
 // Receiving Log (MM-T51): confirmed receipts, one row per receipt, and a receipt's detail with
 // every storage unit it created. Read-only. Local drafts never appear here (they stay on the
@@ -136,6 +137,9 @@ export const receiptUnitSchema = z.object({
   receivedDate: z.string(),
   project: projectRef,
   holes: z.array(storageUnitHoleSummarySchema),
+  /** Shelby tube source or bulk sample identity, as on inventory rows (MM-T36). */
+  sample: sampleIdentitySchema.nullable(),
+  bulkGroup: bulkMembershipSchema.nullable(),
   /** Last saved location. */
   location: z.object({ id: z.string(), code: z.string(), name: z.string() }),
 });

@@ -3,6 +3,7 @@ import type { InventoryItem, InventoryPage, InventoryQuery } from '@materialmule
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
+import { loadSampleIdentities, membershipOf } from '../storage-units/sample-identity.js';
 import { buildInventoryQuery } from './inventory-query.js';
 
 interface InventoryRow {
@@ -42,10 +43,9 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
      ORDER BY ${sql.orderBy}`,
     [...sql.params, sql.limit, sql.offset],
   );
-  const holes = await loadHoleSummaries(
-    pool,
-    rows.map((row) => row.id),
-  );
+  const ids = rows.map((row) => row.id);
+  const holes = await loadHoleSummaries(pool, ids);
+  const identities = await loadSampleIdentities(pool, ids);
   return {
     items: rows.map((row) => ({
       id: row.id,
@@ -60,6 +60,8 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
         client: row.client,
       },
       holes: holes.get(row.id) ?? [],
+      sample: identities.get(row.id)?.sample ?? null,
+      bulkGroup: membershipOf(identities.get(row.id)),
       location: { id: row.location_id, code: row.location_code, name: row.location_name },
     })),
     total: count.rows[0]!.total,
