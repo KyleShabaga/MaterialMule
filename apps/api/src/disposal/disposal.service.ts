@@ -200,34 +200,17 @@ export class DisposalService {
     const hash = intentHash({ unitIds });
     try {
       return await withTransaction(this.database.pool, async (client) => {
-        const { rows: previous } = await client.query<{
-          id: string;
-          storage_unit_id: string;
-          batch_id: string;
-          request_hash: string;
-          approved_by_user_id: string;
-        }>(
-          `SELECT id, storage_unit_id, batch_id, request_hash, approved_by_user_id
-           FROM disposal_approval WHERE idempotency_key = $1`,
-          [body.idempotencyKey],
-        );
-        if (previous.length > 0) {
-          if (
-            previous.some((p) => p.request_hash !== hash || p.approved_by_user_id !== user.userId)
-          ) {
-            throw new ConflictException({ code: 'idempotency_key_reused' });
-          }
-          return {
-            batchId: previous[0]!.batch_id,
-            approvals: previous.map((p) => ({ id: p.id, storageUnitId: p.storage_unit_id })),
-          };
-        }
+        const earlier = await previousBatch(client, body.idempotencyKey, hash, user);
+        if (earlier) return earlier;
         // Lock in a fixed order so two overlapping batches can't deadlock.
         const { rows: locked } = await client.query<{ id: string }>(
           `SELECT su.id FROM storage_unit su WHERE su.id = ANY($1::uuid[])
            ORDER BY su.id FOR UPDATE`,
           [unitIds],
         );
+        // A concurrent exact retry waited on these locks: it returns the batch that committed.
+        const committed = await previousBatch(client, body.idempotencyKey, hash, user);
+        if (committed) return committed;
         if (locked.length !== unitIds.length) {
           throw new NotFoundException({ code: 'storage_unit_not_found' });
         }
@@ -307,28 +290,23 @@ export class DisposalService {
     if (user.accountType === 'shared_lab') throw new ForbiddenException({ code: 'forbidden' });
     if (!UUID_PATTERN.test(approvalId)) throw new NotFoundException({ code: 'approval_not_found' });
     return withTransaction(this.database.pool, async (client) => {
-      const { rows } = await client.query<{
-        storage_unit_id: string;
-        revoked_at: Date | null;
-        used_at: Date | null;
-        revoke_idempotency_key: string | null;
-        revoked_by_user_id: string | null;
-        pm_pe_user_id: string;
-      }>(
-        `SELECT a.storage_unit_id, a.revoked_at, a.used_at, a.revoke_idempotency_key,
-                a.revoked_by_user_id, p.pm_pe_user_id
-         FROM disposal_approval a JOIN project p ON p.id = a.project_id WHERE a.id = $1`,
+      const { rows: found } = await client.query<{ storage_unit_id: string }>(
+        'SELECT storage_unit_id FROM disposal_approval WHERE id = $1',
         [approvalId],
       );
-      const approval = rows[0];
-      if (!approval) throw new NotFoundException({ code: 'approval_not_found' });
-      if (!can(user, 'disposal.approve', { pmPeUserId: approval.pm_pe_user_id })) {
+      if (!found[0]) throw new NotFoundException({ code: 'approval_not_found' });
+      const unitId = found[0].storage_unit_id;
+      // Unit first, then approval: the order removal uses. Authority follows the unit's current
+      // project, as removal does.
+      const { rows: units } = await client.query<{ status: string; pm_pe_user_id: string }>(
+        `SELECT su.status, p.pm_pe_user_id FROM storage_unit su
+         JOIN project p ON p.id = su.project_id WHERE su.id = $1 FOR UPDATE OF su`,
+        [unitId],
+      );
+      const unit = units[0]!;
+      if (!can(user, 'disposal.approve', { pmPeUserId: unit.pm_pe_user_id })) {
         throw new ForbiddenException({ code: 'forbidden' });
       }
-      // Unit first, then approval: the same order removal uses.
-      await client.query('SELECT 1 FROM storage_unit WHERE id = $1 FOR UPDATE', [
-        approval.storage_unit_id,
-      ]);
       const { rows: current } = await client.query<{
         revoked_at: Date | null;
         used_at: Date | null;
@@ -349,7 +327,9 @@ export class DisposalService {
         }
         throw new ConflictException({ code: 'approval_revoked' });
       }
-      if (now.used_at) throw new ConflictException({ code: 'storage_unit_disposed' });
+      if (now.used_at || unit.status === 'disposed') {
+        throw new ConflictException({ code: 'storage_unit_disposed' });
+      }
       await client.query(
         `UPDATE disposal_approval SET revoked_at = now(), revoked_by_user_id = $2,
                 revoked_by_name_snapshot = $3, revoke_reason = $4, revoke_idempotency_key = $5
@@ -359,15 +339,15 @@ export class DisposalService {
       await client.query(
         `UPDATE storage_unit SET status = 'in_stock', version = version + 1, updated_at = now()
          WHERE id = $1 AND status = 'approved_for_disposal'`,
-        [approval.storage_unit_id],
+        [unitId],
       );
       await recordAudit(client, {
         action: 'disposal.approval_revoked',
         entityType: 'storage_unit',
-        entityId: approval.storage_unit_id,
+        entityId: unitId,
         actor: actorOf(user),
         reason: body.reason,
-        before: { status: 'approved_for_disposal', approvalId },
+        before: { status: unit.status, approvalId },
         after: { status: 'in_stock' },
       });
       return { id: approvalId };
@@ -388,17 +368,34 @@ export class DisposalService {
     const hash = intentHash({ suNumber: normalizeStorageUnitCode(code) });
     try {
       return await withTransaction(this.database.pool, async (client) => {
-        const replay = await this.replay(client, body.idempotencyKey, hash, user);
-        if (replay) return replay;
-        const { rows } = await client.query<{ id: string; readable_id: string; status: string }>(
-          `SELECT id, readable_id, status FROM storage_unit
-           WHERE ${UUID_PATTERN.test(code) ? 'id = $1' : 'readable_id = $1'} FOR UPDATE`,
-          [UUID_PATTERN.test(code) ? code : normalizeStorageUnitCode(code)],
+        const where = UUID_PATTERN.test(code) ? 'id = $1' : 'readable_id = $1';
+        const value = UUID_PATTERN.test(code) ? code : normalizeStorageUnitCode(code);
+        const { rows: found } = await client.query<{ project_id: string }>(
+          `SELECT project_id FROM storage_unit WHERE ${where}`,
+          [value],
         );
-        const unit = rows[0];
-        if (!unit) {
+        if (!found[0]) {
           return scan('not_found', null, null, [], `No storage unit found for ${code}.`);
         }
+        // Project first (FOR SHARE; a new project-wide hold or extension takes NO KEY UPDATE, so
+        // the two serialise), then the unit: the order retention placements use.
+        await client.query('SELECT 1 FROM project WHERE id = $1 FOR SHARE', [found[0].project_id]);
+        const { rows } = await client.query<{
+          id: string;
+          readable_id: string;
+          status: string;
+          project_id: string;
+        }>(
+          `SELECT id, readable_id, status, project_id FROM storage_unit WHERE ${where} FOR UPDATE`,
+          [value],
+        );
+        const unit = rows[0]!;
+        if (unit.project_id !== found[0].project_id) {
+          throw new ConflictException({ code: 'storage_unit_changed' });
+        }
+        // After the lock, so a concurrent exact retry returns the disposition that committed.
+        const replay = await this.replay(client, body.idempotencyKey, hash, user);
+        if (replay) return replay;
         const asOf = this.clock.today();
         const { blockers, unit: standing } = (
           await disposalStanding(client, [unit.id], asOf, true)
@@ -597,5 +594,33 @@ function scan(
     removedAt: null,
     removedBy: null,
     replayed: false,
+  };
+}
+
+/** The batch an earlier request with this key approved, or null. */
+async function previousBatch(
+  client: PoolClient,
+  key: string,
+  hash: string,
+  user: AuthUser,
+): Promise<ApproveDisposalResult | null> {
+  const { rows } = await client.query<{
+    id: string;
+    storage_unit_id: string;
+    batch_id: string;
+    request_hash: string;
+    approved_by_user_id: string;
+  }>(
+    `SELECT id, storage_unit_id, batch_id, request_hash, approved_by_user_id
+     FROM disposal_approval WHERE idempotency_key = $1 ORDER BY storage_unit_id`,
+    [key],
+  );
+  if (rows.length === 0) return null;
+  if (rows.some((p) => p.request_hash !== hash || p.approved_by_user_id !== user.userId)) {
+    throw new ConflictException({ code: 'idempotency_key_reused' });
+  }
+  return {
+    batchId: rows[0]!.batch_id,
+    approvals: rows.map((p) => ({ id: p.id, storageUnitId: p.storage_unit_id })),
   };
 }

@@ -29,7 +29,9 @@ FROM tested_unit_removal t WHERE t.storage_unit_id = su.id;
 CREATE FUNCTION storage_unit_disposed_is_final() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  IF OLD.status = 'disposed' AND NEW.status IS DISTINCT FROM 'disposed' THEN
+  -- A unit removed after testing is guarded by storage_unit_tested_removal_final (MM-T36).
+  IF OLD.status = 'disposed' AND NEW.status IS DISTINCT FROM 'disposed'
+     AND NOT EXISTS (SELECT 1 FROM tested_unit_removal t WHERE t.storage_unit_id = OLD.id) THEN
     RAISE EXCEPTION 'storage unit % is disposed', OLD.readable_id
       USING ERRCODE = 'check_violation', CONSTRAINT = 'storage_unit_disposed_final';
   END IF;
@@ -81,6 +83,9 @@ LANGUAGE sql STABLE AS $$
          AND ur.effective_retain_until <= as_of
          AND ur.active_hold_count = 0
          AND NOT EXISTS (SELECT 1 FROM unit_open_covering_programs(su.id))
+         -- Where the unit actually is must be settled first (MM-T28, D29).
+         AND NOT EXISTS (SELECT 1 FROM location_conflict c
+                         WHERE c.storage_unit_id = su.id AND c.status = 'open')
   FROM storage_unit su JOIN unit_retention ur ON ur.storage_unit_id = su.id
   WHERE su.id = unit_id
 $$;

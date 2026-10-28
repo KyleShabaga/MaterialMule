@@ -362,7 +362,13 @@ describe.runIf(testDatabaseUrl)('lab work API (MM-T24)', () => {
       testedStorageUnitIds: [tubeB.id],
     });
     expect(disposed.body.code).toBe('unit_disposed');
-    await h.db.pool.query(`UPDATE storage_unit SET status = 'in_stock' WHERE id = $1`, [tubeB.id]);
+    // Fixture reset only: since MM-T30 a disposed unit never returns to stock, so the guard is
+    // switched off for this one statement.
+    await h.db.pool.query(
+      `ALTER TABLE storage_unit DISABLE TRIGGER storage_unit_disposed_final;
+       UPDATE storage_unit SET status = 'in_stock' WHERE id = '${tubeB.id}';
+       ALTER TABLE storage_unit ENABLE TRIGGER storage_unit_disposed_final;`,
+    );
     expect(await historyCount(request.id)).toBe(1);
 
     const locationBefore = await h.db.pool.query(

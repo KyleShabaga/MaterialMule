@@ -336,6 +336,12 @@ export class TestedRemovalService {
          WHERE id = $1 RETURNING version`,
         [unit.id, user.userId],
       );
+      // An earlier standard approval (MM-T30) is used up by this disposition, not left live.
+      await client.query(
+        `UPDATE disposal_approval SET used_at = now()
+         WHERE storage_unit_id = $1 AND revoked_at IS NULL AND used_at IS NULL`,
+        [unit.id],
+      );
       const { rows: inserted } = await client.query<RemovalRow>(
         `INSERT INTO tested_unit_removal
            (storage_unit_id, project_id, unit_readable_id_snapshot, unit_type_snapshot,

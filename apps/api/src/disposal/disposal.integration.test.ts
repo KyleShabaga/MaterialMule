@@ -350,6 +350,33 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     expect(await count('FROM disposal_removal WHERE storage_unit_id = $1', [unit.id])).toBe(1);
   });
 
+  it('review: concurrent exact retries of a scan both return the one disposition, with no refusal audited', async () => {
+    const unit = await oldBucket();
+    at('2027-10-24');
+    await approve([unit.id]);
+    const key = newKey();
+    const results = await Promise.all([
+      scan(unit.readableId, 'tech', key),
+      scan(unit.readableId, 'tech', key),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    expect(results.map((r) => r.body.replayed).sort()).toEqual([false, true]);
+    expect(
+      await count(`FROM audit_event WHERE action = 'disposal.blocked' AND entity_id = $1`, [
+        unit.id,
+      ]),
+    ).toBe(0);
+    // Same for a batch approval retried concurrently.
+    const other = await oldBucket();
+    const batchKey = newKey();
+    const batches = await Promise.all([
+      approve([other.id], 'lm', batchKey),
+      approve([other.id], 'lm', batchKey),
+    ]);
+    expect(batches.map((r) => r.status)).toEqual([201, 201]);
+    expect(batches[0]!.body).toEqual(batches[1]!.body);
+  });
+
   it('a failure inside the removal transaction rolls everything back', async () => {
     const unit = await oldBucket();
     at('2027-10-24');
@@ -557,6 +584,18 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
       'lab',
     );
     expect(lab.status).toBe(403);
+    // A standard approval recorded earlier (e.g. before testing was planned) for the tube.
+    const { rows: stale } = await h.db.pool.query<{ id: string }>(
+      `INSERT INTO disposal_approval (storage_unit_id, project_id, batch_id, approved_by_user_id,
+         approved_by_name_snapshot, effective_retain_until, idempotency_key, request_hash)
+       VALUES ($1, $2, gen_random_uuid(), $3, 'Lee Manager', '2027-10-23', gen_random_uuid(), 'x')
+       RETURNING id`,
+      [tube.id, h.projects.a, h.users.lm],
+    );
+    await h.db.pool.query(
+      `UPDATE storage_unit SET status = 'approved_for_disposal' WHERE id = $1`,
+      [tube.id],
+    );
     for (const [id, req] of [
       [tube.id, requestId],
       [bktA!.id, bulkRequest],
@@ -570,6 +609,16 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
       expect(removed.status, JSON.stringify(removed.body)).toBe(201);
       expect((await unitRow(id)).status).toBe('disposed');
     }
+    expect(
+      await count('FROM disposal_approval WHERE id = $1 AND used_at IS NOT NULL', [stale[0]!.id]),
+    ).toBe(1);
+    const lateRevoke = await h.send(
+      'post',
+      `/api/disposal/approvals/${stale[0]!.id}/revoke`,
+      { reason: 'Too late', idempotencyKey: newKey() },
+      'lm',
+    );
+    expect(lateRevoke.status).toBe(409);
     // The standard scan refuses them (already disposed); untested and sibling units are blocked.
     expect((await scan(tube.readableId)).body.result).toBe('not_approved');
     const sibling = await unitRow(bktB!.id);
