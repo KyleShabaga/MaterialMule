@@ -498,3 +498,20 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   tubes out, and a `test_request_unit_link` insert trigger refuses a disposed unit or a tube
   destroyed by another program (tests of the same program may still record it).
 - No retention, hold, disposal-approval or program-closure table is read by this route.
+
+## Action requests, preferences and email outbox (MM-T27, migration 0055)
+
+- `action_item` gains `project_id` (backfilled from the program and filled by trigger from
+  `program_id`, which it must match) and `assigned_user_id`/`assigned_at`. The guard still
+  allows exactly one resolution; while open, only the assignment may change, and never to null.
+- `action_item_routed_to(item, user)` is the one routing rule (inbox, count, email recipients):
+  the assignee when set, otherwise Lab Manager role holders for `target_role = 'lab_manager'`
+  and the project's current PM/PE for cancellation and closure requests.
+- `action_item_assignment`: append-only reassignment history (from, to, reason, who, when,
+  retry key).
+- `notification_preference`: one row per person, `email_action_requests` default false,
+  `version` for stale-write checks. No row means the default.
+- `email_outbox`: one row per (item, recipient) (`email_outbox_one_per_recipient`), written in
+  the transaction that created or reassigned the item. `pending` → `sent`, `failed` (attempts
+  exhausted, exponential backoff between) or `skipped` (item resolved first). `last_error` never
+  holds an address. Nothing sends while `EMAIL_ENABLED` is false, which startup enforces.

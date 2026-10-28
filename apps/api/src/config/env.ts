@@ -114,6 +114,13 @@ const envSchema = z.object({
   // Backup status record written by deploy/windows/backup.ps1 (MM-T21), shown under Settings →
   // System status. Unset until the backup design is approved (D39): the page then says so.
   BACKUP_STATUS_FILE: z.string().min(1).optional(),
+  // Action-request email (MM-T27). Off by default and refused while on: sending stays disabled
+  // for everyone until IT approves the sending configuration and privacy review. Outbox rows are
+  // still written for people who opt in; nothing is ever sent from development or tests.
+  EMAIL_ENABLED: z
+    .enum(['true', 'false'], { error: 'must be true or false' })
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 const MICROSOFT_REQUIRED = [
@@ -144,6 +151,11 @@ function crossFieldProblems(config: z.infer<typeof envSchema>): string[] {
     if (config.MICROSOFT_REDIRECT_URI && !config.MICROSOFT_REDIRECT_URI.startsWith('https://')) {
       problems.push('MICROSOFT_REDIRECT_URI must use https in production');
     }
+  }
+  if (config.EMAIL_ENABLED) {
+    problems.push(
+      'EMAIL_ENABLED must stay false until IT approves the sending configuration (MM-T27)',
+    );
   }
   problems.push(...tlsProblems(config));
   return problems;

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
+import { ActionRequestsBell } from '../action-requests/ActionRequestsBell';
 import { StatusBadge } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useMe, useSession } from '../session/context';
@@ -34,6 +35,7 @@ export function AppLayout() {
           </span>
           <span className="app-name">Material Mule</span>
         </Link>
+        {me.permissions.includes('action_item.read') ? <ActionRequestsBell /> : null}
         <div className="identity" aria-label="Signed in user">
           <span className="identity-name">
             {me.displayName}

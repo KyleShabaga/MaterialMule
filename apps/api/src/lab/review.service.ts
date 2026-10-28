@@ -25,6 +25,7 @@ import { recordAudit } from '../audit/audit.js';
 import { can, type AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { enqueueActionItemEmails } from '../notifications/action-items.js';
 import { parseBody } from '../validation/parse-body.js';
 import { actorOf } from './attribution.js';
 
@@ -319,6 +320,7 @@ export class LabReviewService {
           [testRequestId, current.program_id, eventId, user.userId],
         );
         actionItemId = rows[0]!.id;
+        await enqueueActionItemEmails(client, actionItemId);
       } else if (intent.kind === 'correction_done') {
         actionItemId = openItem!.id;
         await client.query(

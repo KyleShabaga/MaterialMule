@@ -38,6 +38,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | storage_unit.tested_removal (T36)           |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| action_item.read (T27)                      |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
 | test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
 | program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
 | program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
@@ -47,6 +48,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | disposal.approve (D19)                      |     |                   |      ✓      |       |       ✓       |                     |
 | settings.drafts.manage (MM-T45)             |     |                   |      ✓      |   ✓   |               |                     |
 | location.manage (MM-T37)                    |     |                   |      ✓      |   ✓   |               |                     |
+| action_item.reassign (T27)                  |     |                   |      ✓      |   ✓   |               |                     |
 | test.accept (D04)                           |     |                   |             |       |       ✓       |          ✓          |
 | program.close (D06)                         |     |                   |             |       |       ✓       |                     |
 | acceptance_delegation.manage                |     |                   |             |       |       ✓       |                     |
@@ -415,3 +417,33 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   programs no longer cover it, and another program can't link it as tested (422
   `unit_contents_destroyed`); tests of the same program may still record it. A disposed unit is
   never covered or linked.
+
+## Action requests (MM-T27)
+
+| Route                                        | Policy                                         |
+| -------------------------------------------- | ---------------------------------------------- |
+| `GET /api/action-items?status=&scope=`       | `action_item.read`; `scope=all` needs reassign |
+| `GET /api/action-items/count`                | `action_item.read`                             |
+| `GET /api/action-items/:id/assignees`        | `action_item.reassign`                         |
+| `POST /api/action-items/:id/reassign`        | `action_item.reassign`                         |
+| `GET`/`PUT /api/me/notification-preferences` | `action_item.read` (own preferences only)      |
+
+- **Routing** (`action_item_routed_to` in the database, never who a LAB station selects):
+  correction → every Lab Manager; cancellation request → every Lab Manager and the project's
+  current PM/PE; closure request → the project's current PM/PE. A reassigned item goes to its
+  assignee only. Requesters don't see their own requests in the inbox.
+- **Resolution** happens only through the real workflow action (mark correction done, cancel the
+  test, close the program), which checks its own permission; the inbox has no resolve or approve
+  route. The first valid action resolves the shared item for everyone ("Resolved by LM").
+- **Reassignment:** Lab Manager or admin, with a reason, to a person who can act on that item
+  (Lab Managers for corrections; Lab Managers and the project's PM/PE for cancellation requests;
+  the project's PM/PE for closure requests). A person can't pass on an item that is personally
+  theirs (its assignee, or the PM/PE of a closure request): 403 `recipient_cannot_reassign`.
+  Append-only `action_item_assignment` plus an `action_item.reassigned` audit event.
+- **LAB:** 403 on every route above, whoever its station selects. LAB has no inbox, count,
+  preferences or reassignment, and selecting a PM/PE or Lab Manager for lab work lends none.
+- **Email:** off by default; people opt in under Settings → My profile. Creating or reassigning
+  an item writes at most one `email_outbox` row per opted-in recipient. `EMAIL_ENABLED` must stay
+  false (startup refuses true) until IT approves the sending configuration: rows wait unsent, and
+  development and tests never send email. Routine moves, receipts, comments and test progress
+  create no action item and no email.
