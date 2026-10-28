@@ -1,0 +1,210 @@
+import { z } from 'zod';
+import {
+  PROGRAM_PRIORITIES,
+  TEST_REQUEST_STATUSES,
+  accountSnapshotSchema,
+  personSnapshotSchema,
+  type ProgramPriority,
+  type TestRequestStatus,
+} from './lab-programs';
+
+// Lab worklist, per-test progress, priority and comments (MM-T24).
+//
+// One transition table, shared by the server (which enforces it) and the browser (which offers
+// only the moves it allows): Requested → In progress (Start) → Completed (Mark completed) →
+// Awaiting review (Send to review). Review decisions and acceptance are MM-T25; cancellation,
+// repeats and reopening are MM-T26. A shared LAB station names "Who is doing this?" on every
+// action; that person is attribution only.
+
+export const STATUS_TRANSITIONS: Readonly<
+  Record<TestRequestStatus, { to: TestRequestStatus; action: string } | null>
+> = {
+  requested: { to: 'in_progress', action: 'Start' },
+  in_progress: { to: 'completed', action: 'Mark completed' },
+  completed: { to: 'review', action: 'Send to review' },
+  review: null,
+};
+
+/** True when `from → to` is one of this card's moves. */
+export function isAllowedTransition(from: TestRequestStatus, to: string): boolean {
+  return STATUS_TRANSITIONS[from]?.to === to;
+}
+
+/** Tests still waiting on lab work (D52 "open"): not yet sent to review. */
+export const OPEN_STATUSES: readonly TestRequestStatus[] = [
+  'requested',
+  'in_progress',
+  'completed',
+];
+
+export const COMMENT_MAX_LENGTH = 4000;
+/** Owner decision 2026-10-25: the author may edit for 15 minutes after posting. */
+export const COMMENT_EDIT_WINDOW_MINUTES = 15;
+
+const idSchema = z.uuid({ error: 'must be an ID' });
+const versionSchema = z.number({ error: 'is required' }).int().min(1);
+
+/**
+ * `POST /api/test-requests/:id/status`. `to` also accepts 'accepted' so a jump there is refused
+ * as an invalid transition (or 403 for LAB) instead of a shape error. `testedStorageUnitIds` lists
+ * the exact physical units used; it is required when completing a test whose frozen coverage
+ * includes a Shelby tube or bulk-sample bucket (an empty list then says none of them was used).
+ */
+export const changeTestStatusRequestSchema = z.strictObject({
+  to: z.enum([...TEST_REQUEST_STATUSES, 'accepted'], { error: 'must be a test status' }),
+  version: versionSchema,
+  idempotencyKey: idSchema,
+  actingStaffUserId: idSchema.optional(),
+  testedStorageUnitIds: z
+    .array(idSchema)
+    .max(50)
+    .superRefine((ids, ctx) => {
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({ code: 'custom', message: 'lists a unit more than once' });
+      }
+    })
+    .optional(),
+});
+export type ChangeTestStatusRequest = z.output<typeof changeTestStatusRequestSchema>;
+export type ChangeTestStatusRequestInput = z.input<typeof changeTestStatusRequestSchema>;
+
+/** `PATCH /api/lab-programs/:id/priority` (project PM/PE or Lab Manager only). */
+export const changePriorityRequestSchema = z.strictObject({
+  priority: z.enum(PROGRAM_PRIORITIES, { error: 'must be normal or urgent' }),
+  version: versionSchema,
+  idempotencyKey: idSchema,
+});
+export type ChangePriorityRequest = z.output<typeof changePriorityRequestSchema>;
+
+const bodySchema = z
+  .string({ error: 'is required' })
+  .trim()
+  .min(1, { error: 'can’t be blank' })
+  .max(COMMENT_MAX_LENGTH, { error: `must be at most ${COMMENT_MAX_LENGTH} characters` });
+
+/** `POST /api/lab-programs/:id/comments`. */
+export const addCommentRequestSchema = z.strictObject({
+  lineId: idSchema.nullish().transform((value) => value ?? null),
+  body: bodySchema,
+  idempotencyKey: idSchema,
+  actingStaffUserId: idSchema.optional(),
+});
+export type AddCommentRequest = z.output<typeof addCommentRequestSchema>;
+export type AddCommentRequestInput = z.input<typeof addCommentRequestSchema>;
+
+/** `PATCH /api/comments/:id`. */
+export const editCommentRequestSchema = z.strictObject({
+  body: bodySchema,
+  version: versionSchema,
+  idempotencyKey: idSchema,
+  actingStaffUserId: idSchema.optional(),
+});
+export type EditCommentRequest = z.output<typeof editCommentRequestSchema>;
+export type EditCommentRequestInput = z.input<typeof editCommentRequestSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Responses
+// ---------------------------------------------------------------------------------------------
+
+export const statusEventSchema = z.object({
+  id: z.string(),
+  testRequestId: z.string(),
+  fromStatus: z.enum(TEST_REQUEST_STATUSES),
+  toStatus: z.enum(TEST_REQUEST_STATUSES),
+  account: accountSnapshotSchema,
+  person: personSnapshotSchema,
+  changedAt: z.string(),
+});
+export type StatusEvent = z.infer<typeof statusEventSchema>;
+
+export const testedUnitSchema = z.object({
+  testRequestId: z.string(),
+  storageUnitId: z.string(),
+  readableId: z.string(),
+  statusEventId: z.string(),
+  linkedAt: z.string(),
+});
+export type TestedUnit = z.infer<typeof testedUnitSchema>;
+
+export const priorityEventSchema = z.object({
+  id: z.string(),
+  fromPriority: z.enum(PROGRAM_PRIORITIES),
+  toPriority: z.enum(PROGRAM_PRIORITIES),
+  person: personSnapshotSchema,
+  changedAt: z.string(),
+});
+export type PriorityEvent = z.infer<typeof priorityEventSchema>;
+
+export const commentRevisionSchema = z.object({
+  revisionNumber: z.number().int(),
+  body: z.string(),
+  person: personSnapshotSchema,
+  createdAt: z.string(),
+});
+
+export const labCommentSchema = z.object({
+  id: z.string(),
+  lineId: z.string().nullable(),
+  account: accountSnapshotSchema,
+  author: personSnapshotSchema,
+  body: z.string(),
+  createdAt: z.string(),
+  editedAt: z.string().nullable(),
+  /** End of the author's edit window (server clock). */
+  editableUntil: z.string(),
+  version: z.number().int(),
+  revisions: z.array(commentRevisionSchema),
+});
+export type LabComment = z.infer<typeof labCommentSchema>;
+
+export const requestProgressSchema = z.object({
+  testRequestId: z.string(),
+  status: z.enum(TEST_REQUEST_STATUSES),
+  version: z.number().int(),
+  /** Frozen coverage includes a Shelby tube or bulk-sample bucket: completion names the units. */
+  needsTestedUnits: z.boolean(),
+});
+export type RequestProgress = z.infer<typeof requestProgressSchema>;
+
+/** `GET /api/lab-programs/:id/work`: everything the program detail shows beyond the program. */
+export const programWorkSchema = z.object({
+  programId: z.string(),
+  canChangePriority: z.boolean(),
+  requests: z.array(requestProgressSchema),
+  statusHistory: z.array(statusEventSchema),
+  testedUnits: z.array(testedUnitSchema),
+  priorityHistory: z.array(priorityEventSchema),
+  comments: z.array(labCommentSchema),
+});
+export type ProgramWork = z.infer<typeof programWorkSchema>;
+
+export const STATUS_COUNT_KEYS = TEST_REQUEST_STATUSES;
+
+export const worklistItemSchema = z.object({
+  programId: z.string(),
+  programNumber: z.string(),
+  priority: z.enum(PROGRAM_PRIORITIES),
+  project: z.object({ id: z.string(), projectNumber: z.string(), name: z.string() }),
+  submittedAt: z.string(),
+  requestedBy: z.string(),
+  counts: z.record(z.enum(TEST_REQUEST_STATUSES), z.number().int()),
+  openCount: z.number().int(),
+  /** Age in seconds of the oldest open test (from submission), null when none is open. */
+  oldestOpenSeconds: z.number().nullable(),
+});
+export type WorklistItem = z.infer<typeof worklistItemSchema>;
+export const worklistSchema = z.object({ items: z.array(worklistItemSchema) });
+export type Worklist = z.infer<typeof worklistSchema>;
+
+/**
+ * D52 order: Urgent first, then Normal; oldest submission first within each; program ID breaks
+ * ties so the order never wobbles. Ordering never changes any status.
+ */
+export function compareWorklist(
+  a: { priority: ProgramPriority; submittedAt: string; programId: string },
+  b: { priority: ProgramPriority; submittedAt: string; programId: string },
+): number {
+  if (a.priority !== b.priority) return a.priority === 'urgent' ? -1 : 1;
+  if (a.submittedAt !== b.submittedAt) return a.submittedAt < b.submittedAt ? -1 : 1;
+  return a.programId < b.programId ? -1 : a.programId > b.programId ? 1 : 0;
+}

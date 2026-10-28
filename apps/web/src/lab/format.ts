@@ -16,3 +16,13 @@ export function lineTitle(line: LabLine): string {
 export function requestName(request: Pick<TestRequest, 'code' | 'name' | 'description'>): string {
   return `${request.code} · ${request.name ?? request.description}`;
 }
+
+/** How long the oldest open test has waited: "under a minute", "4 h 5 min", "3 days". */
+export function openAge(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 1) return 'under a minute';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} h ${minutes % 60} min`;
+  return `${Math.floor(hours / 24)} days`;
+}

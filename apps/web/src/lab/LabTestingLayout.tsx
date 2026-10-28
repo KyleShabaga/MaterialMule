@@ -4,9 +4,9 @@ import { useMe } from '../session/context';
 import './lab.css';
 
 /**
- * One "Lab Testing" area (MM-T23/T24 wireframe decision): Programs tab and New program in the
- * header. The Worklist tab (MM-T24) becomes the default once it exists, so no dead tab is shown
- * before then.
+ * One "Lab Testing" area (MM-T23/T24 wireframe decision): Worklist (default) and Programs tabs,
+ * New program in the header. `worklist` is off only while MM-T24 isn't there, so no dead tab is
+ * ever shown.
  */
 export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
   const me = useMe();

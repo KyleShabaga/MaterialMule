@@ -4,7 +4,7 @@
  */
 export const FEATURES = {
   /**
-   * MM-T23/T24: the one "Lab Testing" area (Programs; the Worklist tab arrives with MM-T24).
+   * MM-T23/T24: the one "Lab Testing" area (Worklist, the default tab, and Programs).
    * Replaces the separate Lab Testing Worklist and Testing Programs placeholders.
    */
   labTesting: true,

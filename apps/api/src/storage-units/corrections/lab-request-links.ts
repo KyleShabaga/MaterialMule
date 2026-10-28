@@ -16,7 +16,7 @@ export const LAB_REQUEST_LINK_CHECKER = Symbol('LabRequestLinkChecker');
 /**
  * MM-T23: a unit is referenced by every program that isn't closed and either froze it into a
  * line's coverage (included, not a reviewed exclusion), has it chosen on a draft line, or names
- * it as a line's standalone source.
+ * it as a line's standalone source; MM-T24 adds units linked as actually tested.
  * Submission takes FOR SHARE on the units it freezes, so a correction holding the unit's row lock
  * and a submission are serialised: whichever commits second sees the other.
  */
@@ -39,7 +39,10 @@ export class ProgramLabRequestLinks implements LabRequestLinkChecker {
                          JOIN test_line l ON l.id = c.line_id
                          WHERE l.program_id = lp.id AND c.storage_unit_id = $1)
               OR EXISTS (SELECT 1 FROM test_line l
-                         WHERE l.program_id = lp.id AND l.source_storage_unit_id = $1))
+                         WHERE l.program_id = lp.id AND l.source_storage_unit_id = $1)
+              OR EXISTS (SELECT 1 FROM test_request_unit_link t
+                         JOIN test_request r ON r.id = t.test_request_id
+                         WHERE r.program_id = lp.id AND t.storage_unit_id = $1))
        ORDER BY lp.submitted_at NULLS LAST, lp.created_at, lp.id`,
       [storageUnitId],
     );

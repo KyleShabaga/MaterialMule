@@ -35,9 +35,11 @@ export type Permission =
   // Lab programs (MM-T23): LAB may enter them with a required Requested by person per draft
   | 'lab_program.read'
   | 'lab_program.manage'
+  // Lab progress and comments (MM-T24): LAB too, with a required "Who is doing this?" per action
+  | 'test.progress'
+  | 'lab_comment.write'
   // Personal accounts only
   | 'storage_unit.correct'
-  | 'test.progress'
   | 'test.review'
   | 'storage_unit.dispose_scan'
   // Confirm a unit's actual location to settle a move conflict (MM-T28, D29)
@@ -82,13 +84,16 @@ export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'storage_unit.move',
   'lab_program.read',
   'lab_program.manage',
+  // MM-T24 wireframe decision: Start, Mark completed, Send to review and comments, each naming
+  // the person doing it. Priority, review/acceptance, closure and removal stay personal-only.
+  'test.progress',
+  'lab_comment.write',
 ]);
 
 /** Any active personal (or test) account. */
 const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   ...LAB_PERMISSIONS,
   'storage_unit.correct',
-  'test.progress',
   'test.review',
   'storage_unit.dispose_scan',
   // LAB records moves but never settles a conflict, whoever is selected at the station (D29).

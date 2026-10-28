@@ -403,3 +403,17 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - **Link checker (T13/D47):** `ProgramLabRequestLinks` lists programs that aren't closed and
   include the unit in frozen coverage, a draft unit choice or a standalone source; a project
   correction is refused while any exist. Submission takes `FOR SHARE` on the units it freezes.
+
+## Lab worklist and progress (MM-T24, migration 0031)
+
+- `test_request.status` now allows requested, in_progress, completed and review; a trigger allows
+  only the three forward moves and only while the program is submitted.
+- Append-only history (trigger-enforced): `test_request_status_history` (account and selected
+  person with snapshots, retry key and intent hash), `program_priority_history`,
+  `lab_comment_revision` (revision 1 is the original text). `lab_comment` can be edited (body,
+  `edited_at`, `version`) but never deleted, and its authorship never changes.
+- `test_request_unit_link`: the exact physical units a completion used, tied to that completion
+  event. It is the only tested-unit evidence; coverage, source, receipt or group never count.
+  `completedTestEvidence()` in `apps/api/src/lab/work.service.ts` reads it for MM-T36's removal.
+- The T13 link checker also counts these links, so a tested unit can't change project while its
+  program is open.
