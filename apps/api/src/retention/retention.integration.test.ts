@@ -240,7 +240,7 @@ describe.runIf(testDatabaseUrl)('retention (MM-T29)', () => {
     const unit = await h.bucket({ hole });
     const refused = await hold({}, 'tech');
     expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({ code: 'forbidden', canRequest: true });
+    expect(refused.body).toEqual({ code: 'forbidden' });
 
     const key = newKey();
     const ask = () =>

@@ -93,10 +93,7 @@ export class RetentionService {
       [user.userId],
     );
     if (rows.length === 0) {
-      throw new ForbiddenException({
-        code: 'forbidden',
-        canRequest: can(user, 'retention.request'),
-      });
+      throw forbidden();
     }
   }
 
@@ -492,10 +489,7 @@ export class RetentionService {
         }
         const project = await this.projectFacts(client, body.projectId, 'FOR SHARE');
         if (!can(user, 'retention.manage', { pmPeUserId: project.pm_pe_user_id })) {
-          throw new ForbiddenException({
-            code: 'forbidden',
-            canRequest: can(user, 'retention.request'),
-          });
+          throw forbidden();
         }
         return this.insertDecision(client, user, kind, body, {
           idempotencyKey: body.idempotencyKey,
