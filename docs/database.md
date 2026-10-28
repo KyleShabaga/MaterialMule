@@ -441,7 +441,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   revocation `FOR UPDATE`, so the two commit in one order.
 - `completedTestEvidence()` also returns each linked test's current `request_status`.
 
-## Lab program lifecycle, cancellation and repeats (MM-T26, migration 0041)
+## Lab program lifecycle, cancellation and repeats (MM-T26, migration 0050)
 
 - `lab_program` gains `closed_at`, `closed_by_user_id` and name/initials snapshots, set exactly
   while the status is `closed` (cleared on reopen). `program_lifecycle_event` (append-only) keeps
@@ -465,7 +465,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   resolves its open correction and cancellation request; closing resolves the closure request.
 - `completedTestEvidence()` leaves out tests that are now cancelled (MM-T36 contract).
 
-## Lab amendments and accepted-request changes (MM-T26, migration 0042)
+## Lab amendments and accepted-request changes (MM-T26, migration 0051)
 
 - `program_amendment` (append-only, numbered per program): reason, the requester, and a `details`
   record of exactly what it added; `added_unit_readable_ids` lists later receipts it included.

@@ -106,7 +106,7 @@ ALTER TABLE test_request
   ADD COLUMN cancelled_by_name_snapshot     text,
   -- A genuine repeat: the original it repeats (same program and line).
   ADD COLUMN repeat_of_id                   uuid REFERENCES test_request (id),
-  -- Requests made after submission (repeats; amendments in 0042) record who made them and the
+  -- Requests made after submission (repeats; amendments in 0051) record who made them and the
   -- retry key, so an exact retry returns the same request.
   ADD COLUMN created_by_user_id             uuid REFERENCES app_user (id),
   ADD COLUMN created_by_name_snapshot       text,
