@@ -536,6 +536,33 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     expect((await reassign(h.users.lm, 'admin')).status).toBe(409); // resolved
   });
 
+  it('an item reassigned away from an opted-in recipient is skipped for them, not sent', async () => {
+    await setEmail('pe', true);
+    await setEmail('lm', true);
+    const { testId } = await program();
+    const { body } = await cancelRequest(testId);
+    await h.db.pool.query(
+      `UPDATE email_outbox SET status = 'skipped' WHERE status = 'pending' AND action_item_id <> $1`,
+      [body.actionItemId],
+    );
+    const moved = await h.send(
+      'post',
+      `/api/action-items/${body.actionItemId}/reassign`,
+      { toUserId: h.users.lm, reason: 'LM covers it', idempotencyKey: newKey() },
+      'admin',
+    );
+    expect(moved.status).toBe(200);
+    const sent: EmailMessage[] = [];
+    const worker = new EmailWorker(h.db.pool, {
+      send: (message) => {
+        sent.push(message);
+        return Promise.resolve();
+      },
+    });
+    expect(await worker.runOnce()).toMatchObject({ sent: 1, skipped: 1 });
+    expect(sent.map((m) => m.to)).toEqual(['lee.manager@example.test']);
+  });
+
   it('T7/AC8: concurrent closes by two personal sessions resolve the item once', async () => {
     await setEmail('pe', true);
     const { program: p, testId } = await program();

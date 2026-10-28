@@ -7,7 +7,8 @@ import { withTransaction } from '../db/transaction.js';
 // a crash between a successful send and the commit can repeat that one email.
 //
 // No real transport exists yet: sending stays disabled until IT approves the configuration, and
-// tests drive this class with an in-memory transport only.
+// tests drive this class with an in-memory transport only. A row whose item was resolved, or
+// reassigned away from its recipient, is skipped rather than sent.
 
 export interface EmailMessage {
   to: string;
@@ -77,7 +78,9 @@ export class EmailWorker {
           attempts: number;
           item_status: string;
         }>(
-          `SELECT o.id, o.to_address, o.subject, o.body, o.attempts, a.status AS item_status
+          `SELECT o.id, o.to_address, o.subject, o.body, o.attempts,
+                  CASE WHEN a.status = 'open' AND NOT action_item_routed_to(a.id, o.recipient_user_id)
+                       THEN 'rerouted' ELSE a.status END AS item_status
            FROM email_outbox o JOIN action_item a ON a.id = o.action_item_id
            WHERE o.status = 'pending' AND o.next_attempt_at <= $1
            ORDER BY o.next_attempt_at, o.id
