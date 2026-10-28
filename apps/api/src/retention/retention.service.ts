@@ -394,6 +394,8 @@ export class RetentionService {
           }
           throw new ConflictException({ code: 'request_decided', status: request.status });
         }
+        // Approval places a hold/extension: take the same project lock as a direct placement.
+        await this.projectFacts(client, request.project_id, 'FOR NO KEY UPDATE');
         let created: RetentionMutationResult | null = null;
         if (decision === 'approved') {
           const { rows: units } = await client.query<{ storage_unit_id: string }>(
@@ -487,7 +489,9 @@ export class RetentionService {
           }
           return { id: previous[0].id, version: previous[0].version };
         }
-        const project = await this.projectFacts(client, body.projectId, 'FOR SHARE');
+        // NO KEY UPDATE conflicts with a disposal removal's FOR SHARE on the project (MM-T30):
+        // a new project-wide hold and a removal that didn't see it can't both commit.
+        const project = await this.projectFacts(client, body.projectId, 'FOR NO KEY UPDATE');
         if (!can(user, 'retention.manage', { pmPeUserId: project.pm_pe_user_id })) {
           throw forbidden();
         }
@@ -579,7 +583,7 @@ export class RetentionService {
   private async projectFacts(
     db: Pick<PoolClient, 'query'>,
     projectId: string,
-    lock: '' | 'FOR SHARE' = '',
+    lock: '' | 'FOR SHARE' | 'FOR NO KEY UPDATE' = '',
   ): Promise<{ id: string; pm_pe_user_id: string }> {
     if (!UUID_PATTERN.test(projectId)) throw new NotFoundException({ code: 'project_not_found' });
     const { rows } = await db.query<{ id: string; pm_pe_user_id: string }>(

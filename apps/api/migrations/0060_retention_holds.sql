@@ -360,8 +360,8 @@ ALTER TABLE action_item
       WHEN 'cancellation_request' THEN entity_type = 'test_request' AND reason IS NOT NULL
         AND idempotency_key IS NOT NULL AND request_hash IS NOT NULL
         AND created_by_name_snapshot IS NOT NULL AND program_id IS NOT NULL
-      WHEN 'closure_request' THEN entity_type = 'lab_program' AND entity_id = program_id
-        AND reason IS NOT NULL AND idempotency_key IS NOT NULL AND request_hash IS NOT NULL
+      WHEN 'closure_request' THEN entity_type = 'lab_program' AND program_id IS NOT NULL
+        AND entity_id = program_id AND reason IS NOT NULL AND idempotency_key IS NOT NULL AND request_hash IS NOT NULL
         AND created_by_name_snapshot IS NOT NULL
       WHEN 'retention_request' THEN entity_type = 'retention_request' AND program_id IS NULL
         AND reason IS NOT NULL AND idempotency_key IS NOT NULL AND request_hash IS NOT NULL
