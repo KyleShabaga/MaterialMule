@@ -52,6 +52,7 @@ function stopStream(stream: MediaStream | null) {
 export function CameraScanner({
   onClose,
   onFound,
+  onDecoded,
   decoderPreference = 'auto',
   decoderFactory = createBarcodeDecoder,
   devices: injectedDevices,
@@ -60,6 +61,11 @@ export function CameraScanner({
 }: {
   onClose: () => void;
   onFound: (unit: StorageUnitLookupResponse) => void;
+  /**
+   * Move mode (MM-T28): hand back the decoded payload itself (a location or a unit label)
+   * instead of looking up a storage unit. The caller decides what it is.
+   */
+  onDecoded?: (code: string) => void;
   decoderPreference?: DecoderPreference;
   decoderFactory?: DecoderFactory;
   devices?: CameraDevices;
@@ -97,8 +103,10 @@ export function CameraScanner({
   const doneRef = useRef(false);
   const foundTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onFoundRef = useRef(onFound);
+  const onDecodedRef = useRef(onDecoded);
   useEffect(() => {
     onFoundRef.current = onFound;
+    onDecodedRef.current = onDecoded;
   });
 
   const running = camera.kind === 'starting' || camera.kind === 'live';
@@ -106,6 +114,12 @@ export function CameraScanner({
   /** Looks a decoded or typed code up; on a match shows "Found …" then opens the unit. */
   async function resolve(code: string, typed = false) {
     if (doneRef.current) return;
+    if (onDecodedRef.current) {
+      doneRef.current = true;
+      if (!typed) navigator.vibrate?.(150);
+      onDecodedRef.current(code);
+      return;
+    }
     busyRef.current = true;
     const shown = displayScannedValue(code);
     setResult({ tone: 'busy', message: `Looking up ${shown}…` });
