@@ -101,8 +101,28 @@ export function StorageUnitTable({
               Tested
             </span>
           ) : null}
+          {item.status !== 'disposed' && item.retention?.onHold ? (
+            // MM-T29: visible for every unit the hold covers; a tested unit shows its exception.
+            <span className="type-tag" title="An active hold covers this unit">
+              On hold
+            </span>
+          ) : null}
         </span>
       ),
+    },
+    {
+      header: 'Retain until',
+      cell: (item) =>
+        item.retention ? (
+          item.retention.retentionExempt ? (
+            <span title="Tested unit: removed after testing, not by retention">Not applicable</span>
+          ) : (
+            <span className="nowrap">
+              {item.retention.effectiveRetainUntil}
+              {item.retention.eligibleByDate && item.status !== 'disposed' ? ' · eligible' : ''}
+            </span>
+          )
+        ) : null,
     },
   ];
   return (

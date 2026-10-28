@@ -313,12 +313,13 @@ interface ItemFacts {
 
 /**
  * Who can act on the item through its workflow: Lab Managers for a correction; Lab Managers and
- * the project's PM/PE for a cancellation request; the project's PM/PE for a closure request.
+ * the project's PM/PE for a cancellation or retention request; the project's PM/PE for a closure
+ * request.
  * Active personal (or fixture) accounts only, never LAB; the current assignee is left out.
  */
 async function eligiblePeople(db: Db, item: ItemFacts): Promise<PersonSnapshot[]> {
-  const lm = item.kind === 'correction' || item.kind === 'cancellation_request';
-  const pmPe = item.kind === 'closure_request' || item.kind === 'cancellation_request';
+  const lm = item.kind !== 'closure_request';
+  const pmPe = item.kind !== 'correction';
   const { rows } = await db.query<{
     id: string;
     official_initials: string | null;

@@ -9,10 +9,18 @@ export const ACTION_REQUEST_KINDS = [
   'correction',
   'cancellation_request',
   'closure_request',
+  // MM-T29: a hold or extension request, decided by the project's PM/PE or a Lab Manager.
+  'retention_request',
 ] as const;
 export type ActionRequestKind = (typeof ACTION_REQUEST_KINDS)[number];
 
-export const ACTION_REQUEST_RESOLUTIONS = ['correction_done', 'cancelled', 'closed'] as const;
+export const ACTION_REQUEST_RESOLUTIONS = [
+  'correction_done',
+  'cancelled',
+  'closed',
+  'approved',
+  'declined',
+] as const;
 export type ActionRequestResolution = (typeof ACTION_REQUEST_RESOLUTIONS)[number];
 
 /** Who an unassigned item goes to, as the inbox tags it. */
@@ -20,12 +28,15 @@ export const ACTION_REQUEST_ROUTE_LABEL: Record<ActionRequestKind, string> = {
   correction: 'Lab Managers',
   cancellation_request: 'Project PM/PE and Lab Managers',
   closure_request: 'Project PM/PE',
+  retention_request: 'Project PM/PE and Lab Managers',
 };
 
 export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, string> = {
   correction_done: 'Correction done',
   cancelled: 'Test cancelled',
   closed: 'Program closed',
+  approved: 'Approved',
+  declined: 'Declined',
 };
 
 export const actionRequestSchema = z.object({

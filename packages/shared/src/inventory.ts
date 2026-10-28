@@ -100,6 +100,18 @@ const optionalParam = <S extends z.ZodType>(schema: S) =>
  * `GET /api/inventory` query. The web app parses its URL with the same schema, so a shared link
  * shows exactly what the server returns.
  */
+/**
+ * MM-T29 retention filters: units under an active hold, or whose effective retain-until date has
+ * been reached (date only; full disposal eligibility is MM-T30's).
+ */
+export const INVENTORY_RETENTION_FILTERS = ['on_hold', 'eligible_by_date'] as const;
+export type InventoryRetentionFilter = (typeof INVENTORY_RETENTION_FILTERS)[number];
+
+export const INVENTORY_RETENTION_FILTER_LABEL: Record<InventoryRetentionFilter, string> = {
+  on_hold: 'On hold',
+  eligible_by_date: 'Eligible by date',
+};
+
 export const inventoryQuerySchema = z.object({
   search: optionalParam(z.string().trim().max(200, { error: 'must be at most 200 characters' })),
   projectId: optionalParam(z.uuid({ error: 'must be a project ID' })),
@@ -114,6 +126,9 @@ export const inventoryQuerySchema = z.object({
   ),
   receivedFrom: optionalParam(z.iso.date({ error: 'must be a date (YYYY-MM-DD)' })),
   receivedTo: optionalParam(z.iso.date({ error: 'must be a date (YYYY-MM-DD)' })),
+  retention: optionalParam(
+    z.enum(INVENTORY_RETENTION_FILTERS, { error: 'is not a retention filter' }),
+  ),
   sort: z.preprocess(
     blankToUndefined,
     z.enum(INVENTORY_SORTS, { error: 'must be received or id' }).default('received'),
@@ -219,6 +234,15 @@ export const inventoryItemSchema = z.object({
   testedRemovalReason: z.enum(TESTED_REMOVAL_REASONS).nullable().optional(),
   /** MM-T36: a tested Shelby tube still on the shelf: its contents are disposed after testing. */
   contentsDestroyed: z.boolean().optional(),
+  /** MM-T29: effective retain-until, hold and exemption (optional so older fixtures stay valid). */
+  retention: z
+    .object({
+      effectiveRetainUntil: z.string(),
+      onHold: z.boolean(),
+      eligibleByDate: z.boolean(),
+      retentionExempt: z.boolean(),
+    })
+    .optional(),
 });
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 

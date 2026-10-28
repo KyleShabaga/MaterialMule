@@ -25,6 +25,9 @@ interface ItemRow {
   entity_type: string;
   entity_id: string;
   test_code: string | null;
+  retention_kind: 'hold' | 'extension' | null;
+  retention_scope: 'project' | 'units' | null;
+  retention_units: number | null;
   target_role: string | null;
   requester_id: string;
   requester_initials: string | null;
@@ -45,6 +48,9 @@ export const ITEM_SELECT = `
   SELECT a.id, a.kind, a.status, a.resolution, a.project_id, p.project_number,
          a.program_id, lp.program_number, a.entity_type, a.entity_id,
          tr.test_code_snapshot AS test_code, a.target_role,
+         rr.kind AS retention_kind, rr.scope AS retention_scope,
+         (SELECT count(*)::int FROM retention_request_unit ru WHERE ru.request_id = rr.id)
+           AS retention_units,
          coalesce(e.user_id, a.created_by_user_id) AS requester_id,
          CASE WHEN e.id IS NULL THEN a.created_by_initials_snapshot
               ELSE e.initials_snapshot END AS requester_initials,
@@ -60,10 +66,22 @@ export const ITEM_SELECT = `
   LEFT JOIN lab_program lp ON lp.id = a.program_id
   LEFT JOIN test_request tr ON a.entity_type = 'test_request' AND tr.id = a.entity_id
   LEFT JOIN test_request_review_event e ON e.id = a.opened_by_event_id
+  LEFT JOIN retention_request rr ON a.entity_type = 'retention_request' AND rr.id = a.entity_id
   LEFT JOIN app_user au ON au.id = a.assigned_user_id
   LEFT JOIN app_user ru ON ru.id = a.resolved_by_user_id`;
 
-export function titleOf(row: Pick<ItemRow, 'kind' | 'program_number' | 'test_code'>): string {
+export function titleOf(
+  row: Pick<
+    ItemRow,
+    | 'kind'
+    | 'program_number'
+    | 'test_code'
+    | 'project_number'
+    | 'retention_kind'
+    | 'retention_scope'
+    | 'retention_units'
+  >,
+): string {
   const program = row.program_number ?? 'a program';
   const test = row.test_code ? ` · ${row.test_code}` : '';
   switch (row.kind) {
@@ -73,17 +91,28 @@ export function titleOf(row: Pick<ItemRow, 'kind' | 'program_number' | 'test_cod
       return `Cancellation requested for ${program}${test}`;
     case 'closure_request':
       return `Closure requested for ${program}`;
+    case 'retention_request': {
+      const what = row.retention_kind === 'extension' ? 'Retention extension' : 'Hold';
+      const scope =
+        row.retention_scope === 'units'
+          ? ` · ${row.retention_units} unit${row.retention_units === 1 ? '' : 's'}`
+          : ' · whole project';
+      return `${what} requested for ${row.project_number}${scope}`;
+    }
   }
 }
 
 export function hrefOf(row: Pick<ItemRow, 'program_id' | 'project_id'>): string {
-  return row.program_id ? `/lab-testing/programs/${row.program_id}` : `/projects/${row.project_id}`;
+  return row.program_id
+    ? `/lab-testing/programs/${row.program_id}`
+    : `/projects/${row.project_id}#retention`;
 }
 
 const ROUTE_TAG: Record<ActionRequestKind, string> = {
   correction: 'LM',
   cancellation_request: 'LM · PM/PE',
   closure_request: 'PM/PE',
+  retention_request: 'LM · PM/PE',
 };
 
 function person(id: string | null, initials: string | null, name: string | null) {

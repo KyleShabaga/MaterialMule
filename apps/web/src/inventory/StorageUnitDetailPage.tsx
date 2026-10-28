@@ -12,6 +12,7 @@ import {
   type StorageUnitHistoryEvent,
   type StorageUnitHistoryPage,
 } from '@materialmule/shared';
+import { UnitRetentionCard } from '../retention/RetentionSections';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { BandedCard, EmptyState, ErrorState, PageHeader, StatusBadge } from '../components/ui';
@@ -384,6 +385,13 @@ export function StorageUnitDetailPage() {
             </dl>
             {retentionExempt ? null : <p className="field-hint">Received date + 1 year.</p>}
           </BandedCard>
+
+          <UnitRetentionCard
+            key={`retention-${unit.version}`}
+            unitId={unit.id}
+            unitType={unit.unitType}
+            disposed={unit.status === 'disposed'}
+          />
         </div>
       </div>
 

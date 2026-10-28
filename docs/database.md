@@ -515,3 +515,26 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   the transaction that created or reassigned the item. `pending` → `sent`, `failed` (attempts
   exhausted, exponential backoff between) or `skipped` (item resolved first). `last_error` never
   holds an address. Nothing sends while `EMAIL_ENABLED` is false, which startup enforces.
+
+## Retention dates, holds, extensions and requests (MM-T29, migration 0060)
+
+- `unit_retention` (view) is the one calculation: `minimum_retain_until` =
+  `retention_minimum(received_date)` (received + 1 calendar year; Feb 29 → Feb 28),
+  `effective_retain_until` = the later of the minimum and every active extension covering the
+  unit, `active_hold_count`, `active_extension_count`, and `retention_exempt`
+  (`tested_unit_retention_exempt`: a Shelby tube or bulk-group bucket with a completed,
+  not-cancelled test linked to that exact unit in its project, or one already removed after
+  testing). Date-eligible means `effective_retain_until <= today` in the business time zone: on
+  the date itself. Inventory, detail, project and MM-T30 all read this view.
+- `retention_hold` / `retention_extension`: project-wide (`scope = 'project'`, covering current
+  and later units of the project) or selected units (`retention_hold_unit` /
+  `retention_extension_unit`, which must belong to the project). An extension has either
+  `retain_until` or `extend_months` (added to each unit's minimum). Rows are never deleted; the
+  only change is one release (who, when, reason, retry key) with `version + 1`
+  (`retention_decision_guard`).
+- `retention_request` (+ `retention_request_unit`): a hold or extension asked for by someone
+  without authority; decided once (approved with the created hold/extension, or declined with a
+  reason). `action_item` gains kind `retention_request` (no program; `program_id` is now
+  nullable for that kind only) and resolutions `approved` / `declined`.
+- A received-date correction (MM-T13) changes `storage_unit.received_date`; the view recomputes
+  at once and the correction history keeps the old date. Program closure touches none of this.

@@ -4,6 +4,8 @@ import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
 import { loadSampleIdentities, membershipOf } from '../storage-units/sample-identity.js';
+import { BusinessClock } from '../retention/business-clock.js';
+import { loadUnitRetention } from '../retention/retention.js';
 import { buildInventoryQuery } from './inventory-query.js';
 
 interface InventoryRow {
@@ -24,8 +26,12 @@ interface InventoryRow {
 }
 
 /** One page of the inventory with its total (MM-T12). Never returns more than 100 units. */
-export async function queryInventory(pool: Pool, query: InventoryQuery): Promise<InventoryPage> {
-  const sql = buildInventoryQuery(query);
+export async function queryInventory(
+  pool: Pool,
+  query: InventoryQuery,
+  asOf: string = new Date().toISOString().slice(0, 10),
+): Promise<InventoryPage> {
+  const sql = buildInventoryQuery(query, { asOf });
   const count = await pool.query<{ total: number }>(
     `SELECT count(*)::int AS total ${sql.fromWhere}`,
     sql.params,
@@ -52,6 +58,7 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
   const ids = rows.map((row) => row.id);
   const holes = await loadHoleSummaries(pool, ids);
   const identities = await loadSampleIdentities(pool, ids);
+  const retention = await loadUnitRetention(pool, ids, asOf);
   return {
     items: rows.map((row) => ({
       id: row.id,
@@ -72,6 +79,13 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
       // MM-T36: "Disposed after testing" and a tested Shelby tube's destroyed contents.
       testedRemovalReason: row.tested_removal_reason,
       contentsDestroyed: row.contents_destroyed,
+      retention: ((r) =>
+        r && {
+          effectiveRetainUntil: r.effectiveRetainUntil,
+          onHold: r.onHold,
+          eligibleByDate: r.eligibleByDate,
+          retentionExempt: r.retentionExempt,
+        })(retention.get(row.id)),
     })),
     total: count.rows[0]!.total,
     page: query.page,
@@ -81,9 +95,12 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly clock: BusinessClock,
+  ) {}
 
   query(query: InventoryQuery): Promise<InventoryPage> {
-    return queryInventory(this.database.pool, query);
+    return queryInventory(this.database.pool, query, this.clock.today());
   }
 }

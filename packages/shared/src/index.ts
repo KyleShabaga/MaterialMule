@@ -24,3 +24,4 @@ export * from './lab-worklist';
 export * from './lab-lifecycle';
 export * from './tested-removal';
 export * from './action-requests';
+export * from './retention';

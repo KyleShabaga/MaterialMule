@@ -266,7 +266,15 @@ describe('Sample Storage inventory (MM-T12)', () => {
       within(table)
         .getAllByRole('columnheader')
         .map((th) => th.textContent),
-    ).toEqual(['Storage unit', 'Project', 'Sampling source', 'Location', 'Received', 'Status']);
+    ).toEqual([
+      'Storage unit',
+      'Project',
+      'Sampling source',
+      'Location',
+      'Received',
+      'Status',
+      'Retain until',
+    ]);
     // Same links and full values (long ones are only cut short visually; the title has them).
     expect(screen.getByRole('link', { name: 'BKT-2026-000015' })).toHaveAttribute(
       'href',
