@@ -24,6 +24,9 @@ const LAB_ALLOWED: Permission[] = [
   'inventory.read',
   'label.print',
   'storage_unit.move',
+  // MM-T23: LAB enters programs with a required Requested by person per action.
+  'lab_program.read',
+  'lab_program.manage',
 ];
 
 describe('can', () => {
@@ -42,7 +45,7 @@ describe('can', () => {
     }
     for (const permission of [
       'storage_unit.correct',
-      'lab_program.manage',
+      'test_catalog.manage',
       'storage_unit.dispose_scan',
       'staff.manage',
       'disposal.approve',

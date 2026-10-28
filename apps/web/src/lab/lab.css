@@ -1,0 +1,174 @@
+/* Lab Testing (MM-T23/T24). Tokens and radii from docs/design.md: no pill shapes. */
+
+.program-editor,
+.program-editor > * + * {
+  display: block;
+}
+
+.program-editor > * + * {
+  margin-top: var(--space-4, 16px);
+}
+
+.requested-by-station {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-control);
+  background: var(--accent-bg);
+}
+
+.requested-by-current {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.line-grid,
+.specific-sample,
+.test-picker-search,
+.test-picker-template {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+}
+
+.line-grid > .form-field {
+  flex: 1 1 18rem;
+}
+
+.specific-sample > .form-field {
+  flex: 0 1 9rem;
+}
+
+.test-picker-search > input,
+.test-picker-search > select {
+  flex: 1 1 14rem;
+}
+
+.scope-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.5rem 0.75rem;
+}
+
+.scope-toggle label,
+.unit-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: var(--control, 40px);
+}
+
+.unit-choices {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.5rem 0.75rem;
+}
+
+.test-results,
+.coverage-list,
+.request-list,
+.line-problems {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+
+.test-results li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.test-results button {
+  text-align: left;
+}
+
+.chips .chip-retired {
+  border-color: var(--warning-line);
+  background: var(--warning-panel);
+  color: var(--warning-panel-ink);
+}
+
+.chip-text {
+  overflow-wrap: anywhere;
+}
+
+.line-problems li {
+  color: var(--warning);
+}
+
+.line-problems li::before {
+  content: '• ';
+}
+
+.coverage-list li.excluded {
+  color: var(--muted);
+}
+
+.request-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.program-summary {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.program-summary dd {
+  margin: 0;
+}
+
+.program-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-button, 0.5rem);
+  justify-content: flex-end;
+}
+
+.inline-select select {
+  margin-left: 0.25rem;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-button, 0.5rem);
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+}
+
+.review-line + .review-line {
+  border-top: 1px solid var(--line);
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .specific-sample > .form-field,
+  .test-picker-search > input,
+  .test-picker-search > select {
+    flex: 1 1 100%;
+  }
+
+  .program-actions button {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+}

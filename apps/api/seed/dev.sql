@@ -153,3 +153,19 @@ VALUES
    '00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000303',
    'custom', NULL, NULL, NULL, NULL, NULL, 'Bulk bag, west abutment')
 ON CONFLICT (id) DO NOTHING;
+
+-- Fictional lab catalogue entries for development and E2E (MM-T23). Codes start with DEMO- so
+-- they can't be mistaken for the owner's workbook codes, which are not seeded until reconciled.
+-- Added only where the Soils group (reference data) exists.
+INSERT INTO test_type (id, group_id, code, name, description, sort_order)
+SELECT t.id::uuid, g.id, t.code, t.name, t.description, t.sort_order
+FROM (VALUES
+  ('00000000-0000-4000-8000-00000000c201', 'DEMO-MC', 'Moisture Content (demo)',
+   'Moisture content of soil - fictional development fixture', 1),
+  ('00000000-0000-4000-8000-00000000c202', 'DEMO-VI', 'Visual Identification (demo)',
+   'Visual identification of soil - fictional development fixture', 2),
+  ('00000000-0000-4000-8000-00000000c203', 'DEMO-ATT', 'Atterberg Limits (demo)',
+   'Liquid and plastic limits - fictional development fixture', 3)
+) AS t(id, code, name, description, sort_order)
+JOIN test_group g ON g.id = '00000000-0000-4000-8000-00000000c101'
+ON CONFLICT DO NOTHING;

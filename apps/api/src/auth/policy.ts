@@ -32,9 +32,11 @@ export type Permission =
   | 'inventory.read'
   | 'label.print'
   | 'storage_unit.move'
+  // Lab programs (MM-T23): LAB may enter them with a required Requested by person per draft
+  | 'lab_program.read'
+  | 'lab_program.manage'
   // Personal accounts only
   | 'storage_unit.correct'
-  | 'lab_program.manage'
   | 'test.progress'
   | 'test.review'
   | 'storage_unit.dispose_scan'
@@ -62,7 +64,12 @@ export type Permission =
   // Operations (MM-T21): Settings → System status
   | 'system.status.read';
 
-/** What the shared LAB account may do (App Idea §8, owner decision #21 for moves). */
+/**
+ * What the shared LAB account may do (App Idea §8, owner decision #21 for moves). Lab programs
+ * (MM-T23 wireframe decision, Kyle 2026-10-27): LAB creates, edits and submits programs, but the
+ * handler requires a valid Requested by person on every such action. That person is attribution
+ * only: LAB never gains their roles.
+ */
 export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'receipt.confirm',
   'receipt.draft',
@@ -71,13 +78,14 @@ export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'inventory.read',
   'label.print',
   'storage_unit.move',
+  'lab_program.read',
+  'lab_program.manage',
 ]);
 
 /** Any active personal (or test) account. */
 const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   ...LAB_PERMISSIONS,
   'storage_unit.correct',
-  'lab_program.manage',
   'test.progress',
   'test.review',
   'storage_unit.dispose_scan',
