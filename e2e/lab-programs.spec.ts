@@ -45,6 +45,22 @@ async function pickTest(page: Page, line: number, code: string) {
   await expect(card.getByRole('list', { name: 'Requested tests' })).toContainText(code);
 }
 
+/**
+ * Submits the reviewed program. Other tests receive units on TH26-01 at the same time, so the
+ * server may refuse with "material changed since the review" and show the fresh review; the
+ * person then submits again, exactly as a user would.
+ */
+async function submitReviewed(page: Page) {
+  const changed = page.getByText('The material for a line changed since the review');
+  const submitted = page.getByRole('heading', { name: /^LP-\d{4}-\d{4}$/ });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByRole('button', { name: 'Submit program' }).click();
+    await expect(submitted.or(changed)).toBeVisible();
+    if (await submitted.isVisible()) return;
+  }
+  await expect(submitted).toBeVisible();
+}
+
 test('Settings → Tests: a Lab Manager adds and retires a test; a technician only reads', async ({
   page,
 }) => {
@@ -95,9 +111,8 @@ test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as
   const review = page.getByRole('region', { name: 'Review before submitting' });
   await expect(review).toContainText(/Covers (BKT|ST)-\d{4}-\d{6}/);
   await expect(review).toContainText('received so far');
-  await page.getByRole('button', { name: 'Submit program' }).click();
+  await submitReviewed(page);
 
-  await expect(page.getByRole('heading', { name: /^LP-\d{4}-\d{4}$/ })).toBeVisible();
   await expect(page.getByText(`${mc} · Moisture Content`)).toBeVisible();
   await expect(page.getByText(`${att} · Atterberg Limits`)).toBeVisible();
   await expect(page.locator('.request-list .badge', { hasText: 'Requested' })).toHaveCount(2);
@@ -131,8 +146,8 @@ test('T7: two LAB stations request for different people; each submission keeps i
     // Station A's person never changed station B's draft, and both submit independently.
     for (const [i, page] of pages.entries()) {
       await page.getByRole('button', { name: 'Review', exact: true }).click();
-      await page.getByRole('button', { name: 'Submit program' }).click();
-      await expect(page.getByRole('heading', { name: /^LP-\d{4}-\d{4}$/ })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Review before submitting' })).toBeVisible();
+      await submitReviewed(page);
       await expect(page.locator('.program-summary')).toContainText('LAB for');
       await expect(page.locator('.program-summary')).toContainText(people[i]!);
     }
