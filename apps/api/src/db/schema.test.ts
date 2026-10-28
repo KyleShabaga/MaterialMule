@@ -55,6 +55,8 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'bulk_group',
       'draft_auto_delete_setting',
       'identity_link',
+      'lab_program',
+      'lab_program_counter',
       'local_credential',
       'location',
       'oidc_sign_in_attempt',
@@ -62,6 +64,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'print_job_item',
       'print_job_location_item',
       'printer',
+      'program_scope_snapshot',
       'project',
       'receipt',
       'role_assignment',
@@ -72,7 +75,16 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'storage_unit_annual_counter',
       'storage_unit_hole_summary',
       'storage_unit_search',
+      'test_group',
       'test_hole',
+      'test_line',
+      'test_line_test',
+      'test_line_unit_choice',
+      'test_request',
+      'test_subgroup',
+      'test_template',
+      'test_template_item',
+      'test_type',
     ]);
     // No individual sample inventory at receiving.
     expect(rows.map((r) => r.table_name)).not.toContain('sample');

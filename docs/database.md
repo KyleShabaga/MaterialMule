@@ -338,3 +338,33 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - **Concurrency.** A receipt joining a group reads it `FOR SHARE` and names the identity version it
   showed (422 `bulk_group_changed` otherwise); an identity correction takes `FOR UPDATE`, so the two
   serialise. Concurrent joins don't block each other.
+
+## Lab test catalogue and testing programs (MM-T23, migration 0030)
+
+- **Catalogue:** `test_group` → `test_subgroup` (optional) → `test_type`. A test keeps its exact
+  `code` (unique, case and punctuation preserved), full `description` and optional concise `name`
+  as separate fields; its subgroup must belong to its group (composite FK). Groups, subgroups,
+  tests and templates are never deleted (trigger): tests and templates are retired/restored
+  (`active` ⇔ `retired_at IS NULL`), groups renamed. No costs are stored anywhere.
+- **Reference data:** `seed/reference.sql` adds the Soils and Advanced Soils groups and the empty
+  "Geotechnical – VI + Moisture Content" template with fixed IDs (`ON CONFLICT DO NOTHING`, so a
+  rename is never undone). Test entries are **not** seeded until the owner's workbook rows are
+  extracted and reconciled.
+- **Programs:** `lab_program` (draft → submitted → closed; never back to draft; draft can't be
+  closed), `program_number` `LP-YYYY-NNNN` issued at submission from `lab_program_counter`
+  (business-time-zone year). Creator account and Requested by person (with snapshots) are kept
+  separately, as are submitting account and person.
+- **Lines:** `test_line` names one source explicitly (`source_kind` test_hole /
+  standalone_unit / standalone_bulk_group, with the matching same-project FK) and a scope (all,
+  grabs, spt, specific). Draft tests are in `test_line_test`, explicit unit choices in
+  `test_line_unit_choice`. Lines and their children can change only while the program is a draft.
+- **Submission** (one transaction) freezes `program_scope_snapshot` (unit, receipt, project,
+  included, `matching_basis`, display snapshots), the line's `source_display_snapshot`, and
+  `test_request` rows with catalogue snapshots. Snapshots are append-only and accepted only while
+  the program is still a draft, i.e. inside the submission; requests are never deleted and their
+  snapshots never change. A trigger refuses submission of an incomplete program.
+- **Grabs/SPT:** units have no structured G/S classification, so every candidate is frozen as
+  `reviewed_included` (explicitly chosen) or `unknown_classification_excluded`.
+- **Link checker (T13/D47):** `ProgramLabRequestLinks` lists programs that aren't closed and
+  include the unit in frozen coverage, a draft unit choice or a standalone source; a project
+  correction is refused while any exist. Submission takes `FOR SHARE` on the units it freezes.

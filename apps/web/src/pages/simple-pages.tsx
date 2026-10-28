@@ -64,6 +64,8 @@ export function SettingsLayout() {
         <NavLink to="/settings/profile">My profile</NavLink>
         <NavLink to="/settings/staff">Staff &amp; access</NavLink>
         <NavLink to="/settings/locations">Locations</NavLink>
+        <NavLink to="/settings/tests">Tests</NavLink>
+        <NavLink to="/settings/templates">Templates</NavLink>
         {me.permissions.includes('printer.manage') ? (
           <NavLink to="/settings/printers">Printers</NavLink>
         ) : null}

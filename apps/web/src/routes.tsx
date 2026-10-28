@@ -1,6 +1,10 @@
-import type { RouteObject } from 'react-router';
+import { Navigate, type RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { InventoryPage } from './inventory/InventoryPage';
+import { LabTestingLayout } from './lab/LabTestingLayout';
+import { ProgramDetailPage } from './lab/ProgramDetailPage';
+import { ProgramEditor } from './lab/ProgramEditor';
+import { ProgramsPage } from './lab/ProgramsPage';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
 import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
@@ -25,6 +29,7 @@ import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
 import { ScanPage } from './scanning/ScanPage';
+import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCatalogueSettings';
 import { LocationsPage } from './settings/locations/LocationsPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { StaffPage } from './settings/staff/StaffPage';
@@ -32,19 +37,18 @@ import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
 
 const featureRoutes: RouteObject[] = [
-  ...(FEATURES.labTestingWorklist
+  ...(FEATURES.labTesting
     ? [
         {
-          path: 'lab-testing-worklist',
-          element: <PlaceholderPage title="Lab Testing Worklist" card="MM-T24" />,
-        },
-      ]
-    : []),
-  ...(FEATURES.testingPrograms
-    ? [
-        {
-          path: 'testing-programs',
-          element: <PlaceholderPage title="Testing Programs" card="MM-T23" />,
+          // One Lab Testing area (MM-T23); its Worklist tab and default arrive with MM-T24.
+          path: 'lab-testing',
+          element: <LabTestingLayout />,
+          children: [
+            { index: true, element: <Navigate to="programs" replace /> },
+            { path: 'programs', element: <ProgramsPage /> },
+            { path: 'programs/new', element: <ProgramEditor draft={null} /> },
+            { path: 'programs/:programId', element: <ProgramDetailPage /> },
+          ],
         },
       ]
     : []),
@@ -105,6 +109,9 @@ export const routes: RouteObject[] = [
                   { path: 'staff', element: <StaffPage /> },
                   // Storage locations and location labels (MM-T37).
                   { path: 'locations', element: <LocationsPage /> },
+                  // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
+                  { path: 'tests', element: <TestsSettingsPage /> },
+                  { path: 'templates', element: <TemplatesSettingsPage /> },
                   { path: 'printers', element: <PrintersSettingsPage /> },
                   // Draft auto-delete (MM-T45): Admin and Lab Manager.
                   { path: 'receiving', element: <ReceivingSettingsPage /> },

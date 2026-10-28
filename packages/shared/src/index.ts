@@ -16,3 +16,5 @@ export * from './samples';
 export * from './settings';
 export * from './staff';
 export * from './system-status';
+export * from './lab-catalogue';
+export * from './lab-programs';
