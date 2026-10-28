@@ -27,11 +27,20 @@ test('AC1/AC4: header identity, menu and Receive samples', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Receive samples' })).toBeInViewport();
     await page.getByRole('button', { name: 'Menu' }).click();
   }
-  for (const label of ['Dashboard', 'Receiving Log', 'Sample Storage', 'Projects', 'Settings']) {
+  for (const label of [
+    'Dashboard',
+    'Receiving Log',
+    'Sample Storage',
+    'Lab Testing',
+    'Projects',
+    'Settings',
+  ]) {
     await expect(menu.getByRole('link', { name: label })).toBeVisible();
   }
-  // AC7: later-increment areas stay hidden.
+  // AC7: later-increment areas stay hidden; the old lab placeholders are gone (MM-T23).
   await expect(menu.getByRole('link', { name: 'Lab Testing Worklist' })).toHaveCount(0);
+  await expect(menu.getByRole('link', { name: 'Testing Programs' })).toHaveCount(0);
+  await expect(menu.getByRole('link', { name: 'Disposal & Retention' })).toHaveCount(0);
 
   await menu.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('link', { name: 'Receive samples' }).click();

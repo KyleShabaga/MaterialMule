@@ -1,5 +1,5 @@
 import type { MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -481,7 +481,9 @@ describe('Receiving wizard (MM-T10)', () => {
       expect(within(details).getByRole('button', { name: 'Edit details' })).toBeEnabled();
 
       await user.click(within(table).getByRole('button', { name: 'Edit Bucket 2' }));
-      expect(await screen.findByRole('heading', { name: 'Bucket 2' })).toHaveFocus();
+      // Focus moves to the unit's heading after it renders; wait for it (flaky on busy CI).
+      const heading = await screen.findByRole('heading', { name: 'Bucket 2' });
+      await waitFor(() => expect(heading).toHaveFocus());
     });
 
     it('keeps a card per unit at 1280px and below', async () => {

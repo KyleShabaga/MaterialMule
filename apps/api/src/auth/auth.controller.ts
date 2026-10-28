@@ -41,6 +41,7 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'label.print',
   'storage_unit.move',
   'storage_unit.correct',
+  'lab_program.read',
   'lab_program.manage',
   'test.progress',
   'test.review',

@@ -29,6 +29,10 @@ import { DatabaseService } from './database/database.service.js';
 import { HealthController } from './health/health.controller.js';
 import { InventoryController } from './inventory/inventory.controller.js';
 import { InventoryService } from './inventory/inventory.service.js';
+import { CatalogueController } from './lab/catalogue.controller.js';
+import { CatalogueService } from './lab/catalogue.service.js';
+import { LabProgramsController } from './lab/programs.controller.js';
+import { LabProgramsService } from './lab/programs.service.js';
 import { LabelsController } from './labels/labels.controller.js';
 import { LocationsController } from './locations/locations.controller.js';
 import { LocationsService } from './locations/locations.service.js';
@@ -50,7 +54,7 @@ import { StorageUnitCorrectionsController } from './storage-units/corrections/co
 import { StorageUnitCorrectionsService } from './storage-units/corrections/corrections.service.js';
 import {
   LAB_REQUEST_LINK_CHECKER,
-  NoLabRequestLinks,
+  ProgramLabRequestLinks,
 } from './storage-units/corrections/lab-request-links.js';
 import { StorageUnitsController } from './storage-units/storage-units.controller.js';
 import { StorageUnitsService } from './storage-units/storage-units.service.js';
@@ -94,6 +98,8 @@ export class AppModule {
         StorageUnitCorrectionsController,
         BulkGroupsController,
         MovesController,
+        CatalogueController,
+        LabProgramsController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -127,8 +133,10 @@ export class AppModule {
         StorageUnitCorrectionsService,
         BulkGroupsService,
         MovesService,
-        // Lab requests arrive with MM-T23; until then no unit has unresolved links.
-        { provide: LAB_REQUEST_LINK_CHECKER, useClass: NoLabRequestLinks },
+        CatalogueService,
+        LabProgramsService,
+        // Units referenced by open testing programs block project corrections (MM-T23, D47).
+        { provide: LAB_REQUEST_LINK_CHECKER, useClass: ProgramLabRequestLinks },
         // Default deny on every route (MM-T04).
         { provide: APP_GUARD, useClass: AuthGuard },
       ],

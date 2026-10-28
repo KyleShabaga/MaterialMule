@@ -69,8 +69,7 @@ describe('navigation', () => {
       'Dashboard',
       'Receiving Log',
       'Sample Storage',
-      'Lab Testing Worklist',
-      'Testing Programs',
+      'Lab Testing',
       'Disposal & Retention',
       'Projects',
       'Settings',
@@ -79,8 +78,7 @@ describe('navigation', () => {
 
   it('AC7: hides later-increment areas while their flags are off', () => {
     const labels = visibleNavItems({
-      labTestingWorklist: false,
-      testingPrograms: false,
+      labTesting: false,
       disposalRetention: false,
     }).map((i) => i.label);
     expect(labels).toEqual([
@@ -92,11 +90,10 @@ describe('navigation', () => {
     ]);
     expect(
       visibleNavItems({
-        labTestingWorklist: true,
-        testingPrograms: false,
+        labTesting: true,
         disposalRetention: false,
       }).map((i) => i.label),
-    ).toContain('Lab Testing Worklist');
+    ).toContain('Lab Testing');
   });
 
   it('labels each account type', () => {

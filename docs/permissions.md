@@ -20,33 +20,33 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 
 ## Matrix
 
-| Permission                        | LAB | Any internal user | Lab Manager | Admin | Project PM/PE | Acceptance delegate |
-| --------------------------------- | :-: | :---------------: | :---------: | :---: | :-----------: | :-----------------: |
-| receipt.confirm / receipt.draft   |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| project.create / test_hole.create |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| inventory.read / label.print      |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.move (#21)           |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.correct (D45–D47)    |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| lab_program.manage                |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test.progress (D08) / test.review |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.dispose_scan (#24)   |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| location_conflict.resolve (D29)   |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test_catalog.manage (D37)         |     |                   |      ✓      |   ✓   |               |                     |
-| program.priority.set (D50)        |     |                   |      ✓      |       |       ✓       |                     |
-| program.reopen                    |     |                   |      ✓      |       |       ✓       |                     |
-| test.cancel (D07)                 |     |                   |      ✓      |       |       ✓       |                     |
-| retention.manage (D05)            |     |                   |      ✓      |       |       ✓       |                     |
-| disposal.approve (D19)            |     |                   |      ✓      |       |       ✓       |                     |
-| settings.drafts.manage (MM-T45)   |     |                   |      ✓      |   ✓   |               |                     |
-| location.manage (MM-T37)          |     |                   |      ✓      |   ✓   |               |                     |
-| test.accept (D04)                 |     |                   |             |       |       ✓       |          ✓          |
-| program.close (D06)               |     |                   |             |       |       ✓       |                     |
-| acceptance_delegation.manage      |     |                   |             |       |       ✓       |                     |
-| staff.manage / session.revoke     |     |                   |             |   ✓   |               |                     |
-| printer.manage (T15)              |     |                   |             |   ✓   |               |                     |
-| project.edit (T35)                |     |                   |             |   ✓   |       ✓       |                     |
-| project.pm_pe.change (T35)        |     |                   |             |   ✓   |               |                     |
-| system.status.read (T21)          |     |                   |             |   ✓   |               |                     |
+| Permission                                  | LAB | Any internal user | Lab Manager | Admin | Project PM/PE | Acceptance delegate |
+| ------------------------------------------- | :-: | :---------------: | :---------: | :---: | :-----------: | :-----------------: |
+| receipt.confirm / receipt.draft             |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| project.create / test_hole.create           |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| inventory.read / label.print                |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| storage_unit.move (#21)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| lab_program.read / lab_program.manage (T23) |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| storage_unit.correct (D45–D47)              |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| test.progress (D08) / test.review           |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
+| test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
+| program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
+| program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
+| test.cancel (D07)                           |     |                   |      ✓      |       |       ✓       |                     |
+| retention.manage (D05)                      |     |                   |      ✓      |       |       ✓       |                     |
+| disposal.approve (D19)                      |     |                   |      ✓      |       |       ✓       |                     |
+| settings.drafts.manage (MM-T45)             |     |                   |      ✓      |   ✓   |               |                     |
+| location.manage (MM-T37)                    |     |                   |      ✓      |   ✓   |               |                     |
+| test.accept (D04)                           |     |                   |             |       |       ✓       |          ✓          |
+| program.close (D06)                         |     |                   |             |       |       ✓       |                     |
+| acceptance_delegation.manage                |     |                   |             |       |       ✓       |                     |
+| staff.manage / session.revoke               |     |                   |             |   ✓   |               |                     |
+| printer.manage (T15)                        |     |                   |             |   ✓   |               |                     |
+| project.edit (T35)                          |     |                   |             |   ✓   |       ✓       |                     |
+| project.pm_pe.change (T35)                  |     |                   |             |   ✓   |               |                     |
+| system.status.read (T21)                    |     |                   |             |   ✓   |               |                     |
 
 "Project PM/PE" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account.
@@ -261,3 +261,32 @@ moving the units ("Moved by"); that person is attribution only. Only an active p
 account confirms a conflicted unit's actual location (`location_conflict.resolve`, D29); LAB is
 refused even when a Lab Manager is selected at the station. A queued move is only ever sent by the
 account that scanned it (`captureContext.accountId` must equal the session's account).
+
+## Lab test catalogue and testing programs (MM-T23)
+
+| Route                                                              | Policy                                                |
+| ------------------------------------------------------------------ | ----------------------------------------------------- |
+| `GET /api/test-catalogue`, `GET /api/test-types`                   | `lab_program.read` (every active session, LAB too)    |
+| `GET /api/test-templates`                                          | `lab_program.read`                                    |
+| `POST/PATCH /api/test-types`, `POST /api/test-types/:id/retire`    | `test_catalog.manage` (Lab Manager and admin, no LAB) |
+| `POST /api/test-types/:id/restore`, groups, subgroups, templates   | `test_catalog.manage`                                 |
+| `GET /api/lab-programs`, `GET /api/lab-programs/:id(/review)`      | `lab_program.read`                                    |
+| `GET /api/projects/:projectId/lab-sources(/:kind/:sourceId/units)` | `lab_program.read`                                    |
+| `POST /api/lab-programs`, `PATCH /api/lab-programs/:id`            | `lab_program.manage` (+ Requested by for LAB, below)  |
+| `POST /api/lab-programs/:id/submit`, `…/discard`                   | `lab_program.manage` (+ Requested by for LAB)         |
+
+- **Shared LAB stations** (Kyle, 2026-10-27): LAB creates, edits, submits and discards programs,
+  but every such request must carry `requestedByUserId`: an active staff member (not LAB) with
+  confirmed initials, checked on every request (400 `required` when missing, 422
+  `requested_by_invalid` otherwise). Submission must name the person the draft is requested by
+  (422 `requested_by_mismatch`). The person is attribution only: LAB never gains their roles, so
+  catalogue/template administration, priority, review, acceptance and closure stay refused. Audit
+  events record LAB as the actor and the person as the receiver ("LAB for person"); no session
+  data is stored.
+- **Personal accounts** are always their own requester; naming someone else is refused (400).
+- **Drafts** are visible and workable only by the account that created them (LAB's drafts from
+  any LAB station). Each draft is its own row with its own `version`; there is no account-wide
+  "current draft" or operator. Submitted programs are visible to everyone with `lab_program.read`.
+- **Concurrency:** edits and submission are optimistic (409 `version_conflict` with `current`);
+  submission is idempotent on `idempotencyKey` (an exact retry returns the original program; a
+  different key on a submitted program gets 409 `not_draft`). Creation is idempotent too.
