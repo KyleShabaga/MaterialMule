@@ -27,8 +27,11 @@ ALTER TABLE action_item
     (assigned_user_id IS NULL) = (assigned_at IS NULL)
   );
 
+-- The 0050 guard refuses every update but a resolution, so it is off for this one backfill.
+ALTER TABLE action_item DISABLE TRIGGER action_item_guard;
 UPDATE action_item a SET project_id = lp.project_id
 FROM lab_program lp WHERE lp.id = a.program_id AND a.project_id IS NULL;
+ALTER TABLE action_item ENABLE TRIGGER action_item_guard;
 
 ALTER TABLE action_item ALTER COLUMN project_id SET NOT NULL;
 CREATE INDEX action_item_project_idx ON action_item (project_id, status);
