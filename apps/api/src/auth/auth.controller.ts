@@ -55,6 +55,7 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'program.close_request',
   'storage_unit.dispose_scan',
   'location_conflict.resolve',
+  'storage_unit.tested_removal',
   'test_catalog.manage',
   'program.priority.set',
   'program.reopen',

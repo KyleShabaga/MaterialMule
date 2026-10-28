@@ -99,6 +99,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'test_template',
       'test_template_item',
       'test_type',
+      'tested_unit_removal',
     ]);
     // No individual sample inventory at receiving.
     expect(rows.map((r) => r.table_name)).not.toContain('sample');

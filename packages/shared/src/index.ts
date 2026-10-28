@@ -22,3 +22,4 @@ export * from './lab-programs';
 export * from './lab-review';
 export * from './lab-worklist';
 export * from './lab-lifecycle';
+export * from './tested-removal';

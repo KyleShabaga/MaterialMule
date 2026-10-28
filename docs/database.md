@@ -479,3 +479,22 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   guard refuses accepted → requested without a new revision.
 - `test_request_unit_link` is unique per completion and unit (was per request and unit), so a test
   completed again after a reset keeps both completions' evidence.
+
+## Removal after testing (MM-T36, migration 0045)
+
+- `tested_unit_removal`: one append-only row per physical unit ever (unique `storage_unit_id`,
+  unique retry key with intent hash). It names the completion that used that exact unit
+  (`test_request_id`, `unit_link_id`, `completion_event_id`), the reason (`tested_shelby` for a
+  Shelby tube, `tested_bulk` for a bucket in a bulk group), the previous status, the last saved
+  location (with snapshots) and the personal account that confirmed the physical removal.
+- An insert trigger checks the row against the unit (already `disposed`, same project, type,
+  group and location) and against real evidence: a completion link of this unit, in the unit's
+  project, whose request is not `cancelled`. Removal and the unit update commit together.
+- The unit keeps `status = 'disposed'` and its `current_location_id` (0035 keeps it fixed);
+  Current stock, location occupancy and lab coverage all leave disposed units out. A trigger
+  refuses any later change of status, unit type or project of a removed unit.
+- `shelby_contents_destroyed_by_program(unit)`: the program whose completion first linked a
+  Shelby tube (its contents are then destroyed during testing), or null. Lab coverage leaves such
+  tubes out, and a `test_request_unit_link` insert trigger refuses a disposed unit or a tube
+  destroyed by another program (tests of the same program may still record it).
+- No retention, hold, disposal-approval or program-closure table is read by this route.

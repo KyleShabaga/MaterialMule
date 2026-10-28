@@ -12,6 +12,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { openConflictSummary } from '../moves/moves.service.js';
 import { loadHoleSummaries } from './hole-summaries.js';
 import { loadBulkGroupMembers, loadSampleIdentities } from './sample-identity.js';
+import { loadStorageUnitTesting } from './tested-removal/tested-removal.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -141,6 +142,12 @@ export async function getStorageUnitDetail(
     },
     location: { id: row.location_id, code: row.location_code, name: row.location_name },
     locationConflict: await openConflictSummary(pool, row.id),
+    testing: await loadStorageUnitTesting(pool, {
+      id: row.id,
+      unit_type: row.unit_type,
+      bulk_group_id: unit.bulk_group_id,
+      status: row.status,
+    }),
     receipt: {
       id: row.receipt_id,
       receivedDate: row.receipt_received_date,

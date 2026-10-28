@@ -19,6 +19,8 @@ interface InventoryRow {
   location_id: string;
   location_code: string;
   location_name: string;
+  tested_removal_reason: InventoryItem['testedRemovalReason'];
+  contents_destroyed: boolean;
 }
 
 /** One page of the inventory with its total (MM-T12). Never returns more than 100 units. */
@@ -33,13 +35,17 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
   const { rows } = await pool.query<InventoryRow>(
     `SELECT su.id, su.readable_id, su.unit_type, su.status, su.received_date::text AS received_date,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
-            l.id AS location_id, l.code AS location_code, l.name AS location_name
+            l.id AS location_id, l.code AS location_code, l.name AS location_name,
+            tr.reason AS tested_removal_reason,
+            (su.unit_type = 'shelby_tube'
+             AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed
      FROM (SELECT su.id ${sql.fromWhere}
            ORDER BY ${sql.orderBy}
            LIMIT ${limitParam} OFFSET ${offsetParam}) page
      JOIN storage_unit su ON su.id = page.id
      JOIN project p ON p.id = su.project_id
      JOIN location l ON l.id = su.current_location_id
+     LEFT JOIN tested_unit_removal tr ON tr.storage_unit_id = su.id
      ORDER BY ${sql.orderBy}`,
     [...sql.params, sql.limit, sql.offset],
   );
@@ -63,6 +69,9 @@ export async function queryInventory(pool: Pool, query: InventoryQuery): Promise
       sample: identities.get(row.id)?.sample ?? null,
       bulkGroup: membershipOf(identities.get(row.id)),
       location: { id: row.location_id, code: row.location_code, name: row.location_name },
+      // MM-T36: "Disposed after testing" and a tested Shelby tube's destroyed contents.
+      testedRemovalReason: row.tested_removal_reason,
+      contentsDestroyed: row.contents_destroyed,
     })),
     total: count.rows[0]!.total,
     page: query.page,
