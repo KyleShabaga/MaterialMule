@@ -362,11 +362,27 @@ export class LabWorkService {
       readable_id: string;
       project_id: string;
       status: string;
-    }>('SELECT id, readable_id, project_id, status FROM storage_unit WHERE id = ANY ($1::uuid[])', [
-      unitIds,
-    ]);
+      destroyed_by: string | null;
+    }>(
+      `SELECT id, readable_id, project_id, status,
+              shelby_contents_destroyed_by_program(id) AS destroyed_by
+       FROM storage_unit WHERE id = ANY ($1::uuid[])`,
+      [unitIds],
+    );
     if (rows.some((unit) => unit.status === 'disposed')) {
       unprocessable('unit_disposed', 'testedStorageUnitIds', 'a unit has already been disposed');
+    }
+    // MM-T36: a Shelby tube's contents are destroyed by its first completed test. Tests of that
+    // same program (frozen together) may still record it; no other program can test it again.
+    const destroyed = rows.find(
+      (unit) => unit.destroyed_by !== null && unit.destroyed_by !== current.program_id,
+    );
+    if (destroyed) {
+      unprocessable(
+        'unit_contents_destroyed',
+        'testedStorageUnitIds',
+        `${destroyed.readable_id}’s contents were destroyed during an earlier test`,
+      );
     }
     if (rows.some((unit) => unit.project_id !== current.project_id)) {
       unprocessable('unit_not_covered', 'testedStorageUnitIds', 'a unit is in another project');
