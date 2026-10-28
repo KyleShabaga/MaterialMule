@@ -560,6 +560,66 @@ describe.runIf(testDatabaseUrl)('tested-unit removal (MM-T36)', () => {
     ).rejects.toMatchObject({ constraint: 'test_request_unit_link_not_disposed' });
   });
 
+  it('a cancelled test (MM-T26) is neither evidence nor proof the contents were used; a non-cancelled sibling still is', async () => {
+    const hole = await newHole('TH26-71');
+    const onlyCancelled = await h.tube({ holeId: hole, sampleReference: 'T7' });
+    const alsoSibling = await h.tube({ holeId: hole, sampleReference: 'T8' });
+    const program = await submitted(hole, [moisture, atterberg]);
+    const [mc, att] = program.lines[0]!.requests;
+    await complete(mc!.id, [onlyCancelled.id, alsoSibling.id]);
+    await complete(att!.id, [alsoSibling.id]);
+    expect((await detail(onlyCancelled.id)).testing?.contentsDestroyed).toBe(true);
+
+    // The project's PM/PE cancels the moisture test after it was completed.
+    const cancelled = await h.send(
+      'post',
+      `/api/test-requests/${mc!.id}/cancel`,
+      { reason: 'Wrong test requested', version: 3, idempotencyKey: newKey() },
+      'pe',
+    );
+    expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
+
+    // Only the cancelled test used this tube: no evidence, contents available, no removal.
+    const freed = await detail(onlyCancelled.id);
+    expect(freed.testing).toMatchObject({
+      contentsDestroyed: false,
+      evidence: [],
+      blocker: 'no_tested_evidence',
+    });
+    const refused = await remove(onlyCancelled.id, {
+      testRequestId: mc!.id,
+      version: freed.version,
+    });
+    expect(refused.status).toBe(422);
+    expect(refused.body.code).toBe('no_tested_evidence');
+
+    // The sibling test still counts for the tube it used, and only that test.
+    const still = await detail(alsoSibling.id);
+    expect(still.testing?.contentsDestroyed).toBe(true);
+    expect(still.testing?.evidence.map((e) => e.testRequestId)).toEqual([att!.id]);
+    const viaCancelled = await remove(alsoSibling.id, {
+      testRequestId: mc!.id,
+      version: still.version,
+    });
+    expect(viaCancelled.body.code).toBe('no_tested_evidence');
+
+    // The freed tube can be covered and tested by a later program; the used one can't.
+    const later = await submitted(hole);
+    const coverage = later.lines[0]!.coverage.map((c) => c.storageUnitId);
+    expect(coverage).toContain(onlyCancelled.id);
+    expect(coverage).not.toContain(alsoSibling.id);
+    await complete(later.lines[0]!.requests[0]!.id, [onlyCancelled.id]);
+    const retested = await detail(onlyCancelled.id);
+    expect(retested.testing?.evidence.map((e) => e.programNumber)).toEqual([later.programNumber]);
+
+    // And the sibling's removal rests on its non-cancelled test.
+    const removed = await remove(alsoSibling.id, {
+      testRequestId: att!.id,
+      version: still.version,
+    });
+    expect(removed.status, JSON.stringify(removed.body)).toBe(201);
+  });
+
   it('a failed removal leaves nothing behind (one transaction)', async () => {
     const hole = await newHole('TH26-70');
     const tube = await h.tube({ holeId: hole });
