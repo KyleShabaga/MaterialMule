@@ -72,10 +72,15 @@ export async function reassign(
   }
 }
 
+/** Null when they can't be read (LAB, offline, or an unreadable answer); never throws. */
 export async function fetchPreferences(): Promise<NotificationPreferences | null> {
-  const response = await apiFetch('/api/me/notification-preferences');
-  if (!response.ok) return null;
-  return notificationPreferencesSchema.parse(await response.json());
+  try {
+    const response = await apiFetch('/api/me/notification-preferences');
+    if (!response.ok) return null;
+    return notificationPreferencesSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
 }
 
 export async function savePreferences(
