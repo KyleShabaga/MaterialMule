@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
+import { ActionRequestsPage } from './action-requests/ActionRequestsPage';
 import { InventoryPage } from './inventory/InventoryPage';
 import { LabTestingLayout } from './lab/LabTestingLayout';
 import { ProgramDetailPage } from './lab/ProgramDetailPage';
@@ -108,6 +109,8 @@ export const routes: RouteObject[] = [
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
+              // Action requests inbox (MM-T27): personal accounts; the header bell links here.
+              { path: 'action-requests', element: <ActionRequestsPage /> },
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },

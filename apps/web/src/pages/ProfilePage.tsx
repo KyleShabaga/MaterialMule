@@ -1,5 +1,6 @@
 import { POSITION_LABELS, profileResponseSchema, type ProfileResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
+import { NotificationPreferencesCard } from '../action-requests/NotificationPreferencesCard';
 import { apiFetch } from '../api/client';
 import { BandedCard, ErrorState } from '../components/ui';
 import { formatExpiry } from '../lib/format';
@@ -172,6 +173,7 @@ export function ProfilePage() {
             <dd>{p.refreshedAt ? formatExpiry(p.refreshedAt) : field(null)}</dd>
           </dl>
         </BandedCard>
+        <NotificationPreferencesCard />
       </div>
     </div>
   );

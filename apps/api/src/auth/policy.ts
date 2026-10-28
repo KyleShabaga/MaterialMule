@@ -53,6 +53,8 @@ export type Permission =
   | 'location_conflict.resolve'
   // MM-T36: confirm a tested Shelby tube or bulk bucket was physically removed
   | 'storage_unit.tested_removal'
+  // MM-T27: one's own Action requests inbox and notification preferences (never LAB)
+  | 'action_item.read'
   // Lab Manager (and PM/PE of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
@@ -65,6 +67,8 @@ export type Permission =
   // Lab Manager and Admin (MM-T45, MM-T37)
   | 'settings.drafts.manage'
   | 'location.manage'
+  // Reassign an open action request to another eligible person, with a reason (MM-T27)
+  | 'action_item.reassign'
   // Project PM/PE (and delegates) only
   | 'test.accept'
   | 'program.close'
@@ -116,6 +120,9 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   'location_conflict.resolve',
   // MM-T36 post-testing removal: never LAB, whoever a station selects.
   'storage_unit.tested_removal',
+  // MM-T27: a LAB station has no inbox or preferences of its own and never borrows the
+  // selected person's.
+  'action_item.read',
 ]);
 
 /** Granted by the lab_manager role regardless of project. */
@@ -131,6 +138,8 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'settings.drafts.manage',
   // Storage locations: add, edit, retire (MM-T37, Kyle 2026-10-26).
   'location.manage',
+  // Action request reassignment (MM-T27, Kyle 2026-10-26).
+  'action_item.reassign',
 ]);
 
 /** Granted by the admin role. Admin never implies project authority or Lab Manager rights. */
@@ -143,6 +152,8 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'settings.drafts.manage',
   // Storage locations (MM-T37).
   'location.manage',
+  // Action request reassignment (MM-T27).
+  'action_item.reassign',
   // Projects (MM-T35): admins edit any project's fields and are the only ones who change its PM/PE.
   'project.edit',
   'project.pm_pe.change',

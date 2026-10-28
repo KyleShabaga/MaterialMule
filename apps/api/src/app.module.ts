@@ -45,6 +45,9 @@ import { LocationsController } from './locations/locations.controller.js';
 import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
 import { MovesController } from './moves/moves.controller.js';
+import { ActionItemsController } from './notifications/action-items.controller.js';
+import { ActionItemsService } from './notifications/action-items.service.js';
+import { EmailWorkerService } from './notifications/email-worker.service.js';
 import { MovesService } from './moves/moves.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
@@ -113,6 +116,7 @@ export class AppModule {
         LabWorkController,
         LabReviewController,
         LabLifecycleController,
+        ActionItemsController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -153,6 +157,8 @@ export class AppModule {
         LabReviewService,
         LabLifecycleService,
         LabAmendmentsService,
+        ActionItemsService,
+        EmailWorkerService,
         // Units referenced by open testing programs block project corrections (MM-T23, D47).
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: ProgramLabRequestLinks },
         // Default deny on every route (MM-T04).

@@ -29,6 +29,7 @@ import { recordAudit } from '../audit/audit.js';
 import { can, type AuthUser, type ProjectContext } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { enqueueActionItemEmails } from '../notifications/action-items.js';
 import { parseBody } from '../validation/parse-body.js';
 import { loadAmendments, loadIdentityRevisions } from './amendments.service.js';
 import { actorOf } from './attribution.js';
@@ -287,6 +288,7 @@ export class LabLifecycleService {
         reason: request.reason,
         after: { programNumber: program.program_number, actionItemId: rows[0]!.id },
       });
+      await enqueueActionItemEmails(client, rows[0]!.id);
       return { actionItemId: rows[0]!.id };
     });
   }
@@ -464,6 +466,7 @@ export class LabLifecycleService {
           actionItemId: rows[0]!.id,
         },
       });
+      await enqueueActionItemEmails(client, rows[0]!.id);
       return { actionItemId: rows[0]!.id };
     });
   }
