@@ -64,7 +64,10 @@ export class ProjectsController {
     return this.projects.getDetail(projectId, user);
   }
 
-  /** Add a missing project while receiving (D42). 201 with the project, or 409 `{existing}`. */
+  /**
+   * Add a missing project while receiving (D42). 201 with the project, or 409 `{existing}`. The
+   * creator may nominate a lead or (with "Can create and lead projects") lead it (MM-AO04).
+   */
   @Post()
   @RequirePermission('project.create')
   create(
@@ -73,7 +76,7 @@ export class ProjectsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<ProjectSummary> {
     const input = parseBody(createProjectRequestSchema, body);
-    return this.projects.create(input, actorFor(user), requestIdOf(request));
+    return this.projects.create(input, user, actorFor(user), requestIdOf(request));
   }
 
   /**

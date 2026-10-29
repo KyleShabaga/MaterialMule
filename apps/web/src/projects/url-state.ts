@@ -8,7 +8,7 @@ import {
 // view can be shared and Back returns to it. "Only mine" is also remembered per user in local
 // storage and applies whenever the URL doesn't say.
 
-const KEYS = ['search', 'mine', 'sort', 'dir', 'page', 'pageSize'] as const;
+const KEYS = ['search', 'mine', 'waitingForLead', 'sort', 'dir', 'page', 'pageSize'] as const;
 
 /** Reads the query from the URL; invalid values fall back to defaults. */
 export function readProjectListQuery(
@@ -37,6 +37,7 @@ export function projectListSearchParams(query: ProjectListQuery): URLSearchParam
   };
   set('search', query.search);
   if (query.mine) params.set('mine', 'true');
+  if (query.waitingForLead) params.set('waitingForLead', 'true');
   set('sort', query.sort, 'number');
   set('dir', query.dir);
   set('page', query.page, 1);

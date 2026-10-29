@@ -60,6 +60,7 @@ const detail = (overrides: Partial<ProjectDetail> = {}): ProjectDetail => ({
   serverFolderPath: 'P:\\Projects\\DEMO-2601',
   version: 4,
   numberLocked: true,
+  leadNomination: null,
   canEdit: true,
   canChangeLeadProjectEngineer: true,
   unitCount: 3,

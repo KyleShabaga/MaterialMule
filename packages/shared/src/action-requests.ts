@@ -11,6 +11,8 @@ export const ACTION_REQUEST_KINDS = [
   'closure_request',
   // MM-T29: a hold or extension request, decided by the project's Lead Project Engineer or a Lab Manager.
   'retention_request',
+  // MM-AO04 (D02): a project waiting for a Lead Project Engineer, for admins to appoint one.
+  'lead_appointment',
 ] as const;
 export type ActionRequestKind = (typeof ACTION_REQUEST_KINDS)[number];
 
@@ -20,6 +22,7 @@ export const ACTION_REQUEST_RESOLUTIONS = [
   'closed',
   'approved',
   'declined',
+  'appointed',
 ] as const;
 export type ActionRequestResolution = (typeof ACTION_REQUEST_RESOLUTIONS)[number];
 
@@ -29,6 +32,7 @@ export const ACTION_REQUEST_ROUTE_LABEL: Record<ActionRequestKind, string> = {
   cancellation_request: 'Lead Project Engineer and Lab Managers',
   closure_request: 'Lead Project Engineer',
   retention_request: 'Lead Project Engineer and Lab Managers',
+  lead_appointment: 'Admins',
 };
 
 export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, string> = {
@@ -37,6 +41,7 @@ export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, st
   closed: 'Program closed',
   approved: 'Approved',
   declined: 'Declined',
+  appointed: 'Lead Project Engineer appointed',
 };
 
 export const actionRequestSchema = z.object({

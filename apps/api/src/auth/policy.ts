@@ -22,7 +22,8 @@ export interface AuthUser {
  * stands (never from the browser). Delegates arrived with MM-T25; report issuers with MM-AO03.
  */
 export interface ProjectContext {
-  leadProjectEngineerUserId: string;
+  /** Null while the project waits for a lead (D02): lead-only actions are then blocked. */
+  leadProjectEngineerUserId: string | null;
   acceptanceDelegateUserIds?: string[];
   /**
    * People holding a usable Authorized report issuer grant (D06: not revoked, not expired) for
@@ -66,6 +67,8 @@ export type Permission =
   | 'acceptance_delegation.read'
   // Read a project's team, scoped reviewers, report issuers and one's capabilities (MM-AO03)
   | 'project_access.read'
+  // Nominate a Lead Project Engineer on a project with none (MM-AO04, D01): grants nothing
+  | 'project_lead.nominate'
   // Change a submitted program (MM-T26): amendments, accepted-request changes and repeats
   | 'lab_program.amend'
   // Ask the people who decide to cancel a test or close a program (MM-T26)
@@ -148,6 +151,9 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   'acceptance_delegation.read',
   // MM-AO03: broad internal visibility of who is assigned; LAB reads none of it.
   'project_access.read',
+  // MM-AO04: any staff member may suggest a lead; an admin confirms. LAB nominates only while
+  // creating a project at receiving (for the selected person), never afterwards.
+  'project_lead.nominate',
   // MM-T26: LAB's T23/T24 allow-list never covers these, whoever is selected at the station.
   'lab_program.amend',
   'test.cancel_request',
@@ -273,6 +279,7 @@ export function permissionSources(
   }
   if (project) {
     if (
+      project.leadProjectEngineerUserId !== null &&
       project.leadProjectEngineerUserId === user.userId &&
       LEAD_PROJECT_ENGINEER_PERMISSIONS.has(permission)
     ) {

@@ -68,7 +68,26 @@ describe('createProjectRequestSchema', () => {
     const result = createProjectRequestSchema.safeParse({ projectNumber: '70001', name: 'X' });
     expect(result.success).toBe(false);
     const fields = result.error!.issues.map((issue) => issue.path.join('.'));
-    expect(fields).toEqual(expect.arrayContaining(['client', 'leadProjectEngineerUserId']));
+    expect(fields).toEqual(['client']);
+  });
+
+  it('MM-AO04: a lead is optional; a nominee or self-appointment, never both', () => {
+    const base = { projectNumber: '70001', name: 'X', client: 'Example Client' };
+    expect(createProjectRequestSchema.parse(base)).toMatchObject({ appointSelfAsLead: false });
+    const nominee = '00000000-0000-4000-8000-000000000101';
+    expect(
+      createProjectRequestSchema.parse({
+        ...base,
+        leadNomineeUserId: nominee,
+        nominationNote: ' ',
+      }),
+    ).toMatchObject({ leadNomineeUserId: nominee, nominationNote: null });
+    const both = createProjectRequestSchema.safeParse({
+      ...base,
+      leadNomineeUserId: nominee,
+      appointSelfAsLead: true,
+    });
+    expect(both.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['leadNomineeUserId']);
   });
 });
 
@@ -77,6 +96,7 @@ describe('projects list query (MM-T35)', () => {
     const query = projectListQuerySchema.parse({});
     expect(query).toEqual({
       mine: false,
+      waitingForLead: false,
       sort: 'number',
       page: 1,
       pageSize: PROJECT_LIST_PAGE_SIZE_DEFAULT,

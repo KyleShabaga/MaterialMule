@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { positionSchema } from './profile';
-import { PROJECT_INVOLVEMENTS } from './project-access';
+import { PROJECT_INVOLVEMENTS, leadNominationSchema, nominationNoteSchema } from './project-access';
 
 // Projects and test holes for receiving (MM-T08). The API and the web app share these so both
 // trim and compare names the same way the database does (project_number_normalized and
@@ -67,7 +67,8 @@ export const projectSummarySchema = z.object({
   projectNumber: z.string(),
   name: z.string(),
   client: z.string(),
-  leadProjectEngineer: staffOptionSchema,
+  /** Null while the project waits for a Lead Project Engineer (D02, MM-AO04). */
+  leadProjectEngineer: staffOptionSchema.nullable(),
 });
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 
@@ -77,14 +78,28 @@ export const projectSearchResponseSchema = z.array(projectSummarySchema);
 export const PROJECT_SEARCH_DEFAULT_LIMIT = 10;
 export const PROJECT_SEARCH_MAX_LIMIT = 10;
 
-/** `POST /api/projects` body. `receiverUserId` is the receiver selected in the draft, if any. */
-export const createProjectRequestSchema = z.object({
-  projectNumber: projectNumberSchema,
-  name: trimmedText('Project name', 200),
-  client: trimmedText('Client', 200),
-  leadProjectEngineerUserId: staffId('Lead Project Engineer'),
-  receiverUserId: z.uuid().nullish(),
-});
+/**
+ * `POST /api/projects` body. `receiverUserId` is the receiver selected in the draft, if any.
+ *
+ * Lead (MM-AO04, D01/D02): the creator may nominate a Lead Project Engineer (`leadNomineeUserId`,
+ * a suggestion for an admin to confirm that grants nothing), or leave it empty. Only a person
+ * holding "Can create and lead projects" may instead appoint themselves (`appointSelfAsLead`),
+ * and only while creating. Otherwise the project is saved waiting for a lead.
+ */
+export const createProjectRequestSchema = z
+  .object({
+    projectNumber: projectNumberSchema,
+    name: trimmedText('Project name', 200),
+    client: trimmedText('Client', 200),
+    leadNomineeUserId: z.uuid({ error: 'Choose a staff member' }).nullish(),
+    nominationNote: nominationNoteSchema,
+    appointSelfAsLead: z.boolean().default(false),
+    receiverUserId: z.uuid().nullish(),
+  })
+  .refine((value) => !(value.appointSelfAsLead && value.leadNomineeUserId), {
+    path: ['leadNomineeUserId'],
+    message: 'Either lead the project yourself or nominate someone, not both',
+  });
 export type CreateProjectRequest = z.input<typeof createProjectRequestSchema>;
 
 export const testHoleSchema = z.object({
@@ -182,6 +197,11 @@ export const projectListQuerySchema = z.object({
    * Lead Project Engineer, team member, reviewer, acceptance delegate or report issuer.
    */
   mine: z.preprocess(queryBoolean, z.boolean({ error: 'must be true or false' }).default(false)),
+  /** Only projects with no effective Lead Project Engineer (D02, MM-AO04). */
+  waitingForLead: z.preprocess(
+    queryBoolean,
+    z.boolean({ error: 'must be true or false' }).default(false),
+  ),
   sort: z.preprocess(
     blankParam,
     z.enum(PROJECT_LIST_SORTS, { error: 'must be number, name or last_receipt' }).default('number'),
@@ -254,6 +274,8 @@ export const projectDetailSchema = projectSummarySchema.extend({
   version: z.number(),
   /** True once any receipt exists: the number is printed on labels. */
   numberLocked: z.boolean(),
+  /** The pending Lead Project Engineer nomination, if any (D01): it grants nothing. */
+  leadNomination: leadNominationSchema.nullable(),
   /** What the signed-in user may change (the server checks again on save). */
   canEdit: z.boolean(),
   canChangeLeadProjectEngineer: z.boolean(),
@@ -294,7 +316,8 @@ export const updateProjectRequestSchema = z.object({
         .nullable(),
     )
     .optional(),
-  leadProjectEngineerId: staffId('Lead Project Engineer').optional(),
+  /** Admin only, with a reason; null removes the lead so the project waits for one (D02). */
+  leadProjectEngineerId: staffId('Lead Project Engineer').nullable().optional(),
   reason: z.preprocess(
     blankParam,
     z

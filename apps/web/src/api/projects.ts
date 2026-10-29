@@ -9,6 +9,8 @@ import {
   testHoleSchema,
   validationErrorResponseSchema,
   messagesByField,
+  staffGrantsSchema,
+  type StaffGrants,
   type BulkGroupSummary,
   type CreateProjectRequest,
   type CreateTestHoleRequest,
@@ -83,7 +85,26 @@ async function postCreate<T>(
       return { kind: 'invalid', fieldErrors: messagesByField(parsed.data.errors) };
     }
   }
+  if (response.status === 403) {
+    const body = (await response.json().catch(() => null)) as { code?: string } | null;
+    // MM-AO04: leading a new project yourself needs "Can create and lead projects".
+    if (body?.code === 'self_appointment_not_permitted') {
+      return {
+        kind: 'invalid',
+        fieldErrors: {
+          appointSelfAsLead: [
+            'You don’t hold “Can create and lead projects”. Nominate a lead instead, or leave it for an admin.',
+          ],
+        },
+      };
+    }
+  }
   throw new ApiError(response.status);
+}
+
+/** The signed-in person's own grants (MM-AO03), e.g. "Can create and lead projects". */
+export function fetchMyGrants(): Promise<StaffGrants> {
+  return getJson('/api/me/grants', (body) => staffGrantsSchema.parse(body));
 }
 
 export function createProject(input: CreateProjectRequest): Promise<CreateResult<ProjectSummary>> {

@@ -73,6 +73,7 @@ export function ProjectsPage() {
   const totalPages = page ? Math.max(1, Math.ceil(page.total / page.pageSize)) : 1;
   const linkState: ProjectLinkState = { from: location.search };
   const mineId = useId();
+  const waitingId = useId();
   const sortId = useId();
 
   /** "Only mine" is remembered per person (MM-T35). */
@@ -105,6 +106,15 @@ export function ProjectsPage() {
             Only mine
           </label>
         ) : null}
+        <label className="checkbox only-mine" htmlFor={waitingId}>
+          <input
+            id={waitingId}
+            type="checkbox"
+            checked={query.waitingForLead}
+            onChange={(event) => update({ waitingForLead: event.target.checked })}
+          />
+          Waiting for a lead
+        </label>
         <div className="form-field">
           <label htmlFor={sortId}>Sort by</label>
           <select
@@ -128,7 +138,7 @@ export function ProjectsPage() {
       </div>
 
       <div className="inventory-summary">
-        {query.search || query.mine ? (
+        {query.search || query.mine || query.waitingForLead ? (
           <ul className="chips" aria-label="Active filters">
             {query.search ? (
               <li>
@@ -137,6 +147,18 @@ export function ProjectsPage() {
                   type="button"
                   aria-label={`Remove filter Search: ${query.search}`}
                   onClick={() => update({ search: undefined })}
+                >
+                  ×
+                </button>
+              </li>
+            ) : null}
+            {query.waitingForLead ? (
+              <li>
+                Waiting for a lead
+                <button
+                  type="button"
+                  aria-label="Remove filter Waiting for a lead"
+                  onClick={() => update({ waitingForLead: false })}
                 >
                   ×
                 </button>
@@ -168,7 +190,7 @@ export function ProjectsPage() {
       {page ? (
         page.total === 0 ? (
           <EmptyState>
-            {query.search || query.mine
+            {query.search || query.mine || query.waitingForLead
               ? 'No projects match this search.'
               : 'No projects yet. Projects are added while receiving samples.'}
           </EmptyState>
@@ -263,10 +285,13 @@ export function ProjectsPage() {
 }
 
 function PersonInitials({ project }: { project: ProjectListItem }) {
+  const lead = project.leadProjectEngineer;
+  // D02 (MM-AO04): a project can wait for a lead; receiving carries on meanwhile.
+  if (!lead) return <span className="badge badge-warning">Waiting for a lead</span>;
   return (
     <>
-      {project.leadProjectEngineer.displayName}
-      {project.leadProjectEngineer.initials ? ` (${project.leadProjectEngineer.initials})` : ''}
+      {lead.displayName}
+      {lead.initials ? ` (${lead.initials})` : ''}
     </>
   );
 }

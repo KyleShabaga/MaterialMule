@@ -642,9 +642,8 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
   (D15; optional in storage until MM-AO03's API sends them, never invented for a grant; the grant
   reason is immutable). `app_user` gains `job_title_override` with who/when set (D16): the admin
   override takes precedence for display, the Graph `job_title` is kept, neither grants anything.
-- **Unchanged, by decision.** `project.lead_project_engineer_user_id` stays the one effective lead
-  and stays required at creation: unassigned projects (D02) and nomination-first creation arrive
-  with MM-AO04 as a forward migration together with the DTO, join and receiving changes.
+- **Unchanged, by decision.** `project.lead_project_engineer_user_id` stays the one effective lead.
+  Unassigned projects (D02) and nomination-first creation arrived with MM-AO04 (`0003`, below).
   `acceptance_delegation` stays the only acceptance-delegate store; grants survive a lead change
   (D08). Concrete Lab Manager grants (D13) are deferred to C02/AO08.
 - **Compatibility precedence and legacy reads.** No eligibility, reviewer assignment or issuer
@@ -666,6 +665,20 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
   create-and-lead capability), each with the reason "Account re-enabled: technical grants need
   revalidation (D08)", the re-enabling admin and its own audit event; `staff.enabled` records how
   many. Team membership carries no authority and stays. No column was needed.
+
+## Lead appointment (MM-AO04, `0003_project_lead_appointment.sql`)
+
+- `project.lead_project_engineer_user_id` is now nullable (D02): a project can be saved and
+  receive samples with no Lead Project Engineer. It stays the one effective lead; a pending
+  `project_lead_nomination` never fills it. `project_waiting_for_lead_idx` (partial) backs the
+  "Waiting for a lead" filter. Every read joins the lead with a LEFT JOIN.
+- `action_item` gains kind `lead_appointment` (entity type `project`, target role `admin`,
+  resolution `appointed`); `action_item_routed_to` routes admin-targeted items to admins. The
+  existing one-open-request-per-entity index keeps one open intake request per project.
+- A `closure_request` may have no target while its project has no lead: routing follows the
+  project's current lead, so it reaches the next lead when one is appointed.
+- Nominations use the MM-AO02 `project_lead_nomination` table unchanged: one pending per
+  project, decided once (`confirmed`, `rejected`, `withdrawn`) with who, when and a reason.
 
 ## Project access API (MM-AO03, `0002_project_access.sql`)
 

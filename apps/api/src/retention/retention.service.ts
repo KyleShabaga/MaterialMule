@@ -102,7 +102,7 @@ export class RetentionService {
     const { rows } = await this.database.pool.query<{
       id: string;
       project_id: string;
-      lead_project_engineer_user_id: string;
+      lead_project_engineer_user_id: string | null;
     }>(
       `SELECT su.id, su.project_id, p.lead_project_engineer_user_id FROM storage_unit su
        JOIN project p ON p.id = su.project_id
@@ -180,7 +180,7 @@ export class RetentionService {
         release_idempotency_key: string | null;
         release_request_hash: string | null;
         released_by_user_id: string | null;
-        lead_project_engineer_user_id: string;
+        lead_project_engineer_user_id: string | null;
         scope: string;
       }>(
         `SELECT d.project_id, d.version, d.released_at, d.release_idempotency_key,
@@ -376,7 +376,7 @@ export class RetentionService {
           decided_by_user_id: string | null;
           hold_id: string | null;
           extension_id: string | null;
-          lead_project_engineer_user_id: string;
+          lead_project_engineer_user_id: string | null;
         }>(
           `SELECT d.project_id, d.kind, d.scope, d.retain_until::text AS retain_until,
                   d.extend_months, d.reason, d.status, d.decision_idempotency_key,
@@ -597,9 +597,9 @@ export class RetentionService {
     db: Pick<PoolClient, 'query'>,
     projectId: string,
     lock: '' | 'FOR SHARE' | 'FOR NO KEY UPDATE' = '',
-  ): Promise<{ id: string; lead_project_engineer_user_id: string }> {
+  ): Promise<{ id: string; lead_project_engineer_user_id: string | null }> {
     if (!UUID_PATTERN.test(projectId)) throw new NotFoundException({ code: 'project_not_found' });
-    const { rows } = await db.query<{ id: string; lead_project_engineer_user_id: string }>(
+    const { rows } = await db.query<{ id: string; lead_project_engineer_user_id: string | null }>(
       `SELECT id, lead_project_engineer_user_id FROM project WHERE id = $1 ${lock}`,
       [projectId],
     );

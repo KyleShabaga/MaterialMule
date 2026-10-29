@@ -70,7 +70,8 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       projectNumber,
       name: `Example works ${projectNumber}`,
       client: 'Example Client',
-      leadProjectEngineerUserId: users.pe,
+      // MM-AO04: a nomination for an admin to confirm; it makes nobody the lead.
+      leadNomineeUserId: users.pe,
       ...overrides,
     };
   }
@@ -117,7 +118,8 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
         projectNumber: '67997',
         name: 'West Pine Creek Ph.3',
         client: 'Jacobs Example',
-        leadProjectEngineer: { id: users.pe, displayName: 'User pe', initials: 'PE' },
+        // Nominated, not appointed (MM-AO04): waiting for an admin to confirm.
+        leadProjectEngineer: null,
       });
     });
 
@@ -169,7 +171,8 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
           projectNumber: 'LAB-7001',
           name: 'Lab works',
           client: 'Example Client',
-          leadProjectEngineerUserId: users.pe,
+          leadProjectEngineerUserId: null,
+          leadNomineeUserId: users.pe,
         },
       });
     });
@@ -202,7 +205,7 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       );
     });
 
-    it('AC5/T4: missing client or Lead Project Engineer fails with field-level errors', async () => {
+    it('AC5/T4: a missing client fails with field-level errors; a lead is optional (MM-AO04)', async () => {
       const response = await post('/api/projects', cookies.tech!, {
         projectNumber: '70002',
         name: 'Example',
@@ -211,22 +214,22 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       expect(response.status).toBe(400);
       const body = validationErrorResponseSchema.parse(response.body);
       const byField = messagesByField(body.errors);
-      expect(Object.keys(byField).sort()).toEqual(['client', 'leadProjectEngineerUserId']);
+      expect(Object.keys(byField).sort()).toEqual(['client']);
       expect(byField.client).toEqual(['Client is required']);
       expect(JSON.stringify(body)).not.toContain('70002');
     });
 
-    it('T4: rejects a Lead Project Engineer who is not active staff', async () => {
-      for (const leadProjectEngineerUserId of [users.lab, users.pend, users.gone]) {
+    it('T4: rejects a nominee who is not active staff', async () => {
+      for (const leadNomineeUserId of [users.lab, users.pend, users.gone]) {
         const response = await post(
           '/api/projects',
           cookies.tech!,
-          newProject('70003', { leadProjectEngineerUserId }),
+          newProject('70003', { leadNomineeUserId }),
         );
         expect(response.status).toBe(400);
         expect(
           messagesByField(validationErrorResponseSchema.parse(response.body).errors),
-        ).toHaveProperty('leadProjectEngineerUserId');
+        ).toHaveProperty('leadNomineeUserId');
       }
       const { rows } = await db.pool.query(`SELECT 1 FROM project WHERE project_number = '70003'`);
       expect(rows).toHaveLength(0);

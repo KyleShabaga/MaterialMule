@@ -277,9 +277,9 @@ export class ActionItemsService {
 
   private async leadProjectEngineerOf(projectIds: string[], db: Db = this.database.pool) {
     const unique = [...new Set(projectIds)];
-    const map = new Map<string, string>();
+    const map = new Map<string, string | null>();
     if (unique.length === 0) return map;
-    const { rows } = await db.query<{ id: string; lead_project_engineer_user_id: string }>(
+    const { rows } = await db.query<{ id: string; lead_project_engineer_user_id: string | null }>(
       'SELECT id, lead_project_engineer_user_id FROM project WHERE id = ANY($1::uuid[])',
       [unique],
     );
@@ -291,7 +291,7 @@ export class ActionItemsService {
   private isPersonalRecipient(
     user: AuthUser,
     item: { kind: string; assigned_user_id: string | null },
-    leadProjectEngineerUserId: string | undefined,
+    leadProjectEngineerUserId: string | null | undefined,
   ): boolean {
     if (item.assigned_user_id) return item.assigned_user_id === user.userId;
     return item.kind === 'closure_request' && leadProjectEngineerUserId === user.userId;
@@ -300,7 +300,7 @@ export class ActionItemsService {
   private mayReassign(
     user: AuthUser,
     row: { kind: string; status: string; assigned_user_id: string | null },
-    leadProjectEngineerUserId: string | undefined,
+    leadProjectEngineerUserId: string | null | undefined,
   ): boolean {
     return (
       row.status === 'open' &&
@@ -317,7 +317,7 @@ interface ItemFacts {
   target_role: string | null;
   project_id: string;
   assigned_user_id: string | null;
-  lead_project_engineer_user_id: string;
+  lead_project_engineer_user_id: string | null;
 }
 
 /**
@@ -327,8 +327,10 @@ interface ItemFacts {
  * Active personal (or fixture) accounts only, never LAB; the current assignee is left out.
  */
 async function eligiblePeople(db: Db, item: ItemFacts): Promise<PersonSnapshot[]> {
-  const lm = item.kind !== 'closure_request';
-  const leadProjectEngineer = item.kind !== 'correction';
+  // MM-AO04: a lead appointment goes to admins only.
+  const admins = item.kind === 'lead_appointment';
+  const lm = item.kind !== 'closure_request' && !admins;
+  const leadProjectEngineer = item.kind !== 'correction' && !admins;
   const { rows } = await db.query<{
     id: string;
     official_initials: string | null;
@@ -340,9 +342,11 @@ async function eligiblePeople(db: Db, item: ItemFacts): Promise<PersonSnapshot[]
        AND u.id IS DISTINCT FROM $4
        AND (($1 AND EXISTS (SELECT 1 FROM role_assignment r
                             WHERE r.user_id = u.id AND r.role = 'lab_manager'))
-            OR ($2 AND u.id = $3))
+            OR ($2 AND u.id = $3)
+            OR ($5 AND EXISTS (SELECT 1 FROM role_assignment r
+                               WHERE r.user_id = u.id AND r.role = 'admin')))
      ORDER BY u.display_name, u.id`,
-    [lm, leadProjectEngineer, item.lead_project_engineer_user_id, item.assigned_user_id],
+    [lm, leadProjectEngineer, item.lead_project_engineer_user_id, item.assigned_user_id, admins],
   );
   return rows.map((row) => ({
     userId: row.id,

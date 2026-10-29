@@ -42,10 +42,16 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
   await form.getByLabel('Project name').fill('Example Ridge');
   await form.getByLabel('Client').fill('Example Client');
-  await form.getByLabel('Lead Project Engineer').selectOption({ label: 'PE · Pat Example' });
+  await form
+    .getByLabel('Nominate a Lead Project Engineer (optional)')
+    .selectOption({ label: 'PE · Pat Example' });
   await form.getByRole('button', { name: 'Save project' }).click();
   await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
   await expect(page.getByLabel('Project name')).toHaveValue('Example Ridge');
+  // MM-AO04: a nomination, not an appointment; receiving carries on.
+  await expect(page.getByLabel('Lead Project Engineer')).toHaveValue(
+    'Waiting for a Lead Project Engineer',
+  );
 
   // A new hole in the new project.
   await holes.fill('TH26-03');

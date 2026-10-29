@@ -34,6 +34,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | test.review                                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | project_access.read (AO03)                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| project_lead.nominate (AO04, D01)           |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | lab_program.amend (T26)                     |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | test.cancel_request (T26)                   |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
@@ -197,6 +198,61 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 - Edits are optimistic (`version`; a stale one gets 409 `version_conflict` with the current
   project) and audited as `project.updated` with only the changed fields before/after and the
   reason.
+
+## Project creation and lead appointment (MM-AO04)
+
+Owner decisions D01, D02, D08 and D10, with Kyle's AO04 answers of 2026-10-29: admins get an
+inbox item and a list filter; the creator, then any staff member, may nominate; admins appoint
+directly and may remove a lead; closure requests on a project with no lead wait for the next lead.
+
+| Route                                                                                   | Policy                                         |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `POST /api/projects {…, leadNomineeUserId?, nominationNote?, appointSelfAsLead?}`       | `project.create` (LAB included)                |
+| `GET /api/projects?waitingForLead=true`                                                 | `inventory.read`                               |
+| `GET /api/projects/:projectId/lead-nominations`                                         | `project_access.read` (personal accounts)      |
+| `POST /api/projects/:projectId/lead-nominations {nomineeUserId, note?, idempotencyKey}` | `project_lead.nominate` (personal accounts)    |
+| `POST /api/projects/:projectId/lead-nominations/:id/confirm {reason}`                   | `project.lead_project_engineer.change` (admin) |
+| `POST /api/projects/:projectId/lead-nominations/:id/reject {reason}`                    | `project.lead_project_engineer.change` (admin) |
+| `POST /api/projects/:projectId/lead-nominations/:id/withdraw {reason}`                  | `project_lead.nominate`; the nominator only    |
+| `PATCH /api/projects/:id {leadProjectEngineerId: <id> or null, reason}`                 | `project.lead_project_engineer.change` (admin) |
+
+- **Creating grants nothing** (AC1). Whoever adds a project, LAB included (for the selected
+  person), may nominate a Lead Project Engineer or leave it empty. The project is saved with no
+  lead either way and receiving carries on (D02). A nomination is a suggestion: it powers
+  nothing for the creator or the nominee until an admin confirms it.
+- **Self-appointment** (D01 option B): only a personal account holding an active "Can create and
+  lead projects" grant may set `appointSelfAsLead`, and only while creating; anyone else gets 403
+  `self_appointment_not_permitted` and nothing is saved. The grant row is locked, so a
+  concurrent revocation commits wholly before or after. Audited as `project.lead_appointed`
+  (`via: self_appointment`). The capability never lets its holder appoint anyone else.
+- **Nominating later:** any active personal staff member, on a project with no lead (422
+  `lead_already_appointed`) and no pending nomination (422 `nomination_pending`). The nominee
+  must be active staff (422 `invalid_recipient`). LAB nominates only while creating.
+- **Deciding:** an admin confirms (the nominee becomes the one effective lead in the same
+  transaction; 409 `lead_already_appointed` if one was appointed meanwhile, 422
+  `invalid_recipient` if the nominee is no longer active) or rejects; the nominator may
+  withdraw. Every decision needs a reason (D15) and is recorded once on the nomination (409
+  `nomination_decided` for a second, different decision; an exact retry returns the current
+  state) and in its audit event. Confirmation is also audited as `project.lead_appointed`.
+- **Direct appointment and removal:** an admin may set or change the lead with `PATCH` and a
+  reason (as before), or remove it (`null`), which leaves the project waiting for a lead. A direct
+  appointment closes a pending nomination: confirmed when it named that person, otherwise
+  rejected with the admin's reason. Grants survive any of this (D08), with their original
+  grantors.
+- **Admin intake (D02):** while a project has no lead it has one open "Lead appointment" action
+  request (`kind: lead_appointment`), in every admin's inbox and email (if they opted in), linking
+  to the project's Lead section. Appointing a lead resolves it (`appointed`); removing a lead opens
+  a new one. Lab Managers may reassign it to another admin (`action_item.reassign`).
+- **No lead (D02):** decisions only the lead can make (closing a program, managing delegates,
+  issuers or the team as lead, approving disposal as lead…) are refused, and capabilities report
+  them as `blocked.code: no_lead_project_engineer`. Lab Manager decisions and existing
+  delegations keep working as before; there is no creator or admin fallback. A closure request is
+  still saved and shows "Waiting for a Lead Project Engineer"; it reaches the lead's inbox as soon
+  as one is appointed, because lead-routed requests follow the current lead. Rerouting of other
+  open work (D10) is MM-AO07.
+- **Lock order (D09):** the project (FOR UPDATE), then the accounts (FOR SHARE), then the
+  nomination (FOR UPDATE). Two decisions, or a decision and a direct appointment, serialise on
+  the project: the first to commit wins.
 
 ## Team & permissions (MM-AO03)
 

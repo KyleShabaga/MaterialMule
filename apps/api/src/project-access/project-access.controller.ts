@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
 import type {
+  ProjectLeadNominations,
   ProjectCapabilities,
   ProjectReportIssuers,
   ProjectReviewers,
@@ -10,6 +11,7 @@ import type {
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
+import { LeadNominationsService } from './lead-nominations.service.js';
 import { activeScopes, ProjectAccessService } from './project-access.service.js';
 import { StaffGrantsService } from './staff-grants.service.js';
 
@@ -30,8 +32,68 @@ import { StaffGrantsService } from './staff-grants.service.js';
 export class ProjectAccessController {
   constructor(
     private readonly access: ProjectAccessService,
+    private readonly nominations: LeadNominationsService,
     private readonly database: DatabaseService,
   ) {}
+
+  // Lead Project Engineer nominations (MM-AO04, D01): nominate (any personal account, project with
+  // no lead), confirm and reject (admin, `project.lead_project_engineer.change`), withdraw (the
+  // nominator). Each decision needs `{reason}`.
+
+  @Get('projects/:projectId/lead-nominations')
+  @RequirePermission('project_access.read')
+  leadNominations(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectLeadNominations> {
+    return this.nominations.list(projectId, user);
+  }
+
+  @Post('projects/:projectId/lead-nominations')
+  @RequirePermission('project_lead.nominate')
+  nominate(
+    @Param('projectId') projectId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectLeadNominations> {
+    return this.nominations.nominate(projectId, body, user);
+  }
+
+  @Post('projects/:projectId/lead-nominations/:id/confirm')
+  @HttpCode(200)
+  @RequirePermission('project.lead_project_engineer.change')
+  confirmNomination(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectLeadNominations> {
+    return this.nominations.confirm(projectId, id, body, user);
+  }
+
+  @Post('projects/:projectId/lead-nominations/:id/reject')
+  @HttpCode(200)
+  @RequirePermission('project.lead_project_engineer.change')
+  rejectNomination(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectLeadNominations> {
+    return this.nominations.reject(projectId, id, body, user);
+  }
+
+  @Post('projects/:projectId/lead-nominations/:id/withdraw')
+  @HttpCode(200)
+  @RequirePermission('project_lead.nominate')
+  withdrawNomination(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectLeadNominations> {
+    return this.nominations.withdraw(projectId, id, body, user);
+  }
 
   @Get('review-scopes')
   @RequirePermission('project_access.read')

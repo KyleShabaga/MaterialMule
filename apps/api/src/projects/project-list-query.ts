@@ -43,6 +43,10 @@ export function buildProjectListQuery(query: ProjectListQuery, userId: string): 
     user = param(userId);
     where.push(`p.id IN (SELECT i.project_id FROM (${involvementSql(user)}) i)`);
   }
+  if (query.waitingForLead) {
+    // D02 (MM-AO04): projects with no effective Lead Project Engineer (partial index).
+    where.push('p.lead_project_engineer_user_id IS NULL');
+  }
   const listParams = [...params];
   const userParam = user ?? `$${listParams.push(userId)}`;
 
