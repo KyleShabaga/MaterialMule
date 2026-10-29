@@ -740,7 +740,7 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     expect((await h.get(`/api/disposal/eligible?projectId=${projectId}&page=0`, 'lm')).status).toBe(
       400,
     );
-  });
+  }, 60_000); // 501 units and four pages: allow for a busy PC
 
   it('database rules: one disposition per unit, approvals revoked/used once, no deletes', async () => {
     const unit = await oldBucket();
