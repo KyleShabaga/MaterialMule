@@ -646,7 +646,8 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
 - **Unchanged, by decision.** `project.lead_project_engineer_user_id` stays the one effective lead.
   Unassigned projects (D02) and nomination-first creation arrived with MM-AO04 (`0003`, below).
   `acceptance_delegation` stays the only acceptance-delegate store; grants survive a lead change
-  (D08). Concrete Lab Manager grants (D13) are deferred to C02/AO08.
+  (D08). Concrete Lab Manager grants (D13) are deferred to C02; MM-AO08 defined only the permission rule
+  (`concrete_lab_manager`, docs/permissions.md "Concrete permission contract").
 - **Compatibility precedence and legacy reads.** No eligibility, reviewer assignment or issuer
   grant is derived from job titles, positions or delegations (proven in
   `schema-assignments.test.ts`, AC3). The single legacy `project.review_engineer_user_id` is

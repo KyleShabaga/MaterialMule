@@ -21,58 +21,64 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 
 ## Matrix
 
-| Permission                                  | LAB | Any internal user | Lab Manager | Admin | Lead Project Engineer | Acceptance delegate |
-| ------------------------------------------- | :-: | :---------------: | :---------: | :---: | :-------------------: | :-----------------: |
-| receipt.confirm / receipt.draft             |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| project.create / test_hole.create           |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| inventory.read / label.print                |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| storage_unit.move (#21)                     |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| lab_program.read / lab_program.manage (T23) |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| storage_unit.correct (D45–D47)              |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| test.progress (D08, T24)                    |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| test.review                                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| project_access.read (AO03)                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| project_lead.nominate (AO04, D01)           |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| lab_program.amend (T26)                     |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| test.cancel_request (T26)                   |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| storage_unit.tested_removal (T36)           |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| action_item.read (T27)                      |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| retention.request (T29)                     |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |                       |                     |
-| program.priority.set (D50)                  |     |                   |      ✓      |       |           ✓           |                     |
-| program.reopen                              |     |                   |      ✓      |       |           ✓           |                     |
-| test.cancel (D07)                           |     |                   |      ✓      |       |           ✓           |                     |
-| test.correction_done (T25)                  |     |                   |      ✓      |       |                       |                     |
-| retention.manage (D05)                      |     |                   |      ✓      |       |           ✓           |                     |
-| disposal.approve (D19)                      |     |                   |      ✓      |       |           ✓           |                     |
-| settings.drafts.manage (MM-T45)             |     |                   |      ✓      |   ✓   |                       |                     |
-| location.manage (MM-T37)                    |     |                   |      ✓      |   ✓   |                       |                     |
-| action_item.reassign (T27)                  |     |                   |      ✓      |   ✓   |                       |                     |
-| test.accept (D04)                           |     |                   |             |       |           ✓           |          ✓          |
-| program.close (D06)                         |     |                   |             |       |           ✓           |                     |
-| acceptance_delegation.manage                |     |                   |             |       |           ✓           |                     |
-| staff.manage / session.revoke               |     |                   |             |   ✓   |                       |                     |
-| printer.manage (T15)                        |     |                   |             |   ✓   |                       |                     |
-| project.edit (T35)                          |     |                   |             |   ✓   |           ✓           |                     |
-| project_team.manage (AO03, D04)             |     |                   |             |   ✓   |           ✓           |                     |
-| project_reviewer.manage (AO03, D04/D05)     |     |                   |             |   ✓   |           ✓           |                     |
-| report_issuer.manage (AO03, D06)            |     |                   |             |       |           ✓           |                     |
-| report.issue (AO03, D07)                    |     |                   |             |       |           ✓           |                     |
-| reviewer_eligibility.manage (AO03, D05)     |     |                   |             |   ✓   |                       |                     |
-| staff_capability.manage (AO03, D01)         |     |                   |             |   ✓   |                       |                     |
-| project.lead_project_engineer.change (T35)  |     |                   |             |   ✓   |                       |                     |
-| system.status.read (T21)                    |     |                   |             |   ✓   |                       |                     |
+| Permission                                                               | LAB | Any internal user | Lab Manager | Admin | Lead Project Engineer | Acceptance delegate |
+| ------------------------------------------------------------------------ | :-: | :---------------: | :---------: | :---: | :-------------------: | :-----------------: |
+| receipt.confirm / receipt.draft                                          |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| project.create / test_hole.create                                        |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| inventory.read / label.print                                             |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.move (#21)                                                  |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| lab_program.read / lab_program.manage (T23)                              |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.correct (D45–D47)                                           |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test.progress (D08, T24)                                                 |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| lab_comment.write (T24)                                                  |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test.review                                                              |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| acceptance_delegation.read (T25)                                         |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| project_access.read (AO03)                                               |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| project_lead.nominate (AO04, D01)                                        |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| lab_program.amend (T26)                                                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test.cancel_request (T26)                                                |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| program.close_request (T26)                                              |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.dispose_scan (#24)                                          |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| location_conflict.resolve (D29)                                          |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.tested_removal (T36)                                        |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| action_item.read (T27)                                                   |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| retention.request (T29)                                                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test_catalog.manage (D37)                                                |     |                   |      ✓      |   ✓   |                       |                     |
+| program.priority.set (D50)                                               |     |                   |      ✓      |       |           ✓           |                     |
+| program.reopen                                                           |     |                   |      ✓      |       |           ✓           |                     |
+| test.cancel (D07)                                                        |     |                   |      ✓      |       |           ✓           |                     |
+| test.correction_done (T25)                                               |     |                   |      ✓      |       |                       |                     |
+| retention.manage (D05)                                                   |     |                   |      ✓      |       |           ✓           |                     |
+| disposal.approve (D19)                                                   |     |                   |      ✓      |       |           ✓           |                     |
+| settings.drafts.manage (MM-T45)                                          |     |                   |      ✓      |   ✓   |                       |                     |
+| location.manage (MM-T37)                                                 |     |                   |      ✓      |   ✓   |                       |                     |
+| action_item.reassign (T27)                                               |     |                   |      ✓      |   ✓   |                       |                     |
+| test.accept (D04)                                                        |     |                   |             |       |           ✓           |          ✓          |
+| program.close (D06)                                                      |     |                   |             |       |           ✓           |                     |
+| acceptance_delegation.manage                                             |     |                   |             |       |           ✓           |                     |
+| staff.manage / session.revoke                                            |     |                   |             |   ✓   |                       |                     |
+| printer.manage (T15)                                                     |     |                   |             |   ✓   |                       |                     |
+| project.edit (T35)                                                       |     |                   |             |   ✓   |           ✓           |                     |
+| project_team.manage (AO03, D04)                                          |     |                   |             |   ✓   |           ✓           |                     |
+| project_reviewer.manage (AO03, D04/D05)                                  |     |                   |             |   ✓   |           ✓           |                     |
+| report_issuer.manage (AO03, D06)                                         |     |                   |             |       |           ✓           |                     |
+| report.issue (AO03, D07)                                                 |     |                   |             |       |           ✓           |                     |
+| concrete_mix.manage / concrete_mix.approve (AO08, planned)               |     |                   |             |       |           ✓           |                     |
+| concrete.review (AO08, planned; + designated reviewer)                   |     |                   |             |       |           ✓           |                     |
+| concrete_failure_schedule.approve (AO08, planned; + designated reviewer) |     |                   |             |       |           ✓           |                     |
+| concrete_hold.manage (AO08, planned; + concrete LM grant)                |     |                   |             |       |           ✓           |                     |
+| reviewer_eligibility.manage (AO03, D05)                                  |     |                   |             |   ✓   |                       |                     |
+| staff_capability.manage (AO03, D01)                                      |     |                   |             |   ✓   |                       |                     |
+| project.lead_project_engineer.change (T35)                               |     |                   |             |   ✓   |                       |                     |
+| system.status.read (T21)                                                 |     |                   |             |   ✓   |                       |                     |
 
 "Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account. `report.issue` is also held
 by an active, unexpired Authorized report issuer grant for that project and report scope (D06); no
 report route uses it yet. Team membership, reviewer assignment, job title and position add no
-permission to this table.
+permission to this table. The `concrete_*` rows are the MM-AO08 contract: no route checks them yet
+(see "Concrete permission contract" below for the designated-reviewer and concrete Lab Manager
+sources they also have).
 
 ## Sessions
 
@@ -393,6 +399,54 @@ retention placement/release/decisions and disposal approval/revocation under thi
 before the units, the order removal and retention placement already used, so the three can't
 deadlock. Requests that only route work to the lead (closure and cancellation requests) take no
 authority and are unchanged; open-task rerouting (D10) is MM-AO07.
+
+## Concrete permission contract (MM-AO08)
+
+The shared authorization contract for concrete work, in `apps/api/src/auth/policy.ts` with its
+matrix in `policy.test.ts`. **Planned, not implemented:** no concrete route, screen or table exists
+yet (C01–C08 are not started), so nothing here is enforced by an endpoint, and none of these actions
+appears in a project's capability list (`GET …/capabilities`, Team & Permissions) until its
+owning card adds the route (owner decision 2026-10-29, AO08 Q2). Each owning card loads the
+project facts below from the database, checks `can()` under the D09 lock order, and adds its row
+to the capability list in the same change.
+
+| Permission                          | Granted by                                                                                    | Owner card                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `concrete_mix.manage`               | the destination project's Lead Project Engineer only                                          | C03 (create, edit, copy)                           |
+| `concrete_mix.approve`              | the destination project's Lead Project Engineer only                                          | C03 (approve; D14 revisions)                       |
+| `concrete.review`                   | the project's Lead Project Engineer, or a designated reviewer for the scope                   | C02 adapter, then C04/C07 review routes            |
+| `concrete_failure_schedule.approve` | the project's Lead Project Engineer, or a designated reviewer (strength scope); one is enough | the failure-workflow card after C07                |
+| `concrete_hold.manage`              | the project's Lead Project Engineer, or a Lab Manager holding the project's concrete grant    | C02 (grant storage), then the failed-specimen HOLD |
+| `report.issue` (existing, AO03)     | the Lead Project Engineer, or an Authorized report issuer for the scope                       | the report-lifecycle card (not in C01–C08)         |
+| concrete settings → `project.edit`  | the Lead Project Engineer or an admin (settings only)                                         | C02                                                |
+
+- **Mixes (C03, D14).** Only the destination project's Lead Project Engineer creates, edits,
+  copies and approves mixes: no admin, Lab Manager, reviewer, delegate or issuer fallback, and a
+  project waiting for a lead (D02) has no one who can. D14 (adopted): editing an approved mix makes
+  a new draft revision; the approved version stays effective until the lead approves the revision.
+- **Concrete review (D05, D11).** The project's Lead Project Engineer always holds it on their own
+  project (owner decision 2026-10-29, AO08 Q3), as does a designated reviewer: assigned to the
+  project for that scope, active, and still eligible (`designated_reviewer` source; the loader
+  fills `ProjectContext.designatedReviewerUserIds` for the one scope being checked). One eligible
+  review is enough. A result corrected by a Lab Manager goes to the project's lead for review
+  (D11). Generic lab review (`test.review`) is unchanged.
+- **Failed-specimen schedule change.** The lead or a designated reviewer approves the specified
+  change; one approval is enough.
+- **Failed-specimen HOLD (D13).** Releasing, testing or disposing of a failed-specimen hold needs
+  the project's lead, or the global Lab Manager role **and** the project's explicit concrete grant
+  (`concrete_lab_manager` source, `ProjectContext.concreteLabManagerUserIds`). The role alone or the
+  grant alone is not enough. Grant storage, and its grant/revoke by the lead or an admin with a
+  reason, belong to C02 (AO08 Q1). It is separate from retention holds (`retention.manage`) and
+  geotechnical tested-unit removal (`storage_unit.tested_removal`).
+- **Failure photos** are optional and never block a result; no permission beyond recording the
+  result.
+- **Concrete settings** (tests used, reviewer list) reuse `project.edit`: the lead or an admin
+  (AO08 Q4). Admin authority covers settings only, never mixes. Reviewer assignments stay
+  `project_reviewer.manage` (AO03).
+- **Denied wording** for the owning screens: the existing blocked codes apply —
+  `no_lead_project_engineer` when only the lead could act and there is none, `not_permitted`
+  otherwise, with the sources that could (`CAPABILITY_SOURCE_LABEL`: "Designated reviewer", "Lab
+  Manager with this project’s concrete grant").
 
 ## Receiving Log (MM-T51)
 

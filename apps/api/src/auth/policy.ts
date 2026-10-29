@@ -30,6 +30,17 @@ export interface ProjectContext {
    * the one report scope being checked. The loader filters by scope and expiry.
    */
   reportIssuerUserIds?: string[];
+  /**
+   * Effective designated reviewers (D05) for the one review scope being checked: assigned to
+   * this project for that scope, active, and still eligible for it. The loader filters. Concrete
+   * contract (MM-AO08); filled by the concrete workflow cards (C04/C07) that check it.
+   */
+  designatedReviewerUserIds?: string[];
+  /**
+   * Holders of this project's explicit concrete Lab Manager grant (D13; storage built by C02).
+   * Counts only together with the global lab_manager role.
+   */
+  concreteLabManagerUserIds?: string[];
 }
 
 /**
@@ -43,7 +54,11 @@ export type PermissionSource =
   | 'admin'
   | 'lead_project_engineer'
   | 'acceptance_delegate'
-  | 'report_issuer';
+  | 'report_issuer'
+  // MM-AO08 concrete contract: a designated reviewer for the scope being checked (D05), and the
+  // per-project concrete Lab Manager grant together with the lab_manager role (D13).
+  | 'designated_reviewer'
+  | 'concrete_lab_manager';
 
 export type Permission =
   // Receiving and inventory (LAB may do these)
@@ -110,6 +125,21 @@ export type Permission =
   // only; issuing is the lead's own or an active grant's. No report route uses it yet.
   | 'report_issuer.manage'
   | 'report.issue'
+  // Concrete permission contract (MM-AO08). Planned: no route checks these yet; each owning card
+  // (C03 mixes, C04/C07 review and failure schedules, the HOLD card) enforces its own.
+  // Mixes: the destination project's Lead Project Engineer only, no admin, Lab Manager, reviewer
+  // or delegate fallback (C03; D14 revisions stay drafts until the lead approves).
+  | 'concrete_mix.manage'
+  | 'concrete_mix.approve'
+  // Concrete review: the project's Lead Project Engineer (Kyle 2026-10-29, AO08 Q3) or a
+  // designated reviewer for the scope (D05); one eligible review is enough.
+  | 'concrete.review'
+  // A specified failed-specimen schedule change: Lead Project Engineer OR designated reviewer
+  // (strength scope); one approval is enough.
+  | 'concrete_failure_schedule.approve'
+  // Failed-specimen HOLD release/test/dispose: Lead Project Engineer, or a Lab Manager holding
+  // the project's concrete grant (D13). Separate from retention.manage and tested-unit removal.
+  | 'concrete_hold.manage'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
@@ -227,6 +257,12 @@ const LEAD_PROJECT_ENGINEER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permi
   'project_reviewer.manage',
   'report_issuer.manage',
   'report.issue',
+  // MM-AO08 concrete contract (planned; see the Permission comments).
+  'concrete_mix.manage',
+  'concrete_mix.approve',
+  'concrete.review',
+  'concrete_failure_schedule.approve',
+  'concrete_hold.manage',
 ]);
 
 /** Granted to a project acceptance delegate (D04): acceptance only, never closure. */
@@ -234,6 +270,17 @@ const DELEGATE_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['test
 
 /** Granted by an Authorized report issuer grant for its project and scope (D06): issuing only. */
 const REPORT_ISSUER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['report.issue']);
+
+/** Granted to a designated reviewer for the scope being checked (D05, MM-AO08). */
+const DESIGNATED_REVIEWER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  'concrete.review',
+  'concrete_failure_schedule.approve',
+]);
+
+/** Granted by the project's concrete Lab Manager grant, with the lab_manager role (D13). */
+const CONCRETE_LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  'concrete_hold.manage',
+]);
 
 /** Permissions that need a ProjectContext to be granted through project authority. */
 export const PROJECT_SCOPED: ReadonlySet<Permission> = new Set<Permission>([
@@ -250,6 +297,8 @@ export function possibleSources(permission: Permission): PermissionSource[] {
   if (LEAD_PROJECT_ENGINEER_PERMISSIONS.has(permission)) sources.push('lead_project_engineer');
   if (DELEGATE_PERMISSIONS.has(permission)) sources.push('acceptance_delegate');
   if (REPORT_ISSUER_PERMISSIONS.has(permission)) sources.push('report_issuer');
+  if (DESIGNATED_REVIEWER_PERMISSIONS.has(permission)) sources.push('designated_reviewer');
+  if (CONCRETE_LAB_MANAGER_PERMISSIONS.has(permission)) sources.push('concrete_lab_manager');
   return sources;
 }
 
@@ -296,6 +345,20 @@ export function permissionSources(
       REPORT_ISSUER_PERMISSIONS.has(permission)
     ) {
       sources.push('report_issuer');
+    }
+    if (
+      project.designatedReviewerUserIds?.includes(user.userId) &&
+      DESIGNATED_REVIEWER_PERMISSIONS.has(permission)
+    ) {
+      sources.push('designated_reviewer');
+    }
+    // D13: the grant alone is not enough; the person must also hold the Lab Manager role.
+    if (
+      user.roles.includes('lab_manager') &&
+      project.concreteLabManagerUserIds?.includes(user.userId) &&
+      CONCRETE_LAB_MANAGER_PERMISSIONS.has(permission)
+    ) {
+      sources.push('concrete_lab_manager');
     }
   }
   return sources;
