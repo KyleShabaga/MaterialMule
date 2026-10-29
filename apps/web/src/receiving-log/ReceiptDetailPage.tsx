@@ -132,7 +132,13 @@ export function ReceiptDetailPage() {
               <p>Every storage unit in this receipt is disposed; there are no labels to print.</p>
             )}
             {printable.length < receipt.units.length && printable.length > 0 ? (
-              <p className="field-hint">Disposed storage units are left out.</p>
+              <p className="field-hint">
+                Disposed storage units are left out:{' '}
+                {receipt.units
+                  .filter((unit) => unit.status === 'disposed')
+                  .map((unit) => unit.readableId)
+                  .join(', ')}
+              </p>
             ) : null}
           </>
         ) : null}

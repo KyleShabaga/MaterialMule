@@ -560,6 +560,34 @@ describe.runIf(testDatabaseUrl)('tested-unit removal (MM-T36)', () => {
     ).rejects.toMatchObject({ constraint: 'test_request_unit_link_not_disposed' });
   });
 
+  it('MM-T77 T1: after removal after testing, no label is queued for the tube (print or reprint)', async () => {
+    await h.db.pool.query(
+      `INSERT INTO printer (key, name, host, port, is_default)
+       SELECT 't77-printer', 'T77 printer', '127.0.0.1', 9, true
+       WHERE NOT EXISTS (SELECT 1 FROM printer WHERE is_default)`,
+    );
+    const hole = await newHole('TH26-77');
+    const tube = await h.tube({ holeId: hole });
+    const program = await submitted(hole);
+    const requestId = program.lines[0]!.requests[0]!.id;
+    await complete(requestId, [tube.id]);
+    expect((await remove(tube.id, { testRequestId: requestId, version: 1 })).status).toBe(201);
+    const jobs = () => count('SELECT count(*)::int AS n FROM print_job', []);
+    const before = await jobs();
+    for (const kind of ['initial', 'reprint']) {
+      const refused = await h.send(
+        'post',
+        '/api/print-jobs',
+        { kind, storageUnitIds: [tube.id] },
+        'tech',
+      );
+      expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+      expect(refused.body).toMatchObject({ code: 'storage_unit_disposed' });
+    }
+    expect(await jobs()).toBe(before);
+    expect((await h.get(`/api/storage-units/${tube.id}/print-history`, 'tech')).status).toBe(200);
+  });
+
   it('a cancelled test (MM-T26) is neither evidence nor proof the contents were used; a non-cancelled sibling still is', async () => {
     const hole = await newHole('TH26-71');
     const onlyCancelled = await h.tube({ holeId: hole, sampleReference: 'T7' });

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   approveDisposalSchema,
+  disposalCandidatesQuerySchema,
   removeDisposalSchema,
   revokeDisposalSchema,
   type ApproveDisposalResult,
@@ -36,9 +37,11 @@ export class DisposalController {
   @RequirePermission('inventory.read')
   eligible(
     @Query('projectId') projectId: string | undefined,
+    @Query('page') page: string | undefined,
     @CurrentUser() user: AuthUser,
   ): Promise<DisposalCandidates> {
-    return this.disposal.candidates(user, projectId ?? '');
+    const query = parseBody(disposalCandidatesQuerySchema, { page });
+    return this.disposal.candidates(user, projectId ?? '', query.page);
   }
 
   @Post('approvals')

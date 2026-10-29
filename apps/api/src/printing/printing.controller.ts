@@ -11,6 +11,7 @@ import {
   Post,
   Put,
   Req,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   createPrintJobRequestSchema,
@@ -63,6 +64,8 @@ export function toHttpError(error: unknown): never {
       case 'location_retired':
       case 'no_printer_configured':
         throw new ConflictException(body);
+      case 'storage_unit_disposed':
+        throw new UnprocessableEntityException(body);
       default:
         throw new BadRequestException(body);
     }

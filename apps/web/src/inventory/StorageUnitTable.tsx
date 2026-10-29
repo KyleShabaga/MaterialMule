@@ -101,8 +101,11 @@ export function StorageUnitTable({
               Tested
             </span>
           ) : null}
-          {item.status !== 'disposed' && item.retention?.onHold ? (
-            // MM-T29: visible for every unit the hold covers; a tested unit shows its exception.
+          {item.status !== 'disposed' &&
+          item.retention?.onHold &&
+          !item.retention.retentionExempt ? (
+            // MM-T29: visible for every unit the hold covers. A tested unit shows only its
+            // exception (Retain until: Not applicable); a hold doesn't block its removal (MM-T71).
             <span className="type-tag" title="An active hold covers this unit">
               On hold
             </span>
@@ -115,7 +118,9 @@ export function StorageUnitTable({
       cell: (item) =>
         item.retention ? (
           item.retention.retentionExempt ? (
-            <span title="Tested unit: removed after testing, not by retention">Not applicable</span>
+            <span title="Tested unit: use Confirm removal after testing on its page; retention and holds don’t apply">
+              Not applicable
+            </span>
           ) : (
             <span className="nowrap">
               {item.retention.effectiveRetainUntil}

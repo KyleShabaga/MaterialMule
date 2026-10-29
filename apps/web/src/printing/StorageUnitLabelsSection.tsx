@@ -41,9 +41,16 @@ function who(job: PrintJob): string {
 
 /**
  * Labels section of the storage unit detail page (MM-T15, placed on the page by MM-T12): print
- * or reprint the unit's label and its print history.
+ * or reprint the unit's label and its print history. A disposed unit's ID never gets a fresh
+ * sticker (MM-T77; the server refuses it too), but its print history stays readable.
  */
-export function StorageUnitLabelsSection({ readableId }: { readableId: string }) {
+export function StorageUnitLabelsSection({
+  readableId,
+  disposed = false,
+}: {
+  readableId: string;
+  disposed?: boolean;
+}) {
   const [history, setHistory] = useState<History>({ state: 'loading' });
   const [reloads, setReloads] = useState(0);
   const [busyJob, setBusyJob] = useState<string | null>(null);
@@ -103,13 +110,17 @@ export function StorageUnitLabelsSection({ readableId }: { readableId: string })
   return (
     <>
       <BandedCard id="labels" title="Label">
-        <PrintLabelsPanel
-          key={storageUnit.id}
-          storageUnitIds={[storageUnit.id]}
-          kind={jobs.length > 0 ? 'reprint' : 'initial'}
-          buttonLabel={jobs.length > 0 ? 'Reprint label' : 'Print label'}
-          onJobChange={reload}
-        />
+        {disposed ? (
+          <p>This storage unit is disposed; its label is not printed again.</p>
+        ) : (
+          <PrintLabelsPanel
+            key={storageUnit.id}
+            storageUnitIds={[storageUnit.id]}
+            kind={jobs.length > 0 ? 'reprint' : 'initial'}
+            buttonLabel={jobs.length > 0 ? 'Reprint label' : 'Print label'}
+            onJobChange={reload}
+          />
+        )}
       </BandedCard>
       <BandedCard title="Print history">
         {actionError ? (

@@ -356,12 +356,47 @@ export class TestedRemovalService {
          WHERE id = $1 RETURNING version`,
         [unit.id, user.userId],
       );
-      // An earlier standard approval (MM-T30) is used up by this disposition, not left live.
-      await client.query(
+      // An earlier standard approval (MM-T30) is used up by this disposition, not left live, and
+      // that use is audited in the same transaction (MM-T71).
+      const { rows: used } = await client.query<{
+        id: string;
+        batch_id: string;
+        project_id: string;
+        approved_by_user_id: string;
+        approved_by_name_snapshot: string;
+        approved_at: Date;
+      }>(
         `UPDATE disposal_approval SET used_at = now()
-         WHERE storage_unit_id = $1 AND revoked_at IS NULL AND used_at IS NULL`,
+         WHERE storage_unit_id = $1 AND revoked_at IS NULL AND used_at IS NULL
+         RETURNING id, batch_id, project_id, approved_by_user_id, approved_by_name_snapshot,
+                   approved_at`,
         [unit.id],
       );
+      for (const approval of used) {
+        await recordAudit(client, {
+          action: 'disposal.approval_used',
+          entityType: 'storage_unit',
+          entityId: unit.id,
+          actor: {
+            userId: user.userId,
+            accountType: user.accountType,
+            initials: user.initials,
+            name: user.displayName,
+          },
+          reason: `Used by ${DISPOSED_AFTER_TESTING_LABEL.toLowerCase()}`,
+          before: { approvalId: approval.id, live: true },
+          after: {
+            approvalId: approval.id,
+            batchId: approval.batch_id,
+            projectId: approval.project_id,
+            approvedByUserId: approval.approved_by_user_id,
+            approvedByName: approval.approved_by_name_snapshot,
+            approvedAt: approval.approved_at.toISOString(),
+            usedBy: 'tested_removal',
+          },
+          requestId,
+        });
+      }
       const { rows: inserted } = await client.query<RemovalRow>(
         `INSERT INTO tested_unit_removal
            (storage_unit_id, project_id, unit_readable_id_snapshot, unit_type_snapshot,

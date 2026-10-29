@@ -692,6 +692,37 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       ).resolves.toBeTruthy();
     });
 
+    it('MM-T77: refuses a new label item for a disposed unit; earlier history stays', async () => {
+      const { storageUnitId } = await bucketSetup('DEMO-2677', 'BKT-2026-077001');
+      const item = (jobId: string, position = 1) =>
+        db.pool.query(
+          `INSERT INTO print_job_item (print_job_id, storage_unit_id, position) VALUES ($1, $2, $3)`,
+          [jobId, storageUnitId, position],
+        );
+      const before = (await job()).rows[0]!.id;
+      await item(before);
+      await db.pool.query(
+        `UPDATE storage_unit SET status = 'disposed', disposed_at = now() - interval '1 minute',
+                disposed_by_user_id = $2
+         WHERE id = $1`,
+        [storageUnitId, userId],
+      );
+      const after = (await job({ kind: 'reprint' })).rows[0]!.id;
+      await expect(item(after)).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'print_job_item_not_disposed',
+      });
+      // History from before the disposal can still be recorded (imports, benchmark data).
+      const older = (await job({ created_at: new Date(Date.now() - 3_600_000) })).rows[0]!.id;
+      await expect(item(older)).resolves.toBeTruthy();
+      // The job printed before disposal is still there and readable.
+      const { rows } = await db.pool.query(
+        `SELECT 1 FROM print_job_item WHERE print_job_id = $1 AND storage_unit_id = $2`,
+        [before, storageUnitId],
+      );
+      expect(rows).toHaveLength(1);
+    });
+
     describe('receiver snapshots (MM-T65)', () => {
       const credited = (initials: string | null, name: string | null) =>
         job({
@@ -1264,6 +1295,126 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
         retirer.release();
         mover.release();
       }
+    });
+  });
+
+  describe('disposal approvals follow the unit project (MM-T70)', () => {
+    const approve = (unitId: string, projectId: string) =>
+      db.pool.query<{ id: string }>(
+        `INSERT INTO disposal_approval (storage_unit_id, project_id, batch_id, approved_by_user_id,
+           approved_by_name_snapshot, effective_retain_until, idempotency_key, request_hash)
+         VALUES ($1, $2, gen_random_uuid(), $3, 'Test AT', '2027-10-23', gen_random_uuid(), 'x')
+         RETURNING id`,
+        [unitId, projectId, userId],
+      );
+    /** Disposes the unit and uses `approvalId`, then records the standard removal. */
+    async function remove(unitId: string, approvalId: string, projectId: string) {
+      await db.pool.query(
+        `UPDATE storage_unit SET status = 'disposed', disposed_at = now(), disposed_by_user_id = $2
+         WHERE id = $1`,
+        [unitId, userId],
+      );
+      await db.pool.query('UPDATE disposal_approval SET used_at = now() WHERE id = $1', [
+        approvalId,
+      ]);
+      return db.pool.query(
+        `INSERT INTO disposal_removal (storage_unit_id, approval_id, project_id,
+           unit_readable_id_snapshot, location_id, location_code_snapshot, location_name_snapshot,
+           removed_by_user_id, removed_by_account_type, removed_by_name_snapshot, idempotency_key,
+           request_hash)
+         VALUES ($1, $2, $3, 'X', $4, 'RECEIVING', 'Receiving lab', $5, 'personal', 'Test AT',
+                 gen_random_uuid(), 'x')`,
+        [unitId, approvalId, projectId, locationId, userId],
+      );
+    }
+
+    /** Changes a unit's project with 0071's backstop trigger switched off for this one move. */
+    async function moveProjectPastBackstop(unitId: string, projectId: string) {
+      const client = await db.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          'ALTER TABLE storage_unit DISABLE TRIGGER storage_unit_project_needs_no_live_approval',
+        );
+        await client.query('DELETE FROM storage_unit_hole_summary WHERE storage_unit_id = $1', [
+          unitId,
+        ]);
+        await client.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+          unitId,
+          projectId,
+        ]);
+        await client.query(
+          'ALTER TABLE storage_unit ENABLE TRIGGER storage_unit_project_needs_no_live_approval',
+        );
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    it('refuses a project change while the unit has a live approval; allows it once revoked', async () => {
+      const a = await bucketSetup('DEMO-7006', 'BKT-2026-070006');
+      const b = await insertProject(db.pool, 'DEMO-7007', userId);
+      const approval = (await approve(a.storageUnitId, a.projectId)).rows[0]!.id;
+      await db.pool.query('DELETE FROM storage_unit_hole_summary WHERE storage_unit_id = $1', [
+        a.storageUnitId,
+      ]);
+      await expect(
+        db.pool.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+          a.storageUnitId,
+          b,
+        ]),
+      ).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'storage_unit_project_disposal_approval_live',
+      });
+      // Other columns still change while approved.
+      await db.pool.query(`UPDATE storage_unit SET note = 'Lid taped' WHERE id = $1`, [
+        a.storageUnitId,
+      ]);
+      await db.pool.query(
+        `UPDATE disposal_approval SET revoked_at = now(), revoked_by_user_id = $2,
+                revoked_by_name_snapshot = 'Test AT', revoke_reason = 'Wrong project',
+                revoke_idempotency_key = gen_random_uuid()
+         WHERE id = $1`,
+        [approval, userId],
+      );
+      await expect(
+        db.pool.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+          a.storageUnitId,
+          b,
+        ]),
+      ).resolves.toBeDefined();
+    });
+
+    it('refuses an approval under a project other than the unit’s', async () => {
+      const a = await bucketSetup('DEMO-7001', 'BKT-2026-070001');
+      const otherProject = await insertProject(db.pool, 'DEMO-7002', userId);
+      await expect(approve(a.storageUnitId, otherProject)).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'disposal_approval_matches_unit_project',
+      });
+      await expect(approve(a.storageUnitId, a.projectId)).resolves.toBeDefined();
+    });
+
+    it('refuses a standard removal under an approval from the unit’s earlier project', async () => {
+      const a = await bucketSetup('DEMO-7003', 'BKT-2026-070003');
+      const b = await insertProject(db.pool, 'DEMO-7004', userId);
+      const approval = (await approve(a.storageUnitId, a.projectId)).rows[0]!.id;
+      // The unit's project changed after approval, past 0071's trigger (defence in depth).
+      await moveProjectPastBackstop(a.storageUnitId, b);
+      await expect(remove(a.storageUnitId, approval, b)).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'disposal_removal_matches_unit',
+      });
+
+      // Control: the same steps under a matching approval succeed.
+      const c = await bucketSetup('DEMO-7005', 'BKT-2026-070005');
+      const ok = (await approve(c.storageUnitId, c.projectId)).rows[0]!.id;
+      await expect(remove(c.storageUnitId, ok, c.projectId)).resolves.toBeDefined();
     });
   });
 });

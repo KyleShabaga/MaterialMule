@@ -574,3 +574,12 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - `storage_unit.disposed_at` / `disposed_by_user_id` are set by both routes (backfilled from
   `tested_unit_removal`). `storage_unit_disposed_final` refuses any status change away from
   `disposed`.
+- MM-T70 (migration 0070): an approval belongs to the project it was granted under. A new
+  approval must name the unit's current project (`disposal_approval_matches_unit_project`), and
+  `disposal_removal_guard` also requires the approval's project to equal the unit's, so after a
+  project correction the standard scan is refused until the new project's PM/PE or a Lab
+  Manager approves again. The MM-T36 post-testing route is unchanged.
+- MM-T70 (migration 0071, owner decision: refuse): a unit's `project_id` can't change while it
+  has a live (not revoked, not used) approval (`storage_unit_project_disposal_approval_live`).
+  The API refuses the correction first with 422 `disposal_approval_live`; revoke the approval on
+  the Disposal & Retention page, then correct the project.

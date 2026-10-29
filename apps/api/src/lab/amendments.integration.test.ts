@@ -226,6 +226,152 @@ describe.runIf(testDatabaseUrl)('lab amendments and accepted-request changes (MM
     expect((await row(a)).status).toBe('accepted');
   });
 
+  const repeat = async (id: string, as: string = 'tech') =>
+    h.send(
+      'post',
+      `/api/test-requests/${id}/repeat`,
+      { version: (await row(id)).version, idempotencyKey: newKey() },
+      as,
+    );
+
+  async function overrides(id: string) {
+    const { rows } = await h.db.pool.query<Record<string, string | null>>(
+      `SELECT sample_label_override, depth_mode_override, depth_from_override,
+              depth_to_override, depth_unit_override, test_code_snapshot
+       FROM test_request WHERE id = $1`,
+      [id],
+    );
+    return rows[0]!;
+  }
+
+  it('MM-T72 AC1/AC3/T1: a repeat of a changed test keeps the changed sample and depth', async () => {
+    const hole = await newHole();
+    await h.bucket({ hole });
+    const p = await submit([
+      {
+        ...line({ kind: 'test_hole', id: hole }, 'specific', [moisture]),
+        sampleLabel: 'S3',
+        depthMode: 'point',
+        depthFrom: 1.5,
+        depthUnit: 'm',
+      },
+    ]);
+    const id = p.lines[0]!.requests[0]!.id;
+    const version = await accept(id);
+    const changed = await change(id, {
+      identity: { sampleLabel: 'S3B', depthMode: 'point', depthFrom: 2, depthUnit: 'm' },
+      version,
+    });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    await accept(id);
+
+    // AC3: LAB still can't repeat.
+    expect((await repeat(id, 'lab')).status).toBe(403);
+
+    const repeated = await repeat(id);
+    expect(repeated.status, JSON.stringify(repeated.body)).toBe(201);
+    const repeatId = repeated.body.testRequestId as string;
+    expect(await overrides(repeatId)).toEqual(await overrides(id));
+    expect(await overrides(repeatId)).toMatchObject({
+      sample_label_override: 'S3B',
+      depth_from_override: '2.00',
+    });
+    const program = labProgramSchema.parse((await h.get(`/api/lab-programs/${p.id}`, 'pe')).body);
+    expect(program.lines[0]!.requests.find((r) => r.id === repeatId)!.identity).toMatchObject({
+      sampleLabel: 'S3B',
+      depthMode: 'point',
+      depthFrom: 2,
+      depthUnit: 'm',
+    });
+  });
+
+  it('MM-T72 AC2/T2: a repeat of an unchanged test shows the line identity', async () => {
+    const hole = await newHole();
+    await h.bucket({ hole });
+    const p = await submit([
+      {
+        ...line({ kind: 'test_hole', id: hole }, 'specific', [moisture]),
+        sampleLabel: 'S4',
+        depthMode: 'interval',
+        depthFrom: 1,
+        depthTo: 1.5,
+        depthUnit: 'm',
+      },
+    ]);
+    const id = p.lines[0]!.requests[0]!.id;
+    await accept(id);
+    const repeated = await repeat(id);
+    expect(repeated.status, JSON.stringify(repeated.body)).toBe(201);
+    const repeatId = repeated.body.testRequestId as string;
+    expect(await overrides(repeatId)).toMatchObject({
+      sample_label_override: null,
+      depth_mode_override: null,
+      depth_from_override: null,
+      depth_to_override: null,
+      depth_unit_override: null,
+    });
+    const program = labProgramSchema.parse((await h.get(`/api/lab-programs/${p.id}`, 'pe')).body);
+    // No own identity: the request shows its line's sample and depth.
+    expect(program.lines[0]!.requests.find((r) => r.id === repeatId)!.identity).toBeNull();
+    expect(program.lines[0]).toMatchObject({ sampleLabel: 'S4', depthFrom: 1, depthTo: 1.5 });
+  });
+
+  it('database (MM-T72): a repeat must carry its original current test, sample and depth', async () => {
+    const hole = await newHole();
+    await h.bucket({ hole });
+    const p = await submit([
+      {
+        ...line({ kind: 'test_hole', id: hole }, 'specific', [moisture]),
+        sampleLabel: 'S5',
+        depthMode: 'point',
+        depthFrom: 1.5,
+        depthUnit: 'm',
+      },
+    ]);
+    const id = p.lines[0]!.requests[0]!.id;
+    const version = await accept(id);
+    expect(
+      (
+        await change(id, {
+          identity: { sampleLabel: 'S5', depthMode: 'point', depthFrom: 2, depthUnit: 'm' },
+          version,
+        })
+      ).status,
+    ).toBe(200);
+    await accept(id);
+    const insertRepeat = (overrideSql: string) =>
+      h.db.pool.query(
+        `INSERT INTO test_request (program_id, line_id, test_type_id, test_code_snapshot,
+                                   test_name_snapshot, test_description_snapshot,
+                                   test_group_snapshot, test_subgroup_snapshot, sort_order,
+                                   sample_label_override, depth_mode_override,
+                                   depth_from_override, depth_to_override, depth_unit_override,
+                                   repeat_of_id, created_by_user_id, created_by_name_snapshot,
+                                   create_idempotency_key, create_request_hash)
+         SELECT program_id, line_id, test_type_id, test_code_snapshot, test_name_snapshot,
+                test_description_snapshot, test_group_snapshot, test_subgroup_snapshot,
+                sort_order, ${overrideSql}, id, $2, 'Alex Tester', $3, 'hash'
+         FROM test_request WHERE id = $1`,
+        [id, h.users.tech, newKey()],
+      );
+    // The line's old identity (no overrides) is refused…
+    await expect(insertRepeat('NULL, NULL, NULL, NULL, NULL')).rejects.toMatchObject({
+      code: PG.checkViolation,
+      constraint: 'test_request_repeat_identity',
+    });
+    // …and so is any other depth.
+    await expect(insertRepeat(`'S5', 'point', 2.5, NULL, 'm'`)).rejects.toMatchObject({
+      code: PG.checkViolation,
+      constraint: 'test_request_repeat_identity',
+    });
+    // The original's current identity is accepted.
+    await expect(
+      insertRepeat(
+        'sample_label_override, depth_mode_override, depth_from_override, depth_to_override, depth_unit_override',
+      ),
+    ).resolves.toMatchObject({ rowCount: 1 });
+  });
+
   it('accepted-request change: test swap, refusals, retries and LAB', async () => {
     const hole = await newHole();
     await h.bucket({ hole });
