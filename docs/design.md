@@ -401,7 +401,10 @@ the content below it, arrow keys to move, Enter to choose, Escape to close. Ever
 keyboard the same way (MM-T62, `useListHighlight`): once something is typed, the first match is
 highlighted and announced (`aria-activedescendant`), so Enter picks it and ArrowDown+Enter the
 second; the arrows wrap. A list opened before typing starts with nothing highlighted. Options are ≥44px tall
-at phone width. Hover and the active option use `card`; the chosen option also shows a check
+at phone width. The highlighted option (MM-T78) is one style in every picker: a solid `option-active` fill
+(3:1 or more against the list in both themes) with a 4px left bar in its own ink, so it never
+relies on colour alone; hover is a lighter `option-hover` tint with an underline and no bar, so it
+never looks like the highlight. The chosen option also shows a check
 or "Selected" text.
 
 **Receiving unit rows (MM-T36).** Each row starts with a "Physical holder" select (Bucket,
