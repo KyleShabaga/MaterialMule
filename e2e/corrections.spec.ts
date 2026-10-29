@@ -50,6 +50,65 @@ test('T7: correct a summary from the detail page; the history shows it and the I
   );
 });
 
+// MM-T70 T4 (owner decision 2026-10-28: refuse): a unit approved for disposal can't change
+// project; Correct details says so in plain words and links to Disposal & Retention.
+test('MM-T70 T4: correcting the project of an approved unit is refused with a plain message', async ({
+  page,
+}) => {
+  const data = await insertInventoryFixture();
+  // Fictional approval recorded directly (the unit isn't date-eligible yet in real time).
+  await withDatabase(async (client) => {
+    await client.query(
+      `INSERT INTO disposal_approval (storage_unit_id, project_id, batch_id, approved_by_user_id,
+         approved_by_name_snapshot, effective_retain_until, idempotency_key, request_hash)
+       SELECT su.id, su.project_id, gen_random_uuid(), '00000000-0000-4000-8000-000000000101',
+              'Pat Example', '2027-10-01', gen_random_uuid(), 'e2e'
+       FROM storage_unit su WHERE su.readable_id = $1`,
+      [data.a1],
+    );
+    await client.query(
+      `UPDATE storage_unit SET status = 'approved_for_disposal', version = version + 1
+       WHERE readable_id = $1`,
+      [data.a1],
+    );
+  });
+  await signInAs(page, 'at');
+  await page.goto(`/sample-storage/${data.a1}`);
+  await page.getByRole('button', { name: 'Correct details' }).click();
+  const form = page.getByRole('form', { name: 'Correct details' });
+  await form.getByRole('button', { name: 'Change project' }).click();
+  const search = form.getByRole('combobox', { name: /Find project/ });
+  await search.fill(data.projectB);
+  await expect(page.getByRole('option', { name: new RegExp(data.projectB) })).toBeVisible();
+  await search.press('Enter');
+  await expect(form.getByLabel('Project number')).toHaveValue(data.projectB);
+  await form.getByLabel('Reason for the correction').fill('received under the wrong project');
+  await form.getByRole('button', { name: 'Save correction' }).click();
+
+  await expect(form.getByRole('alert').filter({ hasText: 'approved for disposal' })).toContainText(
+    `${data.a1} is approved for disposal under ${data.projectA}. Revoke the approval on the ` +
+      'Disposal & Retention page first, then correct the project.',
+  );
+  await expect(form.getByRole('link', { name: 'Open Disposal & Retention' })).toHaveAttribute(
+    'href',
+    /disposal-retention[?]projectId=/,
+  );
+  // Nothing changed.
+  await page.goto(`/sample-storage/${data.a1}`);
+  await expect(page.getByRole('list', { name: 'History events' })).not.toContainText(
+    'received under the wrong project',
+  );
+  const project = await withDatabase(async (client) => {
+    const { rows } = await client.query<{ project_number: string }>(
+      `SELECT p.project_number FROM storage_unit su JOIN project p ON p.id = su.project_id
+       WHERE su.readable_id = $1`,
+      [data.a1],
+    );
+    return rows[0]!.project_number;
+  });
+  expect(project).toBe(data.projectA);
+});
+
 // MM-T49: corrections are refused for LAB in the browser. Uses a real LAB station session (the
 // E2E-only shared_lab account, as e2e/critical does), never the shared LAB password, which only
 // lab-login.spec.ts may set (it signs out every LAB station).

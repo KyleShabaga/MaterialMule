@@ -560,3 +560,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   `disposal_removal_guard` also requires the approval's project to equal the unit's, so after a
   project correction the standard scan is refused until the new project's PM/PE or a Lab
   Manager approves again. The MM-T36 post-testing route is unchanged.
+- MM-T70 (migration 0071, owner decision: refuse): a unit's `project_id` can't change while it
+  has a live (not revoked, not used) approval (`storage_unit_project_disposal_approval_live`).
+  The API refuses the correction first with 422 `disposal_approval_live`; revoke the approval on
+  the Disposal & Retention page, then correct the project.

@@ -1297,6 +1297,68 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       );
     }
 
+    /** Changes a unit's project with 0071's backstop trigger switched off for this one move. */
+    async function moveProjectPastBackstop(unitId: string, projectId: string) {
+      const client = await db.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          'ALTER TABLE storage_unit DISABLE TRIGGER storage_unit_project_needs_no_live_approval',
+        );
+        await client.query('DELETE FROM storage_unit_hole_summary WHERE storage_unit_id = $1', [
+          unitId,
+        ]);
+        await client.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+          unitId,
+          projectId,
+        ]);
+        await client.query(
+          'ALTER TABLE storage_unit ENABLE TRIGGER storage_unit_project_needs_no_live_approval',
+        );
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    it('refuses a project change while the unit has a live approval; allows it once revoked', async () => {
+      const a = await bucketSetup('DEMO-7006', 'BKT-2026-070006');
+      const b = await insertProject(db.pool, 'DEMO-7007', userId);
+      const approval = (await approve(a.storageUnitId, a.projectId)).rows[0]!.id;
+      await db.pool.query('DELETE FROM storage_unit_hole_summary WHERE storage_unit_id = $1', [
+        a.storageUnitId,
+      ]);
+      await expect(
+        db.pool.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+          a.storageUnitId,
+          b,
+        ]),
+      ).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'storage_unit_project_disposal_approval_live',
+      });
+      // Other columns still change while approved.
+      await db.pool.query(`UPDATE storage_unit SET note = 'Lid taped' WHERE id = $1`, [
+        a.storageUnitId,
+      ]);
+      await db.pool.query(
+        `UPDATE disposal_approval SET revoked_at = now(), revoked_by_user_id = $2,
+                revoked_by_name_snapshot = 'Test AT', revoke_reason = 'Wrong project',
+                revoke_idempotency_key = gen_random_uuid()
+         WHERE id = $1`,
+        [approval, userId],
+      );
+      await expect(
+        db.pool.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+          a.storageUnitId,
+          b,
+        ]),
+      ).resolves.toBeDefined();
+    });
+
     it('refuses an approval under a project other than the unit’s', async () => {
       const a = await bucketSetup('DEMO-7001', 'BKT-2026-070001');
       const otherProject = await insertProject(db.pool, 'DEMO-7002', userId);
@@ -1311,14 +1373,8 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       const a = await bucketSetup('DEMO-7003', 'BKT-2026-070003');
       const b = await insertProject(db.pool, 'DEMO-7004', userId);
       const approval = (await approve(a.storageUnitId, a.projectId)).rows[0]!.id;
-      // The unit's project is corrected after approval.
-      await db.pool.query('DELETE FROM storage_unit_hole_summary WHERE storage_unit_id = $1', [
-        a.storageUnitId,
-      ]);
-      await db.pool.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
-        a.storageUnitId,
-        b,
-      ]);
+      // The unit's project changed after approval, past 0071's trigger (defence in depth).
+      await moveProjectPastBackstop(a.storageUnitId, b);
       await expect(remove(a.storageUnitId, approval, b)).rejects.toMatchObject({
         code: PG.checkViolation,
         constraint: 'disposal_removal_matches_unit',

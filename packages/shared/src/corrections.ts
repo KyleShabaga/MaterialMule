@@ -121,6 +121,19 @@ export const unresolvedLabLinksResponseSchema = z.object({
 export type UnresolvedLabLinksResponse = z.infer<typeof unresolvedLabLinksResponseSchema>;
 
 /**
+ * 422 body when a project correction is refused because the unit has a live disposal approval
+ * (MM-T70): it must be revoked on the Disposal & Retention page first.
+ */
+export const disposalApprovalLiveResponseSchema = z.object({
+  code: z.literal('disposal_approval_live'),
+  /** The project the approval was granted under (the unit's current project). */
+  projectId: z.string(),
+  projectNumber: z.string(),
+  message: z.string(),
+});
+export type DisposalApprovalLiveResponse = z.infer<typeof disposalApprovalLiveResponseSchema>;
+
+/**
  * Minimum retain-until date shown on a unit: received date + 1 year (29 February becomes
  * 28 February). Full retention rules, holds and extensions arrive with MM-T29.
  */
