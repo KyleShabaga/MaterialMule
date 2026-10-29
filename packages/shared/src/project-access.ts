@@ -231,6 +231,9 @@ export const PERMISSION_SOURCES = [
   'lead_project_engineer',
   'acceptance_delegate',
   'report_issuer',
+  // MM-AO08 concrete contract (no capability action uses them until the concrete routes exist).
+  'designated_reviewer',
+  'concrete_lab_manager',
 ] as const;
 export type CapabilitySource = (typeof PERMISSION_SOURCES)[number];
 
@@ -242,6 +245,8 @@ export const CAPABILITY_SOURCE_LABEL: Record<CapabilitySource, string> = {
   lead_project_engineer: 'Lead Project Engineer',
   acceptance_delegate: 'Acceptance delegate',
   report_issuer: 'Authorized report issuer',
+  designated_reviewer: 'Designated reviewer',
+  concrete_lab_manager: 'Lab Manager with this project’s concrete grant',
 };
 
 /** The project actions a capability list reports, in display order. */

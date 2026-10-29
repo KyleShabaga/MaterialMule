@@ -256,3 +256,106 @@ describe('MM-AO03 assignments, scoped grants and effective sources', () => {
     expect(possibleSources('report_issuer.manage')).toEqual(['lead_project_engineer']);
   });
 });
+
+describe('MM-AO08 concrete permission contract (planned; no route checks these yet)', () => {
+  const lead = user({ userId: 'u-pe' });
+  const admin = user({ userId: 'u-admin', roles: ['admin'] });
+  const lm = user({ userId: 'u-lm', roles: ['lab_manager'] });
+  const reviewer = user({ userId: 'u-rv' });
+  const delegate = user({ userId: 'u-de' });
+  const issuer = user({ userId: 'u-is' });
+  const everyone: ProjectContext = {
+    leadProjectEngineerUserId: 'u-pe',
+    acceptanceDelegateUserIds: ['u-de'],
+    reportIssuerUserIds: ['u-is'],
+    designatedReviewerUserIds: ['u-rv'],
+    concreteLabManagerUserIds: ['u-lm'],
+  };
+  const otherLead: ProjectContext = { ...everyone, leadProjectEngineerUserId: 'u-other' };
+  const lab = user({ userId: 'u-pe', accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
+
+  it('AC2: mixes are the destination lead’s alone: no admin, Lab Manager, reviewer, delegate or issuer', () => {
+    for (const permission of ['concrete_mix.manage', 'concrete_mix.approve'] as const) {
+      expect(permissionSources(lead, permission, everyone)).toEqual(['lead_project_engineer']);
+      expect(can(lead, permission, otherLead)).toBe(false);
+      expect(can(lead, permission)).toBe(false);
+      for (const other of [admin, lm, reviewer, delegate, issuer, lab]) {
+        expect(can(other, permission, everyone)).toBe(false);
+      }
+      expect(possibleSources(permission)).toEqual(['lead_project_engineer']);
+    }
+  });
+
+  it('Q3: the lead always reviews concrete on their project; otherwise only a designated reviewer', () => {
+    expect(permissionSources(lead, 'concrete.review', everyone)).toEqual(['lead_project_engineer']);
+    expect(permissionSources(reviewer, 'concrete.review', everyone)).toEqual([
+      'designated_reviewer',
+    ]);
+    // The reviewer list is for the scope the loader evaluated; elsewhere it confers nothing.
+    expect(can(reviewer, 'concrete.review', { leadProjectEngineerUserId: 'u-pe' })).toBe(false);
+    expect(can(reviewer, 'concrete.review')).toBe(false);
+    for (const other of [admin, lm, delegate, issuer, lab, user()]) {
+      expect(can(other, 'concrete.review', everyone)).toBe(false);
+    }
+    // Generic lab review is unchanged: any internal user, never LAB.
+    expect(can(user(), 'test.review')).toBe(true);
+    expect(possibleSources('concrete.review')).toEqual([
+      'lead_project_engineer',
+      'designated_reviewer',
+    ]);
+  });
+
+  it('AC3: a failed-specimen schedule change is approved by the lead or a designated reviewer alone', () => {
+    expect(can(lead, 'concrete_failure_schedule.approve', everyone)).toBe(true);
+    expect(can(reviewer, 'concrete_failure_schedule.approve', everyone)).toBe(true);
+    for (const other of [admin, lm, delegate, issuer, lab]) {
+      expect(can(other, 'concrete_failure_schedule.approve', everyone)).toBe(false);
+    }
+    expect(possibleSources('concrete_failure_schedule.approve')).toEqual([
+      'lead_project_engineer',
+      'designated_reviewer',
+    ]);
+  });
+
+  it('D13: a failed-specimen HOLD needs the lead, or the Lab Manager role AND the project’s concrete grant', () => {
+    expect(permissionSources(lm, 'concrete_hold.manage', everyone)).toEqual([
+      'concrete_lab_manager',
+    ]);
+    expect(can(lead, 'concrete_hold.manage', everyone)).toBe(true);
+    // The role alone, or the grant alone, is not enough.
+    expect(
+      can(user({ userId: 'u-lm2', roles: ['lab_manager'] }), 'concrete_hold.manage', everyone),
+    ).toBe(false);
+    expect(can(user({ userId: 'u-lm' }), 'concrete_hold.manage', everyone)).toBe(false);
+    for (const other of [admin, reviewer, delegate, issuer, lab]) {
+      expect(can(other, 'concrete_hold.manage', everyone)).toBe(false);
+    }
+    // Separate from retention holds and tested-unit removal: the grant adds neither.
+    expect(can(user({ userId: 'u-lm' }), 'retention.manage', everyone)).toBe(false);
+    expect(
+      permissionSources(
+        user({ userId: 'u-lm', roles: ['lab_manager'] }),
+        'retention.manage',
+        everyone,
+      ),
+    ).toEqual(['lab_manager']);
+  });
+
+  it('AC2: delegates accept only and issuers issue only; neither gains concrete authority', () => {
+    expect(can(delegate, 'test.accept', everyone)).toBe(true);
+    expect(can(delegate, 'report.issue', everyone)).toBe(false);
+    expect(can(issuer, 'report.issue', everyone)).toBe(true);
+    expect(can(reviewer, 'report.issue', everyone)).toBe(false);
+    expect(can(reviewer, 'test.accept', everyone)).toBe(false);
+    // A designated reviewer gains nothing beyond review and the schedule approval.
+    for (const permission of ['project.edit', 'program.close', 'concrete_mix.approve'] as const) {
+      expect(can(reviewer, permission, everyone)).toBe(false);
+    }
+  });
+
+  it('Q4: concrete settings use project.edit (lead or admin); admin still holds no mix authority', () => {
+    expect(permissionSources(admin, 'project.edit', everyone)).toEqual(['admin']);
+    expect(permissionSources(lead, 'project.edit', everyone)).toEqual(['lead_project_engineer']);
+    expect(can(admin, 'concrete_mix.manage', everyone)).toBe(false);
+  });
+});
