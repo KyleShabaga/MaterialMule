@@ -194,6 +194,7 @@ test('Acceptance delegates: the Lead Project Engineer adds and revokes a delegat
   for (const grant of current.active as { id: string }[]) {
     await page.request.delete(`/api/projects/${projectId}/acceptance-delegates/${grant.id}`, {
       headers: CSRF,
+      data: { reason: 'E2E clean start' },
     });
   }
 
@@ -202,14 +203,24 @@ test('Acceptance delegates: the Lead Project Engineer adds and revokes a delegat
   await expect(section).toContainText('No acceptance delegates.');
   await section.getByRole('combobox', { name: /Add a delegate/ }).fill('Dana');
   await page.getByRole('option', { name: /Dana Example/ }).click();
+  // D15 (MM-AO03): adding and revoking each need a reason.
+  await expect(section.getByRole('button', { name: 'Add delegate' })).toBeDisabled();
+  await section.getByRole('textbox', { name: 'Reason' }).fill('Covers acceptance in March');
   await section.getByRole('button', { name: 'Add delegate' }).click();
   await expect(section.getByRole('list', { name: 'Acceptance delegates' })).toContainText(
     'Dana Example',
   );
+  await expect(section).toContainText('Reason: Covers acceptance in March');
   await section.getByRole('button', { name: 'Revoke Dana Example' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Revoke Dana Example?' });
+  await dialog.getByRole('button', { name: 'Revoke' }).click();
+  await expect(dialog).toContainText('Enter a reason.');
+  await dialog.getByRole('textbox', { name: 'Reason' }).fill('Back from leave');
+  await dialog.getByRole('button', { name: 'Revoke' }).click();
   await expect(section).toContainText('No acceptance delegates.');
   await section.getByText(/Delegation history/).click();
   await expect(section).toContainText(/Dana Example: added by PE · Pat Example/);
+  await expect(section).toContainText('(Back from leave)');
 
   // Someone who isn't the Lead Project Engineer sees the list but no controls.
   await signInAs(page, 'de');

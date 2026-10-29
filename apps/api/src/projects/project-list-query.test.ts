@@ -1,36 +1,32 @@
-import { isMyProject, projectListQuerySchema } from '@materialmule/shared';
+import { projectListQuerySchema } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { buildProjectListQuery } from './project-list-query.js';
 
 const ME = '00000000-0000-4000-8000-0000000000aa';
-const OTHER = '00000000-0000-4000-8000-0000000000bb';
 
-describe('"Only mine" predicate (MM-T35 T1)', () => {
-  it('includes projects where I am the Lead Project Engineer or the review engineer, nothing else', () => {
-    expect(isMyProject({ leadProjectEngineer: { id: ME }, reviewEngineer: null }, ME)).toBe(true);
-    expect(
-      isMyProject({ leadProjectEngineer: { id: OTHER }, reviewEngineer: { id: ME } }, ME),
-    ).toBe(true);
-    expect(isMyProject({ leadProjectEngineer: { id: ME }, reviewEngineer: { id: ME } }, ME)).toBe(
-      true,
-    );
-    expect(isMyProject({ leadProjectEngineer: { id: OTHER }, reviewEngineer: null }, ME)).toBe(
-      false,
-    );
-    expect(
-      isMyProject({ leadProjectEngineer: { id: OTHER }, reviewEngineer: { id: OTHER } }, ME),
-    ).toBe(false);
-  });
-
-  it('filters the SQL the same way, with the user only as a parameter', () => {
+describe('"My projects" filter (MM-T35 T1, D12)', () => {
+  it('filters by the one involvement definition, with the user only as a parameter', () => {
     const sql = buildProjectListQuery(projectListQuerySchema.parse({ mine: 'true' }), ME);
-    expect(sql.where).toBe(
-      'WHERE (p.lead_project_engineer_user_id = $1 OR p.review_engineer_user_id = $1)',
-    );
+    expect(sql.where).toMatch(/^WHERE p\.id IN \(SELECT i\.project_id FROM \(/);
+    for (const source of [
+      'p.lead_project_engineer_user_id = $1',
+      'project_team_member',
+      'project_reviewer_assignment',
+      'acceptance_delegation',
+      'project_report_issuer_grant',
+    ]) {
+      expect(sql.where).toContain(source);
+    }
+    expect(sql.where).not.toContain('review_engineer');
     expect(sql.params).toEqual([ME]);
+    expect(sql.listParams).toEqual([ME]);
+    expect(sql.userParam).toBe('$1');
     const all = buildProjectListQuery(projectListQuerySchema.parse({ mine: 'false' }), ME);
     expect(all.where).toBe('');
     expect(all.params).toEqual([]);
+    // The list still labels involvement, so it gets the user as its own parameter.
+    expect(all.listParams).toEqual([ME]);
+    expect(all.userParam).toBe('$1');
   });
 });
 
@@ -45,6 +41,7 @@ describe('buildProjectListQuery', () => {
     expect(sql.where).toContain('lower(p.name) LIKE $1');
     expect(sql.where).toContain('lower(p.client) LIKE $1');
     expect(sql.where).toContain('p.lead_project_engineer_user_id = $2');
+    expect(sql.listParams).toEqual(sql.params);
   });
 
   it('defaults to number A–Z, 25 per page, and always ends with a unique tie-breaker', () => {

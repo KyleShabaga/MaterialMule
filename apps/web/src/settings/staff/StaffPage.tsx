@@ -392,7 +392,7 @@ function StaffDrawer({
   const [roles, setRoles] = useState<StaffRole[]>(member.roles);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<'disable' | 'remove-admin' | null>(null);
+  const [confirm, setConfirm] = useState<'disable' | 'remove-admin' | 'roles' | null>(null);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | null>(null);
   const reasonId = useId();
@@ -447,13 +447,16 @@ function StaffDrawer({
   const clearsPosition =
     member.accountType === 'personal' && member.position !== null && position === '';
 
+  /** Every role change needs a reason (D15, MM-AO03), asked for in the confirmation. */
   function saveRoles(event: FormEvent) {
     event.preventDefault();
-    if (member.roles.includes('admin') && !roles.includes('admin')) {
-      setConfirm('remove-admin');
+    if ([...roles].sort().join(',') === [...member.roles].sort().join(',')) {
+      onChanged(member, 'No changes to save.');
       return;
     }
-    void run(() => staffApi.setRoles(member.id, roles), `Roles updated for ${member.displayName}.`);
+    setConfirm(
+      member.roles.includes('admin') && !roles.includes('admin') ? 'remove-admin' : 'roles',
+    );
   }
 
   async function confirmAction() {
@@ -472,6 +475,11 @@ function StaffDrawer({
       await run(
         () => staffApi.setRoles(member.id, roles, reason),
         `Admin removed from ${member.displayName}.`,
+      );
+    } else if (kind === 'roles') {
+      await run(
+        () => staffApi.setRoles(member.id, roles, reason),
+        `Roles updated for ${member.displayName}.`,
       );
     }
     setReason('');
@@ -614,7 +622,11 @@ function StaffDrawer({
             type="button"
             disabled={busy}
             onClick={() =>
-              void run(() => staffApi.enable(member.id), `${member.displayName} is re-enabled.`)
+              void run(
+                () => staffApi.enable(member.id),
+                // D08 (MM-AO03): technical grants don't come back with the account.
+                `${member.displayName} is re-enabled. Their reviewer, issuer and delegate grants were revoked for revalidation.`,
+              )
             }
           >
             Re-enable access
@@ -628,10 +640,14 @@ function StaffDrawer({
         title={
           confirm === 'disable'
             ? `Disable ${member.displayName}?`
-            : `Remove admin from ${member.displayName}?`
+            : confirm === 'roles'
+              ? `Change roles for ${member.displayName}?`
+              : `Remove admin from ${member.displayName}?`
         }
-        confirmLabel={confirm === 'disable' ? 'Disable' : 'Remove admin'}
-        danger
+        confirmLabel={
+          confirm === 'disable' ? 'Disable' : confirm === 'roles' ? 'Save roles' : 'Remove admin'
+        }
+        danger={confirm !== 'roles'}
         onConfirm={() => void confirmAction()}
         onCancel={() => {
           setConfirm(null);
@@ -641,7 +657,9 @@ function StaffDrawer({
         <p>
           {confirm === 'disable'
             ? 'They are signed out everywhere and can no longer be chosen as a receiver. Past records keep their name.'
-            : 'They lose staff and session management straight away.'}
+            : confirm === 'roles'
+              ? 'The change applies from their next request. The reason is kept in the audit log.'
+              : 'They lose staff and session management straight away.'}
         </p>
         <label htmlFor={reasonId}>Reason</label>
         <textarea

@@ -19,7 +19,8 @@ import { LabReviewService } from './review.service.js';
  * - accept: active user, handler checks `test.accept` for the test's project (Lead Project Engineer or an active
  *   delegate) before reading the body;
  * - delegates: read with `acceptance_delegation.read`; grant and revoke by the project's Lead Project Engineer
- *   (`acceptance_delegation.manage`, checked in the handler).
+ *   (`acceptance_delegation.manage`, checked in the handler), each with a reason (D15, MM-AO03):
+ *   the revocation is `DELETE` with a JSON body `{reason}`.
  */
 @Controller()
 export class LabReviewController {
@@ -82,8 +83,9 @@ export class LabReviewController {
   revoke(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
+    @Body() body: unknown,
     @CurrentUser() user: AuthUser,
   ): Promise<AcceptanceDelegates> {
-    return this.reviews.revoke(projectId, id, user);
+    return this.reviews.revoke(projectId, id, body, user);
   }
 }

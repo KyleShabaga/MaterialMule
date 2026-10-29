@@ -86,10 +86,8 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
        WHERE table_schema = current_schema() AND table_name = 'project'
          AND column_name LIKE '%engineer%' ORDER BY column_name`,
     );
-    expect(rows).toEqual([
-      { column_name: 'lead_project_engineer_user_id', is_nullable: 'NO' },
-      { column_name: 'review_engineer_user_id', is_nullable: 'YES' },
-    ]);
+    // The single review engineer was retired by 0002 (MM-AO03, D12).
+    expect(rows).toEqual([{ column_name: 'lead_project_engineer_user_id', is_nullable: 'NO' }]);
     // No retired project-role names remain anywhere in the schema.
     const legacy = await db.pool.query(
       `SELECT table_name, column_name FROM information_schema.columns
@@ -402,20 +400,16 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
     });
   });
 
-  it('AC3: fixtures, a legacy reviewer, titles and delegations infer no assignment or grant', async () => {
+  it('AC3: fixtures, titles and delegations infer no assignment or grant', async () => {
     const fresh = await createMigratedSchema();
     try {
       await runSeed(fresh.pool, 'reference', 'test');
       await runSeed(fresh.pool, 'dev', 'test');
-      // Legacy-shaped facts that must never become authority: a review-engineer field, an
-      // engineering title and position, and an active acceptance delegation.
+      // Legacy-shaped facts that must never become authority: an engineering title and position
+      // and an active acceptance delegation (the review-engineer field is retired, MM-AO03).
       const demo = '00000000-0000-4000-8000-000000000201';
       const dana = '00000000-0000-4000-8000-000000000105';
       const pat = '00000000-0000-4000-8000-000000000101';
-      await fresh.pool.query(
-        `UPDATE project SET review_engineer_user_id = $2, version = version + 1 WHERE id = $1`,
-        [demo, dana],
-      );
       await fresh.pool.query(
         `UPDATE app_user SET job_title = 'Senior Review Engineer', position = 'project_engineer',
                 position_set_at = now() WHERE id = $1`,
@@ -424,8 +418,9 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
       await fresh.pool.query(
         `INSERT INTO acceptance_delegation (project_id, delegate_user_id, delegate_name_snapshot,
                                             granted_by_user_id, granted_by_name_snapshot,
-                                            grant_idempotency_key, grant_request_hash)
-         VALUES ($1, $2, 'Dana Example', $3, 'Pat Example', gen_random_uuid(), 'h')`,
+                                            grant_reason, grant_idempotency_key, grant_request_hash)
+         VALUES ($1, $2, 'Dana Example', $3, 'Pat Example', 'Covers acceptance',
+                 gen_random_uuid(), 'h')`,
         [demo, dana, pat],
       );
       const { rows } = await fresh.pool.query(

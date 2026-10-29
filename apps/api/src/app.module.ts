@@ -58,6 +58,12 @@ import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
 import { ProfileService } from './profile/profile.service.js';
+import {
+  ProjectAccessController,
+  StaffGrantsController,
+} from './project-access/project-access.controller.js';
+import { ProjectAccessService } from './project-access/project-access.service.js';
+import { StaffGrantsService } from './project-access/staff-grants.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
@@ -104,6 +110,8 @@ export class AppModule {
         ActivityController,
         PrintingController,
         ProjectsController,
+        ProjectAccessController,
+        StaffGrantsController,
         TestHolesController,
         StaffDirectoryController,
         StaffController,
@@ -148,6 +156,8 @@ export class AppModule {
         StaffService,
         PrintWorkerService,
         ProjectsService,
+        ProjectAccessService,
+        StaffGrantsService,
         TestHolesService,
         ReceiptsService,
         ReceivingLogService,

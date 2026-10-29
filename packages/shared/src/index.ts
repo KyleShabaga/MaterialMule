@@ -26,3 +26,4 @@ export * from './tested-removal';
 export * from './action-requests';
 export * from './retention';
 export * from './disposal';
+export * from './project-access';

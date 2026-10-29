@@ -1,4 +1,5 @@
 import {
+  PROJECT_INVOLVEMENT_LABEL,
   projectListSortDirection,
   type ProjectListItem,
   type ProjectListPage,
@@ -192,7 +193,22 @@ export function ProjectsPage() {
                     </Link>
                   ),
                 },
-                { header: 'Name', cell: (project) => <strong>{project.name}</strong> },
+                {
+                  header: 'Name',
+                  cell: (project) => (
+                    <>
+                      <strong>{project.name}</strong>
+                      {/* D12 (MM-AO03): why it is one of "my" projects. Relevance only. */}
+                      {project.involvement.length > 0 ? (
+                        <span className="field-hint project-involvement">
+                          {' '}
+                          You:{' '}
+                          {project.involvement.map((i) => PROJECT_INVOLVEMENT_LABEL[i]).join(', ')}
+                        </span>
+                      ) : null}
+                    </>
+                  ),
+                },
                 { header: 'Client', cell: (project) => project.client },
                 {
                   header: 'Lead Project Engineer',

@@ -19,18 +19,19 @@ import {
   type ProjectListQuery,
   type ProjectSummary,
   type ProjectVersionConflictResponse,
-  type StaffOption,
   type createProjectRequestSchema,
   type updateProjectRequestSchema,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { z } from 'zod';
 import { can, type AuthUser } from '../auth/policy.js';
+import { asLocked, lockStanding } from '../auth/standing.js';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
+import { involvementSql, orderInvolvement } from '../project-access/involvement.js';
 import { buildProjectListQuery } from './project-list-query.js';
 
 export type CreateProjectInput = z.output<typeof createProjectRequestSchema>;
@@ -75,37 +76,25 @@ function toSummary(row: ProjectRow): ProjectSummary {
 
 const SELECT_PROJECT_WITH_PEOPLE = `
   SELECT p.id, p.project_number, p.name, p.client,
-         u.id AS lead_project_engineer_id, u.display_name AS lead_project_engineer_name, u.official_initials AS lead_project_engineer_initials,
-         re.id AS re_id, re.display_name AS re_name, re.official_initials AS re_initials`;
+         u.id AS lead_project_engineer_id, u.display_name AS lead_project_engineer_name, u.official_initials AS lead_project_engineer_initials`;
 
 const PROJECT_WITH_PEOPLE_FROM = `
   FROM project p
-  JOIN app_user u ON u.id = p.lead_project_engineer_user_id
-  LEFT JOIN app_user re ON re.id = p.review_engineer_user_id`;
+  JOIN app_user u ON u.id = p.lead_project_engineer_user_id`;
 
-interface ProjectWithPeopleRow extends ProjectRow {
-  re_id: string | null;
-  re_name: string | null;
-  re_initials: string | null;
-}
+type ProjectWithPeopleRow = ProjectRow;
 
 interface ProjectListRow extends ProjectWithPeopleRow {
   test_hole_count: number;
   in_stock_unit_count: number;
   last_receipt_date: string | null;
+  involvement: string[];
 }
 
 interface ProjectDetailRow extends ProjectWithPeopleRow {
   lead_project_engineer_user_id: string;
-  review_engineer_user_id: string | null;
   server_folder_path: string | null;
   version: number;
-}
-
-function reviewEngineerOf(row: ProjectWithPeopleRow): StaffOption | null {
-  return row.re_id
-    ? { id: row.re_id, displayName: row.re_name ?? '', initials: row.re_initials }
-    : null;
 }
 
 /** The editable fields as audit before/after values. */
@@ -114,7 +103,6 @@ interface EditableValues {
   name: string;
   client: string;
   leadProjectEngineerUserId: string;
-  reviewEngineerUserId: string | null;
   serverFolderPath: string | null;
 }
 
@@ -123,7 +111,6 @@ const EDITABLE_COLUMNS: Record<keyof EditableValues, string> = {
   name: 'name',
   client: 'client',
   leadProjectEngineerUserId: 'lead_project_engineer_user_id',
-  reviewEngineerUserId: 'review_engineer_user_id',
   serverFolderPath: 'server_folder_path',
 };
 
@@ -231,7 +218,10 @@ export class ProjectsService {
     throw await this.conflict(input.projectNumber);
   }
 
-  /** One page of the projects table with its total (MM-T35). */
+  /**
+   * One page of the projects table with its total (MM-T35), each with how `userId` is involved
+   * (D12, MM-AO03; the same definition "My projects" filters by).
+   */
   async list(query: ProjectListQuery, userId: string): Promise<ProjectListPage> {
     const sql = buildProjectListQuery(query, userId);
     const pool = this.database.pool;
@@ -247,18 +237,20 @@ export class ProjectsService {
                 (SELECT count(*)::int FROM storage_unit su
                   WHERE su.project_id = p.id AND su.status = 'in_stock') AS in_stock_unit_count,
                 (SELECT max(r.received_date)::text FROM receipt r WHERE r.project_id = p.id)
-                  AS last_receipt_date
+                  AS last_receipt_date,
+                ARRAY(SELECT DISTINCT i.involvement FROM (${involvementSql(sql.userParam)}) i
+                      WHERE i.project_id = p.id) AS involvement
          ${PROJECT_WITH_PEOPLE_FROM}
          ${sql.where}
          ORDER BY ${sql.orderBy}
          LIMIT ${sql.limit} OFFSET ${sql.offset}`,
-        sql.params,
+        sql.listParams,
       ),
     ]);
     return {
       items: page.rows.map((row): ProjectListItem => ({
         ...toSummary(row),
-        reviewEngineer: reviewEngineerOf(row),
+        involvement: orderInvolvement(row.involvement),
         testHoleCount: row.test_hole_count,
         inStockUnitCount: row.in_stock_unit_count,
         lastReceiptDate: row.last_receipt_date,
@@ -275,7 +267,7 @@ export class ProjectsService {
     lock = false,
   ): Promise<ProjectDetailRow | null> {
     const { rows } = await client.query<ProjectDetailRow>(
-      `${SELECT_PROJECT_WITH_PEOPLE}, p.lead_project_engineer_user_id, p.review_engineer_user_id,
+      `${SELECT_PROJECT_WITH_PEOPLE}, p.lead_project_engineer_user_id,
               p.server_folder_path, p.version
        ${PROJECT_WITH_PEOPLE_FROM}
        WHERE p.id = $1
@@ -341,7 +333,6 @@ export class ProjectsService {
     const counts = totals.rows[0]!;
     return {
       ...toSummary(row),
-      reviewEngineer: reviewEngineerOf(row),
       serverFolderPath: row.server_folder_path,
       version: row.version,
       numberLocked: counts.receipt_count > 0,
@@ -403,7 +394,6 @@ export class ProjectsService {
           name: row.name,
           client: row.client,
           leadProjectEngineerUserId: row.lead_project_engineer_user_id,
-          reviewEngineerUserId: row.review_engineer_user_id,
           serverFolderPath: row.server_folder_path,
         };
         const requested: Partial<EditableValues> = {
@@ -411,7 +401,6 @@ export class ProjectsService {
           name: input.name,
           client: input.client,
           leadProjectEngineerUserId: input.leadProjectEngineerId,
-          reviewEngineerUserId: input.reviewEngineerId,
           serverFolderPath: input.serverFolderPath,
         };
         const changed = (Object.keys(EDITABLE_COLUMNS) as (keyof EditableValues)[]).filter(
@@ -421,6 +410,18 @@ export class ProjectsService {
         if (
           changed.includes('leadProjectEngineerUserId') &&
           !can(user, 'project.lead_project_engineer.change')
+        ) {
+          throw new ForbiddenException({ code: 'forbidden' });
+        }
+        // D09: the editor's roles and status as they stand under the project lock (an admin role
+        // removed or an account disabled by a transaction that committed first is honoured).
+        const locked = asLocked(user, await lockStanding(client, [user.userId]));
+        if (
+          !can(locked, 'project.edit', {
+            leadProjectEngineerUserId: row.lead_project_engineer_user_id,
+          }) ||
+          (changed.includes('leadProjectEngineerUserId') &&
+            !can(locked, 'project.lead_project_engineer.change'))
         ) {
           throw new ForbiddenException({ code: 'forbidden' });
         }
@@ -441,17 +442,6 @@ export class ProjectsService {
               message: 'Lead Project Engineer must be an active staff member',
             });
           }
-        }
-        if (
-          changed.includes('reviewEngineerUserId') &&
-          input.reviewEngineerId &&
-          !(await findActiveStaff(client, input.reviewEngineerId))
-        ) {
-          errors.push({
-            field: 'reviewEngineerId',
-            code: 'not_active_staff',
-            message: 'Review engineer must be an active staff member',
-          });
         }
         if (errors.length > 0) {
           throw validationError(errors);

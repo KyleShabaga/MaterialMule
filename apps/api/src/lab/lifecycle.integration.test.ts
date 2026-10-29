@@ -183,7 +183,11 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
     const granted = await h.send(
       'post',
       `/api/projects/${h.projects.a}/acceptance-delegates`,
-      { delegateUserId: h.users.js, idempotencyKey: newKey() },
+      {
+        delegateUserId: h.users.js,
+        reason: 'Covers acceptance while the lead is away',
+        idempotencyKey: newKey(),
+      },
       'pe',
     );
     expect(granted.status, JSON.stringify(granted.body)).toBe(201);

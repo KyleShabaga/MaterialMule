@@ -90,10 +90,10 @@ export type PreprovisionStaffRequest = z.input<typeof preprovisionStaffRequestSc
 export const disableStaffRequestSchema = z.object({ reason: reasonSchema });
 export type DisableStaffRequest = z.input<typeof disableStaffRequestSchema>;
 
-/** Body of `PUT /api/staff/:id/roles`: the complete role set. A reason is kept in the audit. */
+/** Body of `PUT /api/staff/:id/roles`: the complete role set and the reason (D15, MM-AO03). */
 export const setStaffRolesRequestSchema = z.object({
   roles: z.array(staffRoleSchema).max(2),
-  reason: reasonSchema.optional(),
+  reason: reasonSchema,
 });
 export type SetStaffRolesRequest = z.input<typeof setStaffRolesRequestSchema>;
 

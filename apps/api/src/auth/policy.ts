@@ -17,11 +17,32 @@ export interface AuthUser {
   initials: string | null;
 }
 
-/** Project facts a project-scoped permission needs. Delegates arrive with MM-T25. */
+/**
+ * Project facts a project-scoped permission needs, loaded by the server from the project as it
+ * stands (never from the browser). Delegates arrived with MM-T25; report issuers with MM-AO03.
+ */
 export interface ProjectContext {
   leadProjectEngineerUserId: string;
   acceptanceDelegateUserIds?: string[];
+  /**
+   * People holding a usable Authorized report issuer grant (D06: not revoked, not expired) for
+   * the one report scope being checked. The loader filters by scope and expiry.
+   */
+  reportIssuerUserIds?: string[];
 }
+
+/**
+ * Where a permission comes from (MM-AO03 effective capabilities). `internal` is every active
+ * personal or test account; `lab` is the shared LAB account's own allow-list.
+ */
+export type PermissionSource =
+  | 'lab'
+  | 'internal'
+  | 'lab_manager'
+  | 'admin'
+  | 'lead_project_engineer'
+  | 'acceptance_delegate'
+  | 'report_issuer';
 
 export type Permission =
   // Receiving and inventory (LAB may do these)
@@ -43,6 +64,8 @@ export type Permission =
   | 'test.review'
   // Read a project's acceptance delegates (MM-T25)
   | 'acceptance_delegation.read'
+  // Read a project's team, scoped reviewers, report issuers and one's capabilities (MM-AO03)
+  | 'project_access.read'
   // Change a submitted program (MM-T26): amendments, accepted-request changes and repeats
   | 'lab_program.amend'
   // Ask the people who decide to cancel a test or close a program (MM-T26)
@@ -77,11 +100,21 @@ export type Permission =
   | 'acceptance_delegation.manage'
   // Lead Project Engineer or admin (MM-T35, owner decision 2026-10-25)
   | 'project.edit'
+  // Project team and scoped reviewers (MM-AO03, D04/D05): Lead Project Engineer or admin
+  | 'project_team.manage'
+  | 'project_reviewer.manage'
+  // Authorized report issuers (MM-AO03, D06/D07): granted by the project's Lead Project Engineer
+  // only; issuing is the lead's own or an active grant's. No report route uses it yet.
+  | 'report_issuer.manage'
+  | 'report.issue'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
   | 'printer.manage'
   | 'project.lead_project_engineer.change'
+  // Reviewer eligibility (D05) and "Can create and lead projects" (D01), MM-AO03
+  | 'reviewer_eligibility.manage'
+  | 'staff_capability.manage'
   // Operations (MM-T21): Settings → System status
   | 'system.status.read';
 
@@ -113,6 +146,8 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   'storage_unit.correct',
   'test.review',
   'acceptance_delegation.read',
+  // MM-AO03: broad internal visibility of who is assigned; LAB reads none of it.
+  'project_access.read',
   // MM-T26: LAB's T23/T24 allow-list never covers these, whoever is selected at the station.
   'lab_program.amend',
   'test.cancel_request',
@@ -162,6 +197,12 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'project.edit',
   'project.lead_project_engineer.change',
   'system.status.read',
+  // MM-AO03: recording team members and scoped reviewers (D04), reviewer eligibility (D05) and the
+  // create-and-lead capability (D01). Never issuer authority (D06) or any technical decision.
+  'project_team.manage',
+  'project_reviewer.manage',
+  'reviewer_eligibility.manage',
+  'staff_capability.manage',
 ]);
 
 /** Granted to the project's Lead Project Engineer (project-scoped). */
@@ -175,50 +216,89 @@ const LEAD_PROJECT_ENGINEER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permi
   'program.close',
   'acceptance_delegation.manage',
   'project.edit',
+  // MM-AO03 (D04, D06, D07)
+  'project_team.manage',
+  'project_reviewer.manage',
+  'report_issuer.manage',
+  'report.issue',
 ]);
 
 /** Granted to a project acceptance delegate (D04): acceptance only, never closure. */
 const DELEGATE_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['test.accept']);
+
+/** Granted by an Authorized report issuer grant for its project and scope (D06): issuing only. */
+const REPORT_ISSUER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['report.issue']);
 
 /** Permissions that need a ProjectContext to be granted through project authority. */
 export const PROJECT_SCOPED: ReadonlySet<Permission> = new Set<Permission>([
   ...LEAD_PROJECT_ENGINEER_PERMISSIONS,
 ]);
 
+/** Every source that could ever grant `permission`, for a blocked reason (MM-AO03). */
+export function possibleSources(permission: Permission): PermissionSource[] {
+  const sources: PermissionSource[] = [];
+  if (LAB_PERMISSIONS.has(permission)) sources.push('lab');
+  if (ANY_INTERNAL_USER.has(permission)) sources.push('internal');
+  if (LAB_MANAGER_PERMISSIONS.has(permission)) sources.push('lab_manager');
+  if (ADMIN_PERMISSIONS.has(permission)) sources.push('admin');
+  if (LEAD_PROJECT_ENGINEER_PERMISSIONS.has(permission)) sources.push('lead_project_engineer');
+  if (DELEGATE_PERMISSIONS.has(permission)) sources.push('acceptance_delegate');
+  if (REPORT_ISSUER_PERMISSIONS.has(permission)) sources.push('report_issuer');
+  return sources;
+}
+
 /**
- * True when `user` may perform `permission`. Project-scoped permissions are granted through the
- * project's Lead Project Engineer (or a delegate for acceptance) only when `project` is supplied.
+ * Every source through which `user` holds `permission` (empty: denied). `can()` is exactly
+ * "this is not empty", so the capabilities the API reports never disagree with enforcement.
  */
-export function can(user: AuthUser, permission: Permission, project?: ProjectContext): boolean {
+export function permissionSources(
+  user: AuthUser,
+  permission: Permission,
+  project?: ProjectContext,
+): PermissionSource[] {
   if (user.status !== 'active') {
-    return false;
+    return [];
   }
   if (user.accountType === 'shared_lab') {
     // LAB has no role or project authority even if one was assigned by mistake.
-    return LAB_PERMISSIONS.has(permission);
+    return LAB_PERMISSIONS.has(permission) ? ['lab'] : [];
   }
-  if (ANY_INTERNAL_USER.has(permission)) {
-    return true;
-  }
+  const sources: PermissionSource[] = [];
+  if (ANY_INTERNAL_USER.has(permission)) sources.push('internal');
   if (user.roles.includes('lab_manager') && LAB_MANAGER_PERMISSIONS.has(permission)) {
-    return true;
+    sources.push('lab_manager');
   }
   if (user.roles.includes('admin') && ADMIN_PERMISSIONS.has(permission)) {
-    return true;
+    sources.push('admin');
   }
   if (project) {
     if (
       project.leadProjectEngineerUserId === user.userId &&
       LEAD_PROJECT_ENGINEER_PERMISSIONS.has(permission)
     ) {
-      return true;
+      sources.push('lead_project_engineer');
     }
     if (
       project.acceptanceDelegateUserIds?.includes(user.userId) &&
       DELEGATE_PERMISSIONS.has(permission)
     ) {
-      return true;
+      sources.push('acceptance_delegate');
+    }
+    if (
+      project.reportIssuerUserIds?.includes(user.userId) &&
+      REPORT_ISSUER_PERMISSIONS.has(permission)
+    ) {
+      sources.push('report_issuer');
     }
   }
-  return false;
+  return sources;
+}
+
+/**
+ * True when `user` may perform `permission`. Project-scoped permissions are granted through the
+ * project's Lead Project Engineer (or a delegate for acceptance, an issuer grant for issuing) only
+ * when `project` is supplied.
+ */
+export function can(user: AuthUser, permission: Permission, project?: ProjectContext): boolean {
+  return permissionSources(user, permission, project).length > 0;
 }

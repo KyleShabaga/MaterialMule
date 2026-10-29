@@ -69,14 +69,76 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
     name: string,
     client: string,
     leadProjectEngineer: string,
-    reviewEngineer: string | null = null,
   ): Promise<string> {
     const { rows } = await db.pool.query<{ id: string }>(
-      `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id, review_engineer_user_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [projectNumber, name, client, leadProjectEngineer, reviewEngineer],
+      `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [projectNumber, name, client, leadProjectEngineer],
     );
     return rows[0]!.id;
+  }
+
+  /** D12 involvement rows for `user` on `project`, written as the API would (MM-AO03). */
+  async function involve(
+    kind: 'team' | 'reviewer' | 'delegate' | 'issuer',
+    project: string,
+    user: string,
+    options: { ended?: boolean; expired?: boolean } = {},
+  ) {
+    const by = users.pe!;
+    if (kind === 'team') {
+      await db.pool.query(
+        `INSERT INTO project_team_member (project_id, user_id, user_name_snapshot, added_by_user_id,
+           added_by_name_snapshot, add_reason, add_idempotency_key, add_request_hash)
+         VALUES ($1, $2, 'User', $3, 'User pe', 'Supporting', gen_random_uuid(), 'h')`,
+        [project, user, by],
+      );
+      if (options.ended) {
+        await db.pool.query(
+          `UPDATE project_team_member SET removed_at = now(), removed_by_user_id = $3,
+             removed_by_name_snapshot = 'User pe', remove_reason = 'Done'
+           WHERE project_id = $1 AND user_id = $2 AND removed_at IS NULL`,
+          [project, user, by],
+        );
+      }
+    } else if (kind === 'reviewer') {
+      await db.pool.query(
+        `INSERT INTO reviewer_eligibility (user_id, user_name_snapshot, scope_code,
+           granted_by_user_id, granted_by_name_snapshot, grant_reason, grant_idempotency_key,
+           grant_request_hash)
+         SELECT $1, 'User', 'concrete_field', $2, 'User admin', 'Qualified', gen_random_uuid(), 'h'
+         WHERE NOT EXISTS (SELECT 1 FROM reviewer_eligibility
+                           WHERE user_id = $1 AND scope_code = 'concrete_field'
+                             AND revoked_at IS NULL)`,
+        [user, users.admin],
+      );
+      await db.pool.query(
+        `INSERT INTO project_reviewer_assignment (project_id, reviewer_user_id,
+           reviewer_name_snapshot, scope_code, assigned_by_user_id, assigned_by_name_snapshot,
+           assign_reason, assign_idempotency_key, assign_request_hash)
+         VALUES ($1, $2, 'User', 'concrete_field', $3, 'User pe', 'Reviews field reports',
+                 gen_random_uuid(), 'h')`,
+        [project, user, by],
+      );
+    } else if (kind === 'delegate') {
+      await db.pool.query(
+        `INSERT INTO acceptance_delegation (project_id, delegate_user_id, delegate_name_snapshot,
+           granted_by_user_id, granted_by_name_snapshot, grant_reason, grant_idempotency_key,
+           grant_request_hash)
+         VALUES ($1, $2, 'User', $3, 'User pe', 'Covers acceptance', gen_random_uuid(), 'h')`,
+        [project, user, by],
+      );
+    } else {
+      await db.pool.query(
+        `INSERT INTO project_report_issuer_grant (project_id, issuer_user_id, issuer_name_snapshot,
+           report_scope_code, granted_by_user_id, granted_by_name_snapshot, grant_reason,
+           granted_at, expires_at, grant_idempotency_key, grant_request_hash)
+         VALUES ($1, $2, 'User', 'concrete_field', $3, 'User pe', 'Issues field reports',
+                 now() - interval '2 days',
+                 CASE WHEN $4 THEN now() - interval '1 day' END, gen_random_uuid(), 'h')`,
+        [project, user, by, options.expired ?? false],
+      );
+    }
   }
 
   async function addHole(projectId: string, name: string): Promise<string> {
@@ -144,6 +206,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
   }
 
   let demo: string;
+  const zProjects: string[] = [];
   let th01: string;
   let th02: string;
 
@@ -180,8 +243,28 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       if (i <= 9) await addProject(`RIVER-${n}`, `Bridge works ${n}`, 'Example Client', users.pe!);
       else if (i <= 18) await addProject(`P-${n}`, `Riverside slope ${n}`, 'Example', users.pe!);
       else if (i <= 26) await addProject(`Q-${n}`, `Culvert ${n}`, 'Rivers Example Ltd', users.pe!);
-      else await addProject(`Z-${n}`, `Hillside ${n}`, 'Example Client', users.pe!, users.rev!);
+      else zProjects.push(await addProject(`Z-${n}`, `Hillside ${n}`, 'Example Client', users.pe!));
     }
+    // D12: "rev" is involved in Z-27 (team), Z-28 (reviewer and delegate) and Z-29 (issuer);
+    // ended or expired rows on other projects don't count.
+    const [z27, z28, z29] = zProjects as [string, string, string];
+    await involve('team', z27, users.rev!);
+    await involve('reviewer', z28, users.rev!);
+    await involve('delegate', z28, users.rev!);
+    await involve('issuer', z29, users.rev!);
+    const [q19, q20] = await Promise.all(
+      ['Q-19', 'Q-20'].map(
+        async (number) =>
+          (
+            await db.pool.query<{ id: string }>(
+              'SELECT id FROM project WHERE project_number = $1',
+              [number],
+            )
+          ).rows[0]!.id,
+      ),
+    );
+    await involve('team', q19!, users.rev!, { ended: true });
+    await involve('issuer', q20!, users.rev!, { expired: true });
   });
 
   afterAll(async () => {
@@ -208,14 +291,28 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect((await listAll('search=%25')).total).toBe(0);
     });
 
-    it('AC2: "Only mine" shows only projects where I am Lead Project Engineer or review engineer', async () => {
+    it('AC2 / D12: "My projects" shows active lead, team, reviewer, delegate and issuer involvement', async () => {
       const mine = await listAll('mine=true', 'mine');
       expect(mine.total).toBe(1);
-      expect(mine.items.map((p) => p.projectNumber)).toEqual(['DEMO-2601']);
-      const reviewer = await listAll('mine=true', 'rev');
-      expect(reviewer.items.map((p) => p.projectNumber)).toEqual(['Z-27', 'Z-28', 'Z-29']);
+      expect(mine.items.map((p) => [p.projectNumber, p.involvement])).toEqual([
+        ['DEMO-2601', ['lead_project_engineer']],
+      ]);
+      const involved = await listAll('mine=true', 'rev');
+      expect(involved.items.map((p) => [p.projectNumber, p.involvement])).toEqual([
+        ['Z-27', ['team_member']],
+        // De-duplicated, in a fixed order.
+        ['Z-28', ['reviewer', 'acceptance_delegate']],
+        ['Z-29', ['report_issuer']],
+      ]);
       expect((await listAll('mine=true', 'lab')).total).toBe(0);
-      expect((await listAll('mine=false', 'mine')).total).toBe(30);
+      // Relevance only: All projects is unchanged and labels involvement too.
+      const all = await listAll('mine=false&pageSize=100', 'rev');
+      expect(all.total).toBe(30);
+      expect(all.items.find((p) => p.projectNumber === 'Q-19')!.involvement).toEqual([]);
+      expect(all.items.find((p) => p.projectNumber === 'Z-28')!.involvement).toEqual([
+        'reviewer',
+        'acceptance_delegate',
+      ]);
     });
 
     it('shows initials, hole count, in-stock units and last receipt date', async () => {
@@ -278,7 +375,6 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect(project).toMatchObject({
         projectNumber: 'DEMO-2601',
         leadProjectEngineer: { id: users.mine },
-        reviewEngineer: null,
         serverFolderPath: null,
         numberLocked: true,
         unitCount: 3,
@@ -343,13 +439,9 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
 
   describe('edit (T3, T4)', () => {
     it('T3: permission matrix: Lead Project Engineer and admin 200; technician, reviewer and LAB 403', async () => {
-      const project = await addProject(
-        'EDIT-1',
-        'Edit works',
-        'Example Client',
-        users.pe!,
-        users.rev!,
-      );
+      const project = await addProject('EDIT-1', 'Edit works', 'Example Client', users.pe!);
+      // A scoped reviewer on the project still can't edit it.
+      await involve('reviewer', project, users.rev!);
       let version = (await detail(project)).version;
       for (const who of ['tech', 'rev', 'lab']) {
         const response = await send('patch', `/api/projects/${project}`, cookies[who]!, {
@@ -412,18 +504,15 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       const notStaff = await send('patch', `/api/projects/${project}`, cookies.admin!, {
         version,
         leadProjectEngineerId: users.lab,
-        reviewEngineerId: users.pend,
         reason: 'Handover',
       });
       expect(Object.keys(messagesByField(notStaff.body.errors)).sort()).toEqual([
         'leadProjectEngineerId',
-        'reviewEngineerId',
       ]);
 
       const response = await send('patch', `/api/projects/${project}`, cookies.admin!, {
         version,
         leadProjectEngineerId: users.mine,
-        reviewEngineerId: users.rev,
         serverFolderPath: '  P:\\Projects\\EDIT-3  ',
         name: 'Audit works',
         reason: ' Lead Project Engineer on leave ',
@@ -431,7 +520,6 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect(response.status).toBe(200);
       expect(projectDetailSchema.parse(response.body)).toMatchObject({
         leadProjectEngineer: { id: users.mine },
-        reviewEngineer: { id: users.rev, initials: 'REV' },
         serverFolderPath: 'P:\\Projects\\EDIT-3',
       });
 
@@ -444,24 +532,23 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         // Only changed fields: the unchanged name is left out.
         before: {
           leadProjectEngineerUserId: users.pe,
-          reviewEngineerUserId: null,
           serverFolderPath: null,
         },
         after: {
           leadProjectEngineerUserId: users.mine,
-          reviewEngineerUserId: users.rev,
           serverFolderPath: 'P:\\Projects\\EDIT-3',
         },
       });
 
-      // Clearing the folder path and review engineer.
+      // Clearing the folder path. The retired review engineer field is ignored (MM-AO03, D12).
       const cleared = await send('patch', `/api/projects/${project}`, cookies.mine!, {
         version: version + 1,
         serverFolderPath: '',
         reviewEngineerId: null,
       });
       expect(cleared.status).toBe(200);
-      expect(cleared.body).toMatchObject({ serverFolderPath: null, reviewEngineer: null });
+      expect(cleared.body).toMatchObject({ serverFolderPath: null });
+      expect(cleared.body).not.toHaveProperty('reviewEngineer');
     });
 
     it('AC4: a project with a receipt keeps its number (422, nothing changes)', async () => {

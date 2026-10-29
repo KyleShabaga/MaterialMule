@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { personSnapshotSchema } from './lab-programs';
+import { grantReasonSchema } from './project-access';
 
 // Review corrections and delegated acceptance (MM-T25).
 //
@@ -102,9 +103,13 @@ export const acceptTestRequestSchema = z.strictObject({
 });
 export type AcceptTestRequest = z.output<typeof acceptTestRequestSchema>;
 
-/** `POST /api/projects/:projectId/acceptance-delegates` (the project's Lead Project Engineer). */
+/**
+ * `POST /api/projects/:projectId/acceptance-delegates` (the project's Lead Project Engineer). A
+ * reason is required (D15, MM-AO03); revoking sends `endGrantRequestSchema` (a reason too).
+ */
 export const grantDelegationRequestSchema = z.strictObject({
   delegateUserId: idSchema,
+  reason: grantReasonSchema,
   idempotencyKey: idSchema,
 });
 export type GrantDelegationRequest = z.output<typeof grantDelegationRequestSchema>;
@@ -203,8 +208,11 @@ export const acceptanceDelegationSchema = z.object({
   delegate: personSnapshotSchema,
   grantedBy: personSnapshotSchema,
   grantedAt: z.string(),
+  /** Null only for grants made before reasons were required (D15). */
+  grantReason: z.string().nullable(),
   revokedBy: personSnapshotSchema.nullable(),
   revokedAt: z.string().nullable(),
+  revokeReason: z.string().nullable(),
 });
 export type AcceptanceDelegation = z.infer<typeof acceptanceDelegationSchema>;
 

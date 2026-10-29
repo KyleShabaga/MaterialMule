@@ -240,14 +240,15 @@ export const fetchDelegates = (projectId: string): Promise<AcceptanceDelegates> 
 
 export const grantDelegate = (
   projectId: string,
-  body: { delegateUserId: string; idempotencyKey: string },
+  body: { delegateUserId: string; reason: string; idempotencyKey: string },
 ) => write(delegatesPath(projectId), 'POST', body, (b) => acceptanceDelegatesSchema.parse(b));
 
-export const revokeDelegate = (projectId: string, delegationId: string) =>
+/** Revoking needs a reason too (D15, MM-AO03). */
+export const revokeDelegate = (projectId: string, delegationId: string, reason: string) =>
   write(
     `${delegatesPath(projectId)}/${encodeURIComponent(delegationId)}`,
     'DELETE',
-    undefined,
+    { reason },
     (b) => acceptanceDelegatesSchema.parse(b),
   );
 

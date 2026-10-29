@@ -103,6 +103,15 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-T30: standard disposal approval and revocation by the project's Lead Project Engineer or a Lab Manager.
   'POST /api/disposal/approvals': 'disposal.approve',
   'POST /api/disposal/approvals/:id/revoke': 'disposal.approve',
+  // MM-AO03: team and scoped reviewers by the project's Lead Project Engineer or an admin; report
+  // issuers by the project's Lead Project Engineer only. A person reads their own grants.
+  'POST /api/projects/:projectId/team-members': 'project_team.manage',
+  'DELETE /api/projects/:projectId/team-members/:id': 'project_team.manage',
+  'POST /api/projects/:projectId/reviewer-assignments': 'project_reviewer.manage',
+  'DELETE /api/projects/:projectId/reviewer-assignments/:id': 'project_reviewer.manage',
+  'POST /api/projects/:projectId/report-issuers': 'report_issuer.manage',
+  'DELETE /api/projects/:projectId/report-issuers/:id': 'report_issuer.manage',
+  'GET /api/me/grants': null,
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
@@ -220,6 +229,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       .replace(':projectId', ids.project!)
       .replace(':suNumber', ids.readableId!)
       .replace(':receiptId', ids.receipt!)
+      .replace(':grantId', ids.victim!)
       .replace(':id', idParam);
   }
 

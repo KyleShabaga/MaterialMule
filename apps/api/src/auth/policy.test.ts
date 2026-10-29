@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { can, type AuthUser, type Permission, type ProjectContext } from './policy.js';
+import {
+  can,
+  permissionSources,
+  possibleSources,
+  type AuthUser,
+  type Permission,
+  type ProjectContext,
+} from './policy.js';
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -174,5 +181,78 @@ describe('can', () => {
     expect(can(lab, 'location.manage')).toBe(false);
     expect(can(lab, 'inventory.read')).toBe(true);
     expect(can(lab, 'label.print')).toBe(true);
+  });
+});
+
+describe('MM-AO03 assignments, scoped grants and effective sources', () => {
+  const admin = user({ userId: 'u-admin', roles: ['admin'] });
+  const lm = user({ userId: 'u-lm', roles: ['lab_manager'] });
+  const lead = user({ userId: 'u-pe' });
+  const issuer = user({ userId: 'u-is' });
+  const withIssuer: ProjectContext = { ...project, reportIssuerUserIds: ['u-is'] };
+
+  it('D04/D05: the lead or an admin manage team and reviewers; nobody else, never LAB', () => {
+    for (const permission of ['project_team.manage', 'project_reviewer.manage'] as const) {
+      expect(can(lead, permission, project)).toBe(true);
+      expect(can(lead, permission, { leadProjectEngineerUserId: 'someone-else' })).toBe(false);
+      expect(can(admin, permission)).toBe(true);
+      expect(can(lm, permission, project)).toBe(false);
+      expect(can(user({ userId: 'u-de' }), permission, project)).toBe(false);
+      expect(can(user(), permission, project)).toBe(false);
+      const lab = user({ userId: 'u-pe', accountType: 'shared_lab', roles: ['admin'] });
+      expect(can(lab, permission, project)).toBe(false);
+    }
+  });
+
+  it('D06/D07: only the lead grants issuers; the lead and a grant holder issue; admin never', () => {
+    expect(can(lead, 'report_issuer.manage', project)).toBe(true);
+    expect(can(admin, 'report_issuer.manage', project)).toBe(false);
+    expect(can(issuer, 'report_issuer.manage', withIssuer)).toBe(false);
+    expect(can(lead, 'report.issue', project)).toBe(true);
+    expect(can(issuer, 'report.issue', withIssuer)).toBe(true);
+    // AC2: the grant is for the project (and scope) the loader evaluated, nowhere else.
+    expect(can(issuer, 'report.issue', project)).toBe(false);
+    expect(can(issuer, 'report.issue')).toBe(false);
+    expect(can(admin, 'report.issue', withIssuer)).toBe(false);
+    expect(can(user({ userId: 'u-is', status: 'disabled' }), 'report.issue', withIssuer)).toBe(
+      false,
+    );
+    // An issuer grant confers nothing else.
+    for (const permission of ['test.accept', 'program.close', 'project.edit'] as const) {
+      expect(can(issuer, permission, withIssuer)).toBe(false);
+    }
+  });
+
+  it('D01/D05: reviewer eligibility and the create-and-lead capability are admin-only', () => {
+    for (const permission of ['reviewer_eligibility.manage', 'staff_capability.manage'] as const) {
+      expect(can(admin, permission)).toBe(true);
+      expect(can(lm, permission)).toBe(false);
+      expect(can(lead, permission, project)).toBe(false);
+    }
+  });
+
+  it('reports every source, and can() is exactly "some source"', () => {
+    const both = user({ userId: 'u-pe', roles: ['lab_manager', 'admin'] });
+    expect(permissionSources(both, 'program.reopen', project)).toEqual([
+      'lab_manager',
+      'lead_project_engineer',
+    ]);
+    expect(permissionSources(both, 'project.edit', project)).toEqual([
+      'admin',
+      'lead_project_engineer',
+    ]);
+    expect(permissionSources(user({ userId: 'u-de' }), 'test.accept', project)).toEqual([
+      'acceptance_delegate',
+    ]);
+    expect(permissionSources(user({ accountType: 'shared_lab' }), 'inventory.read')).toEqual([
+      'lab',
+    ]);
+    expect(permissionSources(user({ status: 'pending' }), 'inventory.read')).toEqual([]);
+    expect(possibleSources('test.accept')).toEqual([
+      'lead_project_engineer',
+      'acceptance_delegate',
+    ]);
+    expect(possibleSources('report.issue')).toEqual(['lead_project_engineer', 'report_issuer']);
+    expect(possibleSources('report_issuer.manage')).toEqual(['lead_project_engineer']);
   });
 });

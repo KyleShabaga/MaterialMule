@@ -17,7 +17,6 @@ interface Draft {
   name: string;
   client: string;
   leadProjectEngineerId: string;
-  reviewEngineerId: string;
   serverFolderPath: string;
   reason: string;
 }
@@ -28,7 +27,6 @@ function draftFrom(project: ProjectDetail): Draft {
     name: project.name,
     client: project.client,
     leadProjectEngineerId: project.leadProjectEngineer.id,
-    reviewEngineerId: project.reviewEngineer?.id ?? '',
     serverFolderPath: project.serverFolderPath ?? '',
     reason: '',
   };
@@ -55,9 +53,6 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
     body.leadProjectEngineerId = draft.leadProjectEngineerId;
     body.reason = draft.reason;
   }
-  if (draft.reviewEngineerId !== (project.reviewEngineer?.id ?? '')) {
-    body.reviewEngineerId = draft.reviewEngineerId || null;
-  }
   if (draft.serverFolderPath.trim() !== (project.serverFolderPath ?? '')) {
     body.serverFolderPath = draft.serverFolderPath;
   }
@@ -66,8 +61,9 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
 
 /**
  * Edit project (MM-T35): admins and the project's Lead Project Engineer change the number (until the first
- * receipt), name, client, review engineer and server folder path; only admins change the Lead Project Engineer,
- * with a reason. Field errors show beside each input.
+ * receipt), name, client and server folder path; only admins change the Lead Project Engineer,
+ * with a reason. Scoped reviewer assignments replace the single review engineer (MM-AO03). Field
+ * errors show beside each input.
  */
 export function EditProjectDialog({
   project,
@@ -257,18 +253,6 @@ export function EditProjectDialog({
             )}
           </FormField>
         ) : null}
-        <FormField label="Review engineer" error={error('reviewEngineerId')}>
-          {(props) => (
-            <select
-              {...props}
-              value={draft.reviewEngineerId}
-              onChange={(event) => set('reviewEngineerId')(event.target.value)}
-            >
-              <option value="">None</option>
-              <StaffOptionGroups staff={staff} current={base.reviewEngineer} />
-            </select>
-          )}
-        </FormField>
         <FormField
           label="Server folder path"
           error={error('serverFolderPath')}

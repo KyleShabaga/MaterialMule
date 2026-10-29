@@ -9,6 +9,7 @@ import {
 import {
   REVIEW_STATE_LABEL,
   acceptTestRequestSchema,
+  endGrantRequestSchema,
   grantDelegationRequestSchema,
   nextReviewState,
   type AcceptanceDelegates,
@@ -23,6 +24,7 @@ import {
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
 import { can, type AuthUser } from '../auth/policy.js';
+import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { enqueueActionItemEmails } from '../notifications/action-items.js';
@@ -79,7 +81,7 @@ export async function activeDelegateIds(db: Db, projectId: string): Promise<stri
  * Order: 403, 404, 422 `program_not_open`, 409 (`version_conflict` with the current state,
  * `idempotency_key_reused`, `correction_superseded`), 422 `invalid_transition`. Within one
  * transaction the program is locked (share), then the test (update), then, for acceptance, the
- * project and the actor's delegation (share). Revocation locks the delegation for update, so an
+ * project, the actor's account and the actor's delegation (share; D09 lock order). Revocation locks the delegation for update, so an
  * acceptance and a revocation always commit in one order: an acceptance that committed first
  * keeps its attribution, one ordered after the revocation is refused. An exact retry (same key
  * and intent, same account) returns the current result without a second event or action item.
@@ -212,6 +214,10 @@ export class LabReviewService {
           'SELECT lead_project_engineer_user_id FROM project WHERE id = $1 FOR SHARE',
           [current.project_id],
         );
+        // D09: the account too, so a disable that committed first is honoured.
+        if (asLocked(user, await lockStanding(client, [user.userId])).status !== 'active') {
+          throw forbidden();
+        }
         if (project[0]!.lead_project_engineer_user_id !== user.userId) {
           const { rows: grant } = await client.query<{ id: string }>(
             `SELECT id FROM acceptance_delegation
@@ -410,7 +416,12 @@ export class LabReviewService {
     });
   }
 
-  /** Only the project's Lead Project Engineer grants. A repeated grant can't stack a second active one. */
+  /**
+   * Only the project's Lead Project Engineer grants, with a reason (D15). A repeated grant can't
+   * stack a second active one. Lock order: the project (FOR UPDATE), then the lead's and the
+   * delegate's accounts (FOR SHARE), so a lead change, role change or disable that committed first
+   * is honoured (D09).
+   */
   async grant(projectId: string, body: unknown, user: AuthUser): Promise<AcceptanceDelegates> {
     return withTransaction(this.database.pool, async (client) => {
       const project = await findProject(client, projectId, 'FOR UPDATE');
@@ -418,15 +429,20 @@ export class LabReviewService {
         if (!can(user, 'acceptance_delegation.manage')) throw forbidden();
         throw new NotFoundException({ code: 'project_not_found' });
       }
-      if (
-        !can(user, 'acceptance_delegation.manage', {
-          leadProjectEngineerUserId: project.lead_project_engineer_user_id,
-        })
-      ) {
+      const context = { leadProjectEngineerUserId: project.lead_project_engineer_user_id };
+      if (!can(user, 'acceptance_delegation.manage', context)) {
         throw forbidden();
       }
       const request = parseBody(grantDelegationRequestSchema, body);
-      const hash = intentHash({ projectId, delegateUserId: request.delegateUserId });
+      const standing = await lockStanding(client, [user.userId, request.delegateUserId]);
+      if (!can(asLocked(user, standing), 'acceptance_delegation.manage', context)) {
+        throw forbidden();
+      }
+      const hash = intentHash({
+        projectId,
+        delegateUserId: request.delegateUserId,
+        reason: request.reason,
+      });
       const { rows: previous } = await client.query<{
         grant_request_hash: string;
         granted_by_user_id: string;
@@ -444,20 +460,11 @@ export class LabReviewService {
         }
         return loadDelegates(client, projectId, { canManage: true });
       }
-      const { rows: people } = await client.query<{
-        id: string;
-        display_name: string;
-        official_initials: string | null;
-      }>(
-        `SELECT id, display_name, official_initials FROM app_user
-         WHERE id = $1 AND status = 'active' AND account_type <> 'shared_lab'`,
-        [request.delegateUserId],
-      );
-      const delegate = people[0];
-      if (!delegate) {
+      const delegate = standing.get(request.delegateUserId);
+      if (!isActiveStaff(delegate)) {
         unprocessable('invalid_delegate', 'delegateUserId', 'must be an active staff member');
       }
-      if (delegate.id === project.lead_project_engineer_user_id) {
+      if (delegate.userId === project.lead_project_engineer_user_id) {
         unprocessable(
           'invalid_delegate',
           'delegateUserId',
@@ -467,7 +474,7 @@ export class LabReviewService {
       const { rows: active } = await client.query(
         `SELECT 1 FROM acceptance_delegation
          WHERE project_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL`,
-        [projectId, delegate.id],
+        [projectId, delegate.userId],
       );
       if (active.length > 0) {
         unprocessable('already_delegated', 'delegateUserId', 'already an acceptance delegate');
@@ -476,16 +483,17 @@ export class LabReviewService {
         `INSERT INTO acceptance_delegation
            (project_id, delegate_user_id, delegate_initials_snapshot, delegate_name_snapshot,
             granted_by_user_id, granted_by_initials_snapshot, granted_by_name_snapshot,
-            grant_idempotency_key, grant_request_hash)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+            grant_reason, grant_idempotency_key, grant_request_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
         [
           projectId,
-          delegate.id,
-          delegate.official_initials,
-          delegate.display_name,
+          delegate.userId,
+          delegate.initials,
+          delegate.displayName,
           user.userId,
           user.initials,
           user.displayName,
+          request.reason,
           request.idempotencyKey,
           hash,
         ],
@@ -495,11 +503,12 @@ export class LabReviewService {
         entityType: 'acceptance_delegation',
         entityId: rows[0]!.id,
         actor: actorOf(user),
+        reason: request.reason,
         after: {
           projectId,
           projectNumber: project.project_number,
-          delegateUserId: delegate.id,
-          delegateName: delegate.display_name,
+          delegateUserId: delegate.userId,
+          delegateName: delegate.displayName,
         },
       });
       return loadDelegates(client, projectId, { canManage: true });
@@ -507,21 +516,24 @@ export class LabReviewService {
   }
 
   /**
-   * Only the project's Lead Project Engineer revokes. Blocks new acceptances at once; acceptances already made
-   * keep their attribution. Revoking an already revoked grant changes nothing.
+   * Only the project's Lead Project Engineer revokes, with a reason (D15). Blocks new acceptances
+   * at once; acceptances already made keep their attribution. Revoking an already revoked grant
+   * changes nothing.
    */
-  async revoke(projectId: string, delegationId: string, user: AuthUser) {
+  async revoke(projectId: string, delegationId: string, body: unknown, user: AuthUser) {
     return withTransaction(this.database.pool, async (client) => {
       const project = await findProject(client, projectId, 'FOR SHARE');
       if (!project) {
         if (!can(user, 'acceptance_delegation.manage')) throw forbidden();
         throw new NotFoundException({ code: 'project_not_found' });
       }
-      if (
-        !can(user, 'acceptance_delegation.manage', {
-          leadProjectEngineerUserId: project.lead_project_engineer_user_id,
-        })
-      ) {
+      const context = { leadProjectEngineerUserId: project.lead_project_engineer_user_id };
+      if (!can(user, 'acceptance_delegation.manage', context)) {
+        throw forbidden();
+      }
+      const { reason } = parseBody(endGrantRequestSchema, body);
+      const standing = await lockStanding(client, [user.userId]);
+      if (!can(asLocked(user, standing), 'acceptance_delegation.manage', context)) {
         throw forbidden();
       }
       if (!UUID_PATTERN.test(delegationId)) {
@@ -543,15 +555,16 @@ export class LabReviewService {
         await client.query(
           `UPDATE acceptance_delegation
            SET revoked_at = now(), revoked_by_user_id = $2, revoked_by_initials_snapshot = $3,
-               revoked_by_name_snapshot = $4
+               revoked_by_name_snapshot = $4, revoke_reason = $5
            WHERE id = $1`,
-          [delegationId, user.userId, user.initials, user.displayName],
+          [delegationId, user.userId, user.initials, user.displayName, reason],
         );
         await recordAudit(client, {
           action: 'acceptance_delegation.revoked',
           entityType: 'acceptance_delegation',
           entityId: delegationId,
           actor: actorOf(user),
+          reason,
           before: { active: true },
           after: {
             active: false,
@@ -615,6 +628,8 @@ async function loadDelegates(
     granted_by_initials_snapshot: string | null;
     granted_by_name_snapshot: string;
     granted_at: Date;
+    grant_reason: string | null;
+    revoke_reason: string | null;
     revoked_by_user_id: string | null;
     revoked_by_initials_snapshot: string | null;
     revoked_by_name_snapshot: string | null;
@@ -637,6 +652,8 @@ async function loadDelegates(
       name: row.granted_by_name_snapshot,
     },
     grantedAt: row.granted_at.toISOString(),
+    grantReason: row.grant_reason,
+    revokeReason: row.revoke_reason,
     revokedBy: row.revoked_by_user_id
       ? {
           userId: row.revoked_by_user_id,

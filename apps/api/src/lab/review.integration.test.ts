@@ -131,7 +131,11 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     return h.send(
       'post',
       `/api/projects/${h.projects[project]}/acceptance-delegates`,
-      { delegateUserId: delegate, idempotencyKey: newKey() },
+      {
+        delegateUserId: delegate,
+        reason: 'Covers acceptance while the lead is away',
+        idempotencyKey: newKey(),
+      },
       as,
     );
   }
@@ -142,7 +146,8 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
       .http()
       .delete(`/api/projects/${h.projects[project]}/acceptance-delegates/${delegationId}`)
       .set('Cookie', cookie)
-      .set('x-materialmule-csrf', '1');
+      .set('x-materialmule-csrf', '1')
+      .send({ reason: 'No longer needed on this project' });
   }
 
   beforeAll(async () => {
@@ -729,8 +734,9 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     await expect(
       h.db.pool.query(
         `INSERT INTO acceptance_delegation (project_id, delegate_user_id, delegate_name_snapshot,
-           granted_by_user_id, granted_by_name_snapshot, grant_idempotency_key, grant_request_hash)
-         VALUES ($1, $2, 'Jamie Song', $3, 'Pat Example', gen_random_uuid(), 'x')`,
+           granted_by_user_id, granted_by_name_snapshot, grant_reason, grant_idempotency_key,
+           grant_request_hash)
+         VALUES ($1, $2, 'Jamie Song', $3, 'Pat Example', 'Second grant', gen_random_uuid(), 'x')`,
         [h.projects.b, h.users.jo, h.users.pe],
       ),
     ).rejects.toMatchObject({ code: PG.uniqueViolation });
