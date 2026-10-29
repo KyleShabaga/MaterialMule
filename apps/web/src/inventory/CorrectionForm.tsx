@@ -15,6 +15,7 @@ import {
   type TestHole,
 } from '@materialmule/shared';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { listActiveStaff } from '../api/projects';
 import { FormField } from '../components/ui';
 import { useOnline } from '../lib/online';
@@ -154,6 +155,9 @@ export function CorrectionForm({
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [links, setLinks] = useState<LabRequestLink[]>([]);
+  const [approvalLive, setApprovalLive] = useState<{ message: string; projectId: string } | null>(
+    null,
+  );
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [staff, setStaff] = useState<StaffOption[]>([]);
@@ -205,6 +209,7 @@ export function CorrectionForm({
     event.preventDefault();
     setFailure(null);
     setLinks([]);
+    setApprovalLive(null);
     const body = request();
     const checked = storageUnitCorrectionRequestSchema.safeParse(body);
     if (!checked.success) {
@@ -228,6 +233,9 @@ export function CorrectionForm({
         break;
       case 'lab_links':
         setLinks(result.links);
+        break;
+      case 'approval_live':
+        setApprovalLive({ message: result.message, projectId: result.projectId });
         break;
       case 'invalid':
         setErrors(result.errors);
@@ -475,6 +483,17 @@ export function CorrectionForm({
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+      {approvalLive ? (
+        // MM-T70: the project can't change while the unit is approved for disposal.
+        <div className="error-state" role="alert">
+          <p>{approvalLive.message}</p>
+          <p>
+            <Link to={`/disposal-retention?projectId=${approvalLive.projectId}`}>
+              Open Disposal &amp; Retention
+            </Link>
+          </p>
         </div>
       ) : null}
       {failure ? (

@@ -184,7 +184,47 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   });
   expect(labAttempt.status()).toBe(403);
 
-  // A personal account confirms the physical removal.
+  // MM-T71 T3/AC3: a hold on the tested tube is never shown as a removal blocker. The Lab
+  // Manager places a unit hold; Sample Storage and the Disposal page show only the exception.
+  await signInAs(page, 'lab');
+  const hold = await page.request.post('/api/retention/holds', {
+    headers: CSRF,
+    data: {
+      projectId: DEMO_PROJECT_ID,
+      scope: 'units',
+      unitIds: [tubeA!.id],
+      reason: 'E2E tested tube hold',
+      idempotencyKey: crypto.randomUUID(),
+    },
+  });
+  expect(hold.status()).toBe(201);
+  await page.goto(`/sample-storage?search=${tubeA!.readableId}`);
+  const storageRow = page.getByRole('row', { name: new RegExp(tubeA!.readableId) });
+  await expect(storageRow).toContainText('Not applicable');
+  await expect(storageRow).not.toContainText('On hold');
+  await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}`);
+  await expect(page.getByText(/current units, by storage unit ID/)).toBeVisible();
+  const tested = page.getByRole('region', { name: 'Tested: removed after testing' });
+  for (
+    let next = 2;
+    (await tested.getByRole('link', { name: tubeA!.readableId }).count()) === 0;
+    next += 1
+  ) {
+    expect(next, 'tested tube not found on any Disposal page').toBeLessThan(50);
+    await page
+      .getByRole('navigation', { name: 'Pages' })
+      .getByRole('button', { name: 'Next' })
+      .click();
+    await expect(page.getByText(new RegExp(`Page ${next} of`))).toBeVisible();
+  }
+  const testedItem = tested.getByRole('listitem').filter({ hasText: tubeA!.readableId });
+  await expect(testedItem).toContainText('Retention: Not applicable');
+  await expect(testedItem).not.toContainText(/On hold|Retain until/);
+  await expect(page.getByRole('region', { name: 'Not eligible' })).not.toContainText(
+    tubeA!.readableId,
+  );
+
+  // A personal account confirms the physical removal (the hold doesn't block it).
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${tubeA!.readableId}`);
   await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(

@@ -14,6 +14,7 @@ import { approveUnits, fetchCandidates, revokeApproval } from './api';
 export function DisposalPage() {
   const [params, setParams] = useSearchParams();
   const projectId = params.get('projectId') ?? undefined;
+  const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1);
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [data, setData] = useState<DisposalCandidates | null>(null);
   const [tick, setTick] = useState(0);
@@ -25,13 +26,13 @@ export function DisposalPage() {
   useEffect(() => {
     if (!projectId) return;
     let active = true;
-    void fetchCandidates(projectId).then((next) => {
+    void fetchCandidates(projectId, page).then((next) => {
       if (active) setData(next);
     });
     return () => {
       active = false;
     };
-  }, [projectId, tick]);
+  }, [projectId, page, tick]);
 
   const reload = () => {
     setChosen([]);
@@ -40,8 +41,16 @@ export function DisposalPage() {
   const shown = projectId ? data : null;
   const eligible = shown?.units.filter((u) => u.eligible) ?? [];
   const approved = shown?.units.filter((u) => u.approval) ?? [];
-  const others = shown?.units.filter((u) => !u.eligible && !u.approval) ?? [];
+  const others = shown?.units.filter((u) => !u.eligible && !u.approval && !u.retentionExempt) ?? [];
+  // Tested units aren't blocked by holds or dates: they leave through their own removal (MM-T71).
+  const tested = shown?.units.filter((u) => !u.eligible && !u.approval && u.retentionExempt) ?? [];
   const selected = eligible.filter((u) => chosen.includes(u.storageUnitId));
+  const totalPages = shown ? Math.max(1, Math.ceil(shown.total / shown.pageSize)) : 1;
+  const turnPage = (next: number) => {
+    if (!projectId) return;
+    setChosen([]);
+    setParams(next > 1 ? { projectId, page: String(next) } : { projectId });
+  };
 
   async function approve() {
     setConfirming(false);
@@ -83,6 +92,13 @@ export function DisposalPage() {
       {!projectId ? <EmptyState>Choose a project to see its units.</EmptyState> : null}
       {shown ? (
         <>
+          <p className="field-hint" aria-label="Units shown">
+            {shown.total === 0
+              ? 'No current units in this project.'
+              : `Units ${(shown.page - 1) * shown.pageSize + 1}–${
+                  (shown.page - 1) * shown.pageSize + shown.units.length
+                } of ${shown.total} current units, by storage unit ID.`}
+          </p>
           <BandedCard
             title="Eligible for disposal"
             subtitle={`As of ${shown.asOf}: retain-until reached, no hold, every covering program closed.`}
@@ -157,6 +173,44 @@ export function DisposalPage() {
               </ul>
             )}
           </BandedCard>
+          {tested.length > 0 ? (
+            <BandedCard
+              title="Tested: removed after testing"
+              subtitle="Retention doesn’t apply. Open each unit and use “Confirm removal after testing”."
+            >
+              <ul className="disposal-list">
+                {tested.map((unit) => (
+                  <li key={unit.storageUnitId}>
+                    <Link to={`/sample-storage/${unit.readableId}`}>{unit.readableId}</Link> ·{' '}
+                    {unit.location.name} · Retention: Not applicable
+                    {unit.blockers.length > 0 ? (
+                      <span className="field-hint">
+                        {' '}
+                        · {unit.blockers.map((b) => b.label).join(' · ')}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </BandedCard>
+          ) : null}
+          {shown.total > shown.pageSize ? (
+            <nav className="pager" aria-label="Pages">
+              <button type="button" disabled={page <= 1} onClick={() => turnPage(page - 1)}>
+                Previous
+              </button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => turnPage(page + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          ) : null}
         </>
       ) : null}
       <ConfirmDialog

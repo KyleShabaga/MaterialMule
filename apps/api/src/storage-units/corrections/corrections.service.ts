@@ -11,6 +11,7 @@ import {
   type StorageUnitDetail,
   type StorageUnitHoleSummary,
   type StorageUnitType,
+  type DisposalApprovalLiveResponse,
   type UnresolvedLabLinksResponse,
 } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
@@ -36,6 +37,7 @@ const HOLDER_BY_UNIT_TYPE: Readonly<Partial<Record<StorageUnitType, string>>> = 
 
 interface LockedUnit {
   id: string;
+  readable_id: string;
   version: number;
   unit_type: StorageUnitType;
   holder_kind: string;
@@ -93,6 +95,30 @@ export class StorageUnitCorrectionsService {
               message: 'is not corrected here for a Shelby tube or bulk soil bucket',
             })),
           });
+        }
+      }
+
+      // Checked before the new values are validated, so the reason given is the approval.
+      if (request.changes.projectId && request.changes.projectId !== unit.project_id) {
+        // MM-T70 (owner decision 2026-10-28: refuse): a disposal approval belongs to the project
+        // it was granted under, so the project can't change while one is live. Unit (locked
+        // above) first, then the approval: the order approve, revoke and the scan use.
+        const { rows: live } = await client.query<{ project_id: string; project_number: string }>(
+          `SELECT a.project_id, p.project_number
+           FROM disposal_approval a JOIN project p ON p.id = a.project_id
+           WHERE a.storage_unit_id = $1 AND a.revoked_at IS NULL AND a.used_at IS NULL
+           FOR UPDATE OF a`,
+          [unit.id],
+        );
+        if (live[0]) {
+          throw new UnprocessableEntityException({
+            code: 'disposal_approval_live',
+            projectId: live[0].project_id,
+            projectNumber: live[0].project_number,
+            message:
+              `${unit.readable_id} is approved for disposal under ${live[0].project_number}. ` +
+              'Revoke the approval on the Disposal & Retention page first, then correct the project.',
+          } satisfies DisposalApprovalLiveResponse);
         }
       }
 
@@ -207,7 +233,7 @@ export class StorageUnitCorrectionsService {
   private async lockUnit(client: PoolClient, idOrCode: string): Promise<LockedUnit | null> {
     const byUuid = UUID_PATTERN.test(idOrCode);
     const { rows } = await client.query<LockedUnit>(
-      `SELECT su.id, su.version, su.unit_type, su.holder_kind, su.note,
+      `SELECT su.id, su.readable_id, su.version, su.unit_type, su.holder_kind, su.note,
               (su.source_type IS NOT NULL OR su.bulk_group_id IS NOT NULL) AS has_sample_identity,
               su.received_date::text AS received_date, su.project_id, p.project_number
        FROM storage_unit su
