@@ -127,9 +127,10 @@ export function ReceiptWizard({
   }, []);
 
   // After a step change or a new unit, put focus where the user expects it once it's rendered.
+  // Keep the target until it exists: effects of a commit made before the click (a list or save
+  // resolving) can run after the handler set the target but before the new step renders (MM-T71).
   useEffect(() => {
-    if (focusTarget.current) {
-      focusField(focusTarget.current);
+    if (focusTarget.current && focusField(focusTarget.current)) {
       focusTarget.current = null;
     }
   });

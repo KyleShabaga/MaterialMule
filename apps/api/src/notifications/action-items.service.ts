@@ -104,16 +104,18 @@ export class ActionItemsService {
     const hash = intentHash({ id, toUserId: body.toUserId, reason: body.reason });
     try {
       return await withTransaction(this.database.pool, async (client) => {
-        const { rows: previous } = await client.query<{
-          action_item_id: string;
-          request_hash: string;
-          assigned_by_user_id: string;
-        }>(
-          `SELECT action_item_id, request_hash, assigned_by_user_id FROM action_item_assignment
-           WHERE idempotency_key = $1`,
-          [body.idempotencyKey],
-        );
-        if (previous[0]) {
+        /** True when this key already did this reassignment; throws when it was used otherwise. */
+        const replayed = async () => {
+          const { rows: previous } = await client.query<{
+            action_item_id: string;
+            request_hash: string;
+            assigned_by_user_id: string;
+          }>(
+            `SELECT action_item_id, request_hash, assigned_by_user_id FROM action_item_assignment
+             WHERE idempotency_key = $1`,
+            [body.idempotencyKey],
+          );
+          if (!previous[0]) return false;
           if (
             previous[0].request_hash !== hash ||
             previous[0].assigned_by_user_id !== user.userId ||
@@ -121,9 +123,13 @@ export class ActionItemsService {
           ) {
             throw new ConflictException({ code: 'idempotency_key_reused' });
           }
-          return this.view(client, user, id);
-        }
+          return true;
+        };
+        if (await replayed()) return this.view(client, user, id);
         const item = await this.item(client, id, 'FOR UPDATE');
+        // A same-key retry may have waited on this lock while the first request committed
+        // (MM-T71): check again now that the lock is held, so it gets the saved result.
+        if (await replayed()) return this.view(client, user, id);
         if (item.status !== 'open') {
           throw new ConflictException({ code: 'action_item_resolved' });
         }

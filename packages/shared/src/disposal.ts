@@ -48,18 +48,38 @@ export const disposalCandidateSchema = z.object({
   effectiveRetainUntil: z.string(),
   /** Eligible for standard approval now (in stock, date reached, no hold, programs closed). */
   eligible: z.boolean(),
-  /** Why it isn't (for an approved unit: what would block its removal now). */
+  /**
+   * Why it isn't (for an approved unit: what would block its removal now). For a tested unit
+   * (retentionExempt) holds and retain-until are left out: they don't block its removal after
+   * testing (MM-T71).
+   */
   blockers: z.array(disposalBlockerSchema),
   approval: disposalApprovalSchema.nullable(),
+  /** Completed testing on this exact unit: removed with "Confirm removal after testing" (MM-T36). */
+  retentionExempt: z.boolean(),
 });
 export type DisposalCandidate = z.infer<typeof disposalCandidateSchema>;
 
-/** `GET /api/disposal/eligible?projectId=` */
+/** Current units per page of the Disposal & Retention page (one batch approval at most). */
+export const DISPOSAL_PAGE_SIZE = 200;
+
+/** `GET /api/disposal/eligible?projectId=&page=`: current units by storage unit ID, paged. */
+export const disposalCandidatesQuerySchema = z.object({
+  page: z.preprocess(
+    (value) => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number({ error: 'must be a number' }).int().min(1).max(100_000).default(1),
+  ),
+});
+
 export const disposalCandidatesSchema = z.object({
   projectId: z.string(),
   asOf: z.string(),
   units: z.array(disposalCandidateSchema),
   canApprove: z.boolean(),
+  /** Every current (not disposed) unit of the project, across all pages. */
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
 });
 export type DisposalCandidates = z.infer<typeof disposalCandidatesSchema>;
 
