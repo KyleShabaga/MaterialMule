@@ -689,13 +689,13 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Action requests (MM-T27)
 
-| Route                                        | Policy                                         |
-| -------------------------------------------- | ---------------------------------------------- |
-| `GET /api/action-items?status=&scope=`       | `action_item.read`; `scope=all` needs reassign |
-| `GET /api/action-items/count`                | `action_item.read`                             |
-| `GET /api/action-items/:id/assignees`        | `action_item.reassign`                         |
-| `POST /api/action-items/:id/reassign`        | `action_item.reassign`                         |
-| `GET`/`PUT /api/me/notification-preferences` | `action_item.read` (own preferences only)      |
+| Route                                        | Policy                                                               |
+| -------------------------------------------- | -------------------------------------------------------------------- |
+| `GET /api/action-items?status=&scope=`       | `action_item.read`; `scope=all` and `scope=unresolved` need reassign |
+| `GET /api/action-items/count`                | `action_item.read`                                                   |
+| `GET /api/action-items/:id/assignees`        | `action_item.reassign`                                               |
+| `POST /api/action-items/:id/reassign`        | `action_item.reassign`                                               |
+| `GET`/`PUT /api/me/notification-preferences` | `action_item.read` (own preferences only)                            |
 
 - **Routing** (`action_item_routed_to` in the database, never who a LAB station selects):
   correction → every Lab Manager; cancellation request → every Lab Manager and the project's
@@ -716,6 +716,22 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   false (startup refuses true) until IT approves the sending configuration: rows wait unsent, and
   development and tests never send email. Routine moves, receipts, comments and test progress
   create no action item and no email.
+- **Following eligibility (D10, MM-AO07; Kyle 2026-10-29, Option C).** An open item assigned to
+  someone who can no longer act on it (they lost the role, were disabled, or stopped being the
+  project's Lead Project Engineer) is no longer theirs: it goes back to its ordinary routing at
+  once (`action_item_person_eligible`, `0004_action_item_rerouting.sql`), shown as "Assignment
+  lapsed" with "<name> can no longer act on it". Nothing is rewritten; the assignment row stays
+  in the history. Losing a role (`PUT /api/staff/:id/roles`), being disabled
+  (`POST /api/staff/:id/disable`), and a change, removal or confirmation of a project's lead write
+  one `action_item.assignment_lapsed` audit event per lapsed assignment (with the cause), and
+  email the people the item now goes to (opted in only; at most one row per person per item). The
+  email worker still rechecks routing when sending, so a lapsed assignee is never mailed.
+- **Unresolved queue (D10).** `scope=unresolved` (Lab Manager or admin) lists open items nobody can
+  act on now (`action_item_has_recipient` is false): for example a closure request on a project
+  waiting for a lead (D02), which waits until an admin appoints one, or a correction when nobody
+  holds the Lab Manager role. Each item says so ("Nobody can act on this now"). Lab Managers and
+  admins reassign from it with a reason, to an eligible person only; the recipient restriction is
+  unchanged. Routing and the queue grant nothing: every decision rechecks its own permission.
 
 ## Retention (MM-T29)
 

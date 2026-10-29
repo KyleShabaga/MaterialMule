@@ -682,6 +682,18 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
 - Nominations use the MM-AO02 `project_lead_nomination` table unchanged: one pending per
   project, decided once (`confirmed`, `rejected`, `withdrawn`) with who, when and a reason.
 
+## Action item rerouting (MM-AO07, `0004_action_item_rerouting.sql`)
+
+D10 (Option C): open action items follow current eligibility, computed when read.
+`action_item_person_eligible(item, user)` is true when the person may act on that kind of item now
+(active personal or test account; Lab Manager for a correction; Lab Manager or the project's lead
+for a cancellation or retention request; the lead for a closure request; admin for a lead
+appointment). `action_item_routed_to` now honours an assignment only while its assignee is
+eligible; otherwise the item routes as if unassigned. `action_item_has_recipient(item)` is false
+for an open item no active account can act on: the unresolved queue. No table or guard changed;
+assignments stay append-only history, and `action_item.assignment_lapsed` audit events record each
+lapse once (`apps/api/src/notifications/rerouting.ts`).
+
 ## Project access API (MM-AO03, `0002_project_access.sql`)
 
 The central policy (`apps/api/src/auth/policy.ts`) now reads the AO02 tables; the routes and the

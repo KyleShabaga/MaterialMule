@@ -4,6 +4,7 @@ import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { SessionService } from '../auth/session.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { rerouteOpenItems } from '../notifications/rerouting.js';
 
 /**
  * Refuses a change that would leave no active admin (MM-T07 AC7). Locks every admin role row
@@ -82,6 +83,12 @@ export class UsersService {
         after: { status: 'disabled', revokedSessions: revoked },
         requestId,
       });
+      // D10 (MM-AO07): their open assignments lapse back to ordinary routing.
+      await rerouteOpenItems(
+        client,
+        { userId },
+        { actor, reason: `Account disabled: ${reason}`, requestId },
+      );
     });
   }
 }

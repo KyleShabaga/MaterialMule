@@ -41,6 +41,8 @@ const item = (overrides: Partial<ActionRequest> = {}): ActionRequest => ({
   reason: 'All tests are done',
   createdAt: '2026-10-27T16:00:00.000Z',
   assignedTo: null,
+  assignmentLapsed: false,
+  unresolved: false,
   resolvedBy: null,
   resolvedAt: null,
   canReassign: false,
@@ -163,6 +165,64 @@ describe('Action requests (MM-T27)', () => {
       toUserId: 'u-ls',
       reason: 'Pat is on leave',
     });
+  });
+
+  it('MM-AO07: Lab Managers see lapsed assignments and the unresolved queue', async () => {
+    const user = userEvent.setup();
+    const fetchMock = renderAt(
+      '/action-requests',
+      me({ roles: ['lab_manager'], permissions: ['action_item.read', 'action_item.reassign'] }),
+      (url) => {
+        if (url.startsWith('/api/action-items/count')) return json(200, { open: 1 });
+        if (url.includes('scope=unresolved')) {
+          return json(200, {
+            items: [
+              item({
+                id: 'ai-u',
+                kind: 'closure_request',
+                title: 'Closure requested for LP-2026-0002',
+                routedTo: 'Waiting for a Lead Project Engineer',
+                unresolved: true,
+              }),
+            ],
+          });
+        }
+        return json(200, {
+          items: [
+            item({
+              kind: 'cancellation_request',
+              title: 'Cancellation requested for LP-2026-0001 · MC',
+              assignedTo: { userId: 'u-ls', initials: 'LS', name: 'Lou Second' },
+              assignmentLapsed: true,
+              routedTo:
+                'Lead Project Engineer and Lab Managers (Lou Second can no longer act on it)',
+              canReassign: true,
+            }),
+          ],
+        });
+      },
+    );
+    const row = await screen.findByRole('listitem', { name: /Cancellation requested/ });
+    expect(row).toHaveTextContent('Lou Second can no longer act on it');
+    expect(within(row).getByText('Assignment lapsed')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Reassign' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: /Unresolved/ }));
+    const queued = await screen.findByRole('listitem', { name: /Closure requested/ });
+    expect(queued).toHaveTextContent('Waiting for a Lead Project Engineer');
+    expect(within(queued).getByText('Nobody can act on this now')).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('status=open&scope=unresolved')),
+    ).toBe(true);
+  });
+
+  it('MM-AO07: people without reassignment see no unresolved queue', async () => {
+    renderAt('/action-requests', me(), (url) => {
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      return json(200, { items: [] });
+    });
+    expect(await screen.findByText('Nothing is waiting on you.')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Unresolved/ })).toBeNull();
   });
 
   it('LAB has no bell and no preference card', async () => {

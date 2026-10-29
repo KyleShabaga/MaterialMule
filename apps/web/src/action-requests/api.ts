@@ -6,6 +6,7 @@ import {
   notificationPreferencesSchema,
   type ActionRequest,
   type ActionRequestList,
+  type ActionRequestScope,
   type NotificationPreferences,
   type PersonSnapshot,
 } from '@materialmule/shared';
@@ -26,7 +27,7 @@ export async function fetchOpenCount(): Promise<number | null> {
 
 export async function fetchActionRequests(
   status: 'open' | 'resolved',
-  scope: 'mine' | 'all',
+  scope: ActionRequestScope,
 ): Promise<ActionRequestList> {
   const response = await apiFetch(`/api/action-items?status=${status}&scope=${scope}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
