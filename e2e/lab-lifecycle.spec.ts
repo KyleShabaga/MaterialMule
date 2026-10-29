@@ -218,3 +218,88 @@ test('T7: LAB stations see why lifecycle actions need a personal sign-in and are
     await station.close();
   }
 });
+
+test('MM-T72 T3: a repeat of a test whose depth was changed shows the changed depth', async ({
+  page,
+}) => {
+  const code = unique('DEMO-RP');
+  const typeId = await addTestType(page, code);
+  await signInAs(page, 'pe');
+  const hole = await page.request.post(`/api/projects/${DEMO_PROJECT_ID}/test-holes`, {
+    headers: CSRF,
+    data: { name: unique('TH') },
+  });
+  expect(hole.status()).toBe(201);
+  const holeId = (await hole.json()).id as string;
+  const draft = await page.request.post('/api/lab-programs', {
+    headers: CSRF,
+    data: {
+      projectId: DEMO_PROJECT_ID,
+      idempotencyKey: crypto.randomUUID(),
+      lines: [
+        {
+          source: { kind: 'test_hole', id: holeId },
+          scope: 'specific',
+          testTypeIds: [typeId],
+          sampleLabel: 'S3',
+          depthMode: 'point',
+          depthFrom: 1.5,
+          depthUnit: 'm',
+        },
+      ],
+    },
+  });
+  expect(draft.status(), await draft.text()).toBe(201);
+  const created = await draft.json();
+  const review = await (await page.request.get(`/api/lab-programs/${created.id}/review`)).json();
+  const submitted = await page.request.post(`/api/lab-programs/${created.id}/submit`, {
+    headers: CSRF,
+    data: {
+      version: created.version,
+      idempotencyKey: crypto.randomUUID(),
+      coverage: review.lines.map((l: { lineId: string }) => ({ lineId: l.lineId, unitIds: [] })),
+    },
+  });
+  expect(submitted.status(), await submitted.text()).toBe(200);
+  const program = await submitted.json();
+  const id = program.lines[0].requests[0].id as string;
+
+  const send = async (path: string, data: Record<string, unknown>, method = 'post') => {
+    const response = await page.request.fetch(path, {
+      method,
+      headers: CSRF,
+      data: { idempotencyKey: crypto.randomUUID(), ...data },
+    });
+    expect(response.ok(), `${path}: ${await response.text()}`).toBe(true);
+    return (await response.json()) as { version: number };
+  };
+  /** Requested → Accepted, as the project's PM/PE. */
+  const accept = async (start: number) => {
+    let version = start;
+    for (const to of ['in_progress', 'completed', 'review']) {
+      version = (await send(`/api/test-requests/${id}/status`, { to, version })).version;
+    }
+    version = (await send(`/api/test-requests/${id}/review`, { action: 'complete', version }))
+      .version;
+    return (await send(`/api/test-requests/${id}/accept`, { version })).version;
+  };
+  let version = await accept(program.lines[0].requests[0].version as number);
+  version = (
+    await send(
+      `/api/test-requests/${id}`,
+      {
+        reason: 'Field log corrected',
+        identity: { sampleLabel: 'S3', depthMode: 'point', depthFrom: 2, depthUnit: 'm' },
+        version,
+      },
+      'patch',
+    )
+  ).version;
+  version = await accept(version);
+  await send(`/api/test-requests/${id}/repeat`, { version });
+
+  await page.goto(`/lab-testing/programs/${program.id}`);
+  const repeatRow = testRow(page, code).filter({ hasText: 'Repeat of' });
+  await expect(repeatRow).toContainText('Sample now S3 at 2 m');
+  await expect(repeatRow).not.toContainText('1.5 m');
+});
