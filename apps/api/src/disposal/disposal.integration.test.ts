@@ -898,7 +898,7 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
         ),
       ).toBe(0);
     }
-  });
+  }, 60_000); // four barrier rounds
 
   it('MM-T70 AC4: LAB still gets 403 for the correction and the scan', async () => {
     const unit = await oldBucket();
