@@ -73,6 +73,11 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'settings.drafts.manage',
   'location.manage',
   'system.status.read',
+  // MM-AO03 / MM-AO04
+  'project_access.read',
+  'project_lead.nominate',
+  'reviewer_eligibility.manage',
+  'staff_capability.manage',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */

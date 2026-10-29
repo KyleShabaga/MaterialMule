@@ -59,7 +59,7 @@ interface ProgramRow {
   version: number;
   program_number: string | null;
   project_id: string;
-  lead_project_engineer_user_id: string;
+  lead_project_engineer_user_id: string | null;
 }
 
 interface RequestRow {
@@ -606,7 +606,7 @@ export class LabLifecycleService {
     if (!UUID_PATTERN.test(testRequestId)) return null;
     const { rows } = await this.database.pool.query<{
       program_id: string;
-      lead_project_engineer_user_id: string;
+      lead_project_engineer_user_id: string | null;
     }>(
       `SELECT r.program_id, p.lead_project_engineer_user_id FROM test_request r
        JOIN lab_program lp ON lp.id = r.program_id JOIN project p ON p.id = lp.project_id
@@ -793,7 +793,7 @@ export async function loadProgramLifecycle(
       closed_by_user_id: string | null;
       closed_by_initials_snapshot: string | null;
       closed_by_name_snapshot: string | null;
-      lead_project_engineer_user_id: string;
+      lead_project_engineer_user_id: string | null;
     }>(
       `SELECT lp.status, lp.version, lp.closed_at, lp.closed_by_user_id,
               lp.closed_by_initials_snapshot, lp.closed_by_name_snapshot, p.lead_project_engineer_user_id
@@ -872,7 +872,7 @@ export async function loadProgramLifecycle(
 export function requestLifecycle(
   row: LifecycleRequestRow,
   repeats: string[],
-  context: { user: AuthUser; programOpen: boolean; leadProjectEngineerUserId: string },
+  context: { user: AuthUser; programOpen: boolean; leadProjectEngineerUserId: string | null },
 ): RequestLifecycle {
   const personal = context.user.accountType !== 'shared_lab';
   const live = personal && context.programOpen;

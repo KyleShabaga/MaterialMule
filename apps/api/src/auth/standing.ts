@@ -79,19 +79,20 @@ export function isActiveStaff(person: Standing | undefined): person is Standing 
 }
 
 /**
- * The project's Lead Project Engineer as it stands, locked FOR SHARE (or stronger) so a lead
- * change (which takes the project FOR UPDATE) commits wholly before or after the caller (D09).
+ * The project's Lead Project Engineer as it stands (null: none yet, D02), locked FOR SHARE (or
+ * stronger) so a lead change (which takes the project FOR UPDATE) commits wholly before or after
+ * the caller (D09). Undefined when the project doesn't exist.
  */
 export async function lockProjectLead(
   client: PoolClient,
   projectId: string,
   lock: 'FOR SHARE' | 'FOR NO KEY UPDATE' = 'FOR SHARE',
-): Promise<string | null> {
-  const { rows } = await client.query<{ lead_project_engineer_user_id: string }>(
+): Promise<string | null | undefined> {
+  const { rows } = await client.query<{ lead_project_engineer_user_id: string | null }>(
     `SELECT lead_project_engineer_user_id FROM project WHERE id = $1 ${lock}`,
     [projectId],
   );
-  return rows[0]?.lead_project_engineer_user_id ?? null;
+  return rows[0] ? rows[0].lead_project_engineer_user_id : undefined;
 }
 
 /**
@@ -111,7 +112,7 @@ export async function canUnderLock(
   } = {},
 ): Promise<boolean> {
   const lead = await lockProjectLead(client, projectId, options.lock);
-  if (lead === null) return false;
+  if (lead === undefined) return false;
   const actor = asLocked(user, await lockStanding(client, [user.userId]));
   return can(actor, permission, { ...options.context, leadProjectEngineerUserId: lead });
 }

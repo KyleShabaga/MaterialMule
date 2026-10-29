@@ -69,7 +69,7 @@ export const forbidden = () => new ForbiddenException({ code: 'forbidden' });
 
 interface ProjectFacts {
   id: string;
-  lead_project_engineer_user_id: string;
+  lead_project_engineer_user_id: string | null;
   project_number: string;
 }
 
@@ -136,17 +136,23 @@ export function capability(
 ): Capability {
   const sources = permissionSources(user, permission, context);
   if (sources.length > 0) return { action: permission, allowed: true, sources, blocked: null };
+  const grantedBy = possibleSources(permission);
   const code =
     user.status !== 'active'
       ? 'account_not_active'
       : user.accountType === 'shared_lab'
         ? 'shared_lab_account'
-        : 'not_permitted';
+        : // D02: only the lead could, and the project has none yet.
+          context &&
+            context.leadProjectEngineerUserId === null &&
+            grantedBy.includes('lead_project_engineer')
+          ? 'no_lead_project_engineer'
+          : 'not_permitted';
   return {
     action: permission,
     allowed: false,
     sources: [],
-    blocked: { code, grantedBy: possibleSources(permission) },
+    blocked: { code, grantedBy },
   };
 }
 

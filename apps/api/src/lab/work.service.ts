@@ -77,7 +77,7 @@ interface RequestRow {
   program_status: string;
   program_number: string;
   project_id: string;
-  lead_project_engineer_user_id: string;
+  lead_project_engineer_user_id: string | null;
 }
 
 /**
@@ -839,7 +839,7 @@ export class LabWorkService {
       version: number;
       program_number: string | null;
       project_id: string;
-      lead_project_engineer_user_id: string;
+      lead_project_engineer_user_id: string | null;
     }>(
       `SELECT lp.id, lp.status, lp.priority, lp.version, lp.program_number, lp.project_id,
               p.lead_project_engineer_user_id
@@ -938,7 +938,7 @@ export async function loadWork(
       user: AuthUser;
       programOpen: boolean;
       canAccept: boolean;
-      leadProjectEngineerUserId: string;
+      leadProjectEngineerUserId: string | null;
     };
   },
 ): Promise<ProgramWork> {

@@ -29,6 +29,7 @@ interface ItemRow {
   retention_scope: 'project' | 'units' | null;
   retention_units: number | null;
   target_role: string | null;
+  lead_project_engineer_user_id: string | null;
   requester_id: string;
   requester_initials: string | null;
   requester_name: string;
@@ -47,7 +48,7 @@ interface ItemRow {
 export const ITEM_SELECT = `
   SELECT a.id, a.kind, a.status, a.resolution, a.project_id, p.project_number,
          a.program_id, lp.program_number, a.entity_type, a.entity_id,
-         tr.test_code_snapshot AS test_code, a.target_role,
+         tr.test_code_snapshot AS test_code, a.target_role, p.lead_project_engineer_user_id,
          rr.kind AS retention_kind, rr.scope AS retention_scope,
          (SELECT count(*)::int FROM retention_request_unit ru WHERE ru.request_id = rr.id)
            AS retention_units,
@@ -99,10 +100,13 @@ export function titleOf(
           : ' · whole project';
       return `${what} requested for ${row.project_number}${scope}`;
     }
+    case 'lead_appointment':
+      return `Lead Project Engineer needed for ${row.project_number}`;
   }
 }
 
-export function hrefOf(row: Pick<ItemRow, 'program_id' | 'project_id'>): string {
+export function hrefOf(row: Pick<ItemRow, 'kind' | 'program_id' | 'project_id'>): string {
+  if (row.kind === 'lead_appointment') return `/projects/${row.project_id}#lead`;
   return row.program_id
     ? `/lab-testing/programs/${row.program_id}`
     : `/projects/${row.project_id}#retention`;
@@ -113,6 +117,7 @@ const ROUTE_TAG: Record<ActionRequestKind, string> = {
   cancellation_request: 'LM · Lead Project Engineer',
   closure_request: 'Lead Project Engineer',
   retention_request: 'LM · Lead Project Engineer',
+  lead_appointment: 'Admin',
 };
 
 function person(id: string | null, initials: string | null, name: string | null) {
@@ -128,7 +133,12 @@ export function toActionRequest(row: ItemRow, canReassign: boolean): ActionReque
     resolution: row.resolution,
     title: titleOf(row),
     routeTag: assignedTo ? (assignedTo.initials ?? assignedTo.name) : ROUTE_TAG[row.kind],
-    routedTo: assignedTo ? `Assigned to ${assignedTo.name}` : ACTION_REQUEST_ROUTE_LABEL[row.kind],
+    routedTo: assignedTo
+      ? `Assigned to ${assignedTo.name}`
+      : // D02 (MM-AO04): a closure request on a project with no lead waits for the next lead.
+        row.kind === 'closure_request' && !row.lead_project_engineer_user_id
+        ? 'Waiting for a Lead Project Engineer'
+        : ACTION_REQUEST_ROUTE_LABEL[row.kind],
     projectId: row.project_id,
     projectNumber: row.project_number,
     href: hrefOf(row),

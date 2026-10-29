@@ -80,14 +80,14 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
     revocation_kind: kind,
   });
 
-  it('keeps one effective Lead Project Engineer on the project row, required from creation', async () => {
+  it('keeps one effective Lead Project Engineer on the project row (optional since MM-AO04, D02)', async () => {
     const { rows } = await db.pool.query(
       `SELECT column_name, is_nullable FROM information_schema.columns
        WHERE table_schema = current_schema() AND table_name = 'project'
          AND column_name LIKE '%engineer%' ORDER BY column_name`,
     );
     // The single review engineer was retired by 0002 (MM-AO03, D12).
-    expect(rows).toEqual([{ column_name: 'lead_project_engineer_user_id', is_nullable: 'NO' }]);
+    expect(rows).toEqual([{ column_name: 'lead_project_engineer_user_id', is_nullable: 'YES' }]);
     // No retired project-role names remain anywhere in the schema.
     const legacy = await db.pool.query(
       `SELECT table_name, column_name FROM information_schema.columns

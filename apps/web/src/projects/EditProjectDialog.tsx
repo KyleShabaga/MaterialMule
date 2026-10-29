@@ -26,7 +26,8 @@ function draftFrom(project: ProjectDetail): Draft {
     projectNumber: project.projectNumber,
     name: project.name,
     client: project.client,
-    leadProjectEngineerId: project.leadProjectEngineer.id,
+    // '' while the project waits for a lead (D02, MM-AO04).
+    leadProjectEngineerId: project.leadProjectEngineer?.id ?? '',
     serverFolderPath: project.serverFolderPath ?? '',
     reason: '',
   };
@@ -49,8 +50,9 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
   }
   if (draft.name.trim() !== project.name) body.name = draft.name;
   if (draft.client.trim() !== project.client) body.client = draft.client;
-  if (draft.leadProjectEngineerId !== project.leadProjectEngineer.id) {
-    body.leadProjectEngineerId = draft.leadProjectEngineerId;
+  if (draft.leadProjectEngineerId !== (project.leadProjectEngineer?.id ?? '')) {
+    // '' removes the lead (admin only, MM-AO04): the project then waits for one.
+    body.leadProjectEngineerId = draft.leadProjectEngineerId || null;
     body.reason = draft.reason;
   }
   if (draft.serverFolderPath.trim() !== (project.serverFolderPath ?? '')) {
@@ -105,7 +107,8 @@ export function EditProjectDialog({
     setDraft((previous) => ({ ...previous, [field]: value }));
   };
   const error = (field: string) => errors[field]?.join(' ') ?? null;
-  const leadProjectEngineerChanging = draft.leadProjectEngineerId !== base.leadProjectEngineer.id;
+  const leadProjectEngineerChanging =
+    draft.leadProjectEngineerId !== (base.leadProjectEngineer?.id ?? '');
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -235,6 +238,7 @@ export function EditProjectDialog({
               disabled={!base.canChangeLeadProjectEngineer}
               onChange={(event) => set('leadProjectEngineerId')(event.target.value)}
             >
+              <option value="">No Lead Project Engineer (waiting for one)</option>
               <StaffOptionGroups staff={staff} current={base.leadProjectEngineer} />
             </select>
           )}

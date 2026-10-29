@@ -479,7 +479,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         });
         expect(response.status, who).toBe(403);
       }
-      expect((await detail(project)).leadProjectEngineer.id).toBe(users.pe);
+      expect((await detail(project)).leadProjectEngineer!.id).toBe(users.pe);
       // Sending the current Lead Project Engineer unchanged is not a change.
       const same = await send('patch', `/api/projects/${project}`, cookies.pe!, {
         version,

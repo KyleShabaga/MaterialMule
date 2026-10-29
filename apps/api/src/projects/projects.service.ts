@@ -25,13 +25,21 @@ import {
 import type { Pool, PoolClient } from 'pg';
 import type { z } from 'zod';
 import { can, type AuthUser } from '../auth/policy.js';
-import { asLocked, lockStanding } from '../auth/standing.js';
+import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
 import { involvementSql, orderInvolvement } from '../project-access/involvement.js';
+import { loadNominations } from '../project-access/lead-nominations.service.js';
+import {
+  decideNomination,
+  insertNomination,
+  lockPendingNomination,
+  openLeadAppointment,
+  resolveLeadAppointment,
+} from './lead-appointment.js';
 import { buildProjectListQuery } from './project-list-query.js';
 
 export type CreateProjectInput = z.output<typeof createProjectRequestSchema>;
@@ -46,15 +54,15 @@ const SELECT_PROJECT = `
   SELECT p.id, p.project_number, p.name, p.client,
          u.id AS lead_project_engineer_id, u.display_name AS lead_project_engineer_name, u.official_initials AS lead_project_engineer_initials
   FROM project p
-  JOIN app_user u ON u.id = p.lead_project_engineer_user_id`;
+  LEFT JOIN app_user u ON u.id = p.lead_project_engineer_user_id`;
 
 interface ProjectRow {
   id: string;
   project_number: string;
   name: string;
   client: string;
-  lead_project_engineer_id: string;
-  lead_project_engineer_name: string;
+  lead_project_engineer_id: string | null;
+  lead_project_engineer_name: string | null;
   lead_project_engineer_initials: string | null;
 }
 
@@ -64,11 +72,14 @@ function toSummary(row: ProjectRow): ProjectSummary {
     projectNumber: row.project_number,
     name: row.name,
     client: row.client,
-    leadProjectEngineer: {
-      id: row.lead_project_engineer_id,
-      displayName: row.lead_project_engineer_name,
-      initials: row.lead_project_engineer_initials,
-    },
+    // Null while the project waits for a Lead Project Engineer (D02, MM-AO04).
+    leadProjectEngineer: row.lead_project_engineer_id
+      ? {
+          id: row.lead_project_engineer_id,
+          displayName: row.lead_project_engineer_name ?? '',
+          initials: row.lead_project_engineer_initials,
+        }
+      : null,
   };
 }
 
@@ -80,7 +91,7 @@ const SELECT_PROJECT_WITH_PEOPLE = `
 
 const PROJECT_WITH_PEOPLE_FROM = `
   FROM project p
-  JOIN app_user u ON u.id = p.lead_project_engineer_user_id`;
+  LEFT JOIN app_user u ON u.id = p.lead_project_engineer_user_id`;
 
 type ProjectWithPeopleRow = ProjectRow;
 
@@ -92,7 +103,7 @@ interface ProjectListRow extends ProjectWithPeopleRow {
 }
 
 interface ProjectDetailRow extends ProjectWithPeopleRow {
-  lead_project_engineer_user_id: string;
+  lead_project_engineer_user_id: string | null;
   server_folder_path: string | null;
   version: number;
 }
@@ -102,7 +113,7 @@ interface EditableValues {
   projectNumber: string;
   name: string;
   client: string;
-  leadProjectEngineerUserId: string;
+  leadProjectEngineerUserId: string | null;
   serverFolderPath: string | null;
 }
 
@@ -152,19 +163,31 @@ export class ProjectsService {
   }
 
   /**
-   * Creates a project. The unique index on the normalised number decides races: of two parallel
-   * creates for one number, exactly one inserts and the other gets 409 with the existing project.
+   * Creates a project (receiving, D42). The unique index on the normalised number decides races:
+   * of two parallel creates for one number, exactly one inserts and the other gets 409 with the
+   * existing project.
+   *
+   * Lead (MM-AO04, D01/D02): creating grants the creator nothing. A nominee is recorded as a
+   * pending nomination for an admin to confirm; with no nominee the project waits for a lead.
+   * Either way the admins' "Lead appointment" request opens in the same transaction. Only a
+   * personal account holding an active "Can create and lead projects" grant may appoint itself
+   * (403 `self_appointment_not_permitted` otherwise); the grant is locked so a concurrent
+   * revocation commits wholly before or after (D09).
    */
   async create(
     input: CreateProjectInput,
+    user: AuthUser,
     actor: AuditActor,
     requestId: string | null,
   ): Promise<ProjectSummary> {
     const created = await withTransaction(this.database.pool, async (client) => {
       const errors: FieldError[] = [];
-      if (!(await findActiveStaff(client, input.leadProjectEngineerUserId))) {
+      const nominee = input.leadNomineeUserId
+        ? await findActiveStaff(client, input.leadNomineeUserId)
+        : null;
+      if (input.leadNomineeUserId && !nominee) {
         errors.push({
-          field: 'leadProjectEngineerUserId',
+          field: 'leadNomineeUserId',
           code: 'not_active_staff',
           message: 'Lead Project Engineer must be an active staff member',
         });
@@ -183,32 +206,92 @@ export class ProjectsService {
         throw validationError(errors);
       }
 
+      let selfGrantId: string | null = null;
+      if (input.appointSelfAsLead) {
+        const standing = await lockStanding(client, [user.userId]);
+        const grant = isActiveStaff(standing.get(user.userId))
+          ? (
+              await client.query<{ id: string }>(
+                `SELECT id FROM staff_capability_grant
+                 WHERE user_id = $1 AND capability = 'project.create_and_lead'
+                   AND revoked_at IS NULL FOR SHARE`,
+                [user.userId],
+              )
+            ).rows[0]
+          : undefined;
+        if (!grant) {
+          throw new ForbiddenException({ code: 'self_appointment_not_permitted' });
+        }
+        selfGrantId = grant.id;
+      }
+      const lead = selfGrantId ? user.userId : null;
+
       const { rows } = await client.query<{ id: string }>(
         `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT ON CONSTRAINT project_number_key DO NOTHING
          RETURNING id`,
-        [input.projectNumber, input.name, input.client, input.leadProjectEngineerUserId],
+        [input.projectNumber, input.name, input.client, lead],
       );
       const id = rows[0]?.id;
       if (!id) {
         return null;
       }
       const project = (await this.findById(client, id))!;
+      const audited = receiver && auditReceiver(receiver);
       await recordAudit(client, {
         action: 'project.created',
         entityType: 'project',
         entityId: id,
         actor,
-        receiver: receiver && auditReceiver(receiver),
+        receiver: audited,
         after: {
           projectNumber: project.projectNumber,
           name: project.name,
           client: project.client,
-          leadProjectEngineerUserId: project.leadProjectEngineer.id,
+          leadProjectEngineerUserId: lead,
+          ...(nominee ? { leadNomineeUserId: nominee.id } : {}),
         },
         requestId,
       });
+      const by = { userId: user.userId, initials: user.initials, displayName: user.displayName };
+      if (selfGrantId) {
+        await recordAudit(client, {
+          action: 'project.lead_appointed',
+          entityType: 'project',
+          entityId: id,
+          actor,
+          after: {
+            leadProjectEngineerUserId: lead,
+            via: 'self_appointment',
+            capabilityGrantId: selfGrantId,
+          },
+          requestId,
+        });
+      } else {
+        if (nominee) {
+          await insertNomination(client, {
+            projectId: id,
+            nominee: {
+              userId: nominee.id,
+              initials: nominee.initials,
+              displayName: nominee.displayName,
+            },
+            by,
+            note: input.nominationNote ?? null,
+            actor,
+            receiver: audited,
+          });
+        }
+        await openLeadAppointment(
+          client,
+          id,
+          by,
+          nominee
+            ? `${project.projectNumber}: ${nominee.displayName} nominated as Lead Project Engineer`
+            : `${project.projectNumber} was saved without a Lead Project Engineer`,
+        );
+      }
       return project;
     });
 
@@ -336,6 +419,7 @@ export class ProjectsService {
       serverFolderPath: row.server_folder_path,
       version: row.version,
       numberLocked: counts.receipt_count > 0,
+      leadNomination: (await loadNominations(client, id)).pending,
       canEdit: can(user, 'project.edit', {
         leadProjectEngineerUserId: row.lead_project_engineer_user_id,
       }),
@@ -435,7 +519,11 @@ export class ProjectsService {
               message: 'Give a reason for changing the Lead Project Engineer',
             });
           }
-          if (!(await findActiveStaff(client, input.leadProjectEngineerId!))) {
+          // Null removes the lead (D02); anyone named must be active staff.
+          if (
+            input.leadProjectEngineerId !== null &&
+            !(await findActiveStaff(client, input.leadProjectEngineerId!))
+          ) {
             errors.push({
               field: 'leadProjectEngineerId',
               code: 'not_active_staff',
@@ -491,6 +579,12 @@ export class ProjectsService {
           after: Object.fromEntries(changed.map((key) => [key, requested[key]])),
           requestId,
         });
+        if (changed.includes('leadProjectEngineerUserId')) {
+          await this.afterLeadChange(client, id, input.leadProjectEngineerId ?? null, user, actor, {
+            reason: input.reason!,
+            projectNumber: row.project_number,
+          });
+        }
         return this.detail(client, id, user);
       });
     } catch (error) {
@@ -503,6 +597,48 @@ export class ProjectsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * MM-AO04: an admin appointed, changed or removed the lead (with a reason, already audited as
+   * `project.updated`). Existing grants survive either way (D08). Appointing someone resolves the
+   * admins' "Lead appointment" request and closes a pending nomination: confirmed when it named
+   * that person, rejected (with the admin's reason) otherwise. Removing the lead opens the request.
+   */
+  private async afterLeadChange(
+    client: PoolClient,
+    projectId: string,
+    lead: string | null,
+    user: AuthUser,
+    actor: AuditActor,
+    context: { reason: string; projectNumber: string },
+  ): Promise<void> {
+    const by = { userId: user.userId, initials: user.initials, displayName: user.displayName };
+    if (lead === null) {
+      await openLeadAppointment(
+        client,
+        projectId,
+        by,
+        `${context.projectNumber}: Lead Project Engineer removed (${context.reason})`,
+      );
+      return;
+    }
+    const pending = await lockPendingNomination(client, projectId);
+    if (pending) {
+      await decideNomination(
+        client,
+        pending,
+        pending.nominee_user_id === lead ? 'confirmed' : 'rejected',
+        {
+          by,
+          reason: context.reason,
+          actor,
+          projectId,
+          extra: { appointedUserId: lead, via: 'direct_appointment' },
+        },
+      );
+    }
+    await resolveLeadAppointment(client, projectId, by);
   }
 
   private async conflict(projectNumber: string): Promise<ConflictException> {

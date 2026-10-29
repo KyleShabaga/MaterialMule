@@ -16,6 +16,7 @@ import { useMe } from '../session/context';
 import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
 import { EditProjectDialog } from './EditProjectDialog';
+import { LeadSection } from './LeadSection';
 import type { ProjectLinkState } from './ProjectsPage';
 import './projects.css';
 
@@ -117,7 +118,13 @@ export function ProjectDetailPage() {
       <Section title="Project details">
         <dl className="stat-tiles project-tiles">
           <Detail term="Client">{project.client}</Detail>
-          <Detail term="Lead Project Engineer">{personLabel(project.leadProjectEngineer)}</Detail>
+          <Detail term="Lead Project Engineer">
+            {project.leadProjectEngineer ? (
+              personLabel(project.leadProjectEngineer)
+            ) : (
+              <span className="badge badge-warning">Waiting for a lead</span>
+            )}
+          </Detail>
           <Detail term="Storage units">
             <strong>{plural(project.inStockUnitCount, 'unit', 'units')}</strong> in stock of{' '}
             {plural(project.unitCount, 'unit', 'units')} received
@@ -127,6 +134,18 @@ export function ProjectDetailPage() {
           </Detail>
         </dl>
       </Section>
+
+      {me.permissions.includes('project_access.read') ? (
+        <LeadSection
+          projectId={project.id}
+          lead={project.leadProjectEngineer}
+          reloadKey={reloads}
+          onChanged={(message) => {
+            setNotice(message);
+            setReloads((n) => n + 1);
+          }}
+        />
+      ) : null}
 
       <div className="project-columns">
         <Section title="Test holes">

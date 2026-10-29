@@ -50,7 +50,7 @@ interface Standing {
   location_code: string;
   location_name: string;
   project_id: string;
-  lead_project_engineer_user_id: string;
+  lead_project_engineer_user_id: string | null;
   eligible: boolean;
   open_conflict: boolean;
   retention_exempt: boolean;
@@ -164,7 +164,7 @@ export class DisposalService {
   async candidates(user: AuthUser, projectId: string, page = 1): Promise<DisposalCandidates> {
     if (!UUID_PATTERN.test(projectId)) throw new NotFoundException({ code: 'project_not_found' });
     const { rows: project } = await this.database.pool.query<{
-      lead_project_engineer_user_id: string;
+      lead_project_engineer_user_id: string | null;
     }>('SELECT lead_project_engineer_user_id FROM project WHERE id = $1', [projectId]);
     if (!project[0]) throw new NotFoundException({ code: 'project_not_found' });
     // Every current unit is reachable: a total and pages, never a silent cut-off (MM-T71).

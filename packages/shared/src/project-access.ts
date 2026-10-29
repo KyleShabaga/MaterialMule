@@ -265,6 +265,8 @@ export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number
 export const BLOCKED_REASONS = [
   'account_not_active',
   'shared_lab_account',
+  // D02 (MM-AO04): only the Lead Project Engineer could do this, and the project has none yet.
+  'no_lead_project_engineer',
   'not_permitted',
 ] as const;
 
@@ -309,3 +311,65 @@ export const projectCapabilitiesSchema = z.object({
   capabilities: z.array(capabilitySchema),
 });
 export type ProjectCapabilities = z.infer<typeof projectCapabilitiesSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Lead nomination and appointment (MM-AO04; D01, D02)
+// ---------------------------------------------------------------------------------------------
+
+const noteSchema = z
+  .string({ error: 'Note must be text' })
+  .trim()
+  .max(2000, { error: 'Note must be 2000 characters or fewer' })
+  .refine((value) => !CONTROL_CHARACTERS_EXCEPT_NEWLINES.test(value), {
+    message: "Note can't contain control characters",
+  });
+
+/** An optional note (blank means none). */
+export const nominationNoteSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+  noteSchema.nullish(),
+);
+
+export const NOMINATION_STATUSES = ['pending', 'confirmed', 'rejected', 'withdrawn'] as const;
+export type NominationStatus = (typeof NOMINATION_STATUSES)[number];
+
+export const leadNominationSchema = z.object({
+  id: z.string(),
+  nominee: personSnapshotSchema,
+  nominatedBy: personSnapshotSchema,
+  nominatedAt: z.string(),
+  note: z.string().nullable(),
+  status: z.enum(NOMINATION_STATUSES),
+  decidedBy: personSnapshotSchema.nullable(),
+  decidedAt: z.string().nullable(),
+  decisionReason: z.string().nullable(),
+});
+export type LeadNomination = z.infer<typeof leadNominationSchema>;
+
+/**
+ * `POST /api/projects/:projectId/lead-nominations`: any active personal staff member, on a project
+ * with no lead and no pending nomination. A nomination grants nothing (D01).
+ */
+export const nominateLeadRequestSchema = z.strictObject({
+  nomineeUserId: idSchema,
+  note: nominationNoteSchema,
+  idempotencyKey: idSchema,
+});
+export type NominateLeadRequest = z.output<typeof nominateLeadRequestSchema>;
+
+/** Confirm, reject (admin) or withdraw (the nominator): always with a reason (D15). */
+export const decideNominationRequestSchema = z.strictObject({ reason: grantReasonSchema });
+export type DecideNominationRequest = z.output<typeof decideNominationRequestSchema>;
+
+/** `GET /api/projects/:projectId/lead-nominations`: the pending one first, then history. */
+export const projectLeadNominationsSchema = z.object({
+  projectId: z.string(),
+  /** Whether the project has an effective Lead Project Engineer now. */
+  hasLead: z.boolean(),
+  pending: leadNominationSchema.nullable(),
+  history: z.array(leadNominationSchema),
+  canNominate: z.boolean(),
+  canDecide: z.boolean(),
+  canWithdraw: z.boolean(),
+});
+export type ProjectLeadNominations = z.infer<typeof projectLeadNominationsSchema>;

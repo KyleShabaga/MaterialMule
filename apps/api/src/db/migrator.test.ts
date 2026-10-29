@@ -38,7 +38,11 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
   it('applies everything once and is a no-op the second time', async () => {
     db = await createTestSchema();
     const first = await migrate(db.pool);
-    expect(first.applied).toEqual(['0001_baseline', '0002_project_access']);
+    expect(first.applied).toEqual([
+      '0001_baseline',
+      '0002_project_access',
+      '0003_project_lead_appointment',
+    ]);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);
     expect(second.alreadyApplied).toContain('0001');

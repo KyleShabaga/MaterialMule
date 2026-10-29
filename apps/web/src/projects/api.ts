@@ -2,10 +2,12 @@ import {
   messagesByField,
   projectConflictResponseSchema,
   projectDetailSchema,
+  projectLeadNominationsSchema,
   projectListPageSchema,
   projectVersionConflictResponseSchema,
   validationErrorResponseSchema,
   type ProjectDetail,
+  type ProjectLeadNominations,
   type ProjectListPage,
   type ProjectSummary,
   type UpdateProjectRequest,
@@ -107,4 +109,68 @@ export async function updateProject(id: string, body: UpdateProjectRequest): Pro
     return { kind: 'failed', message: "You don't have permission to make this change." };
   }
   return { kind: 'failed', message: "The project wasn't saved. Try again." };
+}
+
+// Lead Project Engineer nominations (MM-AO04, D01/D02).
+
+export function fetchLeadNominations(id: string): Promise<LoadResult<ProjectLeadNominations>> {
+  return getJson(
+    `/api/projects/${encodeURIComponent(id)}/lead-nominations`,
+    projectLeadNominationsSchema,
+  );
+}
+
+export type NominationResult =
+  { ok: true; value: ProjectLeadNominations } | { ok: false; message: string };
+
+const NOMINATION_MESSAGES: Record<string, string> = {
+  lead_already_appointed: 'This project already has a Lead Project Engineer.',
+  nomination_pending: 'A nomination is already waiting for an admin.',
+  nomination_decided: 'Someone already decided this nomination. Reload to see it.',
+  invalid_recipient: 'Choose an active staff member.',
+  idempotency_key_reused: 'That was already sent. Reload to see it.',
+  forbidden: "You don't have permission to do this.",
+};
+
+async function postNomination(path: string, body: unknown): Promise<NominationResult> {
+  let response: Response;
+  try {
+    response = await apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+  } catch {
+    return { ok: false, message: UNREACHABLE };
+  }
+  const json = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (response.ok) {
+    const parsed = projectLeadNominationsSchema.safeParse(json);
+    if (parsed.success) return { ok: true, value: parsed.data };
+  }
+  if (response.status === 400) {
+    const parsed = validationErrorResponseSchema.safeParse(json);
+    if (parsed.success) {
+      return { ok: false, message: parsed.data.errors.map((e) => e.message).join(' ') };
+    }
+  }
+  const code = typeof json?.code === 'string' ? json.code : '';
+  return { ok: false, message: NOMINATION_MESSAGES[code] ?? 'That didn’t work. Try again.' };
+}
+
+export function nominateLead(
+  projectId: string,
+  body: { nomineeUserId: string; note: string | null; idempotencyKey: string },
+): Promise<NominationResult> {
+  return postNomination(`/api/projects/${encodeURIComponent(projectId)}/lead-nominations`, body);
+}
+
+export function decideLeadNomination(
+  projectId: string,
+  nominationId: string,
+  action: 'confirm' | 'reject' | 'withdraw',
+  reason: string,
+): Promise<NominationResult> {
+  return postNomination(
+    `/api/projects/${encodeURIComponent(projectId)}/lead-nominations/${encodeURIComponent(
+      nominationId,
+    )}/${action}`,
+    { reason },
+  );
 }

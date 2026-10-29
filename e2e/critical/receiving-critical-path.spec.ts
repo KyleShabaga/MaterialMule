@@ -163,7 +163,9 @@ test(
     await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
     await form.getByLabel('Project name').fill('Example Ridge');
     await form.getByLabel('Client').fill('Example Client');
-    await form.getByLabel('Lead Project Engineer').selectOption({ label: 'PE · Pat Example' });
+    await form
+      .getByLabel('Nominate a Lead Project Engineer (optional)')
+      .selectOption({ label: 'PE · Pat Example' });
     await form.getByRole('button', { name: 'Save project' }).click();
     await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
 

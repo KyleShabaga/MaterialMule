@@ -8,7 +8,7 @@ import {
   type StaffOption,
 } from '@materialmule/shared';
 import { useEffect, useId, useState, type KeyboardEvent } from 'react';
-import { createProject, searchProjects } from '../api/projects';
+import { createProject, fetchMyGrants, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
 import { prefillFromQuery } from './prefill';
 import { useListHighlight } from '../components/useListHighlight';
@@ -16,6 +16,10 @@ import { StaffOptionGroups } from '../projects/StaffOptionGroups';
 
 // Project combobox with inline "Add project" (MM-T08). The typed text lives in the receipt draft
 // (props), so nothing typed is lost while adding a project or while offline.
+//
+// Lead (MM-AO04, D01/D02): adding a project makes nobody its lead. The person adding it may
+// nominate a Lead Project Engineer for an admin to confirm, or leave it to the admins; only a
+// holder of "Can create and lead projects" may lead it themselves. Receiving works either way.
 
 const SEARCH_DELAY_MS = 200;
 
@@ -28,7 +32,9 @@ interface AddForm {
   projectNumber: string;
   name: string;
   client: string;
-  leadProjectEngineerUserId: string;
+  leadNomineeUserId: string;
+  nominationNote: string;
+  appointSelfAsLead: boolean;
 }
 
 export function ProjectPicker({
@@ -66,6 +72,8 @@ export function ProjectPicker({
   const [existing, setExisting] = useState<ProjectSummary | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Whether the signed-in person holds "Can create and lead projects" (null: unknown). */
+  const [canSelfLead, setCanSelfLead] = useState<boolean | null>(null);
 
   const trimmed = query.trim();
   useEffect(() => {
@@ -119,7 +127,20 @@ export function ProjectPicker({
   }
 
   function startAdding() {
-    setForm({ ...prefillFromQuery(query), client: '', leadProjectEngineerUserId: '' });
+    setForm({
+      ...prefillFromQuery(query),
+      client: '',
+      leadNomineeUserId: '',
+      nominationNote: '',
+      appointSelfAsLead: false,
+    });
+    fetchMyGrants().then(
+      (grants) =>
+        setCanSelfLead(
+          grants.capabilities.active.some((g) => g.capability === 'project.create_and_lead'),
+        ),
+      () => setCanSelfLead(false),
+    );
     setFieldErrors({});
     setExisting(null);
     setSaveError(null);
@@ -130,7 +151,15 @@ export function ProjectPicker({
     if (!form) return;
     setExisting(null);
     setSaveError(null);
-    const input = { ...form, receiverUserId };
+    const input = {
+      projectNumber: form.projectNumber,
+      name: form.name,
+      client: form.client,
+      leadNomineeUserId: form.appointSelfAsLead ? null : form.leadNomineeUserId || null,
+      nominationNote: form.appointSelfAsLead ? null : form.nominationNote || null,
+      appointSelfAsLead: form.appointSelfAsLead,
+      receiverUserId,
+    };
     const checked = createProjectRequestSchema.safeParse(input);
     if (!checked.success) {
       setFieldErrors(messagesByField(toFieldErrors(checked.error)));
@@ -169,7 +198,15 @@ export function ProjectPicker({
             {(props) => <input {...props} value={value.client} readOnly />}
           </FormField>
           <FormField label="Lead Project Engineer">
-            {(props) => <input {...props} value={value.leadProjectEngineer.displayName} readOnly />}
+            {(props) => (
+              <input
+                {...props}
+                value={
+                  value.leadProjectEngineer?.displayName ?? 'Waiting for a Lead Project Engineer'
+                }
+                readOnly
+              />
+            )}
           </FormField>
         </div>
         <button type="button" onClick={() => onSelect(null)}>
@@ -184,7 +221,7 @@ export function ProjectPicker({
     ? staff.filter((person) => person.position === 'project_engineer')
     : staff;
   const noProjectEngineer = projectEngineersOnly && staffReady && projectEngineerStaff.length === 0;
-  const setField = (key: keyof AddForm) => (text: string) =>
+  const setField = (key: Exclude<keyof AddForm, 'appointSelfAsLead'>) => (text: string) =>
     setForm((current) => (current ? { ...current, [key]: text } : current));
 
   return (
@@ -274,40 +311,70 @@ export function ProjectPicker({
               />
             )}
           </FormField>
-          <FormField
-            label="Lead Project Engineer"
-            error={field('leadProjectEngineerUserId')}
-            hint={
-              noProjectEngineer
-                ? 'Nobody active has the Project Engineer position yet. People added before their first sign-in have no position until they choose one; an administrator can set it under Settings → Staff & access.'
-                : projectEngineersOnly
-                  ? 'Lists active staff whose position is Project Engineer.'
-                  : undefined
-            }
-          >
-            {(props) => (
-              <select
-                {...props}
-                value={form.leadProjectEngineerUserId}
-                onChange={(e) => setField('leadProjectEngineerUserId')(e.target.value)}
+          {canSelfLead ? (
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={form.appointSelfAsLead}
+                onChange={(e) =>
+                  setForm((current) =>
+                    current ? { ...current, appointSelfAsLead: e.target.checked } : current,
+                  )
+                }
+              />
+              I’ll lead this project (Can create and lead projects)
+            </label>
+          ) : null}
+          {field('appointSelfAsLead') ? (
+            <p className="field-error" role="alert">
+              {field('appointSelfAsLead')}
+            </p>
+          ) : null}
+          {!form.appointSelfAsLead ? (
+            <>
+              <FormField
+                label="Nominate a Lead Project Engineer (optional)"
+                error={field('leadNomineeUserId')}
+                hint={
+                  noProjectEngineer
+                    ? 'Nobody active has the Project Engineer position yet. You can leave this empty: an admin appoints the lead. Positions are set under Settings → Staff & access.'
+                    : 'An admin confirms the nomination. Until then the project has no lead, and receiving carries on as normal.'
+                }
               >
-                <option value="">
-                  {noProjectEngineer
-                    ? 'No Lead Project Engineer available'
-                    : 'Choose a staff member'}
-                </option>
-                {projectEngineersOnly ? (
-                  projectEngineerStaff.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {formatPerson(person.initials, person.displayName)}
-                    </option>
-                  ))
-                ) : (
-                  <StaffOptionGroups staff={staff} />
+                {(props) => (
+                  <select
+                    {...props}
+                    value={form.leadNomineeUserId}
+                    onChange={(e) => setField('leadNomineeUserId')(e.target.value)}
+                  >
+                    <option value="">No nomination: leave it to an admin</option>
+                    {projectEngineersOnly ? (
+                      projectEngineerStaff.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {formatPerson(person.initials, person.displayName)}
+                        </option>
+                      ))
+                    ) : (
+                      <StaffOptionGroups staff={staff} />
+                    )}
+                  </select>
                 )}
-              </select>
-            )}
-          </FormField>
+              </FormField>
+              {form.leadNomineeUserId ? (
+                <FormField label="Note for the admin (optional)" error={field('nominationNote')}>
+                  {(props) => (
+                    <textarea
+                      {...props}
+                      rows={2}
+                      maxLength={2000}
+                      value={form.nominationNote}
+                      onChange={(e) => setField('nominationNote')(e.target.value)}
+                    />
+                  )}
+                </FormField>
+              ) : null}
+            </>
+          ) : null}
           {existing ? (
             <div className="error-state" role="alert">
               <p>

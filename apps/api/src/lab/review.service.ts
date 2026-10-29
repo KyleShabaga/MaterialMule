@@ -134,7 +134,7 @@ export class LabReviewService {
       ? (
           await this.database.pool.query<{
             project_id: string;
-            lead_project_engineer_user_id: string;
+            lead_project_engineer_user_id: string | null;
           }>(
             `SELECT lp.project_id, p.lead_project_engineer_user_id FROM test_request r
              JOIN lab_program lp ON lp.id = r.program_id JOIN project p ON p.id = lp.project_id
@@ -210,10 +210,11 @@ export class LabReviewService {
       // actor's own still-active grant (held so a revocation waits for this transaction).
       let delegationId: string | null = null;
       if (intent.kind === 'accepted') {
-        const { rows: project } = await client.query<{ lead_project_engineer_user_id: string }>(
-          'SELECT lead_project_engineer_user_id FROM project WHERE id = $1 FOR SHARE',
-          [current.project_id],
-        );
+        const { rows: project } = await client.query<{
+          lead_project_engineer_user_id: string | null;
+        }>('SELECT lead_project_engineer_user_id FROM project WHERE id = $1 FOR SHARE', [
+          current.project_id,
+        ]);
         // D09: the account too, so a disable that committed first is honoured.
         if (asLocked(user, await lockStanding(client, [user.userId])).status !== 'active') {
           throw forbidden();
@@ -605,7 +606,7 @@ async function findProject(db: Db, id: string, lock: '' | 'FOR SHARE' | 'FOR UPD
   if (!UUID_PATTERN.test(id)) return null;
   const { rows } = await db.query<{
     id: string;
-    lead_project_engineer_user_id: string;
+    lead_project_engineer_user_id: string | null;
     project_number: string;
   }>(
     `SELECT id, lead_project_engineer_user_id, project_number FROM project WHERE id = $1 ${lock}`,
