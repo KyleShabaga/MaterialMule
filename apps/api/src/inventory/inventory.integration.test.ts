@@ -443,7 +443,8 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     // Past the end: empty page, same total.
     const beyond = await inventory({ projectId: projects.paging!, page: '6' });
     expect(beyond).toMatchObject({ items: [], total: 120, page: 6 });
-  });
+    // 120 serial inserts plus 16 page reads: ~2–3 s on CI, over 5 s on a slow runner.
+  }, 30_000);
 
   it('never returns more than 100 rows and rejects bad parameters with field errors', async () => {
     const cookie = await cookieFor('at');

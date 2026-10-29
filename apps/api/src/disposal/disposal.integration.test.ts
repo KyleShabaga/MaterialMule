@@ -332,6 +332,60 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     ).toBe(0);
   });
 
+  it('MM-T77 T2/T3: no label is queued for a disposed unit, alone or mixed with a current one; history stays readable', async () => {
+    // A default printer, so a refusal is about the unit and never about printing setup.
+    await h.db.pool.query(
+      `INSERT INTO printer (key, name, host, port, is_default)
+       SELECT 't77-printer', 'T77 printer', '127.0.0.1', 9, true
+       WHERE NOT EXISTS (SELECT 1 FROM printer WHERE is_default)`,
+    );
+    const unit = await oldBucket();
+    const current = await oldBucket();
+    // A label printed before the disposal (already sent, so the worker leaves it alone).
+    const { rows: earlier } = await h.db.pool.query<{ id: string }>(
+      `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                              requested_by_initials_snapshot, requested_by_name_snapshot,
+                              status, sent_at)
+       SELECT 'initial', key, 'sticker-v1', $1, 'AT', 'Alex Tester', 'sent', now()
+       FROM printer WHERE is_default RETURNING id`,
+      [h.users.tech],
+    );
+    await h.db.pool.query(
+      `INSERT INTO print_job_item (print_job_id, storage_unit_id, position) VALUES ($1, $2, 1)`,
+      [earlier[0]!.id, unit.id],
+    );
+    at('2027-10-24');
+    await approve([unit.id]);
+    expect((await scan(unit.readableId, 'pe')).status).toBe(200);
+    const jobsBefore = await count('FROM print_job');
+
+    for (const body of [
+      { kind: 'reprint', storageUnitIds: [unit.id] },
+      { kind: 'initial', storageUnitIds: [unit.id] },
+      { kind: 'reprint', storageUnitIds: [current.id, unit.id] },
+    ]) {
+      for (const as of ['tech', 'lab'] as const) {
+        const refused = await h.send(
+          'post',
+          '/api/print-jobs',
+          { ...body, ...(as === 'lab' ? { receiverUserId: h.users.js } : {}) },
+          as,
+        );
+        expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+        expect(refused.body.code).toBe('storage_unit_disposed');
+        expect(refused.body.message).toContain(unit.readableId);
+        expect(refused.body.message).not.toContain(current.readableId);
+      }
+    }
+    expect(await count('FROM print_job')).toBe(jobsBefore);
+    // The earlier print history of the disposed unit is still readable.
+    const history = await h.get(`/api/storage-units/${unit.id}/print-history`, 'tech');
+    expect(history.status).toBe(200);
+    expect((history.body as { jobs: { id: string }[] }).jobs.map((j) => j.id)).toContain(
+      earlier[0]!.id,
+    );
+  });
+
   it('T3: concurrent scans of one unit dispose it once; a retry with the same key replays', async () => {
     const unit = await oldBucket();
     at('2027-10-24');

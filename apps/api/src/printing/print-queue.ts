@@ -23,6 +23,7 @@ export type PrintErrorCode =
   | 'unknown_printer'
   | 'no_printer_configured'
   | 'unknown_storage_unit'
+  | 'storage_unit_disposed'
   | 'unknown_location'
   | 'location_retired'
   | 'receiver_required'
@@ -256,21 +257,35 @@ export async function enqueuePrintJob(
   return withTransaction(pool, async (client) => {
     const printer = await resolvePrinter(client, request.printerId);
 
+    // FOR SHARE: a disposal (either route locks the unit FOR UPDATE) waits for this job or
+    // this job sees the disposal; units in id order, as every other unit lock is taken.
     const { rows: units } = await client.query<{
       id: string;
       readable_id: string;
+      status: string;
       project_number: string;
       receiver_user_id: string;
     }>(
-      `SELECT su.id, su.readable_id, p.project_number, r.receiver_user_id
+      `SELECT su.id, su.readable_id, su.status, p.project_number, r.receiver_user_id
        FROM storage_unit su
        JOIN project p ON p.id = su.project_id
        JOIN receipt r ON r.id = su.receipt_id
-       WHERE su.id = ANY($1::uuid[])`,
+       WHERE su.id = ANY($1::uuid[])
+       ORDER BY su.id
+       FOR SHARE OF su`,
       [request.storageUnitIds],
     );
     if (units.length !== request.storageUnitIds.length) {
       throw new PrintRequestError('unknown_storage_unit', 'A storage unit was not found.');
+    }
+    // MM-T77: a disposed unit's ID never gets a fresh sticker (IDs are never reused).
+    const disposed = units.filter((unit) => unit.status === 'disposed').map((u) => u.readable_id);
+    if (disposed.length > 0) {
+      throw new PrintRequestError(
+        'storage_unit_disposed',
+        `${disposed.sort().join(', ')} ${disposed.length === 1 ? 'is' : 'are'} disposed; ` +
+          'labels are not printed for disposed storage units.',
+      );
     }
     const byId = new Map(units.map((unit) => [unit.id, unit]));
     const ordered = request.storageUnitIds.map((id) => byId.get(id)!);

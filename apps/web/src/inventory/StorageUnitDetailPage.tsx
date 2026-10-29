@@ -405,7 +405,10 @@ export function StorageUnitDetailPage() {
         receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
       />
 
-      <StorageUnitLabelsSection readableId={unit.readableId} />
+      <StorageUnitLabelsSection
+        readableId={unit.readableId}
+        disposed={unit.status === 'disposed'}
+      />
     </>
   );
 }
