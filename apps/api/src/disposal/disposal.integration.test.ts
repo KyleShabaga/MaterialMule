@@ -7,9 +7,10 @@ import {
   labProgramSchema,
   type LabProgram,
 } from '@materialmule/shared';
+import { Client } from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { BusinessClock } from '../retention/business-clock.js';
-import { testDatabaseUrl } from '../test-support/database.js';
+import { databaseUrlForSchema, testDatabaseUrl } from '../test-support/database.js';
 import { insertProject, insertReceipt, receivingLabId } from '../test-support/fixtures.js';
 import { createLabHarness, line, newKey, type LabHarness } from '../test-support/lab-harness.js';
 
@@ -742,6 +743,184 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     );
   }, 60_000); // 501 units and four pages: allow for a busy PC
 
+  /** Corrects `unitId`'s project to DEMO-2602 with a summary on a fresh B hole (MM-T13 route). */
+  async function correctToB(unitId: string, as: As = 'tech') {
+    const { rows } = await h.db.pool.query<{ version: number }>(
+      'SELECT version FROM storage_unit WHERE id = $1',
+      [unitId],
+    );
+    return h.send(
+      'patch',
+      `/api/storage-units/${unitId}`,
+      {
+        version: rows[0]!.version,
+        reason: 'Received under the wrong project',
+        changes: {
+          projectId: h.projects.b,
+          holeSummaries: [{ testHoleId: await newHole('b'), type: 'all' }],
+        },
+      },
+      as,
+    );
+  }
+
+  it('MM-T70 T1/AC2: approved in DEMO-2601, corrected to DEMO-2602 → the scan says Not approved until DEMO-2602 approves', async () => {
+    const unit = await oldBucket();
+    at('2027-10-24');
+    const approved = await approve([unit.id], 'pe'); // DEMO-2601's PM/PE
+    expect(approved.status, JSON.stringify(approved.body)).toBe(201);
+    const approvalId = approved.body.approvals[0].id as string;
+    const corrected = await correctToB(unit.id);
+    expect(corrected.status, JSON.stringify(corrected.body)).toBe(200);
+
+    const refused = await scan(unit.readableId);
+    expect(refused.status).toBe(422);
+    expect(refused.body).toMatchObject({
+      result: 'not_approved',
+      blockers: [{ code: 'approval_project_changed' }],
+    });
+    expect(refused.body.message).toMatch(/approved under another project/);
+    const row = await unitRow(unit.id);
+    expect(row).toMatchObject({ status: 'approved_for_disposal', disposed_at: null });
+    expect(await count('FROM disposal_removal WHERE storage_unit_id = $1', [unit.id])).toBe(0);
+    expect(
+      await count('FROM disposal_approval WHERE id = $1 AND used_at IS NULL', [approvalId]),
+    ).toBe(1);
+    expect(
+      await count(
+        `FROM audit_event WHERE action = 'disposal.blocked' AND entity_id = $1
+           AND after_values->'blockers' ? 'approval_project_changed'`,
+        [unit.id],
+      ),
+    ).toBe(1);
+
+    // DEMO-2602's Disposal page shows why; its PM/PE or a Lab Manager revokes and approves again.
+    const listed = (await candidates('b')).units.find((u) => u.storageUnitId === unit.id)!;
+    expect(listed.approval?.id).toBe(approvalId);
+    expect(listed.blockers.map((b) => b.code)).toContain('approval_project_changed');
+    const revoked = await h.send(
+      'post',
+      `/api/disposal/approvals/${approvalId}/revoke`,
+      { reason: 'Project corrected', idempotencyKey: newKey() },
+      'lm',
+    );
+    expect(revoked.status, JSON.stringify(revoked.body)).toBe(200);
+    const again = await approve([unit.id], 'lm');
+    expect(again.status, JSON.stringify(again.body)).toBe(201);
+    expect(
+      (
+        await h.db.pool.query<{ project_id: string }>(
+          'SELECT project_id FROM disposal_approval WHERE id = $1',
+          [again.body.approvals[0].id],
+        )
+      ).rows[0]!.project_id,
+    ).toBe(h.projects.b);
+    const disposed = await scan(unit.readableId);
+    expect(disposed.status, JSON.stringify(disposed.body)).toBe(200);
+    expect(
+      (
+        await h.db.pool.query<{ project_id: string }>(
+          'SELECT project_id FROM disposal_removal WHERE storage_unit_id = $1',
+          [unit.id],
+        )
+      ).rows[0]!.project_id,
+    ).toBe(h.projects.b);
+  });
+
+  it('MM-T70 AC2: a live approval forced under another project (SQL) is Not approved; the unit is unchanged', async () => {
+    const unit = await oldBucket();
+    at('2027-10-24');
+    expect((await approve([unit.id])).status).toBe(201);
+    // Bypass the API: move the unit's project directly.
+    await h.db.pool.query('DELETE FROM storage_unit_hole_summary WHERE storage_unit_id = $1', [
+      unit.id,
+    ]);
+    await h.db.pool.query('UPDATE storage_unit SET project_id = $2 WHERE id = $1', [
+      unit.id,
+      h.projects.b,
+    ]);
+    const before = await unitRow(unit.id);
+    const refused = await scan(unit.readableId, 'lm');
+    expect(refused.body.result).toBe('not_approved');
+    expect(await unitRow(unit.id)).toEqual(before);
+  });
+
+  it('MM-T70 T2/AC3: a project correction racing the disposal scan: exactly one wins, never a removal under the wrong project', async () => {
+    for (const round of [0, 1, 2, 3]) {
+      const unit = await oldBucket();
+      at('2027-10-24');
+      expect((await approve([unit.id], 'pe')).status).toBe(201);
+      const blocker = new Client({ connectionString: databaseUrlForSchema(h.db.schema) });
+      await blocker.connect();
+      let results: Awaited<ReturnType<typeof scan>>[];
+      try {
+        await blocker.query('BEGIN');
+        await blocker.query('SELECT id FROM storage_unit WHERE id = $1 FOR UPDATE', [unit.id]);
+        // Alternate which request reaches the lock first.
+        const first = round % 2 === 0 ? correctToB(unit.id) : scan(unit.readableId);
+        await waitForUnitLockWaiters(1);
+        const second = round % 2 === 0 ? scan(unit.readableId) : correctToB(unit.id);
+        await waitForUnitLockWaiters(2);
+        await blocker.query('COMMIT');
+        results = await Promise.all([first, second]);
+      } finally {
+        await blocker.query('ROLLBACK').catch(() => undefined);
+        await blocker.end();
+      }
+      const [correction, removal] = (round % 2 === 0 ? results : [results[1], results[0]]) as [
+        (typeof results)[number],
+        (typeof results)[number],
+      ];
+      const row = await unitRow(unit.id);
+      const { rows: project } = await h.db.pool.query<{ project_id: string }>(
+        'SELECT project_id FROM storage_unit WHERE id = $1',
+        [unit.id],
+      );
+      if (removal.status === 200) {
+        // The scan won: disposed under DEMO-2601; the stale correction is refused.
+        expect(correction.status).toBe(409);
+        expect(row.status).toBe('disposed');
+        expect(project[0]!.project_id).toBe(h.projects.a);
+      } else {
+        // The correction won: the scan is refused and nothing is disposed.
+        expect(correction.status, JSON.stringify(correction.body)).toBe(200);
+        expect([409, 422]).toContain(removal.status);
+        expect(row.status).toBe('approved_for_disposal');
+        expect(project[0]!.project_id).toBe(h.projects.b);
+      }
+      expect(
+        await count(
+          `FROM disposal_removal r JOIN disposal_approval a ON a.id = r.approval_id
+           JOIN storage_unit su ON su.id = r.storage_unit_id
+           WHERE r.storage_unit_id = $1
+             AND (a.project_id <> su.project_id OR r.project_id <> su.project_id)`,
+          [unit.id],
+        ),
+      ).toBe(0);
+    }
+  });
+
+  it('MM-T70 AC4: LAB still gets 403 for the correction and the scan', async () => {
+    const unit = await oldBucket();
+    at('2027-10-24');
+    expect((await approve([unit.id])).status).toBe(201);
+    expect((await correctToB(unit.id, 'lab')).status).toBe(403);
+    expect((await scan(unit.readableId, 'lab')).status).toBe(403);
+    expect((await unitRow(unit.id)).status).toBe('approved_for_disposal');
+  });
+
+  async function waitForUnitLockWaiters(n: number) {
+    for (let i = 0; i < 2000; i += 1) {
+      const { rows } = await h.db.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+         WHERE wait_event_type = 'Lock' AND query ILIKE '%storage_unit%FOR UPDATE%'`,
+      );
+      if (rows[0]!.n >= n) return;
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    throw new Error(`fewer than ${n} requests waited on storage_unit`);
+  }
+
   it('database rules: one disposition per unit, approvals revoked/used once, no deletes', async () => {
     const unit = await oldBucket();
     at('2027-10-24');
@@ -780,6 +959,16 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
         [unit.id, approvalId, h.projects.a, h.users.lm],
       ),
     ).toBe('disposal_removal_matches_unit');
+    // MM-T70: an approval must name the unit's current project.
+    const other = await oldBucket();
+    expect(
+      await fails(
+        `INSERT INTO disposal_approval (storage_unit_id, project_id, batch_id, approved_by_user_id,
+           approved_by_name_snapshot, effective_retain_until, idempotency_key, request_hash)
+         VALUES ($1, $2, gen_random_uuid(), $3, 'X', '2027-10-23', gen_random_uuid(), 'x')`,
+        [other.id, h.projects.b, h.users.lm],
+      ),
+    ).toBe('disposal_approval_matches_unit_project');
     expect((await scan(unit.readableId)).status).toBe(200);
     expect(
       await fails('DELETE FROM disposal_removal WHERE storage_unit_id = $1', [unit.id]),

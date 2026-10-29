@@ -19,6 +19,8 @@ export const DISPOSAL_BLOCKERS = [
   'on_hold',
   'program_open',
   'location_conflict',
+  // MM-T70: approved under the unit's earlier project; the current project must approve again.
+  'approval_project_changed',
 ] as const;
 export type DisposalBlockerCode = (typeof DISPOSAL_BLOCKERS)[number];
 
