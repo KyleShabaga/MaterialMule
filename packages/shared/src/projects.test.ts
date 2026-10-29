@@ -120,19 +120,13 @@ describe('project edit request (MM-T35)', () => {
     const result = updateProjectRequestSchema.safeParse({
       serverFolderPath: 'x'.repeat(501),
       leadProjectEngineerId: 'not-a-uuid',
-      reviewEngineerId: 'nope',
     });
     expect(result.success).toBe(false);
     const fields = result.error!.issues.map((issue) => String(issue.path[0])).sort();
-    expect(fields).toEqual([
-      'leadProjectEngineerId',
-      'reviewEngineerId',
-      'serverFolderPath',
-      'version',
-    ]);
+    expect(fields).toEqual(['leadProjectEngineerId', 'serverFolderPath', 'version']);
+    // The single review engineer is retired (MM-AO03, D12): scoped reviewer assignments replace it.
     expect(updateProjectRequestSchema.parse({ version: 1, reviewEngineerId: null })).toEqual({
       version: 1,
-      reviewEngineerId: null,
     });
   });
 });

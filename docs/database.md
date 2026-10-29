@@ -265,8 +265,9 @@ screens. Counts (test holes, in-stock units, last receipt date, units per hole a
 are computed by query, never stored.
 
 - **Search** matches project number, name or client (contains, ignoring case, wildcards escaped),
-  backed by `pg_trgm` GIN indexes on each. "Only mine" (`mine=true`) keeps projects where the user
-  is `lead_project_engineer_user_id` or `review_engineer_user_id`, both indexed.
+  backed by `pg_trgm` GIN indexes on each. "Only mine" (`mine=true`, My projects, D12) keeps
+  projects the user is actively involved in, and every row reports that `involvement` (MM-AO03;
+  see "Project assignments and scoped grants").
 - **Stable paging.** Every sort (number, name, last receipt with never-received projects last)
   ends with the normalised number (`COLLATE "C"`) and the ID. Default 25 per page, max 100.
 - **Project number lock.** A trigger rejects changing `project_number` once the project has any
@@ -646,11 +647,12 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
   with MM-AO04 as a forward migration together with the DTO, join and receiving changes.
   `acceptance_delegation` stays the only acceptance-delegate store; grants survive a lead change
   (D08). Concrete Lab Manager grants (D13) are deferred to C02/AO08.
-- **Compatibility precedence and legacy reads.** `project.review_engineer_user_id` (one legacy
-  reviewer) still drives "Only mine" and nothing else; no eligibility, reviewer assignment or
-  issuer grant is derived from it, from job titles or positions, or from delegations (proven in
-  `schema-assignments.test.ts`, AC3). When MM-AO03/AO06 switch My projects (D12) to the new
-  assignments, they also retire that column in a forward migration; until then it has no authority.
+- **Compatibility precedence and legacy reads.** No eligibility, reviewer assignment or issuer
+  grant is derived from job titles, positions or delegations (proven in
+  `schema-assignments.test.ts`, AC3). The single legacy `project.review_engineer_user_id` is
+  retired by `0002_project_access.sql` (MM-AO03, D12; Kyle 2026-10-29): scoped reviewer
+  assignments are the one source of reviewer responsibility, and its values were not carried over
+  (it never implied eligibility; nothing was deployed).
 - **Rehearsal and exceptions (AC1/AC2).** There is no deployed data, so nothing is backfilled. The
   dev fixtures map unchanged: DEMO-2601 and DEMO-2602 keep Pat Example (fixed UUID) as Lead
   Project Engineer, there is no legacy reviewer or delegation in the fixtures, and every new table
@@ -658,6 +660,28 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
   their rows and references; the new tables hold no rows for them.
 - **Rollback.** Before any deployment, rolling back means checking out the previous commit and
   rebuilding the disposable databases. After deployment, use forward migrations only.
-- **Open for MM-AO03/AO06 (not built):** re-enabling a disabled account must make its technical
-  grants need revalidation (D08); the policy can compare grant times with the re-enable recorded in
-  `audit_event`, or AO03 may propose a column.
+- **D08 re-enable (MM-AO03, Kyle 2026-10-29: revoke on re-enable).** Re-enabling a disabled
+  account revokes, in the same transaction, every technical grant the person still holds
+  (reviewer eligibility and assignments, report issuer grants, acceptance delegations, the
+  create-and-lead capability), each with the reason "Account re-enabled: technical grants need
+  revalidation (D08)", the re-enabling admin and its own audit event; `staff.enabled` records how
+  many. Team membership carries no authority and stays. No column was needed.
+
+## Project access API (MM-AO03, `0002_project_access.sql`)
+
+The central policy (`apps/api/src/auth/policy.ts`) now reads the AO02 tables; the routes and the
+lock order are in [permissions.md](permissions.md) "Team & permissions". `0002` is the first
+forward migration after the baseline:
+
+- drops `project.review_engineer_user_id` and its index (D12, above);
+- adds `acceptance_delegation_delegate_idx` (active delegations by person, for My projects);
+- adds the `acceptance_delegation_reasons` trigger (D15): a new delegation needs `grant_reason`
+  and a revocation needs `revoke_reason`. A trigger, not a CHECK, so a grant made before reasons
+  were required (null reason, never invented) can still be revoked.
+
+**My projects (D12)** is one SQL definition (`apps/api/src/project-access/involvement.ts`) used by
+the `mine=true` filter, the `involvement` labels on every projects-list row and
+`GET /api/projects/:id/capabilities`: the project's lead, an active team member, an active
+reviewer assignment whose reviewer still holds eligibility for its scope, an active acceptance
+delegation, or an Authorized report issuer grant that is neither revoked nor expired. Each source
+is indexed by person. Relevance only: All projects is unchanged and nothing is hidden.

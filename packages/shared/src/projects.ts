@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { positionSchema } from './profile';
+import { PROJECT_INVOLVEMENTS } from './project-access';
 
 // Projects and test holes for receiving (MM-T08). The API and the web app share these so both
 // trim and compare names the same way the database does (project_number_normalized and
@@ -176,7 +177,10 @@ export const projectListQuerySchema = z.object({
     blankParam,
     z.string().trim().max(200, { error: 'must be at most 200 characters' }).optional(),
   ),
-  /** Only projects where the signed-in user is Lead Project Engineer or review engineer. */
+  /**
+   * "My projects" (D12, MM-AO03): only projects the signed-in user is actively involved in as
+   * Lead Project Engineer, team member, reviewer, acceptance delegate or report issuer.
+   */
   mine: z.preprocess(queryBoolean, z.boolean({ error: 'must be true or false' }).default(false)),
   sort: z.preprocess(
     blankParam,
@@ -207,16 +211,12 @@ export function projectListSortDirection(query: Pick<ProjectListQuery, 'sort' | 
   return query.dir ?? (query.sort === 'last_receipt' ? 'desc' : 'asc');
 }
 
-/** "Only mine": the user is the project's Lead Project Engineer or its review engineer. */
-export function isMyProject(
-  project: { leadProjectEngineer: { id: string }; reviewEngineer: { id: string } | null },
-  userId: string,
-): boolean {
-  return project.leadProjectEngineer.id === userId || project.reviewEngineer?.id === userId;
-}
-
 export const projectListItemSchema = projectSummarySchema.extend({
-  reviewEngineer: staffOptionSchema.nullable(),
+  /**
+   * How the signed-in user is involved in this project now (D12), de-duplicated, in
+   * PROJECT_INVOLVEMENTS order; empty when not involved. Relevance only: it grants nothing.
+   */
+  involvement: z.array(z.enum(PROJECT_INVOLVEMENTS)),
   testHoleCount: z.number(),
   /** Storage units with status In stock. */
   inStockUnitCount: z.number(),
@@ -249,7 +249,6 @@ export type ProjectDetailReceipt = z.infer<typeof projectDetailReceiptSchema>;
 
 /** `GET /api/projects/:id`: a superset of ProjectSummary, so summary callers keep working. */
 export const projectDetailSchema = projectSummarySchema.extend({
-  reviewEngineer: staffOptionSchema.nullable(),
   serverFolderPath: z.string().nullable(),
   /** Optimistic concurrency token; send it back with an edit. */
   version: z.number(),
@@ -281,7 +280,6 @@ export const updateProjectRequestSchema = z.object({
   projectNumber: projectNumberSchema.optional(),
   name: trimmedText('Project name', 200).optional(),
   client: trimmedText('Client', 200).optional(),
-  reviewEngineerId: z.uuid({ error: 'Choose a staff member' }).nullable().optional(),
   /** Blank clears the path. */
   serverFolderPath: z
     .preprocess(

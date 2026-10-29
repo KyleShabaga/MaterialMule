@@ -15,6 +15,7 @@ import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { revokeTechnicalGrants } from '../project-access/grant-tables.js';
 import { UsersService, assertAnotherActiveAdmin } from '../users/users.service.js';
 import { findPreprovisionedMatch, normalizeUpn } from './first-sign-in.js';
 
@@ -351,6 +352,10 @@ export class StaffService {
     return this.get(id);
   }
 
+  /**
+   * Re-enables a disabled account. Old sessions stay revoked, and every technical grant the person
+   * still holds is revoked in the same transaction for revalidation (D08, MM-AO03).
+   */
   async enable(id: string, change: Change): Promise<StaffMember> {
     return withTransaction(this.database.pool, async (client) => {
       const status = await this.lockStatus(client, id);
@@ -368,13 +373,24 @@ export class StaffService {
          WHERE id = $1`,
         [id, change.actor.userId],
       );
+      // D08: old technical grants don't come back with the account; each needs revalidation.
+      const revokedGrants = await revokeTechnicalGrants(
+        client,
+        id,
+        {
+          userId: change.actor.userId!,
+          initials: change.actor.initials,
+          displayName: change.actor.name ?? '',
+        },
+        change.actor,
+      );
       await recordAudit(client, {
         action: 'staff.enabled',
         entityType: 'app_user',
         entityId: id,
         actor: change.actor,
         before: { status },
-        after: { status: 'active' },
+        after: { status: 'active', revokedGrants },
         requestId: change.requestId,
       });
       return this.get(id, client);

@@ -535,7 +535,7 @@ receiver selector, and times are local.
   leaves the search box; a failed add keeps the box focused with the error.
 - **Add project from Receive samples:** the Lead Project Engineer list offers only active staff whose position is
   Lead Project Engineer (`project_engineer`), in one list, with a hint; when nobody qualifies it says so and offers nobody
-  else. Edit project, Review engineer and Correct details keep the grouped list (MM-T61). This is a
+  else. Edit project and Correct details keep the grouped list (MM-T61). This is a
   UI filter: it grants no role and changes no project authority.
 - **Review receipt above 1280px:** the Details card is one strip (labels on one line, values on the
   next, each value at most two lines with the full text in the `title`), and the storage units are
@@ -647,7 +647,7 @@ Built to "Projects — list", "Project detail" and "Edit project dialog" in MM-T
   "Only mine: <initials>") as chips with the count; the table and pager on one card. The project
   number (mono, accent) links to the project; Lead Project Engineer reads "Pat Example (PE)".
 - **Detail:** the project number large in mono with the name under it and Edit project on the
-  right; Project details as stat tiles (Client, Lead Project Engineer, Review engineer, Storage units) with the
+  right; Project details as stat tiles (Client, Lead Project Engineer, Storage units) with the
   server folder and Copy on a full-width tile; Test holes (one row each, unit count on the right,
   "Add test hole") beside Receipts; Storage units with "Open in Sample Storage →" in the band.
 - **Edit project:** the project number beside the title; a locked number is read-only (not

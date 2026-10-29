@@ -27,6 +27,7 @@ import {
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
 import { can, type AuthUser, type ProjectContext } from '../auth/policy.js';
+import { canUnderLock } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { enqueueActionItemEmails } from '../notifications/action-items.js';
@@ -85,7 +86,8 @@ interface RequestRow {
  * Order: 403, 404, 422 `program_not_open`, 409 (`version_conflict` with the current state,
  * `idempotency_key_reused`, `already_requested`), 422 (`invalid_transition`, `empty_program`,
  * `closure_blocked` with the blockers). Lock order: the program (FOR UPDATE for close, reopen and
- * repeat; FOR SHARE otherwise, as review does), then its tests. Closing therefore waits for any
+ * repeat; FOR SHARE otherwise, as review does), then its tests, then (D09, MM-AO03) the project
+ * FOR SHARE and the actor's account FOR SHARE for the final authority check. Closing therefore waits for any
  * cancellation, repeat or review in flight and sees its result, and none of them can slip in
  * after a close commits. Exact retries return the original result without new history.
  */
@@ -105,12 +107,9 @@ export class LabLifecycleService {
       const replay = await replayProgramEvent(client, request.idempotencyKey, hash, user);
       if (replay) return replay;
       const program = (await lockProgram(client, programId, 'FOR UPDATE'))!;
-      // Authority as the project stands now (a Lead Project Engineer change since the check is honoured).
-      if (
-        !can(user, 'program.close', {
-          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
-        })
-      )
+      // Authority as the project stands now, under lock (D09): a lead change or role change that
+      // committed first is honoured; one that comes later waits for this close.
+      if (!(await canUnderLock(client, user, 'program.close', program.project_id)))
         throw forbidden();
       if (program.status !== 'submitted') {
         unprocessable(
@@ -208,11 +207,7 @@ export class LabLifecycleService {
       const replay = await replayProgramEvent(client, request.idempotencyKey, hash, user);
       if (replay) return replay;
       const program = (await lockProgram(client, programId, 'FOR UPDATE'))!;
-      if (
-        !can(user, 'program.reopen', {
-          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
-        })
-      )
+      if (!(await canUnderLock(client, user, 'program.reopen', program.project_id)))
         throw forbidden();
       if (program.status !== 'closed') {
         unprocessable('program_not_closed', 'id', 'only a closed program can be reopened');
@@ -342,13 +337,9 @@ export class LabLifecycleService {
         return requestResult(client, previous[0].test_request_id);
       }
       const program = (await lockProgram(client, peek.program_id, 'FOR SHARE'))!;
-      if (
-        !can(user, 'test.cancel', {
-          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
-        })
-      )
-        throw forbidden();
       const current = (await lockRequest(client, testRequestId, 'FOR UPDATE'))!;
+      // Lock order (D09): program, test, then the project and the actor's account.
+      if (!(await canUnderLock(client, user, 'test.cancel', program.project_id))) throw forbidden();
       if (program.status !== 'submitted') {
         unprocessable('program_not_open', 'id', 'reopen this program first');
       }

@@ -20,6 +20,7 @@ import {
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
 import { can, type AuthUser } from '../auth/policy.js';
+import { canUnderLock } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
@@ -234,7 +235,16 @@ export class DisposalService {
       return await withTransaction(this.database.pool, async (client) => {
         const earlier = await previousBatch(client, body.idempotencyKey, hash, user);
         if (earlier) return earlier;
-        // Lock in a fixed order so two overlapping batches can't deadlock.
+        // Projects first (FOR SHARE, in id order), then the units (FOR UPDATE, in id order): the
+        // order removal and retention placements use, so overlapping batches, a lead change
+        // (project FOR UPDATE) and a new hold (project NO KEY UPDATE) can't deadlock with this,
+        // and a lead change that committed first is honoured (D09, MM-AO03).
+        await client.query(
+          `SELECT p.id FROM project p
+           WHERE p.id IN (SELECT su.project_id FROM storage_unit su WHERE su.id = ANY($1::uuid[]))
+           ORDER BY p.id FOR SHARE`,
+          [unitIds],
+        );
         const { rows: locked } = await client.query<{ id: string }>(
           `SELECT su.id FROM storage_unit su WHERE su.id = ANY($1::uuid[])
            ORDER BY su.id FOR UPDATE`,
@@ -248,12 +258,10 @@ export class DisposalService {
         }
         const asOf = this.clock.today();
         const standing = await disposalStanding(client, unitIds, asOf);
+        // Each unit's current project, locked (already, unless a correction moved the unit since),
+        // and the actor's roles and status as they stand.
         for (const { unit } of standing.values()) {
-          if (
-            !can(user, 'disposal.approve', {
-              leadProjectEngineerUserId: unit.lead_project_engineer_user_id,
-            })
-          ) {
+          if (!(await canUnderLock(client, user, 'disposal.approve', unit.project_id))) {
             throw new ForbiddenException({ code: 'forbidden' });
           }
         }
@@ -332,22 +340,19 @@ export class DisposalService {
       );
       if (!found[0]) throw new NotFoundException({ code: 'approval_not_found' });
       const unitId = found[0].storage_unit_id;
-      // Unit first, then approval: the order removal uses. Authority follows the unit's current
-      // project, as removal does.
-      const { rows: units } = await client.query<{
-        status: string;
-        lead_project_engineer_user_id: string;
-      }>(
-        `SELECT su.status, p.lead_project_engineer_user_id FROM storage_unit su
-         JOIN project p ON p.id = su.project_id WHERE su.id = $1 FOR UPDATE OF su`,
+      // Project, unit, then approval: the order removal uses. Authority follows the unit's
+      // current project, as removal does, checked under lock (D09).
+      await client.query(
+        `SELECT p.id FROM project p JOIN storage_unit su ON su.project_id = p.id
+         WHERE su.id = $1 FOR SHARE OF p`,
+        [unitId],
+      );
+      const { rows: units } = await client.query<{ status: string; project_id: string }>(
+        'SELECT status, project_id FROM storage_unit WHERE id = $1 FOR UPDATE',
         [unitId],
       );
       const unit = units[0]!;
-      if (
-        !can(user, 'disposal.approve', {
-          leadProjectEngineerUserId: unit.lead_project_engineer_user_id,
-        })
-      ) {
+      if (!(await canUnderLock(client, user, 'disposal.approve', unit.project_id))) {
         throw new ForbiddenException({ code: 'forbidden' });
       }
       const { rows: current } = await client.query<{

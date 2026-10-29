@@ -346,7 +346,7 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       .put(`/api/staff/${ids.lab}/roles`)
       .set('Cookie', await cookieFor('admin'))
       .set(CSRF_HEADER, '1')
-      .send({ roles: ['admin'] });
+      .send({ roles: ['admin'], reason: 'Testing the LAB guard' });
     expect(response.status).toBe(422);
     expect(response.body).toMatchObject({ code: 'roles_not_allowed' });
   });
@@ -722,8 +722,21 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
         .set('Cookie', admin)
         .set(CSRF_HEADER, '1')
         .send({ roles: ['admin', 'lab_manager'] });
-      expect(grant.status).toBe(200);
-      expect(grant.body.roles).toEqual(['admin', 'lab_manager']);
+      // D15 (MM-AO03): a role change needs a reason; without one nothing changes.
+      expect(grant.status).toBe(400);
+      expect(grant.body.issues.map((issue: { path: string }) => issue.path)).toEqual(['reason']);
+      const { rows: unchanged } = await db.pool.query(
+        'SELECT role FROM role_assignment WHERE user_id = $1',
+        [ids.tech],
+      );
+      expect(unchanged).toEqual([]);
+      const granted = await http()
+        .put(`/api/staff/${ids.tech}/roles`)
+        .set('Cookie', admin)
+        .set(CSRF_HEADER, '1')
+        .send({ roles: ['admin', 'lab_manager'], reason: 'Covering admin duties' });
+      expect(granted.status).toBe(200);
+      expect(granted.body.roles).toEqual(['admin', 'lab_manager']);
 
       const drop = await http()
         .put(`/api/staff/${ids.admin}/roles`)

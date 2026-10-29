@@ -30,6 +30,7 @@ import {
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
+import { canUnderLock } from '../auth/standing.js';
 import { can, type AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
@@ -584,6 +585,10 @@ export class LabWorkService {
           leadProjectEngineerUserId: program.lead_project_engineer_user_id,
         })
       ) {
+        throw new ForbiddenException({ code: 'forbidden' });
+      }
+      // D09: again with the project's lead and the actor's roles as they stand under lock.
+      if (!(await canUnderLock(client, user, 'program.priority.set', program.project_id))) {
         throw new ForbiddenException({ code: 'forbidden' });
       }
       const request: ChangePriorityRequest = parseBody(changePriorityRequestSchema, body);

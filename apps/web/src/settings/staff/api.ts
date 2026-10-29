@@ -68,7 +68,7 @@ export const staffApi = {
   approve: (id: string) => send(`/api/staff/${id}/approve`, 'POST'),
   disable: (id: string, reason: string) => send(`/api/staff/${id}/disable`, 'POST', { reason }),
   enable: (id: string) => send(`/api/staff/${id}/enable`, 'POST'),
-  setRoles: (id: string, roles: StaffRole[], reason?: string) =>
+  setRoles: (id: string, roles: StaffRole[], reason: string) =>
     send(`/api/staff/${id}/roles`, 'PUT', { roles, reason }),
   update: (id: string, body: UpdateStaffRequest) => send(`/api/staff/${id}`, 'PATCH', body),
 };

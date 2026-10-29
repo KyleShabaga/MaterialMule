@@ -20,6 +20,7 @@ import {
 } from '@materialmule/shared';
 import { DatabaseError, type PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
+import { canUnderLock } from '../auth/standing.js';
 import { can, type AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
@@ -190,11 +191,8 @@ export class RetentionService {
       );
       const row = rows[0];
       if (!row) throw new NotFoundException({ code: `${kind}_not_found` });
-      if (
-        !can(user, 'retention.manage', {
-          leadProjectEngineerUserId: row.lead_project_engineer_user_id,
-        })
-      )
+      // D09: the decision row, then the project and the actor's account (FOR SHARE).
+      if (!(await canUnderLock(client, user, 'retention.manage', row.project_id)))
         throw forbidden();
       if (row.released_at) {
         if (
@@ -390,10 +388,12 @@ export class RetentionService {
         );
         const request = rows[0];
         if (!request) throw new NotFoundException({ code: 'retention_request_not_found' });
+        // D09: the request, then the project (NO KEY UPDATE, the lock an approval needs anyway to
+        // place a hold or extension) and the actor's account.
         if (
-          !can(user, 'retention.manage', {
-            leadProjectEngineerUserId: request.lead_project_engineer_user_id,
-          })
+          !(await canUnderLock(client, user, 'retention.manage', request.project_id, {
+            lock: 'FOR NO KEY UPDATE',
+          }))
         ) {
           throw forbidden();
         }
@@ -407,8 +407,8 @@ export class RetentionService {
           }
           throw new ConflictException({ code: 'request_decided', status: request.status });
         }
-        // Approval places a hold/extension: take the same project lock as a direct placement.
-        await this.projectFacts(client, request.project_id, 'FOR NO KEY UPDATE');
+        // Approval places a hold/extension: the project is already locked as a direct placement
+        // locks it (above).
         let created: RetentionMutationResult | null = null;
         if (decision === 'approved') {
           const { rows: units } = await client.query<{ storage_unit_id: string }>(
@@ -505,13 +505,9 @@ export class RetentionService {
         // NO KEY UPDATE conflicts with a disposal removal's FOR SHARE on the project (MM-T30):
         // a new project-wide hold and a removal that didn't see it can't both commit.
         const project = await this.projectFacts(client, body.projectId, 'FOR NO KEY UPDATE');
-        if (
-          !can(user, 'retention.manage', {
-            leadProjectEngineerUserId: project.lead_project_engineer_user_id,
-          })
-        ) {
-          throw forbidden();
-        }
+        // D09: the lead is fixed by the lock above; the actor's roles and status are rechecked
+        // under their own lock.
+        if (!(await canUnderLock(client, user, 'retention.manage', project.id))) throw forbidden();
         return this.insertDecision(client, user, kind, body, {
           idempotencyKey: body.idempotencyKey,
           hash,

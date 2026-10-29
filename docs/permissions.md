@@ -12,7 +12,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - **Pending and disabled users** get nothing beyond `GET /api/me` and sign-out (pending) or a 401
   (disabled: their sessions stop authenticating).
 - **Position and job title grant nothing.** Only `role_assignment` (admin, lab_manager), the
-  account type and project authority (Lead Project Engineer, acceptance delegates) do.
+  account type and project authority (Lead Project Engineer, acceptance delegates, Authorized
+  report issuers) do. Team membership and reviewer assignment add no permission (MM-AO03).
 - **Admin is not a super-user.** It manages staff and sessions; it doesn't imply Lab Manager
   rights, project authority, acceptance or closure.
 - **LAB** (shared receiving account) is limited to the LAB column even if a role is assigned to it
@@ -32,6 +33,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | test.review                                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| project_access.read (AO03)                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | lab_program.amend (T26)                     |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | test.cancel_request (T26)                   |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
@@ -56,11 +58,20 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | staff.manage / session.revoke               |     |                   |             |   ✓   |                       |                     |
 | printer.manage (T15)                        |     |                   |             |   ✓   |                       |                     |
 | project.edit (T35)                          |     |                   |             |   ✓   |           ✓           |                     |
+| project_team.manage (AO03, D04)             |     |                   |             |   ✓   |           ✓           |                     |
+| project_reviewer.manage (AO03, D04/D05)     |     |                   |             |   ✓   |           ✓           |                     |
+| report_issuer.manage (AO03, D06)            |     |                   |             |       |           ✓           |                     |
+| report.issue (AO03, D07)                    |     |                   |             |       |           ✓           |                     |
+| reviewer_eligibility.manage (AO03, D05)     |     |                   |             |   ✓   |                       |                     |
+| staff_capability.manage (AO03, D01)         |     |                   |             |   ✓   |                       |                     |
 | project.lead_project_engineer.change (T35)  |     |                   |             |   ✓   |                       |                     |
 | system.status.read (T21)                    |     |                   |             |   ✓   |                       |                     |
 
 "Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
-`can()`. "Any internal user" means an active personal or test account.
+`can()`. "Any internal user" means an active personal or test account. `report.issue` is also held
+by an active, unexpired Authorized report issuer grant for that project and report scope (D06); no
+report route uses it yet. Team membership, reviewer assignment, job title and position add no
+permission to this table.
 
 ## Sessions
 
@@ -139,20 +150,22 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 
 ## Staff & access (MM-T07)
 
-| Route                                       | Policy                      |
-| ------------------------------------------- | --------------------------- |
-| `GET /api/staff?search=&status=`            | `staff.manage` (admin)      |
-| `POST /api/staff` (pre-provision)           | `staff.manage`              |
-| `POST /api/staff/:id/approve`               | `staff.manage`              |
-| `POST /api/staff/:id/disable {reason}`      | `staff.manage`              |
-| `POST /api/staff/:id/enable`                | `staff.manage`              |
-| `PUT /api/staff/:id/roles {roles, reason?}` | `staff.manage`              |
-| `PATCH /api/staff/:id`                      | `staff.manage`              |
-| `GET /api/staff/receivers?search=`          | any active session, LAB too |
+| Route                                      | Policy                      |
+| ------------------------------------------ | --------------------------- |
+| `GET /api/staff?search=&status=`           | `staff.manage` (admin)      |
+| `POST /api/staff` (pre-provision)          | `staff.manage`              |
+| `POST /api/staff/:id/approve`              | `staff.manage`              |
+| `POST /api/staff/:id/disable {reason}`     | `staff.manage`              |
+| `POST /api/staff/:id/enable`               | `staff.manage`              |
+| `PUT /api/staff/:id/roles {roles, reason}` | `staff.manage`              |
+| `PATCH /api/staff/:id`                     | `staff.manage`              |
+| `GET /api/staff/receivers?search=`         | any active session, LAB too |
 
 - **Approval** makes a pending account active; their existing session works on the next request.
 - **Disabling** needs a reason and revokes every session in the same transaction; the person
-  drops out of the receiver selector. Re-enabling doesn't revive old sessions.
+  drops out of the receiver selector. Re-enabling doesn't revive old sessions, and revokes every
+  technical grant the person still holds for revalidation (D08, MM-AO03; see "Team & permissions").
+- **Role changes** need a reason (D15, MM-AO03; 400 without one, nothing changes).
 - **Last admin:** a change that would leave no active (non-LAB) admin, whether removing the admin
   role or disabling, returns 422 `last_admin`. Kyle's bootstrap admin is an ordinary admin.
 - **LAB** can't hold roles (422 `roles_not_allowed`) and never appears as a receiver.
@@ -174,13 +187,101 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 | `POST /api/projects/:id/test-holes`      | `test_hole.create` (LAB included)                     |
 
 - **Edit** (owner decision 2026-10-25): admins and the project's current Lead Project Engineer may change the
-  number, name, client, review engineer and server folder path. Changing the Lead Project Engineer is admin-only
-  (`project.lead_project_engineer.change`) and needs a reason. A review engineer, Lab Manager or LAB can't edit.
+  number, name, client and server folder path. Changing the Lead Project Engineer is admin-only
+  (`project.lead_project_engineer.change`) and needs a reason. A reviewer, Lab Manager or LAB can't edit.
+  The single review engineer field is retired (MM-AO03, D12): scoped reviewer assignments replace it.
+- **My projects** (`mine=true`, D12): projects the signed-in user is actively involved in as lead,
+  team member, reviewer, acceptance delegate or report issuer; each row's `involvement` lists why.
 - **Project number** is printed on labels, so it can't change once the project has any receipt:
   422 `project_number_locked`, also enforced by a database trigger.
 - Edits are optimistic (`version`; a stale one gets 409 `version_conflict` with the current
   project) and audited as `project.updated` with only the changed fields before/after and the
   reason.
+
+## Team & permissions (MM-AO03)
+
+Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
+`apps/api/src/project-access/`; DTOs: `packages/shared/src/project-access.ts`.
+
+| Route                                                                                                                            | Policy                                                |
+| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /api/review-scopes`                                                                                                         | `project_access.read` (personal accounts)             |
+| `GET /api/projects/:projectId/capabilities`                                                                                      | `project_access.read`                                 |
+| `GET /api/projects/:projectId/team-members`                                                                                      | `project_access.read`                                 |
+| `POST /api/projects/:projectId/team-members {userId, reason, idempotencyKey}`                                                    | active user; handler checks `project_team.manage`     |
+| `DELETE /api/projects/:projectId/team-members/:id {reason}`                                                                      | active user; handler checks `project_team.manage`     |
+| `GET /api/projects/:projectId/reviewer-assignments`                                                                              | `project_access.read`                                 |
+| `POST /api/projects/:projectId/reviewer-assignments {reviewerUserId, scopeCode, reason, idempotencyKey}`                         | active user; handler checks `project_reviewer.manage` |
+| `DELETE /api/projects/:projectId/reviewer-assignments/:id {reason}`                                                              | active user; handler checks `project_reviewer.manage` |
+| `GET /api/projects/:projectId/report-issuers`                                                                                    | `project_access.read`                                 |
+| `POST /api/projects/:projectId/report-issuers {issuerUserId, scopeCode, reason, approvalReference?, expiresAt?, idempotencyKey}` | active user; handler checks `report_issuer.manage`    |
+| `DELETE /api/projects/:projectId/report-issuers/:id {reason, kind?}`                                                             | active user; handler checks `report_issuer.manage`    |
+| `GET /api/staff/:id/grants`                                                                                                      | `staff.manage` (admin)                                |
+| `POST /api/staff/:id/reviewer-eligibility {scopeCode, reason, idempotencyKey}`                                                   | `reviewer_eligibility.manage` (admin)                 |
+| `DELETE /api/staff/:id/reviewer-eligibility/:grantId {reason}`                                                                   | `reviewer_eligibility.manage`                         |
+| `POST /api/staff/:id/capabilities {capability, reason, idempotencyKey}`                                                          | `staff_capability.manage` (admin)                     |
+| `DELETE /api/staff/:id/capabilities/:grantId {reason}`                                                                           | `staff_capability.manage`                             |
+| `GET /api/me/grants`                                                                                                             | any active session (one's own)                        |
+
+- **Who manages what.** Team members and scoped reviewers: the project's Lead Project Engineer or
+  an admin (D04). Reviewer eligibility per scope and "Can create and lead projects": admin (D05,
+  D01). Authorized report issuers: the project's Lead Project Engineer only; admin never (D06).
+  The lead issues on their own project in every scope without a grant (D07). Nominations (D01)
+  and unassigned projects (D02) are MM-AO04.
+- **Recipients** are named by ID; the server loads their standing. They must be active personal
+  (or test) staff (422 `invalid_recipient`), never LAB, pending or disabled. A reviewer needs
+  active eligibility for the scope (422 `not_eligible`); the scope must be active (422
+  `invalid_scope`); the lead can't be added as their own team member or issuer
+  (`invalid_recipient`); an issuer expiry must be in the future (422 `invalid_expiry`); a second
+  active row for the same person and scope is 422 `already_assigned` (`already_granted` for
+  per-person grants).
+- **Reasons** (D15) are required on every grant, assignment, removal and revocation (400
+  `validation_failed`), as on delegation grants/revocations and role changes. The reason, who and
+  when are kept on the row and in its audit event (`project_team_member.added`/`.removed`,
+  `project_reviewer_assignment.assigned`/`.removed`, `project_report_issuer_grant.granted`/
+  `.revoked`, `reviewer_eligibility.granted`/`.revoked`, `staff_capability_grant.granted`/`.revoked`).
+- **Issuer grants** carry an optional approval reference and expiry. Revocation `kind` is
+  `ordinary` (default) or `emergency` (suspension); either needs a reason. A grant counts only while
+  not revoked and before `expires_at`, for its project and scope only (AC2).
+- **Effective only while valid.** A reviewer assignment counts only while the reviewer is active and
+  still eligible for its scope (`blockedReason: eligibility_revoked`); an issuer grant while the
+  holder is active and it hasn't expired (`expired`). Rows are never deleted.
+- **Capabilities** (`GET …/capabilities`): for each project action, `allowed`, every `sources`
+  entry that grants it (`lab`, `internal`, `lab_manager`, `admin`, `lead_project_engineer`,
+  `acceptance_delegate`, `report_issuer`) and, when blocked, `{code, grantedBy}` (`code`:
+  `account_not_active`, `shared_lab_account` or `not_permitted`; `grantedBy`: the sources that
+  would grant it). Also the caller's `involvement`, `issuerScopes` and `reviewerScopes`. Built from
+  the same `permissionSources()` that `can()` uses, so it can't disagree with enforcement. Nothing
+  the browser sends about roles or capabilities is read.
+- **Order of checks:** 401/403 from the guard; 403 when the caller can't manage this (checked
+  against the project as it stands, before the body; 403 too for an unknown project unless the
+  caller could manage some project, then 404); 400 body; 409 `idempotency_key_reused`; 422
+  recipient/scope rules. A removal of a row that belongs to another project is 404
+  (`<table>_not_found`). Ending an already-ended row changes nothing. Exact retries return the
+  current list without a second row.
+- **D08.** Grants survive a lead change; the new lead reviews and revokes selectively (historical
+  grantors never change). Re-enabling a disabled account revokes its technical grants (reviewer
+  eligibility and assignments, issuer grants, acceptance delegations, create-and-lead) in the
+  re-enable transaction, each audited with the reason "Account re-enabled: technical grants need
+  revalidation (D08)". Team membership stays.
+
+### Lock order and first-commit-wins (D09)
+
+Every final authority check runs inside the write's transaction, after taking locks in this
+order: **domain rows** (program, test request, storage units, retention decision or request),
+then **the project** (FOR SHARE; FOR UPDATE for a new assignment or grant, NO KEY UPDATE for a new
+hold or extension or a request decision), then **the accounts involved** (FOR SHARE, in id order:
+`lockStanding`), then **assignment and grant rows**. A lead change (project FOR UPDATE), a role
+change, disable or re-enable (account FOR UPDATE) and a revocation (grant row FOR UPDATE) all
+conflict with these locks, so whichever commits first wins: an action whose check comes after a
+committed change sees it and is refused (403) with nothing written; a change that comes after a
+committed action waits for it, and the action's results and attribution stay. Committed work is
+never rolled back retroactively. MM-AO03 brought program close, reopen, test cancel, priority,
+retention placement/release/decisions and disposal approval/revocation under this rule
+(`canUnderLock`), alongside acceptance (MM-T25). Disposal approval now locks the units' projects
+before the units, the order removal and retention placement already used, so the three can't
+deadlock. Requests that only route work to the lead (closure and cancellation requests) take no
+authority and are unchanged; open-task rerouting (D10) is MM-AO07.
 
 ## Receiving Log (MM-T51)
 
@@ -347,6 +448,8 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 | `POST /api/projects/:projectId/acceptance-delegates`       | active user; handler checks `acceptance_delegation.manage` |
 | `DELETE /api/projects/:projectId/acceptance-delegates/:id` | active user; handler checks `acceptance_delegation.manage` |
 
+Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D15, MM-AO03).
+
 - **LAB:** 403 on every route above, whoever the station selects. LAB still sends tests to review
   under MM-T24; the person it names is attribution only.
 - **Acceptance** (D04): the project's Lead Project Engineer, or a person with an active delegation for that
@@ -354,8 +457,8 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   never closure (D06), priority (D50), cancellation or delegation management.
 - **Corrections:** only the Lab Manager role marks a returned correction done (not Lead Project Engineer, admin
   or a delegate through those roles). A fresh review is always needed before acceptance.
-- **Delegation:** only the project's Lead Project Engineer grants and revokes, for active staff other than
-  themselves (422 `invalid_delegate`, `already_delegated`). Revocation takes effect at once;
+- **Delegation:** only the project's Lead Project Engineer grants and revokes, each with a reason, for active
+  staff other than themselves (422 `invalid_delegate`, `already_delegated`). Revocation takes effect at once;
   acceptances made before it keep their delegate attribution. History is kept.
 - **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
   retry key (409), transition (422 `invalid_transition` / `review_not_complete`). Details:
