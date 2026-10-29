@@ -26,6 +26,11 @@
   --primary-active: #075985;
   --on-primary: #ffffff;
   --focus: #0369a1;
+  /* Picker options (MM-T78): the keyboard highlight is a solid fill with a bar in its own ink,
+     at least 3:1 against the list (--card-head); hover is a lighter tint without the bar. */
+  --option-active: #0369a1;
+  --on-option-active: #ffffff;
+  --option-hover: #e0f2fe;
   /* Status tones: text, fill, edge */
   --success: #047857;
   --success-bg: #ecfdf5;
@@ -91,6 +96,9 @@
     --primary-active: #075985;
     --on-primary: #ffffff;
     --focus: #38bdf8;
+    --option-active: #38bdf8;
+    --on-option-active: #000f21;
+    --option-hover: #1e3a5f;
     --success: #34d399;
     --success-bg: #064e3b;
     --success-line: #059669;
@@ -845,11 +853,6 @@ textarea {
   cursor: pointer;
 }
 
-.receiver-options li.active {
-  background: var(--primary);
-  color: var(--on-primary);
-}
-
 .receiver-status {
   margin: 0;
   min-height: 1.25rem;
@@ -1075,11 +1078,6 @@ textarea {
   cursor: pointer;
 }
 
-.listbox li[aria-selected='true'],
-.listbox li:hover {
-  background: var(--inset);
-}
-
 .listbox li.muted,
 .listbox li[aria-disabled='true'] {
   color: var(--muted);
@@ -1090,6 +1088,24 @@ textarea {
   border-top: 1px solid var(--line);
   font-weight: 600;
   color: var(--accent);
+}
+
+/* MM-T78: one highlight for every picker (receiver, project, test hole, Correct details).
+   Hover is a tint with an underline; the keyboard highlight (aria-activedescendant, marked
+   aria-selected) is a solid fill plus a left bar, so the two never look alike and the highlight
+   does not rely on colour alone. These come after the option rules above so they win. */
+.listbox li:not([aria-disabled='true']):hover,
+.receiver-options li:hover {
+  background: var(--option-hover);
+  text-decoration: underline;
+}
+
+.listbox li[aria-selected='true'],
+.receiver-options li[aria-selected='true'] {
+  background: var(--option-active);
+  color: var(--on-option-active);
+  box-shadow: inset 4px 0 0 currentColor;
+  text-decoration: none;
 }
 
 .chips {
