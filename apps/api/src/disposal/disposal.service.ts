@@ -28,6 +28,12 @@ import { BusinessClock } from '../retention/business-clock.js';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Db = Pool | PoolClient;
 
+/** MM-T70: the live approval was granted under the unit's earlier project. */
+const projectChanged = (): DisposalBlocker => ({
+  code: 'approval_project_changed',
+  label: 'Approved under another project: revoke it and approve again',
+});
+
 function intentHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
@@ -189,9 +195,12 @@ export class DisposalService {
       pageSize: DISPOSAL_PAGE_SIZE,
       units: ids.map((id) => {
         const { unit, blockers } = standing.get(id)!;
-        const approval = approvals.get(id) ?? null;
+        const live = approvals.get(id) ?? null;
+        const approval = live ? live.approval : null;
         // An approved unit lists what would block its removal now.
         let shown = approval ? blockers.filter((b) => b.code !== 'not_in_stock') : blockers;
+        // MM-T70: an approval from before a project correction doesn't authorise removal.
+        if (live && live.projectId !== unit.project_id) shown = [projectChanged(), ...shown];
         // A tested unit is removed after testing (MM-T36): holds, dates and open programs don't
         // block that route, so only what does (an open location conflict) is listed (MM-T71).
         // An approved unit keeps what would block its standard scan.
@@ -422,12 +431,16 @@ export class DisposalService {
         const { blockers, unit: standing } = (
           await disposalStanding(client, [unit.id], asOf, true)
         ).get(unit.id)!;
-        const { rows: approvals } = await client.query<{ id: string }>(
-          `SELECT id FROM disposal_approval
+        const { rows: approvals } = await client.query<{ id: string; project_id: string }>(
+          `SELECT id, project_id FROM disposal_approval
            WHERE storage_unit_id = $1 AND revoked_at IS NULL AND used_at IS NULL FOR UPDATE`,
           [unit.id],
         );
-        const approval = approvals[0];
+        // MM-T70: an approval only counts under the project it was granted for (D19). One from
+        // before a project correction leaves the unit Not approved until the new project's PM/PE
+        // or a Lab Manager approves it (unit locked first, then the approval, as revoke does).
+        const stale = approvals[0] && approvals[0].project_id !== unit.project_id;
+        const approval = stale ? undefined : approvals[0];
         let outcome: DisposalScanResult | null = null;
         if (unit.status === 'disposed') {
           outcome = scan(
@@ -436,6 +449,14 @@ export class DisposalService {
             unit.readable_id,
             blockers,
             `${unit.readable_id} is already disposed.`,
+          );
+        } else if (stale) {
+          outcome = scan(
+            'not_approved',
+            unit.id,
+            unit.readable_id,
+            [projectChanged()],
+            `${unit.readable_id} isn’t approved for disposal: it was approved under another project. Its current project’s PM/PE or a Lab Manager must approve it again.`,
           );
         } else if (!approval || unit.status !== 'approved_for_disposal') {
           outcome = scan(
@@ -568,6 +589,7 @@ export class DisposalService {
     const { rows } = await db.query<{
       id: string;
       storage_unit_id: string;
+      project_id: string;
       batch_id: string;
       approved_by_user_id: string;
       approved_by_initials_snapshot: string | null;
@@ -575,7 +597,8 @@ export class DisposalService {
       approved_at: Date;
       effective_retain_until: string;
     }>(
-      `SELECT id, storage_unit_id, batch_id, approved_by_user_id, approved_by_initials_snapshot,
+      `SELECT id, storage_unit_id, project_id, batch_id, approved_by_user_id,
+              approved_by_initials_snapshot,
               approved_by_name_snapshot, approved_at, effective_retain_until::text
        FROM disposal_approval
        WHERE storage_unit_id = ANY($1::uuid[]) AND revoked_at IS NULL AND used_at IS NULL`,
@@ -585,15 +608,18 @@ export class DisposalService {
       rows.map((row) => [
         row.storage_unit_id,
         {
-          id: row.id,
-          batchId: row.batch_id,
-          approvedBy: {
-            userId: row.approved_by_user_id,
-            initials: row.approved_by_initials_snapshot,
-            name: row.approved_by_name_snapshot,
+          projectId: row.project_id,
+          approval: {
+            id: row.id,
+            batchId: row.batch_id,
+            approvedBy: {
+              userId: row.approved_by_user_id,
+              initials: row.approved_by_initials_snapshot,
+              name: row.approved_by_name_snapshot,
+            },
+            approvedAt: row.approved_at.toISOString(),
+            effectiveRetainUntil: row.effective_retain_until,
           },
-          approvedAt: row.approved_at.toISOString(),
-          effectiveRetainUntil: row.effective_retain_until,
         },
       ]),
     );

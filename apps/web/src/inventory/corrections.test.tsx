@@ -385,4 +385,38 @@ describe('storage unit corrections (MM-T13)', () => {
     const list = await screen.findByRole('list', { name: 'Unresolved lab requests' });
     expect(list).toHaveTextContent('LR-2026-0012 (in progress)');
   });
+
+  it('MM-T70: a project change on an approved unit is refused in plain words with a Disposal link', async () => {
+    const message =
+      'BKT-2026-000014 is approved for disposal under DEMO-2601. Revoke the approval on the ' +
+      'Disposal & Retention page first, then correct the project.';
+    stubApi({
+      unit: UNIT,
+      history: EMPTY_HISTORY,
+      patch: () =>
+        json(422, {
+          code: 'disposal_approval_live',
+          projectId: 'p-demo-2601',
+          projectNumber: 'DEMO-2601',
+          message,
+        }),
+    });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await user.selectOptions(screen.getByLabelText('Summary type'), 'custom');
+    await user.type(screen.getByLabelText('Custom summary'), 'Bags 1-3');
+    await user.type(screen.getByLabelText('Reason for the correction'), 'wrong project');
+    await user.click(screen.getByRole('button', { name: 'Save correction' }));
+
+    const alert = await screen.findByText(message);
+    expect(alert).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Open Disposal & Retention' })).toHaveAttribute(
+      'href',
+      '/disposal-retention?projectId=p-demo-2601',
+    );
+    // The form stays open with what was typed.
+    expect(screen.getByRole('form', { name: 'Correct details' })).toBeInTheDocument();
+  });
 });
