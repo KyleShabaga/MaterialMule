@@ -82,6 +82,14 @@ test('MM-T70 T4: correcting the project of an approved unit is refused with a pl
   await expect(page.getByRole('option', { name: new RegExp(data.projectB) })).toBeVisible();
   await search.press('Enter');
   await expect(form.getByLabel('Project number')).toHaveValue(data.projectB);
+  const hole = form.getByRole('combobox', { name: 'Find or add a test hole' });
+  await hole.fill('TH26-01');
+  await expect(form.getByRole('option', { name: 'TH26-01', exact: true })).toBeVisible();
+  await hole.press('Enter');
+  await form
+    .getByRole('group', { name: 'TH26-01 summary' })
+    .getByLabel('Summary type')
+    .selectOption('all');
   await form.getByLabel('Reason for the correction').fill('received under the wrong project');
   await form.getByRole('button', { name: 'Save correction' }).click();
 
@@ -93,20 +101,19 @@ test('MM-T70 T4: correcting the project of an approved unit is refused with a pl
     'href',
     /disposal-retention[?]projectId=/,
   );
-  // Nothing changed.
-  await page.goto(`/sample-storage/${data.a1}`);
-  await expect(page.getByRole('list', { name: 'History events' })).not.toContainText(
-    'received under the wrong project',
-  );
+  // Nothing changed: same project, no correction in the unit's history.
   const project = await withDatabase(async (client) => {
-    const { rows } = await client.query<{ project_number: string }>(
-      `SELECT p.project_number FROM storage_unit su JOIN project p ON p.id = su.project_id
+    const { rows } = await client.query<{ project_number: string; corrected: number }>(
+      `SELECT p.project_number,
+              (SELECT count(*)::int FROM audit_event e
+               WHERE e.action = 'storage_unit.corrected' AND e.entity_id = su.id) AS corrected
+       FROM storage_unit su JOIN project p ON p.id = su.project_id
        WHERE su.readable_id = $1`,
       [data.a1],
     );
-    return rows[0]!.project_number;
+    return rows[0]!;
   });
-  expect(project).toBe(data.projectA);
+  expect(project).toEqual({ project_number: data.projectA, corrected: 0 });
 });
 
 // MM-T49: corrections are refused for LAB in the browser. Uses a real LAB station session (the
