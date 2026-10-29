@@ -29,6 +29,7 @@ import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
 import { involvementSql, orderInvolvement } from '../project-access/involvement.js';
@@ -614,6 +615,13 @@ export class ProjectsService {
     context: { reason: string; projectNumber: string },
   ): Promise<void> {
     const by = { userId: user.userId, initials: user.initials, displayName: user.displayName };
+    // D10 (MM-AO07): open requests follow the new lead (or wait for one); the new recipients are
+    // told, and assignments that depended on the old lead lapse.
+    await rerouteOpenItems(
+      client,
+      { projectId },
+      { actor, reason: `Lead Project Engineer changed: ${context.reason}` },
+    );
     if (lead === null) {
       await openLeadAppointment(
         client,

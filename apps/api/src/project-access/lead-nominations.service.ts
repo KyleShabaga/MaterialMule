@@ -20,6 +20,7 @@ import {
   resolveLeadAppointment,
   type PendingNomination,
 } from '../projects/lead-appointment.js';
+import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { parseBody } from '../validation/parse-body.js';
 import { findProject, forbidden, unprocessable } from './project-access.service.js';
 
@@ -283,7 +284,15 @@ export class LeadNominationsService {
         actor: actorOf(actor),
         projectId,
       });
-      if (decision === 'confirmed') await resolveLeadAppointment(client, projectId, by);
+      if (decision === 'confirmed') {
+        await resolveLeadAppointment(client, projectId, by);
+        // D10 (MM-AO07): requests that waited for a lead now go to them, and they are told.
+        await rerouteOpenItems(
+          client,
+          { projectId },
+          { actor: actorOf(actor), reason: `Lead Project Engineer appointed: ${reason}` },
+        );
+      }
       return this.view(client, projectId, actor);
     });
   }

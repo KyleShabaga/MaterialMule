@@ -12,6 +12,7 @@ import {
   type ActionRequestAssignees,
   type ActionRequestCount,
   type ActionRequestList,
+  type ActionRequestScope,
   type NotificationPreferences,
   type PersonSnapshot,
   type ReassignActionRequest,
@@ -54,22 +55,30 @@ export class ActionItemsService {
   async list(
     user: AuthUser,
     status: 'open' | 'resolved',
-    scope: 'mine' | 'all' = 'mine',
+    scope: ActionRequestScope = 'mine',
   ): Promise<ActionRequestList> {
-    if (scope === 'all' && !can(user, 'action_item.reassign')) {
+    if (scope !== 'mine' && !can(user, 'action_item.reassign')) {
       throw new ForbiddenException({ code: 'forbidden' });
     }
     const mine =
       status === 'open'
         ? 'action_item_routed_to(a.id, $2)'
         : '(action_item_routed_to(a.id, $2) OR a.resolved_by_user_id = $2)';
+    // D10 (MM-AO07): the unresolved queue is the open items nobody can act on now.
+    const filter =
+      scope === 'all'
+        ? '$2::uuid IS NOT NULL'
+        : scope === 'unresolved'
+          ? "$2::uuid IS NOT NULL AND a.status = 'open' AND NOT action_item_has_recipient(a.id)"
+          : mine;
     const rows = await loadItemRows(
       this.database.pool,
-      `a.status = $1 AND ${scope === 'all' ? '$2::uuid IS NOT NULL' : mine}`,
+      `a.status = $1 AND ${filter}`,
       [status, user.userId],
       status === 'open'
         ? 'ORDER BY a.created_at DESC, a.id LIMIT 500'
         : 'ORDER BY a.resolved_at DESC, a.id LIMIT 200',
+      scope !== 'mine',
     );
     const leadProjectEngineer = await this.leadProjectEngineerOf(rows.map((row) => row.project_id));
     return {
@@ -254,7 +263,7 @@ export class ActionItemsService {
   }
 
   private async view(client: PoolClient, user: AuthUser, id: string): Promise<ActionRequest> {
-    const [row] = await loadItemRows(client, 'a.id = $1', [id], '');
+    const [row] = await loadItemRows(client, 'a.id = $1', [id], '', true);
     const leadProjectEngineer = await this.leadProjectEngineerOf([row!.project_id], client);
     return toActionRequest(
       row!,
@@ -266,7 +275,10 @@ export class ActionItemsService {
     if (!UUID_PATTERN.test(id)) throw new NotFoundException({ code: 'action_item_not_found' });
     const { rows } = await db.query<ItemFacts>(
       `SELECT a.id, a.kind, a.status, a.target_role, a.project_id, a.assigned_user_id,
-              p.lead_project_engineer_user_id
+              p.lead_project_engineer_user_id,
+              CASE WHEN a.assigned_user_id IS NOT NULL
+                   THEN action_item_person_eligible(a.id, a.assigned_user_id) END
+                AS assignee_eligible
        FROM action_item a JOIN project p ON p.id = a.project_id
        WHERE a.id = $1 ${lock ? 'FOR UPDATE OF a' : ''}`,
       [id],
@@ -287,19 +299,29 @@ export class ActionItemsService {
     return map;
   }
 
-  /** The item is personally theirs: assigned to them, or a Lead Project Engineer-only request on their project. */
+  /**
+   * The item is personally theirs: assigned to them (while that assignment holds), or a Lead
+   * Project Engineer-only request on their project. A lapsed assignment (D10) is nobody's.
+   */
   private isPersonalRecipient(
     user: AuthUser,
-    item: { kind: string; assigned_user_id: string | null },
+    item: { kind: string; assigned_user_id: string | null; assignee_eligible: boolean | null },
     leadProjectEngineerUserId: string | null | undefined,
   ): boolean {
-    if (item.assigned_user_id) return item.assigned_user_id === user.userId;
+    if (item.assigned_user_id && item.assignee_eligible !== false) {
+      return item.assigned_user_id === user.userId;
+    }
     return item.kind === 'closure_request' && leadProjectEngineerUserId === user.userId;
   }
 
   private mayReassign(
     user: AuthUser,
-    row: { kind: string; status: string; assigned_user_id: string | null },
+    row: {
+      kind: string;
+      status: string;
+      assigned_user_id: string | null;
+      assignee_eligible: boolean | null;
+    },
     leadProjectEngineerUserId: string | null | undefined,
   ): boolean {
     return (
@@ -318,6 +340,7 @@ interface ItemFacts {
   project_id: string;
   assigned_user_id: string | null;
   lead_project_engineer_user_id: string | null;
+  assignee_eligible: boolean | null;
 }
 
 /**

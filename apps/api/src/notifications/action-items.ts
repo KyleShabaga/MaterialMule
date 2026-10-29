@@ -42,6 +42,8 @@ interface ItemRow {
   resolved_initials: string | null;
   resolved_name: string | null;
   resolved_at: Date | null;
+  assignee_eligible: boolean | null;
+  has_recipient: boolean | null;
 }
 
 // Corrections take their comment and author from the return event; requests carry their own.
@@ -60,7 +62,10 @@ export const ITEM_SELECT = `
          a.created_at, a.assigned_user_id,
          au.official_initials AS assigned_initials, au.display_name AS assigned_name,
          a.resolved_by_user_id, ru.official_initials AS resolved_initials,
-         ru.display_name AS resolved_name, a.resolved_at
+         ru.display_name AS resolved_name, a.resolved_at,
+         CASE WHEN a.assigned_user_id IS NOT NULL
+              THEN action_item_person_eligible(a.id, a.assigned_user_id) END AS assignee_eligible,
+         __HAS_RECIPIENT__ AS has_recipient
   FROM action_item a
   JOIN project p ON p.id = a.project_id
   JOIN app_user cu ON cu.id = a.created_by_user_id
@@ -126,19 +131,27 @@ function person(id: string | null, initials: string | null, name: string | null)
 
 export function toActionRequest(row: ItemRow, canReassign: boolean): ActionRequest {
   const assignedTo = person(row.assigned_user_id, row.assigned_initials, row.assigned_name);
+  // D10 (MM-AO07): only an open item's assignment lapses; a resolved one keeps who had it.
+  const lapsed = row.status === 'open' && assignedTo !== null && row.assignee_eligible === false;
+  const unresolved = row.status === 'open' && row.has_recipient === false;
+  const ordinary =
+    // D02 (MM-AO04): a closure request on a project with no lead waits for the next lead.
+    row.kind === 'closure_request' && !row.lead_project_engineer_user_id
+      ? 'Waiting for a Lead Project Engineer'
+      : ACTION_REQUEST_ROUTE_LABEL[row.kind];
   return {
     id: row.id,
     kind: row.kind,
     status: row.status,
     resolution: row.resolution,
     title: titleOf(row),
-    routeTag: assignedTo ? (assignedTo.initials ?? assignedTo.name) : ROUTE_TAG[row.kind],
-    routedTo: assignedTo
-      ? `Assigned to ${assignedTo.name}`
-      : // D02 (MM-AO04): a closure request on a project with no lead waits for the next lead.
-        row.kind === 'closure_request' && !row.lead_project_engineer_user_id
-        ? 'Waiting for a Lead Project Engineer'
-        : ACTION_REQUEST_ROUTE_LABEL[row.kind],
+    routeTag:
+      assignedTo && !lapsed ? (assignedTo.initials ?? assignedTo.name) : ROUTE_TAG[row.kind],
+    routedTo: !assignedTo
+      ? ordinary
+      : lapsed
+        ? `${ordinary} (${assignedTo.name} can no longer act on it)`
+        : `Assigned to ${assignedTo.name}`,
     projectId: row.project_id,
     projectNumber: row.project_number,
     href: hrefOf(row),
@@ -150,19 +163,31 @@ export function toActionRequest(row: ItemRow, canReassign: boolean): ActionReque
     reason: row.reason,
     createdAt: row.created_at.toISOString(),
     assignedTo,
+    assignmentLapsed: lapsed,
+    unresolved,
     resolvedBy: person(row.resolved_by_user_id, row.resolved_initials, row.resolved_name),
     resolvedAt: row.resolved_at?.toISOString() ?? null,
     canReassign,
   };
 }
 
+/**
+ * `recipients`: also work out whether anyone can act on each open item (the D10 unresolved flag).
+ * It costs a routing check per active account, so only lists that show other people's items ask
+ * for it; an item in someone's own inbox has a recipient by definition.
+ */
 export async function loadItemRows(
   db: Db,
   where: string,
   params: unknown[],
   suffix = 'ORDER BY a.created_at DESC, a.id',
+  recipients = false,
 ): Promise<ItemRow[]> {
-  const { rows } = await db.query<ItemRow>(`${ITEM_SELECT} WHERE ${where} ${suffix}`, params);
+  const select = ITEM_SELECT.replace(
+    '__HAS_RECIPIENT__',
+    recipients ? "CASE WHEN a.status = 'open' THEN action_item_has_recipient(a.id) END" : 'NULL',
+  );
+  const { rows } = await db.query<ItemRow>(`${select} WHERE ${where} ${suffix}`, params);
   return rows;
 }
 

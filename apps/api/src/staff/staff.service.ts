@@ -16,6 +16,7 @@ import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { revokeTechnicalGrants } from '../project-access/grant-tables.js';
 import { UsersService, assertAnotherActiveAdmin } from '../users/users.service.js';
 import { findPreprovisionedMatch, normalizeUpn } from './first-sign-in.js';
@@ -461,6 +462,18 @@ export class StaffService {
         after: { roles: wanted },
         requestId: change.requestId,
       });
+      // D10 (MM-AO07): items assigned to them that needed a removed role lapse back.
+      if (before.some((role) => !wanted.includes(role))) {
+        await rerouteOpenItems(
+          client,
+          { userId: id },
+          {
+            actor: change.actor,
+            reason: `Roles changed${reason ? `: ${reason}` : ''}`,
+            requestId: change.requestId,
+          },
+        );
+      }
       return this.get(id, client);
     });
   }

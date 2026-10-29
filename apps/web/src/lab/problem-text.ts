@@ -17,7 +17,10 @@ export function problemText(result: Exclude<WriteResult<unknown>, { ok: true }>)
   if (result.kind === 'invalid') {
     return result.errors.map((error) => error.message).join(' ') || 'Check the details.';
   }
-  if (result.kind === 'forbidden') return 'You can’t do this from this account.';
+  // MM-AO07: authority may have changed since the page loaded; the page reloads after this.
+  if (result.kind === 'forbidden') {
+    return 'You can’t do this now. Nothing was saved; the page now shows what you can do.';
+  }
   if (result.kind === 'unauthenticated') return 'Your session has ended. Sign in again.';
   if (result.kind === 'network') return 'Couldn’t reach Material Mule. Try again.';
   return 'Something went wrong. Try again.';

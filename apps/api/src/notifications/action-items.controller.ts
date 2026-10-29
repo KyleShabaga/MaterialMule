@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  ACTION_REQUEST_SCOPES,
   actionRequestStatusFilterSchema,
   reassignActionRequestSchema,
   updateNotificationPreferencesSchema,
@@ -42,10 +43,11 @@ export class ActionItemsController {
     @Query('scope') scope?: string,
   ): Promise<ActionRequestList> {
     const parsed = actionRequestStatusFilterSchema.safeParse(status ?? 'open');
-    if (!parsed.success || (scope !== undefined && scope !== 'mine' && scope !== 'all')) {
+    const scoped = ACTION_REQUEST_SCOPES.find((value) => value === (scope ?? 'mine'));
+    if (!parsed.success || !scoped) {
       throw new BadRequestException({ code: 'invalid_filter' });
     }
-    return this.items.list(user, parsed.data, scope ?? 'mine');
+    return this.items.list(user, parsed.data, scoped);
   }
 
   @Get('action-items/count')

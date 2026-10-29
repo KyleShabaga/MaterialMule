@@ -1,6 +1,7 @@
 import {
   ACTION_REQUEST_RESOLUTION_LABEL,
   type ActionRequest,
+  type ActionRequestScope,
   type PersonSnapshot,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
@@ -30,7 +31,7 @@ export function ActionRequestsPage() {
   const me = useMe();
   const canReassign = me.permissions.includes('action_item.reassign');
   const [status, setStatus] = useState<'open' | 'resolved'>('open');
-  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  const [scope, setScope] = useState<ActionRequestScope>('mine');
   const [load, setLoad] = useState<Load>({ state: 'loading' });
 
   const [tick, setTick] = useState(0);
@@ -88,6 +89,19 @@ export function ActionRequestsPage() {
             Everyone’s requests (to reassign)
           </label>
         ) : null}
+        {canReassign && status === 'open' ? (
+          <label className="action-requests-scope">
+            <input
+              type="checkbox"
+              checked={scope === 'unresolved'}
+              onChange={(event) => {
+                setLoad({ state: 'loading' });
+                setScope(event.target.checked ? 'unresolved' : 'mine');
+              }}
+            />{' '}
+            Unresolved: nobody can act on them now
+          </label>
+        ) : null}
       </div>
       {load.state === 'loading' ? <p>Loading…</p> : null}
       {load.state === 'error' ? (
@@ -95,7 +109,11 @@ export function ActionRequestsPage() {
       ) : null}
       {load.state === 'ready' && load.items.length === 0 ? (
         <EmptyState>
-          {status === 'open' ? 'Nothing is waiting on you.' : 'No resolved requests yet.'}
+          {scope === 'unresolved'
+            ? 'Every open request has someone who can act on it.'
+            : status === 'open'
+              ? 'Nothing is waiting on you.'
+              : 'No resolved requests yet.'}
         </EmptyState>
       ) : null}
       {load.state === 'ready' && load.items.length > 0 ? (
@@ -120,6 +138,17 @@ function ActionRequestRow({ item, onChanged }: { item: ActionRequest; onChanged:
         </p>
         <p className="action-request-meta">
           {item.projectNumber} · {item.routedTo} · requested {formatExpiry(item.createdAt)}
+          {item.unresolved ? (
+            <>
+              {' · '}
+              <StatusBadge tone="danger">Nobody can act on this now</StatusBadge>
+            </>
+          ) : item.assignmentLapsed ? (
+            <>
+              {' · '}
+              <StatusBadge tone="warning">Assignment lapsed</StatusBadge>
+            </>
+          ) : null}
           {item.status === 'resolved' && item.resolvedBy ? (
             <>
               {' · '}

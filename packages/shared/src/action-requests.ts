@@ -62,6 +62,13 @@ export const actionRequestSchema = z.object({
   reason: z.string(),
   createdAt: z.string(),
   assignedTo: personSnapshotSchema.nullable(),
+  /**
+   * MM-AO07 (D10): the assignee can no longer act on it (lost the role, disabled, or no longer the
+   * project's Lead Project Engineer), so it has gone back to its ordinary routing.
+   */
+  assignmentLapsed: z.boolean(),
+  /** MM-AO07 (D10): open, and nobody can act on it now; Lab Managers and admins see these. */
+  unresolved: z.boolean(),
   resolvedBy: personSnapshotSchema.nullable(),
   resolvedAt: z.string().nullable(),
   /** True when the signed-in person may reassign it (Lab Manager or admin, not its own assignee). */
@@ -77,6 +84,13 @@ export const actionRequestCountSchema = z.object({ open: z.number().int().min(0)
 export type ActionRequestCount = z.infer<typeof actionRequestCountSchema>;
 
 export const ACTION_REQUEST_STATUS_FILTERS = ['open', 'resolved'] as const;
+
+/**
+ * `GET /api/action-items?scope=`: `mine` (default), `all` (Lab Manager/admin), or `unresolved`
+ * (Lab Manager/admin: open items nobody can act on now, D10).
+ */
+export const ACTION_REQUEST_SCOPES = ['mine', 'all', 'unresolved'] as const;
+export type ActionRequestScope = (typeof ACTION_REQUEST_SCOPES)[number];
 export const actionRequestStatusFilterSchema = z.enum(ACTION_REQUEST_STATUS_FILTERS);
 
 export const REASSIGN_REASON_MAX_LENGTH = 2000;
