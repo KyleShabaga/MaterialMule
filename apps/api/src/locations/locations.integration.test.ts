@@ -393,7 +393,7 @@ describe.runIf(testDatabaseUrl)('storage locations API (MM-T37)', () => {
     const print = await post(`/api/locations/${empty.id}/labels`, 'lm', {});
     expect(print.status).toBe(409);
     expect(print.body.code).toBe('location_retired');
-    // No unit can be placed there any more (database rule from migration 0028).
+    // No unit can be placed there any more (database rule storage_unit_location_active).
     await expect(addUnit(empty.id)).rejects.toMatchObject({
       constraint: 'storage_unit_location_active',
     });

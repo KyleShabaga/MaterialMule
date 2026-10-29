@@ -15,7 +15,7 @@ import {
 } from '../test-support/fixtures.js';
 import { runSeed } from './seed.js';
 
-// Integrity rules of migration 0030 (MM-T23), proved in the database itself. Fictional data.
+// Lab catalogue and program integrity rules (MM-T23), proved in the database itself. Fictional data.
 describe.runIf(testDatabaseUrl)('lab programs schema (MM-T23)', () => {
   let db: TestSchema;
   let user: string;

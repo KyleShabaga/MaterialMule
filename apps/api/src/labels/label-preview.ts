@@ -22,7 +22,7 @@ interface StickerRow {
  * the preview shows what the ZD621 would print. Read-only: no print job, no audit event.
  */
 // The origin line (test-hole / field-location names) comes from storage_unit_origin_names
-// (migration 0029): hole names, a Shelby tube's source or a bulk group's source. Never sample
+// (storage_unit_origin_names): hole names, a Shelby tube's source or a bulk group's source. Never sample
 // references, depths, group IDs or bucket counts (MM-T36 sticker contract).
 const STICKER_SELECT = `
   SELECT su.id, su.readable_id, su.received_date::text AS received_date,

@@ -819,7 +819,7 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
   }
 
   /**
-   * Moves a unit to DEMO-2602 directly in SQL, past the API and 0071's backstop trigger: the only
+   * Moves a unit to DEMO-2602 directly in SQL, past the API and the storage_unit_project_needs_no_live_approval backstop trigger: the only
    * way left to get a live approval under another project (MM-T70 AC2, defence in depth).
    */
   async function forceProjectB(unitId: string) {

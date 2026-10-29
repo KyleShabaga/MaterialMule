@@ -29,7 +29,7 @@ import { likeEscape } from '../projects/projects.service.js';
 // so edits, retirement and the first label request (print-queue.ts) are serialised per location:
 // * a code edit can't race the first label request (the code locks inside that transaction);
 // * retirement counts occupants under the lock, and storage units can only be placed in a
-//   location that is active when they lock it (migration 0028 trigger), so a unit can't arrive in
+//   location that is active when they lock it (storage_unit_location_active trigger), so a unit can't arrive in
 //   a location that is being retired, and a retirement can't miss a unit that just arrived.
 
 export type ListQuery = z.output<typeof locationListQuerySchema>;

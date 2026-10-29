@@ -81,6 +81,10 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'program_priority_history',
       'program_scope_snapshot',
       'project',
+      'project_lead_nomination',
+      'project_report_issuer_grant',
+      'project_reviewer_assignment',
+      'project_team_member',
       'receipt',
       'retention_extension',
       'retention_extension_unit',
@@ -88,10 +92,13 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'retention_hold_unit',
       'retention_request',
       'retention_request_unit',
+      'review_scope',
+      'reviewer_eligibility',
       'role_assignment',
       'schema_migration',
       'session',
       'sign_in_throttle',
+      'staff_capability_grant',
       'storage_unit',
       'storage_unit_annual_counter',
       'storage_unit_hole_summary',
@@ -1328,7 +1335,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       );
     }
 
-    /** Changes a unit's project with 0071's backstop trigger switched off for this one move. */
+    /** Changes a unit's project with the storage_unit_project_needs_no_live_approval backstop trigger switched off for this one move. */
     async function moveProjectPastBackstop(unitId: string, projectId: string) {
       const client = await db.pool.connect();
       try {
@@ -1404,7 +1411,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       const a = await bucketSetup('DEMO-7003', 'BKT-2026-070003');
       const b = await insertProject(db.pool, 'DEMO-7004', userId);
       const approval = (await approve(a.storageUnitId, a.projectId)).rows[0]!.id;
-      // The unit's project changed after approval, past 0071's trigger (defence in depth).
+      // The unit's project changed after approval, past that trigger (defence in depth).
       await moveProjectPastBackstop(a.storageUnitId, b);
       await expect(remove(a.storageUnitId, approval, b)).rejects.toMatchObject({
         code: PG.checkViolation,

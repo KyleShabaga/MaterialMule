@@ -1,16 +1,20 @@
-// Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`, `setup-roles`.
+// Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`, `rebuild-dev`, `setup-roles`.
 // Usage: tsx src/db/cli.ts <command> [--env-file .env.test]   (or node dist/db/cli.js in production)
+// rebuild-dev (MM-AO02, development only): tsx src/db/cli.ts rebuild-dev --disposable <database>
+//   drops and rebuilds the named, connected development database with reference data and fixtures.
 // setup-roles (MM-T20, host only): node dist/db/cli.js setup-roles <migration-role> <app-role> [<backup-role>]
 //   the optional backup role (MM-T21) gets read-only access for pg_dump and the monitor task;
 //   connects with DATABASE_ADMIN_URL (a superuser, password from PGPASSWORD) instead of the env file.
 import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';
 import { migrate } from './migrator.js';
+import { rebuildDisposableDatabase } from './rebuild.js';
 import { setUpDatabaseRoles } from './roles.js';
 import { runSeed } from './seed.js';
 
 const USAGE =
   'Usage: db <migrate|seed|seed-dev|reset-test> [--env-file <path>]\n' +
+  '       db rebuild-dev --disposable <database> [--env-file <path>]\n' +
   '       db setup-roles <migration-role> <app-role> [<backup-role>]   (with DATABASE_ADMIN_URL set)';
 
 /** Creates and grants the production roles (see roles.ts). Never reads the app's env file. */
@@ -73,6 +77,16 @@ async function main(argv: string[]): Promise<void> {
         const result = await migrate(pool);
         await runSeed(pool, 'reference', config.APP_ENV);
         log(`Test database reset. Applied: ${result.applied.join(', ')}`);
+        break;
+      }
+      case 'rebuild-dev': {
+        const flag = rest.indexOf('--disposable');
+        const result = await rebuildDisposableDatabase(pool, {
+          appEnv: config.APP_ENV,
+          designated: flag === -1 ? undefined : rest[flag + 1],
+        });
+        log(`Development database rebuilt. Applied: ${result.applied.join(', ')}`);
+        log('Reference data and development fixtures loaded.');
         break;
       }
       default:

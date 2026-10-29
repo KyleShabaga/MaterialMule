@@ -39,7 +39,7 @@ export const SAMPLE_LABEL_MAX_LENGTH = 40;
 export const PROGRAM_NOTES_MAX_LENGTH = 2000;
 export const MAX_LINES_PER_PROGRAM = 200;
 
-/** How a frozen coverage row matched its line (migration 0030). */
+/** How a frozen coverage row matched its line (program_scope_snapshot.matching_basis). */
 export const MATCHING_BASES = [
   'hole_summary',
   'tube_source',

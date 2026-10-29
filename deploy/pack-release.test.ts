@@ -38,7 +38,7 @@ describe('pack-release (MM-T20)', () => {
     write(repo, 'packages/shared/dist/index.js');
     write(repo, 'apps/api/dist/main.js');
     write(repo, 'apps/api/dist/db/cli.js');
-    write(repo, 'apps/api/migrations/0001_initial_schema.sql');
+    write(repo, 'apps/api/migrations/0001_baseline.sql');
     write(repo, 'apps/web/dist/index.html');
     // Must never travel with a release.
     write(repo, 'apps/api/.env', 'SESSION_SECRET=fictional-secret-value-for-the-test');
@@ -62,7 +62,7 @@ describe('pack-release (MM-T20)', () => {
     for (const file of [
       'apps/api/dist/main.js',
       'apps/api/dist/db/cli.js',
-      'apps/api/migrations/0001_initial_schema.sql',
+      'apps/api/migrations/0001_baseline.sql',
       'apps/api/seed/reference.sql',
       'apps/web/dist/index.html',
       'deploy/windows/Deploy-MaterialMule.ps1',

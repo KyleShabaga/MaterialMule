@@ -555,7 +555,7 @@ describe.runIf(testDatabaseUrl)('bulk groups and Shelby tube receiving (MM-T36)'
       expect(await search('TH26-02: B3 at 4-5.5 ft')).toEqual([bulk]);
       expect(await search('B3 4−5.5')).toEqual([bulk]);
       expect(await search('bulk soil sample quarry')).toEqual([bulk]);
-      // 0027 forms for an ordinary bucket.
+      // MM-T59 hole-summary forms for an ordinary bucket.
       expect(await search('TH26-01: G1–S10')).toContain(ordinary);
       expect(await search('G1 S10')).toContain(ordinary);
     });

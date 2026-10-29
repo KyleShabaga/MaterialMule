@@ -472,7 +472,7 @@ async function renderStorageUnitJob(
   }>(
     `SELECT su.readable_id, su.received_date::text AS received_date,
             p.project_number, p.name AS project_name,
-            -- Same origin names as the label preview (migration 0029, MM-T36).
+            -- Same origin names as the label preview (storage_unit_origin_names, MM-T36).
             storage_unit_origin_names(su.id) AS test_holes
      FROM print_job_item i
      JOIN storage_unit su ON su.id = i.storage_unit_id

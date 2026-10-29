@@ -10,10 +10,10 @@ import {
   insertUser,
   receivingLabId,
 } from '../test-support/fixtures.js';
-import { migrate, readMigrations } from './migrator.js';
+import { migrate } from './migrator.js';
 
-// MM-T36 integrity rules (migration 0029), proven in the database itself, and the upgrade of a
-// database that already holds buckets from before 0029. Fictional data only.
+// MM-T36 integrity rules (Shelby tubes, bulk-sample groups), proven in the database itself.
+// Fictional data only.
 
 describe.runIf(testDatabaseUrl)('bulk groups and sampling sources schema (MM-T36)', () => {
   let db: TestSchema;
@@ -24,7 +24,7 @@ describe.runIf(testDatabaseUrl)('bulk groups and sampling sources schema (MM-T36
   let holeId: string;
   let otherHoleId: string;
   let receiptId: string;
-  let legacyBucket: string;
+  let plainBucket: string;
   let sequence = 100;
 
   const search = async (id: string) =>
@@ -83,13 +83,8 @@ describe.runIf(testDatabaseUrl)('bulk groups and sampling sources schema (MM-T36
   }
 
   beforeAll(async () => {
-    // Migrate to 0028 only, add a bucket as receiving made them before MM-T36, then upgrade.
     db = await createTestSchema();
-    const all = await readMigrations();
-    await migrate(
-      db.pool,
-      all.filter((m) => m.version < '0029'),
-    );
+    await migrate(db.pool);
     userId = await insertUser(db.pool);
     locationId = await receivingLabId(db.pool);
     projectId = await insertProject(db.pool, 'DEMO-2601', userId);
@@ -97,35 +92,34 @@ describe.runIf(testDatabaseUrl)('bulk groups and sampling sources schema (MM-T36
     holeId = await insertTestHole(db.pool, projectId, 'TH26-21');
     otherHoleId = await insertTestHole(db.pool, otherProjectId, 'TH26-21');
     receiptId = await insertReceipt(db.pool, projectId, userId);
-    legacyBucket = await insertStorageUnit(
+    plainBucket = await insertStorageUnit(
       db.pool,
       { projectId, receiptId, locationId },
       { readableId: 'BKT-2026-000001' },
     );
     await insertSummary(
       db.pool,
-      { storageUnitId: legacyBucket, projectId, testHoleId: holeId },
+      { storageUnitId: plainBucket, projectId, testHoleId: holeId },
       { type: 'sample_range', sampleFrom: 'G1', sampleTo: 'S10' },
     );
-    await migrate(db.pool, all);
   });
 
   afterAll(async () => {
     await db?.drop();
   });
 
-  it('keeps a pre-0029 bucket and every 0027 search form', async () => {
+  it('an ordinary bucket has no sample identity and keeps every hole-summary search form', async () => {
     const { rows } = await db.pool.query(
       `SELECT unit_type, source_type, bulk_group_id FROM storage_unit WHERE id = $1`,
-      [legacyBucket],
+      [plainBucket],
     );
     expect(rows[0]).toEqual({ unit_type: 'bucket', source_type: null, bulk_group_id: null });
-    const document = await search(legacyBucket);
+    const document = await search(plainBucket);
     for (const form of ['g1 s10 g1-s10', 'th26-21: g1-s10', 'bkt-2026-000001', 'receiving lab']) {
       expect(document).toContain(form);
     }
     const origin = await db.pool.query('SELECT storage_unit_origin_names($1) AS names', [
-      legacyBucket,
+      plainBucket,
     ]);
     expect(origin.rows[0].names).toEqual(['TH26-21']);
   });
@@ -290,6 +284,6 @@ describe.runIf(testDatabaseUrl)('bulk groups and sampling sources schema (MM-T36
     const second = await unit({ unit_type: 'bulk_container', bulk_group_id: holeGroup });
     await db.pool.query(`UPDATE test_hole SET name = 'TH26-21R' WHERE id = $1`, [holeId]);
     expect(await search(second)).toContain('th26-21r: b6');
-    expect(await search(legacyBucket)).toContain('th26-21r: g1-s10');
+    expect(await search(plainBucket)).toContain('th26-21r: g1-s10');
   });
 });

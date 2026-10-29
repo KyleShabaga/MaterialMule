@@ -21,8 +21,7 @@ tested unit never changes a test, review, acceptance or program (MM-T36 lane con
 ## MM-T25 review transitions
 
 One table in `packages/shared/src/lab-review.ts` (`REVIEW_TRANSITIONS`), enforced by
-`apps/api/src/lab/review.service.ts` and by the `test_request_status_guard` trigger
-(migration 0040).
+`apps/api/src/lab/review.service.ts` and by the `test_request_status_guard` trigger.
 
 | From            | Action                  | Who (personal accounts only)             | To                               |
 | --------------- | ----------------------- | ---------------------------------------- | -------------------------------- |
@@ -83,7 +82,7 @@ the actor's grant `FOR SHARE`; revocation takes the grant `FOR UPDATE`.
 
 One shared module, `packages/shared/src/lab-lifecycle.ts` (closure eligibility, cancellable and
 repeatable statuses, request schemas), enforced by `apps/api/src/lab/lifecycle.service.ts` and
-`amendments.service.ts` and by the database (migrations 0050, 0051).
+`amendments.service.ts` and by the database (the schema baseline).
 
 | Program state | Action                                       | Who (personal accounts only)                  | Result                                                             |
 | ------------- | -------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
@@ -178,5 +177,5 @@ includeLaterReceipts?}` → 409 `coverage_changed` with the current coverage of 
   (literally `cancelled`).
 - `completedTestEvidence(db, unitId)` excludes links whose test is now cancelled and returns
   `request_status`. A test reset by an accepted-request change keeps its earlier completion
-  evidence; `test_request_unit_link` is unique per completion and unit (0051).
+  evidence; `test_request_unit_link` is unique per completion and unit.
 - Nothing here gates or performs physical removal, and removal changes no test or program.

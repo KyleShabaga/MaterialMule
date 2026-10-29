@@ -201,9 +201,9 @@ export async function getStorageUnitHistory(
      WHERE ${where.replace('$5', '$3')}`,
     [unit.id, unit.receipt_id, unit.bulk_group_id],
   );
-  // The receiver as they were at the event (MM-T56): the event's own snapshot; for events written
-  // before migration 0025, the unit's receipt snapshot when the event credits that receiver; only
-  // then the person as they are now. Initials and name always come from the same source.
+  // The receiver as they were at the event (MM-T56): the event's own snapshot, which the schema
+  // requires for every event that credits a receiver. The receipt snapshot and then the person as
+  // they are now are defensive fallbacks only. Initials and name always come from the same source.
   const { rows } = await pool.query<HistoryRow>(
     `SELECT e.id, e.occurred_at, e.action, e.actor_initials_snapshot, e.actor_name_snapshot,
             e.actor_account_type,

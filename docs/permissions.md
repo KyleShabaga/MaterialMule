@@ -177,7 +177,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   number, name, client, review engineer and server folder path. Changing the Lead Project Engineer is admin-only
   (`project.lead_project_engineer.change`) and needs a reason. A review engineer, Lab Manager or LAB can't edit.
 - **Project number** is printed on labels, so it can't change once the project has any receipt:
-  422 `project_number_locked`, also enforced by a database trigger (migration 0015).
+  422 `project_number_locked`, also enforced by a database trigger.
 - Edits are optimistic (`version`; a stale one gets 409 `version_conflict` with the current
   project) and audited as `project.updated` with only the changed fields before/after and the
   reason.
@@ -247,7 +247,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   the Inventory "Current stock" filter) can't retire: 409 `location_occupied` with
   `inStockCount`. A retired location stays on every record that names it, still resolves when
   scanned (with `active: false`), can't be edited or printed, and the database refuses to place
-  a unit there (migration 0028). Locations are never deleted.
+  a unit there. Locations are never deleted.
 - **Label payload** (owner approval 2026-10-25): both symbols carry exactly `LOC-<CODE>`, e.g.
   `LOC-WH-C1`; never a URL or storage-unit data. The scan resolver answers
   `{type: "location"}`, `{type: "storage_unit"}` or `{type: "unknown", reason}`.

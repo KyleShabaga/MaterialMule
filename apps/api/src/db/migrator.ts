@@ -10,6 +10,18 @@ const FILE_PATTERN = /^(\d{4})_([a-z0-9_]+)\.sql$/;
 // Arbitrary constant so concurrent migrators on one database queue instead of racing.
 const ADVISORY_LOCK_KEY = 726_150_002;
 
+/**
+ * The first migration of the pre-release lineage that 0001_baseline replaced (MM-AO02, owner
+ * decision 2026-10-29). A database that recorded it was never deployed; it is refused instead of
+ * being upgraded, and only an explicitly designated disposable database is rebuilt.
+ */
+const RETIRED_LINEAGE = { version: '0001', name: 'initial_schema' };
+export const RETIRED_LINEAGE_MESSAGE =
+  'This database was built from the retired pre-release migration lineage (0001_initial_schema to ' +
+  '0078), which 0001_baseline replaced. It cannot be upgraded. If it is a disposable development ' +
+  'or test database, rebuild it (npm run db:rebuild:dev -- --disposable <database> or ' +
+  'npm run db:reset:test); otherwise export what you need first. See docs/database.md.';
+
 export interface MigrationFile {
   version: string;
   name: string;
@@ -68,9 +80,16 @@ export async function migrate(pool: Pool, migrations?: MigrationFile[]): Promise
           checksum    text NOT NULL,
           applied_at  timestamptz NOT NULL DEFAULT now()
         )`);
-      const { rows } = await client.query<{ version: string; checksum: string }>(
-        'SELECT version, checksum FROM schema_migration',
+      const { rows } = await client.query<{ version: string; name: string; checksum: string }>(
+        'SELECT version, name, checksum FROM schema_migration',
       );
+      if (
+        rows.some(
+          (row) => row.version === RETIRED_LINEAGE.version && row.name === RETIRED_LINEAGE.name,
+        )
+      ) {
+        throw new MigrationError(RETIRED_LINEAGE_MESSAGE);
+      }
       const applied = new Map(rows.map((row) => [row.version, row.checksum]));
 
       for (const [version, checksum] of applied) {

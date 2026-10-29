@@ -351,7 +351,10 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       displayName: 'Someone',
       initials: 'SO',
     };
-    const project = { leadProjectEngineerUserId: 'pm-pe', acceptanceDelegateUserIds: ['delegate'] };
+    const project = {
+      leadProjectEngineerUserId: 'lead-pe',
+      acceptanceDelegateUserIds: ['delegate'],
+    };
     const principals: Record<MatrixColumn, [AuthUser, boolean]> = {
       lab: [{ ...base, userId: 'lab', accountType: 'shared_lab', roles: [] }, false],
       internal: [{ ...base, userId: 'tech', accountType: 'personal', roles: [] }, false],
@@ -360,7 +363,10 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
         false,
       ],
       admin: [{ ...base, userId: 'admin', accountType: 'personal', roles: ['admin'] }, false],
-      leadProjectEngineer: [{ ...base, userId: 'pm-pe', accountType: 'personal', roles: [] }, true],
+      leadProjectEngineer: [
+        { ...base, userId: 'lead-pe', accountType: 'personal', roles: [] },
+        true,
+      ],
       delegate: [{ ...base, userId: 'delegate', accountType: 'personal', roles: [] }, true],
     };
     expect(matrix.size).toBeGreaterThan(20);
