@@ -262,6 +262,7 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 | Route                                                                                                                            | Policy                                                |
 | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `GET /api/review-scopes`                                                                                                         | `project_access.read` (personal accounts)             |
+| `GET /api/review-scopes/:code/eligible-reviewers?search=` (MM-AO05)                                                              | `project_access.read`                                 |
 | `GET /api/projects/:projectId/capabilities`                                                                                      | `project_access.read`                                 |
 | `GET /api/projects/:projectId/team-members`                                                                                      | `project_access.read`                                 |
 | `POST /api/projects/:projectId/team-members {userId, reason, idempotencyKey}`                                                    | active user; handler checks `project_team.manage`     |
@@ -320,6 +321,30 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
   eligibility and assignments, issuer grants, acceptance delegations, create-and-lead) in the
   re-enable transaction, each audited with the reason "Account re-enabled: technical grants need
   revalidation (D08)". Team membership stays.
+
+### Team & Permissions screen (MM-AO05)
+
+`/projects/:projectId/team` (linked as **Team & Permissions** from the project page, for personal
+accounts) shows, from the routes above and the MM-AO04 nomination routes: **Leadership** (the lead,
+or "Waiting for a lead", and any pending nomination); **People on this project** (each person's
+responsibilities — Lead Project Engineer, team member, reviewer per scope — and, in a separate
+column, their grants — acceptance delegate, report issuer per scope); **Project team**; **Review
+responsibilities** (grouped by scope, each marked effective or why not); **Authorizations**
+(acceptance delegates and report issuers, with grantor, reason, approval reference, expiry and
+emergency suspension); **Your permissions here** (the server's capability list: allowed or not,
+the sources, and the blocked reason with who could); and **History** (every start and end with
+who and why, newest first, from the lists' newest rows).
+
+- Add, remove, assign and revoke controls appear only where the list's `canManage` is true. The
+  browser computes no permissions; the people summary only arranges the server's lists.
+- The reviewer picker lists `GET /api/review-scopes/:code/eligible-reviewers`: active personal
+  staff with active eligibility for that scope (at most 50, narrowed by `search` on initials or
+  name; 404 `review_scope_not_found` for an unknown or retired scope). It is a lookup only; the
+  assignment re-checks eligibility under lock.
+- Nothing shows as done before the server confirms it. A 403 on a write (authority lost
+  mid-session) says nothing was saved and reloads the page, so the controls match the new
+  capabilities; a 409 or 404 reloads too. After every confirmed change the capability list is
+  re-read. Form entries are kept when a write fails or the connection drops.
 
 ### Lock order and first-commit-wins (D09)
 

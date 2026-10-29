@@ -74,7 +74,7 @@ function toMember(row: StaffRow): StaffMember {
 }
 
 /** Escapes LIKE wildcards so a search for "J_S" means those three characters. */
-function likePattern(text: string): string {
+export function likePattern(text: string): string {
   return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 

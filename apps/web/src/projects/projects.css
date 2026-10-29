@@ -233,3 +233,24 @@
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--line);
 }
+
+/* Team & Permissions (MM-AO05). */
+.section-heading {
+  margin: 2rem 0 0;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.reviewer-scope + .reviewer-scope {
+  margin-top: 1rem;
+}
+
+.reviewer-scope h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.team-history li {
+  display: block;
+}

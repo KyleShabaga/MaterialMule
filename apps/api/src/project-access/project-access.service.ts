@@ -19,6 +19,7 @@ import {
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
+  type ReceiverOption,
   type ReportIssuerGrant,
   type ReviewScope,
   type ReviewerAssignment,
@@ -36,6 +37,7 @@ import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
+import { likePattern } from '../staff/staff.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import {
   REPORT_ISSUER_GRANT,
@@ -52,6 +54,9 @@ import {
   type GrantTable,
 } from './grant-tables.js';
 import { involvementOf } from './involvement.js';
+
+/** People offered by the reviewer lookup (MM-AO05); typing narrows it. */
+const ELIGIBLE_REVIEWER_LIMIT = 50;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -193,6 +198,43 @@ export class ProjectAccessService {
   async reportIssuers(projectId: string, user: AuthUser): Promise<ProjectReportIssuers> {
     const project = await this.mustFind(projectId);
     return this.issuersView(this.database.pool, project, user);
+  }
+
+  /**
+   * Active personal staff with active eligibility for a scope (MM-AO05): the people a Lead
+   * Project Engineer or admin may assign as reviewers. Lookup only; the assignment re-checks
+   * eligibility under lock.
+   */
+  async eligibleReviewers(
+    scopeCode: string,
+    search: string | undefined,
+  ): Promise<ReceiverOption[]> {
+    const db = this.database.pool;
+    const scopes = await activeScopes(db);
+    if (!scopes.has(scopeCode)) throw new NotFoundException({ code: 'review_scope_not_found' });
+    const text = likePattern(search?.trim() ?? '');
+    const { rows } = await db.query<{
+      id: string;
+      official_initials: string;
+      display_name: string;
+      position: ReceiverOption['position'];
+    }>(
+      `SELECT u.id, u.official_initials, u.display_name, u.position
+       FROM app_user u
+       JOIN reviewer_eligibility e ON e.user_id = u.id AND e.scope_code = $1 AND e.revoked_at IS NULL
+       WHERE u.status = 'active' AND u.account_type <> 'shared_lab'
+         AND u.official_initials IS NOT NULL
+         AND ($2 = '' OR u.official_initials ILIKE $2 || '%' OR u.display_name ILIKE '%' || $2 || '%')
+       ORDER BY u.official_initials, lower(u.display_name), u.id
+       LIMIT ${ELIGIBLE_REVIEWER_LIMIT}`,
+      [scopeCode, text],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      initials: row.official_initials,
+      displayName: row.display_name,
+      position: row.position,
+    }));
   }
 
   async capabilities(projectId: string, user: AuthUser): Promise<ProjectCapabilities> {
