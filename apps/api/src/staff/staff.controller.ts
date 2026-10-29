@@ -18,6 +18,7 @@ import {
   preprovisionStaffRequestSchema,
   setStaffRolesRequestSchema,
   staffListQuerySchema,
+  setJobTitleOverrideRequestSchema,
   updateStaffRequestSchema,
   type ReceiverOption,
   type StaffMember,
@@ -132,6 +133,22 @@ export class StaffController {
   ): Promise<StaffMember> {
     const { roles, reason } = parse(setStaffRolesRequestSchema, body);
     return this.staff.setRoles(id, roles, reason ?? null, {
+      actor: actorFor(admin),
+      requestId: requestIdOf(request),
+    });
+  }
+
+  /** D16 (MM-AO06): set or clear the job-title override; always with a reason. */
+  @Put(':id/job-title-override')
+  @RequirePermission('staff.manage')
+  setJobTitleOverride(
+    @Param('id', uuid) id: string,
+    @Body() body: unknown,
+    @CurrentUser() admin: AuthUser,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<StaffMember> {
+    const { jobTitleOverride, reason } = parse(setJobTitleOverrideRequestSchema, body);
+    return this.staff.setJobTitleOverride(id, jobTitleOverride, reason, {
       actor: actorFor(admin),
       requestId: requestIdOf(request),
     });

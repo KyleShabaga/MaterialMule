@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { effectiveJobTitleSchema, jobTitleOverrideSchema } from './job-title';
 import { positionSchema } from './profile';
 
 // Staff directory and receiver selector (MM-T07).
@@ -66,6 +67,13 @@ export const staffMemberSchema = z.object({
   approvedAt: z.string().nullable(),
   disabledReason: z.string().nullable(),
   createdAt: z.string(),
+  /** Microsoft Graph's job title, as last refreshed (D16). */
+  jobTitle: z.string().nullable(),
+  /** An administrator's override (D16), who set it and when. */
+  jobTitleOverride: z.string().nullable(),
+  jobTitleOverrideSetBy: z.string().nullable(),
+  jobTitleOverrideSetAt: z.string().nullable(),
+  effectiveJobTitle: effectiveJobTitleSchema,
 });
 export type StaffMember = z.infer<typeof staffMemberSchema>;
 export const staffListResponseSchema = z.array(staffMemberSchema);
@@ -108,6 +116,16 @@ export const updateStaffRequestSchema = z
     message: 'Change at least one field.',
   });
 export type UpdateStaffRequest = z.input<typeof updateStaffRequestSchema>;
+
+/**
+ * Body of `PUT /api/staff/:id/job-title-override` (D16, MM-AO06): set (text) or clear (null) the
+ * override. A reason is required either way (owner decision 2026-10-29). It changes no grant.
+ */
+export const setJobTitleOverrideRequestSchema = z.strictObject({
+  jobTitleOverride: jobTitleOverrideSchema.nullable(),
+  reason: reasonSchema,
+});
+export type SetJobTitleOverrideRequest = z.input<typeof setJobTitleOverrideRequestSchema>;
 
 /** One option of `GET /api/staff/receivers`: minimal fields, active staff only. */
 export const receiverOptionSchema = z.object({
