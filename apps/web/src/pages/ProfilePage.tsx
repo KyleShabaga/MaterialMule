@@ -1,4 +1,9 @@
-import { POSITION_LABELS, profileResponseSchema, type ProfileResponse } from '@materialmule/shared';
+import {
+  JOB_TITLE_SOURCE_LABEL,
+  POSITION_LABELS,
+  profileResponseSchema,
+  type ProfileResponse,
+} from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { NotificationPreferencesCard } from '../action-requests/NotificationPreferencesCard';
 import { apiFetch } from '../api/client';
@@ -149,8 +154,25 @@ export function ProfilePage() {
             </dd>
             <dt>Sign-in username</dt>
             <dd>{field(p.signInUsername)}</dd>
-            <dt>Job title (from Microsoft)</dt>
-            <dd>{field(p.jobTitle)}</dd>
+            <dt>Job title</dt>
+            <dd>
+              {p.effectiveJobTitle ? (
+                <>
+                  <span>{p.effectiveJobTitle.value}</span>{' '}
+                  <span className="field-hint">
+                    ({JOB_TITLE_SOURCE_LABEL[p.effectiveJobTitle.source]})
+                  </span>
+                </>
+              ) : (
+                field(null)
+              )}
+            </dd>
+            {p.jobTitleOverride ? (
+              <>
+                <dt>Job title (from Microsoft)</dt>
+                <dd>{field(p.jobTitle)}</dd>
+              </>
+            ) : null}
             <dt>Department</dt>
             <dd>{field(p.department)}</dd>
             <dt>Office</dt>

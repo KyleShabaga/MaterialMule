@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { effectiveJobTitleSchema } from './job-title';
 
 // Microsoft sign-in and profile onboarding (MM-T05).
 
@@ -45,7 +46,11 @@ export const profileResponseSchema = z.object({
   workEmail: z.string().nullable(),
   /** The sign-in name (UPN). Not necessarily an email address that receives mail. */
   signInUsername: z.string().nullable(),
+  /** Microsoft Graph's job title. */
   jobTitle: z.string().nullable(),
+  /** An administrator's override (D16, MM-AO06); shown instead of Microsoft's when set. */
+  jobTitleOverride: z.string().nullable(),
+  effectiveJobTitle: effectiveJobTitleSchema,
   department: z.string().nullable(),
   officeLocation: z.string().nullable(),
   officialInitials: z.string().nullable(),

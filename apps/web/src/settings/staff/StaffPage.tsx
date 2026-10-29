@@ -21,6 +21,7 @@ import {
 import { useMe } from '../../session/context';
 import { StaffApiError, listStaff, staffApi } from './api';
 import { LabAccountCard } from './LabAccountCard';
+import { JobTitleSection, StaffAccessSummary, StaffGrantsSection } from './StaffGrantsSection';
 
 const STATUS_LABELS: Record<StaffStatus, string> = {
   pending: 'Pending',
@@ -572,6 +573,8 @@ function StaffDrawer({
         </button>
       </form>
 
+      <JobTitleSection member={member} onChanged={onChanged} onForbidden={onForbidden} />
+
       <form onSubmit={saveRoles} className="drawer-section">
         <fieldset disabled={isLab || busy}>
           <legend>Roles</legend>
@@ -634,6 +637,13 @@ function StaffDrawer({
         )}
         {isSelf ? <p className="field-hint">This is your own account.</p> : null}
       </div>
+
+      <StaffGrantsSection
+        key={`grants-${member.status}`}
+        member={member}
+        onForbidden={onForbidden}
+      />
+      <StaffAccessSummary key={`access-${member.status}`} member={member} />
 
       <ConfirmDialog
         open={confirm !== null}

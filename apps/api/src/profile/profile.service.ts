@@ -6,7 +6,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import type { Position, ProfileResponse } from '@materialmule/shared';
+import { effectiveJobTitle, type Position, type ProfileResponse } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { MicrosoftTokenCache } from '../auth/providers/microsoft/token-cache.js';
@@ -34,12 +34,13 @@ export interface ProfileRow extends ProfileFields {
   profile_source: ProfileResponse['source'];
   profile_refreshed_at: Date | null;
   profile_refresh_failed_at: Date | null;
+  job_title_override: string | null;
 }
 
 export const PROFILE_COLUMNS = `id, account_type, status, display_name, given_name, surname,
   work_email, sign_in_username, job_title, department, office_location, official_initials,
   initials_confirmed_at, position, position_set_at, profile_source, profile_refreshed_at,
-  profile_refresh_failed_at`;
+  profile_refresh_failed_at, job_title_override`;
 
 export function profileFieldsOf(row: ProfileRow): ProfileFields {
   return {
@@ -156,6 +157,8 @@ export class ProfileService {
       workEmail: row.work_email,
       signInUsername: row.sign_in_username,
       jobTitle: row.job_title,
+      jobTitleOverride: row.job_title_override,
+      effectiveJobTitle: effectiveJobTitle(row.job_title, row.job_title_override),
       department: row.department,
       officeLocation: row.office_location,
       officialInitials: row.official_initials,

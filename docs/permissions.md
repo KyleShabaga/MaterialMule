@@ -151,16 +151,19 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 
 ## Staff & access (MM-T07)
 
-| Route                                      | Policy                      |
-| ------------------------------------------ | --------------------------- |
-| `GET /api/staff?search=&status=`           | `staff.manage` (admin)      |
-| `POST /api/staff` (pre-provision)          | `staff.manage`              |
-| `POST /api/staff/:id/approve`              | `staff.manage`              |
-| `POST /api/staff/:id/disable {reason}`     | `staff.manage`              |
-| `POST /api/staff/:id/enable`               | `staff.manage`              |
-| `PUT /api/staff/:id/roles {roles, reason}` | `staff.manage`              |
-| `PATCH /api/staff/:id`                     | `staff.manage`              |
-| `GET /api/staff/receivers?search=`         | any active session, LAB too |
+| Route                                                                        | Policy                                       |
+| ---------------------------------------------------------------------------- | -------------------------------------------- |
+| `GET /api/staff?search=&status=`                                             | `staff.manage` (admin)                       |
+| `POST /api/staff` (pre-provision)                                            | `staff.manage`                               |
+| `POST /api/staff/:id/approve`                                                | `staff.manage`                               |
+| `POST /api/staff/:id/disable {reason}`                                       | `staff.manage`                               |
+| `POST /api/staff/:id/enable`                                                 | `staff.manage`                               |
+| `PUT /api/staff/:id/roles {roles, reason}`                                   | `staff.manage`                               |
+| `PATCH /api/staff/:id`                                                       | `staff.manage`                               |
+| `PUT /api/staff/:id/job-title-override {jobTitleOverride, reason}` (MM-AO06) | `staff.manage`                               |
+| `GET /api/staff/:id/access` (MM-AO06)                                        | `staff.manage` (read-only)                   |
+| `GET /api/me/access` (MM-AO06)                                               | active personal session (one's own); LAB 403 |
+| `GET /api/staff/receivers?search=`                                           | any active session, LAB too                  |
 
 - **Approval** makes a pending account active; their existing session works on the next request.
 - **Disabling** needs a reason and revokes every session in the same transaction; the person
@@ -177,6 +180,33 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   linked only when the UPN matches the expected UPN exactly (ignoring case) and the entry has no
   sign-in identity yet. Initials and names are never compared; anyone else becomes a new pending
   user.
+
+### Job titles, eligibility and My access (MM-AO06)
+
+- **Job title (D16).** Each person keeps the Microsoft Graph `jobTitle` (refreshed at sign-in) and
+  may have an administrator's override, which is shown instead, labelled "Set by an
+  administrator" (Microsoft's is labelled "From Microsoft"). Setting or clearing the override
+  needs a reason (owner decision 2026-10-29; 400 without one) and is audited as
+  `staff.job_title_override_set` / `_cleared` with before/after values and the reason. Setting the
+  same value again changes nothing. The shared LAB account has none (422 `not_personal_account`).
+  A Microsoft refresh never touches the override. Neither title is read by any permission,
+  eligibility, capability or project rule (proven in `access-summary.integration.test.ts`).
+- **Eligibility and capabilities** are administered in the Staff drawer ("Eligibility and
+  capabilities") through the MM-AO03 routes (`/api/staff/:id/reviewer-eligibility`,
+  `/api/staff/:id/capabilities`), each grant and revocation with a reason, for active accounts
+  only. A 403 means the admin lost staff management and hides the admin controls (MM-T52).
+- **My access** (`/settings/access`, "My access" in Settings for personal accounts) shows the
+  signed-in person's own current app roles, what an admin granted them (reviewer eligibility per
+  scope, "Can create and lead projects") and, per project, their responsibilities (Lead Project
+  Engineer, team member, reviewer per scope, pending lead nomination) apart from their scoped
+  grants (acceptance delegate, report issuer per scope with expiry), each with who granted it,
+  when and why. A reviewer assignment whose eligibility was revoked, or an expired issuer grant,
+  is listed as not effective with the reason. Active rows only (history stays on each project's
+  Team & Permissions); at most 200 projects, by project number, with the total.
+  `GET /api/me/access` always reads the session's own account (no id is accepted); it needs
+  `project_access.read`, so LAB gets 403. Admins see the same summary for anyone, read-only, under "Current
+  access" in the Staff drawer (`GET /api/staff/:id/access`). My projects (D12) is unchanged: it
+  filters relevance, never visibility.
 
 ## Projects (MM-T35)
 

@@ -71,4 +71,7 @@ export const staffApi = {
   setRoles: (id: string, roles: StaffRole[], reason: string) =>
     send(`/api/staff/${id}/roles`, 'PUT', { roles, reason }),
   update: (id: string, body: UpdateStaffRequest) => send(`/api/staff/${id}`, 'PATCH', body),
+  /** D16 (MM-AO06): null clears the override. Always with a reason. */
+  setJobTitleOverride: (id: string, jobTitleOverride: string | null, reason: string) =>
+    send(`/api/staff/${id}/job-title-override`, 'PUT', { jobTitleOverride, reason }),
 };

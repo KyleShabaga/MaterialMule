@@ -27,6 +27,8 @@ const PROFILE: ProfileResponse = {
   workEmail: null,
   signInUsername: 'riley@example.test',
   jobTitle: 'Field Technician',
+  jobTitleOverride: null,
+  effectiveJobTitle: { value: 'Field Technician', source: 'microsoft' },
   department: 'Geotechnical',
   officeLocation: 'Edmonton',
   officialInitials: null,

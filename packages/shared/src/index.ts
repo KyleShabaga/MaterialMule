@@ -9,6 +9,7 @@ export * from './labels';
 export * from './me';
 export * from './moves';
 export * from './printing';
+export * from './job-title';
 export * from './profile';
 export * from './projects';
 export * from './receipts';
