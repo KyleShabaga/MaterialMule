@@ -7,6 +7,7 @@ import {
   storageUnitDetailSchema,
   storageUnitHistoryPageSchema,
   storageUnitLookupResponseSchema,
+  disposalApprovalLiveResponseSchema,
   unresolvedLabLinksResponseSchema,
   validationErrorResponseSchema,
   type BulkGroupSummary,
@@ -107,6 +108,8 @@ export type CorrectionResult =
   | { kind: 'saved'; unit: StorageUnitDetail }
   | { kind: 'conflict' }
   | { kind: 'lab_links'; links: LabRequestLink[] }
+  /** MM-T70: the unit has a live disposal approval; revoke it before changing the project. */
+  | { kind: 'approval_live'; message: string; projectId: string }
   | { kind: 'invalid'; errors: FieldError[] }
   | { kind: 'error'; message: string };
 
@@ -133,6 +136,12 @@ export async function correctStorageUnit(
   if (response.status === 409) {
     const links = unresolvedLabLinksResponseSchema.safeParse(json);
     return links.success ? { kind: 'lab_links', links: links.data.links } : { kind: 'conflict' };
+  }
+  if (response.status === 422) {
+    const live = disposalApprovalLiveResponseSchema.safeParse(json);
+    if (live.success) {
+      return { kind: 'approval_live', message: live.data.message, projectId: live.data.projectId };
+    }
   }
   if (response.status === 400 || response.status === 422) {
     // 422 (test hole not in the project) carries field errors in the same shape as a 400.

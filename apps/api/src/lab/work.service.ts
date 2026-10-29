@@ -225,14 +225,20 @@ export class LabWorkService {
       const person = await resolveActingPerson(client, user, request.actingStaffUserId, PERSON);
 
       // Lock order: storage units first (as moves, corrections and removal do), then the request.
+      // NO KEY UPDATE, not SHARE (MM-T76): two programs completing on the same Shelby tube must
+      // serialise, so the second sees the first's completion and is refused; under a share lock
+      // both read the tube as untested and both committed. It doesn't block foreign-key checks.
       const unitIds = request.testedStorageUnitIds ?? [];
       if (unitIds.length > 0) {
         await client.query(
-          'SELECT id FROM storage_unit WHERE id = ANY ($1::uuid[]) ORDER BY id FOR SHARE',
+          'SELECT id FROM storage_unit WHERE id = ANY ($1::uuid[]) ORDER BY id FOR NO KEY UPDATE',
           [unitIds],
         );
       }
       const current = (await this.loadRequest(client, testRequestId, true))!;
+      // A concurrent delivery of the same key may have committed while this one waited (MM-T76).
+      const late = await this.replayStatus(client, request.idempotencyKey, hash, user);
+      if (late) return late;
       if (current.program_status !== 'submitted') {
         unprocessable('program_not_open', 'id', 'this program is not open for lab work');
       }

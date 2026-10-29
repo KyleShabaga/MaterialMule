@@ -6,9 +6,14 @@ import {
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 
-export async function fetchCandidates(projectId: string): Promise<DisposalCandidates | null> {
+export async function fetchCandidates(
+  projectId: string,
+  page = 1,
+): Promise<DisposalCandidates | null> {
   try {
-    const response = await apiFetch(`/api/disposal/eligible?projectId=${projectId}`);
+    const response = await apiFetch(
+      `/api/disposal/eligible?projectId=${encodeURIComponent(projectId)}&page=${page}`,
+    );
     if (!response.ok) return null;
     return disposalCandidatesSchema.parse(await response.json());
   } catch {

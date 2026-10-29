@@ -529,11 +529,14 @@ export class LabLifecycleService {
           `INSERT INTO test_request (program_id, line_id, test_type_id, test_code_snapshot,
                                      test_name_snapshot, test_description_snapshot,
                                      test_group_snapshot, test_subgroup_snapshot, sort_order,
+                                     sample_label_override, depth_mode_override,
+                                     depth_from_override, depth_to_override, depth_unit_override,
                                      repeat_of_id, created_by_user_id, created_by_name_snapshot,
                                      create_idempotency_key, create_request_hash)
            SELECT program_id, line_id, test_type_id, test_code_snapshot, test_name_snapshot,
                   test_description_snapshot, test_group_snapshot, test_subgroup_snapshot,
-                  sort_order, id, $2, $3, $4, $5
+                  sort_order, sample_label_override, depth_mode_override, depth_from_override,
+                  depth_to_override, depth_unit_override, id, $2, $3, $4, $5
            FROM test_request WHERE id = $1
            RETURNING id`,
           [testRequestId, user.userId, user.displayName, request.idempotencyKey, hash],
