@@ -692,6 +692,37 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       ).resolves.toBeTruthy();
     });
 
+    it('MM-T77: refuses a new label item for a disposed unit; earlier history stays', async () => {
+      const { storageUnitId } = await bucketSetup('DEMO-2677', 'BKT-2026-077001');
+      const item = (jobId: string, position = 1) =>
+        db.pool.query(
+          `INSERT INTO print_job_item (print_job_id, storage_unit_id, position) VALUES ($1, $2, $3)`,
+          [jobId, storageUnitId, position],
+        );
+      const before = (await job()).rows[0]!.id;
+      await item(before);
+      await db.pool.query(
+        `UPDATE storage_unit SET status = 'disposed', disposed_at = now() - interval '1 minute',
+                disposed_by_user_id = $2
+         WHERE id = $1`,
+        [storageUnitId, userId],
+      );
+      const after = (await job({ kind: 'reprint' })).rows[0]!.id;
+      await expect(item(after)).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'print_job_item_not_disposed',
+      });
+      // History from before the disposal can still be recorded (imports, benchmark data).
+      const older = (await job({ created_at: new Date(Date.now() - 3_600_000) })).rows[0]!.id;
+      await expect(item(older)).resolves.toBeTruthy();
+      // The job printed before disposal is still there and readable.
+      const { rows } = await db.pool.query(
+        `SELECT 1 FROM print_job_item WHERE print_job_id = $1 AND storage_unit_id = $2`,
+        [before, storageUnitId],
+      );
+      expect(rows).toHaveLength(1);
+    });
+
     describe('receiver snapshots (MM-T65)', () => {
       const credited = (initials: string | null, name: string | null) =>
         job({

@@ -202,6 +202,29 @@ describe('storage unit labels page', () => {
     );
   });
 
+  it('MM-T77: a disposed unit offers no print or reprint; its print history stays', async () => {
+    const sent = printJob({ status: 'sent', sentAt: '2026-10-26T16:01:00.000Z' });
+    stubApi((url) => {
+      if (url === `/api/storage-units/${UNIT.readableId}/print-history`) {
+        return json(200, { storageUnit: UNIT, jobs: [sent] });
+      }
+      if (url === `/api/storage-units/${UNIT.readableId}`) {
+        return json(200, { ...UNIT_DETAIL, status: 'disposed' });
+      }
+      if (url.startsWith(`/api/storage-units/${UNIT.id}/history`)) {
+        return json(200, { items: [], total: 0, page: 1, pageSize: 20 });
+      }
+      return undefined;
+    });
+    renderRoute(`/sample-storage/${UNIT.readableId}`);
+
+    expect(await screen.findByRole('table', { name: /Print history/ })).toBeInTheDocument();
+    expect(
+      screen.getByText('This storage unit is disposed; its label is not printed again.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Reprint label|Print label/ })).toBeNull();
+  });
+
   it('MM-T61: names the receiver by initials and name, so people sharing initials differ', async () => {
     const atStation = (id: string, receiver: PrintJob['receiver']) =>
       printJob({
