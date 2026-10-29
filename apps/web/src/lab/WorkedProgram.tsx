@@ -10,6 +10,7 @@ import {
   type LabProgram,
   type ProgramWork,
   type ReceiverOption,
+  type SameSourceUnits,
   type TestRequest,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
@@ -23,6 +24,7 @@ import {
   changePriority,
   changeStatus,
   editComment,
+  fetchSameSourceUnits,
   fetchWork,
   type WriteResult,
 } from './api';
@@ -76,6 +78,104 @@ function WhoIsDoingThis({
   );
 }
 
+/**
+ * MM-T73: a Shelby tube or bulk-sample bucket the test used that isn't in the line's frozen
+ * coverage (not chosen on a Specific line, not ticked on a Grabs/SPT line). Only units of the
+ * line's own source in the program's project are offered, and recording one needs an explicit
+ * confirmation, which is stored with the link (who and when) and counts as tested evidence.
+ */
+function SameSourcePicker({
+  testRequestId,
+  chosen,
+  onChosen,
+  confirmed,
+  onConfirmed,
+}: {
+  testRequestId: string;
+  chosen: string[];
+  onChosen: (ids: string[]) => void;
+  confirmed: boolean;
+  onConfirmed: (value: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<SameSourceUnits | null>(null);
+  const [failed, setFailed] = useState(false);
+  const id = useId();
+  useEffect(() => {
+    if (!open || data) return;
+    let live = true;
+    fetchSameSourceUnits(testRequestId).then(
+      (value) => {
+        if (live) setData(value);
+      },
+      () => {
+        if (live) setFailed(true);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [open, data, testRequestId]);
+
+  if (!open) {
+    return (
+      <button type="button" className="link-button" onClick={() => setOpen(true)}>
+        Used a unit from this source that isn’t listed?
+      </button>
+    );
+  }
+  if (failed) {
+    return <p className="field-hint">Couldn’t load the other units from this source.</p>;
+  }
+  if (!data) return <p className="field-hint">Loading other units from this source…</p>;
+  const source = data.sourceLabel ?? 'this line’s source';
+  const chosenIds = data.units
+    .filter((unit) => chosen.includes(unit.storageUnitId))
+    .map((unit) => unit.readableId);
+  return (
+    <fieldset className="unit-choices" aria-describedby={`${id}-hint`}>
+      <legend>Other units from {source}</legend>
+      <p id={`${id}-hint`} className="field-hint">
+        Outside this line’s coverage. Only Shelby tubes and bulk-sample buckets from the same source
+        and project are offered.
+      </p>
+      {data.units.length === 0 ? (
+        <p className="field-hint">No other Shelby tubes or bulk-sample buckets from {source}.</p>
+      ) : (
+        data.units.map((unit) => (
+          <label key={unit.storageUnitId} className="unit-choice">
+            <input
+              type="checkbox"
+              checked={chosen.includes(unit.storageUnitId)}
+              onChange={(event) =>
+                onChosen(
+                  event.target.checked
+                    ? [...chosen, unit.storageUnitId]
+                    : chosen.filter((other) => other !== unit.storageUnitId),
+                )
+              }
+            />
+            <span className="mono">{unit.readableId}</span> {unit.contents ?? ''}
+          </label>
+        ))
+      )}
+      {chosenIds.length > 0 ? (
+        <label className="unit-choice unit-choice-confirm">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => onConfirmed(event.target.checked)}
+          />
+          <span>
+            I confirm {chosenIds.join(', ')} {chosenIds.length === 1 ? 'is' : 'are'} from {source}{' '}
+            and {chosenIds.length === 1 ? 'was' : 'were'} used in this test
+          </span>
+        </label>
+      ) : null}
+    </fieldset>
+  );
+}
+
 function StatusAction({
   request,
   line,
@@ -96,6 +196,9 @@ function StatusAction({
   const [person, setPerson] = useState<ReceiverOption | null>(null);
   const [units, setUnits] = useState<string[]>([]);
   const [noTracked, setNoTracked] = useState(false);
+  // MM-T73: same-source units outside the line's coverage, and the explicit confirmation.
+  const [extra, setExtra] = useState<string[]>([]);
+  const [extraConfirmed, setExtraConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [key, setKey] = useState(newKey);
   const id = useId();
@@ -103,16 +206,21 @@ function StatusAction({
   const completing = next.to === 'completed';
   const needsUnits = completing && progress.needsTestedUnits;
   const candidates = line.coverage.filter((unit) => unit.included);
-  const ready = (!shared || person !== null) && (!needsUnits || units.length > 0 || noTracked);
+  const ready =
+    (!shared || person !== null) &&
+    (!needsUnits || units.length > 0 || noTracked || extra.length > 0) &&
+    (extra.length === 0 || extraConfirmed);
 
   async function confirm() {
     setBusy(true);
+    const tested = [...units, ...extra];
     const result = await changeStatus(request.id, {
       to: next!.to,
       version: progress!.version,
       idempotencyKey: key,
       ...(shared && person ? { actingStaffUserId: person.id } : {}),
-      ...(completing && (needsUnits || units.length > 0) ? { testedStorageUnitIds: units } : {}),
+      ...(completing && (needsUnits || tested.length > 0) ? { testedStorageUnitIds: tested } : {}),
+      ...(completing && extra.length > 0 ? { sameSourceConfirmedUnitIds: extra } : {}),
     });
     setBusy(false);
     // A lost response keeps the key, so trying again can't record the action twice.
@@ -124,6 +232,8 @@ function StatusAction({
     setOpen(false);
     setPerson(null);
     setUnits([]);
+    setExtra([]);
+    setExtraConfirmed(false);
     onDone(result.ok ? null : problemText(result));
   }
 
@@ -185,6 +295,19 @@ function StatusAction({
             </label>
           ) : null}
         </fieldset>
+      ) : null}
+      {completing ? (
+        <SameSourcePicker
+          testRequestId={request.id}
+          chosen={extra}
+          onChosen={(next) => {
+            setExtra(next);
+            // A confirmation covers exactly the units it named.
+            setExtraConfirmed(false);
+          }}
+          confirmed={extraConfirmed}
+          onConfirmed={setExtraConfirmed}
+        />
       ) : null}
       <div className="form-actions">
         <button type="button" onClick={() => setOpen(false)}>
@@ -513,6 +636,19 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                         ))}
                       </StatusBadge>
                     ) : null}
+                    {tested
+                      .filter((unit) => unit.confirmation !== null)
+                      .map((unit) => (
+                        <span key={`${unit.storageUnitId}-confirmed`} className="field-hint">
+                          {unit.readableId} was outside this line’s coverage: same source confirmed
+                          by{' '}
+                          {formatPerson(
+                            unit.confirmation!.person.initials,
+                            unit.confirmation!.person.name,
+                          )}
+                          , {shortDateTime(unit.confirmation!.confirmedAt)}
+                        </span>
+                      ))}
                     <StatusAction request={request} line={line} work={work} onDone={after} />
                     <ReviewControls testRequestId={request.id} work={work} onDone={after} />
                     <RequestLifecycle

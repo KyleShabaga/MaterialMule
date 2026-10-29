@@ -499,6 +499,25 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   destroyed by another program (tests of the same program may still record it).
 - No retention, hold, disposal-approval or program-closure table is read by this route.
 
+## Same-source tested units (MM-T73, migration 0078)
+
+- `test_request_unit_link.coverage_basis`: `frozen_coverage` (the unit is included in the line's
+  frozen coverage; no confirmation) or `same_source_confirmed` (outside that coverage, confirmed
+  at completion). A confirmed link stores `confirmed_by_account_user_id`,
+  `confirmed_by_person_user_id` with name/initials snapshots and `confirmed_at`; a covered link
+  stores none of them (check `test_request_unit_link_confirmation_shape`).
+- `storage_unit_of_line_source(line, unit)`: the unit is of the line's sampling source in its
+  project, by the coverage candidate rules (hole summary, tube source, bulk group source;
+  standalone tube; standalone group member), ignoring availability.
+- The link insert trigger (0045/0076 plus this) refuses a unit outside the program's project
+  (`…_same_project`), a `frozen_coverage` link to a unit not included in the line's coverage
+  (`…_covered`), a `same_source_confirmed` link to a covered unit, an ordinary bucket or a unit
+  of another source (`…_same_source`), and a confirmation not made by the completion event's own
+  account and person (`…_confirmed_by_completer`). Proven in
+  `apps/api/src/lab/same-source-evidence.integration.test.ts` (needs the lab program harness).
+- A confirmed link is ordinary evidence: `shelby_contents_destroyed_by_program`, retention
+  exemption and `tested_unit_removal` read it like a covered one.
+
 ## Action requests, preferences and email outbox (MM-T27, migration 0055)
 
 - `action_item` gains `project_id` (backfilled from the program and filled by trigger from

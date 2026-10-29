@@ -8,6 +8,8 @@ import {
   labSourceListSchema,
   labSourceUnitListSchema,
   programWorkSchema,
+  sameSourceUnitsSchema,
+  type SameSourceUnits,
   testCatalogueSchema,
   testTemplateListSchema,
   worklistSchema,
@@ -183,6 +185,12 @@ export const fetchWorklist = (query: {
 export const fetchWork = (programId: string): Promise<ProgramWork> =>
   getJson(`/api/lab-programs/${encodeURIComponent(programId)}/work`, (b) =>
     programWorkSchema.parse(b),
+  );
+
+/** MM-T73: same-source units outside a test's coverage that its completion may still record. */
+export const fetchSameSourceUnits = (testRequestId: string): Promise<SameSourceUnits> =>
+  getJson(`/api/test-requests/${encodeURIComponent(testRequestId)}/same-source-units`, (b) =>
+    sameSourceUnitsSchema.parse(b),
   );
 
 export const changeStatus = (testRequestId: string, body: ChangeTestStatusRequestInput) =>

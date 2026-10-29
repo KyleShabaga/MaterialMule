@@ -63,6 +63,19 @@
   min-height: var(--control, 40px);
 }
 
+/* MM-T73: the same-source confirmation wraps on a phone instead of overflowing. */
+.unit-choice-confirm {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.unit-choice-confirm input {
+  margin-top: 0.3rem;
+  flex: none;
+}
+
 .unit-choices {
   display: flex;
   flex-direction: column;

@@ -49,6 +49,7 @@ const EVIDENCE: StorageUnitTesting['evidence'][number] = {
     account: { userId: 'lab', accountType: 'shared_lab', initials: null, name: 'LAB' },
     person: { userId: 'js', initials: 'JS', name: 'Jordan Smith' },
   },
+  sameSourceConfirmation: null,
 };
 
 const TESTED: StorageUnitDetail = {

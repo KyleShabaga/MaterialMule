@@ -42,6 +42,13 @@ export const testedUnitEvidenceSchema = z.object({
   completionEventId: z.string(),
   completedAt: z.string(),
   completedBy: z.object({ account: accountSnapshotSchema, person: personSnapshotSchema }),
+  /**
+   * MM-T73: set when the unit was outside the line's frozen coverage and the person completing
+   * the test confirmed it is from the line's own source. Such a link is evidence like any other.
+   */
+  sameSourceConfirmation: z
+    .object({ person: personSnapshotSchema, confirmedAt: z.string() })
+    .nullable(),
 });
 export type TestedUnitEvidence = z.infer<typeof testedUnitEvidenceSchema>;
 

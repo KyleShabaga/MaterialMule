@@ -5,6 +5,7 @@ import {
   editCommentRequestSchema,
   type LabComment,
   type ProgramWork,
+  type SameSourceUnits,
   type Worklist,
 } from '@materialmule/shared';
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
@@ -16,7 +17,8 @@ import { LabWorkService } from './work.service.js';
  * Lab worklist and progress (MM-T24). Progress and comments: personal accounts, or LAB with a
  * valid `actingStaffUserId` on every request. Priority: the project's PM/PE or a Lab Manager
  * (checked in the handler, project-scoped). 403 before 422 (`invalid_transition`,
- * `program_not_open`, `tested_units_required`, `unit_not_covered`, `unit_disposed`) before 409
+ * `program_not_open`, `tested_units_required`, `unit_not_covered`, `confirmation_not_needed`,
+ * `unit_disposed`, `unit_contents_destroyed`) before 409
  * (`version_conflict` with current state, `idempotency_key_reused`, `edit_window_closed`).
  */
 @Controller()
@@ -39,6 +41,16 @@ export class LabWorkController {
   @RequirePermission('lab_program.read')
   programWork(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<ProgramWork> {
     return this.work.work(id, user);
+  }
+
+  /**
+   * MM-T73: units of the line's own source outside its frozen coverage that a completion may
+   * still record as tested, with an explicit same-source confirmation.
+   */
+  @Get('test-requests/:id/same-source-units')
+  @RequirePermission('test.progress')
+  sameSourceUnits(@Param('id') id: string): Promise<SameSourceUnits> {
+    return this.work.sameSourceUnits(id);
   }
 
   @Post('test-requests/:id/status')

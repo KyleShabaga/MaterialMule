@@ -94,6 +94,17 @@ export function TestedRemovalSection({
                           evidence.completedBy.person.initials,
                           evidence.completedBy.person.name,
                         )}
+                    {evidence.sameSourceConfirmation ? (
+                      <span className="field-hint">
+                        {' '}
+                        · outside the line’s coverage, same source confirmed by{' '}
+                        {formatPerson(
+                          evidence.sameSourceConfirmation.person.initials,
+                          evidence.sameSourceConfirmation.person.name,
+                        )}{' '}
+                        {when(evidence.sameSourceConfirmation.confirmedAt)}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
