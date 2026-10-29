@@ -1093,9 +1093,10 @@ textarea {
 /* MM-T78: one highlight for every picker (receiver, project, test hole, Correct details).
    Hover is a tint with an underline; the keyboard highlight (aria-activedescendant, marked
    aria-selected) is a solid fill plus a left bar, so the two never look alike and the highlight
-   does not rely on colour alone. These come after the option rules above so they win. */
-.listbox li:not([aria-disabled='true']):hover,
-.receiver-options li:hover {
+   does not rely on colour alone. Hover skips the highlighted option, so the pointer resting on
+   it never hides the highlight. These come after the option rules above so they win. */
+.listbox li:not([aria-disabled='true'], [aria-selected='true']):hover,
+.receiver-options li:not([aria-selected='true']):hover {
   background: var(--option-hover);
   text-decoration: underline;
 }

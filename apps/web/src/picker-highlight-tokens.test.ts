@@ -79,6 +79,18 @@ describe('picker option rules', () => {
     expect(rule![1]).toMatch(/box-shadow:\s*inset/);
   });
 
+  it('hover never applies to the highlighted option, so the pointer cannot hide it', () => {
+    // Each rule's selector list, one selector per line (Prettier's layout).
+    const hoverSelectors = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)]
+      .flatMap((m) => m[1]!.split(/,\s*\n/))
+      .map((sel) => sel.trim())
+      .filter((sel) => /^\.(listbox|receiver-options) li\b.*:hover$/.test(sel));
+    expect(hoverSelectors.length).toBeGreaterThanOrEqual(2);
+    for (const selector of hoverSelectors) {
+      expect(selector).toMatch(/:not\([^)]*\[aria-selected='true'\]/);
+    }
+  });
+
   it('no option rule paints the highlight with --inset any more', () => {
     expect(css).not.toMatch(/li\[aria-selected='true'\][^{]*\{[^}]*var\(--inset\)/);
   });

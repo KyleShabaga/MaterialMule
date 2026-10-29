@@ -82,6 +82,10 @@ async function expectHoverDiffers(listbox: Locator, where: string) {
   );
   expect(hovered.background, `${where}: hover fill`).not.toBe(active.background);
   expect(hovered.boxShadow, `${where}: hover has no bar`).toBe('none');
+
+  // The pointer resting on the highlighted option must not hide the highlight.
+  await options.nth(0).hover();
+  expectVisibleHighlight(await highlightOf(listbox), `${where}: highlighted and hovered`);
 }
 
 for (const colorScheme of ['light', 'dark'] as const) {
