@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import type {
   ProjectLeadNominations,
   ProjectCapabilities,
   ProjectReportIssuers,
   ProjectReviewers,
   ProjectTeam,
+  ReceiverOption,
   ReviewScope,
   StaffGrants,
 } from '@materialmule/shared';
@@ -99,6 +100,19 @@ export class ProjectAccessController {
   @RequirePermission('project_access.read')
   async scopes(): Promise<ReviewScope[]> {
     return [...(await activeScopes(this.database.pool)).values()];
+  }
+
+  /** People eligible to review a scope (MM-AO05 reviewer lookup); `search` narrows it. */
+  @Get('review-scopes/:code/eligible-reviewers')
+  @RequirePermission('project_access.read')
+  eligibleReviewers(
+    @Param('code') code: string,
+    @Query('search') search?: string,
+  ): Promise<ReceiverOption[]> {
+    return this.access.eligibleReviewers(
+      code.slice(0, 40),
+      typeof search === 'string' ? search.slice(0, 100) : undefined,
+    );
   }
 
   @Get('projects/:projectId/capabilities')

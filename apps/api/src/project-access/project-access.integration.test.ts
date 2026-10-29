@@ -646,6 +646,32 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
     expect((await get(`/api/staff/${person}/grants`, 'tech')).status).toBe(403);
   });
 
+  it('MM-AO05: the reviewer lookup lists only active people eligible for the scope', async () => {
+    const lookup = (scope: string, as: Caller, search = '') =>
+      get(`/api/review-scopes/${scope}/eligible-reviewers${search ? `?search=${search}` : ''}`, as);
+    const field = await lookup('concrete_field', 'pe');
+    expect(field.status, JSON.stringify(field.body)).toBe(200);
+    const ids = (field.body as { id: string }[]).map((p) => p.id);
+    expect(ids).toContain(people.rev);
+    // Team, delegate and issuer places don't make anyone a reviewer; LAB never appears.
+    for (const key of ['team', 'del', 'iss', 'lab', 'pe']) expect(ids).not.toContain(people[key]);
+    expect(field.body.find((p: { id: string }) => p.id === people.rev)).toMatchObject({
+      initials: 'RR',
+      displayName: 'Riley Reviewer',
+    });
+    expect(
+      ((await lookup('concrete_field', 'pe', 'Riley')).body as { id: string }[]).map((p) => p.id),
+    ).toEqual([people.rev]);
+    expect((await lookup('concrete_field', 'pe', 'Nobody')).body).toEqual([]);
+    // Another scope: Riley isn't eligible there.
+    expect(
+      ((await lookup('concrete_strength', 'pe')).body as { id: string }[]).map((p) => p.id),
+    ).not.toContain(people.rev);
+    expect((await lookup('nope', 'pe')).status).toBe(404);
+    expect((await lookup('concrete_field', 'lab')).status).toBe(403);
+    expect((await lookup('concrete_field', 'anonymous')).status).toBe(401);
+  });
+
   it('D08: re-enabling a disabled account revokes its technical grants for revalidation; team membership stays', async () => {
     const person = await addPerson(`d08-${newKey().slice(0, 6)}`, 'Morgan Return', 'MR');
     await grantEligibility(person);

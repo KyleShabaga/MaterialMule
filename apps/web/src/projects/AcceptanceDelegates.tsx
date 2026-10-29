@@ -27,7 +27,14 @@ function problemText(result: Exclude<WriteResult<unknown>, { ok: true }>): strin
   return 'Something went wrong. Try again.';
 }
 
-export function AcceptanceDelegatesSection({ projectId }: { projectId: string }) {
+export function AcceptanceDelegatesSection({
+  projectId,
+  onChanged,
+}: {
+  projectId: string;
+  /** Told after a confirmed change, e.g. so Team & Permissions refreshes its summary. */
+  onChanged?: () => void;
+}) {
   const [data, setData] = useState<AcceptanceDelegates | null>(null);
   const [failed, setFailed] = useState(false);
   const [person, setPerson] = useState<ReceiverOption | null>(null);
@@ -58,9 +65,11 @@ export function AcceptanceDelegatesSection({ projectId }: { projectId: string })
     if (result.ok) {
       setData(result.value);
       setMessage({ tone: 'success', text: success });
+      onChanged?.();
     } else {
       setMessage({ tone: 'warning', text: problemText(result) });
       load();
+      onChanged?.();
     }
   };
 

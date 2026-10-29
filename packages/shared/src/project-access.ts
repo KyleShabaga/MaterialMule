@@ -263,6 +263,23 @@ export const PROJECT_CAPABILITY_ACTIONS = [
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
+/** How the Team & Permissions screen (MM-AO05) names each project action. */
+export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, string> = {
+  'project.edit': 'Edit project details',
+  'project.lead_project_engineer.change': 'Appoint or remove the Lead Project Engineer',
+  'project_team.manage': 'Add or remove team members',
+  'project_reviewer.manage': 'Assign or remove reviewers',
+  'report_issuer.manage': 'Authorize report issuers',
+  'acceptance_delegation.manage': 'Add or revoke acceptance delegates',
+  'test.accept': 'Accept reviewed tests',
+  'program.close': 'Close lab programs',
+  'program.reopen': 'Reopen lab programs',
+  'program.priority.set': 'Change program priority',
+  'test.cancel': 'Cancel tests',
+  'retention.manage': 'Manage retention and holds',
+  'disposal.approve': 'Approve disposal',
+};
+
 export const BLOCKED_REASONS = [
   'account_not_active',
   'shared_lab_account',
@@ -270,6 +287,17 @@ export const BLOCKED_REASONS = [
   'no_lead_project_engineer',
   'not_permitted',
 ] as const;
+
+export type BlockedReason = (typeof BLOCKED_REASONS)[number];
+
+/** Why an action is unavailable, in words (MM-AO05). */
+export const BLOCKED_REASON_LABEL: Record<BlockedReason, string> = {
+  account_not_active: 'Your account isn’t active.',
+  shared_lab_account: 'The shared LAB account can’t do this.',
+  no_lead_project_engineer:
+    'Only the Lead Project Engineer can do this, and the project has none yet.',
+  not_permitted: 'You don’t hold a role or grant that allows this.',
+};
 
 export const capabilitySchema = z.object({
   action: z.string(),

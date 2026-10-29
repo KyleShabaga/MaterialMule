@@ -22,6 +22,7 @@ import { LabelPrintPage } from './printing/LabelPrintPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { ProjectDetailPage } from './projects/ProjectDetailPage';
 import { ProjectsPage } from './projects/ProjectsPage';
+import { TeamPermissionsPage } from './projects/TeamPermissionsPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -118,6 +119,7 @@ export const routes: RouteObject[] = [
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },
+              { path: 'projects/:projectId/team', element: <TeamPermissionsPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
