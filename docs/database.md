@@ -659,6 +659,10 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
   Project Engineer, there is no legacy reviewer or delegation in the fixtures, and every new table
   starts empty except `review_scope`. Exception report: no unmappable rows. Disabled staff keep
   their rows and references; the new tables hold no rows for them.
+- **Release rehearsal (MM-AO09).** `src/db/release-rehearsal.test.ts` upgrades a `0001` database
+  holding fictional access data of every kind to the latest migration and proves effective
+  permissions are unchanged and only lapsed assignments reroute. Results, the backup/restore round
+  trip, cutover order and rollback limits: docs/operations/accounts-overhaul-release.md.
 - **Rollback.** Before any deployment, rolling back means checking out the previous commit and
   rebuilding the disposable databases. After deployment, use forward migrations only.
 - **D08 re-enable (MM-AO03, Kyle 2026-10-29: revoke on re-enable).** Re-enabling a disabled
