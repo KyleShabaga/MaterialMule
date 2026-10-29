@@ -62,6 +62,8 @@ import {
   ProjectAccessController,
   StaffGrantsController,
 } from './project-access/project-access.controller.js';
+import { AccessSummaryController } from './project-access/access-summary.controller.js';
+import { AccessSummaryService } from './project-access/access-summary.service.js';
 import { LeadNominationsService } from './project-access/lead-nominations.service.js';
 import { ProjectAccessService } from './project-access/project-access.service.js';
 import { StaffGrantsService } from './project-access/staff-grants.service.js';
@@ -113,6 +115,7 @@ export class AppModule {
         ProjectsController,
         ProjectAccessController,
         StaffGrantsController,
+        AccessSummaryController,
         TestHolesController,
         StaffDirectoryController,
         StaffController,
@@ -160,6 +163,7 @@ export class AppModule {
         ProjectAccessService,
         LeadNominationsService,
         StaffGrantsService,
+        AccessSummaryService,
         TestHolesService,
         ReceiptsService,
         ReceivingLogService,

@@ -642,6 +642,7 @@ appointments need a reason (D15); the shared LAB account can't hold any of them
   (D15; optional in storage until MM-AO03's API sends them, never invented for a grant; the grant
   reason is immutable). `app_user` gains `job_title_override` with who/when set (D16): the admin
   override takes precedence for display, the Graph `job_title` is kept, neither grants anything.
+  MM-AO06 writes it (`PUT /api/staff/:id/job-title-override`, with a reason; no migration).
 - **Unchanged, by decision.** `project.lead_project_engineer_user_id` stays the one effective lead.
   Unassigned projects (D02) and nomination-first creation arrived with MM-AO04 (`0003`, below).
   `acceptance_delegation` stays the only acceptance-delegate store; grants survive a lead change

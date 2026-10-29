@@ -62,6 +62,9 @@ export function SettingsLayout() {
       <PageHeader title="Settings" />
       <nav className="sub-nav" aria-label="Settings">
         <NavLink to="/settings/profile">My profile</NavLink>
+        {me.accountType === 'shared_lab' ? null : (
+          <NavLink to="/settings/access">My access</NavLink>
+        )}
         <NavLink to="/settings/staff">Staff &amp; access</NavLink>
         <NavLink to="/settings/locations">Locations</NavLink>
         <NavLink to="/settings/tests">Tests</NavLink>

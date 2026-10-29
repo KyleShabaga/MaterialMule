@@ -105,11 +105,18 @@ export function ProjectDetailPage() {
           <h1 className="project-number-heading">{project.projectNumber}</h1>
           <p className="project-name">{project.name}</p>
         </div>
-        {project.canEdit ? (
-          <button type="button" onClick={() => setEditing(true)}>
-            Edit project
-          </button>
-        ) : null}
+        <div className="page-actions">
+          {me.permissions.includes('project_access.read') ? (
+            <Link className="button" to={`/projects/${encodeURIComponent(project.id)}/team`}>
+              Team &amp; Permissions
+            </Link>
+          ) : null}
+          {project.canEdit ? (
+            <button type="button" onClick={() => setEditing(true)}>
+              Edit project
+            </button>
+          ) : null}
+        </div>
       </div>
       <p className={notice ? 'notice notice-success' : 'notice'} role="status">
         {notice}

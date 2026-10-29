@@ -33,6 +33,11 @@ const member = (overrides: Partial<StaffMember>): StaffMember => ({
   approvedAt: null,
   disabledReason: null,
   createdAt: '2026-10-26T00:00:00.000Z',
+  jobTitle: null,
+  jobTitleOverride: null,
+  jobTitleOverrideSetBy: null,
+  jobTitleOverrideSetAt: null,
+  effectiveJobTitle: null,
   ...overrides,
 });
 

@@ -4,12 +4,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type {
-  ReceiverOption,
-  StaffListQuery,
-  StaffMember,
-  StaffPosition,
-  StaffRole,
+import {
+  effectiveJobTitle,
+  type ReceiverOption,
+  type StaffListQuery,
+  type StaffMember,
+  type StaffPosition,
+  type StaffRole,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
@@ -39,13 +40,19 @@ interface StaffRow {
   approved_at: Date | null;
   disabled_reason: string | null;
   created_at: Date;
+  job_title: string | null;
+  job_title_override: string | null;
+  job_title_override_set_by: string | null;
+  job_title_override_set_at: Date | null;
 }
 
 const SELECT_STAFF = `
   SELECT u.id, u.display_name, u.official_initials,
          u.initials_confirmed_at IS NOT NULL AS initials_confirmed,
          u.position, u.account_type, u.status, u.work_email, u.sign_in_username, u.expected_upn, u.approved_at, u.disabled_reason,
-         u.created_at,
+         u.created_at, u.job_title, u.job_title_override, u.job_title_override_set_at,
+         (SELECT b.display_name FROM app_user b WHERE b.id = u.job_title_override_set_by_user_id)
+           AS job_title_override_set_by,
          COALESCE((SELECT array_agg(r.role ORDER BY r.role) FROM role_assignment r
                    WHERE r.user_id = u.id), '{}') AS roles,
          EXISTS (SELECT 1 FROM identity_link l WHERE l.user_id = u.id) AS linked,
@@ -70,11 +77,16 @@ function toMember(row: StaffRow): StaffMember {
     approvedAt: row.approved_at?.toISOString() ?? null,
     disabledReason: row.disabled_reason,
     createdAt: row.created_at.toISOString(),
+    jobTitle: row.job_title,
+    jobTitleOverride: row.job_title_override,
+    jobTitleOverrideSetBy: row.job_title_override_set_by,
+    jobTitleOverrideSetAt: row.job_title_override_set_at?.toISOString() ?? null,
+    effectiveJobTitle: effectiveJobTitle(row.job_title, row.job_title_override),
   };
 }
 
 /** Escapes LIKE wildcards so a search for "J_S" means those three characters. */
-function likePattern(text: string): string {
+export function likePattern(text: string): string {
   return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
@@ -564,6 +576,60 @@ export class StaffService {
           requestId: change.requestId,
         });
       }
+      return this.get(id, client);
+    });
+  }
+
+  /**
+   * D16 (MM-AO06): set or clear an administrator's job-title override, with a reason (owner
+   * decision 2026-10-29). It's display metadata only: no role, eligibility, capability or project
+   * grant reads it, and the Microsoft title is kept beside it. Setting the same value again is a
+   * no-op. The shared LAB account has no personal title (422 `not_personal_account`).
+   */
+  async setJobTitleOverride(
+    id: string,
+    override: string | null,
+    reason: string,
+    change: Change,
+  ): Promise<StaffMember> {
+    return withTransaction(this.database.pool, async (client) => {
+      const { rows } = await client.query<{
+        account_type: StaffMember['accountType'];
+        job_title: string | null;
+        job_title_override: string | null;
+      }>(
+        `SELECT account_type, job_title, job_title_override FROM app_user WHERE id = $1 FOR UPDATE`,
+        [id],
+      );
+      const old = rows[0];
+      if (!old) throw new NotFoundException({ code: 'not_found' });
+      if (old.account_type === 'shared_lab') {
+        throw new UnprocessableEntityException({
+          code: 'not_personal_account',
+          message: 'The shared LAB account has no personal job title',
+        });
+      }
+      if (old.job_title_override === override) return this.get(id, client);
+      await client.query(
+        `UPDATE app_user
+         SET job_title_override = $2,
+             job_title_override_set_by_user_id = CASE WHEN $2::text IS NULL THEN NULL ELSE $3::uuid END,
+             job_title_override_set_at = CASE WHEN $2::text IS NULL THEN NULL ELSE now() END,
+             updated_at = now()
+         WHERE id = $1`,
+        [id, override, change.actor.userId],
+      );
+      await recordAudit(client, {
+        action:
+          override === null ? 'staff.job_title_override_cleared' : 'staff.job_title_override_set',
+        entityType: 'app_user',
+        entityId: id,
+        actor: change.actor,
+        reason,
+        before: { jobTitleOverride: old.job_title_override, jobTitle: old.job_title },
+        after: { jobTitleOverride: override, jobTitle: old.job_title },
+        requestId: change.requestId,
+      });
       return this.get(id, client);
     });
   }

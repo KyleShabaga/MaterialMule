@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { effectiveJobTitleSchema } from './job-title';
 import { personSnapshotSchema } from './lab-programs';
 
 // Project assignments, scoped grants and effective capabilities (MM-AO03; owner decisions D01,
@@ -267,6 +268,23 @@ export const PROJECT_CAPABILITY_ACTIONS = [
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
+/** How the Team & Permissions screen (MM-AO05) names each project action. */
+export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, string> = {
+  'project.edit': 'Edit project details',
+  'project.lead_project_engineer.change': 'Appoint or remove the Lead Project Engineer',
+  'project_team.manage': 'Add or remove team members',
+  'project_reviewer.manage': 'Assign or remove reviewers',
+  'report_issuer.manage': 'Authorize report issuers',
+  'acceptance_delegation.manage': 'Add or revoke acceptance delegates',
+  'test.accept': 'Accept reviewed tests',
+  'program.close': 'Close lab programs',
+  'program.reopen': 'Reopen lab programs',
+  'program.priority.set': 'Change program priority',
+  'test.cancel': 'Cancel tests',
+  'retention.manage': 'Manage retention and holds',
+  'disposal.approve': 'Approve disposal',
+};
+
 export const BLOCKED_REASONS = [
   'account_not_active',
   'shared_lab_account',
@@ -274,6 +292,17 @@ export const BLOCKED_REASONS = [
   'no_lead_project_engineer',
   'not_permitted',
 ] as const;
+
+export type BlockedReason = (typeof BLOCKED_REASONS)[number];
+
+/** Why an action is unavailable, in words (MM-AO05). */
+export const BLOCKED_REASON_LABEL: Record<BlockedReason, string> = {
+  account_not_active: 'Your account isn’t active.',
+  shared_lab_account: 'The shared LAB account can’t do this.',
+  no_lead_project_engineer:
+    'Only the Lead Project Engineer can do this, and the project has none yet.',
+  not_permitted: 'You don’t hold a role or grant that allows this.',
+};
 
 export const capabilitySchema = z.object({
   action: z.string(),
@@ -378,3 +407,64 @@ export const projectLeadNominationsSchema = z.object({
   canWithdraw: z.boolean(),
 });
 export type ProjectLeadNominations = z.infer<typeof projectLeadNominationsSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Access summary: "My access" and the admin's read-only view of a person (MM-AO06)
+// ---------------------------------------------------------------------------------------------
+
+/** Projects listed in one access summary (ordered by project number; `projectsTotal` counts all). */
+export const ACCESS_SUMMARY_PROJECT_LIMIT = 200;
+
+const sinceSchema = z.object({
+  since: z.string(),
+  by: personSnapshotSchema,
+  reason: z.string().nullable(),
+});
+
+export const accessProjectSchema = z.object({
+  project: z.object({ id: z.string(), projectNumber: z.string(), name: z.string() }),
+  /** Responsibilities on this project. */
+  lead: z.boolean(),
+  teamMember: sinceSchema.nullable(),
+  reviewer: z.array(
+    sinceSchema.extend({
+      scope: reviewScopeSchema,
+      effective: z.boolean(),
+      blockedReason: z.enum(['account_not_active', 'eligibility_revoked']).nullable(),
+    }),
+  ),
+  /** Scoped grants on this project. */
+  acceptanceDelegate: sinceSchema.nullable(),
+  reportIssuer: z.array(
+    sinceSchema.extend({
+      scope: reviewScopeSchema,
+      expiresAt: z.string().nullable(),
+      effective: z.boolean(),
+      blockedReason: z.enum(['account_not_active', 'expired']).nullable(),
+    }),
+  ),
+  /** Nominated as Lead Project Engineer, waiting for an admin (grants nothing, D01). */
+  pendingLeadNomination: z.boolean(),
+});
+export type AccessProject = z.infer<typeof accessProjectSchema>;
+
+/**
+ * `GET /api/me/access` (one's own) and `GET /api/staff/:id/access` (admin, read-only): current
+ * roles, per-person grants and project responsibilities with their sources. Active rows only;
+ * history stays on each project's Team & Permissions page.
+ */
+export const accessSummarySchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  initials: z.string().nullable(),
+  accountType: z.string(),
+  status: z.string(),
+  position: z.string().nullable(),
+  effectiveJobTitle: effectiveJobTitleSchema,
+  roles: z.array(z.enum(['admin', 'lab_manager'])),
+  reviewerEligibility: z.array(reviewerEligibilitySchema),
+  capabilities: z.array(staffCapabilityGrantSchema),
+  projects: z.array(accessProjectSchema),
+  projectsTotal: z.number(),
+});
+export type AccessSummary = z.infer<typeof accessSummarySchema>;

@@ -22,6 +22,7 @@ import { LabelPrintPage } from './printing/LabelPrintPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { ProjectDetailPage } from './projects/ProjectDetailPage';
 import { ProjectsPage } from './projects/ProjectsPage';
+import { TeamPermissionsPage } from './projects/TeamPermissionsPage';
 import {
   AccessPendingPage,
   ErrorPage,
@@ -37,6 +38,7 @@ import { ScanPage } from './scanning/ScanPage';
 import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCatalogueSettings';
 import { LocationsPage } from './settings/locations/LocationsPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
+import { MyAccessPage } from './settings/access/MyAccessPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
@@ -117,6 +119,7 @@ export const routes: RouteObject[] = [
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },
+              { path: 'projects/:projectId/team', element: <TeamPermissionsPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
@@ -126,6 +129,8 @@ export const routes: RouteObject[] = [
                     path: 'profile',
                     element: <ProfilePage />,
                   },
+                  // Own roles, grants and project responsibilities (MM-AO06).
+                  { path: 'access', element: <MyAccessPage /> },
                   { path: 'staff', element: <StaffPage /> },
                   // Storage locations and location labels (MM-T37).
                   { path: 'locations', element: <LocationsPage /> },
