@@ -3,8 +3,8 @@
 Laboratory sample receiving, storage-unit tracking and testing-program workflow. React web app,
 NestJS API and PostgreSQL, hosted on a Windows PC on the office network.
 
-Formerly named Trapezoid (renamed 2026-10-26). Git history, old branch names and PR titles, and the
-comments in applied migrations keep the old name and `TRP-Txx` card IDs (now `MM-Txx`).
+Formerly named Trapezoid (renamed 2026-10-26). Git history, old branch names and PR titles, and
+schema comments keep the old `TRP-Txx` card IDs (now `MM-Txx`).
 
 See [CLAUDE.md](CLAUDE.md) for layout, commands and conventions, [docs/database.md](docs/database.md)
 for the schema and [docs/permissions.md](docs/permissions.md) for who can do what.
@@ -54,6 +54,12 @@ npm run db:reset:test
 npm run dev
 ```
 
+A development database built before the MM-AO02 clean baseline (2026-10-29) is refused by
+`db:migrate`. If it is disposable, rebuild it with
+`npm run db:rebuild:dev -- --disposable materialmule_dev` (it names the database on purpose; see
+[docs/database.md](docs/database.md#clean-baseline-mm-ao02-owner-decision-2026-10-29)), and run
+`npm run db:reset:test` for the test database.
+
 Open http://127.0.0.1:5173 (use `127.0.0.1`, not `localhost`). You land on the sign-in page; pick
 **Test sign-in (development only)** and sign in as **Admin (test)**. The dashboard's status card
 should show **API: OK** and **Database: Connected**. Without signing in, check
@@ -83,7 +89,7 @@ they do is audited with a TEST account type.
 | `admin`   | Admin (test) | ADM      | Admin: staff, sessions, printers         |
 | `lab`     | Lab (test)   | LAB      | Lab Manager (not the shared LAB account) |
 | `at`      | Alex Tester  | AT       | Technician                               |
-| `pe`      | Pat Example  | PE       | PM/PE of DEMO-2601                       |
+| `pe`      | Pat Example  | PE       | Lead Project Engineer of DEMO-2601       |
 | `de`      | Dana Example | DE       | Engineer                                 |
 | `js-tech` | Jordan Smith | JS       | Technician (duplicate initials)          |
 | `js-eng`  | Jamie Song   | JS       | Engineer (duplicate initials)            |

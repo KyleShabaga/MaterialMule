@@ -218,11 +218,11 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
     expect(bad.status).toBe(400);
   });
 
-  it('AC7: choosing Lab Manager or PM/PE grants nothing', async () => {
+  it('AC7: choosing Lab Manager or Lead Project Engineer grants nothing', async () => {
     const results: string[][] = [];
     for (const [key, position] of [
       ['casey', 'lab_manager'],
-      ['morgan', 'pm_pe'],
+      ['morgan', 'project_engineer'],
       ['drew', 'technician'],
     ] as const) {
       const { cookie } = await signIn(key);

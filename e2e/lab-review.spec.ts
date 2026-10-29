@@ -5,7 +5,7 @@ import { signInAsLabStation } from './support/lab-station';
 
 // MM-T25 review corrections and delegated acceptance (card T4 correction route, T5 LAB denial,
 // project-page delegation). Each test makes its own program on a fresh test hole, so parallel
-// runs never share a test. Fictional data only: DEMO-2601 / DEMO-2602, PM/PE Pat Example (pe),
+// runs never share a test. Fictional data only: DEMO-2601 / DEMO-2602, Lead Project Engineer Pat Example (pe),
 // Lab Manager "Lab (test)" (lab), Technician Alex Tester (at), engineer Dana Example (de).
 
 const PROJECTS = {
@@ -88,7 +88,7 @@ function testRow(page: Page, code: string) {
   return page.locator('.request-list li', { hasText: code });
 }
 
-test('T4: return for correction → correction done → fresh review → accept by the PM/PE', async ({
+test('T4: return for correction → correction done → fresh review → accept by the Lead Project Engineer', async ({
   page,
 }) => {
   const code = unique('DEMO-RV');
@@ -182,7 +182,7 @@ test('T5: LAB stations may send to review but every review and acceptance action
   }
 });
 
-test('Acceptance delegates: the PM/PE adds and revokes a delegate on the project page', async ({
+test('Acceptance delegates: the Lead Project Engineer adds and revokes a delegate on the project page', async ({
   page,
 }, testInfo) => {
   const projectId = PROJECTS[testInfo.project.name as keyof typeof PROJECTS] ?? DEMO_PROJECT_ID;
@@ -211,7 +211,7 @@ test('Acceptance delegates: the PM/PE adds and revokes a delegate on the project
   await section.getByText(/Delegation history/).click();
   await expect(section).toContainText(/Dana Example: added by PE · Pat Example/);
 
-  // Someone who isn't the PM/PE sees the list but no controls.
+  // Someone who isn't the Lead Project Engineer sees the list but no controls.
   await signInAs(page, 'de');
   await page.goto(`/projects/${projectId}`);
   await expect(page.getByRole('region', { name: 'Acceptance delegates' })).toBeVisible();

@@ -83,7 +83,7 @@ type IdentityValues = {
 
 /**
  * Shape rules shared by a Shelby tube's sample and a bulk group's identity, matching the
- * database checks (migration 0029). Bulk identities also need a sample reference and a depth.
+ * database checks (storage_unit, bulk_group). Bulk identities also need a sample reference and a depth.
  */
 function checkIdentity(
   value: IdentityValues,
@@ -350,7 +350,7 @@ export function formatSampleDetails(
 
 /**
  * The contents summary as people read it, e.g. "TH26-21: B1 at 1.5–2 m" or
- * "Embankment Location 03: T5". Inventory search matches this form (migration 0029).
+ * "Embankment Location 03: T5". Inventory search matches this form (storage_unit_search_document).
  */
 export function formatSampleIdentity(identity: SampleIdentity): string {
   const details = formatSampleDetails(identity);

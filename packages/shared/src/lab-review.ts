@@ -95,14 +95,14 @@ export const correctionDoneRequestSchema = z.strictObject({
 });
 export type CorrectionDoneRequest = z.output<typeof correctionDoneRequestSchema>;
 
-/** `POST /api/test-requests/:id/accept` (project PM/PE or active delegate). */
+/** `POST /api/test-requests/:id/accept` (Lead Project Engineer or active delegate). */
 export const acceptTestRequestSchema = z.strictObject({
   version: versionSchema,
   idempotencyKey: idSchema,
 });
 export type AcceptTestRequest = z.output<typeof acceptTestRequestSchema>;
 
-/** `POST /api/projects/:projectId/acceptance-delegates` (the project's PM/PE). */
+/** `POST /api/projects/:projectId/acceptance-delegates` (the project's Lead Project Engineer). */
 export const grantDelegationRequestSchema = z.strictObject({
   delegateUserId: idSchema,
   idempotencyKey: idSchema,

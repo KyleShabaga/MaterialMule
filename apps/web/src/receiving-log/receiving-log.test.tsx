@@ -279,7 +279,7 @@ describe('Receiving Log list (MM-T51)', () => {
       if (url.pathname === `/api/projects/${PROJECT.id}`) {
         return json(200, {
           ...PROJECT,
-          pmPe: { id: 'pe', displayName: 'Pat Example', initials: 'PE' },
+          leadProjectEngineer: { id: 'pe', displayName: 'Pat Example', initials: 'PE' },
         });
       }
       return undefined;

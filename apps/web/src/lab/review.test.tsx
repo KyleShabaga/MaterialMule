@@ -59,7 +59,7 @@ function work(
       events: [],
       closure: { eligible: false, emptyProgram: false, blockers: [], counts: {}, summary: '' },
       canClose: false,
-      closeBlockedReason: 'not_pm_pe',
+      closeBlockedReason: 'not_lead_project_engineer',
       canRequestClose: false,
       canReopen: false,
       canAmend: false,

@@ -6,24 +6,57 @@ runner in `apps/api/src/db/migrator.ts` (MM-T02).
 
 ## Commands
 
-| Command                 | What it does                                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `npm run db:migrate`    | Apply pending migrations, then load reference data (Receiving lab)                                        |
-| `npm run db:seed:dev`   | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod |
-| `npm run db:reset:test` | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)                                   |
+| Command                                             | What it does                                                                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate`                                | Apply pending migrations, then load reference data (Receiving lab)                                                |
+| `npm run db:seed:dev`                               | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod         |
+| `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                   |
+| `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only) |
+| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)                                           |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
 
 ## Migration rules
 
 - Forward-only. Never edit a migration after it has been applied anywhere: the runner stores a
-  SHA-256 of each file and refuses to run if an applied file changed. Write a new migration.
+  SHA-256 of each file and refuses to run if an applied file changed. Write a new migration
+  (`0002_…` is next).
 - Each migration runs in one transaction; a failure leaves no partial schema.
 - A PostgreSQL advisory lock stops two migrators racing on the same database.
 - Put integrity rules in the database (foreign keys, `CHECK`, unique indexes), then prove each one
   with a test in `apps/api/src/db/schema.test.ts`.
 - Enumerations are `text` + `CHECK`, not PostgreSQL enum types, so they can be extended in a
   later migration without `ALTER TYPE`.
+
+## Clean baseline (MM-AO02, owner decision 2026-10-29)
+
+The application was never deployed, so the pre-release lineage `0001_initial_schema` …
+`0078_same_source_tested_units` was replaced by one reviewed file, `0001_baseline.sql`, under Lead
+Project Engineer naming. This was a one-time, owner-approved exception to the forward-only rule;
+it is not permission to reset a deployed database, and forward-only migrations resume from here.
+
+- **What the baseline is.** The same tables, columns (in the same order), constraints, indexes,
+  functions, triggers, views and grants the lineage ended with, with every later column folded into
+  its table and each function and trigger in its final form. Upgrade-only backfills are gone (a
+  baseline starts empty). The only intended differences from the lineage's end state, besides
+  the renames: `audit_event_receiver_snapshot_required` is a validated check (it was `NOT VALID`
+  to spare pre-MM-T56 rows), and the MM-AO02 storage below. A catalog comparison of the two
+  (tables, columns, constraint and index definitions, function bodies, triggers, views, grants,
+  seeded rows) showed no other difference when the baseline was cut.
+- **Renamed.** `project.pm_pe_user_id` → `lead_project_engineer_user_id`, `project_pm_pe_idx` →
+  `project_lead_project_engineer_idx`, `action_item_routes_to_pm_pe()` →
+  `action_item_routes_to_lead_project_engineer()`, and the staff position `pm_pe` →
+  `project_engineer` (job metadata, label "Project Engineer"). The Lab Manager role is unchanged.
+- **Databases from the retired lineage.** The migrator refuses any database whose
+  `schema_migration` recorded `0001_initial_schema`, with a message naming the rebuild commands;
+  it never upgrades one. Rebuild only an explicitly designated disposable database:
+  `npm run db:rebuild:dev -- --disposable materialmule_dev` (development: it checks `APP_ENV` and
+  that the name matches the connected database) or `npm run db:reset:test` (test). Export
+  anything worth keeping first; nothing is carried over. Dev fixtures use fixed UUIDs, so a
+  rebuilt development database has the same people and projects.
+- **Browser drafts.** Receiving drafts moved to record version 3: a version-2 draft forgets its
+  chosen project (and so its hole choices, as choosing another project does) because the project
+  summary now names its lead under `leadProjectEngineer`; everything else is kept.
 
 ## Roles
 
@@ -49,7 +82,7 @@ erDiagram
   app_user ||--o{ identity_link : "signs in via"
   app_user ||--o{ role_assignment : "holds"
   app_user ||--o{ session : "has"
-  app_user ||--o{ project : "is PM/PE of"
+  app_user ||--o{ project : "is Lead Project Engineer of"
   project ||--o{ test_hole : "has"
   project ||--o{ receipt : "receives"
   receipt ||--|{ storage_unit : "creates"
@@ -78,7 +111,7 @@ Key rules enforced by the database:
   transaction, so concurrent receipts serialise on the row and a rollback returns the numbers.
   The year is the confirmation date in `BUSINESS_TIME_ZONE` (America/Edmonton), never the
   received date. Note: tzdata 2026c has Edmonton on UTC−6 all year.
-- **Issued IDs are never reused (migration 0020, MM-T47).** Triggers, which also bind the table
+- **Issued IDs are never reused (MM-T47).** Triggers, which also bind the table
   owner, refuse `DELETE` and `TRUNCATE` on `storage_unit` (units leave through `status`, never by
   deletion) and on `storage_unit_annual_counter`, and any `UPDATE` that lowers a counter's
   `last_value` or moves it to another prefix or year. Raising a counter is allowed (e.g. after a
@@ -87,36 +120,32 @@ Key rules enforced by the database:
   summaries carry no ID, so corrections may still replace them. Test and dev resets drop and
   recreate the schema (`db:reset:test`, `createMigratedSchema`), never delete rows; a test that
   needs fresh counters uses its own scratch schema.
-- **Audit events are append-only** (migration 0002): triggers reject `UPDATE`, `DELETE` and
+- **Audit events are append-only**: triggers reject `UPDATE`, `DELETE` and
   `TRUNCATE` even for the table owner. Record events with `recordAudit` (`apps/api/src/audit`)
   on the same transaction client as the change; actor initials and name are snapshots.
-- **Audit receivers are snapshots too (migration 0025, MM-T56).** An event that credits a
+- **Audit receivers are snapshots too (MM-T56).** An event that credits a
   receiver (receipts, LAB-station prints, project and test-hole creation) stores
-  `receiver_initials_snapshot` and `receiver_name_snapshot` next to `receiver_user_id`. A
-  `NOT VALID` check refuses any new event with a receiver but no name snapshot, or snapshots
-  without a receiver; initials may be NULL for staff without confirmed initials. Older events
-  can't be backfilled (append-only), so storage unit history reads the event snapshot, then the
-  unit's receipt snapshot when the event credits the receipt's receiver, and only then the live
-  user.
-- **Print job people are snapshots (migration 0026, MM-T65).** A job stores the requester
+  `receiver_initials_snapshot` and `receiver_name_snapshot` next to `receiver_user_id`. A check
+  (`audit_event_receiver_snapshot_required`, fully validated since the MM-AO02 baseline) refuses
+  any event with a receiver but no name snapshot, or snapshots without a receiver; initials may be
+  NULL for staff without confirmed initials. Storage unit history reads the event snapshot; its
+  receipt-snapshot and live-user fallbacks are defensive only.
+- **Print job people are snapshots (MM-T65).** A job stores the requester
   (`requested_by_*_snapshot`) and any receiver it credits (`receiver_*_snapshot`, a print at a LAB
   station) as of the request, and whoever confirmed the labels came out (`confirmed_by_*_snapshot`)
-  as of the confirmation (Kyle, 2026-10-27). The migration filled older jobs from their audit
-  events (print requested, physically confirmed), and the receiver also from a unit's receipt
-  when the job credits the receipt's receiver; jobs with neither stay NULL and print history shows
-  the live user for them. A trigger refuses a new job, a new or changed receiver, or a new
-  confirmation without the person's name snapshot, and refuses clearing one (a CHECK couldn't
-  spare the older rows, which still change status); a CHECK refuses snapshots without the person.
+  as of the confirmation (Kyle, 2026-10-27). A trigger refuses a new job, a new or changed
+  receiver, or a new confirmation without the person's name snapshot, and refuses clearing one; a
+  CHECK refuses snapshots without the person.
 - **Project numbers and test-hole names** are stored trimmed and unique ignoring case (test holes
   per project only). Creates rely on those unique indexes (`INSERT … ON CONFLICT DO NOTHING`),
   so of two parallel creates exactly one succeeds and the other gets 409 with the existing row
-  (MM-T08). Migration 0005 adds `text_pattern_ops` indexes for prefix search.
+  (MM-T08). `text_pattern_ops` indexes serve prefix search.
 - **Receipts** hold 1–50 storage units (owner decision 2026-10-25). Each unit records its
-  `receipt_line` (1 = first submitted, unique per receipt, migration 0003) so a retried
+  `receipt_line` (1 = first submitted, unique per receipt) so a retried
   confirmation returns the same row-to-ID mapping.
 - **Receiving lab** is a system location and can't be deactivated.
 - No individual sample table: receiving is per storage unit.
-- **LAB credentials (migration 0004, MM-T06).** `local_credential` holds one Argon2id PHC string
+- **LAB credentials (MM-T06).** `local_credential` holds one Argon2id PHC string
   per account (the string records its own cost); a trigger allows it only for `shared_lab`
   accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
   Reference data seeds the LAB account (`app_user` 00000000-0000-4000-8000-000000000001 with a
@@ -125,13 +154,13 @@ Key rules enforced by the database:
   `FOR NO KEY UPDATE` on LAB's `app_user` row, then read the hash in a new statement, then lock
   `sign_in_throttle` rows (MM-T40). That lock order serialises "verify password, create session"
   with "replace password, revoke sessions", so no old-password session outlives a reset.
-- **Staff (migration 0008, MM-T07).** Official initials are not unique. `expected_upn` (an
+- **Staff (MM-T07).** Official initials are not unique. `expected_upn` (an
   admin's pre-provisioned work email) is unique ignoring case when set; `approved_by` and
   `approved_at` are set together; `disabled_reason` exists only on a disabled account. Receipts
   keep receiver ID + initials + name snapshots, so renaming or disabling someone never rewrites
   history.
 
-## Print queue (MM-T15, migration 0006)
+## Print queue (MM-T15)
 
 - **Printers** (`printer`) are server-side configuration: key, name, host (IPv4 or host name),
   port (9100), enabled, default (at most one), status check. Print requests may only name a
@@ -180,7 +209,7 @@ the counter increment. The receipt stores the signed-in account (`account_user_i
 the selected receiver with initials and name snapshots. Printing is not part of confirmation
 (MM-T15).
 
-## Inventory search (MM-T12, migration 0010)
+## Inventory search (MM-T12)
 
 `GET /api/inventory` (`apps/api/src/inventory`) returns one row per storage unit, filtered,
 sorted and paged on the server (default 25, max 100, with the total).
@@ -191,7 +220,8 @@ sorted and paged on the server (default 25, max 100, with the total).
   name. Each hole also appears as the app displays it ("th26-01: g1-s10", "th26-02: 3-5 ft"), and
   every dash (en/em dash, minus sign, Unicode hyphens) is folded to "-" in the document and in the
   search words (`splitInventorySearch`), so a summary copied from the table matches whichever dash
-  it holds (MM-T59, migration 0027; MM-T36 builds on that definition). Triggers on `storage_unit`, `storage_unit_hole_summary`, `project`, `test_hole` and
+  it holds (MM-T59; MM-T36 builds on that definition). Triggers on `storage_unit`,
+  `storage_unit_hole_summary`, `project`, `test_hole` and
   `location` rebuild it in the same transaction as the change, so it is never stale. Each search
   word becomes `document LIKE '%word%'` (AND across words, wildcards escaped), backed by a
   `pg_trgm` GIN index. `pg_trgm` is a trusted extension created in `public`; the migration role
@@ -228,7 +258,7 @@ corrects a confirmed unit's type, received date, project, test holes and summari
 - **Retention:** the detail shows `minimumRetainUntil` = current received date + 1 year (29 Feb →
   28 Feb). Full retention rules arrive with MM-T29.
 
-## Projects list and detail (MM-T35, migration 0015)
+## Projects list and detail (MM-T35)
 
 `GET /api/projects` and `GET /api/projects/:id` (`apps/api/src/projects`) back the Projects
 screens. Counts (test holes, in-stock units, last receipt date, units per hole and per receipt)
@@ -236,7 +266,7 @@ are computed by query, never stored.
 
 - **Search** matches project number, name or client (contains, ignoring case, wildcards escaped),
   backed by `pg_trgm` GIN indexes on each. "Only mine" (`mine=true`) keeps projects where the user
-  is `pm_pe_user_id` or `review_engineer_user_id`, both indexed.
+  is `lead_project_engineer_user_id` or `review_engineer_user_id`, both indexed.
 - **Stable paging.** Every sort (number, name, last receipt with never-received projects last)
   ends with the normalised number (`COLLATE "C"`) and the ID. Default 25 per page, max 100.
 - **Project number lock.** A trigger rejects changing `project_number` once the project has any
@@ -244,7 +274,7 @@ are computed by query, never stored.
 - **Edits** bump `project.version` (optimistic concurrency) and record `project.updated` with only
   the changed fields before/after and the reason.
 
-## Draft auto-delete setting (MM-T45, migration 0019)
+## Draft auto-delete setting (MM-T45)
 
 `draft_auto_delete_setting` holds exactly one row (primary key `singleton`, which can only be
 `true`): `enabled` (default `false`), `after_days` (30–365, default 90, a CHECK constraint),
@@ -255,7 +285,7 @@ drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `versio
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
 again changes nothing.
 
-## Staff position and official initials (MM-T43, MM-T44, migration 0024)
+## Staff position and official initials (MM-T43, MM-T44)
 
 - **Position.** `position_set_at` records the person's first-login choice; the CHECK
   `app_user_position_set_has_position` needs a position whenever it is set. When an admin sets a
@@ -268,17 +298,14 @@ again changes nothing.
   it is unconfirmed, audited as `staff.initials_confirmed`) write `initials_confirmed_by_user_id`
   and `initials_confirmed_at` in the same transaction. Edits that omit initials, resubmitting
   already-confirmed initials and Microsoft profile refreshes never change the pair.
-- **Migration 0024** recovers the pair for rows the earlier code left unconfirmed, only from the
-  audit trail: the latest `staff.preprovisioned` / `staff.initials_changed` event for the person,
-  by a named person, that set exactly the current value. Other rows stay unconfirmed until an
-  admin uses Confirm initials in Staff & access.
+- Seeded or otherwise unconfirmed initials stay unconfirmed until an admin uses Confirm initials
+  in Staff & access.
 
-## Storage locations and location labels (MM-T37, migration 0028)
+## Storage locations and location labels (MM-T37)
 
 - **Location record.** `location` gains an optional `area` (trimmed, 1–60), `retired_at` and
   `retired_reason` (present exactly when `active` is false), `updated_at` and `version`
-  (optimistic edits). Codes stay unique ignoring case through `code_normalized` (migration 0001).
-  Locations made inactive before 0028 got a placeholder retirement so the pairing rule holds.
+  (optimistic edits). Codes stay unique ignoring case through `code_normalized`.
 - **Guards (trigger `location_guard`).** Locations are never deleted; `is_system` never changes;
   the system location's kind never changes; once `code_locked_at` is set the code and the lock are
   fixed; the first `label_printed_at` is never moved. A CHECK keeps `label_printed_at` only on a
@@ -301,10 +328,9 @@ again changes nothing.
   render template `location-v1` from the snapshots. No storage unit or receipt stands in for a
   location.
 
-## Shelby tubes, sampling sources and bulk groups (MM-T36, migration 0029)
+## Shelby tubes, sampling sources and bulk groups (MM-T36)
 
-Receiving increment only. Tested-unit removal ("Disposed after testing") is **not** in 0029: it
-needs exact-unit completion evidence from MM-T23/T24 first.
+Receiving increment. Tested-unit removal ("Disposed after testing") is a separate section below.
 
 - **Sampling source vs storage location.** A Shelby tube's source (`storage_unit.source_type`:
   `test_hole` with `source_test_hole_id`, or `standalone_location` with a nonblank free-text
@@ -319,19 +345,19 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   returns the same group IDs). IDs are random UUIDs: no group letters. The project never changes.
 - **Members.** A bulk soil bucket is `unit_type = 'bulk_container'`, `holder_kind = 'bucket'`,
   BKT- ID, with `bulk_group_id` (FK carries `project_id`). `storage_unit_contents_by_type_check`:
-  ordinary buckets have neither source nor group; Shelby tubes may have a source (tubes from before
-  0029 may not) and never a group; bulk buckets always have a group and no own source; generic CT
+  ordinary buckets have neither source nor group; Shelby tubes may have a source (one may be
+  missing until a correction adds it) and never a group; bulk buckets always have a group and no own source; generic CT
   `bulk_container` units (separate rules) have neither. "Bucket n of N" is computed when read
   (received date, then readable ID) and never stored.
 - **One contents summary.** Triggers refuse hole summaries on a unit with a source or a group,
   and refuse giving a source or group to a unit that has hole summaries
   (`storage_unit_one_contents_summary`).
-- **Search.** `storage_unit_search_document` is redefined from 0027's version (all 0027 forms and
-  the dash folding kept) to add the source name, sample reference, depth (separate ends and
+- **Search.** `storage_unit_search_document` keeps the MM-T59 forms and dash folding and adds the
+  source name, sample reference, depth (separate ends and
   joined), the group description, "bulk soil sample", and the identity as displayed
   ("th26-21: b1 at 1.5-2 m"). Triggers now also refresh a unit when its source, sample or group
   changes, every member when its group's identity changes, and tubes/bulk buckets when their source
-  hole is renamed. 0029 rebuilds every document.
+  hole is renamed.
 - **Sticker origin.** `storage_unit_origin_names(unit_id)` gives the existing origin line: hole
   names, a tube's source, or a bulk group's source. The label preview and the print worker both
   use it; sample references, depths, group IDs and bucket counts never reach the sticker.
@@ -339,7 +365,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   showed (422 `bulk_group_changed` otherwise); an identity correction takes `FOR UPDATE`, so the two
   serialise. Concurrent joins don't block each other.
 
-## Storage moves and location conflicts (MM-T28, migration 0035)
+## Storage moves and location conflicts (MM-T28)
 
 - **Tables.** `movement_event` keeps every move the server accepted: `move` (saved location
   changed, or confirmed in place), `contested` (held because the unit changed after the scan) and
@@ -374,7 +400,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - **Tests.** `apps/api/src/moves/moves.integration.test.ts` races requests behind a row lock held
   on a separate connection, releasing it once `pg_stat_activity` shows every request waiting.
 
-## Lab test catalogue and testing programs (MM-T23, migration 0030)
+## Lab test catalogue and testing programs (MM-T23)
 
 - **Catalogue:** `test_group` → `test_subgroup` (optional) → `test_type`. A test keeps its exact
   `code` (unique, case and punctuation preserved), full `description` and optional concise `name`
@@ -404,7 +430,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   include the unit in frozen coverage, a draft unit choice or a standalone source; a project
   correction is refused while any exist. Submission takes `FOR SHARE` on the units it freezes.
 
-## Lab worklist and progress (MM-T24, migration 0031)
+## Lab worklist and progress (MM-T24)
 
 - `test_request.status` now allows requested, in_progress, completed and review; a trigger allows
   only the three forward moves and only while the program is submitted.
@@ -418,7 +444,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - The T13 link checker also counts these links, so a tested unit can't change project while its
   program is open.
 
-## Lab review and acceptance (MM-T25, migration 0040)
+## Lab review and acceptance (MM-T25)
 
 - `test_request.status` adds `accepted`. `test_request.review_state` (awaiting_review, returned,
   correction_done, review_complete) is set exactly while the status is `review`; entering Review
@@ -441,7 +467,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   revocation `FOR UPDATE`, so the two commit in one order.
 - `completedTestEvidence()` also returns each linked test's current `request_status`.
 
-## Lab program lifecycle, cancellation and repeats (MM-T26, migration 0050)
+## Lab program lifecycle, cancellation and repeats (MM-T26)
 
 - `lab_program` gains `closed_at`, `closed_by_user_id` and name/initials snapshots, set exactly
   while the status is `closed` (cleared on reopen). `program_lifecycle_event` (append-only) keeps
@@ -459,13 +485,13 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   creator, retry key and intent hash. The one-request-per-line-and-test key now applies to
   originals only (`repeat_of_id IS NULL`).
 - `action_item` adds `cancellation_request` (on a test, for the Lab Manager role and the project's
-  PM/PE) and `closure_request` (on the program, for its PM/PE), each with the requester's reason,
+  Lead Project Engineer) and `closure_request` (on the program, for its Lead Project Engineer), each with the requester's reason,
   snapshots, retry key and hash. There is at most one open request of each kind per test or
   program. `resolution` records `correction_done`, `cancelled` or `closed`. Cancelling a test
   resolves its open correction and cancellation request; closing resolves the closure request.
 - `completedTestEvidence()` leaves out tests that are now cancelled (MM-T36 contract).
 
-## Lab amendments and accepted-request changes (MM-T26, migration 0051)
+## Lab amendments and accepted-request changes (MM-T26)
 
 - `program_amendment` (append-only, numbered per program): reason, the requester, and a `details`
   record of exactly what it added; `added_unit_readable_ids` lists later receipts it included.
@@ -480,7 +506,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - `test_request_unit_link` is unique per completion and unit (was per request and unit), so a test
   completed again after a reset keeps both completions' evidence.
 
-## Removal after testing (MM-T36, migration 0045)
+## Removal after testing (MM-T36)
 
 - `tested_unit_removal`: one append-only row per physical unit ever (unique `storage_unit_id`,
   unique retry key with intent hash). It names the completion that used that exact unit
@@ -490,7 +516,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - An insert trigger checks the row against the unit (already `disposed`, same project, type,
   group and location) and against real evidence: a completion link of this unit, in the unit's
   project, whose request is not `cancelled`. Removal and the unit update commit together.
-- The unit keeps `status = 'disposed'` and its `current_location_id` (0035 keeps it fixed);
+- The unit keeps `status = 'disposed'` and its `current_location_id` (`storage_unit_disposed_stays_put` keeps it fixed);
   Current stock, location occupancy and lab coverage all leave disposed units out. A trigger
   refuses any later change of status, unit type or project of a removed unit.
 - `shelby_contents_destroyed_by_program(unit)`: the program whose completion first linked a
@@ -499,7 +525,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   destroyed by another program (tests of the same program may still record it).
 - No retention, hold, disposal-approval or program-closure table is read by this route.
 
-## Same-source tested units (MM-T73, migration 0078)
+## Same-source tested units (MM-T73)
 
 - `test_request_unit_link.coverage_basis`: `frozen_coverage` (the unit is included in the line's
   frozen coverage; no confirmation) or `same_source_confirmed` (outside that coverage, confirmed
@@ -509,7 +535,8 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - `storage_unit_of_line_source(line, unit)`: the unit is of the line's sampling source in its
   project, by the coverage candidate rules (hole summary, tube source, bulk group source;
   standalone tube; standalone group member), ignoring availability.
-- The link insert trigger (0045/0076 plus this) refuses a unit outside the program's project
+- The link insert trigger (`test_request_unit_link_guard`, which also takes the unit's row lock,
+  MM-T76) refuses a unit outside the program's project
   (`…_same_project`), a `frozen_coverage` link to a unit not included in the line's coverage
   (`…_covered`), a `same_source_confirmed` link to a covered unit, an ordinary bucket or a unit
   of another source (`…_same_source`), and a confirmation not made by the completion event's own
@@ -518,14 +545,14 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - A confirmed link is ordinary evidence: `shelby_contents_destroyed_by_program`, retention
   exemption and `tested_unit_removal` read it like a covered one.
 
-## Action requests, preferences and email outbox (MM-T27, migration 0055)
+## Action requests, preferences and email outbox (MM-T27)
 
 - `action_item` gains `project_id` (backfilled from the program and filled by trigger from
   `program_id`, which it must match) and `assigned_user_id`/`assigned_at`. The guard still
   allows exactly one resolution; while open, only the assignment may change, and never to null.
 - `action_item_routed_to(item, user)` is the one routing rule (inbox, count, email recipients):
   the assignee when set, otherwise Lab Manager role holders for `target_role = 'lab_manager'`
-  and the project's current PM/PE for cancellation and closure requests.
+  and the project's current Lead Project Engineer for cancellation and closure requests.
 - `action_item_assignment`: append-only reassignment history (from, to, reason, who, when,
   retry key).
 - `notification_preference`: one row per person, `email_action_requests` default false,
@@ -535,7 +562,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   exhausted, exponential backoff between) or `skipped` (item resolved first). `last_error` never
   holds an address. Nothing sends while `EMAIL_ENABLED` is false, which startup enforces.
 
-## Retention dates, holds, extensions and requests (MM-T29, migration 0060)
+## Retention dates, holds, extensions and requests (MM-T29)
 
 - `unit_retention` (view) is the one calculation: `minimum_retain_until` =
   `retention_minimum(received_date)` (received + 1 calendar year; Feb 29 → Feb 28),
@@ -558,7 +585,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - A received-date correction (MM-T13) changes `storage_unit.received_date`; the view recomputes
   at once and the correction history keeps the old date. Program closure touches none of this.
 
-## Standard disposal (MM-T30, migration 0065)
+## Standard disposal (MM-T30)
 
 - `unit_open_covering_programs(unit)`: not-closed programs that froze the unit into coverage,
   chose it, name it (or its bulk group) as the source, linked it as tested, or have a test-hole
@@ -574,12 +601,63 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - `storage_unit.disposed_at` / `disposed_by_user_id` are set by both routes (backfilled from
   `tested_unit_removal`). `storage_unit_disposed_final` refuses any status change away from
   `disposed`.
-- MM-T70 (migration 0070): an approval belongs to the project it was granted under. A new
+- MM-T70: an approval belongs to the project it was granted under. A new
   approval must name the unit's current project (`disposal_approval_matches_unit_project`), and
   `disposal_removal_guard` also requires the approval's project to equal the unit's, so after a
-  project correction the standard scan is refused until the new project's PM/PE or a Lab
+  project correction the standard scan is refused until the new project's Lead Project Engineer or a Lab
   Manager approves again. The MM-T36 post-testing route is unchanged.
-- MM-T70 (migration 0071, owner decision: refuse): a unit's `project_id` can't change while it
+- MM-T70 (owner decision: refuse): a unit's `project_id` can't change while it
   has a live (not revoked, not used) approval (`storage_unit_project_disposal_approval_live`).
   The API refuses the correction first with 422 `disposal_approval_live`; revoke the approval on
   the Disposal & Retention page, then correct the project.
+
+## Project assignments and scoped grants (MM-AO02)
+
+Storage for the adopted owner decisions D01–D16 (AO01 register, 2026-10-29). Nothing here is read
+by an authorization check yet: MM-AO03 owns the central policy, the assignment/grant API, their
+audit events and the concurrency rule (D09, final checks under lock). Every row names a stable
+`app_user.id` with name/initials snapshots of the person and of whoever recorded it; history is
+append-only (`assignment_history_guard`: never deleted, and the only change is the one ending,
+with who, when and why); at most one active row per person and scope; new grants, revocations and
+appointments need a reason (D15); the shared LAB account can't hold any of them
+(`assignment_subject_is_personal`).
+
+| Table                         | Decision | Holds                                                                                                 | One active per                       |
+| ----------------------------- | -------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `review_scope`                | D05/D06  | Workflow / report-type scopes: `concrete_field`, `concrete_strength` (retired, never deleted)         | —                                    |
+| `staff_capability_grant`      | D01      | "Can create and lead projects" (`project.create_and_lead`): self-appointment only when creating       | person, capability                   |
+| `project_lead_nomination`     | D01      | Creator's nomination; admin confirms (with reason) or rejects; nominator may withdraw. Powers nothing | project (pending)                    |
+| `project_team_member`         | D04      | Supporting Engineers and other team members; grants nothing, restricts no visibility                  | project, person                      |
+| `reviewer_eligibility`        | D05      | Admin-managed eligibility per scope                                                                   | person, scope                        |
+| `project_reviewer_assignment` | D04/D05  | Scoped reviewers; many per project                                                                    | project, person, scope               |
+| `project_report_issuer_grant` | D06/D07  | Authorized report issuer per project and scope: reason, optional approval reference, optional expiry  | project, person, scope (not revoked) |
+
+- **Issuer grants (fields approved by Kyle, 2026-10-29).** Granted and revoked by the project's
+  Lead Project Engineer; administrator status grants nothing. Usable while not revoked and before
+  `expires_at`. Emergency suspension is a revocation with `revocation_kind = 'emergency'`; a new
+  grant restores authority. Renewing an expired grant revokes it first. The lead's own issuance on
+  their project needs no row (D07).
+- **Extended existing records.** `acceptance_delegation` gains `grant_reason` / `revoke_reason`
+  (D15; optional in storage until MM-AO03's API sends them, never invented for a grant; the grant
+  reason is immutable). `app_user` gains `job_title_override` with who/when set (D16): the admin
+  override takes precedence for display, the Graph `job_title` is kept, neither grants anything.
+- **Unchanged, by decision.** `project.lead_project_engineer_user_id` stays the one effective lead
+  and stays required at creation: unassigned projects (D02) and nomination-first creation arrive
+  with MM-AO04 as a forward migration together with the DTO, join and receiving changes.
+  `acceptance_delegation` stays the only acceptance-delegate store; grants survive a lead change
+  (D08). Concrete Lab Manager grants (D13) are deferred to C02/AO08.
+- **Compatibility precedence and legacy reads.** `project.review_engineer_user_id` (one legacy
+  reviewer) still drives "Only mine" and nothing else; no eligibility, reviewer assignment or
+  issuer grant is derived from it, from job titles or positions, or from delegations (proven in
+  `schema-assignments.test.ts`, AC3). When MM-AO03/AO06 switch My projects (D12) to the new
+  assignments, they also retire that column in a forward migration; until then it has no authority.
+- **Rehearsal and exceptions (AC1/AC2).** There is no deployed data, so nothing is backfilled. The
+  dev fixtures map unchanged: DEMO-2601 and DEMO-2602 keep Pat Example (fixed UUID) as Lead
+  Project Engineer, there is no legacy reviewer or delegation in the fixtures, and every new table
+  starts empty except `review_scope`. Exception report: no unmappable rows. Disabled staff keep
+  their rows and references; the new tables hold no rows for them.
+- **Rollback.** Before any deployment, rolling back means checking out the previous commit and
+  rebuilding the disposable databases. After deployment, use forward migrations only.
+- **Open for MM-AO03/AO06 (not built):** re-enabling a disabled account must make its technical
+  grants need revalidation (D08); the policy can compare grant times with the re-enable recorded in
+  `audit_event`, or AO03 may propose a column.

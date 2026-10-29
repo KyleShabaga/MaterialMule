@@ -16,7 +16,7 @@ interface Draft {
   projectNumber: string;
   name: string;
   client: string;
-  pmPeId: string;
+  leadProjectEngineerId: string;
   reviewEngineerId: string;
   serverFolderPath: string;
   reason: string;
@@ -27,7 +27,7 @@ function draftFrom(project: ProjectDetail): Draft {
     projectNumber: project.projectNumber,
     name: project.name,
     client: project.client,
-    pmPeId: project.pmPe.id,
+    leadProjectEngineerId: project.leadProjectEngineer.id,
     reviewEngineerId: project.reviewEngineer?.id ?? '',
     serverFolderPath: project.serverFolderPath ?? '',
     reason: '',
@@ -51,8 +51,8 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
   }
   if (draft.name.trim() !== project.name) body.name = draft.name;
   if (draft.client.trim() !== project.client) body.client = draft.client;
-  if (draft.pmPeId !== project.pmPe.id) {
-    body.pmPeId = draft.pmPeId;
+  if (draft.leadProjectEngineerId !== project.leadProjectEngineer.id) {
+    body.leadProjectEngineerId = draft.leadProjectEngineerId;
     body.reason = draft.reason;
   }
   if (draft.reviewEngineerId !== (project.reviewEngineer?.id ?? '')) {
@@ -65,8 +65,8 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
 }
 
 /**
- * Edit project (MM-T35): admins and the project's PM/PE change the number (until the first
- * receipt), name, client, review engineer and server folder path; only admins change the PM/PE,
+ * Edit project (MM-T35): admins and the project's Lead Project Engineer change the number (until the first
+ * receipt), name, client, review engineer and server folder path; only admins change the Lead Project Engineer,
  * with a reason. Field errors show beside each input.
  */
 export function EditProjectDialog({
@@ -109,13 +109,13 @@ export function EditProjectDialog({
     setDraft((previous) => ({ ...previous, [field]: value }));
   };
   const error = (field: string) => errors[field]?.join(' ') ?? null;
-  const pmPeChanging = draft.pmPeId !== base.pmPe.id;
+  const leadProjectEngineerChanging = draft.leadProjectEngineerId !== base.leadProjectEngineer.id;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
-    if (pmPeChanging && draft.reason.trim() === '') {
-      setErrors({ reason: ['Give a reason for changing the PM/PE'] });
+    if (leadProjectEngineerChanging && draft.reason.trim() === '') {
+      setErrors({ reason: ['Give a reason for changing the Lead Project Engineer'] });
       return;
     }
     const body = changedFields(base, draft);
@@ -224,23 +224,27 @@ export function EditProjectDialog({
           </FormField>
         </div>
         <FormField
-          label="PM/PE"
-          error={error('pmPeId')}
-          hint={base.canChangePmPe ? undefined : 'Only an admin can change the PM/PE.'}
+          label="Lead Project Engineer"
+          error={error('leadProjectEngineerId')}
+          hint={
+            base.canChangeLeadProjectEngineer
+              ? undefined
+              : 'Only an admin can change the Lead Project Engineer.'
+          }
         >
           {(props) => (
             <select
               {...props}
-              value={draft.pmPeId}
-              disabled={!base.canChangePmPe}
-              onChange={(event) => set('pmPeId')(event.target.value)}
+              value={draft.leadProjectEngineerId}
+              disabled={!base.canChangeLeadProjectEngineer}
+              onChange={(event) => set('leadProjectEngineerId')(event.target.value)}
             >
-              <StaffOptionGroups staff={staff} current={base.pmPe} />
+              <StaffOptionGroups staff={staff} current={base.leadProjectEngineer} />
             </select>
           )}
         </FormField>
-        {pmPeChanging ? (
-          <FormField label="Reason for changing the PM/PE" error={error('reason')}>
+        {leadProjectEngineerChanging ? (
+          <FormField label="Reason for changing the Lead Project Engineer" error={error('reason')}>
             {(props) => (
               <textarea
                 {...props}

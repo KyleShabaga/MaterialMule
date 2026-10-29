@@ -49,7 +49,7 @@ interface Standing {
   location_code: string;
   location_name: string;
   project_id: string;
-  pm_pe_user_id: string;
+  lead_project_engineer_user_id: string;
   eligible: boolean;
   open_conflict: boolean;
   retention_exempt: boolean;
@@ -72,7 +72,7 @@ export async function disposalStanding(
     db.query<Standing>(
       `SELECT su.id, su.readable_id, su.unit_type, su.status, su.received_date::text,
               ur.effective_retain_until::text, l.id AS location_id, l.code AS location_code,
-              l.name AS location_name, su.project_id, p.pm_pe_user_id, ur.retention_exempt,
+              l.name AS location_name, su.project_id, p.lead_project_engineer_user_id, ur.retention_exempt,
               coalesce(unit_disposal_eligible(su.id, $2::date, $3), false) AS eligible,
               EXISTS (SELECT 1 FROM location_conflict c
                       WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict
@@ -135,7 +135,7 @@ export async function disposalStanding(
 }
 
 /**
- * Standard disposal (MM-T30): eligible list, batch approval and revocation (the project's PM/PE
+ * Standard disposal (MM-T30): eligible list, batch approval and revocation (the project's Lead Project Engineer
  * or a Lab Manager, `disposal.approve`), and the online-only disposal scan (personal accounts,
  * `storage_unit.dispose_scan`). Approval never disposes; removal rechecks everything under the
  * unit's row lock. The MM-T36 post-testing route is separate.
@@ -147,14 +147,14 @@ export class DisposalService {
     private readonly clock: BusinessClock,
   ) {}
 
-  /** 403 before a body is read unless `user` could approve somewhere (Lab Manager or a PM/PE). */
+  /** 403 before a body is read unless `user` could approve somewhere (Lab Manager or a Lead Project Engineer). */
   async assertMayApprove(user: AuthUser): Promise<void> {
     if (user.accountType === 'shared_lab' || user.status !== 'active') {
       throw new ForbiddenException({ code: 'forbidden' });
     }
     if (can(user, 'disposal.approve')) return;
     const { rows } = await this.database.pool.query(
-      'SELECT 1 FROM project WHERE pm_pe_user_id = $1 LIMIT 1',
+      'SELECT 1 FROM project WHERE lead_project_engineer_user_id = $1 LIMIT 1',
       [user.userId],
     );
     if (rows.length === 0) throw new ForbiddenException({ code: 'forbidden' });
@@ -162,10 +162,9 @@ export class DisposalService {
 
   async candidates(user: AuthUser, projectId: string, page = 1): Promise<DisposalCandidates> {
     if (!UUID_PATTERN.test(projectId)) throw new NotFoundException({ code: 'project_not_found' });
-    const { rows: project } = await this.database.pool.query<{ pm_pe_user_id: string }>(
-      'SELECT pm_pe_user_id FROM project WHERE id = $1',
-      [projectId],
-    );
+    const { rows: project } = await this.database.pool.query<{
+      lead_project_engineer_user_id: string;
+    }>('SELECT lead_project_engineer_user_id FROM project WHERE id = $1', [projectId]);
     if (!project[0]) throw new NotFoundException({ code: 'project_not_found' });
     // Every current unit is reachable: a total and pages, never a silent cut-off (MM-T71).
     const { rows } = await this.database.pool.query<{ id: string; total: number }>(
@@ -189,7 +188,9 @@ export class DisposalService {
     return {
       projectId,
       asOf,
-      canApprove: can(user, 'disposal.approve', { pmPeUserId: project[0].pm_pe_user_id }),
+      canApprove: can(user, 'disposal.approve', {
+        leadProjectEngineerUserId: project[0].lead_project_engineer_user_id,
+      }),
       total,
       page,
       pageSize: DISPOSAL_PAGE_SIZE,
@@ -248,7 +249,11 @@ export class DisposalService {
         const asOf = this.clock.today();
         const standing = await disposalStanding(client, unitIds, asOf);
         for (const { unit } of standing.values()) {
-          if (!can(user, 'disposal.approve', { pmPeUserId: unit.pm_pe_user_id })) {
+          if (
+            !can(user, 'disposal.approve', {
+              leadProjectEngineerUserId: unit.lead_project_engineer_user_id,
+            })
+          ) {
             throw new ForbiddenException({ code: 'forbidden' });
           }
         }
@@ -329,13 +334,20 @@ export class DisposalService {
       const unitId = found[0].storage_unit_id;
       // Unit first, then approval: the order removal uses. Authority follows the unit's current
       // project, as removal does.
-      const { rows: units } = await client.query<{ status: string; pm_pe_user_id: string }>(
-        `SELECT su.status, p.pm_pe_user_id FROM storage_unit su
+      const { rows: units } = await client.query<{
+        status: string;
+        lead_project_engineer_user_id: string;
+      }>(
+        `SELECT su.status, p.lead_project_engineer_user_id FROM storage_unit su
          JOIN project p ON p.id = su.project_id WHERE su.id = $1 FOR UPDATE OF su`,
         [unitId],
       );
       const unit = units[0]!;
-      if (!can(user, 'disposal.approve', { pmPeUserId: unit.pm_pe_user_id })) {
+      if (
+        !can(user, 'disposal.approve', {
+          leadProjectEngineerUserId: unit.lead_project_engineer_user_id,
+        })
+      ) {
         throw new ForbiddenException({ code: 'forbidden' });
       }
       const { rows: current } = await client.query<{
@@ -437,7 +449,7 @@ export class DisposalService {
           [unit.id],
         );
         // MM-T70: an approval only counts under the project it was granted for (D19). One from
-        // before a project correction leaves the unit Not approved until the new project's PM/PE
+        // before a project correction leaves the unit Not approved until the new project's Lead Project Engineer
         // or a Lab Manager approves it (unit locked first, then the approval, as revoke does).
         const stale = approvals[0] && approvals[0].project_id !== unit.project_id;
         const approval = stale ? undefined : approvals[0];
@@ -456,7 +468,7 @@ export class DisposalService {
             unit.id,
             unit.readable_id,
             [projectChanged()],
-            `${unit.readable_id} isn’t approved for disposal: it was approved under another project. Its current project’s PM/PE or a Lab Manager must approve it again.`,
+            `${unit.readable_id} isn’t approved for disposal: it was approved under another project. Its current project’s Lead Project Engineer or a Lab Manager must approve it again.`,
           );
         } else if (!approval || unit.status !== 'approved_for_disposal') {
           outcome = scan(

@@ -14,7 +14,7 @@ import { BusinessClock } from './business-clock.js';
 
 // MM-T29 retention (card AC1–AC9, test plan T1–T4, T6–T8) through the real API and the one
 // database calculation (unit_retention). Tested-unit evidence comes from the real MM-T24 route.
-// Fictional data only: DEMO-2601 (A, PM/PE Pat Example `pe`) and DEMO-2602 (B, also `pe`); Lee
+// Fictional data only: DEMO-2601 (A, Lead Project Engineer Pat Example `pe`) and DEMO-2602 (B, also `pe`); Lee
 // Manager (`lm`) Lab Manager; Alex Tester (`tech`) Technician; Jordan Smith (`js`).
 describe.runIf(testDatabaseUrl)('retention (MM-T29)', () => {
   let h: LabHarness;
@@ -273,7 +273,7 @@ describe.runIf(testDatabaseUrl)('retention (MM-T29)', () => {
       ).toMatchObject({
         kind: 'retention_request',
         title: 'Hold requested for DEMO-2601 · 1 unit',
-        routeTag: 'LM · PM/PE',
+        routeTag: 'LM · Lead Project Engineer',
         href: `/projects/${h.projects.a}#retention`,
         reason: 'Client may dispute',
       });

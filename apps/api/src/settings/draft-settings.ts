@@ -11,7 +11,7 @@ import { actorFor } from '../auth/auth.controller.js';
 import type { AuthUser } from '../auth/policy.js';
 import { withTransaction } from '../db/transaction.js';
 
-// Draft auto-delete setting (MM-T45). One row (migration 0019); browsers read it and delete
+// Draft auto-delete setting (MM-T45). One row (draft_auto_delete_setting); browsers read it and delete
 // their own stale receiving drafts when it is on. The server never sees or deletes drafts.
 
 interface SettingRow {

@@ -29,7 +29,7 @@ export function locationKindLabel(kind: LocationKind): string {
   }
 }
 
-/** Matches the database CHECK on location.code once normalised (migration 0001). */
+/** Matches the database CHECK on location.code once normalised (location_code_check). */
 export const LOCATION_CODE_PATTERN = /^[A-Z0-9-]{2,20}$/;
 export const LOCATION_CODE_MESSAGE = 'Use 2–20 letters, digits or hyphens, e.g. WH-C1';
 export const LOCATION_NAME_MAX = 100;

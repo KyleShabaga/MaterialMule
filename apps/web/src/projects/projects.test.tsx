@@ -13,7 +13,7 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { projectListSearchParams, readOnlyMine, readProjectListQuery } from './url-state';
 
-// Fictional data only (MM-T35): DEMO-2601, TH26-01, PM/PE "PE".
+// Fictional data only (MM-T35): DEMO-2601, TH26-01, Lead Project Engineer "PE".
 
 const PROJECT_ID = '00000000-0000-4000-8000-000000000201';
 const PE = { id: 'u-pe', displayName: 'Pat Example', initials: 'PE' };
@@ -36,7 +36,7 @@ const listItem = (overrides: Partial<ProjectListItem> = {}): ProjectListItem => 
   projectNumber: 'DEMO-2601',
   name: 'Riverbank investigation',
   client: 'Example Client',
-  pmPe: PE,
+  leadProjectEngineer: PE,
   reviewEngineer: null,
   testHoleCount: 2,
   inStockUnitCount: 3,
@@ -56,13 +56,13 @@ const detail = (overrides: Partial<ProjectDetail> = {}): ProjectDetail => ({
   projectNumber: 'DEMO-2601',
   name: 'Riverbank investigation',
   client: 'Example Client',
-  pmPe: PE,
+  leadProjectEngineer: PE,
   reviewEngineer: null,
   serverFolderPath: 'P:\\Projects\\DEMO-2601',
   version: 4,
   numberLocked: true,
   canEdit: true,
-  canChangePmPe: true,
+  canChangeLeadProjectEngineer: true,
   unitCount: 3,
   inStockUnitCount: 3,
   testHoles: [
@@ -292,7 +292,7 @@ describe('Project detail (MM-T35)', () => {
   it('hides Edit without permission', async () => {
     stubApi((url) =>
       url.pathname === `/api/projects/${PROJECT_ID}`
-        ? json(200, detail({ canEdit: false, canChangePmPe: false }))
+        ? json(200, detail({ canEdit: false, canChangeLeadProjectEngineer: false }))
         : undefined,
     );
     renderAt(`/projects/${PROJECT_ID}`);
@@ -320,7 +320,7 @@ describe('Project detail (MM-T35)', () => {
     ).toBeInTheDocument();
   });
 
-  it('edit: locked number, a required reason when changing the PM/PE, and field errors', async () => {
+  it('edit: locked number, a required reason when changing the Lead Project Engineer, and field errors', async () => {
     const fetchMock = stubApi((url, init) => {
       if (url.pathname !== `/api/projects/${PROJECT_ID}`) return undefined;
       if (init?.method === 'PATCH') {
@@ -331,7 +331,7 @@ describe('Project detail (MM-T35)', () => {
             errors: [{ field: 'serverFolderPath', code: 'x', message: 'Path is not allowed' }],
           });
         }
-        return json(200, detail({ pmPe: DE, version: 5, serverFolderPath: null }));
+        return json(200, detail({ leadProjectEngineer: DE, version: 5, serverFolderPath: null }));
       }
       return json(200, detail());
     });
@@ -343,9 +343,9 @@ describe('Project detail (MM-T35)', () => {
     );
     expect(dialog).toHaveTextContent("Printed on existing labels, so it can't be changed.");
 
-    // Changing the PM/PE needs a reason before anything is sent.
+    // Changing the Lead Project Engineer needs a reason before anything is sent.
     await userEvent.selectOptions(
-      within(dialog).getByRole('combobox', { name: 'PM/PE' }),
+      within(dialog).getByRole('combobox', { name: 'Lead Project Engineer' }),
       'DE · Dana Example',
     );
     const path = within(dialog).getByRole('textbox', { name: 'Server folder path' });
@@ -353,14 +353,18 @@ describe('Project detail (MM-T35)', () => {
     await userEvent.type(path, 'bad');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(
-      within(dialog).getByRole('textbox', { name: 'Reason for changing the PM/PE' }),
-    ).toHaveAccessibleDescription('Give a reason for changing the PM/PE');
+      within(dialog).getByRole('textbox', {
+        name: 'Reason for changing the Lead Project Engineer',
+      }),
+    ).toHaveAccessibleDescription('Give a reason for changing the Lead Project Engineer');
     expect(
       callsTo(fetchMock, `/api/projects/${PROJECT_ID}`).some((c) => c.init?.method === 'PATCH'),
     ).toBe(false);
 
     await userEvent.type(
-      within(dialog).getByRole('textbox', { name: 'Reason for changing the PM/PE' }),
+      within(dialog).getByRole('textbox', {
+        name: 'Reason for changing the Lead Project Engineer',
+      }),
       'Handover',
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -375,7 +379,7 @@ describe('Project detail (MM-T35)', () => {
     );
     expect(JSON.parse(String(patch.at(-1)!.init!.body))).toEqual({
       version: 4,
-      pmPeId: 'u-de',
+      leadProjectEngineerId: 'u-de',
       reason: 'Handover',
       serverFolderPath: '',
     });

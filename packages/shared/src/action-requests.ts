@@ -9,7 +9,7 @@ export const ACTION_REQUEST_KINDS = [
   'correction',
   'cancellation_request',
   'closure_request',
-  // MM-T29: a hold or extension request, decided by the project's PM/PE or a Lab Manager.
+  // MM-T29: a hold or extension request, decided by the project's Lead Project Engineer or a Lab Manager.
   'retention_request',
 ] as const;
 export type ActionRequestKind = (typeof ACTION_REQUEST_KINDS)[number];
@@ -26,9 +26,9 @@ export type ActionRequestResolution = (typeof ACTION_REQUEST_RESOLUTIONS)[number
 /** Who an unassigned item goes to, as the inbox tags it. */
 export const ACTION_REQUEST_ROUTE_LABEL: Record<ActionRequestKind, string> = {
   correction: 'Lab Managers',
-  cancellation_request: 'Project PM/PE and Lab Managers',
-  closure_request: 'Project PM/PE',
-  retention_request: 'Project PM/PE and Lab Managers',
+  cancellation_request: 'Lead Project Engineer and Lab Managers',
+  closure_request: 'Lead Project Engineer',
+  retention_request: 'Lead Project Engineer and Lab Managers',
 };
 
 export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, string> = {
@@ -46,7 +46,7 @@ export const actionRequestSchema = z.object({
   resolution: z.enum(ACTION_REQUEST_RESOLUTIONS).nullable(),
   /** "Closure requested for LP-001", "Cancellation requested for LP-001 · MC". */
   title: z.string(),
-  /** Short routing tag shown before the title: "PM/PE", "LM", "LM · PM/PE" or the assignee. */
+  /** Short routing tag shown before the title: "Lead Project Engineer", "LM", "LM · Lead Project Engineer" or the assignee. */
   routeTag: z.string(),
   routedTo: z.string(),
   projectId: z.string(),

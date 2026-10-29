@@ -16,10 +16,14 @@ export const TEST_FIXTURES: readonly TestFixture[] = [
   {
     key: 'lab',
     userId: '00000000-0000-4000-8000-000000000104',
-    summary: 'Lab Manager role; no PM/PE assignment or delegation',
+    summary: 'Lab Manager role; no Lead Project Engineer assignment or delegation',
   },
   { key: 'at', userId: '00000000-0000-4000-8000-000000000102', summary: 'Technician' },
-  { key: 'pe', userId: '00000000-0000-4000-8000-000000000101', summary: 'PM/PE of DEMO-2601' },
+  {
+    key: 'pe',
+    userId: '00000000-0000-4000-8000-000000000101',
+    summary: 'Lead Project Engineer of DEMO-2601',
+  },
   {
     key: 'de',
     userId: '00000000-0000-4000-8000-000000000105',

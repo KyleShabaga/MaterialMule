@@ -15,7 +15,7 @@ records each result below. Use fictional data only (project DEMO-2601, test hole
 - Build under test: commit SHA \_\_\_\_\_\_\_\_ (`GET /api/health` shows the version), host \_\_\_\_\_\_\_\_.
 - Devices: scanner serial \_\_\_\_\_\_\_\_; phone model / OS / browser \_\_\_\_\_\_\_\_; LAB station A
   \_\_\_\_\_\_\_\_; LAB station B \_\_\_\_\_\_\_\_.
-- People (personal sign-ins): a Lab Manager (LM), the project's PM/PE (PE) and a Technician (AT).
+- People (personal sign-ins): a Lab Manager (LM), the project's Lead Project Engineer (PE) and a Technician (AT).
 - Units, printed with real labels on DEMO-2601:
   - **U1** a bucket received more than a year ago on its own hole, no program, no hold;
   - **U2** a second bucket like U1;

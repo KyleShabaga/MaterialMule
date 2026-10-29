@@ -70,7 +70,7 @@ interface Scope {
 
 /**
  * Retention holds, extensions and requests (MM-T29). Placing, extending, releasing and deciding
- * requests: the project's PM/PE or a Lab Manager, checked here per project (`retention.manage`).
+ * requests: the project's Lead Project Engineer or a Lab Manager, checked here per project (`retention.manage`).
  * Others ask (`retention.request`). LAB does neither, whoever its station selects. Every change
  * locks what it changes, rechecks it and keeps its own attributable history row.
  */
@@ -83,13 +83,13 @@ export class RetentionService {
 
   /**
    * Refuses (403) before a body is read when `user` can't manage retention anywhere: not LAB, a
-   * Lab Manager, or the PM/PE of at least one project. Each handler still checks the project.
+   * Lab Manager, or the Lead Project Engineer of at least one project. Each handler still checks the project.
    */
   async assertMayManage(user: AuthUser): Promise<void> {
     if (user.accountType === 'shared_lab' || user.status !== 'active') throw forbidden();
     if (can(user, 'retention.manage')) return;
     const { rows } = await this.database.pool.query(
-      'SELECT 1 FROM project WHERE pm_pe_user_id = $1 LIMIT 1',
+      'SELECT 1 FROM project WHERE lead_project_engineer_user_id = $1 LIMIT 1',
       [user.userId],
     );
     if (rows.length === 0) {
@@ -101,9 +101,9 @@ export class RetentionService {
     const { rows } = await this.database.pool.query<{
       id: string;
       project_id: string;
-      pm_pe_user_id: string;
+      lead_project_engineer_user_id: string;
     }>(
-      `SELECT su.id, su.project_id, p.pm_pe_user_id FROM storage_unit su
+      `SELECT su.id, su.project_id, p.lead_project_engineer_user_id FROM storage_unit su
        JOIN project p ON p.id = su.project_id
        WHERE ${UUID_PATTERN.test(idOrCode) ? 'su.id = $1' : 'su.readable_id = upper(btrim($1))'}`,
       [idOrCode],
@@ -120,7 +120,9 @@ export class RetentionService {
       projectId: unit.project_id,
       retention: retention.get(unit.id)!,
       ...decisions,
-      canManage: can(user, 'retention.manage', { pmPeUserId: unit.pm_pe_user_id }),
+      canManage: can(user, 'retention.manage', {
+        leadProjectEngineerUserId: unit.lead_project_engineer_user_id,
+      }),
       canRequest: can(user, 'retention.request'),
     };
   }
@@ -143,7 +145,9 @@ export class RetentionService {
       ...decisions,
       requests,
       counts: { current: counts.rows[0]!.current, onHold: counts.rows[0]!.on_hold },
-      canManage: can(user, 'retention.manage', { pmPeUserId: project.pm_pe_user_id }),
+      canManage: can(user, 'retention.manage', {
+        leadProjectEngineerUserId: project.lead_project_engineer_user_id,
+      }),
       canRequest: can(user, 'retention.request'),
     };
   }
@@ -175,18 +179,23 @@ export class RetentionService {
         release_idempotency_key: string | null;
         release_request_hash: string | null;
         released_by_user_id: string | null;
-        pm_pe_user_id: string;
+        lead_project_engineer_user_id: string;
         scope: string;
       }>(
         `SELECT d.project_id, d.version, d.released_at, d.release_idempotency_key,
-                d.release_request_hash, d.released_by_user_id, p.pm_pe_user_id, d.scope
+                d.release_request_hash, d.released_by_user_id, p.lead_project_engineer_user_id, d.scope
          FROM ${t.table} d JOIN project p ON p.id = d.project_id
          WHERE d.id = $1 FOR UPDATE OF d`,
         [id],
       );
       const row = rows[0];
       if (!row) throw new NotFoundException({ code: `${kind}_not_found` });
-      if (!can(user, 'retention.manage', { pmPeUserId: row.pm_pe_user_id })) throw forbidden();
+      if (
+        !can(user, 'retention.manage', {
+          leadProjectEngineerUserId: row.lead_project_engineer_user_id,
+        })
+      )
+        throw forbidden();
       if (row.released_at) {
         if (
           row.release_idempotency_key === body.idempotencyKey &&
@@ -299,7 +308,7 @@ export class RetentionService {
                    $6, $7, $8, $9)
            RETURNING id`,
           [
-            project.pm_pe_user_id,
+            project.lead_project_engineer_user_id,
             requestId,
             body.projectId,
             user.userId,
@@ -369,19 +378,23 @@ export class RetentionService {
           decided_by_user_id: string | null;
           hold_id: string | null;
           extension_id: string | null;
-          pm_pe_user_id: string;
+          lead_project_engineer_user_id: string;
         }>(
           `SELECT d.project_id, d.kind, d.scope, d.retain_until::text AS retain_until,
                   d.extend_months, d.reason, d.status, d.decision_idempotency_key,
                   d.decision_request_hash, d.decided_by_user_id, d.hold_id, d.extension_id,
-                  p.pm_pe_user_id
+                  p.lead_project_engineer_user_id
            FROM retention_request d JOIN project p ON p.id = d.project_id
            WHERE d.id = $1 FOR UPDATE OF d`,
           [id],
         );
         const request = rows[0];
         if (!request) throw new NotFoundException({ code: 'retention_request_not_found' });
-        if (!can(user, 'retention.manage', { pmPeUserId: request.pm_pe_user_id })) {
+        if (
+          !can(user, 'retention.manage', {
+            leadProjectEngineerUserId: request.lead_project_engineer_user_id,
+          })
+        ) {
           throw forbidden();
         }
         if (request.status !== 'open') {
@@ -492,7 +505,11 @@ export class RetentionService {
         // NO KEY UPDATE conflicts with a disposal removal's FOR SHARE on the project (MM-T30):
         // a new project-wide hold and a removal that didn't see it can't both commit.
         const project = await this.projectFacts(client, body.projectId, 'FOR NO KEY UPDATE');
-        if (!can(user, 'retention.manage', { pmPeUserId: project.pm_pe_user_id })) {
+        if (
+          !can(user, 'retention.manage', {
+            leadProjectEngineerUserId: project.lead_project_engineer_user_id,
+          })
+        ) {
           throw forbidden();
         }
         return this.insertDecision(client, user, kind, body, {
@@ -584,10 +601,10 @@ export class RetentionService {
     db: Pick<PoolClient, 'query'>,
     projectId: string,
     lock: '' | 'FOR SHARE' | 'FOR NO KEY UPDATE' = '',
-  ): Promise<{ id: string; pm_pe_user_id: string }> {
+  ): Promise<{ id: string; lead_project_engineer_user_id: string }> {
     if (!UUID_PATTERN.test(projectId)) throw new NotFoundException({ code: 'project_not_found' });
-    const { rows } = await db.query<{ id: string; pm_pe_user_id: string }>(
-      `SELECT id, pm_pe_user_id FROM project WHERE id = $1 ${lock}`,
+    const { rows } = await db.query<{ id: string; lead_project_engineer_user_id: string }>(
+      `SELECT id, lead_project_engineer_user_id FROM project WHERE id = $1 ${lock}`,
       [projectId],
     );
     if (!rows[0]) throw new NotFoundException({ code: 'project_not_found' });

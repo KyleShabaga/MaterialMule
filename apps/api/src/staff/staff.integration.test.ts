@@ -521,17 +521,19 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
         [ids.opal],
       );
       const before = await positionOf(ids.opal!);
-      const changed = await patchAs(await cookieFor('admin'), ids.opal!, { position: 'pm_pe' });
+      const changed = await patchAs(await cookieFor('admin'), ids.opal!, {
+        position: 'project_engineer',
+      });
       expect(changed.status).toBe(200);
       expect(changed.body).toMatchObject({
-        position: 'pm_pe',
+        position: 'project_engineer',
         displayName: 'Opal Onboarded',
         officialInitials: 'OP',
         roles: ['lab_manager'],
         status: 'active',
       });
       expect(await positionOf(ids.opal!)).toEqual({
-        position: 'pm_pe',
+        position: 'project_engineer',
         position_set_at: before.position_set_at,
       });
     });

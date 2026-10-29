@@ -23,7 +23,7 @@ const ROLE_NAME = /^[a-z_][a-z0-9_]{0,62}$/;
 
 /** Tables the API must not change even though it can change rows elsewhere. */
 const APP_READ_ONLY_TABLES = ['schema_migration'];
-/** Append-only: the API may add rows, never change or remove them (trigger in 0002 too). */
+/** Append-only: the API may add rows, never change or remove them (a trigger enforces it too). */
 const APP_APPEND_ONLY_TABLES = ['audit_event'];
 
 export function assertRoleName(name: string, label: string): void {
@@ -76,7 +76,7 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
     }
 
     await run(`REVOKE ALL ON DATABASE ${database} FROM PUBLIC`, 'database closed to PUBLIC');
-    // CREATE lets migrations add trusted extensions such as pg_trgm (0010) without a superuser.
+    // CREATE lets migrations add trusted extensions such as pg_trgm without a superuser.
     await run(
       `GRANT CONNECT, TEMPORARY, CREATE ON DATABASE ${database} TO ${owner}`,
       'migration role may connect and add trusted extensions',

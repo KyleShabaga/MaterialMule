@@ -73,7 +73,7 @@ export async function activeDelegateIds(db: Db, projectId: string): Promise<stri
  * Every action is a personal-account action: the shared LAB account is refused (403) whoever it
  * selects, because a selected person is attribution only. Review decisions need `test.review`
  * (any internal personal account), marking a correction done needs `test.correction_done` (Lab
- * Manager role only), acceptance needs `test.accept` for this project (its PM/PE or an active
+ * Manager role only), acceptance needs `test.accept` for this project (its Lead Project Engineer or an active
  * delegate; never the Lab Manager or admin role alone).
  *
  * Order: 403, 404, 422 `program_not_open`, 409 (`version_conflict` with the current state,
@@ -130,8 +130,11 @@ export class LabReviewService {
     if (user.accountType === 'shared_lab') throw forbidden();
     const peek = UUID_PATTERN.test(testRequestId)
       ? (
-          await this.database.pool.query<{ project_id: string; pm_pe_user_id: string }>(
-            `SELECT lp.project_id, p.pm_pe_user_id FROM test_request r
+          await this.database.pool.query<{
+            project_id: string;
+            lead_project_engineer_user_id: string;
+          }>(
+            `SELECT lp.project_id, p.lead_project_engineer_user_id FROM test_request r
              JOIN lab_program lp ON lp.id = r.program_id JOIN project p ON p.id = lp.project_id
              WHERE r.id = $1`,
             [testRequestId],
@@ -143,7 +146,7 @@ export class LabReviewService {
       throw new NotFoundException({ code: 'test_request_not_found' });
     }
     const context = {
-      pmPeUserId: peek.pm_pe_user_id,
+      leadProjectEngineerUserId: peek.lead_project_engineer_user_id,
       acceptanceDelegateUserIds: await activeDelegateIds(this.database.pool, peek.project_id),
     };
     if (!can(user, 'test.accept', context)) throw forbidden();
@@ -201,15 +204,15 @@ export class LabReviewService {
       ]);
       const current = (await loadRequest(client, testRequestId))!;
 
-      // Acceptance authority is rechecked under lock: the PM/PE as the project now stands, or the
+      // Acceptance authority is rechecked under lock: the Lead Project Engineer as the project now stands, or the
       // actor's own still-active grant (held so a revocation waits for this transaction).
       let delegationId: string | null = null;
       if (intent.kind === 'accepted') {
-        const { rows: project } = await client.query<{ pm_pe_user_id: string }>(
-          'SELECT pm_pe_user_id FROM project WHERE id = $1 FOR SHARE',
+        const { rows: project } = await client.query<{ lead_project_engineer_user_id: string }>(
+          'SELECT lead_project_engineer_user_id FROM project WHERE id = $1 FOR SHARE',
           [current.project_id],
         );
-        if (project[0]!.pm_pe_user_id !== user.userId) {
+        if (project[0]!.lead_project_engineer_user_id !== user.userId) {
           const { rows: grant } = await client.query<{ id: string }>(
             `SELECT id FROM acceptance_delegation
              WHERE project_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL
@@ -401,11 +404,13 @@ export class LabReviewService {
     const project = await findProject(this.database.pool, projectId);
     if (!project) throw new NotFoundException({ code: 'project_not_found' });
     return loadDelegates(this.database.pool, projectId, {
-      canManage: can(user, 'acceptance_delegation.manage', { pmPeUserId: project.pm_pe_user_id }),
+      canManage: can(user, 'acceptance_delegation.manage', {
+        leadProjectEngineerUserId: project.lead_project_engineer_user_id,
+      }),
     });
   }
 
-  /** Only the project's PM/PE grants. A repeated grant can't stack a second active one. */
+  /** Only the project's Lead Project Engineer grants. A repeated grant can't stack a second active one. */
   async grant(projectId: string, body: unknown, user: AuthUser): Promise<AcceptanceDelegates> {
     return withTransaction(this.database.pool, async (client) => {
       const project = await findProject(client, projectId, 'FOR UPDATE');
@@ -413,7 +418,11 @@ export class LabReviewService {
         if (!can(user, 'acceptance_delegation.manage')) throw forbidden();
         throw new NotFoundException({ code: 'project_not_found' });
       }
-      if (!can(user, 'acceptance_delegation.manage', { pmPeUserId: project.pm_pe_user_id })) {
+      if (
+        !can(user, 'acceptance_delegation.manage', {
+          leadProjectEngineerUserId: project.lead_project_engineer_user_id,
+        })
+      ) {
         throw forbidden();
       }
       const request = parseBody(grantDelegationRequestSchema, body);
@@ -448,11 +457,11 @@ export class LabReviewService {
       if (!delegate) {
         unprocessable('invalid_delegate', 'delegateUserId', 'must be an active staff member');
       }
-      if (delegate.id === project.pm_pe_user_id) {
+      if (delegate.id === project.lead_project_engineer_user_id) {
         unprocessable(
           'invalid_delegate',
           'delegateUserId',
-          'the project’s PM/PE already accepts on this project',
+          'the project’s Lead Project Engineer already accepts on this project',
         );
       }
       const { rows: active } = await client.query(
@@ -498,7 +507,7 @@ export class LabReviewService {
   }
 
   /**
-   * Only the project's PM/PE revokes. Blocks new acceptances at once; acceptances already made
+   * Only the project's Lead Project Engineer revokes. Blocks new acceptances at once; acceptances already made
    * keep their attribution. Revoking an already revoked grant changes nothing.
    */
   async revoke(projectId: string, delegationId: string, user: AuthUser) {
@@ -508,7 +517,11 @@ export class LabReviewService {
         if (!can(user, 'acceptance_delegation.manage')) throw forbidden();
         throw new NotFoundException({ code: 'project_not_found' });
       }
-      if (!can(user, 'acceptance_delegation.manage', { pmPeUserId: project.pm_pe_user_id })) {
+      if (
+        !can(user, 'acceptance_delegation.manage', {
+          leadProjectEngineerUserId: project.lead_project_engineer_user_id,
+        })
+      ) {
         throw forbidden();
       }
       if (!UUID_PATTERN.test(delegationId)) {
@@ -577,8 +590,12 @@ async function reviewResult(db: Db, testRequestId: string): Promise<ReviewResult
 
 async function findProject(db: Db, id: string, lock: '' | 'FOR SHARE' | 'FOR UPDATE' = '') {
   if (!UUID_PATTERN.test(id)) return null;
-  const { rows } = await db.query<{ id: string; pm_pe_user_id: string; project_number: string }>(
-    `SELECT id, pm_pe_user_id, project_number FROM project WHERE id = $1 ${lock}`,
+  const { rows } = await db.query<{
+    id: string;
+    lead_project_engineer_user_id: string;
+    project_number: string;
+  }>(
+    `SELECT id, lead_project_engineer_user_id, project_number FROM project WHERE id = $1 ${lock}`,
     [id],
   );
   return rows[0] ?? null;

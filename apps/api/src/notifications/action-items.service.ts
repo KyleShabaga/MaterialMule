@@ -71,10 +71,10 @@ export class ActionItemsService {
         ? 'ORDER BY a.created_at DESC, a.id LIMIT 500'
         : 'ORDER BY a.resolved_at DESC, a.id LIMIT 200',
     );
-    const pmPe = await this.pmPeOf(rows.map((row) => row.project_id));
+    const leadProjectEngineer = await this.leadProjectEngineerOf(rows.map((row) => row.project_id));
     return {
       items: rows.map((row) =>
-        toActionRequest(row, this.mayReassign(user, row, pmPe.get(row.project_id))),
+        toActionRequest(row, this.mayReassign(user, row, leadProjectEngineer.get(row.project_id))),
       ),
     };
   }
@@ -133,7 +133,7 @@ export class ActionItemsService {
         if (item.status !== 'open') {
           throw new ConflictException({ code: 'action_item_resolved' });
         }
-        if (this.isPersonalRecipient(user, item, item.pm_pe_user_id)) {
+        if (this.isPersonalRecipient(user, item, item.lead_project_engineer_user_id)) {
           throw new ForbiddenException({ code: 'recipient_cannot_reassign' });
         }
         if (item.assigned_user_id === body.toUserId) {
@@ -255,15 +255,18 @@ export class ActionItemsService {
 
   private async view(client: PoolClient, user: AuthUser, id: string): Promise<ActionRequest> {
     const [row] = await loadItemRows(client, 'a.id = $1', [id], '');
-    const pmPe = await this.pmPeOf([row!.project_id], client);
-    return toActionRequest(row!, this.mayReassign(user, row!, pmPe.get(row!.project_id)));
+    const leadProjectEngineer = await this.leadProjectEngineerOf([row!.project_id], client);
+    return toActionRequest(
+      row!,
+      this.mayReassign(user, row!, leadProjectEngineer.get(row!.project_id)),
+    );
   }
 
   private async item(db: Db, id: string, lock: '' | 'FOR UPDATE') {
     if (!UUID_PATTERN.test(id)) throw new NotFoundException({ code: 'action_item_not_found' });
     const { rows } = await db.query<ItemFacts>(
       `SELECT a.id, a.kind, a.status, a.target_role, a.project_id, a.assigned_user_id,
-              p.pm_pe_user_id
+              p.lead_project_engineer_user_id
        FROM action_item a JOIN project p ON p.id = a.project_id
        WHERE a.id = $1 ${lock ? 'FOR UPDATE OF a' : ''}`,
       [id],
@@ -272,37 +275,37 @@ export class ActionItemsService {
     return rows[0];
   }
 
-  private async pmPeOf(projectIds: string[], db: Db = this.database.pool) {
+  private async leadProjectEngineerOf(projectIds: string[], db: Db = this.database.pool) {
     const unique = [...new Set(projectIds)];
     const map = new Map<string, string>();
     if (unique.length === 0) return map;
-    const { rows } = await db.query<{ id: string; pm_pe_user_id: string }>(
-      'SELECT id, pm_pe_user_id FROM project WHERE id = ANY($1::uuid[])',
+    const { rows } = await db.query<{ id: string; lead_project_engineer_user_id: string }>(
+      'SELECT id, lead_project_engineer_user_id FROM project WHERE id = ANY($1::uuid[])',
       [unique],
     );
-    for (const row of rows) map.set(row.id, row.pm_pe_user_id);
+    for (const row of rows) map.set(row.id, row.lead_project_engineer_user_id);
     return map;
   }
 
-  /** The item is personally theirs: assigned to them, or a PM/PE-only request on their project. */
+  /** The item is personally theirs: assigned to them, or a Lead Project Engineer-only request on their project. */
   private isPersonalRecipient(
     user: AuthUser,
     item: { kind: string; assigned_user_id: string | null },
-    pmPeUserId: string | undefined,
+    leadProjectEngineerUserId: string | undefined,
   ): boolean {
     if (item.assigned_user_id) return item.assigned_user_id === user.userId;
-    return item.kind === 'closure_request' && pmPeUserId === user.userId;
+    return item.kind === 'closure_request' && leadProjectEngineerUserId === user.userId;
   }
 
   private mayReassign(
     user: AuthUser,
     row: { kind: string; status: string; assigned_user_id: string | null },
-    pmPeUserId: string | undefined,
+    leadProjectEngineerUserId: string | undefined,
   ): boolean {
     return (
       row.status === 'open' &&
       can(user, 'action_item.reassign') &&
-      !this.isPersonalRecipient(user, row, pmPeUserId)
+      !this.isPersonalRecipient(user, row, leadProjectEngineerUserId)
     );
   }
 }
@@ -314,18 +317,18 @@ interface ItemFacts {
   target_role: string | null;
   project_id: string;
   assigned_user_id: string | null;
-  pm_pe_user_id: string;
+  lead_project_engineer_user_id: string;
 }
 
 /**
  * Who can act on the item through its workflow: Lab Managers for a correction; Lab Managers and
- * the project's PM/PE for a cancellation or retention request; the project's PM/PE for a closure
+ * the project's Lead Project Engineer for a cancellation or retention request; the project's Lead Project Engineer for a closure
  * request.
  * Active personal (or fixture) accounts only, never LAB; the current assignee is left out.
  */
 async function eligiblePeople(db: Db, item: ItemFacts): Promise<PersonSnapshot[]> {
   const lm = item.kind !== 'closure_request';
-  const pmPe = item.kind !== 'correction';
+  const leadProjectEngineer = item.kind !== 'correction';
   const { rows } = await db.query<{
     id: string;
     official_initials: string | null;
@@ -339,7 +342,7 @@ async function eligiblePeople(db: Db, item: ItemFacts): Promise<PersonSnapshot[]
                             WHERE r.user_id = u.id AND r.role = 'lab_manager'))
             OR ($2 AND u.id = $3))
      ORDER BY u.display_name, u.id`,
-    [lm, pmPe, item.pm_pe_user_id, item.assigned_user_id],
+    [lm, leadProjectEngineer, item.lead_project_engineer_user_id, item.assigned_user_id],
   );
   return rows.map((row) => ({
     userId: row.id,

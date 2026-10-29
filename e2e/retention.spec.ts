@@ -33,7 +33,7 @@ test('T5: request → approve on the project page → On hold → release, with 
     .filter({
       hasText: `Client dispute (${unit.readableId})`,
     });
-  await expect(item).toContainText('LM · PM/PE:');
+  await expect(item).toContainText('LM · Lead Project Engineer:');
   await item.getByRole('link', { name: 'Open' }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${DEMO_PROJECT_ID}#retention$`));
   const section = page.getByRole('region', { name: 'Retention', exact: true });

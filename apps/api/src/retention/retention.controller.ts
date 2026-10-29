@@ -17,7 +17,7 @@ import { RetentionService } from './retention.service.js';
 
 /**
  * Retention (MM-T29). Reads: anyone who reads inventory. Holds, extensions, releases and request
- * decisions: the project's PM/PE or a Lab Manager (`retention.manage`, project-scoped, checked in
+ * decisions: the project's Lead Project Engineer or a Lab Manager (`retention.manage`, project-scoped, checked in
  * the handler). Requests: `retention.request` (personal accounts). LAB: 403 on every change,
  * whoever its station selects.
  */

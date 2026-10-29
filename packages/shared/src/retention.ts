@@ -58,11 +58,11 @@ function amountRule<T extends { retainUntil?: string; extendMonths?: number }>(
   }
 }
 
-/** `POST /api/retention/holds` (project PM/PE or Lab Manager). */
+/** `POST /api/retention/holds` (Lead Project Engineer or Lab Manager). */
 export const placeHoldSchema = z.strictObject(scopeFields).superRefine(scopeRule);
 export type PlaceHold = z.output<typeof placeHoldSchema>;
 
-/** `POST /api/retention/extensions` (project PM/PE or Lab Manager). */
+/** `POST /api/retention/extensions` (Lead Project Engineer or Lab Manager). */
 export const setExtensionSchema = z
   .strictObject({ ...scopeFields, ...amountFields })
   .superRefine((v, ctx) => {

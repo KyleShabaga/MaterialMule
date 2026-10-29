@@ -6,7 +6,7 @@ import { shortDateTime } from '../dashboard/format';
 import { fetchDelegates, grantDelegate, revokeDelegate, type WriteResult } from '../lab/api';
 
 // "Acceptance delegates" on the project page (MM-T25, owner decision 2026-10-25). Only the
-// project's PM/PE adds and revokes delegates (the server checks); everyone with a personal
+// project's Lead Project Engineer adds and revokes delegates (the server checks); everyone with a personal
 // account sees who may accept. A delegate may accept tests on this project only, never close a
 // program or change priority. Revoking blocks new acceptances at once; earlier acceptances keep
 // their attribution, and every grant stays in the history.
@@ -15,7 +15,8 @@ function problemText(result: Exclude<WriteResult<unknown>, { ok: true }>): strin
   if (result.kind === 'invalid') {
     return result.errors.map((error) => error.message).join(' ') || 'Check the details.';
   }
-  if (result.kind === 'forbidden') return 'Only the project’s PM/PE manages acceptance delegates.';
+  if (result.kind === 'forbidden')
+    return 'Only the project’s Lead Project Engineer manages acceptance delegates.';
   if (result.kind === 'network') return 'Couldn’t reach Material Mule. Try again.';
   return 'Something went wrong. Try again.';
 }

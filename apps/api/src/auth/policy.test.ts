@@ -14,7 +14,10 @@ function user(overrides: Partial<AuthUser> = {}): AuthUser {
   };
 }
 
-const project: ProjectContext = { pmPeUserId: 'u-pe', acceptanceDelegateUserIds: ['u-de'] };
+const project: ProjectContext = {
+  leadProjectEngineerUserId: 'u-pe',
+  acceptanceDelegateUserIds: ['u-de'],
+};
 
 const LAB_ALLOWED: Permission[] = [
   'receipt.confirm',
@@ -63,14 +66,14 @@ describe('can', () => {
     }
   });
 
-  it('gives LAB no extra authority even if it was assigned a role or made PM/PE', () => {
+  it('gives LAB no extra authority even if it was assigned a role or made Lead Project Engineer', () => {
     const lab = user({
       userId: 'u-lab',
       accountType: 'shared_lab',
       roles: ['admin', 'lab_manager'],
     });
     expect(can(lab, 'staff.manage')).toBe(false);
-    expect(can(lab, 'program.close', { pmPeUserId: 'u-lab' })).toBe(false);
+    expect(can(lab, 'program.close', { leadProjectEngineerUserId: 'u-lab' })).toBe(false);
   });
 
   it('lets any internal personal account correct, review and work lab programs', () => {
@@ -116,14 +119,14 @@ describe('can', () => {
     expect(can(admin, 'disposal.approve', project)).toBe(false);
   });
 
-  it('grants project authority only to that project’s PM/PE', () => {
+  it('grants project authority only to that project’s Lead Project Engineer', () => {
     const pe = user({ userId: 'u-pe' });
     expect(can(pe, 'program.close', project)).toBe(true);
     expect(can(pe, 'test.accept', project)).toBe(true);
     expect(can(pe, 'disposal.approve', project)).toBe(true);
     // Without project context, or on another project, nothing project-scoped.
     expect(can(pe, 'program.close')).toBe(false);
-    expect(can(pe, 'program.close', { pmPeUserId: 'someone-else' })).toBe(false);
+    expect(can(pe, 'program.close', { leadProjectEngineerUserId: 'someone-else' })).toBe(false);
   });
 
   it('D04: a delegate may accept but not close, cancel or set priority', () => {
@@ -134,21 +137,21 @@ describe('can', () => {
     expect(can(delegate, 'program.priority.set', project)).toBe(false);
   });
 
-  it('MM-T35: admins and the project PM/PE edit a project; only admins change the PM/PE', () => {
+  it('MM-T35: admins and the Lead Project Engineer edit a project; only admins change the Lead Project Engineer', () => {
     const admin = user({ userId: 'u-admin', roles: ['admin'] });
     const pe = user({ userId: 'u-pe' });
     const lm = user({ userId: 'u-lm', roles: ['lab_manager'] });
     const lab = user({ userId: 'u-pe', accountType: 'shared_lab', roles: ['admin'] });
     expect(can(admin, 'project.edit', project)).toBe(true);
-    expect(can(admin, 'project.pm_pe.change')).toBe(true);
+    expect(can(admin, 'project.lead_project_engineer.change')).toBe(true);
     expect(can(pe, 'project.edit', project)).toBe(true);
-    expect(can(pe, 'project.edit', { pmPeUserId: 'someone-else' })).toBe(false);
-    expect(can(pe, 'project.pm_pe.change', project)).toBe(false);
+    expect(can(pe, 'project.edit', { leadProjectEngineerUserId: 'someone-else' })).toBe(false);
+    expect(can(pe, 'project.lead_project_engineer.change', project)).toBe(false);
     expect(can(user(), 'project.edit', project)).toBe(false);
     expect(can(user({ userId: 'u-de' }), 'project.edit', project)).toBe(false);
     expect(can(lm, 'project.edit', project)).toBe(false);
     expect(can(lab, 'project.edit', project)).toBe(false);
-    expect(can(lab, 'project.pm_pe.change')).toBe(false);
+    expect(can(lab, 'project.lead_project_engineer.change')).toBe(false);
   });
 
   it('MM-T45: only Lab Managers and admins change the draft auto-delete setting', () => {

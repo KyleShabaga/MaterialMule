@@ -8,10 +8,10 @@ import { REVIEW_STATES, REVIEW_STATE_LABEL, type ReviewState } from './lab-revie
 
 // Program lifecycle, cancellation and repeats (MM-T26).
 //
-// A submitted program is shown as Open. The project's PM/PE closes it only when it has at least
+// A submitted program is shown as Open. The project's Lead Project Engineer closes it only when it has at least
 // one test request and every request is Accepted or Cancelled with a recorded reason. An empty
 // program is never closable (no vacuous "all tests resolved"). Closing never disposes material,
-// approves disposal or changes retention. Reopening (PM/PE or Lab Manager, reason required)
+// approves disposal or changes retention. Reopening (Lead Project Engineer or Lab Manager, reason required)
 // changes only the program's status.
 //
 // Not enabled (product edges the card leaves unresolved; refused until the owner decides):
@@ -167,14 +167,14 @@ const reasonSchema = z
     error: `must be at most ${LIFECYCLE_REASON_MAX_LENGTH} characters`,
   });
 
-/** `POST /api/lab-programs/:id/close` (the project's PM/PE). `version` is the program's. */
+/** `POST /api/lab-programs/:id/close` (the project's Lead Project Engineer). `version` is the program's. */
 export const closeProgramRequestSchema = z.strictObject({
   version: versionSchema,
   idempotencyKey: idSchema,
 });
 export type CloseProgramRequest = z.output<typeof closeProgramRequestSchema>;
 
-/** `POST /api/lab-programs/:id/reopen` (PM/PE or Lab Manager). */
+/** `POST /api/lab-programs/:id/reopen` (Lead Project Engineer or Lab Manager). */
 export const reopenProgramRequestSchema = z.strictObject({
   reason: reasonSchema,
   version: versionSchema,
@@ -189,7 +189,7 @@ export const lifecycleRequestSchema = z.strictObject({
 });
 export type LifecycleRequest = z.output<typeof lifecycleRequestSchema>;
 
-/** `POST /api/test-requests/:id/cancel` (PM/PE of the project or Lab Manager). */
+/** `POST /api/test-requests/:id/cancel` (Lead Project Engineer of the project or Lab Manager). */
 export const cancelTestRequestSchema = z.strictObject({
   reason: reasonSchema,
   version: versionSchema,
@@ -423,7 +423,7 @@ export type LifecycleEvent = z.infer<typeof lifecycleEventSchema>;
 
 export const CLOSE_BLOCKED_REASONS = {
   personal_sign_in: 'Closing a program needs a personal sign-in',
-  not_pm_pe: 'Only the project’s PM/PE can close this program',
+  not_lead_project_engineer: 'Only the project’s Lead Project Engineer can close this program',
   not_open: 'This program isn’t open',
   unresolved: 'Some tests aren’t resolved',
   empty_program: 'This program has no test requests',

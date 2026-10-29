@@ -54,7 +54,7 @@ test('AC1: the bootstrap administrator gets in as an active admin', async ({ pag
   test.skip(testInfo.project.name !== 'desktop-chromium', 'One bootstrap account per run');
   await signInWithMicrosoft(page, 'Avery Bootstrap');
   await expect(page).toHaveURL(/\/onboarding\/position$/);
-  await page.getByRole('radio', { name: /Project Manager/ }).check();
+  await page.getByRole('radio', { name: /Project Engineer/ }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByLabel('Signed in user')).toContainText('Avery Bootstrap');

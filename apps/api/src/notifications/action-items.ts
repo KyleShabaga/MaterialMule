@@ -110,9 +110,9 @@ export function hrefOf(row: Pick<ItemRow, 'program_id' | 'project_id'>): string 
 
 const ROUTE_TAG: Record<ActionRequestKind, string> = {
   correction: 'LM',
-  cancellation_request: 'LM · PM/PE',
-  closure_request: 'PM/PE',
-  retention_request: 'LM · PM/PE',
+  cancellation_request: 'LM · Lead Project Engineer',
+  closure_request: 'Lead Project Engineer',
+  retention_request: 'LM · Lead Project Engineer',
 };
 
 function person(id: string | null, initials: string | null, name: string | null) {

@@ -31,6 +31,7 @@
     "db:seed:dev": "npm run db:seed:dev -w @materialmule/api",
     "db:reset:test": "npm run db:reset:test -w @materialmule/api",
     "db:reset:dev": "npm run db:reset:dev -w @materialmule/api",
+    "db:rebuild:dev": "npm run db:rebuild:dev -w @materialmule/api --",
     "bench:seed": "npm run bench:seed -w @materialmule/api --",
     "bench:load": "npm run bench:load -w @materialmule/api --",
     "bench:explain": "npm run bench:explain -w @materialmule/api --"

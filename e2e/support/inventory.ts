@@ -47,7 +47,7 @@ export async function insertInventoryFixture(): Promise<InventoryFixture> {
       const holeIds: Record<string, string> = {};
       for (const key of ['A', 'B'] as const) {
         const project = await client.query<{ id: string }>(
-          `INSERT INTO project (project_number, name, client, pm_pe_user_id)
+          `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id)
            VALUES ($1, $2, 'Example Client', $3) RETURNING id`,
           [`E2E-${tag}-${key}`, `Inventory demo ${key}`, PE_ID],
         );

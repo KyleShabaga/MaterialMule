@@ -21,18 +21,17 @@ tested unit never changes a test, review, acceptance or program (MM-T36 lane con
 ## MM-T25 review transitions
 
 One table in `packages/shared/src/lab-review.ts` (`REVIEW_TRANSITIONS`), enforced by
-`apps/api/src/lab/review.service.ts` and by the `test_request_status_guard` trigger
-(migration 0040).
+`apps/api/src/lab/review.service.ts` and by the `test_request_status_guard` trigger.
 
-| From            | Action                  | Who (personal accounts only)            | To                               |
-| --------------- | ----------------------- | --------------------------------------- | -------------------------------- |
-| Completed       | Send to review (MM-T24) | personal, or LAB naming a person        | Review / Awaiting review         |
-| Awaiting review | Mark review complete    | any internal personal account           | Review complete                  |
-| Awaiting review | Return for correction   | any internal personal account + comment | Returned to Lab Manager (+ item) |
-| Returned        | Mark correction done    | Lab Manager role + note                 | Correction done (item resolved)  |
-| Correction done | Mark review complete    | any internal personal account           | Review complete                  |
-| Correction done | Return for correction   | any internal personal account + comment | Returned (new cycle, new item)   |
-| Review complete | Accept                  | project PM/PE or active delegate        | Accepted                         |
+| From            | Action                  | Who (personal accounts only)             | To                               |
+| --------------- | ----------------------- | ---------------------------------------- | -------------------------------- |
+| Completed       | Send to review (MM-T24) | personal, or LAB naming a person         | Review / Awaiting review         |
+| Awaiting review | Mark review complete    | any internal personal account            | Review complete                  |
+| Awaiting review | Return for correction   | any internal personal account + comment  | Returned to Lab Manager (+ item) |
+| Returned        | Mark correction done    | Lab Manager role + note                  | Correction done (item resolved)  |
+| Correction done | Mark review complete    | any internal personal account            | Review complete                  |
+| Correction done | Return for correction   | any internal personal account + comment  | Returned (new cycle, new item)   |
+| Review complete | Accept                  | Lead Project Engineer or active delegate | Accepted                         |
 
 Everything else is refused (422 `invalid_transition` / `review_not_complete`) with no change.
 
@@ -48,16 +47,16 @@ Integration tests: `apps/api/src/lab/review.integration.test.ts` (real PostgreSQ
 `packages/shared/src/lab-review.test.ts`, `apps/web/src/lab/review.test.tsx`. E2E:
 `e2e/lab-review.spec.ts`. Permission sweep: `apps/api/src/security/permission-matrix.security.test.ts`.
 
-| AC  | Behaviour                                                                         | Code                                                  | Evidence                                                     |
-| --- | --------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
-| AC1 | Return keeps status Review, sub-state Returned, Lab Manager action item           | `LabReviewService.review`, `action_item`              | "AC1/AC2/R02"; E2E T4                                        |
-| AC2 | Return without a comment is rejected                                              | `reviewDecisionRequestSchema`, DB comment check       | "AC1/AC2/R02"; shared unit test                              |
-| AC3 | PM/PE accept refused until correction done and review complete again              | `decide()` accept guard, DB trigger                   | "AC3/R03/R04"; E2E T4                                        |
-| AC4 | Lab Manager without delegation → 403                                              | `accept()` authority, `can(test.accept)`              | "AC4/R05"                                                    |
-| AC5 | Delegate accepts on its project only; after revoke 403, earlier acceptance kept   | `acceptance_delegation`, in-transaction grant recheck | "AC5/AC6/R06/R12"                                            |
-| AC6 | Delegate can't close or change priority                                           | `DELEGATE_PERMISSIONS` = accept only                  | "AC5/AC6/R06/R12" (priority 403, `can(program.close)` false) |
-| AC7 | Two LAB sessions: 403 on review, correction-done, accept, delegation              | `LabReviewController` policies, service LAB check     | "AC7/R09/T5"; E2E T5; sweep                                  |
-| AC8 | Competing decisions: no lost correction or duplicates; accept after revoke denied | version check under row lock, share/update locks      | "AC8/R08", "R07/T6", "R10"                                   |
+| AC  | Behaviour                                                                            | Code                                                  | Evidence                                                     |
+| --- | ------------------------------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------ |
+| AC1 | Return keeps status Review, sub-state Returned, Lab Manager action item              | `LabReviewService.review`, `action_item`              | "AC1/AC2/R02"; E2E T4                                        |
+| AC2 | Return without a comment is rejected                                                 | `reviewDecisionRequestSchema`, DB comment check       | "AC1/AC2/R02"; shared unit test                              |
+| AC3 | Lead Project Engineer accept refused until correction done and review complete again | `decide()` accept guard, DB trigger                   | "AC3/R03/R04"; E2E T4                                        |
+| AC4 | Lab Manager without delegation → 403                                                 | `accept()` authority, `can(test.accept)`              | "AC4/R05"                                                    |
+| AC5 | Delegate accepts on its project only; after revoke 403, earlier acceptance kept      | `acceptance_delegation`, in-transaction grant recheck | "AC5/AC6/R06/R12"                                            |
+| AC6 | Delegate can't close or change priority                                              | `DELEGATE_PERMISSIONS` = accept only                  | "AC5/AC6/R06/R12" (priority 403, `can(program.close)` false) |
+| AC7 | Two LAB sessions: 403 on review, correction-done, accept, delegation                 | `LabReviewController` policies, service LAB check     | "AC7/R09/T5"; E2E T5; sweep                                  |
+| AC8 | Competing decisions: no lost correction or duplicates; accept after revoke denied    | version check under row lock, share/update locks      | "AC8/R08", "R07/T6", "R10"                                   |
 
 Also covered: R01 ordered route with actor/time, R02, R04 second cycle keeps history, R10 exact
 retry, R12 rename keeps attribution, closed program refuses decisions, database rules (acceptance
@@ -83,19 +82,19 @@ the actor's grant `FOR SHARE`; revocation takes the grant `FOR UPDATE`.
 
 One shared module, `packages/shared/src/lab-lifecycle.ts` (closure eligibility, cancellable and
 repeatable statuses, request schemas), enforced by `apps/api/src/lab/lifecycle.service.ts` and
-`amendments.service.ts` and by the database (migrations 0050, 0051).
+`amendments.service.ts` and by the database (the schema baseline).
 
-| Program state | Action                                       | Who (personal accounts only)           | Result                                                             |
-| ------------- | -------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------ |
-| Open          | Close                                        | project PM/PE (never a delegate)       | Closed, if ≥ 1 test and every test Accepted or reasoned-Cancelled  |
-| Open          | Request closure                              | any internal personal account + reason | action item for the PM/PE; program stays Open                      |
-| Closed        | Reopen                                       | project PM/PE or Lab Manager + reason  | Open; every test keeps its status, acceptance and history          |
-| Open          | Cancel a test (Requested … In review)        | project PM/PE or Lab Manager + reason  | Cancelled; resolves its open correction / cancellation request     |
-| Open          | Request cancellation                         | any internal personal account + reason | action item; test unchanged                                        |
-| Open          | Repeat an Accepted test                      | any internal personal account          | new Requested test linked by `repeat_of_id`; original unchanged    |
-| Open          | Change sample/depth/test of an Accepted test | any internal personal account + reason | only that test → Requested (identity revision); siblings unchanged |
-| Open          | Amend: add tests / lines / later receipts    | any internal personal account          | numbered amendment; frozen coverage only appended to               |
-| Closed        | Any of the above except Reopen               | anyone                                 | 422 `program_not_open` (reopen first; never auto-reopened)         |
+| Program state | Action                                       | Who (personal accounts only)                  | Result                                                             |
+| ------------- | -------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| Open          | Close                                        | Lead Project Engineer (never a delegate)      | Closed, if ≥ 1 test and every test Accepted or reasoned-Cancelled  |
+| Open          | Request closure                              | any internal personal account + reason        | action item for the Lead Project Engineer; program stays Open      |
+| Closed        | Reopen                                       | Lead Project Engineer or Lab Manager + reason | Open; every test keeps its status, acceptance and history          |
+| Open          | Cancel a test (Requested … In review)        | Lead Project Engineer or Lab Manager + reason | Cancelled; resolves its open correction / cancellation request     |
+| Open          | Request cancellation                         | any internal personal account + reason        | action item; test unchanged                                        |
+| Open          | Repeat an Accepted test                      | any internal personal account                 | new Requested test linked by `repeat_of_id`; original unchanged    |
+| Open          | Change sample/depth/test of an Accepted test | any internal personal account + reason        | only that test → Requested (identity revision); siblings unchanged |
+| Open          | Amend: add tests / lines / later receipts    | any internal personal account                 | numbered amendment; frozen coverage only appended to               |
+| Closed        | Any of the above except Reopen               | anyone                                        | 422 `program_not_open` (reopen first; never auto-reopened)         |
 
 LAB is refused (403) on every route above, whoever the station selects. Closing never changes a
 storage unit, retention, hold or disposal; physical removal of a tested unit (MM-T36) never
@@ -137,18 +136,18 @@ Integration tests (real PostgreSQL): `apps/api/src/lab/lifecycle.integration.tes
 `apps/web/src/lab/lifecycle.test.tsx`. E2E: `e2e/lab-lifecycle.spec.ts`. Permission sweep:
 `apps/api/src/security/permission-matrix.security.test.ts`.
 
-| AC   | Behaviour                                                              | Code                                                     | Evidence                                            |
-| ---- | ---------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------- |
-| AC1  | A test still in Review blocks closure and is listed                    | `close()`, `closureEligibility`, closure guard           | "L01/AC1"; shared T1; E2E T6                        |
-| AC2  | All Accepted / reasoned-Cancelled → PM/PE closes; delegate can't       | `program.close` (PM/PE only), closure guard              | "L02/L03/AC2/AC8", "L12"; E2E T6                    |
-| AC3  | Depth change on one of two accepted tests resets only that one         | `changeRequest()`, identity revision, status guard       | "AC3/L04/T2"                                        |
-| AC4  | Closed program refuses amend/repeat until PM/PE or Lab Manager reopens | `program_not_open` checks, insert guards                 | "AC4/L06/AC5/L05", amendments "adds tests … closed" |
-| AC5  | Repeat links to the original; original keeps its history               | `repeat()`, `repeat_of_id`, repeat insert guard          | "AC4/L06/AC5/L05", "L11"                            |
-| AC6  | Technician cancel → 403; their request becomes an action item          | `test.cancel` / `test.cancel_request`                    | "AC6"; E2E AC6                                      |
-| AC7  | Later receipt included by amendment is listed; original snapshot kept  | `amend()` `includeLaterReceipts`, snapshot guard         | "AC7/L07/T5", "Grabs/SPT later receipts"            |
-| AC8  | Closing changes no storage unit                                        | close touches only `lab_program` / events / items        | "L02/L03/AC2/AC8" (whole row compared)              |
-| AC9  | Two LAB contexts: 403 on every lifecycle/request endpoint              | route policies + service LAB checks                      | "AC9/L16"; E2E T7; sweep                            |
-| AC10 | LAB progress vs personal cancel/close resolve on latest state; retries | versions under row locks, program lock order, retry keys | "AC10/L10", "L09", "L11", "L15", retry checks       |
+| AC   | Behaviour                                                                              | Code                                                        | Evidence                                            |
+| ---- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------- |
+| AC1  | A test still in Review blocks closure and is listed                                    | `close()`, `closureEligibility`, closure guard              | "L01/AC1"; shared T1; E2E T6                        |
+| AC2  | All Accepted / reasoned-Cancelled → Lead Project Engineer closes; delegate can't       | `program.close` (Lead Project Engineer only), closure guard | "L02/L03/AC2/AC8", "L12"; E2E T6                    |
+| AC3  | Depth change on one of two accepted tests resets only that one                         | `changeRequest()`, identity revision, status guard          | "AC3/L04/T2"                                        |
+| AC4  | Closed program refuses amend/repeat until Lead Project Engineer or Lab Manager reopens | `program_not_open` checks, insert guards                    | "AC4/L06/AC5/L05", amendments "adds tests … closed" |
+| AC5  | Repeat links to the original; original keeps its history                               | `repeat()`, `repeat_of_id`, repeat insert guard             | "AC4/L06/AC5/L05", "L11"                            |
+| AC6  | Technician cancel → 403; their request becomes an action item                          | `test.cancel` / `test.cancel_request`                       | "AC6"; E2E AC6                                      |
+| AC7  | Later receipt included by amendment is listed; original snapshot kept                  | `amend()` `includeLaterReceipts`, snapshot guard            | "AC7/L07/T5", "Grabs/SPT later receipts"            |
+| AC8  | Closing changes no storage unit                                                        | close touches only `lab_program` / events / items           | "L02/L03/AC2/AC8" (whole row compared)              |
+| AC9  | Two LAB contexts: 403 on every lifecycle/request endpoint                              | route policies + service LAB checks                         | "AC9/L16"; E2E T7; sweep                            |
+| AC10 | LAB progress vs personal cancel/close resolve on latest state; retries                 | versions under row locks, program lock order, retry keys    | "AC10/L10", "L09", "L11", "L15", retry checks       |
 
 Empty-program rule: "empty-program rule …" (API and database) and E2E "Empty-program rule".
 Lane B contract: "Lane B contract: a cancelled test is no longer completed-test evidence; a
@@ -178,5 +177,5 @@ includeLaterReceipts?}` → 409 `coverage_changed` with the current coverage of 
   (literally `cancelled`).
 - `completedTestEvidence(db, unitId)` excludes links whose test is now cancelled and returns
   `request_status`. A test reset by an accepted-request change keeps its earlier completion
-  evidence; `test_request_unit_link` is unique per completion and unit (0051).
+  evidence; `test_request_unit_link` is unique per completion and unit.
 - Nothing here gates or performs physical removal, and removal changes no test or program.

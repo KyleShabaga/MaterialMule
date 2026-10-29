@@ -14,12 +14,12 @@ export async function insertUser(pool: Pool, initials = 'AT'): Promise<string> {
 export async function insertProject(
   pool: Pool,
   projectNumber: string,
-  pmPeUserId: string,
+  leadProjectEngineerUserId: string,
 ): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO project (project_number, name, client, pm_pe_user_id)
+    `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id)
      VALUES ($1, 'Fictional project', 'Example Client', $2) RETURNING id`,
-    [projectNumber, pmPeUserId],
+    [projectNumber, leadProjectEngineerUserId],
   );
   return rows[0]!.id;
 }

@@ -14,7 +14,7 @@ const PE = {
   id: '00000000-0000-4000-8000-000000000101',
   displayName: 'Pat Example',
   initials: 'PE',
-  position: 'pm_pe' as const,
+  position: 'project_engineer' as const,
 };
 const AT = {
   id: '00000000-0000-4000-8000-000000000102',
@@ -27,7 +27,7 @@ const westPine: ProjectSummary = {
   projectNumber: '67997',
   name: 'West Pine Creek Ph.3',
   client: 'Jacobs Example',
-  pmPe: PE,
+  leadProjectEngineer: PE,
 };
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
@@ -119,7 +119,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(screen.getByLabelText('Project number')).toHaveValue('67997');
     expect(screen.getByLabelText('Project name')).toHaveValue('West Pine Creek Ph.3');
     expect(screen.getByLabelText('Client')).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('PM/PE')).toHaveValue('Pat Example');
+    expect(screen.getByLabelText('Lead Project Engineer')).toHaveValue('Pat Example');
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/projects/search?q=679&limit=10',
       expect.anything(),
@@ -133,7 +133,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       projectNumber: '70001',
       name: 'Example Ridge',
       client: 'Example Client',
-      pmPe: PE,
+      leadProjectEngineer: PE,
     };
     let sent: unknown;
     renderReceive({
@@ -152,20 +152,20 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(within(form).getByLabelText('Project number')).toHaveValue('70001');
     await user.type(within(form).getByLabelText('Project name'), 'Example Ridge');
     await user.type(within(form).getByLabelText('Client'), 'Example Client');
-    await user.selectOptions(within(form).getByLabelText('PM/PE'), PE.id);
+    await user.selectOptions(within(form).getByLabelText('Lead Project Engineer'), PE.id);
     await user.click(within(form).getByRole('button', { name: 'Save project' }));
 
     expect(await screen.findByLabelText('Project name')).toHaveValue('Example Ridge');
     expect(sent).toMatchObject({
       projectNumber: '70001',
-      pmPeUserId: PE.id,
+      leadProjectEngineerUserId: PE.id,
       receiverUserId: AT.id,
     });
     expect(screen.getByLabelText('Description (optional)')).toHaveValue('Four buckets');
     expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
   });
 
-  describe('MM-T66 UI-04: Add project lists only PM/PE staff', () => {
+  describe('MM-T66 UI-04: Add project lists only Lead Project Engineer staff', () => {
     // GET /api/staff/active already returns only active personal accounts (never pending,
     // disabled or LAB; proven in the API's staff tests). Admin authority isn't a position.
     const person = (initials: string, displayName: string, position: string | null, n: number) => ({
@@ -175,13 +175,13 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       position,
     });
     const STAFF = [
-      person('PM', 'Pam Manager', 'pm_pe', 1),
+      person('PJ', 'Pia Projecteng', 'project_engineer', 1),
       person('EN', 'Eli Engineer', 'engineer', 2),
       person('TE', 'Tia Technician', 'technician', 3),
       person('LM', 'Lee Labmanager', 'lab_manager', 4),
       person('NP', 'Nia Noposition', null, 5),
       person('AD', 'Ada Admin', null, 6),
-      person('PX', 'Pax Second-Pm', 'pm_pe', 7),
+      person('PX', 'Pax Second-Eng', 'project_engineer', 7),
     ];
 
     async function openAddProject(staff: unknown[]) {
@@ -195,39 +195,43 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       return { user, form: screen.getByRole('group', { name: 'Add project' }) };
     }
 
-    it('offers active pm_pe staff only, in one list without groups', async () => {
+    it('offers active project_engineer staff only, in one list without groups', async () => {
       const { form } = await openAddProject(STAFF);
-      const select = within(form).getByLabelText('PM/PE');
+      const select = within(form).getByLabelText('Lead Project Engineer');
       await vi.waitFor(() =>
         expect(
           within(select)
             .getAllByRole('option')
             .map((o) => o.textContent),
-        ).toEqual(['Choose a staff member', 'PM · Pam Manager', 'PX · Pax Second-Pm']),
+        ).toEqual(['Choose a staff member', 'PJ · Pia Projecteng', 'PX · Pax Second-Eng']),
       );
       expect(select.querySelector('optgroup')).toBeNull();
-      expect(within(form).getByText('Lists active staff whose position is PM/PE.')).toBeVisible();
+      expect(
+        within(form).getByText('Lists active staff whose position is Project Engineer.'),
+      ).toBeVisible();
     });
 
     it('explains an empty list and never substitutes someone else', async () => {
-      const { user, form } = await openAddProject(STAFF.filter((p) => p.position !== 'pm_pe'));
+      const { user, form } = await openAddProject(
+        STAFF.filter((p) => p.position !== 'project_engineer'),
+      );
       expect(
-        await within(form).findByText(/Nobody active has the PM\/PE position yet\./),
+        await within(form).findByText(/Nobody active has the Project Engineer position yet\./),
       ).toBeVisible();
-      const select = within(form).getByLabelText('PM/PE');
+      const select = within(form).getByLabelText('Lead Project Engineer');
       expect(
         within(select)
           .getAllByRole('option')
           .map((o) => o.textContent),
-      ).toEqual(['No PM/PE available']);
+      ).toEqual(['No Lead Project Engineer available']);
       await user.type(within(form).getByLabelText('Project name'), 'Example');
       await user.type(within(form).getByLabelText('Client'), 'Example Client');
       await user.click(within(form).getByRole('button', { name: 'Save project' }));
-      expect(within(form).getByText('PM/PE is required')).toBeInTheDocument();
+      expect(within(form).getByText('Lead Project Engineer is required')).toBeInTheDocument();
     });
   });
 
-  it('AC5: shows field errors for a missing client and PM/PE without calling the API', async () => {
+  it('AC5: shows field errors for a missing client and Lead Project Engineer without calling the API', async () => {
     const user = userEvent.setup();
     const fetchMock = renderReceive({ 'GET /api/projects/search': () => json(200, []) });
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), '70002');
@@ -237,7 +241,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     await user.click(within(form).getByRole('button', { name: 'Save project' }));
 
     expect(within(form).getByText('Client is required')).toBeInTheDocument();
-    expect(within(form).getByText('PM/PE is required')).toBeInTheDocument();
+    expect(within(form).getByText('Lead Project Engineer is required')).toBeInTheDocument();
     expect(within(form).getByLabelText('Client')).toHaveAttribute('aria-invalid', 'true');
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
@@ -253,7 +257,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     const form = screen.getByRole('group', { name: 'Add project' });
     await user.type(within(form).getByLabelText('Project name'), 'Again');
     await user.type(within(form).getByLabelText('Client'), 'Example Client');
-    await user.selectOptions(within(form).getByLabelText('PM/PE'), PE.id);
+    await user.selectOptions(within(form).getByLabelText('Lead Project Engineer'), PE.id);
     await user.click(within(form).getByRole('button', { name: 'Save project' }));
 
     expect(

@@ -145,7 +145,8 @@ export function RetentionForm({
       </button>
       {mode === 'request' ? (
         <p className="field-hint">
-          The project’s PM/PE and the Lab Managers decide; nothing changes until one of them does.
+          The project’s Lead Project Engineer and the Lab Managers decide; nothing changes until one
+          of them does.
         </p>
       ) : null}
     </form>

@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Microsoft sign-in and profile onboarding (MM-T05).
 
 /** App positions a person picks at first sign-in. They describe the work; they grant nothing. */
-export const POSITIONS = ['technician', 'engineer', 'pm_pe', 'lab_manager'] as const;
+export const POSITIONS = ['technician', 'engineer', 'project_engineer', 'lab_manager'] as const;
 export const positionSchema = z.enum(POSITIONS);
 export type Position = z.infer<typeof positionSchema>;
 
@@ -16,10 +16,10 @@ export const POSITION_LABELS: Record<Position, { label: string; description: str
     label: 'Engineer (Eng)',
     description: 'Requests and reviews lab testing for projects.',
   },
-  pm_pe: {
-    label: 'Project Manager / Project Engineer (PM/PE)',
+  project_engineer: {
+    label: 'Project Engineer',
     description:
-      'Leads projects. Project authority comes from project assignments, not this choice.',
+      'Works on and leads projects. Project authority comes from project assignments, not this choice.',
   },
   lab_manager: {
     label: 'Lab Manager',

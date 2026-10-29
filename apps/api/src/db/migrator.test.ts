@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createTestSchema, testDatabaseUrl, type TestSchema } from '../test-support/database.js';
 import { insertProject, insertUser } from '../test-support/fixtures.js';
-import { MigrationError, migrate, readMigrations, type MigrationFile } from './migrator.js';
+import {
+  MigrationError,
+  RETIRED_LINEAGE_MESSAGE,
+  migrate,
+  readMigrations,
+  type MigrationFile,
+} from './migrator.js';
 import { SeedRefusedError, runSeed } from './seed.js';
 
 function extraMigration(version: string, sql: string): MigrationFile {
@@ -11,7 +17,7 @@ function extraMigration(version: string, sql: string): MigrationFile {
 describe('readMigrations', () => {
   it('reads the repository migrations in version order with stable checksums', async () => {
     const files = await readMigrations();
-    expect(files[0]).toMatchObject({ version: '0001', name: 'initial_schema' });
+    expect(files[0]).toMatchObject({ version: '0001', name: 'baseline' });
     const versions = files.map((f) => f.version);
     expect(versions).toEqual([...versions].sort());
     const again = await readMigrations();
@@ -32,7 +38,7 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
   it('applies everything once and is a no-op the second time', async () => {
     db = await createTestSchema();
     const first = await migrate(db.pool);
-    expect(first.applied).toContain('0001_initial_schema');
+    expect(first.applied).toEqual(['0001_baseline']);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);
     expect(second.alreadyApplied).toContain('0001');
@@ -81,81 +87,21 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
     expect(rows[0]).toEqual({ table_exists: null, recorded: 0 });
   });
 
-  it('MM-T44: 0024 confirms admin-assigned initials only from audit evidence', async () => {
+  it('MM-AO02: refuses a database built from the retired pre-release lineage', async () => {
     db = await createTestSchema();
-    const all = await readMigrations();
-    const before0024 = all.filter((m) => m.version < '0024');
-    expect(all.some((m) => m.version === '0024')).toBe(true);
-    await migrate(db.pool, before0024);
-    const pool = db.pool;
-
-    const user = async (name: string, initials: string | null) =>
-      (
-        await pool.query<{ id: string }>(
-          `INSERT INTO app_user (display_name, official_initials, account_type, status)
-           VALUES ($1, $2, 'personal', 'active') RETURNING id`,
-          [name, initials],
-        )
-      ).rows[0]!.id;
-    const event = (
-      action: string,
-      entityId: string,
-      actorId: string | null,
-      initials: string,
-      at: string,
-      accountType = 'personal',
-    ) =>
-      pool.query(
-        `INSERT INTO audit_event (occurred_at, action, entity_type, entity_id, actor_user_id,
-                                  actor_account_type, after_values)
-         VALUES ($1, $2, 'app_user', $3, $4, $5, $6)`,
-        [at, action, entityId, actorId, accountType, { officialInitials: initials }],
-      );
-    const adminA = await user('Avery Admin', 'AA');
-    const adminB = await user('Blake Admin', 'BA');
-    // Pre-provisioned by A: confirmed by A at the event time.
-    const preprovisioned = await user('Review New Staff', 'RS');
-    await event('staff.preprovisioned', preprovisioned, adminA, 'RS', '2026-10-01T15:00:00Z');
-    // Assigned by A, then changed by B: B's change is the evidence.
-    const changed = await user('Casey Changed', 'CC');
-    await event('staff.preprovisioned', changed, adminA, 'CX', '2026-10-01T15:00:00Z');
-    await event('staff.initials_changed', changed, adminB, 'CC', '2026-10-02T15:00:00Z');
-    // The value on record differs from the latest audited one: no trustworthy evidence.
-    const drifted = await user('Drew Drifted', 'DZ');
-    await event('staff.initials_changed', drifted, adminA, 'DD', '2026-10-01T15:00:00Z');
-    // A system actor is not a confirming person.
-    const systemSet = await user('Sam System', 'SS');
-    await event('staff.initials_changed', systemSet, null, 'SS', '2026-10-01T15:00:00Z', 'system');
-    // Seeded or otherwise unaudited initials stay unconfirmed.
-    const seeded = await user('Sid Seeded', 'SD');
-    // An existing confirmation is kept as it is.
-    const alreadyConfirmed = await user('Kim Kept', 'KK');
-    await pool.query(
-      `UPDATE app_user SET initials_confirmed_by_user_id = $2,
-              initials_confirmed_at = '2026-09-01T15:00:00Z' WHERE id = $1`,
-      [alreadyConfirmed, adminB],
+    // What the retired lineage recorded first; its tables don't matter, the record does.
+    await db.pool.query(`
+      CREATE TABLE schema_migration (
+        version text PRIMARY KEY, name text NOT NULL, checksum text NOT NULL,
+        applied_at timestamptz NOT NULL DEFAULT now())`);
+    await db.pool.query(
+      `INSERT INTO schema_migration (version, name, checksum) VALUES ('0001', 'initial_schema', 'x')`,
     );
-    await event('staff.preprovisioned', alreadyConfirmed, adminA, 'KK', '2026-10-01T15:00:00Z');
-
-    const result = await migrate(db.pool, all);
-    expect(result.applied).toContain('0024_staff_initials_confirmation_backfill');
-
-    const { rows } = await pool.query<{
-      id: string;
-      by: string | null;
-      at: Date | null;
-    }>(
-      `SELECT id, initials_confirmed_by_user_id AS by, initials_confirmed_at AS at
-       FROM app_user WHERE id = ANY($1::uuid[])`,
-      [[preprovisioned, changed, drifted, systemSet, seeded, alreadyConfirmed]],
+    await expect(migrate(db.pool)).rejects.toThrowError(RETIRED_LINEAGE_MESSAGE);
+    const { rows } = await db.pool.query(
+      `SELECT to_regclass('project') AS project, count(*)::int AS recorded FROM schema_migration`,
     );
-    const byId = new Map(rows.map((row) => [row.id, { by: row.by, at: row.at?.toISOString() }]));
-    expect(byId.get(preprovisioned)).toEqual({ by: adminA, at: '2026-10-01T15:00:00.000Z' });
-    expect(byId.get(changed)).toEqual({ by: adminB, at: '2026-10-02T15:00:00.000Z' });
-    expect(byId.get(drifted)).toEqual({ by: null, at: undefined });
-    expect(byId.get(systemSet)).toEqual({ by: null, at: undefined });
-    expect(byId.get(seeded)).toEqual({ by: null, at: undefined });
-    expect(byId.get(alreadyConfirmed)).toEqual({ by: adminB, at: '2026-09-01T15:00:00.000Z' });
+    expect(rows[0]).toEqual({ project: null, recorded: 1 });
   });
 
   it('AC7: production seed loads Receiving lab and LAB only and refuses dev fixtures', async () => {

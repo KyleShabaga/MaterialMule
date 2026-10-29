@@ -106,7 +106,7 @@ export const changeTestStatusRequestSchema = z
 export type ChangeTestStatusRequest = z.output<typeof changeTestStatusRequestSchema>;
 export type ChangeTestStatusRequestInput = z.input<typeof changeTestStatusRequestSchema>;
 
-/** `PATCH /api/lab-programs/:id/priority` (project PM/PE or Lab Manager only). */
+/** `PATCH /api/lab-programs/:id/priority` (Lead Project Engineer or Lab Manager only). */
 export const changePriorityRequestSchema = z.strictObject({
   priority: z.enum(PROGRAM_PRIORITIES, { error: 'must be normal or urgent' }),
   version: versionSchema,

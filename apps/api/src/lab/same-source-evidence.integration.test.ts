@@ -20,7 +20,7 @@ import {
 // line's frozen coverage (not chosen on a Specific line, not ticked on a Grabs/SPT line) can be
 // recorded as tested when it is from the line's own source in the program's project, with an
 // explicit confirmation by the person completing the test. The confirmed link is evidence for
-// MM-T36 removal after testing. The database rules of migration 0078 are proven here rather
+// MM-T36 removal after testing. The database rules (test_request_unit_link_guard) are proven here rather
 // than in schema.test.ts because they need submitted programs with frozen coverage and
 // completion events (the lab harness). Real PostgreSQL, fictional data only (DEMO-2601/2602).
 describe.runIf(testDatabaseUrl)('same-source tested-unit evidence (MM-T73)', () => {

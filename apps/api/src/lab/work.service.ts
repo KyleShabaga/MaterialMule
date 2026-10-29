@@ -76,7 +76,7 @@ interface RequestRow {
   program_status: string;
   program_number: string;
   project_id: string;
-  pm_pe_user_id: string;
+  lead_project_engineer_user_id: string;
 }
 
 /**
@@ -190,15 +190,17 @@ export class LabWorkService {
     }
     const delegates = await activeDelegateIds(this.database.pool, program.project_id);
     return loadWork(this.database.pool, programId, {
-      canChangePriority: can(user, 'program.priority.set', { pmPeUserId: program.pm_pe_user_id }),
+      canChangePriority: can(user, 'program.priority.set', {
+        leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+      }),
       review: {
         user,
         programOpen: program.status === 'submitted',
         canAccept: can(user, 'test.accept', {
-          pmPeUserId: program.pm_pe_user_id,
+          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
           acceptanceDelegateUserIds: delegates,
         }),
-        pmPeUserId: program.pm_pe_user_id,
+        leadProjectEngineerUserId: program.lead_project_engineer_user_id,
       },
     });
   }
@@ -555,7 +557,7 @@ export class LabWorkService {
   private async loadRequest(client: Db, id: string, lock: boolean) {
     const { rows } = await client.query<RequestRow>(
       `SELECT r.id, r.program_id, r.line_id, r.status, r.version, r.test_code_snapshot,
-              lp.status AS program_status, lp.program_number, lp.project_id, p.pm_pe_user_id
+              lp.status AS program_status, lp.program_number, lp.project_id, p.lead_project_engineer_user_id
        FROM test_request r
        JOIN lab_program lp ON lp.id = r.program_id
        JOIN project p ON p.id = lp.project_id
@@ -577,7 +579,11 @@ export class LabWorkService {
         if (!can(user, 'program.priority.set')) throw new ForbiddenException({ code: 'forbidden' });
         throw new NotFoundException({ code: 'lab_program_not_found' });
       }
-      if (!can(user, 'program.priority.set', { pmPeUserId: program.pm_pe_user_id })) {
+      if (
+        !can(user, 'program.priority.set', {
+          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+        })
+      ) {
         throw new ForbiddenException({ code: 'forbidden' });
       }
       const request: ChangePriorityRequest = parseBody(changePriorityRequestSchema, body);
@@ -828,10 +834,10 @@ export class LabWorkService {
       version: number;
       program_number: string | null;
       project_id: string;
-      pm_pe_user_id: string;
+      lead_project_engineer_user_id: string;
     }>(
       `SELECT lp.id, lp.status, lp.priority, lp.version, lp.program_number, lp.project_id,
-              p.pm_pe_user_id
+              p.lead_project_engineer_user_id
        FROM lab_program lp JOIN project p ON p.id = lp.project_id
        WHERE lp.id = $1 ${lock ? 'FOR UPDATE OF lp' : ''}`,
       [id],
@@ -923,7 +929,12 @@ export async function loadWork(
   options: {
     canChangePriority: boolean;
     /** The signed-in account's review/acceptance standing on this program (MM-T25). */
-    review: { user: AuthUser; programOpen: boolean; canAccept: boolean; pmPeUserId: string };
+    review: {
+      user: AuthUser;
+      programOpen: boolean;
+      canAccept: boolean;
+      leadProjectEngineerUserId: string;
+    };
   },
 ): Promise<ProgramWork> {
   const [requests, history, links, priority, comments, reviewEvents, actionItems] =
@@ -1051,7 +1062,7 @@ export async function loadWork(
         [programId],
       ),
     ]);
-  const { user, programOpen, canAccept, pmPeUserId } = options.review;
+  const { user, programOpen, canAccept, leadProjectEngineerUserId } = options.review;
   const personal = user.accountType !== 'shared_lab';
   const repeats = new Map<string, string[]>();
   for (const row of requests.rows) {
@@ -1082,7 +1093,7 @@ export async function loadWork(
       lifecycle: requestLifecycle(row, repeats.get(row.id) ?? [], {
         user,
         programOpen,
-        pmPeUserId,
+        leadProjectEngineerUserId,
       }),
     })),
     statusHistory: history.rows.map((row) => ({

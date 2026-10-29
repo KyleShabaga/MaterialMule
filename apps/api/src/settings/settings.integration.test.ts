@@ -77,7 +77,7 @@ describe.runIf(testDatabaseUrl)('draft auto-delete setting API (MM-T45)', () => 
     await addUser('pe', 'personal');
     await addUser('pend', 'personal', [], 'pending');
     await addUser('lab', 'shared_lab');
-    // "pe" is the PM/PE of a project: project authority doesn't extend to this setting.
+    // "pe" is the Lead Project Engineer of a project: project authority doesn't extend to this setting.
     await insertProject(db.pool, 'DEMO-2601', users.pe!);
 
     app = await createApp(
@@ -114,7 +114,7 @@ describe.runIf(testDatabaseUrl)('draft auto-delete setting API (MM-T45)', () => 
     expect((await http().get('/api/settings/drafts')).status).toBe(401);
   });
 
-  it('AC4: Technician, PM/PE and LAB get 403 on PUT and nothing changes', async () => {
+  it('AC4: Technician, Lead Project Engineer and LAB get 403 on PUT and nothing changes', async () => {
     for (const who of ['tech', 'pe', 'lab', 'pend']) {
       const response = await put(who, change(true, 30, 1));
       expect(response.status, who).toBe(403);

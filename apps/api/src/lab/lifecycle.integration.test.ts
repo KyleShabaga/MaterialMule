@@ -15,7 +15,7 @@ import { completedTestEvidence } from './work.service.js';
 // MM-T26 program lifecycle, cancellation and repeats (card AC1, AC2, AC4–AC6, AC8–AC10, test plan
 // T1, T3, T4, T7, T8 and preparation scenarios L01–L16 that belong to this part). Real PostgreSQL;
 // races use real connections and row locks, never sleeps. Fictional data only: DEMO-2601 (A),
-// whose PM/PE is Pat Example (`pe`); Lee Manager (`lm`) is the Lab Manager; Jordan Smith (`js`)
+// whose Lead Project Engineer is Pat Example (`pe`); Lee Manager (`lm`) is the Lab Manager; Jordan Smith (`js`)
 // is an acceptance delegate on A; Alex Tester (`tech`) an ordinary Technician; Admin Example
 // (`admin`) holds only the admin role.
 describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
@@ -227,7 +227,7 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
     expect(view.lifecycle).toMatchObject({ canClose: false, closeBlockedReason: 'unresolved' });
   });
 
-  it('L02/L03/AC2/AC8: PM/PE closes resolved programs; storage units are untouched', async () => {
+  it('L02/L03/AC2/AC8: Lead Project Engineer closes resolved programs; storage units are untouched', async () => {
     const p = await program([moisture, sieve]);
     const [a, b] = p.ids as [string, string];
     await advance(a, 'accepted');
@@ -237,7 +237,7 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
       [p.bucket.id],
     );
 
-    // Delegate, admin alone, Lab Manager, technician and LAB (with a PM/PE selected) are refused.
+    // Delegate, admin alone, Lab Manager, technician and LAB (with a Lead Project Engineer selected) are refused.
     for (const as of ['js', 'admin', 'lm', 'tech'] as const) {
       expect((await close(p.program.id, as)).status, as).toBe(403);
     }
