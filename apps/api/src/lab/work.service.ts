@@ -17,8 +17,11 @@ import {
   type ChangeTestStatusRequest,
   type EditCommentRequest,
   type LabComment,
+  formatSampleIdentity,
   type ProgramWork,
   type ReviewActions,
+  type SameSourceUnits,
+  type TestedUnitCoverageBasis,
   type ReviewEvent,
   type ReviewState,
   nextReviewState,
@@ -37,6 +40,7 @@ import {
   requestLifecycle,
   type LifecycleRequestRow,
 } from './lifecycle.service.js';
+import { loadSampleIdentities } from '../storage-units/sample-identity.js';
 import { activeDelegateIds } from './review.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,6 +57,14 @@ function unprocessable(code: string, field: string, message: string): never {
 }
 
 const PERSON = { field: 'actingStaffUserId', invalidCode: 'acting_staff_invalid' };
+
+/** A unit a completion links, and why it may (MM-T73). */
+interface TestedUnitRow {
+  id: string;
+  readable_id: string;
+  project_id: string;
+  basis: TestedUnitCoverageBasis;
+}
 
 interface RequestRow {
   id: string;
@@ -205,6 +217,10 @@ export class LabWorkService {
       version: request.version,
       person: request.actingStaffUserId ?? null,
       units: [...(request.testedStorageUnitIds ?? [])].sort(),
+      // Only when used, so the intent of a request without confirmations hashes as before.
+      ...(request.sameSourceConfirmedUnitIds?.length
+        ? { confirmed: [...request.sameSourceConfirmedUnitIds].sort() }
+        : {}),
     });
     return withTransaction(this.database.pool, async (client) => {
       const replay = await this.replayStatus(client, request.idempotencyKey, hash, user);
@@ -258,9 +274,14 @@ export class LabWorkService {
         );
       }
 
-      let tested: { id: string; readable_id: string; project_id: string }[] = [];
+      let tested: TestedUnitRow[] = [];
       if (request.to === 'completed') {
-        tested = await this.checkTestedUnits(client, current, request.testedStorageUnitIds);
+        tested = await this.checkTestedUnits(
+          client,
+          current,
+          request.testedStorageUnitIds,
+          request.sameSourceConfirmedUnitIds ?? [],
+        );
       } else if (request.testedStorageUnitIds !== undefined) {
         unprocessable('not_allowed', 'testedStorageUnitIds', 'units are linked when completing');
       }
@@ -289,11 +310,30 @@ export class LabWorkService {
       );
       const eventId = events[0]!.id;
       for (const unit of tested) {
+        // MM-T73: a same-source unit outside coverage carries the completer's confirmation.
+        const confirmed = unit.basis === 'same_source_confirmed';
         await client.query(
           `INSERT INTO test_request_unit_link (test_request_id, status_history_id, storage_unit_id,
-                                               project_id, unit_readable_id_snapshot)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [testRequestId, eventId, unit.id, unit.project_id, unit.readable_id],
+                                               project_id, unit_readable_id_snapshot,
+                                               coverage_basis, confirmed_by_account_user_id,
+                                               confirmed_by_person_user_id,
+                                               confirmed_by_person_initials_snapshot,
+                                               confirmed_by_person_name_snapshot, confirmed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                   CASE WHEN $11::boolean THEN now() END)`,
+          [
+            testRequestId,
+            eventId,
+            unit.id,
+            unit.project_id,
+            unit.readable_id,
+            unit.basis,
+            confirmed ? user.userId : null,
+            confirmed ? person.userId : null,
+            confirmed ? person.initials : null,
+            confirmed ? person.name : null,
+            confirmed,
+          ],
         );
       }
       await client.query(
@@ -317,6 +357,13 @@ export class LabWorkService {
           programNumber: current.program_number,
           code: current.test_code_snapshot,
           ...(request.to === 'completed' ? { testedUnits: tested.map((u) => u.readable_id) } : {}),
+          ...(tested.some((u) => u.basis === 'same_source_confirmed')
+            ? {
+                sameSourceConfirmedUnits: tested
+                  .filter((u) => u.basis === 'same_source_confirmed')
+                  .map((u) => u.readable_id),
+              }
+            : {}),
         },
       });
       return statusResult(client, testRequestId);
@@ -326,14 +373,17 @@ export class LabWorkService {
   /**
    * Exact tested units for a completion. When the line's frozen coverage includes a Shelby tube
    * or a bulk-sample bucket, the caller must say which units were used (an empty list says none
-   * of them). Each unit must be in that coverage (so same project and source), still exist (not
-   * disposed) and still belong to the program's project. Nothing is inferred from coverage.
+   * of them). Each unit must still exist (not disposed), belong to the program's project and
+   * either be in that coverage, or (MM-T73) be listed in `confirmedIds`: a Shelby tube or
+   * bulk-sample bucket of the line's own source that the person completing the test confirms
+   * they used. A covered unit needs no confirmation. Nothing is inferred from coverage.
    */
   private async checkTestedUnits(
     client: PoolClient,
     current: RequestRow,
     unitIds: string[] | undefined,
-  ) {
+    confirmedIds: string[],
+  ): Promise<TestedUnitRow[]> {
     const { rows: covered } = await client.query<{
       storage_unit_id: string;
       tracked: boolean;
@@ -355,11 +405,19 @@ export class LabWorkService {
       return [];
     }
     const coveredIds = new Set(covered.map((unit) => unit.storage_unit_id));
-    if (unitIds.some((id) => !coveredIds.has(id))) {
+    const confirmed = new Set(confirmedIds);
+    if (confirmedIds.some((id) => coveredIds.has(id))) {
+      unprocessable(
+        'confirmation_not_needed',
+        'sameSourceConfirmedUnitIds',
+        'a unit is already part of this line’s material and needs no confirmation',
+      );
+    }
+    if (unitIds.some((id) => !coveredIds.has(id) && !confirmed.has(id))) {
       unprocessable(
         'unit_not_covered',
         'testedStorageUnitIds',
-        'a unit is not part of this line’s material',
+        'a unit is not part of this line’s material; confirm it if it is from the same source',
       );
     }
     if (unitIds.length === 0) return [];
@@ -369,12 +427,19 @@ export class LabWorkService {
       project_id: string;
       status: string;
       destroyed_by: string | null;
+      tracked: boolean;
+      same_source: boolean;
     }>(
       `SELECT id, readable_id, project_id, status,
-              shelby_contents_destroyed_by_program(id) AS destroyed_by
+              shelby_contents_destroyed_by_program(id) AS destroyed_by,
+              (unit_type = 'shelby_tube' OR bulk_group_id IS NOT NULL) AS tracked,
+              storage_unit_of_line_source($2, id) AS same_source
        FROM storage_unit WHERE id = ANY ($1::uuid[])`,
-      [unitIds],
+      [unitIds, current.line_id],
     );
+    if (rows.length !== unitIds.length) {
+      unprocessable('unit_not_covered', 'testedStorageUnitIds', 'a unit doesn’t exist');
+    }
     if (rows.some((unit) => unit.status === 'disposed')) {
       unprocessable('unit_disposed', 'testedStorageUnitIds', 'a unit has already been disposed');
     }
@@ -393,7 +458,80 @@ export class LabWorkService {
     if (rows.some((unit) => unit.project_id !== current.project_id)) {
       unprocessable('unit_not_covered', 'testedStorageUnitIds', 'a unit is in another project');
     }
-    return rows;
+    // MM-T73: a confirmed unit must be a Shelby tube or bulk-sample bucket of this line's source.
+    const stranger = rows.find(
+      (unit) => confirmed.has(unit.id) && (!unit.tracked || !unit.same_source),
+    );
+    if (stranger) {
+      unprocessable(
+        'unit_not_covered',
+        'sameSourceConfirmedUnitIds',
+        `${stranger.readable_id} is not a Shelby tube or bulk-sample bucket from this line’s source`,
+      );
+    }
+    return rows.map((unit) => ({
+      id: unit.id,
+      readable_id: unit.readable_id,
+      project_id: unit.project_id,
+      basis: confirmed.has(unit.id) ? 'same_source_confirmed' : 'frozen_coverage',
+    }));
+  }
+
+  /**
+   * MM-T73: Shelby tubes and bulk-sample buckets of the line's own source, in the program's
+   * project, outside its frozen coverage, that this program could still record as tested (not
+   * disposed; a tube's contents not destroyed by another program). Completing with one needs an
+   * explicit same-source confirmation.
+   */
+  async sameSourceUnits(testRequestId: string): Promise<SameSourceUnits> {
+    if (!UUID_PATTERN.test(testRequestId)) {
+      throw new NotFoundException({ code: 'test_request_not_found' });
+    }
+    const pool = this.database.pool;
+    const request = await this.loadRequest(pool, testRequestId, false);
+    if (!request || request.program_status === 'draft') {
+      throw new NotFoundException({ code: 'test_request_not_found' });
+    }
+    const { rows } = await pool.query<{
+      id: string;
+      readable_id: string;
+      unit_type: string;
+      received_date: string;
+    }>(
+      `SELECT su.id, su.readable_id, su.unit_type,
+              to_char(su.received_date, 'YYYY-MM-DD') AS received_date
+       FROM storage_unit su
+       WHERE su.project_id = $2 AND su.status <> 'disposed'
+         AND (su.unit_type = 'shelby_tube' OR su.bulk_group_id IS NOT NULL)
+         AND storage_unit_of_line_source($1, su.id)
+         AND coalesce(shelby_contents_destroyed_by_program(su.id) = $3, true)
+         AND NOT EXISTS (SELECT 1 FROM program_scope_snapshot s
+                         WHERE s.line_id = $1 AND s.storage_unit_id = su.id AND s.included)
+       ORDER BY su.received_date, su.readable_id COLLATE "C"`,
+      [request.line_id, request.project_id, request.program_id],
+    );
+    const { rows: line } = await pool.query<{ label: string | null }>(
+      'SELECT source_display_snapshot AS label FROM test_line WHERE id = $1',
+      [request.line_id],
+    );
+    const identities = await loadSampleIdentities(
+      pool,
+      rows.map((row) => row.id),
+    );
+    return {
+      testRequestId,
+      sourceLabel: line[0]?.label ?? null,
+      units: rows.map((row) => {
+        const identity = identities.get(row.id);
+        return {
+          storageUnitId: row.id,
+          readableId: row.readable_id,
+          unitType: row.unit_type,
+          contents: identity ? formatSampleIdentity(identity.sample) : null,
+          receivedDate: row.received_date,
+        };
+      }),
+    };
   }
 
   private async replayStatus(client: PoolClient, key: string, hash: string, user: AuthUser) {
@@ -414,7 +552,7 @@ export class LabWorkService {
     return statusResult(client, previous.test_request_id);
   }
 
-  private async loadRequest(client: PoolClient, id: string, lock: boolean) {
+  private async loadRequest(client: Db, id: string, lock: boolean) {
     const { rows } = await client.query<RequestRow>(
       `SELECT r.id, r.program_id, r.line_id, r.status, r.version, r.test_code_snapshot,
               lp.status AS program_status, lp.program_number, lp.project_id, p.pm_pe_user_id
@@ -843,6 +981,12 @@ export async function loadWork(
         unit_readable_id_snapshot: string;
         status_history_id: string;
         linked_at: Date;
+        coverage_basis: TestedUnitCoverageBasis;
+        confirmed_by_account_user_id: string | null;
+        confirmed_by_person_user_id: string | null;
+        confirmed_by_person_initials_snapshot: string | null;
+        confirmed_by_person_name_snapshot: string | null;
+        confirmed_at: Date | null;
       }>(
         `SELECT l.* FROM test_request_unit_link l
        JOIN test_request r ON r.id = l.test_request_id
@@ -965,6 +1109,19 @@ export async function loadWork(
       readableId: row.unit_readable_id_snapshot,
       statusEventId: row.status_history_id,
       linkedAt: row.linked_at.toISOString(),
+      coverageBasis: row.coverage_basis,
+      confirmation:
+        row.coverage_basis === 'same_source_confirmed'
+          ? {
+              accountUserId: row.confirmed_by_account_user_id!,
+              person: {
+                userId: row.confirmed_by_person_user_id!,
+                initials: row.confirmed_by_person_initials_snapshot,
+                name: row.confirmed_by_person_name_snapshot!,
+              },
+              confirmedAt: row.confirmed_at!.toISOString(),
+            }
+          : null,
     })),
     priorityHistory: priority.rows.map((row) => ({
       id: row.id,

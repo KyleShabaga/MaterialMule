@@ -91,6 +91,11 @@ interface EvidenceRow {
   person_user_id: string;
   person_initials_snapshot: string | null;
   person_name_snapshot: string;
+  coverage_basis: 'frozen_coverage' | 'same_source_confirmed';
+  confirmed_by_person_user_id: string | null;
+  confirmed_by_person_initials_snapshot: string | null;
+  confirmed_by_person_name_snapshot: string | null;
+  confirmed_at: Date | null;
 }
 
 /**
@@ -105,7 +110,11 @@ async function loadEvidence(db: Db, storageUnitId: string, testRequestId?: strin
             r.test_code_snapshot AS test_code, r.status AS request_status,
             h.id AS completion_event_id, h.changed_at AS completed_at, h.account_user_id,
             h.account_type, h.account_initials_snapshot, h.account_name_snapshot,
-            h.person_user_id, h.person_initials_snapshot, h.person_name_snapshot
+            h.person_user_id, h.person_initials_snapshot, h.person_name_snapshot,
+            -- MM-T73: a confirmed same-source link (outside the line's coverage) is evidence too.
+            l.coverage_basis, l.confirmed_by_person_user_id,
+            l.confirmed_by_person_initials_snapshot, l.confirmed_by_person_name_snapshot,
+            l.confirmed_at
      FROM test_request_unit_link l
      JOIN test_request_status_history h ON h.id = l.status_history_id AND h.to_status = 'completed'
      JOIN test_request r ON r.id = l.test_request_id
@@ -140,6 +149,17 @@ function toEvidence(row: EvidenceRow): TestedUnitEvidence {
         name: row.person_name_snapshot,
       },
     },
+    sameSourceConfirmation:
+      row.coverage_basis === 'same_source_confirmed'
+        ? {
+            person: {
+              userId: row.confirmed_by_person_user_id!,
+              initials: row.confirmed_by_person_initials_snapshot,
+              name: row.confirmed_by_person_name_snapshot!,
+            },
+            confirmedAt: row.confirmed_at!.toISOString(),
+          }
+        : null,
   };
 }
 

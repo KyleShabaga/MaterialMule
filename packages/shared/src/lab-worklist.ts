@@ -62,21 +62,47 @@ const versionSchema = z.number({ error: 'is required' }).int().min(1);
  * the exact physical units used; it is required when completing a test whose frozen coverage
  * includes a Shelby tube or bulk-sample bucket (an empty list then says none of them was used).
  */
-export const changeTestStatusRequestSchema = z.strictObject({
-  to: z.enum(TEST_REQUEST_STATUSES, { error: 'must be a test status' }),
-  version: versionSchema,
-  idempotencyKey: idSchema,
-  actingStaffUserId: idSchema.optional(),
-  testedStorageUnitIds: z
-    .array(idSchema)
-    .max(50)
-    .superRefine((ids, ctx) => {
-      if (new Set(ids).size !== ids.length) {
-        ctx.addIssue({ code: 'custom', message: 'lists a unit more than once' });
-      }
-    })
-    .optional(),
-});
+export const changeTestStatusRequestSchema = z
+  .strictObject({
+    to: z.enum(TEST_REQUEST_STATUSES, { error: 'must be a test status' }),
+    version: versionSchema,
+    idempotencyKey: idSchema,
+    actingStaffUserId: idSchema.optional(),
+    testedStorageUnitIds: z
+      .array(idSchema)
+      .max(50)
+      .superRefine((ids, ctx) => {
+        if (new Set(ids).size !== ids.length) {
+          ctx.addIssue({ code: 'custom', message: 'lists a unit more than once' });
+        }
+      })
+      .optional(),
+    /**
+     * MM-T73: units in `testedStorageUnitIds` that are outside the line's frozen coverage, which
+     * the person completing the test confirms are from the line's own source (a Shelby tube or
+     * bulk-sample bucket of the same test hole or standalone source, same project). Covered units
+     * never need it. The confirmation (account, person, time) is stored with the link.
+     */
+    sameSourceConfirmedUnitIds: z
+      .array(idSchema)
+      .max(50)
+      .superRefine((ids, ctx) => {
+        if (new Set(ids).size !== ids.length) {
+          ctx.addIssue({ code: 'custom', message: 'lists a unit more than once' });
+        }
+      })
+      .optional(),
+  })
+  .superRefine((body, ctx) => {
+    const tested = new Set(body.testedStorageUnitIds ?? []);
+    if (body.sameSourceConfirmedUnitIds?.some((id) => !tested.has(id))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['sameSourceConfirmedUnitIds'],
+        message: 'must only list units that are also in testedStorageUnitIds',
+      });
+    }
+  });
 export type ChangeTestStatusRequest = z.output<typeof changeTestStatusRequestSchema>;
 export type ChangeTestStatusRequestInput = z.input<typeof changeTestStatusRequestSchema>;
 
@@ -129,14 +155,51 @@ export const statusEventSchema = z.object({
 });
 export type StatusEvent = z.infer<typeof statusEventSchema>;
 
+/** Why a tested-unit link is allowed (MM-T73). */
+export const TESTED_UNIT_COVERAGE_BASES = ['frozen_coverage', 'same_source_confirmed'] as const;
+export type TestedUnitCoverageBasis = (typeof TESTED_UNIT_COVERAGE_BASES)[number];
+
+/** Who confirmed a same-source unit outside the line's coverage, and when (MM-T73). */
+export const sameSourceConfirmationSchema = z.object({
+  accountUserId: z.string(),
+  person: personSnapshotSchema,
+  confirmedAt: z.string(),
+});
+export type SameSourceConfirmation = z.infer<typeof sameSourceConfirmationSchema>;
+
 export const testedUnitSchema = z.object({
   testRequestId: z.string(),
   storageUnitId: z.string(),
   readableId: z.string(),
   statusEventId: z.string(),
   linkedAt: z.string(),
+  coverageBasis: z.enum(TESTED_UNIT_COVERAGE_BASES),
+  /** Set only for a same-source unit outside the line's coverage. */
+  confirmation: sameSourceConfirmationSchema.nullable(),
 });
 export type TestedUnit = z.infer<typeof testedUnitSchema>;
+
+/**
+ * `GET /api/test-requests/:id/same-source-units` (MM-T73): Shelby tubes and bulk-sample buckets
+ * of the line's own source, in the program's project, that are outside its frozen coverage and
+ * can still be recorded as tested by this program (not disposed, contents not destroyed by
+ * another program). Completing with one needs `sameSourceConfirmedUnitIds`.
+ */
+export const sameSourceUnitSchema = z.object({
+  storageUnitId: z.string(),
+  readableId: z.string(),
+  unitType: z.string(),
+  contents: z.string().nullable(),
+  receivedDate: z.string(),
+});
+export type SameSourceUnit = z.infer<typeof sameSourceUnitSchema>;
+
+export const sameSourceUnitsSchema = z.object({
+  testRequestId: z.string(),
+  sourceLabel: z.string().nullable(),
+  units: z.array(sameSourceUnitSchema),
+});
+export type SameSourceUnits = z.infer<typeof sameSourceUnitsSchema>;
 
 export const priorityEventSchema = z.object({
   id: z.string(),
