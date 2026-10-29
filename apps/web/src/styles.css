@@ -1033,7 +1033,7 @@ textarea {
 }
 
 /* Inputs fill their cell and may shrink with it, so none spills out of the box (MM-T66 UI-07:
-   at 770–870px the PM/PE field overflowed the Project box). */
+   at 770–870px the Lead Project Engineer field overflowed the Project box). */
 .readonly-grid input {
   width: 100%;
   min-width: 0;

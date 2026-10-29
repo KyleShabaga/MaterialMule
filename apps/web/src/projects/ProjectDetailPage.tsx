@@ -117,7 +117,7 @@ export function ProjectDetailPage() {
       <Section title="Project details">
         <dl className="stat-tiles project-tiles">
           <Detail term="Client">{project.client}</Detail>
-          <Detail term="PM/PE">{personLabel(project.pmPe)}</Detail>
+          <Detail term="Lead Project Engineer">{personLabel(project.leadProjectEngineer)}</Detail>
           <Detail term="Review engineer">{personLabel(project.reviewEngineer)}</Detail>
           <Detail term="Storage units">
             <strong>{plural(project.inStockUnitCount, 'unit', 'units')}</strong> in stock of{' '}

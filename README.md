@@ -83,7 +83,7 @@ they do is audited with a TEST account type.
 | `admin`   | Admin (test) | ADM      | Admin: staff, sessions, printers         |
 | `lab`     | Lab (test)   | LAB      | Lab Manager (not the shared LAB account) |
 | `at`      | Alex Tester  | AT       | Technician                               |
-| `pe`      | Pat Example  | PE       | PM/PE of DEMO-2601                       |
+| `pe`      | Pat Example  | PE       | Lead Project Engineer of DEMO-2601       |
 | `de`      | Dana Example | DE       | Engineer                                 |
 | `js-tech` | Jordan Smith | JS       | Technician (duplicate initials)          |
 | `js-eng`  | Jamie Song   | JS       | Engineer (duplicate initials)            |

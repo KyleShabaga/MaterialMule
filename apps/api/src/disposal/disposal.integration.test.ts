@@ -17,7 +17,7 @@ import { createLabHarness, line, newKey, type LabHarness } from '../test-support
 // MM-T30 standard disposal (card AC1–AC10, test plan T1–T3, T7–T10) on the real MM-T29
 // calculation and MM-T26/T24/T36 data, plus the T24 → T36 exception for both source variants.
 // Real PostgreSQL; races use real connections, never sleeps. Fictional data only: DEMO-2601 (A,
-// PM/PE Pat Example `pe`), DEMO-2602 (B); Lee Manager (`lm`) Lab Manager; Alex Tester (`tech`).
+// Lead Project Engineer Pat Example `pe`), DEMO-2602 (B); Lee Manager (`lm`) Lab Manager; Alex Tester (`tech`).
 describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
   let h: LabHarness;
   let moisture: string;
@@ -859,7 +859,7 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
   it('MM-T70 T1/AC1: approved in DEMO-2601, a correction to DEMO-2602 is refused until the approval is revoked', async () => {
     const unit = await oldBucket();
     at('2027-10-24');
-    const approved = await approve([unit.id], 'pe'); // DEMO-2601's PM/PE
+    const approved = await approve([unit.id], 'pe'); // DEMO-2601's Lead Project Engineer
     expect(approved.status, JSON.stringify(approved.body)).toBe(201);
     const approvalId = approved.body.approvals[0].id as string;
     const before = await unitRow(unit.id);
@@ -1026,7 +1026,7 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
       const unit = await oldBucket();
       at('2027-10-24');
       const correct = () => correctToB(unit.id);
-      const approval = () => approve([unit.id], 'pe'); // PM/PE of both projects
+      const approval = () => approve([unit.id], 'pe'); // Lead Project Engineer of both projects
       const [x, y] = await race(
         unit.id,
         round === 0 ? correct : approval,

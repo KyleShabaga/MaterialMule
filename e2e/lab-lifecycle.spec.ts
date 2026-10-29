@@ -6,7 +6,7 @@ import { signInAsLabStation } from './support/lab-station';
 
 // MM-T26 program lifecycle (card T3/T6 closure route, T7 LAB denial, the empty-program rule and
 // cancellation requests). Each test makes its own program on a fresh test hole, so parallel runs
-// never share a test. Fictional data only: DEMO-2601, PM/PE Pat Example (pe), Lab Manager
+// never share a test. Fictional data only: DEMO-2601, Lead Project Engineer Pat Example (pe), Lab Manager
 // "Lab (test)" (lab), Technician Alex Tester (at).
 
 const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000201';
@@ -77,7 +77,7 @@ function testRow(page: Page, code: string) {
   return page.locator('.request-list li', { hasText: code });
 }
 
-test('T6: closure is blocked until every test is resolved; the PM/PE closes and a Lab Manager reopens', async ({
+test('T6: closure is blocked until every test is resolved; the Lead Project Engineer closes and a Lab Manager reopens', async ({
   page,
 }) => {
   const code = unique('DEMO-LC');
@@ -124,7 +124,7 @@ test('T6: closure is blocked until every test is resolved; the PM/PE closes and 
   await expect(header).toContainText('Reopened by LAB · Lab (test)');
 });
 
-test('Empty-program rule: a submitted program with no tests can’t be closed, even by its PM/PE', async ({
+test('Empty-program rule: a submitted program with no tests can’t be closed, even by its Lead Project Engineer', async ({
   page,
 }) => {
   // Submission never produces this state; build it in the database to prove closure doesn't
@@ -273,7 +273,7 @@ test('MM-T72 T3: a repeat of a test whose depth was changed shows the changed de
     expect(response.ok(), `${path}: ${await response.text()}`).toBe(true);
     return (await response.json()) as { version: number };
   };
-  /** Requested → Accepted, as the project's PM/PE. */
+  /** Requested → Accepted, as the project's Lead Project Engineer. */
   const accept = async (start: number) => {
     let version = start;
     for (const to of ['in_progress', 'completed', 'review']) {

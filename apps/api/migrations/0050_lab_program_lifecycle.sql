@@ -2,14 +2,14 @@
 -- cancellation / closure requests.
 --
 -- Program lifecycle: draft → submitted (shown as Open) ⇄ closed. Closing needs the project's
--- PM/PE, at least one test request (an empty program is never closable: no vacuous truth) and
--- every request Accepted or Cancelled with a recorded reason. Reopening (PM/PE or Lab Manager,
+-- Lead Project Engineer, at least one test request (an empty program is never closable: no vacuous truth) and
+-- every request Accepted or Cancelled with a recorded reason. Reopening (Lead Project Engineer or Lab Manager,
 -- reason required) changes only the program's status: no test status, acceptance or snapshot
 -- changes. Every close and reopen is an append-only program_lifecycle_event; the program row keeps
 -- only the current closure. Closure never touches storage units, retention, holds or disposal.
 --
 -- Cancellation: a test that is Requested, In progress, Completed or In review becomes Cancelled
--- with a required reason, actor and time (PM/PE of the project or Lab Manager). Cancelled
+-- with a required reason, actor and time (Lead Project Engineer of the project or Lab Manager). Cancelled
 -- resolves the test for closure but is never acceptance. Cancelling an Accepted test is not
 -- enabled (the card leaves that edge unresolved), nor is restoring a cancelled test.
 --

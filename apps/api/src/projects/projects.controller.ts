@@ -77,8 +77,8 @@ export class ProjectsController {
   }
 
   /**
-   * Edit a project (MM-T35). Project-scoped: the service allows admins and the project's PM/PE
-   * (`project.edit`), and only admins to change the PM/PE (`project.pm_pe.change`).
+   * Edit a project (MM-T35). Project-scoped: the service allows admins and the project's Lead Project Engineer
+   * (`project.edit`), and only admins to change the Lead Project Engineer (`project.lead_project_engineer.change`).
    */
   @Patch(':projectId')
   @ActiveUser()

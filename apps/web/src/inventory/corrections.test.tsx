@@ -78,7 +78,7 @@ const OTHER_PROJECT = {
   projectNumber: 'DEMO-2602',
   name: 'Hillside bridge',
   client: 'Example Client',
-  pmPe: { id: 'u-pe', displayName: 'Pat Example', initials: 'PE' },
+  leadProjectEngineer: { id: 'u-pe', displayName: 'Pat Example', initials: 'PE' },
 };
 
 const EMPTY_HISTORY: StorageUnitHistoryPage = { items: [], total: 0, page: 1, pageSize: 20 };

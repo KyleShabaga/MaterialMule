@@ -27,7 +27,7 @@ const PE: ReceiverOption = {
   id: PE_ACCOUNT.id,
   initials: 'PE',
   displayName: 'Pat Example',
-  position: 'pm_pe',
+  position: 'project_engineer',
 };
 const T0 = new Date('2026-10-26T16:00:00.000Z');
 const T1 = new Date('2026-10-26T16:42:00.000Z');
@@ -131,19 +131,47 @@ describe('draft record (MM-T11)', () => {
       summaries: [{ ...newSummary(hole), type: 'all' }],
     };
     const v1 = { ...current, version: 1, data: { ...current.data, units: [v1Unit] } };
-    const upgraded = upgradeRecord(structuredClone(v1));
-    expect(upgraded?.version).toBe(DRAFT_RECORD_VERSION);
-    const unit = upgraded!.data.units[0]!;
+    // Step 1 alone (version 1 → 2); step 2 then drops the project, as the MM-AO02 test shows.
+    const upgraded = RECORD_MIGRATIONS[1]!(structuredClone(v1)) as typeof current;
+    expect(upgraded.version).toBe(2);
+    const unit = upgraded.data.units[0]!;
     expect(unit).toMatchObject({ ...v1Unit, bulk: false, tube: { sourceType: '' } });
     expect(unit.bulkChoice.kind).toBe('new');
     // It still confirms exactly as before: same payload shape, so the same idempotency hash.
-    expect(toConfirmRequest(upgraded!.data).units[0]).toEqual({
+    expect(toConfirmRequest(upgraded.data).units[0]).toEqual({
       clientRowId: 'row-1',
       unitType: 'bucket',
       note: 'Lid taped',
       holeSummaries: [{ testHoleId: hole.id, type: 'all', note: '' }],
     });
-    expect(toConfirmRequest(upgraded!.data)).not.toHaveProperty('bulkGroups');
+    expect(toConfirmRequest(upgraded.data)).not.toHaveProperty('bulkGroups');
+  });
+
+  it('MM-AO02: a version-2 draft forgets its project and holes, keeping everything else', () => {
+    const current = newRecord(newDraft(AT, '2026-10-26'), AT_ACCOUNT, T0);
+    const hole = { id: '00000000-0000-4000-8000-000000000301', projectId: 'p', name: 'TH26-01' };
+    const unit = {
+      ...current.data.units[0],
+      clientRowId: 'row-1',
+      holeQuery: 'TH',
+      summaries: [{ ...newSummary(hole), type: 'all' }],
+    };
+    // Version 2 stored the project summary with its lead under the retired key.
+    const oldProject = { id: 'p', projectNumber: 'DEMO-2601', name: 'Demo', client: 'Client' };
+    const v2 = {
+      ...current,
+      version: 2,
+      data: { ...current.data, projectQuery: 'DEMO-2601', project: oldProject, units: [unit] },
+    };
+    const upgraded = upgradeRecord(structuredClone(v2));
+    expect(upgraded?.version).toBe(DRAFT_RECORD_VERSION);
+    expect(upgraded!.data).toEqual({
+      ...v2.data,
+      project: null,
+      units: [{ ...unit, summaries: [], holeQuery: '' }],
+    });
+    expect(upgraded!.idempotencyKey).toBe(current.idempotencyKey);
+    expect(upgraded!.history).toEqual(current.history);
   });
 
   it('refuses newer, unknown and damaged records', () => {

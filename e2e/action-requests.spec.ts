@@ -5,7 +5,7 @@ import { signInAsLabStation } from './support/lab-station';
 
 // MM-T27 (card T5, T6): the header bell and Action requests page, resolution through the real
 // workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
-// Fictional data only: DEMO-2601, PM/PE Pat Example (pe), Lab Manager "Lab (test)" (lab),
+// Fictional data only: DEMO-2601, Lead Project Engineer Pat Example (pe), Lab Manager "Lab (test)" (lab),
 // Technician Alex Tester (at).
 
 const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000201';
@@ -64,7 +64,7 @@ async function submittedProgram(page: Page) {
   };
 }
 
-test('T5: a closure request appears under the PM/PE bell, opens the program, and closing resolves it', async ({
+test('T5: a closure request appears under the Lead Project Engineer bell, opens the program, and closing resolves it', async ({
   page,
 }) => {
   const { programId, programNumber } = await submittedProgram(page);
@@ -87,9 +87,9 @@ test('T5: a closure request appears under the PM/PE bell, opens the program, and
   await bell.click();
   const row = page.getByRole('listitem', { name: `Closure requested for ${programNumber}` });
   await expect(row).toContainText(
-    `PM/PE: Closure requested for ${programNumber} by AT · All tests done (E2E)`,
+    `Lead Project Engineer: Closure requested for ${programNumber} by AT · All tests done (E2E)`,
   );
-  // Nothing in the inbox approves the request; the PM/PE opens the program and acts there.
+  // Nothing in the inbox approves the request; the Lead Project Engineer opens the program and acts there.
   await expect(row.getByRole('button', { name: /approve|resolve|close/i })).toHaveCount(0);
   await row.getByRole('link', { name: 'Open' }).click();
   await expect(page).toHaveURL(new RegExp(`/lab-testing/programs/${programId}$`));

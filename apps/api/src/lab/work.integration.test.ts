@@ -128,7 +128,7 @@ describe.runIf(testDatabaseUrl)('lab work API (MM-T24)', () => {
     expect((await work(third.id)).requests).toEqual(before.requests);
   });
 
-  it('AC2 (T3): Technician and LAB get 403 on priority; PM/PE and Lab Manager succeed with history', async () => {
+  it('AC2 (T3): Technician and LAB get 403 on priority; Lead Project Engineer and Lab Manager succeed with history', async () => {
     const program = await submitted();
     for (const as of ['tech', 'lab'] as const) {
       const refused = await h.send(

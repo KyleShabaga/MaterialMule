@@ -1,7 +1,7 @@
 -- TRP-T35: projects list and project detail.
 --
 -- The list searches project number, name and client (contains, ignoring case), filters "Only
--- mine" (PM/PE or review engineer) and shows per-project counts computed by query. Trigram
+-- mine" (Lead Project Engineer or review engineer) and shows per-project counts computed by query. Trigram
 -- indexes serve the contains search; the counts use the existing receipt_project_idx and
 -- storage_unit_project_status_idx.
 
@@ -9,7 +9,7 @@ CREATE INDEX project_number_trgm_idx ON project USING gin (project_number_normal
 CREATE INDEX project_name_trgm_idx ON project USING gin (lower(name) public.gin_trgm_ops);
 CREATE INDEX project_client_trgm_idx ON project USING gin (lower(client) public.gin_trgm_ops);
 
-CREATE INDEX project_pm_pe_idx ON project (pm_pe_user_id);
+CREATE INDEX project_lead_project_engineer_idx ON project (lead_project_engineer_user_id);
 CREATE INDEX project_review_engineer_idx ON project (review_engineer_user_id)
   WHERE review_engineer_user_id IS NOT NULL;
 

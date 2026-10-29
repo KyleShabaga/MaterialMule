@@ -194,7 +194,10 @@ export function ProjectsPage() {
                 },
                 { header: 'Name', cell: (project) => <strong>{project.name}</strong> },
                 { header: 'Client', cell: (project) => project.client },
-                { header: 'PM/PE', cell: (project) => <PersonInitials project={project} /> },
+                {
+                  header: 'Lead Project Engineer',
+                  cell: (project) => <PersonInitials project={project} />,
+                },
                 {
                   header: 'Test holes',
                   cell: (project) => <span className="number">{project.testHoleCount}</span>,
@@ -246,8 +249,8 @@ export function ProjectsPage() {
 function PersonInitials({ project }: { project: ProjectListItem }) {
   return (
     <>
-      {project.pmPe.displayName}
-      {project.pmPe.initials ? ` (${project.pmPe.initials})` : ''}
+      {project.leadProjectEngineer.displayName}
+      {project.leadProjectEngineer.initials ? ` (${project.leadProjectEngineer.initials})` : ''}
     </>
   );
 }

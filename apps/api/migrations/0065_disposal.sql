@@ -8,7 +8,7 @@
 -- (a summary for the hole, a tube sourced from it, or a bucket of a bulk group sourced from it),
 -- so a later receipt on an open program's hole is covered too.
 --
--- Approval (PM/PE of the project or Lab Manager) sets status approved_for_disposal and records
+-- Approval (Lead Project Engineer of the project or Lab Manager) sets status approved_for_disposal and records
 -- who and when; it never disposes. Revoking (same people, reason) returns the unit to in_stock.
 -- Removal is a separate, online-only scan by a personal account: it locks the unit, requires an
 -- active approval and rechecks eligibility (holds placed after approval block it), then records

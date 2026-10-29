@@ -58,7 +58,7 @@ export const staffOptionSchema = z.object({
 });
 export type StaffOption = z.infer<typeof staffOptionSchema>;
 
-/** `GET /api/staff/active`: active staff who can be a PM/PE or receiver (not the LAB account). */
+/** `GET /api/staff/active`: active staff who can be a Lead Project Engineer or receiver (not the LAB account). */
 export const staffOptionsResponseSchema = z.array(staffOptionSchema);
 
 export const projectSummarySchema = z.object({
@@ -66,7 +66,7 @@ export const projectSummarySchema = z.object({
   projectNumber: z.string(),
   name: z.string(),
   client: z.string(),
-  pmPe: staffOptionSchema,
+  leadProjectEngineer: staffOptionSchema,
 });
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 
@@ -81,7 +81,7 @@ export const createProjectRequestSchema = z.object({
   projectNumber: projectNumberSchema,
   name: trimmedText('Project name', 200),
   client: trimmedText('Client', 200),
-  pmPeUserId: staffId('PM/PE'),
+  leadProjectEngineerUserId: staffId('Lead Project Engineer'),
   receiverUserId: z.uuid().nullish(),
 });
 export type CreateProjectRequest = z.input<typeof createProjectRequestSchema>;
@@ -176,7 +176,7 @@ export const projectListQuerySchema = z.object({
     blankParam,
     z.string().trim().max(200, { error: 'must be at most 200 characters' }).optional(),
   ),
-  /** Only projects where the signed-in user is PM/PE or review engineer. */
+  /** Only projects where the signed-in user is Lead Project Engineer or review engineer. */
   mine: z.preprocess(queryBoolean, z.boolean({ error: 'must be true or false' }).default(false)),
   sort: z.preprocess(
     blankParam,
@@ -207,12 +207,12 @@ export function projectListSortDirection(query: Pick<ProjectListQuery, 'sort' | 
   return query.dir ?? (query.sort === 'last_receipt' ? 'desc' : 'asc');
 }
 
-/** "Only mine": the user is the project's PM/PE or its review engineer. */
+/** "Only mine": the user is the project's Lead Project Engineer or its review engineer. */
 export function isMyProject(
-  project: { pmPe: { id: string }; reviewEngineer: { id: string } | null },
+  project: { leadProjectEngineer: { id: string }; reviewEngineer: { id: string } | null },
   userId: string,
 ): boolean {
-  return project.pmPe.id === userId || project.reviewEngineer?.id === userId;
+  return project.leadProjectEngineer.id === userId || project.reviewEngineer?.id === userId;
 }
 
 export const projectListItemSchema = projectSummarySchema.extend({
@@ -257,7 +257,7 @@ export const projectDetailSchema = projectSummarySchema.extend({
   numberLocked: z.boolean(),
   /** What the signed-in user may change (the server checks again on save). */
   canEdit: z.boolean(),
-  canChangePmPe: z.boolean(),
+  canChangeLeadProjectEngineer: z.boolean(),
   /** Storage units of any status, and those In stock. */
   unitCount: z.number(),
   inStockUnitCount: z.number(),
@@ -273,8 +273,8 @@ export type ProjectDetail = z.infer<typeof projectDetailSchema>;
 const CONTROL_CHARACTERS_EXCEPT_NEWLINES = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/;
 
 /**
- * `PATCH /api/projects/:id`. Only fields present are changed. Admins and the project's PM/PE may
- * edit; only admins change the PM/PE, and that needs a reason (owner decision 2026-10-25).
+ * `PATCH /api/projects/:id`. Only fields present are changed. Admins and the project's Lead Project Engineer may
+ * edit; only admins change the Lead Project Engineer, and that needs a reason (owner decision 2026-10-25).
  */
 export const updateProjectRequestSchema = z.object({
   version: z.number({ error: 'Version is required' }).int().min(1),
@@ -296,7 +296,7 @@ export const updateProjectRequestSchema = z.object({
         .nullable(),
     )
     .optional(),
-  pmPeId: staffId('PM/PE').optional(),
+  leadProjectEngineerId: staffId('Lead Project Engineer').optional(),
   reason: z.preprocess(
     blankParam,
     z

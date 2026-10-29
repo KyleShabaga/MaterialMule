@@ -5,7 +5,7 @@
 
 INSERT INTO app_user (id, display_name, given_name, surname, official_initials, position, account_type, status)
 VALUES
-  ('00000000-0000-4000-8000-000000000101', 'Pat Example',  'Pat',    'Example', 'PE',  'pm_pe',       'test', 'active'),
+  ('00000000-0000-4000-8000-000000000101', 'Pat Example',  'Pat',    'Example', 'PE',  'project_engineer',       'test', 'active'),
   ('00000000-0000-4000-8000-000000000102', 'Alex Tester',  'Alex',   'Tester',  'AT',  'technician',  'test', 'active'),
   ('00000000-0000-4000-8000-000000000103', 'Admin (test)', 'Admin',  'Test',    'ADM', NULL,          'test', 'active'),
   ('00000000-0000-4000-8000-000000000104', 'Lab (test)',   'Lab',    'Test',    'LAB', 'lab_manager', 'test', 'active'),
@@ -50,7 +50,7 @@ VALUES
   ('00000000-0000-4000-8000-000000000103', 'admin'),
   ('00000000-0000-4000-8000-000000000104', 'lab_manager');
 
-INSERT INTO project (id, project_number, name, client, pm_pe_user_id)
+INSERT INTO project (id, project_number, name, client, lead_project_engineer_user_id)
 VALUES (
   '00000000-0000-4000-8000-000000000201',
   'DEMO-2601',
@@ -69,7 +69,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Inventory demo (MM-T12): a second project, a warehouse location and a few storage units with
 -- 2024 IDs (below 100000, so they never collide with IDs the app issues or E2E inserts). Fixed IDs;
 -- re-running changes nothing.
-INSERT INTO project (id, project_number, name, client, pm_pe_user_id)
+INSERT INTO project (id, project_number, name, client, lead_project_engineer_user_id)
 VALUES (
   '00000000-0000-4000-8000-000000000202',
   'DEMO-2602',

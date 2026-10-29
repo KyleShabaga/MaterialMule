@@ -16,9 +16,9 @@ import { LabReviewService } from './review.service.js';
  *
  * - review (complete / return): `test.review`, any internal personal account;
  * - correction-done: `test.correction_done`, the Lab Manager role only;
- * - accept: active user, handler checks `test.accept` for the test's project (PM/PE or an active
+ * - accept: active user, handler checks `test.accept` for the test's project (Lead Project Engineer or an active
  *   delegate) before reading the body;
- * - delegates: read with `acceptance_delegation.read`; grant and revoke by the project's PM/PE
+ * - delegates: read with `acceptance_delegation.read`; grant and revoke by the project's Lead Project Engineer
  *   (`acceptance_delegation.manage`, checked in the handler).
  */
 @Controller()

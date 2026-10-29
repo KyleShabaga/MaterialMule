@@ -58,7 +58,7 @@ interface ProgramRow {
   version: number;
   program_number: string | null;
   project_id: string;
-  pm_pe_user_id: string;
+  lead_project_engineer_user_id: string;
 }
 
 interface RequestRow {
@@ -78,8 +78,8 @@ interface RequestRow {
  *
  * Every action here is a personal-account action: the shared LAB account is refused (403)
  * whoever it selects, because a selected person is attribution only (its T23/T24 allow-list
- * never covers these). Close: the project's PM/PE (`program.close`; a delegate can't). Reopen and
- * cancel: the project's PM/PE or a Lab Manager. Requests and repeats: any internal personal
+ * never covers these). Close: the project's Lead Project Engineer (`program.close`; a delegate can't). Reopen and
+ * cancel: the project's Lead Project Engineer or a Lab Manager. Requests and repeats: any internal personal
  * account.
  *
  * Order: 403, 404, 422 `program_not_open`, 409 (`version_conflict` with the current state,
@@ -105,8 +105,13 @@ export class LabLifecycleService {
       const replay = await replayProgramEvent(client, request.idempotencyKey, hash, user);
       if (replay) return replay;
       const program = (await lockProgram(client, programId, 'FOR UPDATE'))!;
-      // Authority as the project stands now (a PM/PE change since the check is honoured).
-      if (!can(user, 'program.close', { pmPeUserId: program.pm_pe_user_id })) throw forbidden();
+      // Authority as the project stands now (a Lead Project Engineer change since the check is honoured).
+      if (
+        !can(user, 'program.close', {
+          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+        })
+      )
+        throw forbidden();
       if (program.status !== 'submitted') {
         unprocessable(
           'program_not_open',
@@ -203,7 +208,12 @@ export class LabLifecycleService {
       const replay = await replayProgramEvent(client, request.idempotencyKey, hash, user);
       if (replay) return replay;
       const program = (await lockProgram(client, programId, 'FOR UPDATE'))!;
-      if (!can(user, 'program.reopen', { pmPeUserId: program.pm_pe_user_id })) throw forbidden();
+      if (
+        !can(user, 'program.reopen', {
+          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+        })
+      )
+        throw forbidden();
       if (program.status !== 'closed') {
         unprocessable('program_not_closed', 'id', 'only a closed program can be reopened');
       }
@@ -244,7 +254,7 @@ export class LabLifecycleService {
     });
   }
 
-  /** Any internal personal account asks the PM/PE to close; the program stays open. */
+  /** Any internal personal account asks the Lead Project Engineer to close; the program stays open. */
   async requestClose(
     programId: string,
     request: LifecycleRequest,
@@ -270,7 +280,7 @@ export class LabLifecycleService {
          VALUES ('closure_request', $1, 'lab_program', $2, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id`,
         [
-          program.pm_pe_user_id,
+          program.lead_project_engineer_user_id,
           programId,
           user.userId,
           user.initials,
@@ -304,7 +314,10 @@ export class LabLifecycleService {
       if (!can(user, 'test.cancel')) throw forbidden();
       throw new NotFoundException({ code: 'test_request_not_found' });
     }
-    if (!can(user, 'test.cancel', { pmPeUserId: peek.pm_pe_user_id })) throw forbidden();
+    if (
+      !can(user, 'test.cancel', { leadProjectEngineerUserId: peek.lead_project_engineer_user_id })
+    )
+      throw forbidden();
     const request = parseBody(cancelTestRequestSchema, body);
     const hash = intentHash({
       testRequestId,
@@ -329,7 +342,12 @@ export class LabLifecycleService {
         return requestResult(client, previous[0].test_request_id);
       }
       const program = (await lockProgram(client, peek.program_id, 'FOR SHARE'))!;
-      if (!can(user, 'test.cancel', { pmPeUserId: program.pm_pe_user_id })) throw forbidden();
+      if (
+        !can(user, 'test.cancel', {
+          leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+        })
+      )
+        throw forbidden();
       const current = (await lockRequest(client, testRequestId, 'FOR UPDATE'))!;
       if (program.status !== 'submitted') {
         unprocessable('program_not_open', 'id', 'reopen this program first');
@@ -443,7 +461,7 @@ export class LabLifecycleService {
                  $7, $8, $9)
          RETURNING id`,
         [
-          program.pm_pe_user_id,
+          program.lead_project_engineer_user_id,
           testRequestId,
           program.id,
           user.userId,
@@ -587,13 +605,19 @@ export class LabLifecycleService {
       if (!can(user, permission)) throw forbidden();
       throw new NotFoundException({ code: 'lab_program_not_found' });
     }
-    if (!can(user, permission, { pmPeUserId: program.pm_pe_user_id })) throw forbidden();
+    if (
+      !can(user, permission, { leadProjectEngineerUserId: program.lead_project_engineer_user_id })
+    )
+      throw forbidden();
   }
 
   private async peekRequest(testRequestId: string) {
     if (!UUID_PATTERN.test(testRequestId)) return null;
-    const { rows } = await this.database.pool.query<{ program_id: string; pm_pe_user_id: string }>(
-      `SELECT r.program_id, p.pm_pe_user_id FROM test_request r
+    const { rows } = await this.database.pool.query<{
+      program_id: string;
+      lead_project_engineer_user_id: string;
+    }>(
+      `SELECT r.program_id, p.lead_project_engineer_user_id FROM test_request r
        JOIN lab_program lp ON lp.id = r.program_id JOIN project p ON p.id = lp.project_id
        WHERE r.id = $1`,
       [testRequestId],
@@ -643,7 +667,7 @@ export class LabLifecycleService {
 async function lockProgram(db: Db, id: string, lock: '' | 'FOR SHARE' | 'FOR UPDATE') {
   if (!UUID_PATTERN.test(id)) return null;
   const { rows } = await db.query<ProgramRow>(
-    `SELECT lp.id, lp.status, lp.version, lp.program_number, lp.project_id, p.pm_pe_user_id
+    `SELECT lp.id, lp.status, lp.version, lp.program_number, lp.project_id, p.lead_project_engineer_user_id
      FROM lab_program lp JOIN project p ON p.id = lp.project_id
      WHERE lp.id = $1 ${lock ? `${lock} OF lp` : ''}`,
     [id],
@@ -778,10 +802,10 @@ export async function loadProgramLifecycle(
       closed_by_user_id: string | null;
       closed_by_initials_snapshot: string | null;
       closed_by_name_snapshot: string | null;
-      pm_pe_user_id: string;
+      lead_project_engineer_user_id: string;
     }>(
       `SELECT lp.status, lp.version, lp.closed_at, lp.closed_by_user_id,
-              lp.closed_by_initials_snapshot, lp.closed_by_name_snapshot, p.pm_pe_user_id
+              lp.closed_by_initials_snapshot, lp.closed_by_name_snapshot, p.lead_project_engineer_user_id
        FROM lab_program lp JOIN project p ON p.id = lp.project_id WHERE lp.id = $1`,
       [programId],
     ),
@@ -802,7 +826,7 @@ export async function loadProgramLifecycle(
     loadIdentityRevisions(db, programId),
   ]);
   const row = program.rows[0]!;
-  const context: ProjectContext = { pmPeUserId: row.pm_pe_user_id };
+  const context: ProjectContext = { leadProjectEngineerUserId: row.lead_project_engineer_user_id };
   const personal = user.accountType !== 'shared_lab';
   const open = row.status === 'submitted';
   const closure = closureEligibility(
@@ -816,7 +840,7 @@ export async function loadProgramLifecycle(
   const closeBlockedReason: CloseBlockedReason | null = !personal
     ? 'personal_sign_in'
     : !can(user, 'program.close', context)
-      ? 'not_pm_pe'
+      ? 'not_lead_project_engineer'
       : !open
         ? 'not_open'
         : closure.emptyProgram
@@ -857,7 +881,7 @@ export async function loadProgramLifecycle(
 export function requestLifecycle(
   row: LifecycleRequestRow,
   repeats: string[],
-  context: { user: AuthUser; programOpen: boolean; pmPeUserId: string },
+  context: { user: AuthUser; programOpen: boolean; leadProjectEngineerUserId: string },
 ): RequestLifecycle {
   const personal = context.user.accountType !== 'shared_lab';
   const live = personal && context.programOpen;
@@ -875,7 +899,11 @@ export function requestLifecycle(
     repeatOfId: row.repeat_of_id,
     repeatIds: repeats,
     canCancel:
-      live && cancellable && can(context.user, 'test.cancel', { pmPeUserId: context.pmPeUserId }),
+      live &&
+      cancellable &&
+      can(context.user, 'test.cancel', {
+        leadProjectEngineerUserId: context.leadProjectEngineerUserId,
+      }),
     canRequestCancel: live && cancellable && can(context.user, 'test.cancel_request'),
     canRepeat:
       live && REPEATABLE_STATUSES.includes(row.status) && can(context.user, 'lab_program.amend'),

@@ -3,8 +3,8 @@
 --
 -- Routing (derived from real workflow policy, never from who is selected at a LAB station):
 --   correction            → every Lab Manager (role-routed, shared)
---   cancellation_request  → every Lab Manager and the project's current PM/PE (shared)
---   closure_request       → the project's current PM/PE
+--   cancellation_request  → every Lab Manager and the project's current Lead Project Engineer (shared)
+--   closure_request       → the project's current Lead Project Engineer
 -- A Lab Manager or admin may reassign an open item to one eligible person with a reason; the
 -- item then goes to that person only. Every reassignment is an append-only row plus an audit
 -- event. Resolution still happens only through the underlying workflow action (correction done,
@@ -124,15 +124,15 @@ CREATE TRIGGER action_item_assignment_append_only
   BEFORE UPDATE OR DELETE ON action_item_assignment
   FOR EACH ROW EXECUTE FUNCTION lab_append_only();
 
--- Kinds whose decision belongs to the project's PM/PE (resolved at read time, so a PM/PE change
--- on the project moves open requests to the new PM/PE).
-CREATE FUNCTION action_item_routes_to_pm_pe(kind text) RETURNS boolean
+-- Kinds whose decision belongs to the project's Lead Project Engineer (resolved at read time, so a Lead Project Engineer change
+-- on the project moves open requests to the new Lead Project Engineer).
+CREATE FUNCTION action_item_routes_to_lead_project_engineer(kind text) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
   SELECT kind IN ('cancellation_request', 'closure_request')
 $$;
 
 -- True when the item is in `uid`'s inbox: its assignee, or (unassigned) a holder of its target
--- role or the project's current PM/PE for PM/PE-routed kinds. Account status/type is checked by
+-- role or the project's current Lead Project Engineer for Lead Project Engineer-routed kinds. Account status/type is checked by
 -- the caller; LAB never has an inbox.
 CREATE FUNCTION action_item_routed_to(item_id uuid, uid uuid) RETURNS boolean
 LANGUAGE sql STABLE AS $$
@@ -140,8 +140,8 @@ LANGUAGE sql STABLE AS $$
     WHEN a.assigned_user_id IS NOT NULL THEN a.assigned_user_id = uid
     ELSE (a.target_role = 'lab_manager'
           AND EXISTS (SELECT 1 FROM role_assignment r WHERE r.user_id = uid AND r.role = 'lab_manager'))
-      OR (action_item_routes_to_pm_pe(a.kind) AND p.pm_pe_user_id = uid)
-      OR (NOT action_item_routes_to_pm_pe(a.kind) AND a.target_user_id = uid)
+      OR (action_item_routes_to_lead_project_engineer(a.kind) AND p.lead_project_engineer_user_id = uid)
+      OR (NOT action_item_routes_to_lead_project_engineer(a.kind) AND a.target_user_id = uid)
   END
   FROM action_item a JOIN project p ON p.id = a.project_id
   WHERE a.id = item_id

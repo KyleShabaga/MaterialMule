@@ -159,7 +159,7 @@ describe('First-login position setup', () => {
     for (const label of [
       'Technician (Tech)',
       'Engineer (Eng)',
-      'Project Manager / Project Engineer (PM/PE)',
+      'Project Engineer',
       'Lab Manager',
     ]) {
       expect(

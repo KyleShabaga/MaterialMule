@@ -223,7 +223,7 @@ interface Staff {
   id: string;
   name: string;
   initials: string;
-  position: 'technician' | 'engineer' | 'pm_pe' | 'lab_manager';
+  position: 'technician' | 'engineer' | 'project_engineer' | 'lab_manager';
 }
 interface Location {
   id: string;
@@ -322,7 +322,9 @@ export async function generateBenchData(
   for (let i = 0; i < profile.staff; i++) {
     const given = staffRandom.pick(GIVEN);
     const surname = staffRandom.pick(SURNAMES);
-    const position = (['technician', 'technician', 'engineer', 'pm_pe'] as const)[i % 4]!;
+    const position = (['technician', 'technician', 'engineer', 'project_engineer'] as const)[
+      i % 4
+    ]!;
     staff.push({
       id: staffRandom.uuid(),
       name: `${given} ${surname} ${String(i + 1).padStart(2, '0')}`,
@@ -343,7 +345,7 @@ export async function generateBenchData(
     ],
     staff.map((s) => [s.id, s.name, s.initials, s.position, 'personal', 'active']),
   );
-  const pmPool = staff.filter((s) => s.position === 'pm_pe');
+  const pmPool = staff.filter((s) => s.position === 'project_engineer');
   const receivers = staff.filter((s) => s.position === 'technician');
 
   // --- Locations -------------------------------------------------------------------------------
@@ -421,7 +423,7 @@ export async function generateBenchData(
       ['project_number', 'text'],
       ['name', 'text'],
       ['client', 'text'],
-      ['pm_pe_user_id', 'uuid'],
+      ['lead_project_engineer_user_id', 'uuid'],
       ['created_at', 'timestamptz'],
     ],
     projectRows,

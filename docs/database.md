@@ -49,7 +49,7 @@ erDiagram
   app_user ||--o{ identity_link : "signs in via"
   app_user ||--o{ role_assignment : "holds"
   app_user ||--o{ session : "has"
-  app_user ||--o{ project : "is PM/PE of"
+  app_user ||--o{ project : "is Lead Project Engineer of"
   project ||--o{ test_hole : "has"
   project ||--o{ receipt : "receives"
   receipt ||--|{ storage_unit : "creates"
@@ -236,7 +236,7 @@ are computed by query, never stored.
 
 - **Search** matches project number, name or client (contains, ignoring case, wildcards escaped),
   backed by `pg_trgm` GIN indexes on each. "Only mine" (`mine=true`) keeps projects where the user
-  is `pm_pe_user_id` or `review_engineer_user_id`, both indexed.
+  is `lead_project_engineer_user_id` or `review_engineer_user_id`, both indexed.
 - **Stable paging.** Every sort (number, name, last receipt with never-received projects last)
   ends with the normalised number (`COLLATE "C"`) and the ID. Default 25 per page, max 100.
 - **Project number lock.** A trigger rejects changing `project_number` once the project has any
@@ -459,7 +459,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   creator, retry key and intent hash. The one-request-per-line-and-test key now applies to
   originals only (`repeat_of_id IS NULL`).
 - `action_item` adds `cancellation_request` (on a test, for the Lab Manager role and the project's
-  PM/PE) and `closure_request` (on the program, for its PM/PE), each with the requester's reason,
+  Lead Project Engineer) and `closure_request` (on the program, for its Lead Project Engineer), each with the requester's reason,
   snapshots, retry key and hash. There is at most one open request of each kind per test or
   program. `resolution` records `correction_done`, `cancelled` or `closed`. Cancelling a test
   resolves its open correction and cancellation request; closing resolves the closure request.
@@ -525,7 +525,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
   allows exactly one resolution; while open, only the assignment may change, and never to null.
 - `action_item_routed_to(item, user)` is the one routing rule (inbox, count, email recipients):
   the assignee when set, otherwise Lab Manager role holders for `target_role = 'lab_manager'`
-  and the project's current PM/PE for cancellation and closure requests.
+  and the project's current Lead Project Engineer for cancellation and closure requests.
 - `action_item_assignment`: append-only reassignment history (from, to, reason, who, when,
   retry key).
 - `notification_preference`: one row per person, `email_action_requests` default false,
@@ -577,7 +577,7 @@ needs exact-unit completion evidence from MM-T23/T24 first.
 - MM-T70 (migration 0070): an approval belongs to the project it was granted under. A new
   approval must name the unit's current project (`disposal_approval_matches_unit_project`), and
   `disposal_removal_guard` also requires the approval's project to equal the unit's, so after a
-  project correction the standard scan is refused until the new project's PM/PE or a Lab
+  project correction the standard scan is refused until the new project's Lead Project Engineer or a Lab
   Manager approves again. The MM-T36 post-testing route is unchanged.
 - MM-T70 (migration 0071, owner decision: refuse): a unit's `project_id` can't change while it
   has a live (not revoked, not used) approval (`storage_unit_project_disposal_approval_live`).

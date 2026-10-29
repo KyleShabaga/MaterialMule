@@ -18,7 +18,7 @@ import { completedTestEvidence } from './work.service.js';
 // MM-T25 review corrections and delegated acceptance (card AC1–AC8, test plan T1–T3, T5, T6 and
 // preparation scenarios R01–R12 that belong to this card). Real PostgreSQL; races use two real
 // connections and row locks, never sleeps. Fictional data only: DEMO-2601 (A) and DEMO-2602 (B),
-// whose PM/PE is Pat Example (`pe`); Lee Manager (`lm`) is the Lab Manager; Jordan Smith (`js`)
+// whose Lead Project Engineer is Pat Example (`pe`); Lee Manager (`lm`) is the Lab Manager; Jordan Smith (`js`)
 // plays the acceptance delegate DE; Alex Tester (`tech`) is an ordinary Technician.
 describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => {
   let h: LabHarness;
@@ -395,14 +395,17 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
       displayName: 'Jordan Smith',
       initials: 'JS',
     };
-    const context = { pmPeUserId: h.users.pe, acceptanceDelegateUserIds: [h.users.js] };
+    const context = {
+      leadProjectEngineerUserId: h.users.pe,
+      acceptanceDelegateUserIds: [h.users.js],
+    };
     expect(can(delegateUser, 'test.accept', context)).toBe(true);
     expect(can(delegateUser, 'program.close', context)).toBe(false);
     expect(can(delegateUser, 'program.priority.set', context)).toBe(false);
     expect((await grant('a', h.users.jo, 'js')).status).toBe(403);
     expect((await revoke('a', grantId, 'js')).status).toBe(403);
 
-    // Only the PM/PE revokes; the next accept by DE is refused, the earlier one keeps DE.
+    // Only the Lead Project Engineer revokes; the next accept by DE is refused, the earlier one keeps DE.
     expect((await revoke('a', grantId, 'lm')).status).toBe(403);
     const revoked = await revoke('a', grantId);
     expect(revoked.status, JSON.stringify(revoked.body)).toBe(200);
@@ -452,7 +455,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     ]);
   });
 
-  it('delegation targets must be active staff other than the PM/PE; reads are personal-only', async () => {
+  it('delegation targets must be active staff other than the Lead Project Engineer; reads are personal-only', async () => {
     expect((await grant('a', h.users.pe)).body.code).toBe('invalid_delegate');
     expect((await grant('a', h.users.disabled)).body.code).toBe('invalid_delegate');
     expect((await grant('a', h.users.lab)).body.code).toBe('invalid_delegate');

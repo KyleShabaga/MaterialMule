@@ -598,7 +598,7 @@ describe.runIf(testDatabaseUrl)('tested-unit removal (MM-T36)', () => {
     await complete(att!.id, [alsoSibling.id]);
     expect((await detail(onlyCancelled.id)).testing?.contentsDestroyed).toBe(true);
 
-    // The project's PM/PE cancels the moisture test after it was completed.
+    // The project's Lead Project Engineer cancels the moisture test after it was completed.
     const cancelled = await h.send(
       'post',
       `/api/test-requests/${mc!.id}/cancel`,

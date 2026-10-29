@@ -6,17 +6,27 @@ const ME = '00000000-0000-4000-8000-0000000000aa';
 const OTHER = '00000000-0000-4000-8000-0000000000bb';
 
 describe('"Only mine" predicate (MM-T35 T1)', () => {
-  it('includes projects where I am the PM/PE or the review engineer, nothing else', () => {
-    expect(isMyProject({ pmPe: { id: ME }, reviewEngineer: null }, ME)).toBe(true);
-    expect(isMyProject({ pmPe: { id: OTHER }, reviewEngineer: { id: ME } }, ME)).toBe(true);
-    expect(isMyProject({ pmPe: { id: ME }, reviewEngineer: { id: ME } }, ME)).toBe(true);
-    expect(isMyProject({ pmPe: { id: OTHER }, reviewEngineer: null }, ME)).toBe(false);
-    expect(isMyProject({ pmPe: { id: OTHER }, reviewEngineer: { id: OTHER } }, ME)).toBe(false);
+  it('includes projects where I am the Lead Project Engineer or the review engineer, nothing else', () => {
+    expect(isMyProject({ leadProjectEngineer: { id: ME }, reviewEngineer: null }, ME)).toBe(true);
+    expect(
+      isMyProject({ leadProjectEngineer: { id: OTHER }, reviewEngineer: { id: ME } }, ME),
+    ).toBe(true);
+    expect(isMyProject({ leadProjectEngineer: { id: ME }, reviewEngineer: { id: ME } }, ME)).toBe(
+      true,
+    );
+    expect(isMyProject({ leadProjectEngineer: { id: OTHER }, reviewEngineer: null }, ME)).toBe(
+      false,
+    );
+    expect(
+      isMyProject({ leadProjectEngineer: { id: OTHER }, reviewEngineer: { id: OTHER } }, ME),
+    ).toBe(false);
   });
 
   it('filters the SQL the same way, with the user only as a parameter', () => {
     const sql = buildProjectListQuery(projectListQuerySchema.parse({ mine: 'true' }), ME);
-    expect(sql.where).toBe('WHERE (p.pm_pe_user_id = $1 OR p.review_engineer_user_id = $1)');
+    expect(sql.where).toBe(
+      'WHERE (p.lead_project_engineer_user_id = $1 OR p.review_engineer_user_id = $1)',
+    );
     expect(sql.params).toEqual([ME]);
     const all = buildProjectListQuery(projectListQuerySchema.parse({ mine: 'false' }), ME);
     expect(all.where).toBe('');
@@ -34,7 +44,7 @@ describe('buildProjectListQuery', () => {
     expect(sql.where).toContain('p.project_number_normalized LIKE $1');
     expect(sql.where).toContain('lower(p.name) LIKE $1');
     expect(sql.where).toContain('lower(p.client) LIKE $1');
-    expect(sql.where).toContain('p.pm_pe_user_id = $2');
+    expect(sql.where).toContain('p.lead_project_engineer_user_id = $2');
   });
 
   it('defaults to number A–Z, 25 per page, and always ends with a unique tie-breaker', () => {

@@ -19,21 +19,21 @@ const PROJECTS: ProjectSummary[] = [
     projectNumber: 'DEMO-2601',
     name: 'Riverbank investigation',
     client: 'Example Client',
-    pmPe: PE,
+    leadProjectEngineer: PE,
   },
   {
     id: 'p2',
     projectNumber: 'DEMO-2602',
     name: 'Hillside bridge',
     client: 'Example Client',
-    pmPe: PE,
+    leadProjectEngineer: PE,
   },
   {
     id: 'p3',
     projectNumber: 'DEMO-2603',
     name: 'Old Mill Road',
     client: 'Example Client',
-    pmPe: PE,
+    leadProjectEngineer: PE,
   },
 ];
 const HOLES: TestHole[] = ['TH26-01', 'TH26-02', 'TH26-03'].map((name, index) => ({

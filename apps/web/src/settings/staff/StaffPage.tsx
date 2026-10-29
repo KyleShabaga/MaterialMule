@@ -41,7 +41,7 @@ const POSITIONS = Object.keys(POSITION_SHORT_LABELS) as StaffPosition[];
 const POSITION_NAMES: Record<StaffPosition, string> = {
   technician: 'Technician',
   engineer: 'Engineer',
-  pm_pe: 'PM / PE',
+  project_engineer: 'Project Engineer',
   lab_manager: 'Lab Manager',
 };
 

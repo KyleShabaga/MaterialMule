@@ -43,18 +43,18 @@ export function likeEscape(value: string): string {
 
 const SELECT_PROJECT = `
   SELECT p.id, p.project_number, p.name, p.client,
-         u.id AS pm_pe_id, u.display_name AS pm_pe_name, u.official_initials AS pm_pe_initials
+         u.id AS lead_project_engineer_id, u.display_name AS lead_project_engineer_name, u.official_initials AS lead_project_engineer_initials
   FROM project p
-  JOIN app_user u ON u.id = p.pm_pe_user_id`;
+  JOIN app_user u ON u.id = p.lead_project_engineer_user_id`;
 
 interface ProjectRow {
   id: string;
   project_number: string;
   name: string;
   client: string;
-  pm_pe_id: string;
-  pm_pe_name: string;
-  pm_pe_initials: string | null;
+  lead_project_engineer_id: string;
+  lead_project_engineer_name: string;
+  lead_project_engineer_initials: string | null;
 }
 
 function toSummary(row: ProjectRow): ProjectSummary {
@@ -63,7 +63,11 @@ function toSummary(row: ProjectRow): ProjectSummary {
     projectNumber: row.project_number,
     name: row.name,
     client: row.client,
-    pmPe: { id: row.pm_pe_id, displayName: row.pm_pe_name, initials: row.pm_pe_initials },
+    leadProjectEngineer: {
+      id: row.lead_project_engineer_id,
+      displayName: row.lead_project_engineer_name,
+      initials: row.lead_project_engineer_initials,
+    },
   };
 }
 
@@ -71,12 +75,12 @@ function toSummary(row: ProjectRow): ProjectSummary {
 
 const SELECT_PROJECT_WITH_PEOPLE = `
   SELECT p.id, p.project_number, p.name, p.client,
-         u.id AS pm_pe_id, u.display_name AS pm_pe_name, u.official_initials AS pm_pe_initials,
+         u.id AS lead_project_engineer_id, u.display_name AS lead_project_engineer_name, u.official_initials AS lead_project_engineer_initials,
          re.id AS re_id, re.display_name AS re_name, re.official_initials AS re_initials`;
 
 const PROJECT_WITH_PEOPLE_FROM = `
   FROM project p
-  JOIN app_user u ON u.id = p.pm_pe_user_id
+  JOIN app_user u ON u.id = p.lead_project_engineer_user_id
   LEFT JOIN app_user re ON re.id = p.review_engineer_user_id`;
 
 interface ProjectWithPeopleRow extends ProjectRow {
@@ -92,7 +96,7 @@ interface ProjectListRow extends ProjectWithPeopleRow {
 }
 
 interface ProjectDetailRow extends ProjectWithPeopleRow {
-  pm_pe_user_id: string;
+  lead_project_engineer_user_id: string;
   review_engineer_user_id: string | null;
   server_folder_path: string | null;
   version: number;
@@ -109,7 +113,7 @@ interface EditableValues {
   projectNumber: string;
   name: string;
   client: string;
-  pmPeUserId: string;
+  leadProjectEngineerUserId: string;
   reviewEngineerUserId: string | null;
   serverFolderPath: string | null;
 }
@@ -118,7 +122,7 @@ const EDITABLE_COLUMNS: Record<keyof EditableValues, string> = {
   projectNumber: 'project_number',
   name: 'name',
   client: 'client',
-  pmPeUserId: 'pm_pe_user_id',
+  leadProjectEngineerUserId: 'lead_project_engineer_user_id',
   reviewEngineerUserId: 'review_engineer_user_id',
   serverFolderPath: 'server_folder_path',
 };
@@ -171,11 +175,11 @@ export class ProjectsService {
   ): Promise<ProjectSummary> {
     const created = await withTransaction(this.database.pool, async (client) => {
       const errors: FieldError[] = [];
-      if (!(await findActiveStaff(client, input.pmPeUserId))) {
+      if (!(await findActiveStaff(client, input.leadProjectEngineerUserId))) {
         errors.push({
-          field: 'pmPeUserId',
+          field: 'leadProjectEngineerUserId',
           code: 'not_active_staff',
-          message: 'PM/PE must be an active staff member',
+          message: 'Lead Project Engineer must be an active staff member',
         });
       }
       const receiver = input.receiverUserId
@@ -193,11 +197,11 @@ export class ProjectsService {
       }
 
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO project (project_number, name, client, pm_pe_user_id)
+        `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT ON CONSTRAINT project_number_key DO NOTHING
          RETURNING id`,
-        [input.projectNumber, input.name, input.client, input.pmPeUserId],
+        [input.projectNumber, input.name, input.client, input.leadProjectEngineerUserId],
       );
       const id = rows[0]?.id;
       if (!id) {
@@ -214,7 +218,7 @@ export class ProjectsService {
           projectNumber: project.projectNumber,
           name: project.name,
           client: project.client,
-          pmPeUserId: project.pmPe.id,
+          leadProjectEngineerUserId: project.leadProjectEngineer.id,
         },
         requestId,
       });
@@ -271,7 +275,7 @@ export class ProjectsService {
     lock = false,
   ): Promise<ProjectDetailRow | null> {
     const { rows } = await client.query<ProjectDetailRow>(
-      `${SELECT_PROJECT_WITH_PEOPLE}, p.pm_pe_user_id, p.review_engineer_user_id,
+      `${SELECT_PROJECT_WITH_PEOPLE}, p.lead_project_engineer_user_id, p.review_engineer_user_id,
               p.server_folder_path, p.version
        ${PROJECT_WITH_PEOPLE_FROM}
        WHERE p.id = $1
@@ -341,8 +345,10 @@ export class ProjectsService {
       serverFolderPath: row.server_folder_path,
       version: row.version,
       numberLocked: counts.receipt_count > 0,
-      canEdit: can(user, 'project.edit', { pmPeUserId: row.pm_pe_user_id }),
-      canChangePmPe: can(user, 'project.pm_pe.change'),
+      canEdit: can(user, 'project.edit', {
+        leadProjectEngineerUserId: row.lead_project_engineer_user_id,
+      }),
+      canChangeLeadProjectEngineer: can(user, 'project.lead_project_engineer.change'),
       unitCount: counts.unit_count,
       inStockUnitCount: counts.in_stock_unit_count,
       testHoles: holes.rows.map((hole) => ({
@@ -365,8 +371,8 @@ export class ProjectsService {
   }
 
   /**
-   * Edits a project (MM-T35, owner decision 2026-10-25): admins and the project's current PM/PE
-   * may edit; only admins change the PM/PE (with a reason); the number locks once any receipt
+   * Edits a project (MM-T35, owner decision 2026-10-25): admins and the project's current Lead Project Engineer
+   * may edit; only admins change the Lead Project Engineer (with a reason); the number locks once any receipt
    * exists. Optimistic: a stale `version` gets 409 with the current project. Only changed fields
    * are written and audited; a save that changes nothing returns the project untouched.
    */
@@ -384,7 +390,11 @@ export class ProjectsService {
         if (!row) {
           throw new NotFoundException({ code: 'project_not_found' });
         }
-        if (!can(user, 'project.edit', { pmPeUserId: row.pm_pe_user_id })) {
+        if (
+          !can(user, 'project.edit', {
+            leadProjectEngineerUserId: row.lead_project_engineer_user_id,
+          })
+        ) {
           throw new ForbiddenException({ code: 'forbidden' });
         }
 
@@ -392,7 +402,7 @@ export class ProjectsService {
           projectNumber: row.project_number,
           name: row.name,
           client: row.client,
-          pmPeUserId: row.pm_pe_user_id,
+          leadProjectEngineerUserId: row.lead_project_engineer_user_id,
           reviewEngineerUserId: row.review_engineer_user_id,
           serverFolderPath: row.server_folder_path,
         };
@@ -400,7 +410,7 @@ export class ProjectsService {
           projectNumber: input.projectNumber,
           name: input.name,
           client: input.client,
-          pmPeUserId: input.pmPeId,
+          leadProjectEngineerUserId: input.leadProjectEngineerId,
           reviewEngineerUserId: input.reviewEngineerId,
           serverFolderPath: input.serverFolderPath,
         };
@@ -408,24 +418,27 @@ export class ProjectsService {
           (key) => requested[key] !== undefined && requested[key] !== before[key],
         );
 
-        if (changed.includes('pmPeUserId') && !can(user, 'project.pm_pe.change')) {
+        if (
+          changed.includes('leadProjectEngineerUserId') &&
+          !can(user, 'project.lead_project_engineer.change')
+        ) {
           throw new ForbiddenException({ code: 'forbidden' });
         }
 
         const errors: FieldError[] = [];
-        if (changed.includes('pmPeUserId')) {
+        if (changed.includes('leadProjectEngineerUserId')) {
           if (!input.reason) {
             errors.push({
               field: 'reason',
               code: 'required',
-              message: 'Give a reason for changing the PM/PE',
+              message: 'Give a reason for changing the Lead Project Engineer',
             });
           }
-          if (!(await findActiveStaff(client, input.pmPeId!))) {
+          if (!(await findActiveStaff(client, input.leadProjectEngineerId!))) {
             errors.push({
-              field: 'pmPeId',
+              field: 'leadProjectEngineerId',
               code: 'not_active_staff',
-              message: 'PM/PE must be an active staff member',
+              message: 'Lead Project Engineer must be an active staff member',
             });
           }
         }

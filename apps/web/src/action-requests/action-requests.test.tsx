@@ -20,7 +20,7 @@ const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   roles: [],
   permissions: ['inventory.read', 'action_item.read'],
   sessionExpiresAt: '2026-10-28T06:00:00.000Z',
-  position: 'pm_pe',
+  position: 'project_engineer',
   positionSetupRequired: false,
   profileRefreshFailed: false,
   ...overrides,
@@ -32,8 +32,8 @@ const item = (overrides: Partial<ActionRequest> = {}): ActionRequest => ({
   status: 'open',
   resolution: null,
   title: 'Closure requested for LP-2026-0001',
-  routeTag: 'PM/PE',
-  routedTo: 'Project PM/PE',
+  routeTag: 'Lead Project Engineer',
+  routedTo: 'Lead Project Engineer',
   projectId: 'p1',
   projectNumber: 'DEMO-2601',
   href: '/lab-testing/programs/lp1',
@@ -92,7 +92,7 @@ describe('Action requests (MM-T27)', () => {
     );
     const row = await screen.findByRole('listitem', { name: 'Closure requested for LP-2026-0001' });
     expect(row).toHaveTextContent(
-      'PM/PE: Closure requested for LP-2026-0001 by AT · All tests are done',
+      'Lead Project Engineer: Closure requested for LP-2026-0001 by AT · All tests are done',
     );
     expect(within(row).getByRole('link', { name: 'Open' })).toHaveAttribute(
       'href',
@@ -230,7 +230,7 @@ describe('Action requests (MM-T27)', () => {
           officeLocation: null,
           officialInitials: 'PE',
           initialsConfirmed: true,
-          position: 'pm_pe',
+          position: 'project_engineer',
           positionSetAt: null,
           source: 'seed',
           refreshedAt: null,

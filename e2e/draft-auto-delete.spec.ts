@@ -35,7 +35,7 @@ async function seedDrafts(page: Page, drafts: SeedDraft[]): Promise<string[]> {
               projectNumber: 'DEMO-2601',
               name: 'Riverbank investigation',
               client: 'Example Client',
-              pmPe: null,
+              leadProjectEngineer: null,
             },
             receivedDate: '2026-01-05',
             receiver: null,

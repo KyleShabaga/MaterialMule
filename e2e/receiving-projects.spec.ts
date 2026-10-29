@@ -24,7 +24,7 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
     .getByRole('option', { name: 'DEMO-2601 · Riverbank investigation · Example Client' })
     .click();
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
-  await expect(page.getByLabel('PM/PE')).toHaveValue('Pat Example');
+  await expect(page.getByLabel('Lead Project Engineer')).toHaveValue('Pat Example');
 
   // Existing hole.
   const holes = page.getByRole('combobox', { name: 'Find or add a test hole' });
@@ -42,7 +42,7 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
   await form.getByLabel('Project name').fill('Example Ridge');
   await form.getByLabel('Client').fill('Example Client');
-  await form.getByLabel('PM/PE').selectOption({ label: 'PE · Pat Example' });
+  await form.getByLabel('Lead Project Engineer').selectOption({ label: 'PE · Pat Example' });
   await form.getByRole('button', { name: 'Save project' }).click();
   await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
   await expect(page.getByLabel('Project name')).toHaveValue('Example Ridge');

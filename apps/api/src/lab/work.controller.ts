@@ -15,7 +15,7 @@ import { LabWorkService } from './work.service.js';
 
 /**
  * Lab worklist and progress (MM-T24). Progress and comments: personal accounts, or LAB with a
- * valid `actingStaffUserId` on every request. Priority: the project's PM/PE or a Lab Manager
+ * valid `actingStaffUserId` on every request. Priority: the project's Lead Project Engineer or a Lab Manager
  * (checked in the handler, project-scoped). 403 before 422 (`invalid_transition`,
  * `program_not_open`, `tested_units_required`, `unit_not_covered`, `confirmation_not_needed`,
  * `unit_disposed`, `unit_contents_destroyed`) before 409

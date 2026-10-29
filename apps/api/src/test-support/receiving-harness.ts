@@ -13,7 +13,7 @@ import { createMigratedSchema, databaseUrlForSchema, type TestSchema } from './d
 import { insertProject, insertTestHole } from './fixtures.js';
 
 // A listening API on its own schema with fictional receiving data (MM-T18 concurrency and
-// failure-injection tests): the reference seed (LAB, Receiving lab), receiver AT, PM/PE PE and
+// failure-injection tests): the reference seed (LAB, Receiving lab), receiver AT, Lead Project Engineer PE and
 // project DEMO-2601 with TH26-01 and TH26-02. stop() and start() simulate the API process going
 // away and coming back on the same database.
 

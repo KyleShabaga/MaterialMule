@@ -13,7 +13,7 @@ export interface ProjectListSql {
 
 /**
  * Builds the projects list query (MM-T35). Search matches number, name or client (contains,
- * ignoring case); "Only mine" keeps projects where `userId` is the PM/PE or review engineer. The
+ * ignoring case); "Only mine" keeps projects where `userId` is the Lead Project Engineer or review engineer. The
  * project number (then ID) ends every sort so pages never overlap or skip.
  */
 export function buildProjectListQuery(query: ProjectListQuery, userId: string): ProjectListSql {
@@ -34,7 +34,9 @@ export function buildProjectListQuery(query: ProjectListQuery, userId: string): 
   }
   if (query.mine) {
     const user = param(userId);
-    where.push(`(p.pm_pe_user_id = ${user} OR p.review_engineer_user_id = ${user})`);
+    where.push(
+      `(p.lead_project_engineer_user_id = ${user} OR p.review_engineer_user_id = ${user})`,
+    );
   }
 
   const dir = projectListSortDirection(query) === 'asc' ? 'ASC' : 'DESC';

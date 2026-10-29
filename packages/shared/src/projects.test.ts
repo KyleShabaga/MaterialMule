@@ -13,7 +13,7 @@ import {
   testHoleNameKey,
 } from './projects';
 
-const PM_PE = '00000000-0000-4000-8000-000000000101';
+const LEAD = '00000000-0000-4000-8000-000000000101';
 
 describe('normalisation (MM-T08 T1)', () => {
   it('trims project numbers and compares them ignoring case', () => {
@@ -55,7 +55,7 @@ describe('createProjectRequestSchema', () => {
       projectNumber: ' 70001 ',
       name: ' Example ',
       client: ' Example Client ',
-      pmPeUserId: PM_PE,
+      leadProjectEngineerUserId: LEAD,
     });
     expect(parsed).toMatchObject({
       projectNumber: '70001',
@@ -68,7 +68,7 @@ describe('createProjectRequestSchema', () => {
     const result = createProjectRequestSchema.safeParse({ projectNumber: '70001', name: 'X' });
     expect(result.success).toBe(false);
     const fields = result.error!.issues.map((issue) => issue.path.join('.'));
-    expect(fields).toEqual(expect.arrayContaining(['client', 'pmPeUserId']));
+    expect(fields).toEqual(expect.arrayContaining(['client', 'leadProjectEngineerUserId']));
   });
 });
 
@@ -119,12 +119,17 @@ describe('project edit request (MM-T35)', () => {
   it('needs a version and rejects over-long paths and bad staff IDs by field', () => {
     const result = updateProjectRequestSchema.safeParse({
       serverFolderPath: 'x'.repeat(501),
-      pmPeId: 'not-a-uuid',
+      leadProjectEngineerId: 'not-a-uuid',
       reviewEngineerId: 'nope',
     });
     expect(result.success).toBe(false);
     const fields = result.error!.issues.map((issue) => String(issue.path[0])).sort();
-    expect(fields).toEqual(['pmPeId', 'reviewEngineerId', 'serverFolderPath', 'version']);
+    expect(fields).toEqual([
+      'leadProjectEngineerId',
+      'reviewEngineerId',
+      'serverFolderPath',
+      'version',
+    ]);
     expect(updateProjectRequestSchema.parse({ version: 1, reviewEngineerId: null })).toEqual({
       version: 1,
       reviewEngineerId: null,

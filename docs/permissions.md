@@ -12,7 +12,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - **Pending and disabled users** get nothing beyond `GET /api/me` and sign-out (pending) or a 401
   (disabled: their sessions stop authenticating).
 - **Position and job title grant nothing.** Only `role_assignment` (admin, lab_manager), the
-  account type and project authority (PM/PE, acceptance delegates) do.
+  account type and project authority (Lead Project Engineer, acceptance delegates) do.
 - **Admin is not a super-user.** It manages staff and sessions; it doesn't imply Lab Manager
   rights, project authority, acceptance or closure.
 - **LAB** (shared receiving account) is limited to the LAB column even if a role is assigned to it
@@ -20,46 +20,46 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 
 ## Matrix
 
-| Permission                                  | LAB | Any internal user | Lab Manager | Admin | Project PM/PE | Acceptance delegate |
-| ------------------------------------------- | :-: | :---------------: | :---------: | :---: | :-----------: | :-----------------: |
-| receipt.confirm / receipt.draft             |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| project.create / test_hole.create           |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| inventory.read / label.print                |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.move (#21)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| lab_program.read / lab_program.manage (T23) |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.correct (D45–D47)              |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test.progress (D08, T24)                    |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test.review                                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| lab_program.amend (T26)                     |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test.cancel_request (T26)                   |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| storage_unit.tested_removal (T36)           |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| action_item.read (T27)                      |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| retention.request (T29)                     |     |         ✓         |      ✓      |   ✓   |       ✓       |          ✓          |
-| test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |               |                     |
-| program.priority.set (D50)                  |     |                   |      ✓      |       |       ✓       |                     |
-| program.reopen                              |     |                   |      ✓      |       |       ✓       |                     |
-| test.cancel (D07)                           |     |                   |      ✓      |       |       ✓       |                     |
-| test.correction_done (T25)                  |     |                   |      ✓      |       |               |                     |
-| retention.manage (D05)                      |     |                   |      ✓      |       |       ✓       |                     |
-| disposal.approve (D19)                      |     |                   |      ✓      |       |       ✓       |                     |
-| settings.drafts.manage (MM-T45)             |     |                   |      ✓      |   ✓   |               |                     |
-| location.manage (MM-T37)                    |     |                   |      ✓      |   ✓   |               |                     |
-| action_item.reassign (T27)                  |     |                   |      ✓      |   ✓   |               |                     |
-| test.accept (D04)                           |     |                   |             |       |       ✓       |          ✓          |
-| program.close (D06)                         |     |                   |             |       |       ✓       |                     |
-| acceptance_delegation.manage                |     |                   |             |       |       ✓       |                     |
-| staff.manage / session.revoke               |     |                   |             |   ✓   |               |                     |
-| printer.manage (T15)                        |     |                   |             |   ✓   |               |                     |
-| project.edit (T35)                          |     |                   |             |   ✓   |       ✓       |                     |
-| project.pm_pe.change (T35)                  |     |                   |             |   ✓   |               |                     |
-| system.status.read (T21)                    |     |                   |             |   ✓   |               |                     |
+| Permission                                  | LAB | Any internal user | Lab Manager | Admin | Lead Project Engineer | Acceptance delegate |
+| ------------------------------------------- | :-: | :---------------: | :---------: | :---: | :-------------------: | :-----------------: |
+| receipt.confirm / receipt.draft             |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| project.create / test_hole.create           |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| inventory.read / label.print                |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.move (#21)                     |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| lab_program.read / lab_program.manage (T23) |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.correct (D45–D47)              |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test.progress (D08, T24)                    |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| lab_comment.write (T24)                     |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test.review                                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| acceptance_delegation.read (T25)            |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| lab_program.amend (T26)                     |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test.cancel_request (T26)                   |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| program.close_request (T26)                 |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.dispose_scan (#24)             |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| location_conflict.resolve (D29)             |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| storage_unit.tested_removal (T36)           |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| action_item.read (T27)                      |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| retention.request (T29)                     |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| test_catalog.manage (D37)                   |     |                   |      ✓      |   ✓   |                       |                     |
+| program.priority.set (D50)                  |     |                   |      ✓      |       |           ✓           |                     |
+| program.reopen                              |     |                   |      ✓      |       |           ✓           |                     |
+| test.cancel (D07)                           |     |                   |      ✓      |       |           ✓           |                     |
+| test.correction_done (T25)                  |     |                   |      ✓      |       |                       |                     |
+| retention.manage (D05)                      |     |                   |      ✓      |       |           ✓           |                     |
+| disposal.approve (D19)                      |     |                   |      ✓      |       |           ✓           |                     |
+| settings.drafts.manage (MM-T45)             |     |                   |      ✓      |   ✓   |                       |                     |
+| location.manage (MM-T37)                    |     |                   |      ✓      |   ✓   |                       |                     |
+| action_item.reassign (T27)                  |     |                   |      ✓      |   ✓   |                       |                     |
+| test.accept (D04)                           |     |                   |             |       |           ✓           |          ✓          |
+| program.close (D06)                         |     |                   |             |       |           ✓           |                     |
+| acceptance_delegation.manage                |     |                   |             |       |           ✓           |                     |
+| staff.manage / session.revoke               |     |                   |             |   ✓   |                       |                     |
+| printer.manage (T15)                        |     |                   |             |   ✓   |                       |                     |
+| project.edit (T35)                          |     |                   |             |   ✓   |           ✓           |                     |
+| project.lead_project_engineer.change (T35)  |     |                   |             |   ✓   |                       |                     |
+| system.status.read (T21)                    |     |                   |             |   ✓   |                       |                     |
 
-"Project PM/PE" and "Acceptance delegate" apply only when the handler passes that project to
+"Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account.
 
 ## Sessions
@@ -173,9 +173,9 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 | `PATCH /api/projects/:id`                | active user; the service checks `project.edit`        |
 | `POST /api/projects/:id/test-holes`      | `test_hole.create` (LAB included)                     |
 
-- **Edit** (owner decision 2026-10-25): admins and the project's current PM/PE may change the
-  number, name, client, review engineer and server folder path. Changing the PM/PE is admin-only
-  (`project.pm_pe.change`) and needs a reason. A review engineer, Lab Manager or LAB can't edit.
+- **Edit** (owner decision 2026-10-25): admins and the project's current Lead Project Engineer may change the
+  number, name, client, review engineer and server folder path. Changing the Lead Project Engineer is admin-only
+  (`project.lead_project_engineer.change`) and needs a reason. A review engineer, Lab Manager or LAB can't edit.
 - **Project number** is printed on labels, so it can't change once the project has any receipt:
   422 `project_number_locked`, also enforced by a database trigger (migration 0015).
 - Edits are optimistic (`version`; a stale one gets 409 `version_conflict` with the current
@@ -318,7 +318,7 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   member with confirmed initials, checked each time). History shows "LAB for person". LAB never
   changes priority, never accepts or reviews (a jump to `accepted` is 403 for LAB, 422 for a
   personal account), never closes programs and never removes tested units, whoever it selects.
-- **Priority** (D50): only the project's PM/PE or a Lab Manager (403 otherwise, checked before
+- **Priority** (D50): only the project's Lead Project Engineer or a Lab Manager (403 otherwise, checked before
   the body is validated). Every change is kept in `program_priority_history` with old, new,
   person and time; it never changes a test status.
 - **Transitions:** one table (`STATUS_TRANSITIONS` in `@materialmule/shared`): Requested → In
@@ -349,12 +349,12 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 
 - **LAB:** 403 on every route above, whoever the station selects. LAB still sends tests to review
   under MM-T24; the person it names is attribution only.
-- **Acceptance** (D04): the project's PM/PE, or a person with an active delegation for that
+- **Acceptance** (D04): the project's Lead Project Engineer, or a person with an active delegation for that
   project. The Lab Manager and admin roles alone never accept. Delegation grants acceptance only:
   never closure (D06), priority (D50), cancellation or delegation management.
-- **Corrections:** only the Lab Manager role marks a returned correction done (not PM/PE, admin
+- **Corrections:** only the Lab Manager role marks a returned correction done (not Lead Project Engineer, admin
   or a delegate through those roles). A fresh review is always needed before acceptance.
-- **Delegation:** only the project's PM/PE grants and revokes, for active staff other than
+- **Delegation:** only the project's Lead Project Engineer grants and revokes, for active staff other than
   themselves (422 `invalid_delegate`, `already_delegated`). Revocation takes effect at once;
   acceptances made before it keep their delegate attribution. History is kept.
 - **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
@@ -363,26 +363,26 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 
 ## Program lifecycle, cancellation and repeats (MM-T26)
 
-| Route                                        | Policy                                                      |
-| -------------------------------------------- | ----------------------------------------------------------- |
-| `POST /api/lab-programs/:id/close`           | active user; handler checks `program.close` (project PM/PE) |
-| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (PM/PE or LM)  |
-| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                 |
-| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (PM/PE or LM)     |
-| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                   |
-| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                     |
-| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)          |
-| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                         |
-| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                        |
+| Route                                        | Policy                                                                     |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| `POST /api/lab-programs/:id/close`           | active user; handler checks `program.close` (Lead Project Engineer)        |
+| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (Lead Project Engineer or LM) |
+| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                                |
+| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (Lead Project Engineer or LM)    |
+| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                                  |
+| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                                    |
+| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)                         |
+| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                                        |
+| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                                       |
 
 - **LAB:** 403 on every route above, whoever the station selects. Its T23/T24 allow-list
   (create/submit, progress, comments) never covers amendments, repeats, cancellation, closure,
   reopening or their requests.
-- **Close** (D06): only the project's PM/PE, never a delegate, Lab Manager or admin alone. Needs at
+- **Close** (D06): only the project's Lead Project Engineer, never a delegate, Lab Manager or admin alone. Needs at
   least one test request and every request Accepted or Cancelled with a reason (422
   `empty_program` / `closure_blocked` with the blockers). Closing never changes a storage unit,
   retention, hold or disposal.
-- **Reopen and cancel** (D07): the project's PM/PE or a Lab Manager, with a nonblank reason.
+- **Reopen and cancel** (D07): the project's Lead Project Engineer or a Lab Manager, with a nonblank reason.
   Others ask instead (`cancel-request`, `close-request`), which creates an action item for the
   people who decide; the test or program is unchanged until they act.
 - **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
@@ -397,7 +397,7 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 
 - **Who:** any active personal account confirms that a tested Shelby tube or tested bulk soil
   bucket has physically left the lab. LAB is refused (403) before the body is read, whoever its
-  station would select, and a selected person never lends their roles. No PM/PE or Lab Manager
+  station would select, and a selected person never lends their roles. No Lead Project Engineer or Lab Manager
   disposal approval is needed.
 - **Evidence:** the request names `testRequestId`, a completed test that linked this exact unit
   (MM-T24 `test_request_unit_link`, request not cancelled, same project). A shared hole, source,
@@ -431,18 +431,18 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 
 - **Routing** (`action_item_routed_to` in the database, never who a LAB station selects):
   correction → every Lab Manager; cancellation request → every Lab Manager and the project's
-  current PM/PE; closure request → the project's current PM/PE. A reassigned item goes to its
+  current Lead Project Engineer; closure request → the project's current Lead Project Engineer. A reassigned item goes to its
   assignee only. Requesters don't see their own requests in the inbox.
 - **Resolution** happens only through the real workflow action (mark correction done, cancel the
   test, close the program), which checks its own permission; the inbox has no resolve or approve
   route. The first valid action resolves the shared item for everyone ("Resolved by LM").
 - **Reassignment:** Lab Manager or admin, with a reason, to a person who can act on that item
-  (Lab Managers for corrections; Lab Managers and the project's PM/PE for cancellation requests;
-  the project's PM/PE for closure requests). A person can't pass on an item that is personally
-  theirs (its assignee, or the PM/PE of a closure request): 403 `recipient_cannot_reassign`.
+  (Lab Managers for corrections; Lab Managers and the project's Lead Project Engineer for cancellation requests;
+  the project's Lead Project Engineer for closure requests). A person can't pass on an item that is personally
+  theirs (its assignee, or the Lead Project Engineer of a closure request): 403 `recipient_cannot_reassign`.
   Append-only `action_item_assignment` plus an `action_item.reassigned` audit event.
 - **LAB:** 403 on every route above, whoever its station selects. LAB has no inbox, count,
-  preferences or reassignment, and selecting a PM/PE or Lab Manager for lab work lends none.
+  preferences or reassignment, and selecting a Lead Project Engineer or Lab Manager for lab work lends none.
 - **Email:** off by default; people opt in under Settings → My profile. Creating or reassigning
   an item writes at most one `email_outbox` row per opted-in recipient. `EMAIL_ENABLED` must stay
   false (startup refuses true) until IT approves the sending configuration: rows wait unsent, and
@@ -459,9 +459,9 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 | `POST /api/retention/requests`                                            | `retention.request` (personal accounts; never LAB) |
 | `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)      |
 
-- **Who decides:** the project's PM/PE or a Lab Manager (D05). Admin alone doesn't. Others get
+- **Who decides:** the project's Lead Project Engineer or a Lab Manager (D05). Admin alone doesn't. Others get
   403 `forbidden` with `canRequest: true` and ask instead; the request is one shared action item
-  for the PM/PE and every Lab Manager (MM-T27). Approving creates the hold or extension as the
+  for the Lead Project Engineer and every Lab Manager (MM-T27). Approving creates the hold or extension as the
   decider and resolves the item; declining needs a reason. A requester can't decide their own
   request unless they hold that authority anyway.
 - **LAB:** 403 on every change and request, whoever its station selects; it may read retention.
@@ -486,7 +486,7 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
   reached (MM-T29), no active hold, every covering program closed (including a program on the
   unit's hole that it was received after). Ineligible units carry reasons ("Retain until …",
   "On hold: …", "Program LP-… open").
-- **Approval** (project PM/PE or Lab Manager, single or batch, all or nothing) marks units
+- **Approval** (Lead Project Engineer or Lab Manager, single or batch, all or nothing) marks units
   `approved_for_disposal`; it never disposes. Revoking needs a reason and returns the unit to stock.
 - **Removal** is the online-only Disposal scan. It locks the unit, needs a live approval and
   rechecks eligibility and open location conflicts at that moment: 200 Disposed; 422 Not approved

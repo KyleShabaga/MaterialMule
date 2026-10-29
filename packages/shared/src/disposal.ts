@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { personSnapshotSchema } from './lab-programs';
 
-// MM-T30: standard whole-unit disposal. Approval (PM/PE of the project or Lab Manager) never
+// MM-T30: standard whole-unit disposal. Approval (Lead Project Engineer of the project or Lab Manager) never
 // disposes; removal is a separate online-only scan by a personal account that rechecks
 // eligibility at that moment. MM-T36's post-testing route is separate and needs none of this.
 

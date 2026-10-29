@@ -164,7 +164,7 @@ CREATE TABLE lab_program (
   program_number                   text UNIQUE CHECK (program_number ~ '^LP-[0-9]{4}-[0-9]{4}$'),
   status                           text NOT NULL DEFAULT 'draft'
                                      CHECK (status IN ('draft', 'submitted', 'closed')),
-  -- D51: Normal unless the project's PM/PE or a Lab Manager says otherwise (MM-T24).
+  -- D51: Normal unless the project's Lead Project Engineer or a Lab Manager says otherwise (MM-T24).
   priority                         text NOT NULL DEFAULT 'normal'
                                      CHECK (priority IN ('normal', 'urgent')),
   notes                            text CHECK (length(notes) <= 2000),

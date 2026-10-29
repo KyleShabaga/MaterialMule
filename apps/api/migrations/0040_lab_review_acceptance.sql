@@ -1,5 +1,5 @@
 -- MM-T25: review decisions, corrections returned to the Lab Manager, acceptance by the project's
--- PM/PE or an active acceptance delegate, and per-project acceptance delegation.
+-- Lead Project Engineer or an active acceptance delegate, and per-project acceptance delegation.
 --
 -- Test progress gains one stage: review → accepted. Review keeps its own sub-state
 -- (test_request.review_state) while the test is in Review, which is not a new progress stage:
@@ -19,7 +19,7 @@
 -- so as a delegate, the delegation used, so a later revocation never rewrites the attribution.
 
 -- ---------------------------------------------------------------------------------------------
--- Acceptance delegation (D04): granted and revoked by the project's PM/PE; history kept
+-- Acceptance delegation (D04): granted and revoked by the project's Lead Project Engineer; history kept
 -- ---------------------------------------------------------------------------------------------
 
 CREATE TABLE acceptance_delegation (
@@ -93,7 +93,7 @@ ALTER TABLE test_request
     CHECK (review_state IN ('awaiting_review', 'returned', 'correction_done', 'review_complete')),
   ADD COLUMN accepted_at timestamptz,
   ADD COLUMN accepted_by_user_id uuid REFERENCES app_user (id),
-  -- The grant used when the acceptor accepted as a delegate (null for the project's PM/PE).
+  -- The grant used when the acceptor accepted as a delegate (null for the project's Lead Project Engineer).
   ADD COLUMN accepted_via_delegation_id uuid REFERENCES acceptance_delegation (id);
 
 -- Tests already sent to review under MM-T24 are awaiting review.

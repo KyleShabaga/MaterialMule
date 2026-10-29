@@ -26,7 +26,7 @@ const project: ProjectSummary = {
   projectNumber: 'DEMO-2601',
   name: 'Riverbank investigation',
   client: 'Example Client',
-  pmPe: PE,
+  leadProjectEngineer: PE,
 };
 const th21: TestHole = {
   id: '00000000-0000-4000-8000-000000000921',

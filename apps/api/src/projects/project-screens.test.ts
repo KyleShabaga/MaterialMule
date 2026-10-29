@@ -68,13 +68,13 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
     projectNumber: string,
     name: string,
     client: string,
-    pmPe: string,
+    leadProjectEngineer: string,
     reviewEngineer: string | null = null,
   ): Promise<string> {
     const { rows } = await db.pool.query<{ id: string }>(
-      `INSERT INTO project (project_number, name, client, pm_pe_user_id, review_engineer_user_id)
+      `INSERT INTO project (project_number, name, client, lead_project_engineer_user_id, review_engineer_user_id)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [projectNumber, name, client, pmPe, reviewEngineer],
+      [projectNumber, name, client, leadProjectEngineer, reviewEngineer],
     );
     return rows[0]!.id;
   }
@@ -167,7 +167,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
     await addUser('lab', 'shared_lab');
     await addUser('pend', 'personal', { status: 'pending' });
 
-    // AC2/AC3: "mine" is PM/PE on DEMO-2601 only.
+    // AC2/AC3: "mine" is Lead Project Engineer on DEMO-2601 only.
     demo = await addProject('DEMO-2601', 'Riverbank investigation', 'Example Client', users.mine!);
     th01 = await addHole(demo, 'TH26-01');
     th02 = await addHole(demo, 'TH26-02');
@@ -208,7 +208,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect((await listAll('search=%25')).total).toBe(0);
     });
 
-    it('AC2: "Only mine" shows only projects where I am PM/PE or review engineer', async () => {
+    it('AC2: "Only mine" shows only projects where I am Lead Project Engineer or review engineer', async () => {
       const mine = await listAll('mine=true', 'mine');
       expect(mine.total).toBe(1);
       expect(mine.items.map((p) => p.projectNumber)).toEqual(['DEMO-2601']);
@@ -224,7 +224,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         projectNumber: 'DEMO-2601',
         name: 'Riverbank investigation',
         client: 'Example Client',
-        pmPe: { id: users.mine, initials: 'MINE' },
+        leadProjectEngineer: { id: users.mine, initials: 'MINE' },
         testHoleCount: 2,
         inStockUnitCount: 3,
         lastReceiptDate: '2026-10-20',
@@ -277,7 +277,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       const project = await detail(demo, 'lab');
       expect(project).toMatchObject({
         projectNumber: 'DEMO-2601',
-        pmPe: { id: users.mine },
+        leadProjectEngineer: { id: users.mine },
         reviewEngineer: null,
         serverFolderPath: null,
         numberLocked: true,
@@ -285,7 +285,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         inStockUnitCount: 3,
         receiptCount: 2,
         canEdit: false,
-        canChangePmPe: false,
+        canChangeLeadProjectEngineer: false,
       });
       expect(project.receipts.map((r) => [r.receivedDate, r.unitCount, r.receiver])).toEqual([
         ['2026-10-20', 1, { name: 'User tech', initials: 'TECH' }],
@@ -299,10 +299,19 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect(projectSummarySchema.parse(project).id).toBe(demo);
     });
 
-    it('reports who may edit: the PM/PE and admins; only admins change the PM/PE', async () => {
-      expect(await detail(demo, 'mine')).toMatchObject({ canEdit: true, canChangePmPe: false });
-      expect(await detail(demo, 'admin')).toMatchObject({ canEdit: true, canChangePmPe: true });
-      expect(await detail(demo, 'tech')).toMatchObject({ canEdit: false, canChangePmPe: false });
+    it('reports who may edit: the Lead Project Engineer and admins; only admins change the Lead Project Engineer', async () => {
+      expect(await detail(demo, 'mine')).toMatchObject({
+        canEdit: true,
+        canChangeLeadProjectEngineer: false,
+      });
+      expect(await detail(demo, 'admin')).toMatchObject({
+        canEdit: true,
+        canChangeLeadProjectEngineer: true,
+      });
+      expect(await detail(demo, 'tech')).toMatchObject({
+        canEdit: false,
+        canChangeLeadProjectEngineer: false,
+      });
     });
 
     it('404s for an unknown project', async () => {
@@ -333,7 +342,7 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
   });
 
   describe('edit (T3, T4)', () => {
-    it('T3: permission matrix: PM/PE and admin 200; technician, reviewer and LAB 403', async () => {
+    it('T3: permission matrix: Lead Project Engineer and admin 200; technician, reviewer and LAB 403', async () => {
       const project = await addProject(
         'EDIT-1',
         'Edit works',
@@ -367,33 +376,33 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect(noCsrf.status).toBe(403);
     });
 
-    it('AC5: a technician, or the PM/PE themself, gets 403 for changing the PM/PE', async () => {
-      const project = await addProject('EDIT-2', 'PM change', 'Example Client', users.pe!);
+    it('AC5: a technician, or the Lead Project Engineer themself, gets 403 for changing the Lead Project Engineer', async () => {
+      const project = await addProject('EDIT-2', 'Lead change', 'Example Client', users.pe!);
       const { version } = await detail(project);
       for (const who of ['tech', 'pe']) {
         const response = await send('patch', `/api/projects/${project}`, cookies[who]!, {
           version,
-          pmPeId: users.mine,
+          leadProjectEngineerId: users.mine,
           reason: 'Handover',
         });
         expect(response.status, who).toBe(403);
       }
-      expect((await detail(project)).pmPe.id).toBe(users.pe);
-      // Sending the current PM/PE unchanged is not a change.
+      expect((await detail(project)).leadProjectEngineer.id).toBe(users.pe);
+      // Sending the current Lead Project Engineer unchanged is not a change.
       const same = await send('patch', `/api/projects/${project}`, cookies.pe!, {
         version,
-        pmPeId: users.pe,
+        leadProjectEngineerId: users.pe,
         client: 'New Example Client',
       });
       expect(same.status).toBe(200);
     });
 
-    it('T4: admin changes the PM/PE only with a reason, audited with before/after', async () => {
+    it('T4: admin changes the Lead Project Engineer only with a reason, audited with before/after', async () => {
       const project = await addProject('EDIT-3', 'Audit works', 'Example Client', users.pe!);
       const { version } = await detail(project);
       const noReason = await send('patch', `/api/projects/${project}`, cookies.admin!, {
         version,
-        pmPeId: users.mine,
+        leadProjectEngineerId: users.mine,
       });
       expect(noReason.status).toBe(400);
       expect(
@@ -402,26 +411,26 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
 
       const notStaff = await send('patch', `/api/projects/${project}`, cookies.admin!, {
         version,
-        pmPeId: users.lab,
+        leadProjectEngineerId: users.lab,
         reviewEngineerId: users.pend,
         reason: 'Handover',
       });
       expect(Object.keys(messagesByField(notStaff.body.errors)).sort()).toEqual([
-        'pmPeId',
+        'leadProjectEngineerId',
         'reviewEngineerId',
       ]);
 
       const response = await send('patch', `/api/projects/${project}`, cookies.admin!, {
         version,
-        pmPeId: users.mine,
+        leadProjectEngineerId: users.mine,
         reviewEngineerId: users.rev,
         serverFolderPath: '  P:\\Projects\\EDIT-3  ',
         name: 'Audit works',
-        reason: ' PM/PE on leave ',
+        reason: ' Lead Project Engineer on leave ',
       });
       expect(response.status).toBe(200);
       expect(projectDetailSchema.parse(response.body)).toMatchObject({
-        pmPe: { id: users.mine },
+        leadProjectEngineer: { id: users.mine },
         reviewEngineer: { id: users.rev, initials: 'REV' },
         serverFolderPath: 'P:\\Projects\\EDIT-3',
       });
@@ -431,11 +440,15 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
       expect(events[0]).toMatchObject({
         action: 'project.updated',
         actorUserId: users.admin,
-        reason: 'PM/PE on leave',
+        reason: 'Lead Project Engineer on leave',
         // Only changed fields: the unchanged name is left out.
-        before: { pmPeUserId: users.pe, reviewEngineerUserId: null, serverFolderPath: null },
+        before: {
+          leadProjectEngineerUserId: users.pe,
+          reviewEngineerUserId: null,
+          serverFolderPath: null,
+        },
         after: {
-          pmPeUserId: users.mine,
+          leadProjectEngineerUserId: users.mine,
           reviewEngineerUserId: users.rev,
           serverFolderPath: 'P:\\Projects\\EDIT-3',
         },

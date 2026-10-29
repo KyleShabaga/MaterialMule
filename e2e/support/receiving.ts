@@ -144,7 +144,7 @@ export async function receiveThroughApi(
   return body.units;
 }
 
-/** Creates a fictional project (PM/PE Pat Example) with one test hole through the API. */
+/** Creates a fictional project (Lead Project Engineer Pat Example) with one test hole through the API. */
 export async function createProjectThroughApi(
   page: Page,
   projectNumber: string,
@@ -156,7 +156,7 @@ export async function createProjectThroughApi(
       projectNumber,
       name: 'Example Ridge',
       client: 'Example Client',
-      pmPeUserId: '00000000-0000-4000-8000-000000000101',
+      leadProjectEngineerUserId: '00000000-0000-4000-8000-000000000101',
     },
   });
   expect(project.status()).toBe(201);

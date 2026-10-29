@@ -17,7 +17,7 @@ CREATE TABLE app_user (
   sign_in_username   text CHECK (length(sign_in_username) <= 320),
   -- Official initials are confirmed by an admin; they are not unique (two "JS" staff can exist).
   official_initials  text CHECK (official_initials ~ '^[A-Z]{1,5}$'),
-  position           text CHECK (position IN ('technician', 'engineer', 'pm_pe', 'lab_manager')),
+  position           text CHECK (position IN ('technician', 'engineer', 'project_engineer', 'lab_manager')),
   account_type       text NOT NULL CHECK (account_type IN ('personal', 'shared_lab', 'test')),
   status             text NOT NULL DEFAULT 'pending'
                        CHECK (status IN ('pending', 'active', 'disabled')),
@@ -70,7 +70,7 @@ CREATE TABLE project (
   project_number_normalized text GENERATED ALWAYS AS (lower(project_number)) STORED,
   name                      text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 200),
   client                    text NOT NULL CHECK (length(btrim(client)) BETWEEN 1 AND 200),
-  pm_pe_user_id             uuid NOT NULL REFERENCES app_user (id),
+  lead_project_engineer_user_id             uuid NOT NULL REFERENCES app_user (id),
   review_engineer_user_id   uuid REFERENCES app_user (id),
   server_folder_path        text CHECK (length(server_folder_path) <= 500),
   created_at                timestamptz NOT NULL DEFAULT now(),

@@ -7,7 +7,7 @@
 -- the business time zone, passed by the API (tests inject it).
 --
 -- Holds and extensions are project-wide or selected-unit, always with a reason, set and released
--- by the project's PM/PE or a Lab Manager. A project-wide hold or extension covers current and
+-- by the project's Lead Project Engineer or a Lab Manager. A project-wide hold or extension covers current and
 -- future units of the project until released. Rows are never deleted; release is recorded once
 -- (who, when, why) and the row is otherwise immutable, so the rows themselves are the history.
 -- A receipt-date correction changes received_date, and the view recomputes at once; the old date
@@ -21,7 +21,7 @@
 -- other unit; nothing is released because one unit is exempt.
 --
 -- Requests: other internal users ask for a hold or extension (retention_request). The request
--- opens one action_item (kind retention_request) routed to the project's PM/PE and every Lab
+-- opens one action_item (kind retention_request) routed to the project's Lead Project Engineer and every Lab
 -- Manager (MM-T27). Approving creates the hold/extension as the decider and resolves the item for
 -- everyone; declining resolves it with a reason. Nothing changes until a decision.
 
@@ -370,7 +370,7 @@ ALTER TABLE action_item
     END
   );
 
-CREATE OR REPLACE FUNCTION action_item_routes_to_pm_pe(kind text) RETURNS boolean
+CREATE OR REPLACE FUNCTION action_item_routes_to_lead_project_engineer(kind text) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
   SELECT kind IN ('cancellation_request', 'closure_request', 'retention_request')
 $$;

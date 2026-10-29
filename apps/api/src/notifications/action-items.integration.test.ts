@@ -17,7 +17,7 @@ import { EmailWorker, sanitizeEmailError, type EmailMessage } from './email-work
 
 // MM-T27 Action requests (card AC1–AC8, test plan T1–T4, T6, T7). Real PostgreSQL; no email is
 // ever sent: the outbox is asserted directly and the worker runs against an in-memory transport.
-// Fictional data only: DEMO-2601 (A) with PM/PE Pat Example (`pe`); Lee Manager (`lm`) Lab
+// Fictional data only: DEMO-2601 (A) with Lead Project Engineer Pat Example (`pe`); Lee Manager (`lm`) Lab
 // Manager; Alex Tester (`tech`) Technician; Admin Example (`admin`) admin only.
 describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
   let h: LabHarness;
@@ -183,7 +183,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     return `${SESSION_COOKIE}=${session.token}`;
   };
 
-  it('T1/AC1: a closure request goes to the project PM/PE only, not the requester or Lab Managers', async () => {
+  it('T1/AC1: a closure request goes to the Lead Project Engineer only, not the requester or Lab Managers', async () => {
     const { program: p } = await program();
     const created = await closeRequest(p.id);
     expect(created.status, JSON.stringify(created.body)).toBe(201);
@@ -193,7 +193,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
       kind: 'closure_request',
       status: 'open',
       title: `Closure requested for ${p.programNumber}`,
-      routeTag: 'PM/PE',
+      routeTag: 'Lead Project Engineer',
       reason: 'All tests are done',
       requestedBy: { initials: 'AT', name: 'Alex Tester' },
       href: `/lab-testing/programs/${p.id}`,
@@ -208,13 +208,16 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     expect(await openCount('pe')).toBeGreaterThanOrEqual(1);
   });
 
-  it('T1: a cancellation request goes to the project PM/PE and every Lab Manager', async () => {
+  it('T1: a cancellation request goes to the Lead Project Engineer and every Lab Manager', async () => {
     const { testId } = await program();
     const created = await cancelRequest(testId);
     expect(created.status).toBe(201);
     for (const who of ['pe', 'lm'] as const) {
       const item = (await inbox(who)).find((i) => i.id === created.body.actionItemId);
-      expect(item, who).toMatchObject({ kind: 'cancellation_request', routeTag: 'LM · PM/PE' });
+      expect(item, who).toMatchObject({
+        kind: 'cancellation_request',
+        routeTag: 'LM · Lead Project Engineer',
+      });
     }
     expect((await inbox(await lm2Cookie())).some((i) => i.id === created.body.actionItemId)).toBe(
       true,
@@ -342,7 +345,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     ]);
     expect(rows[0]!.subject).toBe(`Material Mule: Closure requested for ${p.programNumber}`);
 
-    // A role-shared item: one row each for the PM/PE and the opted-in Lab Manager; Lou (off) none.
+    // A role-shared item: one row each for the Lead Project Engineer and the opted-in Lab Manager; Lou (off) none.
     const cancelled = await cancelRequest(testId);
     const recipients = (await outbox(cancelled.body.actionItemId)).map((r) => r.recipient_user_id);
     expect(recipients.sort()).toEqual([h.users.pe, h.users.lm].sort());
@@ -459,7 +462,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
         station,
       );
       expect(reassign.status).toBe(403);
-      // Selecting the PM/PE for lab work never lets LAB close or decide.
+      // Selecting the Lead Project Engineer for lab work never lets LAB close or decide.
       const close = await h.send(
         'post',
         `/api/lab-programs/${p.id}/close`,
@@ -483,7 +486,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
         as,
       );
 
-    // The PM/PE recipient (no Lab Manager/admin role) can't pass it on.
+    // The Lead Project Engineer recipient (no Lab Manager/admin role) can't pass it on.
     expect((await reassign(h.users.lm, 'pe')).status).toBe(403);
     expect((await reassign(h.users.lm, 'tech')).status).toBe(403);
     // Not eligible: a Technician can't cancel tests.
@@ -526,7 +529,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     // A Lab Manager who isn't its assignee may.
     expect((await reassign(h.users.pe, 'lm')).status).toBe(200);
 
-    // The PM/PE resolves it through the real cancellation.
+    // The Lead Project Engineer resolves it through the real cancellation.
     const cancel = await h.send(
       'post',
       `/api/test-requests/${testId}/cancel`,

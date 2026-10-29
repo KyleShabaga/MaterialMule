@@ -55,11 +55,11 @@ test('T5: projects table → detail → add test hole (duplicate rejected) → e
   await expect(page.getByRole('alert')).toHaveText('TH26-01 already exists in this project.');
   await expect(holes.locator('li')).toHaveCount(3);
 
-  // Edit as the PM/PE: the number is locked (receipts exist); the PM/PE is admin-only.
+  // Edit as the Lead Project Engineer: the number is locked (receipts exist); the Lead Project Engineer is admin-only.
   await page.getByRole('button', { name: 'Edit project' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit project' });
   await expect(dialog.getByRole('textbox', { name: 'Project number' })).toHaveAttribute('readonly');
-  await expect(dialog.getByRole('combobox', { name: 'PM/PE' })).toBeDisabled();
+  await expect(dialog.getByRole('combobox', { name: 'Lead Project Engineer' })).toBeDisabled();
   await dialog.getByRole('textbox', { name: 'Name' }).fill(`Inventory demo A ${data.tag}`);
   await dialog
     .getByRole('textbox', { name: 'Server folder path' })

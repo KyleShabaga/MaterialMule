@@ -70,7 +70,7 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       projectNumber,
       name: `Example works ${projectNumber}`,
       client: 'Example Client',
-      pmPeUserId: users.pe,
+      leadProjectEngineerUserId: users.pe,
       ...overrides,
     };
   }
@@ -117,7 +117,7 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
         projectNumber: '67997',
         name: 'West Pine Creek Ph.3',
         client: 'Jacobs Example',
-        pmPe: { id: users.pe, displayName: 'User pe', initials: 'PE' },
+        leadProjectEngineer: { id: users.pe, displayName: 'User pe', initials: 'PE' },
       });
     });
 
@@ -169,7 +169,7 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
           projectNumber: 'LAB-7001',
           name: 'Lab works',
           client: 'Example Client',
-          pmPeUserId: users.pe,
+          leadProjectEngineerUserId: users.pe,
         },
       });
     });
@@ -202,7 +202,7 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       );
     });
 
-    it('AC5/T4: missing client or PM/PE fails with field-level errors', async () => {
+    it('AC5/T4: missing client or Lead Project Engineer fails with field-level errors', async () => {
       const response = await post('/api/projects', cookies.tech!, {
         projectNumber: '70002',
         name: 'Example',
@@ -211,22 +211,22 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       expect(response.status).toBe(400);
       const body = validationErrorResponseSchema.parse(response.body);
       const byField = messagesByField(body.errors);
-      expect(Object.keys(byField).sort()).toEqual(['client', 'pmPeUserId']);
+      expect(Object.keys(byField).sort()).toEqual(['client', 'leadProjectEngineerUserId']);
       expect(byField.client).toEqual(['Client is required']);
       expect(JSON.stringify(body)).not.toContain('70002');
     });
 
-    it('T4: rejects a PM/PE who is not active staff', async () => {
-      for (const pmPeUserId of [users.lab, users.pend, users.gone]) {
+    it('T4: rejects a Lead Project Engineer who is not active staff', async () => {
+      for (const leadProjectEngineerUserId of [users.lab, users.pend, users.gone]) {
         const response = await post(
           '/api/projects',
           cookies.tech!,
-          newProject('70003', { pmPeUserId }),
+          newProject('70003', { leadProjectEngineerUserId }),
         );
         expect(response.status).toBe(400);
         expect(
           messagesByField(validationErrorResponseSchema.parse(response.body).errors),
-        ).toHaveProperty('pmPeUserId');
+        ).toHaveProperty('leadProjectEngineerUserId');
       }
       const { rows } = await db.pool.query(`SELECT 1 FROM project WHERE project_number = '70003'`);
       expect(rows).toHaveLength(0);
@@ -357,7 +357,7 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
     });
   });
 
-  it('lists active staff (not LAB, pending or disabled) for PM/PE and receiver pickers', async () => {
+  it('lists active staff (not LAB, pending or disabled) for Lead Project Engineer and receiver pickers', async () => {
     const response = await get('/api/staff/active', cookies.lab!);
     expect(response.status).toBe(200);
     const ids = staffOptionsResponseSchema.parse(response.body).map((s) => s.id);
@@ -366,12 +366,12 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
 
   it('MM-T61: gives each person their position (null until chosen) for grouping', async () => {
     await db.pool.query(
-      `UPDATE app_user SET position = 'pm_pe', position_set_at = now() WHERE id = $1`,
+      `UPDATE app_user SET position = 'project_engineer', position_set_at = now() WHERE id = $1`,
       [users.pe],
     );
     const response = await get('/api/staff/active', cookies.lab!);
     const staff = staffOptionsResponseSchema.parse(response.body);
-    expect(staff.find((s) => s.id === users.pe)?.position).toBe('pm_pe');
+    expect(staff.find((s) => s.id === users.pe)?.position).toBe('project_engineer');
     expect(staff.find((s) => s.id === users.tech)?.position).toBeNull();
   });
 });

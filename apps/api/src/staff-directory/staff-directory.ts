@@ -2,7 +2,7 @@ import type { Position, StaffOption } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuditReceiver } from '../audit/audit.js';
 
-// Active staff who can be credited on a record: a project's PM/PE or the receiver of a receipt.
+// Active staff who can be credited on a record: a project's Lead Project Engineer or the receiver of a receipt.
 // The shared LAB account is a station, not a person, so it never appears here (App Idea §8).
 const ACTIVE_STAFF = `status = 'active' AND account_type <> 'shared_lab'`;
 
@@ -17,7 +17,7 @@ function toOption(row: StaffRow): StaffOption {
 }
 
 /**
- * Every active staff member, by name, with their position so pickers can list PM/PEs and
+ * Every active staff member, by name, with their position so pickers can list Lead Project Engineers and
  * engineers first (MM-T61). The list itself isn't narrowed: people added ahead of time have no
  * position until their first sign-in.
  */

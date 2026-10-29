@@ -12,7 +12,7 @@ import { createLabHarness, line, newKey, type LabHarness } from '../test-support
 
 // MM-T26 amendments (D02) and accepted-request changes (D09): card AC3, AC4 (amend/change on a
 // closed program), AC7, test plan T2, T5 and preparation scenarios L04, L06, L07, L11. Real
-// PostgreSQL. Fictional data only: DEMO-2601 (A), PM/PE Pat Example (`pe`), Technician Alex
+// PostgreSQL. Fictional data only: DEMO-2601 (A), Lead Project Engineer Pat Example (`pe`), Technician Alex
 // Tester (`tech`), Lab Manager Lee Manager (`lm`).
 describe.runIf(testDatabaseUrl)('lab amendments and accepted-request changes (MM-T26)', () => {
   let h: LabHarness;

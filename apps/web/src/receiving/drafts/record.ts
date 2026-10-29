@@ -6,7 +6,7 @@ import { newUuid, normalizeUnit, type ReceiptDraft, type UnitDraft } from '../dr
 // never a token or password, and never a storage unit ID (IDs exist only after confirmation).
 
 /** Bump when the record shape changes, and add a step to RECORD_MIGRATIONS. */
-export const DRAFT_RECORD_VERSION = 2;
+export const DRAFT_RECORD_VERSION = 3;
 
 /**
  * Drafts not saved for this long are flagged for review. They are deleted automatically only when
@@ -161,6 +161,24 @@ export const RECORD_MIGRATIONS: RecordMigrations = {
           isObject(unit) && typeof unit.clientRowId === 'string'
             ? normalizeUnit(unit as Partial<UnitDraft> & { clientRowId: string })
             : unit,
+        ),
+      },
+    };
+  },
+  // Version 3 (MM-AO02): the project summary names its Lead Project Engineer under a new key. A
+  // version-2 record forgets its chosen project (the search text stays) and, as choosing another
+  // project in the wizard does, every unit's holes, so the receiver picks the project again.
+  2: (record) => {
+    const data = isObject(record.data) ? record.data : {};
+    const units = Array.isArray(data.units) ? data.units : [];
+    return {
+      ...record,
+      version: 3,
+      data: {
+        ...data,
+        project: null,
+        units: units.map((unit: unknown) =>
+          isObject(unit) ? { ...unit, summaries: [], holeQuery: '' } : unit,
         ),
       },
     };

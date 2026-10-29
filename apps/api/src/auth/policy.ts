@@ -19,7 +19,7 @@ export interface AuthUser {
 
 /** Project facts a project-scoped permission needs. Delegates arrive with MM-T25. */
 export interface ProjectContext {
-  pmPeUserId: string;
+  leadProjectEngineerUserId: string;
   acceptanceDelegateUserIds?: string[];
 }
 
@@ -55,14 +55,14 @@ export type Permission =
   | 'storage_unit.tested_removal'
   // MM-T27: one's own Action requests inbox and notification preferences (never LAB)
   | 'action_item.read'
-  // MM-T29: ask the project's PM/PE or a Lab Manager for a hold or extension (never LAB)
+  // MM-T29: ask the project's Lead Project Engineer or a Lab Manager for a hold or extension (never LAB)
   | 'retention.request'
-  // Lab Manager (and PM/PE of the project where marked project-scoped)
+  // Lab Manager (and Lead Project Engineer of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
   | 'program.reopen'
   | 'test.cancel'
-  // Mark a returned correction done (MM-T25): Lab Manager only, never through PM/PE or admin
+  // Mark a returned correction done (MM-T25): Lab Manager only, never through Lead Project Engineer or admin
   | 'test.correction_done'
   | 'retention.manage'
   | 'disposal.approve'
@@ -71,17 +71,17 @@ export type Permission =
   | 'location.manage'
   // Reassign an open action request to another eligible person, with a reason (MM-T27)
   | 'action_item.reassign'
-  // Project PM/PE (and delegates) only
+  // Lead Project Engineer (and delegates) only
   | 'test.accept'
   | 'program.close'
   | 'acceptance_delegation.manage'
-  // Project PM/PE or admin (MM-T35, owner decision 2026-10-25)
+  // Lead Project Engineer or admin (MM-T35, owner decision 2026-10-25)
   | 'project.edit'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
   | 'printer.manage'
-  | 'project.pm_pe.change'
+  | 'project.lead_project_engineer.change'
   // Operations (MM-T21): Settings → System status
   | 'system.status.read';
 
@@ -158,14 +158,14 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'location.manage',
   // Action request reassignment (MM-T27).
   'action_item.reassign',
-  // Projects (MM-T35): admins edit any project's fields and are the only ones who change its PM/PE.
+  // Projects (MM-T35): admins edit any project's fields and are the only ones who change its Lead Project Engineer.
   'project.edit',
-  'project.pm_pe.change',
+  'project.lead_project_engineer.change',
   'system.status.read',
 ]);
 
-/** Granted to the project's PM/PE (project-scoped). */
-const PM_PE_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+/** Granted to the project's Lead Project Engineer (project-scoped). */
+const LEAD_PROJECT_ENGINEER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'program.priority.set',
   'program.reopen',
   'test.cancel',
@@ -181,11 +181,13 @@ const PM_PE_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
 const DELEGATE_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['test.accept']);
 
 /** Permissions that need a ProjectContext to be granted through project authority. */
-export const PROJECT_SCOPED: ReadonlySet<Permission> = new Set<Permission>([...PM_PE_PERMISSIONS]);
+export const PROJECT_SCOPED: ReadonlySet<Permission> = new Set<Permission>([
+  ...LEAD_PROJECT_ENGINEER_PERMISSIONS,
+]);
 
 /**
  * True when `user` may perform `permission`. Project-scoped permissions are granted through the
- * project's PM/PE (or a delegate for acceptance) only when `project` is supplied.
+ * project's Lead Project Engineer (or a delegate for acceptance) only when `project` is supplied.
  */
 export function can(user: AuthUser, permission: Permission, project?: ProjectContext): boolean {
   if (user.status !== 'active') {
@@ -205,7 +207,10 @@ export function can(user: AuthUser, permission: Permission, project?: ProjectCon
     return true;
   }
   if (project) {
-    if (project.pmPeUserId === user.userId && PM_PE_PERMISSIONS.has(permission)) {
+    if (
+      project.leadProjectEngineerUserId === user.userId &&
+      LEAD_PROJECT_ENGINEER_PERMISSIONS.has(permission)
+    ) {
       return true;
     }
     if (

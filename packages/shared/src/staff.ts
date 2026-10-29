@@ -18,7 +18,7 @@ export const staffAccountTypeSchema = z.enum(['personal', 'shared_lab', 'test'])
 export const POSITION_SHORT_LABELS: Record<StaffPosition, string> = {
   technician: 'Tech',
   engineer: 'Eng',
-  pm_pe: 'PM/PE',
+  project_engineer: 'Project Engineer',
   lab_manager: 'Lab Mgr',
 };
 

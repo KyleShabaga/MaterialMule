@@ -24,7 +24,7 @@ import { parseBody } from '../validation/parse-body.js';
 import { DisposalService } from './disposal.service.js';
 
 /**
- * Standard disposal (MM-T30). Approve/revoke: the project's PM/PE or a Lab Manager
+ * Standard disposal (MM-T30). Approve/revoke: the project's Lead Project Engineer or a Lab Manager
  * (`disposal.approve`, project-scoped, checked in the handler). Removal scan: personal accounts
  * (`storage_unit.dispose_scan`); LAB is refused whoever its station selects. The ordinary move
  * routes can never dispose a unit. MM-T36's post-testing removal is a separate route.

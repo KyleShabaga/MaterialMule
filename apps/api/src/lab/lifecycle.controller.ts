@@ -20,8 +20,8 @@ import { LabLifecycleService } from './lifecycle.service.js';
  * Program lifecycle, cancellation and repeats (MM-T26). Personal accounts only: the shared LAB
  * account gets 403 on every route here, whoever it selects at the station.
  *
- * - close: the project's PM/PE (`program.close`, checked in the handler; never a delegate);
- * - reopen and cancel: the project's PM/PE or a Lab Manager (checked in the handler);
+ * - close: the project's Lead Project Engineer (`program.close`, checked in the handler; never a delegate);
+ * - reopen and cancel: the project's Lead Project Engineer or a Lab Manager (checked in the handler);
  * - close-request, cancel-request: `program.close_request` / `test.cancel_request`;
  * - repeat, amend, later-receipts and the accepted-request change (PATCH): `lab_program.amend`.
  */

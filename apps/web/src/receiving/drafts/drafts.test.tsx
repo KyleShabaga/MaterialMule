@@ -30,7 +30,7 @@ const project: ProjectSummary = {
   projectNumber: 'DEMO-2601',
   name: 'Riverbank investigation',
   client: 'Example Client',
-  pmPe: { id: PE.id, displayName: PE.displayName, initials: PE.initials },
+  leadProjectEngineer: { id: PE.id, displayName: PE.displayName, initials: PE.initials },
 };
 const th1: TestHole = {
   id: '00000000-0000-4000-8000-000000000911',

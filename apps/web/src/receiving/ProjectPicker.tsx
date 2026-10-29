@@ -28,7 +28,7 @@ interface AddForm {
   projectNumber: string;
   name: string;
   client: string;
-  pmPeUserId: string;
+  leadProjectEngineerUserId: string;
 }
 
 export function ProjectPicker({
@@ -39,7 +39,7 @@ export function ProjectPicker({
   staff,
   receiverUserId,
   online,
-  pmPeOnly = false,
+  projectEngineersOnly = false,
   staffReady = true,
 }: {
   value: ProjectSummary | null;
@@ -50,11 +50,11 @@ export function ProjectPicker({
   receiverUserId: string | null;
   online: boolean;
   /**
-   * Receive samples → Add project (MM-T66 UI-04): offer only active staff whose position is PM/PE
-   * (`pm_pe`), in one list. Elsewhere the grouped list stays (MM-T61). A UI filter only: it grants
+   * Receive samples → Add project (MM-T66 UI-04): offer only active staff whose position is Project Engineer
+   * (`project_engineer`), in one list. Elsewhere the grouped list stays (MM-T61). A UI filter only: it grants
    * no role and changes no project authority; the server still checks the chosen person.
    */
-  pmPeOnly?: boolean;
+  projectEngineersOnly?: boolean;
   /** False while the staff list is still loading, so "nobody eligible" isn't shown too early. */
   staffReady?: boolean;
 }) {
@@ -119,7 +119,7 @@ export function ProjectPicker({
   }
 
   function startAdding() {
-    setForm({ ...prefillFromQuery(query), client: '', pmPeUserId: '' });
+    setForm({ ...prefillFromQuery(query), client: '', leadProjectEngineerUserId: '' });
     setFieldErrors({});
     setExisting(null);
     setSaveError(null);
@@ -168,8 +168,8 @@ export function ProjectPicker({
           <FormField label="Client">
             {(props) => <input {...props} value={value.client} readOnly />}
           </FormField>
-          <FormField label="PM/PE">
-            {(props) => <input {...props} value={value.pmPe.displayName} readOnly />}
+          <FormField label="Lead Project Engineer">
+            {(props) => <input {...props} value={value.leadProjectEngineer.displayName} readOnly />}
           </FormField>
         </div>
         <button type="button" onClick={() => onSelect(null)}>
@@ -180,8 +180,10 @@ export function ProjectPicker({
   }
 
   const field = (key: keyof AddForm) => fieldErrors[key]?.join(' ') ?? null;
-  const pmPeStaff = pmPeOnly ? staff.filter((person) => person.position === 'pm_pe') : staff;
-  const noPmPe = pmPeOnly && staffReady && pmPeStaff.length === 0;
+  const projectEngineerStaff = projectEngineersOnly
+    ? staff.filter((person) => person.position === 'project_engineer')
+    : staff;
+  const noProjectEngineer = projectEngineersOnly && staffReady && projectEngineerStaff.length === 0;
   const setField = (key: keyof AddForm) => (text: string) =>
     setForm((current) => (current ? { ...current, [key]: text } : current));
 
@@ -273,25 +275,29 @@ export function ProjectPicker({
             )}
           </FormField>
           <FormField
-            label="PM/PE"
-            error={field('pmPeUserId')}
+            label="Lead Project Engineer"
+            error={field('leadProjectEngineerUserId')}
             hint={
-              noPmPe
-                ? 'Nobody active has the PM/PE position yet. People added before their first sign-in have no position until they choose one; an administrator can set it under Settings → Staff & access.'
-                : pmPeOnly
-                  ? 'Lists active staff whose position is PM/PE.'
+              noProjectEngineer
+                ? 'Nobody active has the Project Engineer position yet. People added before their first sign-in have no position until they choose one; an administrator can set it under Settings → Staff & access.'
+                : projectEngineersOnly
+                  ? 'Lists active staff whose position is Project Engineer.'
                   : undefined
             }
           >
             {(props) => (
               <select
                 {...props}
-                value={form.pmPeUserId}
-                onChange={(e) => setField('pmPeUserId')(e.target.value)}
+                value={form.leadProjectEngineerUserId}
+                onChange={(e) => setField('leadProjectEngineerUserId')(e.target.value)}
               >
-                <option value="">{noPmPe ? 'No PM/PE available' : 'Choose a staff member'}</option>
-                {pmPeOnly ? (
-                  pmPeStaff.map((person) => (
+                <option value="">
+                  {noProjectEngineer
+                    ? 'No Lead Project Engineer available'
+                    : 'Choose a staff member'}
+                </option>
+                {projectEngineersOnly ? (
+                  projectEngineerStaff.map((person) => (
                     <option key={person.id} value={person.id}>
                       {formatPerson(person.initials, person.displayName)}
                     </option>

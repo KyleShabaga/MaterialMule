@@ -39,7 +39,7 @@ const project: ProjectSummary = {
   projectNumber: 'DEMO-2601',
   name: 'Riverbank investigation',
   client: 'Example Client',
-  pmPe: {
+  leadProjectEngineer: {
     id: '00000000-0000-4000-8000-000000000101',
     displayName: 'Pat Example',
     initials: 'PE',

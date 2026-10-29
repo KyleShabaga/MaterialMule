@@ -2,7 +2,7 @@
 --
 -- An approval is recorded under the unit's project at that moment. If the unit's project is
 -- corrected afterwards, the approval no longer authorises the standard removal: the new
--- project's PM/PE or a Lab Manager has to approve again. The API refuses that scan as Not
+-- project's Lead Project Engineer or a Lab Manager has to approve again. The API refuses that scan as Not
 -- approved; these rules make the database refuse it too.
 --
 -- 1. A new approval must name the unit's current project.

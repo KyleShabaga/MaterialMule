@@ -40,7 +40,10 @@ async function post(path: string, body: unknown): Promise<Outcome> {
       };
     }
     if (problem.code === 'forbidden') {
-      return { ok: false, message: 'Only the project’s PM/PE or a Lab Manager can do that.' };
+      return {
+        ok: false,
+        message: 'Only the project’s Lead Project Engineer or a Lab Manager can do that.',
+      };
     }
     return { ok: false, message: 'That didn’t work. Refresh and try again.' };
   } catch {

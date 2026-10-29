@@ -38,8 +38,16 @@ import {
 
 const LAB_ID = '00000000-0000-4000-8000-000000000001';
 
-type MatrixColumn = 'lab' | 'internal' | 'labManager' | 'admin' | 'pmPe' | 'delegate';
-const COLUMNS: MatrixColumn[] = ['lab', 'internal', 'labManager', 'admin', 'pmPe', 'delegate'];
+type MatrixColumn =
+  'lab' | 'internal' | 'labManager' | 'admin' | 'leadProjectEngineer' | 'delegate';
+const COLUMNS: MatrixColumn[] = [
+  'lab',
+  'internal',
+  'labManager',
+  'admin',
+  'leadProjectEngineer',
+  'delegate',
+];
 
 /** The "Matrix" table of docs/permissions.md: permission → columns ticked. */
 function readDocumentedMatrix(): Map<string, Set<MatrixColumn>> {
@@ -74,17 +82,17 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-T45: every station reads the draft auto-delete setting; only PUT is restricted.
   'GET /api/settings/drafts': null,
   'PATCH /api/projects/:projectId': 'project.edit',
-  // MM-T24: the project's PM/PE or a Lab Manager.
+  // MM-T24: the project's Lead Project Engineer or a Lab Manager.
   'PATCH /api/lab-programs/:id/priority': 'program.priority.set',
-  // MM-T25: acceptance by the test's project PM/PE or delegate; delegates managed by the PM/PE.
+  // MM-T25: acceptance by the test's Lead Project Engineer or delegate; delegates managed by the Lead Project Engineer.
   'POST /api/test-requests/:id/accept': 'test.accept',
   'POST /api/projects/:projectId/acceptance-delegates': 'acceptance_delegation.manage',
   'DELETE /api/projects/:projectId/acceptance-delegates/:id': 'acceptance_delegation.manage',
-  // MM-T26: closing by the project's PM/PE; reopening and cancelling by PM/PE or Lab Manager.
+  // MM-T26: closing by the project's Lead Project Engineer; reopening and cancelling by Lead Project Engineer or Lab Manager.
   'POST /api/lab-programs/:id/close': 'program.close',
   'POST /api/lab-programs/:id/reopen': 'program.reopen',
   'POST /api/test-requests/:id/cancel': 'test.cancel',
-  // MM-T29: holds, extensions, releases and request decisions by the project's PM/PE or a Lab
+  // MM-T29: holds, extensions, releases and request decisions by the project's Lead Project Engineer or a Lab
   // Manager.
   'POST /api/retention/holds': 'retention.manage',
   'POST /api/retention/holds/:id/release': 'retention.manage',
@@ -92,7 +100,7 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/retention/extensions/:id/release': 'retention.manage',
   'POST /api/retention/requests/:id/approve': 'retention.manage',
   'POST /api/retention/requests/:id/decline': 'retention.manage',
-  // MM-T30: standard disposal approval and revocation by the project's PM/PE or a Lab Manager.
+  // MM-T30: standard disposal approval and revocation by the project's Lead Project Engineer or a Lab Manager.
   'POST /api/disposal/approvals': 'disposal.approve',
   'POST /api/disposal/approvals/:id/revoke': 'disposal.approve',
 };
@@ -239,7 +247,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
     if (permission === null) return { allowed: true };
     const columns = matrix.get(permission);
     if (!columns) throw new Error(`${permission} is missing from docs/permissions.md`);
-    // The Technician is an ordinary internal user: not the project's PM/PE, no roles.
+    // The Technician is an ordinary internal user: not the project's Lead Project Engineer, no roles.
     const allowed = columns.has(caller === 'lab' ? 'lab' : 'internal');
     return allowed ? { allowed } : { allowed: false, status: 403, code: 'forbidden' };
   }
@@ -343,7 +351,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       displayName: 'Someone',
       initials: 'SO',
     };
-    const project = { pmPeUserId: 'pm-pe', acceptanceDelegateUserIds: ['delegate'] };
+    const project = { leadProjectEngineerUserId: 'pm-pe', acceptanceDelegateUserIds: ['delegate'] };
     const principals: Record<MatrixColumn, [AuthUser, boolean]> = {
       lab: [{ ...base, userId: 'lab', accountType: 'shared_lab', roles: [] }, false],
       internal: [{ ...base, userId: 'tech', accountType: 'personal', roles: [] }, false],
@@ -352,7 +360,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
         false,
       ],
       admin: [{ ...base, userId: 'admin', accountType: 'personal', roles: ['admin'] }, false],
-      pmPe: [{ ...base, userId: 'pm-pe', accountType: 'personal', roles: [] }, true],
+      leadProjectEngineer: [{ ...base, userId: 'pm-pe', accountType: 'personal', roles: [] }, true],
       delegate: [{ ...base, userId: 'delegate', accountType: 'personal', roles: [] }, true],
     };
     expect(matrix.size).toBeGreaterThan(20);

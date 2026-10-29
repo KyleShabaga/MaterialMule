@@ -8,7 +8,7 @@ import { listActiveStaff } from './staff-directory.js';
 export class StaffDirectoryController {
   constructor(private readonly database: DatabaseService) {}
 
-  /** Active staff for PM/PE and receiver pickers (MM-T08). LAB may read it while receiving. */
+  /** Active staff for Lead Project Engineer and receiver pickers (MM-T08). LAB may read it while receiving. */
   @Get('active')
   @RequirePermission('inventory.read')
   active(): Promise<StaffOption[]> {
