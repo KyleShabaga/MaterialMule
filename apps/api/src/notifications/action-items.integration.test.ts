@@ -6,9 +6,10 @@ import {
   notificationPreferencesSchema,
   type LabProgram,
 } from '@materialmule/shared';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config/env.js';
-import { testDatabaseUrl } from '../test-support/database.js';
+import { databaseUrlForSchema, testDatabaseUrl } from '../test-support/database.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
 import { createLabHarness, line, newKey, type LabHarness } from '../test-support/lab-harness.js';
@@ -535,6 +536,55 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     expect(cancel.status, JSON.stringify(cancel.body)).toBe(200);
     expect((await reassign(h.users.lm, 'admin')).status).toBe(409); // resolved
   });
+
+  it('MM-T71 T2/AC2: two concurrent same-key reassigns both get 200 with one assignment and one audit', async () => {
+    const { testId } = await program();
+    const { body } = await cancelRequest(testId);
+    const id = body.actionItemId as string;
+    const key = newKey();
+    const send = () =>
+      h.send(
+        'post',
+        `/api/action-items/${id}/reassign`,
+        { toUserId: lm2, reason: 'Lou covers this week', idempotencyKey: key },
+        'admin',
+      );
+    // Barrier: hold the item row so both requests pass the first key check and queue on the lock.
+    const blocker = new Client({ connectionString: databaseUrlForSchema(h.db.schema) });
+    await blocker.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT id FROM action_item WHERE id = $1 FOR UPDATE', [id]);
+      const both = Promise.all([send(), send()]);
+      await waitForLockWaiters(2);
+      await blocker.query('COMMIT');
+      const results = await both;
+      expect(results.map((r) => r.status)).toEqual([200, 200]);
+      expect(results[1]!.body).toEqual(results[0]!.body);
+      expect(results[0]!.body).toMatchObject({ assignedTo: { name: 'Lou Second' } });
+    } finally {
+      await blocker.query('ROLLBACK').catch(() => undefined);
+      await blocker.end();
+    }
+    expect(await count('FROM action_item_assignment WHERE action_item_id = $1', [id])).toBe(1);
+    expect(
+      await count(`FROM audit_event WHERE action = 'action_item.reassigned' AND entity_id = $1`, [
+        id,
+      ]),
+    ).toBe(1);
+  });
+
+  async function waitForLockWaiters(n: number) {
+    for (let i = 0; i < 2000; i += 1) {
+      const { rows } = await h.db.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+         WHERE wait_event_type = 'Lock' AND query ILIKE '%action_item%FOR UPDATE%'`,
+      );
+      if (rows[0]!.n >= n) return;
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    throw new Error(`fewer than ${n} requests waited on action_item`);
+  }
 
   it('an item reassigned away from an opted-in recipient is skipped for them, not sent', async () => {
     await setEmail('pe', true);

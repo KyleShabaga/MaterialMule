@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   disposalCandidatesSchema,
   inventoryPageSchema,
+  storageUnitHistoryActionLabel,
   labProgramReviewSchema,
   labProgramSchema,
   type LabProgram,
@@ -9,6 +10,7 @@ import {
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { BusinessClock } from '../retention/business-clock.js';
 import { testDatabaseUrl } from '../test-support/database.js';
+import { insertProject, insertReceipt, receivingLabId } from '../test-support/fixtures.js';
 import { createLabHarness, line, newKey, type LabHarness } from '../test-support/lab-harness.js';
 
 // MM-T30 standard disposal (card AC1–AC10, test plan T1–T3, T7–T10) on the real MM-T29
@@ -570,6 +572,14 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     }
     // Completion alone disposes nothing and releases no location.
     expect((await unitRow(tube.id)).status).toBe('in_stock');
+    // MM-T71 T3/AC3: the tested tube shows only its exception, never hold/retain-until (or open
+    // program) blockers, on the Disposal page and in Sample Storage.
+    const before = (await candidates()).units.find((u) => u.storageUnitId === tube.id)!;
+    expect(before).toMatchObject({ retentionExempt: true, eligible: false, blockers: [] });
+    const inStorage = inventoryPageSchema
+      .parse((await h.get(`/api/inventory?search=${tube.readableId}`, 'tech')).body)
+      .items.find((i) => i.id === tube.id)!;
+    expect(inStorage.retention).toMatchObject({ retentionExempt: true });
     // LAB can't confirm removal; a personal account can, without approval or the standard scan.
     const lab = await h.send(
       'post',
@@ -612,6 +622,28 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     expect(
       await count('FROM disposal_approval WHERE id = $1 AND used_at IS NOT NULL', [stale[0]!.id]),
     ).toBe(1);
+    // MM-T71 T5/AC5: using the approval is audited (same transaction) and shown in history.
+    const { rows: usedEvents } = await h.db.pool.query<{
+      after_values: { approvalId: string };
+      actor_user_id: string;
+    }>(
+      `SELECT after_values, actor_user_id FROM audit_event
+       WHERE action = 'disposal.approval_used' AND entity_type = 'storage_unit' AND entity_id = $1`,
+      [tube.id],
+    );
+    expect(usedEvents).toHaveLength(1);
+    expect(usedEvents[0]!.after_values.approvalId).toBe(stale[0]!.id);
+    expect(usedEvents[0]!.actor_user_id).toBe(h.users.tech);
+    expect(
+      await count(`FROM audit_event WHERE action = 'disposal.approval_used' AND entity_id = $1`, [
+        bktA!.id,
+      ]),
+    ).toBe(0);
+    const history = await h.get(`/api/storage-units/${tube.id}/history`, 'tech');
+    expect(history.body.items.map((e: { action: string }) => e.action)).toContain(
+      'disposal.approval_used',
+    );
+    expect(storageUnitHistoryActionLabel('disposal.approval_used')).toBe('Disposal approval used');
     const lateRevoke = await h.send(
       'post',
       `/api/disposal/approvals/${stale[0]!.id}/revoke`,
@@ -662,6 +694,53 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
       'lm',
     );
   });
+
+  it('MM-T71 T4/AC4: 501 current units are all reachable in pages, with a total matching inventory', async () => {
+    const projectId = await insertProject(h.db.pool, 'DEMO-2699', h.users.pe);
+    const lab = await receivingLabId(h.db.pool);
+    // 501 fictional buckets BKT-2026-900001… in receipts of at most 50 (the receipt limit).
+    for (let first = 1; first <= 501; first += 50) {
+      const quantity = Math.min(50, 502 - first);
+      const receiptId = await insertReceipt(h.db.pool, projectId, h.users.tech, quantity);
+      await h.db.pool.query(
+        `INSERT INTO storage_unit (readable_id, id_prefix, issued_year, issued_holder_kind,
+                                   receipt_id, project_id, unit_type, holder_kind,
+                                   current_location_id, received_date, receipt_line)
+         SELECT 'BKT-2026-9' || lpad((n + $4 - 1)::text, 5, '0'), 'BKT', 2026, 'bucket', $1, $2,
+                'bucket', 'bucket', $3, '2026-10-23', n
+         FROM generate_series(1, $5::int) AS n`,
+        [receiptId, projectId, lab, first, quantity],
+      );
+    }
+    const seen = new Set<string>();
+    let total = -1;
+    for (const page of [1, 2, 3]) {
+      const response = await h.get(
+        `/api/disposal/eligible?projectId=${projectId}&page=${page}`,
+        'lm',
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      const body = disposalCandidatesSchema.parse(response.body);
+      expect(body).toMatchObject({ page, pageSize: 200 });
+      total = body.total;
+      for (const unit of body.units) seen.add(unit.storageUnitId);
+      expect(body.units).toHaveLength(page < 3 ? 200 : 101);
+    }
+    expect(total).toBe(501);
+    expect(seen.size).toBe(501);
+    const inventory = inventoryPageSchema.parse(
+      (await h.get(`/api/inventory?projectId=${projectId}`, 'lm')).body,
+    );
+    expect(inventory.total).toBe(total);
+    // Past the end: an empty page that still reports the total.
+    const beyond = disposalCandidatesSchema.parse(
+      (await h.get(`/api/disposal/eligible?projectId=${projectId}&page=9`, 'lm')).body,
+    );
+    expect(beyond).toMatchObject({ total: 501, units: [] });
+    expect((await h.get(`/api/disposal/eligible?projectId=${projectId}&page=0`, 'lm')).status).toBe(
+      400,
+    );
+  }, 60_000); // 501 units and four pages: allow for a busy PC
 
   it('database rules: one disposition per unit, approvals revoked/used once, no deletes', async () => {
     const unit = await oldBucket();

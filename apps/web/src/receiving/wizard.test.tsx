@@ -481,9 +481,9 @@ describe('Receiving wizard (MM-T10)', () => {
       expect(within(details).getByRole('button', { name: 'Edit details' })).toBeEnabled();
 
       await user.click(within(table).getByRole('button', { name: 'Edit Bucket 2' }));
-      // Focus moves to the unit's heading after it renders; wait for it (flaky on busy CI).
-      const heading = await screen.findByRole('heading', { name: 'Bucket 2' });
-      await waitFor(() => expect(heading).toHaveFocus());
+      // Focus moves to the unit's heading once it renders. Query inside waitFor so a re-rendered
+      // heading is found again (MM-T71: this was flaky on busy CI).
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Bucket 2' })).toHaveFocus());
     });
 
     it('keeps a card per unit at 1280px and below', async () => {
