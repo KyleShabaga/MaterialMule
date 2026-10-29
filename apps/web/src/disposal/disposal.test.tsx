@@ -36,6 +36,7 @@ const unit = (id: string, overrides: Partial<DisposalCandidates['units'][number]
   eligible: true,
   blockers: [],
   approval: null,
+  retentionExempt: false,
   ...overrides,
 });
 
@@ -43,6 +44,9 @@ const candidates: DisposalCandidates = {
   projectId: 'p1',
   asOf: '2027-10-24',
   canApprove: true,
+  total: 2,
+  page: 1,
+  pageSize: 200,
   units: [
     unit('1'),
     unit('2', {
@@ -114,6 +118,59 @@ describe('Disposal (MM-T30)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Approve', hidden: true }));
     const call = fetchMock.mock.calls.find(([url]) => String(url) === '/api/disposal/approvals');
     expect(JSON.parse(String(call![1]!.body))).toMatchObject({ unitIds: ['1'] });
+  });
+
+  it('MM-T71 T3: a tested unit shows only its exception and points to Confirm removal after testing', async () => {
+    renderAt('/disposal-retention?projectId=p1', me(), (url) => {
+      if (url.startsWith('/api/disposal/eligible')) {
+        return json(200, {
+          ...candidates,
+          total: 1,
+          units: [
+            unit('7', {
+              unitType: 'shelby_tube',
+              readableId: 'ST-2026-000007',
+              eligible: false,
+              retentionExempt: true,
+            }),
+          ],
+        });
+      }
+      return json(200, { open: 0 });
+    });
+    const tested = await screen.findByRole('region', { name: 'Tested: removed after testing' });
+    expect(tested).toHaveTextContent('ST-2026-000007');
+    expect(tested).toHaveTextContent('Retention: Not applicable');
+    expect(tested).toHaveTextContent(/Confirm removal after testing/);
+    expect(tested).not.toHaveTextContent(/On hold|Retain until/);
+    expect(screen.getByRole('region', { name: 'Not eligible' })).toHaveTextContent('None.');
+  });
+
+  it('MM-T71 T4: pages through every current unit with the total', async () => {
+    const user = userEvent.setup();
+    const pages: number[] = [];
+    renderAt('/disposal-retention?projectId=p1', me(), (url) => {
+      if (url.startsWith('/api/disposal/eligible')) {
+        const page = Number(new URL(url, 'http://x').searchParams.get('page'));
+        pages.push(page);
+        return json(200, {
+          ...candidates,
+          total: 501,
+          page,
+          units: page === 3 ? [unit('9', { readableId: 'BKT-2026-000501' })] : [unit('1')],
+        });
+      }
+      return json(200, { open: 0 });
+    });
+    const pager = await screen.findByRole('navigation', { name: 'Pages' });
+    expect(pager).toHaveTextContent('Page 1 of 3');
+    expect(screen.getByText(/of 501 current units/)).toBeVisible();
+    await user.click(within(pager).getByRole('button', { name: 'Next' }));
+    expect(await within(pager).findByText('Page 2 of 3')).toBeVisible();
+    await user.click(within(pager).getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('BKT-2026-000501')).toBeVisible();
+    expect(within(pager).getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(pages).toEqual([1, 2, 3]);
   });
 
   it('Disposal scan is a distinct mode; offline it is disabled and nothing is sent or queued', async () => {

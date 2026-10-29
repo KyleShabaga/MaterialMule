@@ -372,6 +372,8 @@ export function storageUnitHistoryActionLabel(
       return 'Approved for disposal';
     case 'disposal.approval_revoked':
       return 'Disposal approval revoked';
+    case 'disposal.approval_used':
+      return 'Disposal approval used';
     case 'disposal.blocked':
       return 'Disposal scan refused';
     default:

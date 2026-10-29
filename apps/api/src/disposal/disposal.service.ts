@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  DISPOSAL_PAGE_SIZE,
   normalizeStorageUnitCode,
   type ApproveDisposal,
   type ApproveDisposalResult,
@@ -45,6 +46,7 @@ interface Standing {
   pm_pe_user_id: string;
   eligible: boolean;
   open_conflict: boolean;
+  retention_exempt: boolean;
 }
 
 /**
@@ -64,7 +66,7 @@ export async function disposalStanding(
     db.query<Standing>(
       `SELECT su.id, su.readable_id, su.unit_type, su.status, su.received_date::text,
               ur.effective_retain_until::text, l.id AS location_id, l.code AS location_code,
-              l.name AS location_name, su.project_id, p.pm_pe_user_id,
+              l.name AS location_name, su.project_id, p.pm_pe_user_id, ur.retention_exempt,
               coalesce(unit_disposal_eligible(su.id, $2::date, $3), false) AS eligible,
               EXISTS (SELECT 1 FROM location_conflict c
                       WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict
@@ -152,18 +154,28 @@ export class DisposalService {
     if (rows.length === 0) throw new ForbiddenException({ code: 'forbidden' });
   }
 
-  async candidates(user: AuthUser, projectId: string): Promise<DisposalCandidates> {
+  async candidates(user: AuthUser, projectId: string, page = 1): Promise<DisposalCandidates> {
     if (!UUID_PATTERN.test(projectId)) throw new NotFoundException({ code: 'project_not_found' });
     const { rows: project } = await this.database.pool.query<{ pm_pe_user_id: string }>(
       'SELECT pm_pe_user_id FROM project WHERE id = $1',
       [projectId],
     );
     if (!project[0]) throw new NotFoundException({ code: 'project_not_found' });
-    const { rows } = await this.database.pool.query<{ id: string }>(
-      `SELECT id FROM storage_unit WHERE project_id = $1 AND status <> 'disposed'
-       ORDER BY readable_id COLLATE "C" LIMIT 500`,
-      [projectId],
+    // Every current unit is reachable: a total and pages, never a silent cut-off (MM-T71).
+    const { rows } = await this.database.pool.query<{ id: string; total: number }>(
+      `SELECT id, count(*) OVER ()::int AS total FROM storage_unit
+       WHERE project_id = $1 AND status <> 'disposed'
+       ORDER BY readable_id COLLATE "C", id LIMIT $2 OFFSET $3`,
+      [projectId, DISPOSAL_PAGE_SIZE, (page - 1) * DISPOSAL_PAGE_SIZE],
     );
+    const total =
+      rows[0]?.total ??
+      (
+        await this.database.pool.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM storage_unit WHERE project_id = $1 AND status <> 'disposed'`,
+          [projectId],
+        )
+      ).rows[0]!.n;
     const asOf = this.clock.today();
     const ids = rows.map((r) => r.id);
     const standing = await disposalStanding(this.database.pool, ids, asOf);
@@ -172,11 +184,20 @@ export class DisposalService {
       projectId,
       asOf,
       canApprove: can(user, 'disposal.approve', { pmPeUserId: project[0].pm_pe_user_id }),
+      total,
+      page,
+      pageSize: DISPOSAL_PAGE_SIZE,
       units: ids.map((id) => {
         const { unit, blockers } = standing.get(id)!;
         const approval = approvals.get(id) ?? null;
         // An approved unit lists what would block its removal now.
-        const shown = approval ? blockers.filter((b) => b.code !== 'not_in_stock') : blockers;
+        let shown = approval ? blockers.filter((b) => b.code !== 'not_in_stock') : blockers;
+        // A tested unit is removed after testing (MM-T36): holds, dates and open programs don't
+        // block that route, so only what does (an open location conflict) is listed (MM-T71).
+        // An approved unit keeps what would block its standard scan.
+        if (unit.retention_exempt && !approval) {
+          shown = shown.filter((b) => b.code === 'location_conflict');
+        }
         return {
           storageUnitId: id,
           readableId: unit.readable_id,
@@ -188,6 +209,7 @@ export class DisposalService {
           eligible: unit.eligible,
           blockers: shown,
           approval,
+          retentionExempt: unit.retention_exempt,
         };
       }),
     };
