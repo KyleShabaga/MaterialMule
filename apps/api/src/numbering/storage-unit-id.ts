@@ -80,8 +80,13 @@ export async function allocateStorageUnitIds(
     await client.query('RELEASE SAVEPOINT allocate_storage_unit_ids');
   } catch (error) {
     await client.query('ROLLBACK TO SAVEPOINT allocate_storage_unit_ids');
-    // 23514: the counter's CHECK (last_value <= 999999) rejected the increment.
-    if ((error as { code?: string }).code === '23514') {
+    // 23514 on the counter's own CHECK (last_value <= 999999) rejected the increment; any other
+    // error, other CHECKs included, is passed on as it is.
+    const failed = error as { code?: string; constraint?: string };
+    if (
+      failed.code === '23514' &&
+      failed.constraint === 'storage_unit_annual_counter_last_value_check'
+    ) {
       throw new StorageUnitIdOverflowError(prefix, year);
     }
     throw error;

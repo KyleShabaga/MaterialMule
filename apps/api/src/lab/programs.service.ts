@@ -39,6 +39,7 @@ import { APP_CONFIG } from '../config/config.constants.js';
 import type { AppConfig } from '../config/env.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { issuanceYear } from '../numbering/storage-unit-id.js';
 import { validationError } from '../validation/parse-body.js';
 import { actorOf, receiverOf, resolveActingPerson } from './attribution.js';
 import { loadTestTypes } from './catalogue.service.js';
@@ -507,13 +508,33 @@ export class LabProgramsService {
       }
     }
 
-    const { rows: numbers } = await client.query<{ year: number; last_value: number }>(
-      `INSERT INTO lab_program_counter (year, last_value)
-       VALUES (extract(year FROM now() AT TIME ZONE $1)::int, 1)
-       ON CONFLICT (year) DO UPDATE SET last_value = lab_program_counter.last_value + 1
-       RETURNING year, last_value`,
-      [this.config.BUSINESS_TIME_ZONE],
-    );
+    const { rows: numbers } = await client
+      .query<{ year: number; last_value: number }>(
+        `INSERT INTO lab_program_counter (year, last_value)
+         VALUES (extract(year FROM now() AT TIME ZONE $1)::int, 1)
+         ON CONFLICT (year) DO UPDATE SET last_value = lab_program_counter.last_value + 1
+         RETURNING year, last_value`,
+        [this.config.BUSINESS_TIME_ZONE],
+      )
+      .catch((error: unknown) => {
+        // BUG-008: only the counter's own CHECK (last_value <= 9999) means the year is full;
+        // the transaction rolls back, so the draft stays a draft and no number is used.
+        const failed = error as { code?: string; constraint?: string };
+        if (
+          failed.code === '23514' &&
+          failed.constraint === 'lab_program_counter_last_value_check'
+        ) {
+          const year = issuanceYear(new Date(), this.config.BUSINESS_TIME_ZONE);
+          throw new ConflictException({
+            code: 'program_numbers_exhausted',
+            year,
+            message:
+              `No program numbers are left for ${year} (the last is LP-${year}-9999). ` +
+              'The draft was not submitted. Tell an administrator.',
+          });
+        }
+        throw error;
+      });
     const programNumber = `LP-${numbers[0]!.year}-${String(numbers[0]!.last_value).padStart(4, '0')}`;
 
     // Freeze coverage and catalogue snapshots while the program is still a draft (the database

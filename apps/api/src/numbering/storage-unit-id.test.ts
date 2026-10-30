@@ -117,6 +117,15 @@ describe.runIf(testDatabaseUrl)('allocateStorageUnitIds', () => {
     expect(rows[0]).toEqual({ last_value: 999999 });
   });
 
+  it('BUG-008: another CHECK on the counter (a year before 2000) is not reported as exhaustion', async () => {
+    const failure = allocate('bucket', 1, new Date('1999-06-01T18:00:00Z'));
+    await expect(failure).rejects.not.toBeInstanceOf(StorageUnitIdOverflowError);
+    await expect(failure).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'storage_unit_annual_counter_year_check',
+    });
+  });
+
   it('AC8: each prefix has its own counter', async () => {
     const issuedAt = new Date('2026-10-25T18:00:00Z');
     const first = await Promise.all(

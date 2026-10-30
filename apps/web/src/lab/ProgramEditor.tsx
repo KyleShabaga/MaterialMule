@@ -131,6 +131,9 @@ function failureMessage(result: Exclude<WriteResult<unknown>, { ok: true }>): st
         return 'The material for a line changed since the review (for example a new receipt). Check the updated coverage below and submit again.';
       }
       if (result.code === 'not_draft') return 'This program has already been submitted.';
+      if (result.code === 'program_numbers_exhausted') {
+        return 'No program numbers are left for this year, so the draft was not submitted. It is saved as it is. Tell an administrator.';
+      }
       return 'This program changed. Reload it to continue.';
     case 'invalid':
       return result.errors.length > 0

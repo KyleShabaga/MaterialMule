@@ -25,6 +25,7 @@ import { withTransaction } from '../db/transaction.js';
 import {
   allocateStorageUnitIds,
   PREFIX_BY_HOLDER,
+  StorageUnitIdOverflowError,
   type HolderKind,
 } from '../numbering/storage-unit-id.js';
 import { findBulkGroup } from '../storage-units/sample-identity.js';
@@ -570,11 +571,28 @@ export class ReceiptsService {
     );
     const blocks = new Map<HolderKind, string[]>();
     for (const [kind, count] of lockOrder) {
-      const allocated = await allocateStorageUnitIds(client, kind, count, {
-        issuedAt: now,
-        timeZone: this.config.BUSINESS_TIME_ZONE,
-      });
-      blocks.set(kind, allocated.ids);
+      try {
+        const allocated = await allocateStorageUnitIds(client, kind, count, {
+          issuedAt: now,
+          timeZone: this.config.BUSINESS_TIME_ZONE,
+        });
+        blocks.set(kind, allocated.ids);
+      } catch (error) {
+        // BUG-008: a full counter is a clear 409, not a 500. The transaction rolls back, so
+        // nothing of the receipt is saved and no number is used.
+        if (error instanceof StorageUnitIdOverflowError) {
+          throw new ConflictException({
+            code: 'storage_unit_ids_exhausted',
+            prefix: error.prefix,
+            year: error.year,
+            message:
+              `No ${error.prefix}- storage unit IDs are left for ${error.year} ` +
+              `(the last is ${error.prefix}-${error.year}-999999). Nothing was saved. ` +
+              'Tell an administrator.',
+          });
+        }
+        throw error;
+      }
     }
     return units.map((unit) => blocks.get(HOLDER_BY_UNIT_TYPE[unit.unitType])!.shift()!);
   }
