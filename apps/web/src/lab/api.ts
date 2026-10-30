@@ -200,12 +200,14 @@ export const fetchWorklist = (query: {
   projectId?: string;
   open?: boolean;
   testTypeId?: string;
+  page?: number;
 }): Promise<Worklist> => {
   const params = new URLSearchParams();
   if (query.priority) params.set('priority', query.priority);
   if (query.projectId) params.set('projectId', query.projectId);
   if (query.open) params.set('open', 'true');
   if (query.testTypeId) params.set('testTypeId', query.testTypeId);
+  if (query.page && query.page > 1) params.set('page', String(query.page));
   return getJson(`/api/worklist?${params.toString()}`, (b) => worklistSchema.parse(b));
 };
 

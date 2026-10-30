@@ -20,25 +20,44 @@ export function WorklistPage() {
   const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [page, setPage] = useState(1);
+  // Every project with a matching program (BUG-006), kept while the next answer loads.
+  const [projects, setProjects] = useState<Worklist['projects']>([]);
 
   useEffect(() => {
     fetchCatalogue().then(setCatalogue, () => setCatalogue(null));
   }, []);
   useEffect(() => {
     let current = true;
-    fetchWorklist({ priority, open, testTypeId, projectId }).then(
-      (list) => current && setLoad({ state: 'ready', list }),
+    fetchWorklist({ priority, open, testTypeId, projectId, page }).then(
+      (list) => {
+        if (!current) return;
+        const lastPage = Math.max(1, Math.ceil(list.total / list.pageSize));
+        // Programs can leave the worklist between pages: step back to the last page.
+        if (list.items.length === 0 && page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
+        setProjects(list.projects);
+        setLoad({ state: 'ready', list });
+      },
       () => current && setLoad({ state: 'error' }),
     );
     return () => {
       current = false;
     };
-  }, [priority, open, testTypeId, projectId, attempt]);
+  }, [priority, open, testTypeId, projectId, page, attempt]);
 
-  const projects =
-    load.state === 'ready'
-      ? [...new Map(load.list.items.map((item) => [item.project.id, item.project])).values()]
-      : [];
+  /** A filter change starts again at the first page. */
+  function filter<T>(set: (value: T) => void) {
+    return (value: T) => {
+      set(value);
+      setPage(1);
+    };
+  }
+  const list = load.state === 'ready' ? load.list : null;
+  const totalPages = list ? Math.max(1, Math.ceil(list.total / list.pageSize)) : 1;
+  const first = list ? (list.page - 1) * list.pageSize + 1 : 0;
 
   return (
     <section aria-labelledby="worklist-heading">
@@ -46,7 +65,7 @@ export function WorklistPage() {
       <div className="worklist-filters">
         <label>
           Priority{' '}
-          <select value={priority} onChange={(event) => setPriority(event.target.value)}>
+          <select value={priority} onChange={(event) => filter(setPriority)(event.target.value)}>
             <option value="">All</option>
             <option value="urgent">Urgent</option>
             <option value="normal">Normal</option>
@@ -54,7 +73,7 @@ export function WorklistPage() {
         </label>
         <label>
           Project{' '}
-          <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+          <select value={projectId} onChange={(event) => filter(setProjectId)(event.target.value)}>
             <option value="">All</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -65,7 +84,10 @@ export function WorklistPage() {
         </label>
         <label>
           Test{' '}
-          <select value={testTypeId} onChange={(event) => setTestTypeId(event.target.value)}>
+          <select
+            value={testTypeId}
+            onChange={(event) => filter(setTestTypeId)(event.target.value)}
+          >
             <option value="">All</option>
             {(catalogue?.tests ?? []).map((test) => (
               <option key={test.id} value={test.id}>
@@ -78,7 +100,7 @@ export function WorklistPage() {
           <input
             type="checkbox"
             checked={open}
-            onChange={(event) => setOpen(event.target.checked)}
+            onChange={(event) => filter(setOpen)(event.target.checked)}
           />{' '}
           Only programs with open tests
         </label>
@@ -89,6 +111,11 @@ export function WorklistPage() {
           message="The worklist couldn’t be loaded."
           onRetry={() => setAttempt((n) => n + 1)}
         />
+      ) : null}
+      {list && list.total > list.pageSize && list.items.length > 0 ? (
+        <p className="field-hint" role="status">
+          Showing {first}–{first + list.items.length - 1} of {list.total} programs
+        </p>
       ) : null}
       {load.state === 'ready' ? (
         <DataTable
@@ -134,6 +161,19 @@ export function WorklistPage() {
             },
           ]}
         />
+      ) : null}
+      {list && list.total > list.pageSize ? (
+        <nav className="pager" aria-label="Pages">
+          <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            Previous
+          </button>
+          <span>
+            Page {list.page} of {totalPages}
+          </span>
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+            Next
+          </button>
+        </nav>
       ) : null}
     </section>
   );

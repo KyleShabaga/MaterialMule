@@ -33,8 +33,16 @@ export class LabWorkController {
     @Query('projectId') projectId?: string,
     @Query('open') open?: string,
     @Query('testTypeId') testTypeId?: string,
+    @Query('page') page?: string,
   ): Promise<Worklist> {
-    return this.work.worklist({ priority, projectId, openOnly: open === 'true', testTypeId });
+    const pageNumber = Number(page);
+    return this.work.worklist({
+      priority,
+      projectId,
+      openOnly: open === 'true',
+      testTypeId,
+      page: Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1,
+    });
   }
 
   @Get('lab-programs/:id/work')

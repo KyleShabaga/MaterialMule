@@ -10,6 +10,7 @@ import {
   COMMENT_EDIT_WINDOW_MINUTES,
   OPEN_STATUSES,
   TEST_REQUEST_STATUSES,
+  WORKLIST_PAGE_SIZE,
   isAllowedTransition,
   type AddCommentRequest,
   changePriorityRequestSchema,
@@ -103,28 +104,40 @@ export class LabWorkService {
     projectId?: string;
     openOnly?: boolean;
     testTypeId?: string;
+    page?: number;
   }): Promise<Worklist> {
-    const params: unknown[] = [OPEN_STATUSES];
-    const where = [`lp.status = 'submitted'`];
-    if (query.priority === 'urgent' || query.priority === 'normal') {
-      params.push(query.priority);
-      where.push(`lp.priority = $${params.length}`);
-    }
-    if (query.projectId && UUID_PATTERN.test(query.projectId)) {
-      params.push(query.projectId);
-      where.push(`lp.project_id = $${params.length}`);
-    }
-    if (query.testTypeId && UUID_PATTERN.test(query.testTypeId)) {
-      params.push(query.testTypeId);
-      where.push(
-        `EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id AND r.test_type_id = $${params.length})`,
-      );
-    }
-    if (query.openOnly) {
-      where.push(
-        `EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id AND r.status = ANY ($1::text[]))`,
-      );
-    }
+    /**
+     * The filters as SQL after `seed` parameters (each query passes only parameters it uses, or
+     * PostgreSQL can't type them); the project filter is left out for the project options.
+     */
+    const filters = (withProject: boolean, seed: unknown[] = []) => {
+      const params: unknown[] = [...seed];
+      const where = [`lp.status = 'submitted'`];
+      if (query.priority === 'urgent' || query.priority === 'normal') {
+        params.push(query.priority);
+        where.push(`lp.priority = $${params.length}`);
+      }
+      if (withProject && query.projectId && UUID_PATTERN.test(query.projectId)) {
+        params.push(query.projectId);
+        where.push(`lp.project_id = $${params.length}`);
+      }
+      if (query.testTypeId && UUID_PATTERN.test(query.testTypeId)) {
+        params.push(query.testTypeId);
+        where.push(
+          `EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id AND r.test_type_id = $${params.length})`,
+        );
+      }
+      if (query.openOnly) {
+        params.push(OPEN_STATUSES);
+        where.push(
+          `EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id AND r.status = ANY ($${params.length}::text[]))`,
+        );
+      }
+      return { params, where: where.join(' AND ') };
+    };
+    // $1: the open statuses, used by the per-program counts in the list query.
+    const { params, where } = filters(true, [OPEN_STATUSES]);
+    const page = Math.max(1, query.page ?? 1);
     const { rows } = await this.database.pool.query<{
       id: string;
       program_number: string;
@@ -140,8 +153,9 @@ export class LabWorkService {
       counts: Record<string, number> | null;
       open_count: number;
       oldest_open_seconds: number | null;
+      total: number;
     }>(
-      `SELECT lp.id, lp.program_number, lp.priority, lp.project_id, p.project_number,
+      `SELECT count(*) OVER ()::int AS total, lp.id, lp.program_number, lp.priority, lp.project_id, p.project_number,
               p.name AS project_name, lp.submitted_at, lp.submitted_by_account_type AS account_type,
               lp.submitted_by_name_snapshot AS account_name,
               lp.submitted_for_initials_snapshot AS person_initials,
@@ -154,12 +168,38 @@ export class LabWorkService {
               (SELECT extract(epoch FROM now() - min(r.created_at))::float FROM test_request r
                WHERE r.program_id = lp.id AND r.status = ANY ($1::text[])) AS oldest_open_seconds
        FROM lab_program lp JOIN project p ON p.id = lp.project_id
-       WHERE ${where.join(' AND ')}
+       WHERE ${where}
        ORDER BY (lp.priority = 'urgent') DESC, lp.submitted_at, lp.id
-       LIMIT 500`,
+       LIMIT ${WORKLIST_PAGE_SIZE} OFFSET ${(page - 1) * WORKLIST_PAGE_SIZE}`,
       params,
     );
+    let total = rows[0]?.total ?? 0;
+    if (rows.length === 0 && page > 1) {
+      // Past the last page there is no row to carry the window count.
+      const counting = filters(true);
+      const { rows: counted } = await this.database.pool.query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM lab_program lp WHERE ${counting.where}`,
+        counting.params,
+      );
+      total = counted[0]?.total ?? 0;
+    }
+    const others = filters(false);
+    const { rows: projects } = await this.database.pool.query<{
+      id: string;
+      project_number: string;
+      name: string;
+    }>(
+      `SELECT p.id, p.project_number, p.name
+       FROM project p
+       WHERE EXISTS (SELECT 1 FROM lab_program lp WHERE lp.project_id = p.id AND ${others.where})
+       ORDER BY p.project_number, p.id`,
+      others.params,
+    );
     return {
+      total,
+      page,
+      pageSize: WORKLIST_PAGE_SIZE,
+      projects: projects.map((p) => ({ id: p.id, projectNumber: p.project_number, name: p.name })),
       items: rows.map((row) => ({
         programId: row.id,
         programNumber: row.program_number,
