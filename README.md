@@ -28,6 +28,10 @@ for the schema and [docs/permissions.md](docs/permissions.md) for who can do wha
 
 ## First run
 
+Starting over on a PC that has an older setup (old checkouts, Trapezoid-era or pre-baseline
+databases)? Follow [docs/operations/clean-install.md](docs/operations/clean-install.md) instead: it
+removes everything old first, then does these steps.
+
 ```powershell
 npm ci
 Copy-Item apps/api/.env.example apps/api/.env
