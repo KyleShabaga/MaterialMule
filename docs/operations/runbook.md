@@ -294,7 +294,7 @@ and then roll back.
 
 ## Rotate secrets
 
-Edit the file, then restart the service: `Restart-Service Material Mule`, and check `/api/health`.
+Edit the file, then restart the service: `Restart-Service MaterialMule`, and check `/api/health`.
 
 | Secret                          | How                                                                                                    |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -318,7 +318,7 @@ Before the expiry date (put a reminder in the operational owner's calendar a mon
 1. Get the new certificate from IT (same host name).
 2. Save it next to the old one, e.g. `C:\MaterialMule\config\tls\materialmule-2027.pfx`.
 3. Update `TLS_PFX_FILE` (and `TLS_PFX_PASSPHRASE`) in `materialmule.env`.
-4. `Restart-Service Material Mule`. If it does not come back, the log names the bad setting (never the
+4. `Restart-Service MaterialMule`. If it does not come back, the log names the bad setting (never the
    value); fix it or point back at the old file.
 5. In a browser, check the padlock shows the new expiry date. Delete the old file.
 
@@ -504,7 +504,7 @@ still raises 1100 once the RPO passes, and the status page shows the warning.
 Only when the production database is lost or damaged and the owner has decided to recover. This
 is deliberately manual: no script ever restores over production.
 
-1. Stop the service: `Stop-Service Material Mule`.
+1. Stop the service: `Stop-Service MaterialMule`.
 2. Restore the chosen backup into a **new** database, keeping owners and grants (the roles must
    exist: on a rebuilt host, do [First install](#first-install) steps 1–4 and `setup-roles` first):
    ```powershell
@@ -518,7 +518,7 @@ is deliberately manual: no script ever restores over production.
    & $psql -h 127.0.0.1 -U postgres -d postgres -c "ALTER DATABASE materialmule_restore_recovery RENAME TO materialmule"
    ```
 4. Re-run `setup-roles` (all three roles) so the database-level grants match, then
-   `Start-Service Material Mule` and check `/api/health` and Settings → System status.
+   `Start-Service MaterialMule` and check `/api/health` and Settings → System status.
 5. Restore the secrets from the password manager if the host was rebuilt. Record the recovery like
    a drill.
 6. **Before anyone receives samples again:** storage unit IDs issued after the backup's timestamp
@@ -532,14 +532,14 @@ is deliberately manual: no script ever restores over production.
 Run on the host (or a spare Windows PC / VM first) and record date, who, and result on the
 MM-T20 card.
 
-| ID  | Test                                       | How                                                                                                                                                                                                     | Pass when                                          |
-| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| T1  | Fresh install via scripts                  | Follow [First install](#first-install) on a clean PC/VM                                                                                                                                                 | `Get-Service Material Mule` is Running; health 200 |
-| T2  | Reboot without login (AC1)                 | `Restart-Computer`; don't sign in; from another PC open `/api/health`                                                                                                                                   | 200 within 3 minutes                               |
-| T3  | Broken release rolls back (AC3)            | Copy a release folder to `D:\materialmule-broken`, set `"version"` in its `release.json` to e.g. `0.0.0-broken`, replace `apps\api\dist\main.js` with the single line `process.exit(1)`, then deploy it | `Outcome: RolledBack`; previous version serving    |
-| T4  | Desktop and phone, certificate trust (AC2) | Open the URL in Edge/Chrome on an office PC and on iOS + Android phones on office Wi-Fi; sign in                                                                                                        | No warning; sign-in works; camera scan works       |
-| T5  | Port scan (AC5)                            | From another PC: `Test-NetConnection <host> -Port 5432` and `-Port 443` (or `nmap -p- <host>` if IT allows)                                                                                             | 5432 fails; only the HTTPS port is open            |
-| T6  | Crash restart                              | `Stop-Process -Name node -Force` on the host (only the Material Mule node process runs there)                                                                                                           | Service is Running again within ~10 s; health 200  |
+| ID  | Test                                       | How                                                                                                                                                                                                     | Pass when                                         |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| T1  | Fresh install via scripts                  | Follow [First install](#first-install) on a clean PC/VM                                                                                                                                                 | `Get-Service MaterialMule` is Running; health 200 |
+| T2  | Reboot without login (AC1)                 | `Restart-Computer`; don't sign in; from another PC open `/api/health`                                                                                                                                   | 200 within 3 minutes                              |
+| T3  | Broken release rolls back (AC3)            | Copy a release folder to `D:\materialmule-broken`, set `"version"` in its `release.json` to e.g. `0.0.0-broken`, replace `apps\api\dist\main.js` with the single line `process.exit(1)`, then deploy it | `Outcome: RolledBack`; previous version serving   |
+| T4  | Desktop and phone, certificate trust (AC2) | Open the URL in Edge/Chrome on an office PC and on iOS + Android phones on office Wi-Fi; sign in                                                                                                        | No warning; sign-in works; camera scan works      |
+| T5  | Port scan (AC5)                            | From another PC: `Test-NetConnection <host> -Port 5432` and `-Port 443` (or `nmap -p- <host>` if IT allows)                                                                                             | 5432 fails; only the HTTPS port is open           |
+| T6  | Crash restart                              | `Stop-Process -Name node -Force` on the host (only the Material Mule node process runs there)                                                                                                           | Service is Running again within ~10 s; health 200 |
 
 Also for AC4: run the secret check command under [Rotate secrets](#rotate-secrets) after T1–T6.
 For AC6: a second person performs one [Upgrade](#upgrade) using only this page and notes any step
