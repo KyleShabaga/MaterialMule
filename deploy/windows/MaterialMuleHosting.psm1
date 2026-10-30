@@ -655,7 +655,231 @@ function Test-MaterialMuleDatabaseExposure {
     return , $problems.ToArray()
 }
 
+function Test-MaterialMulePgHbaAuthMethod {
+    <#
+    .SYNOPSIS
+    Reads pg_hba.conf and lists every host line (host, hostssl, hostnossl, ...) whose method is not
+    scram-sha-256 (or reject): md5, password and trust send or skip passwords. Changes nothing.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataDir)
+    $problems = [System.Collections.Generic.List[string]]::new()
+    $hba = Join-Path $DataDir 'pg_hba.conf'
+    if (-not (Test-Path -LiteralPath $hba -PathType Leaf)) {
+        $problems.Add("pg_hba.conf not found in $DataDir")
+        return , $problems.ToArray()
+    }
+    foreach ($line in Get-Content -LiteralPath $hba) {
+        $fields = @(($line -replace '#.*$', '').Trim() -split '\s+' | Where-Object { $_ })
+        if ($fields.Count -lt 5 -or $fields[0] -notlike 'host*') { continue }
+        # host DATABASE USER ADDRESS [MASK] METHOD [OPTIONS]: an IP address and a separate mask
+        # (127.0.0.1 255.255.255.255) push the method one field along.
+        $methodIndex = if ($fields[4] -match '^(\d{1,3}\.){3}\d{1,3}$|^[0-9A-Fa-f]*:[0-9A-Fa-f:]*$') { 5 } else { 4 }
+        if ($fields.Count -le $methodIndex) { continue }
+        $method = $fields[$methodIndex]
+        if ($method -notin 'scram-sha-256', 'reject') {
+            $problems.Add("pg_hba.conf $($fields[0]) line for $($fields[3]) uses '$method'; use scram-sha-256")
+        }
+    }
+    return , $problems.ToArray()
+}
+
+function Get-MaterialMuleDatabaseFirewallRule {
+    <#
+    .SYNOPSIS
+    Enabled inbound Allow firewall rules for the database port (TCP 5432, alone or in a range).
+    Read-only. Install-MaterialMuleHost.ps1 and Test-MaterialMuleSecurity.ps1 both use it.
+    #>
+    [CmdletBinding()]
+    param([int]$Port = 5432)
+    $opensPort = {
+        param($localPort)
+        foreach ($entry in @($localPort)) {
+            $text = [string]$entry
+            if ($text -eq [string]$Port) { return $true }
+            if ($text -match '^(\d+)-(\d+)$' -and [int]$Matches[1] -le $Port -and $Port -le [int]$Matches[2]) { return $true }
+        }
+        return $false
+    }
+    $rules = Get-NetFirewallPortFilter -Protocol TCP -ErrorAction SilentlyContinue |
+        Where-Object { & $opensPort $_.LocalPort } |
+        Get-NetFirewallRule -ErrorAction SilentlyContinue |
+        Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' -and $_.Action -eq 'Allow' }
+    return , @($rules | Where-Object { $_ })
+}
+
+# --- Host security checks (MM-T68, read-only) ---------------------------------------------------------
+
+# Well-known SIDs, so the checks work whatever language Windows is installed in.
+$script:WellKnownSid = @{
+    Administrators     = 'S-1-5-32-544'
+    System             = 'S-1-5-18'
+    Everyone           = 'S-1-1-0'
+    Users              = 'S-1-5-32-545'
+    AuthenticatedUsers = 'S-1-5-11'
+    Anonymous          = 'S-1-5-7'
+    Guests             = 'S-1-5-32-546'
+}
+
+function ConvertTo-MaterialMuleSid {
+    <#
+    .SYNOPSIS
+    An identity (SecurityIdentifier, SID string or account name) as a SID string; an account name
+    Windows cannot resolve is returned upper-cased so it still compares equal to itself.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][object]$Identity)
+    if ($Identity -is [System.Security.Principal.SecurityIdentifier]) { return $Identity.Value }
+    if ($Identity -is [System.Security.Principal.NTAccount]) { $Identity = $Identity.Value }
+    $text = ([string]$Identity).Trim()
+    if ($text -match '^S-1-[0-9-]+$') { return $text.ToUpperInvariant() }
+    try {
+        return ([System.Security.Principal.NTAccount]::new($text)).Translate(
+            [System.Security.Principal.SecurityIdentifier]).Value
+    } catch {
+        return $text.ToUpperInvariant()
+    }
+}
+
+function Format-MaterialMuleIdentity([string]$Sid) {
+    if ($Sid -notmatch '^S-1-') { return $Sid }
+    try {
+        return ([System.Security.Principal.SecurityIdentifier]::new($Sid)).Translate(
+            [System.Security.Principal.NTAccount]).Value
+    } catch {
+        return $Sid
+    }
+}
+
+function Get-MaterialMuleAclRules {
+    <#
+    .SYNOPSIS
+    The access rules (explicit and inherited) on a file or folder, with SIDs as identities.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { throw "not found: $Path" }
+    $acl = Get-Acl -LiteralPath $Path
+    return , @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
+}
+
+function Test-MaterialMuleAcl {
+    <#
+    .SYNOPSIS
+    Evaluates access rules (from Get-MaterialMuleAclRules, or fabricated objects with
+    IdentityReference, FileSystemRights and AccessControlType) and lists problems. Pure: reads
+    nothing from disk.
+    .PARAMETER AllowedIdentities
+    When given, an Allow rule for anyone else is a problem.
+    .PARAMETER ForbiddenReaders
+    Identities that must not be able to read.
+    .PARAMETER RequiredReader
+    An identity that must be able to read.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Rules,
+        [string[]]$AllowedIdentities,
+        [string[]]$ForbiddenReaders = @(),
+        [string]$RequiredReader
+    )
+    $problems = [System.Collections.Generic.List[string]]::new()
+    $allowed = @($AllowedIdentities | Where-Object { $_ } | ForEach-Object { ConvertTo-MaterialMuleSid $_ })
+    $forbidden = @($ForbiddenReaders | Where-Object { $_ } | ForEach-Object { ConvertTo-MaterialMuleSid $_ })
+    $required = if ($RequiredReader) { ConvertTo-MaterialMuleSid $RequiredReader } else { $null }
+    $requiredFound = $false
+    $reported = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($rule in $Rules) {
+        if ([string]$rule.AccessControlType -ne 'Allow') { continue }
+        $sid = ConvertTo-MaterialMuleSid $rule.IdentityReference
+        $rights = [int][System.Security.AccessControl.FileSystemRights]$rule.FileSystemRights
+        if ($rights -eq 0) { continue }
+        # ReadData, or the generic rights an inheritable ACE can carry (GenericAll, GenericRead).
+        $canRead = ($rights -band 0x1) -or ($rights -band 0x10000000) -or ($rights -lt 0)
+        $name = Format-MaterialMuleIdentity $sid
+        if ($null -ne $AllowedIdentities -and $sid -notin $allowed -and $reported.Add("other:$sid")) {
+            $problems.Add("$name has access ($([System.Security.AccessControl.FileSystemRights]$rights))")
+        }
+        if ($canRead -and $sid -in $forbidden -and $reported.Add("read:$sid")) {
+            $problems.Add("$name can read it")
+        }
+        if ($canRead -and $required -and $sid -eq $required) { $requiredFound = $true }
+    }
+    if ($required -and -not $requiredFound) {
+        $problems.Add("$(Format-MaterialMuleIdentity $required) cannot read it")
+    }
+    return , $problems.ToArray()
+}
+
+function Get-MaterialMuleAclExpectation {
+    <#
+    .SYNOPSIS
+    What the Permissions step of Install-MaterialMuleHost.ps1 grants, as checks for
+    Test-MaterialMuleAcl: config\admin and the migration env file Administrators and SYSTEM only;
+    config and the service env file unreadable by Everyone, Users, Authenticated Users, Anonymous
+    and Guests; the service account able to read the service env file.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Config)
+    $adminsAndSystem = @($script:WellKnownSid.Administrators, $script:WellKnownSid.System)
+    $broad = @($script:WellKnownSid.Everyone, $script:WellKnownSid.Users, $script:WellKnownSid.AuthenticatedUsers,
+        $script:WellKnownSid.Anonymous, $script:WellKnownSid.Guests)
+    return @(
+        [pscustomobject]@{ Name = 'acl-admin-config-dir'; Path = $Config.AdminConfigDir; AllowedIdentities = $adminsAndSystem; ForbiddenReaders = @(); RequiredReader = $null }
+        [pscustomobject]@{ Name = 'acl-migration-env-file'; Path = $Config.MigrationEnvFile; AllowedIdentities = $adminsAndSystem; ForbiddenReaders = @(); RequiredReader = $null }
+        [pscustomobject]@{ Name = 'acl-config-dir'; Path = $Config.ConfigDir; AllowedIdentities = $null; ForbiddenReaders = $broad; RequiredReader = $null }
+        [pscustomobject]@{ Name = 'acl-service-env-file'; Path = $Config.ServiceEnvFile; AllowedIdentities = $null; ForbiddenReaders = $broad; RequiredReader = [string]$Config.ServiceAccount }
+    )
+}
+
+function Read-MaterialMuleEnvFile {
+    <#
+    .SYNOPSIS
+    Parses a dotenv-style file (KEY=VALUE lines, # comments, optional quotes) into a hashtable.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+    $values = @{}
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        $text = $line.Trim()
+        if (-not $text -or $text.StartsWith('#')) { continue }
+        $text = $text -replace '^export\s+', ''
+        if ($text -notmatch '^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') { continue }
+        $key = $Matches[1]
+        $value = $Matches[2].Trim()
+        if ($value -match '^"(.*)"$' -or $value -match "^'(.*)'$") {
+            $value = $Matches[1]
+        } else {
+            $value = ($value -replace '\s+#.*$', '').Trim()
+        }
+        $values[$key] = $value
+    }
+    return $values
+}
+
+function Get-MaterialMuleDatabaseUrlUser {
+    <#
+    .SYNOPSIS
+    The user name in a postgres:// connection string, or $null when it names none. Never returns
+    or prints the password.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Url)
+    if ($Url -notmatch '^postgres(ql)?://(.*)$') { return $null }
+    $rest = $Matches[2]
+    $at = $rest.IndexOf('@')
+    if ($at -ge 0) {
+        $user = ($rest.Substring(0, $at) -split ':', 2)[0]
+        if ($user) { return [System.Uri]::UnescapeDataString($user) }
+    }
+    if ($rest -match '[?&]user=([^&]+)') { return [System.Uri]::UnescapeDataString($Matches[1]) }
+    return $null
+}
+
 Export-ModuleMember -Function Invoke-MaterialMuleLogRotation, Test-MaterialMuleDatabaseExposure, Get-MaterialMuleHostConfig, Write-DeployLog, Read-MaterialMuleRelease,
+    Test-MaterialMulePgHbaAuthMethod, Get-MaterialMuleDatabaseFirewallRule, ConvertTo-MaterialMuleSid,
+    Get-MaterialMuleAclRules, Test-MaterialMuleAcl, Get-MaterialMuleAclExpectation, Read-MaterialMuleEnvFile,
+    Get-MaterialMuleDatabaseUrlUser,
     Get-MaterialMuleCurrentVersion, Set-MaterialMuleCurrentRelease, Get-MaterialMuleDeployState,
     Save-MaterialMuleDeployState, Remove-OldMaterialMuleReleases, Stop-MaterialMuleApp, Start-MaterialMuleApp,
     Invoke-MaterialMuleMigration, Invoke-MaterialMuleBackup, Wait-MaterialMuleHealthy, Invoke-MaterialMuleDeploy,
