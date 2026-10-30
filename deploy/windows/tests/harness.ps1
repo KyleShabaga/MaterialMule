@@ -43,8 +43,10 @@ $module = Import-Module (Join-Path $scripts 'MaterialMuleHosting.psm1') -PassThr
         function script:Get-MaterialMuleAclRules {
             param([string]$Path)
             $acls = Get-Content -LiteralPath $env:T68_FAKE_ACLS -Raw | ConvertFrom-Json -AsHashtable
-            $key = @($acls.Keys | Where-Object { $_ -eq $Path })
-            if ($key.Count -eq 0) { throw "not found: $Path" }
+            $normal = { param($p) [System.IO.Path]::GetFullPath($p).TrimEnd('') }
+            $want = & $normal $Path
+            $key = @($acls.Keys | Where-Object { (& $normal $_) -eq $want })
+            if ($key.Count -eq 0) { throw "not found: $Path (fake ACLs for: $($acls.Keys -join ', '))" }
             return , @($acls[$key[0]] | ForEach-Object { [pscustomobject]$_ })
         }
     }

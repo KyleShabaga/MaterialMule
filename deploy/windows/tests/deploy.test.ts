@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -806,7 +807,9 @@ if (mode === 'fail') {
 `;
 
   beforeAll(() => {
-    work = mkdtempSync(join(tmpdir(), 'materialmule-security-'));
+    // realpath: the runner's TEMP can be an 8.3 short path, but PowerShell reports long names,
+    // and the fake permission lookup is keyed by path.
+    work = realpathSync.native(mkdtempSync(join(tmpdir(), 'materialmule-security-')));
     root = join(work, 'host');
     mkdirSync(join(root, 'config', 'admin'), { recursive: true });
     mkdirSync(join(root, 'current', 'apps', 'api', 'dist', 'db'), { recursive: true });
