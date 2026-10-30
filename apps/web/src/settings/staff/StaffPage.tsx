@@ -191,16 +191,16 @@ function StaffDirectory({
       </p>
       {rowError ? <ErrorState message={rowError} /> : null}
 
-      {pending.state === 'ready' && pending.data.length > 0 ? (
+      {pending.state === 'ready' && pending.data.members.length > 0 ? (
         <BandedCard
           className="pending-staff"
           tone="attention"
           headingLevel={3}
-          title={`Waiting for approval (${pending.data.length})`}
+          title={`Waiting for approval (${pending.data.members.length})`}
           aside={<StatusBadge tone="warning">Pending</StatusBadge>}
         >
           <ul>
-            {pending.data.map((member) => (
+            {pending.data.members.map((member) => (
               <li key={member.id}>
                 <span>
                   <strong>{member.displayName}</strong>
@@ -265,49 +265,57 @@ function StaffDirectory({
           <ErrorState message={list.message} onRetry={refresh} />
         )
       ) : (
-        <DataTable
-          rows={list.data}
-          rowKey={(member) => member.id}
-          caption="Staff"
-          empty="No staff match these filters."
-          columns={[
-            {
-              header: 'Name',
-              cell: (m) => (
-                <>
-                  {m.displayName}
-                  {m.id === currentUserId ? ' (you)' : ''}
-                </>
-              ),
-            },
-            { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },
-            { header: 'Position', cell: (m) => (m.position ? POSITION_NAMES[m.position] : '—') },
-            { header: 'Account', cell: (m) => ACCOUNT_LABELS[m.accountType] },
-            {
-              header: 'Status',
-              cell: (m) => (
-                <StatusBadge tone={STATUS_TONES[m.status]}>{STATUS_LABELS[m.status]}</StatusBadge>
-              ),
-            },
-            {
-              header: 'Roles',
-              cell: (m) => (m.roles.length ? m.roles.map((r) => ROLE_LABELS[r]).join(', ') : '—'),
-            },
-            { header: 'Last sign-in', cell: (m) => when(m.lastSignInAt) },
-            {
-              header: 'Actions',
-              cell: (m) => (
-                <button
-                  type="button"
-                  aria-label={`Manage ${m.displayName}`}
-                  onClick={() => setSelected(m)}
-                >
-                  Manage
-                </button>
-              ),
-            },
-          ]}
-        />
+        <>
+          {list.data.total > list.data.members.length ? (
+            <p className="notice notice-warning" role="status">
+              Showing the first {list.data.members.length} of {list.data.total} staff. Search by
+              name, initials or email to find the rest.
+            </p>
+          ) : null}
+          <DataTable
+            rows={list.data.members}
+            rowKey={(member) => member.id}
+            caption="Staff"
+            empty="No staff match these filters."
+            columns={[
+              {
+                header: 'Name',
+                cell: (m) => (
+                  <>
+                    {m.displayName}
+                    {m.id === currentUserId ? ' (you)' : ''}
+                  </>
+                ),
+              },
+              { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },
+              { header: 'Position', cell: (m) => (m.position ? POSITION_NAMES[m.position] : '—') },
+              { header: 'Account', cell: (m) => ACCOUNT_LABELS[m.accountType] },
+              {
+                header: 'Status',
+                cell: (m) => (
+                  <StatusBadge tone={STATUS_TONES[m.status]}>{STATUS_LABELS[m.status]}</StatusBadge>
+                ),
+              },
+              {
+                header: 'Roles',
+                cell: (m) => (m.roles.length ? m.roles.map((r) => ROLE_LABELS[r]).join(', ') : '—'),
+              },
+              { header: 'Last sign-in', cell: (m) => when(m.lastSignInAt) },
+              {
+                header: 'Actions',
+                cell: (m) => (
+                  <button
+                    type="button"
+                    aria-label={`Manage ${m.displayName}`}
+                    onClick={() => setSelected(m)}
+                  >
+                    Manage
+                  </button>
+                ),
+              },
+            ]}
+          />
+        </>
       )}
 
       {selected ? (

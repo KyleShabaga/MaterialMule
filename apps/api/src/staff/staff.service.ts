@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   effectiveJobTitle,
+  STAFF_LIST_LIMIT,
   type ReceiverOption,
   type StaffListQuery,
   type StaffMember,
@@ -22,7 +23,6 @@ import { UsersService, assertAnotherActiveAdmin } from '../users/users.service.j
 import { findPreprovisionedMatch, normalizeUpn } from './first-sign-in.js';
 
 const RECEIVER_LIMIT = 20;
-const LIST_LIMIT = 500;
 
 interface StaffRow {
   id: string;
@@ -196,11 +196,14 @@ export class StaffService {
     private readonly users: UsersService,
   ) {}
 
-  /** Staff list, pending first (they need an admin), then by name. */
-  async list(query: StaffListQuery): Promise<StaffMember[]> {
+  /**
+   * Staff list, pending first (they need an admin), then by name: at most STAFF_LIST_LIMIT
+   * rows, with `total` the number that match (the controller sends it as LIST_TOTAL_HEADER).
+   */
+  async list(query: StaffListQuery): Promise<{ items: StaffMember[]; total: number }> {
     const search = query.search?.trim() ?? '';
-    const { rows } = await this.database.pool.query<StaffRow>(
-      `${SELECT_STAFF}
+    const { rows } = await this.database.pool.query<StaffRow & { total: number }>(
+      `${SELECT_STAFF.replace('SELECT u.id,', 'SELECT count(*) OVER ()::int AS total, u.id,')}
        WHERE ($1::text IS NULL OR u.status = $1)
          AND ($2 = '' OR u.display_name ILIKE '%' || $2 || '%'
               OR u.official_initials ILIKE $2 || '%'
@@ -208,10 +211,10 @@ export class StaffService {
               OR u.work_email ILIKE '%' || $2 || '%'
               OR u.sign_in_username ILIKE '%' || $2 || '%')
        ORDER BY (u.status = 'pending') DESC, (u.status = 'disabled'), lower(u.display_name), u.id
-       LIMIT ${LIST_LIMIT}`,
+       LIMIT ${STAFF_LIST_LIMIT}`,
       [query.status ?? null, likePattern(search)],
     );
-    return rows.map(toMember);
+    return { items: rows.map(toMember), total: rows[0]?.total ?? 0 };
   }
 
   async get(id: string, db: Pool | PoolClient = this.database.pool): Promise<StaffMember> {

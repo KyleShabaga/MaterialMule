@@ -35,7 +35,7 @@ import './locations.css';
 type Load =
   | { state: 'loading' }
   | { state: 'error'; message: string }
-  | { state: 'ready'; locations: StorageLocation[] };
+  | { state: 'ready'; locations: StorageLocation[]; total: number };
 
 function unitsText(count: number): string {
   return count === 1 ? '1 unit' : `${count} units`;
@@ -389,7 +389,7 @@ export function LocationsPage() {
         if (cancelled) return;
         setLoad(
           result.ok
-            ? { state: 'ready', locations: result.data }
+            ? { state: 'ready', ...result.data }
             : { state: 'error', message: `Locations couldn’t load. ${result.message}` },
         );
       });
@@ -455,6 +455,12 @@ export function LocationsPage() {
         <ErrorState message={load.message} onRetry={reload} />
       ) : (
         <div className="table-stack">
+          {load.total > load.locations.length ? (
+            <p className="notice notice-warning" role="status">
+              Showing the first {load.locations.length} of {load.total} locations. Search by code,
+              name or area to find the rest.
+            </p>
+          ) : null}
           <DataTable
             rows={load.locations}
             rowKey={(location) => location.id}

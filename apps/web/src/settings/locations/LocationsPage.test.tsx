@@ -235,6 +235,22 @@ afterEach(() => {
 });
 
 describe('Settings → Locations (MM-T37)', () => {
+  it('BUG-007: says when the list was cut at the server limit and how to find the rest', async () => {
+    fakeApi([RECEIVING], {
+      'GET /api/locations': () =>
+        new Response(JSON.stringify([RECEIVING]), {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'x-total-count': '734' },
+        }),
+    });
+    renderPage(MANAGER);
+    expect(
+      await screen.findByText(
+        'Showing the first 1 of 734 locations. Search by code, name or area to find the rest.',
+      ),
+    ).toBeTruthy();
+  });
+
   it('replaces the placeholder with the list: name, code, kind, area, status, in-stock count', async () => {
     fakeApi([RECEIVING, location({ inStockCount: 3 })]);
     renderPage(MANAGER);

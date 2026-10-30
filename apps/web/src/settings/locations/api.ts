@@ -1,4 +1,5 @@
 import {
+  LIST_TOTAL_HEADER,
   locationDetailSchema,
   locationLabelPreviewSchema,
   locationListSchema,
@@ -44,13 +45,19 @@ function messageOf(body: unknown, fallback: string): string {
     : fallback;
 }
 
-async function call<T>(path: string, schema: Schema<T>, init?: RequestInit): Promise<Result<T>> {
+async function call<T>(
+  path: string,
+  schema: Schema<T>,
+  init?: RequestInit,
+  onResponse?: (response: Response) => void,
+): Promise<Result<T>> {
   let response: Response;
   try {
     response = await apiFetch(path, init);
   } catch {
     return { ok: false, kind: 'failed', message: UNREACHABLE };
   }
+  onResponse?.(response);
   const body: unknown = await response.json().catch(() => null);
   if (response.ok) {
     const parsed = schema.safeParse(body);
@@ -104,15 +111,31 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export function listLocations(params: {
+export async function listLocations(params: {
   search: string;
   includeRetired: boolean;
-}): Promise<Result<StorageLocation[]>> {
+}): Promise<Result<{ locations: StorageLocation[]; total: number }>> {
   const query = new URLSearchParams();
   if (params.search.trim()) query.set('search', params.search.trim());
   if (params.includeRetired) query.set('includeRetired', 'true');
   const suffix = query.toString();
-  return call(`/api/locations${suffix ? `?${suffix}` : ''}`, locationListSchema);
+  let header: string | null = null;
+  const result = await call(
+    `/api/locations${suffix ? `?${suffix}` : ''}`,
+    locationListSchema,
+    undefined,
+    (response) => (header = response.headers.get(LIST_TOTAL_HEADER)),
+  );
+  if (!result.ok) return result;
+  // More matches than rows means the server cut the list (BUG-007).
+  const total = Number(header ?? result.data.length);
+  return {
+    ok: true,
+    data: {
+      locations: result.data,
+      total: Number.isFinite(total) ? total : result.data.length,
+    },
+  };
 }
 
 export function fetchLocation(id: string): Promise<Result<LocationDetail>> {

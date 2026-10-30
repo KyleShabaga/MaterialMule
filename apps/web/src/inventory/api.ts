@@ -77,7 +77,7 @@ export function fetchProject(id: string): Promise<InventoryResult<ProjectSummary
 
 export function fetchLocations(): Promise<InventoryResult<InventoryLocation[]>> {
   // Retired locations too (MM-T37), so units that were kept there can still be found.
-  return get('/api/locations?includeRetired=true', inventoryLocationListSchema);
+  return get('/api/locations?includeRetired=true&all=true', inventoryLocationListSchema);
 }
 
 export function lookupStorageUnit(

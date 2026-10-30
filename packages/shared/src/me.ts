@@ -26,6 +26,13 @@ export type MeResponse = z.infer<typeof meResponseSchema>;
 /** Header every state-changing API request must carry (CSRF defence, MM-T04). */
 export const CSRF_HEADER_NAME = 'x-materialmule-csrf';
 
+/**
+ * Response header on capped lists (GET /api/staff, GET /api/locations): how many rows match in
+ * all. More than the body holds means the list was cut and the search should be narrowed
+ * (BUG-007).
+ */
+export const LIST_TOTAL_HEADER = 'x-total-count';
+
 /** Response body of `GET /api/auth/providers`: which sign-in options exist on this server. */
 export const authProvidersResponseSchema = z.object({
   microsoft: z.boolean(),

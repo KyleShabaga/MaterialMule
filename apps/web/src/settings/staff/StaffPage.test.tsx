@@ -69,6 +69,29 @@ afterEach(() => {
 });
 
 describe('StaffPage', () => {
+  it('BUG-007: says when the list was cut at the server limit and how to find the rest', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        const pendingOnly = url.includes('status=pending');
+        return new Response(JSON.stringify(pendingOnly ? [] : [JORDAN]), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+            'x-total-count': pendingOnly ? '0' : '612',
+          },
+        });
+      }),
+    );
+    renderPage(['staff.manage']);
+    expect(
+      await screen.findByText(
+        'Showing the first 1 of 612 staff. Search by name, initials or email to find the rest.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('tells non-admins they cannot manage staff, without calling the API', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

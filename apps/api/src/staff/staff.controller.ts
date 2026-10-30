@@ -12,9 +12,11 @@ import {
   Put,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import {
   disableStaffRequestSchema,
+  LIST_TOTAL_HEADER,
   preprovisionStaffRequestSchema,
   setStaffRolesRequestSchema,
   staffListQuerySchema,
@@ -23,6 +25,7 @@ import {
   type ReceiverOption,
   type StaffMember,
 } from '@materialmule/shared';
+import type { Response } from 'express';
 import type { z } from 'zod';
 import { actorFor, requestIdOf } from '../auth/auth.controller.js';
 import {
@@ -68,8 +71,14 @@ export class StaffController {
 
   @Get()
   @RequirePermission('staff.manage')
-  list(@Query() query: unknown): Promise<StaffMember[]> {
-    return this.staff.list(parse(staffListQuerySchema, query));
+  async list(
+    @Query() query: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StaffMember[]> {
+    const { items, total } = await this.staff.list(parse(staffListQuerySchema, query));
+    // The body stays a plain array; the header says whether it was cut (BUG-007).
+    response.setHeader(LIST_TOTAL_HEADER, String(total));
+    return items;
   }
 
   @Post()

@@ -1,4 +1,5 @@
 import {
+  LIST_TOTAL_HEADER,
   staffListResponseSchema,
   staffMemberSchema,
   type PreprovisionStaffRequest,
@@ -53,14 +54,17 @@ async function send(path: string, method: string, body?: unknown): Promise<Staff
 export async function listStaff(filter: {
   search: string;
   status: StaffStatus | '';
-}): Promise<StaffMember[]> {
+}): Promise<{ members: StaffMember[]; total: number }> {
   const params = new URLSearchParams();
   if (filter.search.trim()) params.set('search', filter.search.trim());
   if (filter.status) params.set('status', filter.status);
   const query = params.toString();
   const response = await apiFetch(`/api/staff${query ? `?${query}` : ''}`);
   if (!response.ok) throw await readError(response);
-  return staffListResponseSchema.parse(await response.json());
+  const members = staffListResponseSchema.parse(await response.json());
+  // More matches than rows means the server cut the list (BUG-007).
+  const total = Number(response.headers.get(LIST_TOTAL_HEADER) ?? members.length);
+  return { members, total: Number.isFinite(total) ? total : members.length };
 }
 
 export const staffApi = {

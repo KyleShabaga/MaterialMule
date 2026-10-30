@@ -5,6 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  LOCATION_LIST_LIMIT,
   parseScanPayload,
   type LocationDetail,
   type LocationEvent,
@@ -100,8 +101,14 @@ export async function getLocation(db: Queryable, id: string): Promise<StorageLoc
   return rows[0] ? toLocation(rows[0]) : null;
 }
 
-/** Active first, then by name. Search matches code, name or area, ignoring case. */
-export async function listLocations(db: Queryable, query: ListQuery): Promise<StorageLocation[]> {
+/**
+ * Active first, then by name. Search matches code, name or area, ignoring case. At most
+ * LOCATION_LIST_LIMIT rows unless `all`; `total` is the number that match (BUG-007).
+ */
+export async function listLocations(
+  db: Queryable,
+  query: ListQuery,
+): Promise<{ items: StorageLocation[]; total: number }> {
   const where: string[] = [];
   const params: unknown[] = [];
   if (!query.includeRetired) where.push('l.active');
@@ -112,14 +119,14 @@ export async function listLocations(db: Queryable, query: ListQuery): Promise<St
       `(lower(l.code_normalized) LIKE ${p} OR lower(l.name) LIKE ${p} OR lower(l.area) LIKE ${p})`,
     );
   }
-  const { rows } = await db.query<LocationRow>(
-    `${SELECT_LOCATION}
+  const { rows } = await db.query<LocationRow & { total: number }>(
+    `${SELECT_LOCATION.replace('SELECT l.id,', 'SELECT count(*) OVER ()::int AS total, l.id,')}
      ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
      ORDER BY l.active DESC, lower(l.name), l.code_normalized
-     LIMIT 500`,
+     ${query.all ? '' : `LIMIT ${LOCATION_LIST_LIMIT}`}`,
     params,
   );
-  return rows.map(toLocation);
+  return { items: rows.map(toLocation), total: rows[0]?.total ?? 0 };
 }
 
 function duplicateCode(code: string): ConflictException {
@@ -209,7 +216,7 @@ async function locationEvents(db: Queryable, id: string): Promise<LocationEvent[
 export class LocationsService {
   constructor(private readonly database: DatabaseService) {}
 
-  list(query: ListQuery): Promise<StorageLocation[]> {
+  list(query: ListQuery): Promise<{ items: StorageLocation[]; total: number }> {
     return listLocations(this.database.pool, query);
   }
 

@@ -9,10 +9,12 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import {
   createLocationLabelRequestSchema,
   createLocationRequestSchema,
+  LIST_TOTAL_HEADER,
   locationListQuerySchema,
   retireLocationRequestSchema,
   scanResolveQuerySchema,
@@ -23,6 +25,7 @@ import {
   type ScanResolveResponse,
   type StorageLocation,
 } from '@materialmule/shared';
+import type { Response } from 'express';
 import { actorFor, requestIdOf } from '../auth/auth.controller.js';
 import {
   CurrentUser,
@@ -54,8 +57,14 @@ export class LocationsController {
   /** `GET /api/locations?search=&includeRetired=`: active only unless retired are asked for. */
   @Get('locations')
   @RequirePermission('inventory.read')
-  list(@Query() query: unknown): Promise<StorageLocation[]> {
-    return this.locations.list(parseBody(locationListQuerySchema, query));
+  async list(
+    @Query() query: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StorageLocation[]> {
+    const { items, total } = await this.locations.list(parseBody(locationListQuerySchema, query));
+    // The body stays a plain array; the header says whether it was cut (BUG-007).
+    response.setHeader(LIST_TOTAL_HEADER, String(total));
+    return items;
   }
 
   @Get('locations/:id')
