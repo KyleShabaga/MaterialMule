@@ -9,8 +9,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 - **Default deny.** Every route declares one policy: `@Public()`, `@AnySession()` (pending users
   too), `@ActiveUser()` (handler checks a project-scoped permission itself) or
   `@RequirePermission(…)`. A route without one is refused, and a test fails the build.
-- **Pending and disabled users** get nothing beyond `GET /api/me` and sign-out (pending) or a 401
-  (disabled: their sessions stop authenticating).
+- **Pending and disabled users** get only `GET /api/me`, their profile (`GET /api/me/profile`,
+  `POST /api/me/profile/refresh`), position setup (`POST /api/me/position`) and sign-out (pending),
+  or a 401 (disabled: their sessions stop authenticating).
 - **Position and job title grant nothing.** Only `role_assignment` (admin, lab_manager), the
   account type and project authority (Lead Project Engineer, acceptance delegates, Authorized
   report issuers) do. Team membership and reviewer assignment add no permission (MM-AO03).
@@ -107,8 +108,10 @@ sources they also have).
   password or an unrecognised username.
 - Audit events: `auth.sign_in` (provider `local_lab`), `auth.sign_in_failed`, `auth.lockout`,
   `lab.password_reset`, `auth.sign_out` and `auth.sessions_revoked` (T04's name for a revocation).
-- `lab.integration.test.ts` calls every endpoint outside the LAB column with a LAB session and
-  expects 403 with nothing changed, so new endpoints are covered automatically.
+- `lab.integration.test.ts` calls every `@RequirePermission` endpoint outside the LAB column with a
+  LAB session and expects 403 with no audit event, so new endpoints are covered automatically.
+  `permission-matrix.security.test.ts` sweeps every route, handler-checked ones included, and
+  checks that refused calls change no table.
 
 ## Microsoft sign-in (MM-T05)
 
@@ -278,7 +281,7 @@ directly and may remove a lead; closure requests on a project with no lead wait 
 - **Admin intake (D02):** while a project has no lead it has one open "Lead appointment" action
   request (`kind: lead_appointment`), in every admin's inbox and email (if they opted in), linking
   to the project's Lead section. Appointing a lead resolves it (`appointed`); removing a lead opens
-  a new one. Lab Managers may reassign it to another admin (`action_item.reassign`).
+  a new one. Lab Managers and admins may reassign it to another admin (`action_item.reassign`).
 - **No lead (D02):** decisions only the lead can make (closing a program, managing delegates,
   issuers or the team as lead, approving disposal as lead…) are refused, and capabilities report
   them as `blocked.code: no_lead_project_engineer`. Lab Manager decisions and existing
@@ -342,7 +345,7 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 - **Capabilities** (`GET …/capabilities`): for each project action, `allowed`, every `sources`
   entry that grants it (`lab`, `internal`, `lab_manager`, `admin`, `lead_project_engineer`,
   `acceptance_delegate`, `report_issuer`) and, when blocked, `{code, grantedBy}` (`code`:
-  `account_not_active`, `shared_lab_account` or `not_permitted`; `grantedBy`: the sources that
+  `account_not_active`, `shared_lab_account`, `no_lead_project_engineer` or `not_permitted`; `grantedBy`: the sources that
   would grant it). Also the caller's `involvement`, `issuerScopes` and `reviewerScopes`. Built from
   the same `permissionSources()` that `can()` uses, so it can't disagree with enforcement. Nothing
   the browser sends about roles or capabilities is read.
@@ -625,8 +628,10 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 - **Delegation:** only the project's Lead Project Engineer grants and revokes, each with a reason, for active
   staff other than themselves (422 `invalid_delegate`, `already_delegated`). Revocation takes effect at once;
   acceptances made before it keep their delegate attribution. History is kept.
-- **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
-  retry key (409), transition (422 `invalid_transition` / `review_not_complete`). Details:
+- **Order of checks:** authority (403), body (400), not found (404), retry key (an exact retry
+  returns the saved result; otherwise 409 `idempotency_key_reused`), `program_not_open` (422),
+  version (409), transition (422 `invalid_transition` / `review_not_complete`), then 409
+  `correction_superseded`. Details:
   [lab-review-lifecycle.md](lab-review-lifecycle.md).
 
 ## Program lifecycle, cancellation and repeats (MM-T26)
@@ -653,8 +658,9 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 - **Reopen and cancel** (D07): the project's Lead Project Engineer or a Lab Manager, with a nonblank reason.
   Others ask instead (`cancel-request`, `close-request`), which creates an action item for the
   people who decide; the test or program is unchanged until they act.
-- **Order of checks:** authority (403), not found (404), `program_not_open` (422), version or
-  retry key (409, also `already_requested`), transition or closure rule (422). Details:
+- **Order of checks:** authority (403), not found (404), retry key (409), `program_not_open` (422),
+  version (409), transition or closure rule (422). A cancellation request checks the transition
+  (422) before `already_requested` (409). Details:
   [lab-review-lifecycle.md](lab-review-lifecycle.md).
 
 ## Tested-unit removal (MM-T36)
@@ -699,8 +705,10 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 - **Routing** (`action_item_routed_to` in the database, never who a LAB station selects):
   correction → every Lab Manager; cancellation request → every Lab Manager and the project's
-  current Lead Project Engineer; closure request → the project's current Lead Project Engineer. A reassigned item goes to its
-  assignee only. Requesters don't see their own requests in the inbox.
+  current Lead Project Engineer; closure request → the project's current Lead Project Engineer; retention request → every Lab
+  Manager and the project's current Lead Project Engineer; lead appointment → every admin. A
+  reassigned item goes to its assignee only, while they are still eligible. Routing is by kind
+  only: a requester sees their own request if they are also a recipient.
 - **Resolution** happens only through the real workflow action (mark correction done, cancel the
   test, close the program), which checks its own permission; the inbox has no resolve or approve
   route. The first valid action resolves the shared item for everyone ("Resolved by LM").
@@ -744,7 +752,8 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 | `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)      |
 
 - **Who decides:** the project's Lead Project Engineer or a Lab Manager (D05). Admin alone doesn't. Others get
-  403 `forbidden` with `canRequest: true` and ask instead; the request is one shared action item
+  403 `forbidden` (the retention views report `canManage: false`, `canRequest: true`, so the
+  screen offers a request instead); the request is one shared action item
   for the Lead Project Engineer and every Lab Manager (MM-T27). Approving creates the hold or extension as the
   decider and resolves the item; declining needs a reason. A requester can't decide their own
   request unless they hold that authority anyway.

@@ -58,11 +58,11 @@ once the dataset is complete it refuses to load twice. To start over:
 
 - Forward-only. Never edit a migration after it has been applied anywhere: the runner stores a
   SHA-256 of each file and refuses to run if an applied file changed. Write a new migration
-  (`0002_…` is next).
+  with the next free number.
 - Each migration runs in one transaction; a failure leaves no partial schema.
 - A PostgreSQL advisory lock stops two migrators racing on the same database.
 - Put integrity rules in the database (foreign keys, `CHECK`, unique indexes), then prove each one
-  with a test in `apps/api/src/db/schema.test.ts`.
+  with a test in `apps/api/src/db/schema*.test.ts`.
 - Enumerations are `text` + `CHECK`, not PostgreSQL enum types, so they can be extended in a
   later migration without `ALTER TYPE`.
 
@@ -101,9 +101,10 @@ it is not permission to reset a deployed database, and forward-only migrations r
 - **Development and test:** one login (`materialmule`) owns both databases and runs migrations.
 - **Production (MM-T20):** a migration role (`materialmule_owner`) owns the schema and every table
   and is used only by the deploy script; the API connects as `materialmule_app`, which can read and
-  write rows but not create, alter or drop anything, not touch `schema_migration`, and only insert
-  into `audit_event`. Neither role is a superuser. `node apps/api/dist/db/cli.js setup-roles
-<migration-role> <app-role>` (as `postgres`, via `DATABASE_ADMIN_URL`) creates and grants them;
+  write rows but not create, alter or drop anything, only read `schema_migration`, and only read and
+  insert into `audit_event`. Neither role is a superuser. `node apps/api/dist/db/cli.js setup-roles
+<migration-role> <app-role> [<backup-role>]` (as `postgres`, via `DATABASE_ADMIN_URL`) creates and
+  grants them (the optional backup role gets read-only access for `pg_dump` and the monitor task);
   it is idempotent. Proven in `apps/api/src/db/roles.test.ts` (runs where the test database user
   is a superuser, as in CI). Steps: [operations runbook](operations/runbook.md).
 
@@ -120,15 +121,15 @@ erDiagram
   app_user ||--o{ identity_link : "signs in via"
   app_user ||--o{ role_assignment : "holds"
   app_user ||--o{ session : "has"
-  app_user ||--o{ project : "is Lead Project Engineer of"
+  app_user |o--o{ project : "is Lead Project Engineer of"
   project ||--o{ test_hole : "has"
   project ||--o{ receipt : "receives"
   receipt ||--|{ storage_unit : "creates"
   project ||--o{ storage_unit : "owns"
   location ||--o{ storage_unit : "currently holds"
-  storage_unit ||--|{ storage_unit_hole_summary : "summarises"
+  storage_unit ||--o{ storage_unit_hole_summary : "summarises"
   test_hole ||--o{ storage_unit_hole_summary : "is summarised in"
-  print_job ||--|{ print_job_item : "prints"
+  print_job ||--o{ print_job_item : "prints"
   storage_unit ||--o{ print_job_item : "is printed by"
 ```
 
@@ -591,7 +592,8 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   allows exactly one resolution; while open, only the assignment may change, and never to null.
 - `action_item_routed_to(item, user)` is the one routing rule (inbox, count, email recipients):
   the assignee when set, otherwise Lab Manager role holders for `target_role = 'lab_manager'`
-  and the project's current Lead Project Engineer for cancellation and closure requests.
+  and the project's current Lead Project Engineer for cancellation, closure and retention
+  requests. Since `0004` the assignee counts only while still eligible (see [Action item rerouting](#action-item-rerouting-mm-ao07-0004_action_item_reroutingsql)).
 - `action_item_assignment`: append-only reassignment history (from, to, reason, who, when,
   retry key).
 - `notification_preference`: one row per person, `email_action_requests` default false,

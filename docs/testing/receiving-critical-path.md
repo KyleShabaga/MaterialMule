@@ -13,7 +13,8 @@ automated test that proves it. Results of the latest run are in
 | `npm run test:security`                                                                                                                       | Permission-matrix sweep and production-configuration checks (`apps/api/src/security`) |
 | `npm test`                                                                                                                                    | Everything else below, including the concurrency and failure-injection tests          |
 
-Use `E2E_PORT=31xx` in a worktree, as for every E2E run (see `CLAUDE.md`). CI runs all three.
+Use `E2E_PORT=31xx` in a worktree, as for every E2E run (see `CLAUDE.md`). CI covers all three on every PR (the security tests in `npm test`, the critical tests in the
+full E2E run); the critical path ×3 runs only on a manual dispatch.
 
 ## Where the tests live
 
