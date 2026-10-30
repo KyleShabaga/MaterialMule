@@ -1,6 +1,6 @@
 import type { ConfirmReceiptResponse } from '@materialmule/shared';
 import type { Pool } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { withTransaction } from '../db/transaction.js';
 import {
   allocateStorageUnitIds,
@@ -86,6 +86,84 @@ describe.runIf(testDatabaseUrl)('concurrent receipts (MM-T18 T3)', () => {
       [retried.idempotencyKey],
     );
     expect(rows[0]!.n).toBe(2);
+  });
+
+  it('receipts listing a tube and a bucket in opposite orders lock counters in one order and both commit', async () => {
+    const cookie = await h.cookieFor('at');
+    const tube = (clientRowId: string) => ({
+      clientRowId,
+      unitType: 'shelby_tube' as const,
+      sample: { sourceType: 'test_hole' as const, testHoleId: h.holes.th01, sampleReference: 'T1' },
+    });
+    const bucket = (clientRowId: string) =>
+      h.receipt(1).units.map((u) => ({ ...u, clientRowId }))[0]!;
+    const tubeFirst = h.receipt(0, { units: [tube('a-tube'), bucket('a-bucket')] });
+    const bucketFirst = h.receipt(0, { units: [bucket('b-bucket'), tube('b-tube')] });
+    // Both counter rows for this year exist before the race.
+    const primer = await h.postReceipt(h.receipt(0, { units: [tube('p1'), bucket('p2')] }), cookie);
+    expect(primer.status, JSON.stringify(primer.body)).toBe(201);
+    const year = Number((primer.body as ConfirmReceiptResponse).units[0]!.suNumber.split('-')[1]);
+
+    // Hold the BKT counter (first in prefix order) so both receipts queue on it.
+    const gate = await h.db.pool.connect();
+    const probe = await h.db.pool.connect();
+    try {
+      await gate.query('BEGIN');
+      await gate.query(
+        `SELECT 1 FROM storage_unit_annual_counter WHERE prefix = 'BKT' AND year = $1 FOR UPDATE`,
+        [year],
+      );
+      const { rows: gatePid } = await gate.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      const pending = [tubeFirst, bucketFirst].map((body) =>
+        h.postReceipt(body, cookie).then((r) => r),
+      );
+      await vi.waitFor(
+        async () => {
+          // Backends waiting on the gate, directly or behind another waiter in the lock queue.
+          const { rows } = await probe.query<{ n: number }>(
+            `WITH RECURSIVE waiting(pid) AS (
+               SELECT a.pid FROM pg_stat_activity a WHERE $1 = ANY(pg_blocking_pids(a.pid))
+               UNION
+               SELECT a.pid FROM pg_stat_activity a, waiting w
+               WHERE w.pid = ANY(pg_blocking_pids(a.pid))
+             )
+             SELECT count(*)::int AS n FROM waiting`,
+            [gatePid[0]!.pid],
+          );
+          expect(rows[0]!.n).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 10_000, interval: 20 },
+      );
+      // Neither waiting receipt holds the ST counter: in row order the tube-first receipt would
+      // hold it while waiting for BKT, which is the lock cycle that deadlocked.
+      await probe.query('BEGIN');
+      await probe.query(
+        `SELECT 1 FROM storage_unit_annual_counter WHERE prefix = 'ST' AND year = $1
+         FOR UPDATE NOWAIT`,
+        [year],
+      );
+      await probe.query('ROLLBACK');
+      await gate.query('COMMIT');
+
+      const [a, b] = await Promise.all(pending);
+      expect([a!.status, b!.status], JSON.stringify([a!.body, b!.body])).toEqual([201, 201]);
+      for (const [response, body] of [
+        [a!, tubeFirst],
+        [b!, bucketFirst],
+      ] as const) {
+        const units = (response.body as ConfirmReceiptResponse).units;
+        expect(units.map((u) => u.clientRowId)).toEqual(body.units.map((u) => u.clientRowId));
+        for (const [i, unit] of units.entries()) {
+          const expected = body.units[i]!.unitType === 'shelby_tube' ? 'ST' : 'BKT';
+          expect(unit.suNumber.startsWith(`${expected}-${year}-`)).toBe(true);
+        }
+      }
+    } finally {
+      await probe.query('ROLLBACK').catch(() => undefined);
+      await gate.query('ROLLBACK').catch(() => undefined);
+      probe.release();
+      gate.release();
+    }
   });
 
   it('simultaneous allocations for every prefix and two years keep each counter separate', async () => {

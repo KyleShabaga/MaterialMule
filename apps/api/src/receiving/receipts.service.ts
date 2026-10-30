@@ -22,7 +22,11 @@ import { APP_CONFIG } from '../config/config.constants.js';
 import type { AppConfig } from '../config/env.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
-import { allocateStorageUnitIds, type HolderKind } from '../numbering/storage-unit-id.js';
+import {
+  allocateStorageUnitIds,
+  PREFIX_BY_HOLDER,
+  type HolderKind,
+} from '../numbering/storage-unit-id.js';
 import { findBulkGroup } from '../storage-units/sample-identity.js';
 import { receiptPayloadHash } from './payload-hash.js';
 
@@ -547,7 +551,9 @@ export class ReceiptsService {
 
   /**
    * Readable IDs in submitted order. Each holder kind takes one contiguous block from its own
-   * prefix/year counter, inside this transaction, so a rollback returns every number.
+   * prefix/year counter, inside this transaction, so a rollback returns every number. Counters
+   * are locked in prefix order, never row order: two receipts listing a tube and a bucket in
+   * opposite orders would otherwise each hold one counter and wait for the other (deadlock).
    */
   private async allocateIds(
     client: PoolClient,
@@ -559,8 +565,11 @@ export class ReceiptsService {
       const kind = HOLDER_BY_UNIT_TYPE[unit.unitType];
       counts.set(kind, (counts.get(kind) ?? 0) + 1);
     }
+    const lockOrder = [...counts].sort(([a], [b]) =>
+      PREFIX_BY_HOLDER[a].localeCompare(PREFIX_BY_HOLDER[b]),
+    );
     const blocks = new Map<HolderKind, string[]>();
-    for (const [kind, count] of counts) {
+    for (const [kind, count] of lockOrder) {
       const allocated = await allocateStorageUnitIds(client, kind, count, {
         issuedAt: now,
         timeZone: this.config.BUSINESS_TIME_ZONE,
