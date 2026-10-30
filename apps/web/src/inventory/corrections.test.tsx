@@ -249,6 +249,38 @@ describe('storage unit corrections (MM-T13)', () => {
     expect(patches).toHaveLength(0);
   });
 
+  it('BUG-014: a disposed unit offers only its received date and note', async () => {
+    const disposed: StorageUnitDetail = { ...UNIT, status: 'disposed' };
+    const patches = stubApi({
+      unit: disposed,
+      history: EMPTY_HISTORY,
+      patch: () => json(200, { ...disposed, note: 'Lid replaced', version: 2 }),
+    });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    const form = screen.getByRole('form', { name: 'Correct details' });
+    expect(
+      within(form).getByText(
+        'This storage unit is disposed: its type, project and test holes stay as they are.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(form).queryByLabelText('Type')).not.toBeInTheDocument();
+    expect(within(form).queryByRole('group', { name: 'Project' })).not.toBeInTheDocument();
+    expect(within(form).getByLabelText('Received date')).toBeInTheDocument();
+    const note = within(form).getByLabelText('Storage unit note');
+    await user.clear(note);
+    await user.type(note, 'Lid replaced');
+    await user.type(within(form).getByLabelText('Reason for the correction'), 'lid was swapped');
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+
+    expect(await screen.findByText('Details corrected.')).toBeInTheDocument();
+    expect(patches).toEqual([
+      { version: 1, reason: 'lid was swapped', changes: { note: 'Lid replaced' } },
+    ]);
+  });
+
   it('AC2: LAB sees no Correct action and an explanation', async () => {
     stubApi({ unit: UNIT, history: EMPTY_HISTORY, patch: () => json(403, {}) });
     renderUnit(
