@@ -45,7 +45,7 @@ Edit both files:
 - `SESSION_SECRET` in both (32+ characters): generate with
   `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
 
-Then create the tables, load fictional demo data and start the app:
+Then create the tables, load the fictional test identities and start the app:
 
 ```powershell
 npm run db:migrate
@@ -53,6 +53,9 @@ npm run db:seed:dev
 npm run db:reset:test
 npm run dev
 ```
+
+For a fuller dataset to click through, run `npm run db:seed:demo` in a second terminal while
+`npm run dev` is running (see [Demo data](#demo-data)).
 
 A development database built before the MM-AO02 clean baseline (2026-10-29) is refused by
 `db:migrate`. If it is disposable, rebuild it with
@@ -99,6 +102,8 @@ admin to approve them. `npm run db:reset:dev` puts all of this back (names, role
 applicants) without changing IDs or audit history. In Playwright tests,
 `signInAs(page, 'admin')` from `e2e/support/auth.ts` signs in through the API.
 
+The API refuses to start with `ENABLE_TEST_AUTH=true` when `APP_ENV=production`.
+
 ### Demo data
 
 For hands-on testing, `npm run db:seed:demo` adds a fuller fictional dataset through the real API
@@ -116,9 +121,8 @@ For hands-on testing, `npm run db:seed:demo` adds a fuller fictional dataset thr
   disposal, one of them disposed
 
 If a run stops partway, run it again: it picks up where it left off. Once complete it refuses to
-run again; start over with `npm run db:rebuild:dev -- --disposable <database>`.
-
-The API refuses to start with `ENABLE_TEST_AUTH=true` when `APP_ENV=production`.
+run again; start over with `npm run db:rebuild:dev -- --disposable <database>`. How the seed sets
+differ and which one to change: [docs/database.md](docs/database.md#seed-data).
 
 ### The shared LAB account
 

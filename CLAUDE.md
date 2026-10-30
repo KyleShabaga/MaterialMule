@@ -57,7 +57,10 @@ Database details: [docs/database.md](docs/database.md). Migrations are forward-o
 `apps/api/migrations`, starting from `0001_baseline.sql` (MM-AO02 clean pre-release baseline, a
 one-time owner-approved replacement of the undeployed lineage; never repeat it for a deployed
 database); never edit one that has been applied (the runner checks a checksum). Put
-integrity rules in the database and prove each in `apps/api/src/db/schema.test.ts`. API tests read
+integrity rules in the database and prove each in `apps/api/src/db/schema.test.ts`. Seed data
+([docs/database.md#seed-data](docs/database.md#seed-data)): production needs → `seed/reference.sql`;
+anything a test depends on → `seed/dev.sql` (keep its fixed IDs); manual-testing extras → the
+demo seeder, which nothing may depend on. API tests read
 the test database from `apps/api/.env.test` automatically.
 
 A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows. E2E runs
