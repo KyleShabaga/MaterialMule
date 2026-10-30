@@ -8,6 +8,7 @@ import { LabTestingLayout } from './lab/LabTestingLayout';
 import { ProgramDetailPage } from './lab/ProgramDetailPage';
 import { ProgramEditor } from './lab/ProgramEditor';
 import { ProgramsPage } from './lab/ProgramsPage';
+import { SampleTagsPage } from './lab/SampleTagsPage';
 import { WorkedProgram } from './lab/WorkedProgram';
 import { WorklistPage } from './lab/WorklistPage';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
@@ -95,6 +96,10 @@ export const routes: RouteObject[] = [
           // Label print views (MM-T39): no app chrome, one 3.5 x 1.5 in label per page.
           { path: '/labels/print/unit/:id', element: <LabelPrintPage scope="unit" /> },
           { path: '/labels/print/receipt/:id', element: <LabelPrintPage scope="receipt" /> },
+          // Sample ID tag sheets (MM-T69): no app chrome, letter sheets of ten 2 x 4 in cards.
+          ...(FEATURES.labTesting
+            ? [{ path: '/lab-testing/programs/:programId/tags', element: <SampleTagsPage /> }]
+            : []),
           {
             path: '/',
             element: <AppLayout />,

@@ -47,6 +47,8 @@ const catalogue: TestCatalogue = {
       active: true,
       retiredAt: null,
       version: 1,
+      sampleTagMode: 'none',
+      sampleTagGroup: null,
     },
     {
       id: '00000000-0000-4000-8000-0000000000a2',
@@ -60,6 +62,8 @@ const catalogue: TestCatalogue = {
       sortOrder: 0,
       active: false,
       retiredAt: '2026-10-27T00:00:00.000Z',
+      sampleTagMode: 'own',
+      sampleTagGroup: null,
       version: 2,
     },
   ],

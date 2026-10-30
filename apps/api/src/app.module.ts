@@ -33,6 +33,8 @@ import { CatalogueController } from './lab/catalogue.controller.js';
 import { CatalogueService } from './lab/catalogue.service.js';
 import { LabProgramsController } from './lab/programs.controller.js';
 import { LabProgramsService } from './lab/programs.service.js';
+import { SampleTagsController } from './lab/sample-tags.controller.js';
+import { SampleTagsService } from './lab/sample-tags.service.js';
 import { LabAmendmentsService } from './lab/amendments.service.js';
 import { LabLifecycleController } from './lab/lifecycle.controller.js';
 import { LabLifecycleService } from './lab/lifecycle.service.js';
@@ -130,6 +132,7 @@ export class AppModule {
         MovesController,
         CatalogueController,
         LabProgramsController,
+        SampleTagsController,
         LabWorkController,
         LabReviewController,
         LabLifecycleController,
@@ -176,6 +179,7 @@ export class AppModule {
         MovesService,
         CatalogueService,
         LabProgramsService,
+        SampleTagsService,
         LabWorkService,
         LabReviewService,
         LabLifecycleService,

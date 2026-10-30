@@ -12,6 +12,21 @@ export const TEST_NAME_MAX_LENGTH = 120;
 export const TEST_DESCRIPTION_MAX_LENGTH = 2000;
 export const TEST_GROUP_NAME_MAX_LENGTH = 100;
 export const TEMPLATE_NAME_MAX_LENGTH = 120;
+export const SAMPLE_TAG_GROUP_MAX_LENGTH = 60;
+
+/**
+ * How a test is put on printed sample ID tags (MM-T69): no tag, a tag of its own (the default, so
+ * an unconfigured test is never combined), or one tag shared with the other tests of its named
+ * group for the same sample and depth.
+ */
+export const SAMPLE_TAG_MODES = ['none', 'own', 'shared'] as const;
+export type SampleTagMode = (typeof SAMPLE_TAG_MODES)[number];
+
+export const SAMPLE_TAG_MODE_LABEL: Record<SampleTagMode, string> = {
+  none: 'No tag',
+  own: 'Own tag',
+  shared: 'Shared tag group',
+};
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
@@ -50,6 +65,54 @@ const sortOrderSchema = z
   .int({ error: 'must be a whole number' })
   .min(0, { error: 'must be 0 or more' })
   .max(100_000, { error: 'must be at most 100000' });
+const sampleTagModeSchema = z.enum(SAMPLE_TAG_MODES, { error: 'must be none, own or shared' });
+const sampleTagGroupSchema = z
+  .string({ error: 'must be text' })
+  .trim()
+  .max(SAMPLE_TAG_GROUP_MAX_LENGTH, {
+    error: `must be at most ${SAMPLE_TAG_GROUP_MAX_LENGTH} characters`,
+  })
+  .refine((value) => !CONTROL_CHARACTERS.test(value), {
+    error: "can't contain control characters",
+  })
+  .nullish()
+  .transform((value) => (value ? value : null));
+
+/** A shared mode needs a group name; the other modes take none. */
+function checkSampleTag(
+  body: { sampleTagMode?: SampleTagMode; sampleTagGroup?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  if (body.sampleTagMode === undefined) {
+    if (body.sampleTagGroup !== undefined && body.sampleTagGroup !== null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['sampleTagMode'],
+        message: 'is required with a tag group',
+        params: { code: 'required' },
+      });
+    }
+    return;
+  }
+  const group = body.sampleTagGroup ?? null;
+  if (body.sampleTagMode === 'shared' && group === null) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['sampleTagGroup'],
+      message: 'is required for a shared tag',
+      params: { code: 'required' },
+    });
+  }
+  if (body.sampleTagMode !== 'shared' && group !== null) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['sampleTagGroup'],
+      message: 'is only for a shared tag',
+      params: { code: 'not_allowed' },
+    });
+  }
+}
+
 const versionSchema = z.number({ error: 'is required' }).int().min(1);
 const idSchema = z.uuid({ error: 'must be an ID' });
 
@@ -89,6 +152,9 @@ export const testTypeSchema = z.object({
   active: z.boolean(),
   retiredAt: z.string().nullable(),
   version: z.number().int(),
+  sampleTagMode: z.enum(SAMPLE_TAG_MODES).default('own'),
+  /** The shared tag group's name; null unless `sampleTagMode` is shared. */
+  sampleTagGroup: z.string().nullable().default(null),
 });
 export type TestType = z.infer<typeof testTypeSchema>;
 
@@ -149,14 +215,18 @@ export type CreateTestSubgroupRequest = z.output<typeof createTestSubgroupReques
 export const updateTestSubgroupRequestSchema = updateTestGroupRequestSchema;
 export type UpdateTestSubgroupRequest = UpdateTestGroupRequest;
 
-export const createTestTypeRequestSchema = z.strictObject({
-  groupId: idSchema,
-  subgroupId: idSchema.nullish().transform((value) => value ?? null),
-  code: codeSchema,
-  name: optionalName,
-  description: descriptionSchema,
-  sortOrder: sortOrderSchema.optional(),
-});
+export const createTestTypeRequestSchema = z
+  .strictObject({
+    groupId: idSchema,
+    subgroupId: idSchema.nullish().transform((value) => value ?? null),
+    code: codeSchema,
+    name: optionalName,
+    description: descriptionSchema,
+    sortOrder: sortOrderSchema.optional(),
+    sampleTagMode: sampleTagModeSchema.default('own'),
+    sampleTagGroup: sampleTagGroupSchema,
+  })
+  .superRefine(checkSampleTag);
 export type CreateTestTypeRequest = z.output<typeof createTestTypeRequestSchema>;
 export type CreateTestTypeRequestInput = z.input<typeof createTestTypeRequestSchema>;
 
@@ -169,10 +239,14 @@ export const updateTestTypeRequestSchema = z
     name: optionalName.optional(),
     description: descriptionSchema.optional(),
     sortOrder: sortOrderSchema.optional(),
+    /** Changed together: a mode alone clears the group unless it is shared. */
+    sampleTagMode: sampleTagModeSchema.optional(),
+    sampleTagGroup: sampleTagGroupSchema.optional(),
   })
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {
     error: 'Change at least one field.',
-  });
+  })
+  .superRefine(checkSampleTag);
 export type UpdateTestTypeRequest = z.output<typeof updateTestTypeRequestSchema>;
 export type UpdateTestTypeRequestInput = z.input<typeof updateTestTypeRequestSchema>;
 

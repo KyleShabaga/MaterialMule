@@ -9,6 +9,7 @@ import type {
   CreateTestSubgroupRequest,
   CreateTestTemplateRequest,
   CreateTestTypeRequest,
+  SampleTagMode,
   TestCatalogue,
   TestGroup,
   TestSubgroup,
@@ -40,11 +41,14 @@ interface TestTypeRow {
   active: boolean;
   retired_at: Date | null;
   version: number;
+  sample_tag_mode: SampleTagMode;
+  sample_tag_group: string | null;
 }
 
 const SELECT_TEST_TYPE = `
   SELECT t.id, t.group_id, g.name AS group_name, t.subgroup_id, s.name AS subgroup_name, t.code,
-         t.name, t.description, t.sort_order, t.active, t.retired_at, t.version
+         t.name, t.description, t.sort_order, t.active, t.retired_at, t.version,
+         t.sample_tag_mode, t.sample_tag_group
   FROM test_type t
   JOIN test_group g ON g.id = t.group_id
   LEFT JOIN test_subgroup s ON s.id = t.subgroup_id`;
@@ -67,6 +71,8 @@ function toTestType(row: TestTypeRow): TestType {
     active: row.active,
     retiredAt: row.retired_at?.toISOString() ?? null,
     version: row.version,
+    sampleTagMode: row.sample_tag_mode,
+    sampleTagGroup: row.sample_tag_group,
   };
 }
 
@@ -277,8 +283,9 @@ export class CatalogueService {
       await this.checkPlacement(client, request.groupId, request.subgroupId);
       const { rows } = await client
         .query<{ id: string }>(
-          `INSERT INTO test_type (group_id, subgroup_id, code, name, description, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          `INSERT INTO test_type (group_id, subgroup_id, code, name, description, sort_order,
+                                  sample_tag_mode, sample_tag_group)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
           [
             request.groupId,
             request.subgroupId,
@@ -286,6 +293,8 @@ export class CatalogueService {
             request.name,
             request.description,
             request.sortOrder ?? 0,
+            request.sampleTagMode,
+            request.sampleTagGroup,
           ],
         )
         .catch(rethrowUnique);
@@ -314,11 +323,18 @@ export class CatalogueService {
             ? before.subgroupId
             : null;
       await this.checkPlacement(client, groupId, subgroupId);
+      // The tag mode and group change together (MM-T69): a new mode without a group clears it.
+      const sampleTagMode = request.sampleTagMode ?? before.sampleTagMode;
+      const sampleTagGroup =
+        request.sampleTagMode === undefined
+          ? before.sampleTagGroup
+          : (request.sampleTagGroup ?? null);
       await client
         .query(
           `UPDATE test_type
            SET group_id = $2, subgroup_id = $3, code = $4, name = $5, description = $6,
-               sort_order = $7, version = version + 1, updated_at = now()
+               sort_order = $7, sample_tag_mode = $8, sample_tag_group = $9,
+               version = version + 1, updated_at = now()
            WHERE id = $1`,
           [
             id,
@@ -328,6 +344,8 @@ export class CatalogueService {
             request.name !== undefined ? request.name : before.name,
             request.description ?? before.description,
             request.sortOrder ?? before.sortOrder,
+            sampleTagMode,
+            sampleTagGroup,
           ],
         )
         .catch(rethrowUnique);
@@ -575,6 +593,8 @@ function auditValue(test: TestType) {
     group: test.groupName,
     subgroup: test.subgroupName,
     sortOrder: test.sortOrder,
+    sampleTagMode: test.sampleTagMode,
+    sampleTagGroup: test.sampleTagGroup,
   };
 }
 

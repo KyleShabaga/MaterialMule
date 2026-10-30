@@ -551,6 +551,7 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 | `POST/PATCH /api/test-types`, `POST /api/test-types/:id/retire`    | `test_catalog.manage` (Lab Manager and admin, no LAB) |
 | `POST /api/test-types/:id/restore`, groups, subgroups, templates   | `test_catalog.manage`                                 |
 | `GET /api/lab-programs`, `GET /api/lab-programs/:id(/review)`      | `lab_program.read`                                    |
+| `GET /api/lab-programs/:id/sample-tags` (MM-T69, read-only)        | `lab_program.read`; 409 `program_not_submitted` draft |
 | `GET /api/projects/:projectId/lab-sources(/:kind/:sourceId/units)` | `lab_program.read`                                    |
 | `POST /api/lab-programs`, `PATCH /api/lab-programs/:id`            | `lab_program.manage` (+ Requested by for LAB, below)  |
 | `POST /api/lab-programs/:id/submit`, `…/discard`                   | `lab_program.manage` (+ Requested by for LAB)         |
