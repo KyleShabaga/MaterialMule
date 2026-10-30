@@ -112,18 +112,36 @@ const LOCATIONS = [
   { code: 'COLD-1', name: 'Cold room shelf 1', kind: 'other', area: 'Cold room' },
 ] as const;
 
-const TEST_TYPES = [
+/**
+ * Demo sample ID tag settings (MM-T69), fictional: moisture content and VI need no tag, sieve and
+ * hydrometer share a "Grain size" tag, everything else keeps its own tag. The real settings are
+ * the Lab Manager's to enter.
+ */
+const NO_TAG_DEV_TESTS = ['DEMO-MC', 'DEMO-VI'];
+
+const TEST_TYPES: {
+  group: string;
+  code: string;
+  name: string;
+  description: string;
+  sampleTagMode?: 'shared';
+  sampleTagGroup?: string;
+}[] = [
   {
     group: SOILS,
     code: 'DEMO-SA',
     name: 'Sieve Analysis (demo)',
     description: 'Particle size by sieve - fictional',
+    sampleTagMode: 'shared',
+    sampleTagGroup: 'Grain size',
   },
   {
     group: SOILS,
     code: 'DEMO-HYD',
     name: 'Hydrometer (demo)',
     description: 'Fines distribution - fictional',
+    sampleTagMode: 'shared',
+    sampleTagGroup: 'Grain size',
   },
   {
     group: SOILS,
@@ -479,7 +497,18 @@ async function createTestTypes(lab: Actor): Promise<Record<string, string>> {
       code: type.code,
       name: type.name,
       description: type.description,
+      sampleTagMode: type.sampleTagMode,
+      sampleTagGroup: type.sampleTagGroup,
     });
+  }
+  // The dev fixtures predate tag settings; give them theirs once, never overriding a change.
+  for (const test of (await lab.get('/test-types')) as unknown as Json[]) {
+    if (NO_TAG_DEV_TESTS.includes(test.code as string) && test.sampleTagMode === 'own') {
+      await lab.send('PATCH', `/test-types/${test.id as string}`, {
+        version: test.version,
+        sampleTagMode: 'none',
+      });
+    }
   }
   const list = (await lab.get('/test-types')) as unknown as Json[];
   return Object.fromEntries(list.map((t) => [t.code, t.id]));

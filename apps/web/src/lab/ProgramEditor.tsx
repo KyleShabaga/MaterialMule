@@ -290,7 +290,10 @@ export function ProgramEditor({
     });
     setBusy(false);
     if (result.ok) {
-      navigate(`/lab-testing/programs/${result.value.id}`, { replace: true });
+      navigate(`/lab-testing/programs/${result.value.id}`, {
+        replace: true,
+        state: { submitted: true },
+      });
       onReload?.();
       return;
     }

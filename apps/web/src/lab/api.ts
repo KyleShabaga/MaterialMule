@@ -8,6 +8,8 @@ import {
   labSourceListSchema,
   labSourceUnitListSchema,
   programWorkSchema,
+  sampleTagSheetSchema,
+  type SampleTagSheet,
   sameSourceUnitsSchema,
   type SameSourceUnits,
   testCatalogueSchema,
@@ -119,6 +121,23 @@ export async function fetchProgram(id: string): Promise<LabProgram | null> {
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return labProgramSchema.parse(await response.json());
+}
+
+export type SampleTagsResult =
+  | { ok: true; sheet: SampleTagSheet }
+  | { ok: false; reason: 'not_found' | 'not_submitted' | 'error' };
+
+/** Sample ID tags for a submitted program (MM-T69). */
+export async function fetchSampleTags(id: string): Promise<SampleTagsResult> {
+  try {
+    const response = await apiFetch(`/api/lab-programs/${encodeURIComponent(id)}/sample-tags`);
+    if (response.status === 404) return { ok: false, reason: 'not_found' };
+    if (response.status === 409) return { ok: false, reason: 'not_submitted' };
+    if (!response.ok) return { ok: false, reason: 'error' };
+    return { ok: true, sheet: sampleTagSheetSchema.parse(await response.json()) };
+  } catch {
+    return { ok: false, reason: 'error' };
+  }
 }
 
 export const fetchReview = (id: string): Promise<LabProgramReview> =>

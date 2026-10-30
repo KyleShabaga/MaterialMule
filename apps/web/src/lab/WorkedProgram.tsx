@@ -14,7 +14,7 @@ import {
   type TestRequest,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { ErrorState, StatusBadge } from '../components/ui';
 import { shortDateTime } from '../dashboard/format';
@@ -564,6 +564,30 @@ function PriorityControl({
   );
 }
 
+/**
+ * Printing sample ID tags (MM-T69): offered right after submission and kept on the program for
+ * reprinting. Optional; opening or printing tags changes nothing in the program.
+ */
+function SampleTagsPrompt({ program }: { program: LabProgram }) {
+  const location = useLocation();
+  const justSubmitted = (location.state as { submitted?: boolean } | null)?.submitted === true;
+  const link = (
+    <Link
+      className={justSubmitted ? 'button primary' : 'button'}
+      to={`/lab-testing/programs/${program.id}/tags`}
+    >
+      Print sample ID tags
+    </Link>
+  );
+  if (!justSubmitted) return <div className="row-actions">{link}</div>;
+  return (
+    <div className="notice notice-success" role="status">
+      <p>Program submitted. Print sample ID tags for the samples now? You can also do it later.</p>
+      {link}
+    </div>
+  );
+}
+
 export function WorkedProgram({ program, reload }: { program: LabProgram; reload: () => void }) {
   const [work, setWork] = useState<ProgramWork | null>(null);
   const [failed, setFailed] = useState(false);
@@ -591,6 +615,7 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
         {programLabel(program)}
       </h2>
       <ProgramSummary program={program} />
+      <SampleTagsPrompt program={program} />
       {failed ? <ErrorState message="Progress couldn’t be loaded." onRetry={refresh} /> : null}
       {message ? (
         <p className="notice notice-warning" role="alert">

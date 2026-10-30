@@ -1,4 +1,6 @@
 import {
+  SAMPLE_TAG_MODES,
+  SAMPLE_TAG_MODE_LABEL,
   searchTests,
   testDisplayName,
   testGroupPath,
@@ -6,6 +8,7 @@ import {
   testSubgroupSchema,
   testTemplateSchema,
   testTypeSchema,
+  type SampleTagMode,
   type TestCatalogue,
   type TestTemplate,
   type TestType,
@@ -142,6 +145,13 @@ export function TestsSettingsPage() {
           },
           { header: 'Group', cell: (test) => testGroupPath(test.groupName, test.subgroupName) },
           {
+            header: 'Sample ID tag',
+            cell: (test) =>
+              test.sampleTagMode === 'shared'
+                ? `Shared: ${test.sampleTagGroup ?? ''}`
+                : SAMPLE_TAG_MODE_LABEL[test.sampleTagMode],
+          },
+          {
             header: 'Status',
             cell: (test) =>
               test.active ? (
@@ -200,6 +210,8 @@ function TestForm({
     code: string;
     name: string | null;
     description: string;
+    sampleTagMode: SampleTagMode;
+    sampleTagGroup: string | null;
   }) => Promise<boolean>;
   onCancel?: () => void;
 }) {
@@ -212,8 +224,15 @@ function TestForm({
   const [code, setCode] = useState(test?.code ?? '');
   const [name, setName] = useState(test?.name ?? '');
   const [description, setDescription] = useState(test?.description ?? '');
+  const [tagMode, setTagMode] = useState<SampleTagMode>(test?.sampleTagMode ?? 'own');
+  const [tagGroup, setTagGroup] = useState(test?.sampleTagGroup ?? '');
   const [busy, setBusy] = useState(false);
-  const missing = !place || !code.trim() || !description.trim();
+  const missing =
+    !place || !code.trim() || !description.trim() || (tagMode === 'shared' && !tagGroup.trim());
+  // Existing shared groups, offered so the same group is typed the same way.
+  const tagGroups = [
+    ...new Set(catalogue.tests.flatMap((t) => (t.sampleTagGroup ? [t.sampleTagGroup] : []))),
+  ].sort((a, b) => a.localeCompare(b));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -226,12 +245,16 @@ function TestForm({
       code,
       name: name.trim() || null,
       description,
+      sampleTagMode: tagMode,
+      sampleTagGroup: tagMode === 'shared' ? tagGroup.trim() : null,
     });
     setBusy(false);
     if (ok && !test) {
       setCode('');
       setName('');
       setDescription('');
+      setTagMode('own');
+      setTagGroup('');
     }
   }
 
@@ -286,6 +309,44 @@ function TestForm({
           />
         )}
       </FormField>
+      <FormField
+        label="Sample ID tag"
+        hint="No tag: e.g. moisture content. Shared: one tag for every test of the group on the same sample and depth."
+      >
+        {(props) => (
+          <select
+            {...props}
+            value={tagMode}
+            onChange={(e) => setTagMode(e.target.value as SampleTagMode)}
+          >
+            {SAMPLE_TAG_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {SAMPLE_TAG_MODE_LABEL[mode]}
+              </option>
+            ))}
+          </select>
+        )}
+      </FormField>
+      {tagMode === 'shared' ? (
+        <FormField label="Tag group" hint="e.g. Grain size. Same name, same tag.">
+          {(props) => (
+            <>
+              <input
+                {...props}
+                value={tagGroup}
+                maxLength={60}
+                list="sample-tag-groups"
+                onChange={(e) => setTagGroup(e.target.value)}
+              />
+              <datalist id="sample-tag-groups">
+                {tagGroups.map((group) => (
+                  <option key={group} value={group} />
+                ))}
+              </datalist>
+            </>
+          )}
+        </FormField>
+      ) : null}
       <div className="form-actions">
         {onCancel ? (
           <button type="button" onClick={onCancel}>
