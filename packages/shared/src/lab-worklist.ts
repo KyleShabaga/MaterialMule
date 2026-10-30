@@ -283,7 +283,17 @@ export const worklistItemSchema = z.object({
   oldestOpenSeconds: z.number().nullable(),
 });
 export type WorklistItem = z.infer<typeof worklistItemSchema>;
-export const worklistSchema = z.object({ items: z.array(worklistItemSchema) });
+/** Programs per page of GET /api/worklist (`?page=`, from 1). */
+export const WORKLIST_PAGE_SIZE = 100;
+export const worklistSchema = z.object({
+  items: z.array(worklistItemSchema),
+  /** Programs matching every filter, across all pages. */
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  /** Every project with a matching program, whatever the project filter and page (BUG-006). */
+  projects: z.array(z.object({ id: z.string(), projectNumber: z.string(), name: z.string() })),
+});
 export type Worklist = z.infer<typeof worklistSchema>;
 
 /**

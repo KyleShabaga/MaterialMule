@@ -110,6 +110,9 @@ function messageFor(error: FieldError): string {
   if (key === 'depthTo' && error.code === 'depth_range_reversed') {
     return 'Depth to must be greater than or equal to depth from.';
   }
+  if (error.code === 'storage_unit_disposed') {
+    return 'This storage unit is disposed: its type, project and test holes can’t change.';
+  }
   if (error.code === 'test_hole_not_in_project') return 'This test hole isn’t in the project.';
   const label = FIELD_LABEL[key] ?? key;
   if (error.code === 'required') return `${label} is required.`;
@@ -193,6 +196,9 @@ export function CorrectionForm({
   // A Shelby tube with a sampling source or a bulk soil bucket (MM-T36): its source or bulk
   // sample is its only contents summary, so type, project and test holes aren't corrected here.
   const hasSample = unit.sample !== null;
+  // A disposed unit's project, type and test holes are final (owner decision 2026-10-30).
+  const disposed = unit.status === 'disposed';
+  const contentsFixed = hasSample || disposed;
 
   function request(): StorageUnitCorrectionRequestInput {
     const changes: StorageUnitCorrectionRequestInput['changes'] = {};
@@ -285,7 +291,7 @@ export function CorrectionForm({
         </p>
       ) : null}
 
-      {hasSample ? (
+      {hasSample && !disposed ? (
         <p className="field-hint">
           {unit.bulkGroup
             ? 'This bucket holds a bulk soil sample: change its bulk sample from the Bulk sample section.'
@@ -293,8 +299,13 @@ export function CorrectionForm({
           Type and project stay as they are.
         </p>
       ) : null}
+      {disposed ? (
+        <p className="field-hint">
+          This storage unit is disposed: its type, project and test holes stay as they are.
+        </p>
+      ) : null}
       <div className="correction-pair">
-        {hasSample ? null : (
+        {contentsFixed ? null : (
           <Changed when={typeChanged}>
             <FormField id="correction-unitType" label="Type" error={fieldError('changes.unitType')}>
               {(props) => (
@@ -334,7 +345,7 @@ export function CorrectionForm({
         </Changed>
       </div>
 
-      {hasSample ? null : (
+      {contentsFixed ? null : (
         <>
           <Changed when={projectChanged}>
             <fieldset id="correction-projectId" className="correction-group">

@@ -658,6 +658,15 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   has a live (not revoked, not used) approval (`storage_unit_project_disposal_approval_live`).
   The API refuses the correction first with 422 `disposal_approval_live`; revoke the approval on
   the Disposal & Retention page, then correct the project.
+- BUG-014 (owner decision 2026-10-30: refuse): a disposed unit's project, unit type and
+  test-hole summaries are final (`storage_unit_disposed_contents_final`, migration 0006, on
+  `storage_unit` and on `storage_unit_hole_summary` insert/update/delete). Units removed after
+  testing keep reporting `storage_unit_tested_removal_final` for project and type. A fixture that
+  inserts a unit already disposed, with no `disposed_at`, may still add its summaries. The API
+  refuses first with 422 `storage_unit_disposed`. Received date and note stay correctable
+  pending an owner decision. Migration 0007 makes the summary trigger share-lock each parent
+  unit (id order) before reading its status, so a summary change and a disposal of the same
+  unit serialize: whichever commits first wins, and a change after a disposal is refused.
 
 ## Project assignments and scoped grants (MM-AO02)
 

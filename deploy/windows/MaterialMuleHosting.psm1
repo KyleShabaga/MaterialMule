@@ -353,16 +353,39 @@ function Restore-MaterialMulePrevious {
         return 'Failed'
     }
     Write-DeployLog -Config $Config -Level WARN -Message "Rolling back to $Previous"
-    Set-MaterialMuleCurrentRelease -Config $Config -Version $Previous
-    Start-MaterialMuleApp -Config $Config
-    if (Wait-MaterialMuleHealthy -Config $Config) {
-        Save-MaterialMuleDeployState -Config $Config -Current $Previous -Previous $null -Event "rolled back from $Failed"
-        Write-DeployLog -Config $Config -Level WARN -Message "Rolled back to $Previous; it is healthy"
-        return 'RolledBack'
+    # BUG-005: the release has been switched, so an error from here on must report a failed
+    # rollback (exit 2), never "running release unchanged" (exit 3).
+    try {
+        Set-MaterialMuleCurrentRelease -Config $Config -Version $Previous
+        Start-MaterialMuleApp -Config $Config
+        if (Wait-MaterialMuleHealthy -Config $Config) {
+            Save-MaterialMuleDeployState -Config $Config -Current $Previous -Previous $null -Event "rolled back from $Failed"
+            Write-DeployLog -Config $Config -Level WARN -Message "Rolled back to $Previous; it is healthy"
+            return 'RolledBack'
+        }
+        Save-MaterialMuleDeployState -Config $Config -Current $Previous -Previous $null -Event "rollback from $Failed unhealthy"
+        Write-DeployLog -Config $Config -Level ERROR -Message "Rolled back to $Previous but it is not healthy either. Follow the runbook's recovery steps."
+    } catch {
+        Save-MaterialMuleFailedState -Config $Config -Event "rollback from $Failed failed: $($_.Exception.Message)"
     }
-    Save-MaterialMuleDeployState -Config $Config -Current $Previous -Previous $null -Event "rollback from $Failed unhealthy"
-    Write-DeployLog -Config $Config -Level ERROR -Message "Rolled back to $Previous but it is not healthy either. Follow the runbook's recovery steps."
     return 'RollbackFailed'
+}
+
+function Save-MaterialMuleFailedState {
+    <#
+    .SYNOPSIS
+    Records a rollback that failed after the release switch (BUG-005): whichever release `current`
+    actually points at now, and why. Never throws: the caller is already reporting a failure.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Config, [Parameter(Mandatory)][string]$Event, [AllowNull()][string]$Previous)
+    try {
+        $now = Get-MaterialMuleCurrentVersion -Config $Config
+        Write-DeployLog -Config $Config -Level ERROR -Message "$Event. ``current`` points at $(if ($now) { $now } else { 'nothing' }) and the service may be stopped. Follow the runbook's recovery steps."
+        Save-MaterialMuleDeployState -Config $Config -Current $now -Previous $Previous -Event $Event
+    } catch {
+        Write-Host "The deploy state could not be recorded: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 function Invoke-MaterialMuleDeploy {
@@ -436,9 +459,19 @@ function Invoke-MaterialMuleDeploy {
         Write-DeployLog -Config $Config -Level ERROR -Message "Service did not start: $($_.Exception.Message)"
     }
     if ($started -and (Wait-MaterialMuleHealthy -Config $Config)) {
-        Save-MaterialMuleDeployState -Config $Config -Current $version -Previous $previous -Event 'deployed'
+        # The new release is live and healthy: bookkeeping errors after this point are warnings,
+        # never "running release unchanged" (BUG-005).
+        try {
+            Save-MaterialMuleDeployState -Config $Config -Current $version -Previous $previous -Event 'deployed'
+        } catch {
+            Write-DeployLog -Config $Config -Level WARN -Message "Deployed $version, but the deploy state could not be saved: $($_.Exception.Message). -Rollback needs -ToVersion $previous."
+        }
         Write-DeployLog -Config $Config -Message "Deployed $version; health check passed"
-        Remove-OldMaterialMuleReleases -Config $Config -Keep @($version, $previous | Where-Object { $_ })
+        try {
+            Remove-OldMaterialMuleReleases -Config $Config -Keep @($version, $previous | Where-Object { $_ })
+        } catch {
+            Write-DeployLog -Config $Config -Level WARN -Message "Old releases were not removed: $($_.Exception.Message)"
+        }
         return [pscustomobject]@{ Outcome = 'Deployed'; Version = $version; Previous = $previous }
     }
     $outcome = Restore-MaterialMulePrevious -Config $Config -Previous $previous -Failed $version
@@ -469,16 +502,23 @@ function Invoke-MaterialMuleRollback {
         return [pscustomobject]@{ Outcome = 'WhatIf'; Version = $target; Previous = $current }
     }
     Write-DeployLog -Config $Config -Message "Manual rollback from $current to $target"
+    # A service that won't stop leaves the running release unchanged (exit 3).
     Stop-MaterialMuleApp -Config $Config
-    Set-MaterialMuleCurrentRelease -Config $Config -Version $target
-    Start-MaterialMuleApp -Config $Config
-    if (Wait-MaterialMuleHealthy -Config $Config) {
-        Save-MaterialMuleDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback'
-        Write-DeployLog -Config $Config -Message "Now running $target; health check passed"
-        return [pscustomobject]@{ Outcome = 'RolledBack'; Version = $target; Previous = $current }
+    # BUG-005: from here the service is stopped and `current` may move, so any error is a failed
+    # rollback (exit 2), never "running release unchanged".
+    try {
+        Set-MaterialMuleCurrentRelease -Config $Config -Version $target
+        Start-MaterialMuleApp -Config $Config
+        if (Wait-MaterialMuleHealthy -Config $Config) {
+            Save-MaterialMuleDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback'
+            Write-DeployLog -Config $Config -Message "Now running $target; health check passed"
+            return [pscustomobject]@{ Outcome = 'RolledBack'; Version = $target; Previous = $current }
+        }
+        Save-MaterialMuleDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback unhealthy'
+        Write-DeployLog -Config $Config -Level ERROR -Message "$target is not healthy after the rollback"
+    } catch {
+        Save-MaterialMuleFailedState -Config $Config -Previous $current -Event "manual rollback failed: $($_.Exception.Message)"
     }
-    Save-MaterialMuleDeployState -Config $Config -Current $target -Previous $current -Event 'manual rollback unhealthy'
-    Write-DeployLog -Config $Config -Level ERROR -Message "$target is not healthy after the rollback"
     return [pscustomobject]@{ Outcome = 'RollbackFailed'; Version = $target; Previous = $current }
 }
 

@@ -60,7 +60,7 @@ export function fetchUnit(readableId: string): Promise<Fetched<StorageUnitDetail
 
 /** Every location, retired included, so an offline scan of a retired label is recognised. */
 export function fetchAllLocations(): Promise<Fetched<StorageLocation[]>> {
-  return read('/api/locations?includeRetired=true', locationListSchema);
+  return read('/api/locations?includeRetired=true&all=true', locationListSchema);
 }
 
 export function fetchConflict(id: string): Promise<Fetched<LocationConflictDetail>> {

@@ -10,9 +10,10 @@ service -> wait for GET /api/health = 200. If migrations or the health check fai
 to the previous release automatically.
 
 Exit codes: 0 deployed (or rolled back by hand), 1 failed and rolled back, 2 failed and the
-rollback is unhealthy or impossible (follow the runbook), 3 stopped by an error before the release
-was switched (bad configuration or release, backup failed, service would not stop): the running
-release is unchanged.
+rollback is unhealthy or impossible, or an error came after the release was switched or the
+service stopped (follow the runbook; deploy-state.json records where `current` points), 3 stopped
+by an error before the release was switched (bad configuration or release, backup failed, service
+would not stop): the running release is unchanged.
 
 Run from an elevated PowerShell 7 prompt on the host. See docs\operations\runbook.md.
 
@@ -35,8 +36,11 @@ $ErrorActionPreference = 'Stop'
 # Reuses the module if it is already loaded (the automated tests load it first).
 Import-Module (Join-Path $PSScriptRoot 'MaterialMuleHosting.psm1')
 
+$config = $null
+$before = $null
 try {
     $config = Get-MaterialMuleHostConfig -Path $ConfigPath
+    $before = Get-MaterialMuleCurrentVersion -Config $config
     if ($PSCmdlet.ParameterSetName -eq 'Rollback') {
         $result = Invoke-MaterialMuleRollback -Config $config -ToVersion $ToVersion -WhatIf:$WhatIfPreference
     } else {
@@ -44,6 +48,16 @@ try {
     }
 } catch {
     Write-Host "Stopped: $($_.Exception.Message)" -ForegroundColor Red
+    # BUG-005 backstop: exit 3 promises the running release is unchanged. If `current` moved (or
+    # can't be read any more), say so and exit 2 instead.
+    $now = $before
+    if ($config) {
+        try { $now = Get-MaterialMuleCurrentVersion -Config $config } catch { $now = '(unreadable)' }
+    }
+    if ($now -ne $before) {
+        Write-Host "The release was switched from $(if ($before) { $before } else { 'none' }) to $(if ($now) { $now } else { 'none' }) before the error. Follow the runbook's recovery steps." -ForegroundColor Red
+        exit 2
+    }
     exit 3
 }
 

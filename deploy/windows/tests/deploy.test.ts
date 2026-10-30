@@ -298,6 +298,47 @@ describe.runIf(isWindows)('Deploy-MaterialMule.ps1 (MM-T20)', () => {
     expect(kept).not.toContain('1.0.1-bbbbbb2');
     expect(kept.length).toBeLessThanOrEqual(4);
   });
+
+  it('BUG-005: an automatic rollback whose service start throws exits 2 and records the switch', () => {
+    clearLog();
+    const release = makeRelease(sources, '1.0.5-ffffff6', { healthy: false });
+    // Start 1 (the new release) runs but is unhealthy; start 2 (the rollback) throws.
+    const result = pwsh(['-File', HARNESS, '-ConfigPath', config, '-Release', release], {
+      ...env,
+      T20_FAKE_START_FAILS: '2',
+    });
+    expect(result.code, result.output).toBe(2);
+    expect(result.output).toContain('Outcome: RollbackFailed');
+    expect(result.output).not.toContain('Stopped:');
+    expect(log()).toEqual([
+      'backup',
+      'stop',
+      'migrate 1.0.5-ffffff6 postgres://fake_owner@127.0.0.1:5432/fake',
+      'start',
+      'stop',
+      'start failed',
+    ]);
+    expect(current()).toBe('1.0.4-eeeeee5');
+    expect(state()).toMatchObject({ Current: '1.0.4-eeeeee5' });
+    expect(state().History.at(-1).Event).toContain('rollback from 1.0.5-ffffff6 failed');
+    expect(readFileSync(join(root, 'logs', 'deploy.log'), 'utf8')).toContain(
+      'Service cannot be started (fake failure on start 2)',
+    );
+  });
+
+  it('BUG-005: a manual rollback whose service start throws after the switch exits 2', () => {
+    clearLog();
+    const result = pwsh(
+      ['-File', HARNESS, '-ConfigPath', config, '-Rollback', '-ToVersion', '1.0.0-aaaaaa1'],
+      { ...env, T20_FAKE_START_FAILS: '1' },
+    );
+    expect(result.code, result.output).toBe(2);
+    expect(result.output).toContain('Outcome: RollbackFailed');
+    expect(log()).toEqual(['stop', 'start failed']);
+    expect(current()).toBe('1.0.0-aaaaaa1');
+    expect(state()).toMatchObject({ Current: '1.0.0-aaaaaa1', Previous: '1.0.4-eeeeee5' });
+    expect(state().History.at(-1).Event).toContain('manual rollback failed');
+  });
 });
 
 // MM-T41 regression tests: a failed backup must stop the deploy before anything changes, whether

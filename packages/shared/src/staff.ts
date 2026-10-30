@@ -77,6 +77,8 @@ export const staffMemberSchema = z.object({
 });
 export type StaffMember = z.infer<typeof staffMemberSchema>;
 export const staffListResponseSchema = z.array(staffMemberSchema);
+/** Rows per GET /api/staff; the true count is in LIST_TOTAL_HEADER (BUG-007). */
+export const STAFF_LIST_LIMIT = 500;
 
 /** Query of `GET /api/staff`. */
 export const staffListQuerySchema = z.object({

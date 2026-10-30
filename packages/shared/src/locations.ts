@@ -150,7 +150,18 @@ export const locationListQuerySchema = z.object({
     (value) => (value === undefined || value === '' ? 'false' : value),
     z.enum(['true', 'false'], { error: 'must be true or false' }).transform((v) => v === 'true'),
   ),
+  /**
+   * Every matching location, uncapped: for screens that must recognise any location, such as
+   * an offline scan of a retired label (BUG-007). Settings browsing leaves it off.
+   */
+  all: z.preprocess(
+    (value) => (value === undefined || value === '' ? 'false' : value),
+    z.enum(['true', 'false'], { error: 'must be true or false' }).transform((v) => v === 'true'),
+  ),
 });
+
+/** Rows per GET /api/locations without `all` (see LIST_TOTAL_HEADER). */
+export const LOCATION_LIST_LIMIT = 500;
 
 /** `POST /api/locations/:id/labels`: queue a location label on the server-side print queue. */
 export const createLocationLabelRequestSchema = z.strictObject({

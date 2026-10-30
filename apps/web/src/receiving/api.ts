@@ -64,6 +64,14 @@ async function attempt(body: string): Promise<ConfirmOutcome | 'retry'> {
   if ((response.status === 400 || response.status === 422) && isFieldErrors(errors)) {
     return { kind: 'invalid', errors };
   }
+  if (code === 'storage_unit_ids_exhausted') {
+    // BUG-008: the year's IDs for a prefix are used up; nothing was saved (no retry helps).
+    const message =
+      json && typeof json === 'object' && 'message' in json && typeof json.message === 'string'
+        ? json.message
+        : 'No storage unit IDs are left for this year. Nothing was saved. Tell an administrator.';
+    return { kind: 'failed', message };
+  }
   if (code === 'idempotency_key_reused') {
     return {
       kind: 'failed',

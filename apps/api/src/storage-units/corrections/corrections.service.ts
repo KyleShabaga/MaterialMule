@@ -41,6 +41,7 @@ interface LockedUnit {
   version: number;
   unit_type: StorageUnitType;
   holder_kind: string;
+  status: string;
   /** True for a Shelby tube with a sampling source or a bulk soil bucket (MM-T36). */
   has_sample_identity: boolean;
   note: string | null;
@@ -82,6 +83,23 @@ export class StorageUnitCorrectionsService {
       // type, project and hole-summary changes would leave it with none, or two. Bulk buckets
       // change group through PATCH /storage-units/:id/bulk-group; tube source corrections are a
       // later increment. Received date and note can be corrected as for any unit.
+      // A disposed unit's project, type and test holes are final (owner decision 2026-10-30,
+      // BUG-014): its disposal record and approval rest on them. The database refuses it too.
+      if (unit.status === 'disposed') {
+        const blocked = (['unitType', 'projectId', 'holeSummaries'] as const).filter(
+          (field) => request.changes[field] !== undefined,
+        );
+        if (blocked.length > 0) {
+          throw new UnprocessableEntityException({
+            code: 'storage_unit_disposed',
+            errors: blocked.map((field) => ({
+              field: `changes.${field}`,
+              code: 'storage_unit_disposed',
+              message: 'is not corrected for a disposed storage unit',
+            })),
+          });
+        }
+      }
       if (unit.has_sample_identity) {
         const blocked = (['unitType', 'projectId', 'holeSummaries'] as const).filter(
           (field) => request.changes[field] !== undefined,
@@ -233,7 +251,7 @@ export class StorageUnitCorrectionsService {
   private async lockUnit(client: PoolClient, idOrCode: string): Promise<LockedUnit | null> {
     const byUuid = UUID_PATTERN.test(idOrCode);
     const { rows } = await client.query<LockedUnit>(
-      `SELECT su.id, su.readable_id, su.version, su.unit_type, su.holder_kind, su.note,
+      `SELECT su.id, su.readable_id, su.version, su.unit_type, su.holder_kind, su.note, su.status,
               (su.source_type IS NOT NULL OR su.bulk_group_id IS NOT NULL) AS has_sample_identity,
               su.received_date::text AS received_date, su.project_id, p.project_number
        FROM storage_unit su

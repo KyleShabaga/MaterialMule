@@ -3,7 +3,7 @@
 # fake that runs the release's main.js as a plain child process, then runs Deploy-MaterialMule.ps1
 # unchanged. Never registers, starts or stops a real Windows service.
 # Environment: T20_FAKE_LOG (event log file), T20_FAKE_PID (pid file); the fake server reads
-# T20_FAKE_PORT.
+# T20_FAKE_PORT. T20_FAKE_START_FAILS (e.g. '2') makes those start calls throw.
 # MM-T68: T68_SCRIPT runs another script from deploy\windows instead (Test-MaterialMuleSecurity.ps1,
 # Install-MaterialMuleHost.ps1). T68_FAKE_FIREWALL (JSON file: [{ "DisplayName": ... }]) replaces
 # the firewall query; T68_FAKE_ACLS (JSON file: { "<path>": [{ "IdentityReference", "FileSystemRights",
@@ -18,6 +18,15 @@ $module = Import-Module (Join-Path $scripts 'MaterialMuleHosting.psm1') -PassThr
 & $module {
     function script:Start-MaterialMuleApp {
         param($Config)
+        # BUG-005: T20_FAKE_START_FAILS lists which start calls of this run throw (e.g. '2').
+        if ($env:T20_FAKE_START_FAILS) {
+            $calls = @(Get-Content -LiteralPath $env:T20_FAKE_LOG -ErrorAction SilentlyContinue |
+                    Where-Object { $_ -in 'start', 'start failed' }).Count + 1
+            if (($env:T20_FAKE_START_FAILS -split ',') -contains [string]$calls) {
+                Add-Content -LiteralPath $env:T20_FAKE_LOG -Value 'start failed'
+                throw "Service cannot be started (fake failure on start $calls)"
+            }
+        }
         Add-Content -LiteralPath $env:T20_FAKE_LOG -Value 'start'
         $main = Join-Path $Config.CurrentLink 'apps\api\dist\main.js'
         $process = Start-Process -FilePath $Config.NodeExe -ArgumentList "`"$main`"" -PassThru -WindowStyle Hidden

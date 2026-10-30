@@ -111,7 +111,9 @@ function renderAt(
     if (url.startsWith('/api/test-catalogue')) return json(200, catalogue);
     if (url.startsWith('/api/test-templates')) return json(200, templates);
     if (url.startsWith('/api/lab-programs')) return json(200, { items: [], total: 0 });
-    if (url.startsWith('/api/worklist')) return json(200, { items: [] });
+    if (url.startsWith('/api/worklist')) {
+      return json(200, { items: [], total: 0, page: 1, pageSize: 100, projects: [] });
+    }
     if (url.startsWith('/api/projects/search')) {
       return json(200, [
         {

@@ -463,4 +463,58 @@ describe.runIf(testDatabaseUrl)('storage unit corrections API (MM-T13)', () => {
     });
     expect(missing.status).toBe(404);
   });
+
+  it('BUG-014: a disposed unit refuses project, type and test-hole corrections; note and date still save', async () => {
+    const unit = await addUnit();
+    const tube = await addUnit({ unitType: 'shelby_tube' });
+    await db.pool.query(
+      `UPDATE storage_unit SET status = 'disposed', disposed_at = now(), version = version + 1
+       WHERE id = ANY($1)`,
+      [[unit.id, tube.id]],
+    );
+    const before = await detail(unit.id);
+    const tubeBefore = await detail(tube.id);
+    const eventsBefore = await correctedEvents(unit.id);
+    const refused: [StorageUnitDetail, Record<string, unknown>][] = [
+      [tubeBefore, { unitType: 'bucket' }],
+      [before, { projectId: projects.b, holeSummaries: [{ testHoleId: holes.b1, type: 'all' }] }],
+      [before, { holeSummaries: [{ testHoleId: holes.a2, type: 'all' }] }],
+    ];
+    for (const [target, changes] of refused) {
+      const response = await patch(target.id, {
+        version: target.version,
+        reason: 'wrong details at receiving',
+        changes: { ...changes, note: 'Lid replaced' },
+      });
+      expect(response.status, JSON.stringify(response.body)).toBe(422);
+      expect(response.body).toMatchObject({ code: 'storage_unit_disposed' });
+      expect(response.body.errors.map((e: { field: string }) => e.field).sort()).toEqual(
+        Object.keys(changes)
+          .map((field) => `changes.${field}`)
+          .sort(),
+      );
+    }
+    expect(await detail(unit.id)).toEqual(before);
+    expect(await detail(tube.id)).toEqual(tubeBefore);
+    expect(await correctedEvents(unit.id)).toBe(eventsBefore);
+
+    // Received date and note keep today's rules until the owner decides them (BUG-014).
+    const allowed = await patch(unit.id, {
+      version: before.version,
+      reason: 'wrong date on tag',
+      changes: { receivedDate: '2026-10-21', note: 'Lid replaced' },
+    });
+    expect(allowed.status, JSON.stringify(allowed.body)).toBe(200);
+    expect(allowed.body).toMatchObject({
+      receivedDate: '2026-10-21',
+      note: 'Lid replaced',
+      unitType: 'bucket',
+      project: { id: projects.a },
+    });
+    const { rows } = await db.pool.query(
+      'SELECT test_hole_id FROM storage_unit_hole_summary WHERE storage_unit_id = $1',
+      [unit.id],
+    );
+    expect(rows).toEqual([{ test_hole_id: holes.a1 }]);
+  });
 });

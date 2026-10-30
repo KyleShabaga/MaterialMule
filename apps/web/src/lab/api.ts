@@ -111,10 +111,18 @@ export const fetchCatalogue = (): Promise<TestCatalogue> =>
 export const fetchTemplates = (): Promise<TestTemplate[]> =>
   getJson('/api/test-templates', (b) => testTemplateListSchema.parse(b));
 
-export const fetchPrograms = (status?: string): Promise<LabProgramList> =>
-  getJson(`/api/lab-programs${status ? `?status=${encodeURIComponent(status)}` : ''}`, (b) =>
+/** One page of programs (LAB_PROGRAM_PAGE_SIZE each, from page 1), optionally by status. */
+export function fetchPrograms(
+  query: { status?: string; page?: number } = {},
+): Promise<LabProgramList> {
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.page && query.page > 1) params.set('page', String(query.page));
+  const search = params.toString();
+  return getJson(`/api/lab-programs${search ? `?${search}` : ''}`, (b) =>
     labProgramListSchema.parse(b),
   );
+}
 
 export async function fetchProgram(id: string): Promise<LabProgram | null> {
   const response = await apiFetch(`/api/lab-programs/${encodeURIComponent(id)}`);
@@ -192,12 +200,14 @@ export const fetchWorklist = (query: {
   projectId?: string;
   open?: boolean;
   testTypeId?: string;
+  page?: number;
 }): Promise<Worklist> => {
   const params = new URLSearchParams();
   if (query.priority) params.set('priority', query.priority);
   if (query.projectId) params.set('projectId', query.projectId);
   if (query.open) params.set('open', 'true');
   if (query.testTypeId) params.set('testTypeId', query.testTypeId);
+  if (query.page && query.page > 1) params.set('page', String(query.page));
   return getJson(`/api/worklist?${params.toString()}`, (b) => worklistSchema.parse(b));
 };
 
