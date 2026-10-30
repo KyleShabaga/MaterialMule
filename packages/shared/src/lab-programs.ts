@@ -374,6 +374,8 @@ export const labProgramSummarySchema = z.object({
   testCount: z.number().int(),
 });
 export type LabProgramSummary = z.infer<typeof labProgramSummarySchema>;
+/** Programs per page of GET /api/lab-programs (`?page=`, from 1). */
+export const LAB_PROGRAM_PAGE_SIZE = 50;
 export const labProgramListSchema = z.object({
   items: z.array(labProgramSummarySchema),
   total: z.number().int(),

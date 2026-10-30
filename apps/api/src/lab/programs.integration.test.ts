@@ -1,4 +1,5 @@
 import {
+  labProgramListSchema,
   labProgramReviewSchema,
   labProgramSchema,
   labSourceListSchema,
@@ -686,5 +687,37 @@ describe.runIf(testDatabaseUrl)('lab programs API (MM-T23)', () => {
     for (const sql of attempts) {
       await expect(h.db.pool.query(sql), sql).rejects.toMatchObject({ code: PG.restrictViolation });
     }
+  });
+});
+
+describe.runIf(testDatabaseUrl)('lab program list paging (BUG-002)', () => {
+  let h: LabHarness;
+
+  beforeAll(async () => {
+    h = await createLabHarness();
+  });
+
+  afterAll(async () => {
+    await h?.close();
+  });
+
+  it('a page past the end still reports the real total, so the client can step back', async () => {
+    for (let i = 0; i < 2; i += 1) {
+      const response = await h.send(
+        'post',
+        '/api/lab-programs',
+        { projectId: h.projects.a, idempotencyKey: newKey(), lines: [] },
+        'tech',
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+    }
+    const first = labProgramListSchema.parse((await h.get('/api/lab-programs', 'tech')).body);
+    expect(first.total).toBe(2);
+    expect(first.items).toHaveLength(2);
+    const past = labProgramListSchema.parse((await h.get('/api/lab-programs?page=3', 'tech')).body);
+    expect(past).toEqual({ total: 2, items: [] });
+    // Drafts stay private past the end too.
+    const other = labProgramListSchema.parse((await h.get('/api/lab-programs?page=3', 'pe')).body);
+    expect(other).toEqual({ total: 0, items: [] });
   });
 });

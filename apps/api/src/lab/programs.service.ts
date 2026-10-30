@@ -8,6 +8,7 @@ import {
 import {
   depthKey,
   formatLineDepth,
+  LAB_PROGRAM_PAGE_SIZE,
   lineSubmitProblems,
   testDisplayName,
   type CoverageUnit,
@@ -50,7 +51,7 @@ import {
 } from './coverage.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PAGE_SIZE = 50;
+const PAGE_SIZE = LAB_PROGRAM_PAGE_SIZE;
 
 type Db = Pool | PoolClient;
 
@@ -202,8 +203,18 @@ export class LabProgramsService {
        LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
       params,
     );
+    let total = rows[0]?.total ?? 0;
+    if (rows.length === 0 && page > 1) {
+      // Past the last page the window count has no row to ride on: count separately, so the
+      // client can step back instead of reading "no programs".
+      const { rows: counted } = await this.database.pool.query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM lab_program lp WHERE ${where.join(' AND ')}`,
+        params,
+      );
+      total = counted[0]?.total ?? 0;
+    }
     return {
-      total: rows[0]?.total ?? 0,
+      total,
       items: rows.map((row) => ({
         id: row.id,
         programNumber: row.program_number,
