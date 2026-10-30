@@ -20,8 +20,8 @@ With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39)
    The backup account also gets read access to <InstallRoot> (the release's scripts, release.json,
    deploy-state.json) and to the files directly in config\ (never config\admin\ or tls\).
 9. Windows event log source "MaterialMule" for backup and monitoring alerts.
-10. Scheduled tasks "\MaterialMule\MaterialMule Backup" (at BackupTimes) and "\MaterialMule\MaterialMule
-    Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
+10. Scheduled tasks "\MaterialMule\Material Mule Backup" (at BackupTimes) and "\MaterialMule\Material
+    Mule Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
     signed in.
 
 Always preview first with -WhatIf, which changes nothing and also works without elevation.
