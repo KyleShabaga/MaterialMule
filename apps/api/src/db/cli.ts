@@ -1,21 +1,34 @@
-// Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`, `rebuild-dev`, `setup-roles`.
+// Database command line: `migrate`, `seed`, `seed-dev`, `reset-test`, `rebuild-dev`, `setup-roles`,
+// `security-check`.
 // Usage: tsx src/db/cli.ts <command> [--env-file .env.test]   (or node dist/db/cli.js in production)
 // rebuild-dev (MM-AO02, development only): tsx src/db/cli.ts rebuild-dev --disposable <database>
 //   drops and rebuilds the named, connected development database with reference data and fixtures.
 // setup-roles (MM-T20, host only): node dist/db/cli.js setup-roles <migration-role> <app-role> [<backup-role>]
 //   the optional backup role (MM-T21) gets read-only access for pg_dump and the monitor task;
 //   connects with DATABASE_ADMIN_URL (a superuser, password from PGPASSWORD) instead of the env file.
+// security-check (MM-T68, host only, read-only): node dist/db/cli.js security-check --env-file <service env>
+//   --app-role <name> --migration-role <name> [--backup-role <name>]
+//   connects as the app role and prints PASS/FAIL/SKIP lines; exit 0 all good, 1 a check failed,
+//   2 the check couldn't run.
 import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';
 import { migrate } from './migrator.js';
 import { rebuildDisposableDatabase } from './rebuild.js';
 import { setUpDatabaseRoles } from './roles.js';
+import { checkDatabaseSecurity, formatSecurityCheck } from './security-check.js';
 import { runSeed } from './seed.js';
 
 const USAGE =
   'Usage: db <migrate|seed|seed-dev|reset-test> [--env-file <path>]\n' +
   '       db rebuild-dev --disposable <database> [--env-file <path>]\n' +
-  '       db setup-roles <migration-role> <app-role> [<backup-role>]   (with DATABASE_ADMIN_URL set)';
+  '       db setup-roles <migration-role> <app-role> [<backup-role>]   (with DATABASE_ADMIN_URL set)\n' +
+  '       db security-check --app-role <name> --migration-role <name> [--backup-role <name>] [--env-file <path>]';
+
+/** The value after `--name`, or undefined. */
+function option(args: string[], name: string): string | undefined {
+  const index = args.indexOf(name);
+  return index === -1 ? undefined : args[index + 1];
+}
 
 /** Creates and grants the production roles (see roles.ts). Never reads the app's env file. */
 async function setupRoles([migrationRole, appRole, backupRole]: string[]): Promise<void> {
@@ -39,9 +52,9 @@ async function main(argv: string[]): Promise<void> {
     await setupRoles(rest);
     return;
   }
-  const envFlag = rest.indexOf('--env-file');
-  if (envFlag !== -1) {
-    process.env.ENV_FILE = rest[envFlag + 1];
+  const envFile = option(rest, '--env-file');
+  if (envFile !== undefined) {
+    process.env.ENV_FILE = envFile;
   }
   const config = loadConfigOrExit();
   const pool = new Pool({ connectionString: config.DATABASE_URL, max: 2 });
@@ -79,11 +92,23 @@ async function main(argv: string[]): Promise<void> {
         log(`Test database reset. Applied: ${result.applied.join(', ')}`);
         break;
       }
+      case 'security-check': {
+        const appRole = option(rest, '--app-role');
+        const migrationRole = option(rest, '--migration-role');
+        if (!appRole || !migrationRole) throw new Error(USAGE);
+        const results = await checkDatabaseSecurity(pool, {
+          appRole,
+          migrationRole,
+          backupRole: option(rest, '--backup-role'),
+        });
+        for (const line of formatSecurityCheck(results)) log(line);
+        if (results.some((result) => result.status === 'fail')) process.exitCode = 1;
+        break;
+      }
       case 'rebuild-dev': {
-        const flag = rest.indexOf('--disposable');
         const result = await rebuildDisposableDatabase(pool, {
           appEnv: config.APP_ENV,
-          designated: flag === -1 ? undefined : rest[flag + 1],
+          designated: option(rest, '--disposable'),
         });
         log(`Development database rebuilt. Applied: ${result.applied.join(', ')}`);
         log('Reference data and development fixtures loaded.');
@@ -99,5 +124,6 @@ async function main(argv: string[]): Promise<void> {
 
 main(process.argv.slice(2)).catch((error: unknown) => {
   process.stderr.write(`${(error as Error).message}\n`);
-  process.exit(1);
+  // security-check keeps 1 for "a check failed"; anything that stopped it running is 2.
+  process.exit(process.argv[2] === 'security-check' ? 2 : 1);
 });

@@ -107,6 +107,13 @@ it is not permission to reset a deployed database, and forward-only migrations r
   grants them (the optional backup role gets read-only access for `pg_dump` and the monitor task);
   it is idempotent. Proven in `apps/api/src/db/roles.test.ts` (runs where the test database user
   is a superuser, as in CI). Steps: [operations runbook](operations/runbook.md).
+- The app role is denied `UPDATE`, `DELETE` and `TRUNCATE` on every append-only history table,
+  not only `audit_event`: each table with a row trigger running `audit_event_is_append_only`,
+  `movement_history_is_append_only` or `lab_append_only` (found when `setup-roles` runs). The
+  triggers already block those changes; the grants are a second layer.
+  `node apps/api/dist/db/cli.js security-check --app-role <name> --migration-role <name>
+[--backup-role <name>]` (read-only, connected as the app role) reports the roles, privileges and
+  server settings; see the runbook's [Security check](operations/runbook.md#security-check).
 
 ## Tests
 

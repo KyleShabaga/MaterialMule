@@ -7,7 +7,8 @@ import { loadConfig } from '../config/env.js';
 import { createApp } from '../create-app.js';
 import { createTestSchema, testDatabaseUrl, type TestSchema } from '../test-support/database.js';
 import { migrate, readMigrations } from './migrator.js';
-import { setUpDatabaseRoles } from './roles.js';
+import { appendOnlyTables, setUpDatabaseRoles } from './roles.js';
+import { checkDatabaseSecurity } from './security-check.js';
 import { runSeed } from './seed.js';
 
 // Creating roles needs a superuser, as on the host (postgres). CI's test database user is one;
@@ -228,6 +229,42 @@ describe.runIf(superuser)('least-privilege database roles (MM-T20)', () => {
     expect(await privilege('UPDATE')).toBe(false);
     expect(await privilege('DELETE')).toBe(false);
     expect(await outcome(app, 'DELETE FROM audit_event')).toBe('42501');
+  });
+
+  it('MM-T68: denies the app role UPDATE and DELETE on every append-only history table', async () => {
+    const tables = await appendOnlyTables(admin, scratch.schema);
+    expect(tables.length).toBeGreaterThan(10);
+    const { rows } = await admin.query<{ table: string; insert: boolean; change: boolean }>(
+      `SELECT t AS table,
+              has_table_privilege($1, quote_ident($2) || '.' || quote_ident(t), 'INSERT') AS insert,
+              has_table_privilege($1, quote_ident($2) || '.' || quote_ident(t), 'UPDATE, DELETE, TRUNCATE') AS change
+         FROM unnest($3::text[]) AS t`,
+      [APP_ROLE, scratch.schema, tables],
+    );
+    expect(rows.filter((row) => !row.insert).map((row) => row.table)).toEqual([]);
+    expect(rows.filter((row) => row.change).map((row) => row.table)).toEqual([]);
+    expect(await outcome(app, 'DELETE FROM movement_event')).toBe('42501');
+  });
+
+  it('MM-T68: the security check passes every role check as the app role', async () => {
+    const results = await checkDatabaseSecurity(app, {
+      appRole: APP_ROLE,
+      migrationRole: MIGRATION_ROLE,
+      backupRole: BACKUP_ROLE,
+      schema: scratch.schema,
+    });
+    const roleChecks = results.filter((result) => result.area === 'roles');
+    expect(roleChecks.filter((result) => result.status !== 'pass')).toEqual([]);
+    expect(roleChecks.map((result) => result.check)).toEqual([
+      'connected-as-app-role',
+      'role-attributes',
+      'schema-ownership',
+      'public-access',
+      'read-only-tables',
+      'append-only-tables',
+      'no-truncate',
+      'backup-role-read-only',
+    ]);
   });
 
   it('keeps PUBLIC out of the database and the schema', async () => {

@@ -980,10 +980,12 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     try {
       await blocker.query('BEGIN');
       await blocker.query('SELECT id FROM storage_unit WHERE id = $1 FOR UPDATE', [unitId]);
+      const blockerPid = (await blocker.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+        .rows[0]!.pid;
       const a = first();
-      await waitForUnitLockWaiters(1);
+      await waitForLockWaiters(blockerPid, 1);
       const b = second();
-      await waitForUnitLockWaiters(2);
+      await waitForLockWaiters(blockerPid, 2);
       await blocker.query('COMMIT');
       return await Promise.all([a, b]);
     } finally {
@@ -1055,16 +1057,31 @@ describe.runIf(testDatabaseUrl)('standard disposal (MM-T30)', () => {
     expect((await unitRow(unit.id)).status).toBe('approved_for_disposal');
   });
 
-  async function waitForUnitLockWaiters(n: number) {
+  /**
+   * Waits until `n` sessions queue behind the blocker, directly or behind another waiter (a second
+   * row-lock waiter waits on the first). Counting every lock waiter in the shared test database
+   * would also count other test files running in parallel and break the race's ordering.
+   */
+  async function waitForLockWaiters(blockerPid: number, n: number) {
     for (let i = 0; i < 2000; i += 1) {
-      const { rows } = await h.db.pool.query<{ n: number }>(
-        `SELECT count(*)::int AS n FROM pg_stat_activity
-         WHERE wait_event_type = 'Lock' AND query ILIKE '%storage_unit%FOR UPDATE%'`,
+      const { rows } = await h.db.pool.query<{ pid: number; by: number[] }>(
+        `SELECT pid, pg_blocking_pids(pid) AS by FROM pg_stat_activity
+         WHERE wait_event_type = 'Lock'`,
       );
-      if (rows[0]!.n >= n) return;
+      const queued = new Set([blockerPid]);
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const row of rows) {
+          if (!queued.has(row.pid) && row.by.some((pid) => queued.has(pid))) {
+            queued.add(row.pid);
+            grew = true;
+          }
+        }
+      }
+      if (queued.size - 1 >= n) return;
       await new Promise((resolve) => setImmediate(resolve));
     }
-    throw new Error(`fewer than ${n} requests waited on storage_unit`);
+    throw new Error(`fewer than ${n} requests waited behind the blocker`);
   }
 
   it('database rules: one disposition per unit, approvals revoked/used once, no deletes', async () => {

@@ -4,6 +4,10 @@
 # unchanged. Never registers, starts or stops a real Windows service.
 # Environment: T20_FAKE_LOG (event log file), T20_FAKE_PID (pid file); the fake server reads
 # T20_FAKE_PORT.
+# MM-T68: T68_SCRIPT runs another script from deploy\windows instead (Test-MaterialMuleSecurity.ps1,
+# Install-MaterialMuleHost.ps1). T68_FAKE_FIREWALL (JSON file: [{ "DisplayName": ... }]) replaces
+# the firewall query; T68_FAKE_ACLS (JSON file: { "<path>": [{ "IdentityReference", "FileSystemRights",
+# "AccessControlType" }] }) replaces reading permissions. Neither reads nor changes the real host.
 param([Parameter(ValueFromRemainingArguments)][object[]]$DeployArgs)
 
 $ErrorActionPreference = 'Stop'
@@ -29,6 +33,23 @@ $module = Import-Module (Join-Path $scripts 'MaterialMuleHosting.psm1') -PassThr
             Remove-Item -LiteralPath $env:T20_FAKE_PID
         }
     }
+    if ($env:T68_FAKE_FIREWALL) {
+        function script:Get-MaterialMuleDatabaseFirewallRule {
+            param([int]$Port = 5432)
+            return , @(Get-Content -LiteralPath $env:T68_FAKE_FIREWALL -Raw | ConvertFrom-Json | Where-Object { $_ })
+        }
+    }
+    if ($env:T68_FAKE_ACLS) {
+        function script:Get-MaterialMuleAclRules {
+            param([string]$Path)
+            $acls = Get-Content -LiteralPath $env:T68_FAKE_ACLS -Raw | ConvertFrom-Json -AsHashtable
+            $normal = { param($p) [System.IO.Path]::GetFullPath($p).TrimEnd('') }
+            $want = & $normal $Path
+            $key = @($acls.Keys | Where-Object { (& $normal $_) -eq $want })
+            if ($key.Count -eq 0) { throw "not found: $Path (fake ACLs for: $($acls.Keys -join ', '))" }
+            return , @($acls[$key[0]] | ForEach-Object { [pscustomobject]$_ })
+        }
+    }
 }
 
 # Named arguments arrive as strings ('-ConfigPath', 'x', '-SkipBackup'); rebuild a splat.
@@ -43,5 +64,6 @@ for ($i = 0; $i -lt $DeployArgs.Count; $i++) {
         $splat[$name] = $true
     }
 }
-& (Join-Path $scripts 'Deploy-MaterialMule.ps1') @splat
+$target = if ($env:T68_SCRIPT) { $env:T68_SCRIPT } else { 'Deploy-MaterialMule.ps1' }
+& (Join-Path $scripts $target) @splat
 exit $LASTEXITCODE
