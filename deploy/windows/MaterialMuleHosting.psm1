@@ -549,6 +549,63 @@ function New-MaterialMuleServiceXml {
 "@
 }
 
+# --- Folder permissions ---------------------------------------------------------------------------------
+
+function New-MaterialMuleAccessRule {
+    param(
+        [Parameter(Mandatory)][string]$Identity,
+        [Parameter(Mandatory)][string]$Rights,
+        # FilesOnly: the folder itself and the files directly in it, never its subfolders.
+        [switch]$FilesOnly
+    )
+    if ($FilesOnly) {
+        [System.Security.AccessControl.FileSystemAccessRule]::new(
+            $Identity, $Rights, 'ObjectInherit', 'NoPropagateInherit', 'Allow')
+    } else {
+        [System.Security.AccessControl.FileSystemAccessRule]::new(
+            $Identity, $Rights, 'ContainerInherit, ObjectInherit', 'None', 'Allow')
+    }
+}
+
+function Get-MaterialMuleBackupAccountRules {
+    <#
+    .SYNOPSIS
+    What the backup account (MM-T21 scheduled tasks) reads outside ops\: folder -> rule. Under
+    <InstallRoot> (inherited by releases\ and current\, deploy-state.json): backup.ps1, monitor.ps1,
+    the modules and release.json. In config\ the files directly in it only (host.config.psd1,
+    backup.config.psd1, materialmule.env, which the backup zips with secrets redacted); never
+    admin\ (migration role credentials) or other subfolders such as tls\.
+    #>
+    param([Parameter(Mandatory)]$Config, [Parameter(Mandatory)][string]$BackupAccount)
+    return [ordered]@{
+        $Config.InstallRoot = New-MaterialMuleAccessRule $BackupAccount 'ReadAndExecute'
+        $Config.ConfigDir   = New-MaterialMuleAccessRule $BackupAccount 'Read' -FilesOnly
+    }
+}
+
+function Get-MaterialMuleFolderPermissionPlan {
+    <#
+    .SYNOPSIS
+    The permissions Install-MaterialMuleHost.ps1 sets (no inheritance): folder -> access rules.
+    With -BackupAccount, that account's read rules (Get-MaterialMuleBackupAccountRules) are included,
+    so re-applying the plan keeps them.
+    #>
+    param([Parameter(Mandatory)]$Config, [string]$BackupAccount)
+    $admins = New-MaterialMuleAccessRule 'BUILTIN\Administrators' 'FullControl'
+    $system = New-MaterialMuleAccessRule 'NT AUTHORITY\SYSTEM' 'FullControl'
+    $plan = [ordered]@{
+        $Config.InstallRoot    = @($admins, $system, (New-MaterialMuleAccessRule $Config.ServiceAccount 'ReadAndExecute'))
+        $Config.ConfigDir      = @($admins, $system, (New-MaterialMuleAccessRule $Config.ServiceAccount 'Read'))
+        $Config.AdminConfigDir = @($admins, $system)
+        $Config.LogsDir        = @($admins, $system, (New-MaterialMuleAccessRule $Config.ServiceAccount 'Modify'))
+    }
+    if ($BackupAccount) {
+        $backupRules = Get-MaterialMuleBackupAccountRules -Config $Config -BackupAccount $BackupAccount
+        foreach ($dir in $backupRules.Keys) { $plan[$dir] = @($plan[$dir]) + $backupRules[$dir] }
+    }
+    return $plan
+}
+
 # --- Database exposure checks (read-only) -------------------------------------------------------------
 
 function Test-MaterialMuleDatabaseExposure {
@@ -826,4 +883,5 @@ Export-ModuleMember -Function Invoke-MaterialMuleLogRotation, Test-MaterialMuleD
     Get-MaterialMuleCurrentVersion, Set-MaterialMuleCurrentRelease, Get-MaterialMuleDeployState,
     Save-MaterialMuleDeployState, Remove-OldMaterialMuleReleases, Stop-MaterialMuleApp, Start-MaterialMuleApp,
     Invoke-MaterialMuleMigration, Invoke-MaterialMuleBackup, Wait-MaterialMuleHealthy, Invoke-MaterialMuleDeploy,
-    Invoke-MaterialMuleRollback, New-MaterialMuleServiceXml, Test-PasswordlessServiceAccount
+    Invoke-MaterialMuleRollback, New-MaterialMuleServiceXml, Test-PasswordlessServiceAccount,
+    Get-MaterialMuleBackupAccountRules, Get-MaterialMuleFolderPermissionPlan

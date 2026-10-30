@@ -18,6 +18,8 @@ One-time (re-runnable) setup of the Windows host for Material Mule (MM-T20).
 With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39):
 8. Backup folders under <InstallRoot>\ops (staging, status, logs) readable only by Administrators
    and the backup account; the service account may read status\ (Settings -> System status).
+   The backup account also gets read access to <InstallRoot> (the release's scripts, release.json,
+   deploy-state.json) and to the files directly in config\ (never config\admin\ or tls\).
 9. Windows event log source "MaterialMule" for backup and monitoring alerts.
 10. Scheduled tasks "\MaterialMule\Material Mule Backup" (at BackupTimes) and "\MaterialMule\Material
     Mule Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
@@ -72,6 +74,14 @@ if ([string]::IsNullOrWhiteSpace($config.ServiceAccount)) {
 if ($config.ServiceAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL SERVICE|NETWORK SERVICE)$' -or
     $config.ServiceAccount -match 'Administrator') {
     throw 'ServiceAccount must be a dedicated low-privilege account, not a built-in or admin account.'
+}
+$backupAccount = $null
+if ($backupConfig) {
+    $backupAccount = [string]$backupConfig.BackupAccount
+    if ($backupAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL SERVICE|NETWORK SERVICE)$' -or
+        $backupAccount -match 'Administrator') {
+        throw 'BackupAccount must be a dedicated low-privilege account (gMSA or standard user), not a built-in or admin account.'
+    }
 }
 
 $winsw = Join-Path $config.ServiceDir 'materialmule-service.exe'
@@ -133,18 +143,9 @@ if ('Service' -notin $Skip) {
 # 3. Permissions ----------------------------------------------------------------------------------
 if ('Permissions' -notin $Skip) {
     Step 'Folder permissions'
-    function New-Rule([string]$Identity, [string]$Rights) {
-        [System.Security.AccessControl.FileSystemAccessRule]::new(
-            $Identity, $Rights, 'ContainerInherit, ObjectInherit', 'None', 'Allow')
-    }
-    $admins = 'BUILTIN\Administrators'
-    $system = 'NT AUTHORITY\SYSTEM'
-    $plan = [ordered]@{
-        $config.InstallRoot    = @((New-Rule $admins 'FullControl'), (New-Rule $system 'FullControl'), (New-Rule $config.ServiceAccount 'ReadAndExecute'))
-        $config.ConfigDir      = @((New-Rule $admins 'FullControl'), (New-Rule $system 'FullControl'), (New-Rule $config.ServiceAccount 'Read'))
-        $config.AdminConfigDir = @((New-Rule $admins 'FullControl'), (New-Rule $system 'FullControl'))
-        $config.LogsDir        = @((New-Rule $admins 'FullControl'), (New-Rule $system 'FullControl'), (New-Rule $config.ServiceAccount 'Modify'))
-    }
+    # With -BackupConfigPath the backup account keeps its read access (step 8); without it, a
+    # backup account added earlier loses it (see the warning at the end).
+    $plan = Get-MaterialMuleFolderPermissionPlan -Config $config -BackupAccount $backupAccount
     foreach ($dir in $plan.Keys) {
         $who = ($plan[$dir] | ForEach-Object { "$($_.IdentityReference): $($_.FileSystemRights)" }) -join '; '
         if ($PSCmdlet.ShouldProcess($dir, "replace permissions (no inheritance) with $who")) {
@@ -207,11 +208,6 @@ if ('Power' -notin $Skip) {
 
 # 8-10. Backups and monitoring (MM-T21) -------------------------------------------------------------
 if ($backupConfig) {
-    $backupAccount = [string]$backupConfig.BackupAccount
-    if ($backupAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL SERVICE|NETWORK SERVICE)$' -or
-        $backupAccount -match 'Administrator') {
-        throw 'BackupAccount must be a dedicated low-privilege account (gMSA or standard user), not a built-in or admin account.'
-    }
     if ('BackupFolders' -notin $Skip) {
         Step 'Backup folders'
         $statusDir = Split-Path -Parent $backupConfig.StatusFile
@@ -244,6 +240,22 @@ if ($backupConfig) {
                 $acl.SetAccessRuleProtection($true, $false)
                 foreach ($rule in $backupPlan[$dir]) { $acl.AddAccessRule($rule) }
                 Set-Acl -LiteralPath $dir -AclObject $acl
+            }
+        }
+        # The scheduled tasks run the release's scripts and read the configuration: add the backup
+        # account's read rules to the protected folders of step 3 (also when -Skip Permissions).
+        $backupReadRules = Get-MaterialMuleBackupAccountRules -Config $config -BackupAccount $backupAccount
+        foreach ($dir in $backupReadRules.Keys) {
+            $rule = $backupReadRules[$dir]
+            $scope = if ($rule.InheritanceFlags -eq 'ObjectInherit') { 'the folder and the files directly in it' } else { 'the folder and everything in it' }
+            if ($PSCmdlet.ShouldProcess($dir, "add permission ($scope) $($rule.IdentityReference): $($rule.FileSystemRights)")) {
+                if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+                    throw "$dir not found; run the Folders and Permissions steps first"
+                }
+                $info = [System.IO.DirectoryInfo]::new($dir)
+                $acl = [System.IO.FileSystemAclExtensions]::GetAccessControl($info, [System.Security.AccessControl.AccessControlSections]::Access)
+                $acl.AddAccessRule($rule)
+                [System.IO.FileSystemAclExtensions]::SetAccessControl($info, $acl)
             }
         }
         if (-not (Test-Path -LiteralPath $backupConfig.BackupTarget -PathType Container)) {
@@ -302,6 +314,9 @@ if ($backupConfig) {
     }
 } else {
     $warnings.Add('Backups and monitoring are not set up (no -BackupConfigPath; backup design pending IT, D39)')
+    if ('Permissions' -notin $Skip) {
+        $warnings.Add('If backups are already set up, re-run with -BackupConfigPath: these permissions leave the backup account out')
+    }
 }
 
 # 7. Read-only checks ------------------------------------------------------------------------------

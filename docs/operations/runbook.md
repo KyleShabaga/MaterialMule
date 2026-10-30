@@ -80,8 +80,8 @@ wants it.
 ## Folder layout
 
 ```
-C:\MaterialMule\                      InstallRoot (Administrators, SYSTEM: full; service account: read)
-  config\                          service account: read
+C:\MaterialMule\                      InstallRoot (Administrators, SYSTEM: full; service, backup accounts: read)
+  config\                          service account: read; backup account: files directly in it only
     host.config.psd1               settings for the scripts (no secrets)
     materialmule.env                  the service's environment (secrets: DB app role, TLS passphrase)
     tls\materialmule.pfx              certificate from IT
@@ -478,6 +478,13 @@ Elevated PowerShell 7 on the host:
    `mkdir C:\MaterialMule\config\backup`, then put this single line in
    `C:\MaterialMule\config\backup\pgpass.conf` (`127.0.0.1:5432:materialmule:materialmule_backup:<password>`),
    and limit the folder to Administrators, SYSTEM and the backup account (Properties → Security).
+   Step 4 gives it the rest: read on `C:\MaterialMule` (the release's `backup.ps1`, `monitor.ps1`,
+   modules and `release.json`, and `deploy-state.json`), read on the files directly in
+   `C:\MaterialMule\config` (`host.config.psd1`, `backup.config.psd1`, and `materialmule.env`,
+   which goes into each backup with its secrets redacted), and modify on `C:\MaterialMule\ops`.
+   It never gets `config\admin\` (the migration role's credentials) or `config\tls\`. If you
+   later re-run the Permissions step, pass `-BackupConfigPath` too, or the backup account loses
+   that read access and the tasks fail.
 3. Copy `deploy\windows\backup.config.example.psd1` to `C:\MaterialMule\config\backup.config.psd1` and
    fill in **every** IT decision. Leave nothing at a proposal IT hasn't approved.
 4. Preview, then install (creates `C:\MaterialMule\ops`, its permissions, the event log source
