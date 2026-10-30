@@ -203,6 +203,13 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
     );
     expect(output).toMatch(/register scheduled task: .*monitor\.ps1.*every 5 min/);
     expect(output).toContain('replace permissions (no inheritance)');
+    // The tasks' account reads the release and configuration (also with -Skip Permissions).
+    expect(output).toContain(
+      `add permission (the folder and everything in it) EXAMPLE\\svc-materialmule-bk$: ReadAndExecute`,
+    );
+    expect(output).toContain(
+      `add permission (the folder and the files directly in it) EXAMPLE\\svc-materialmule-bk$: Read`,
+    );
     // Nothing was created on disk.
     expect(existsSync(join(work, 'install-root'))).toBe(false);
   });
@@ -235,6 +242,110 @@ describe.runIf(isWindows)('backup configuration refuses until IT decides (D39)',
     result = pwsh(['-File', join(SCRIPTS, 'backup.ps1'), '-ConfigPath', path]);
     expect(result.code).toBe(2);
     expect(result.output).toContain('Retention keeps nothing');
+  });
+});
+
+type PlannedRule = { identity: string; rights: string; inheritance: string; propagation: string };
+
+describe.runIf(isWindows)('folder permissions for the backup account (MM-T21)', () => {
+  const backupAccount = 'EXAMPLE\\svc-materialmule-bk$';
+  const serviceAccount = 'NT SERVICE\\MaterialMuleT21Test';
+  let work: string;
+  let root: string;
+  let hostConfig: string;
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'materialmule-t21-acl-'));
+    root = join(work, 'install-root');
+    hostConfig = join(work, 'host.config.psd1');
+    writePsd1(hostConfig, {
+      InstallRoot: root,
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceAccount: serviceAccount,
+    });
+  });
+  afterAll(() => rmSync(work, { recursive: true, force: true }));
+
+  /** Install-MaterialMuleHost.ps1's Permissions plan: protected folder -> rules. */
+  function plan(withBackupAccount: boolean): Map<string, PlannedRule[]> {
+    const account = withBackupAccount ? ` -BackupAccount ${psString(backupAccount)}` : '';
+    const entries = psJson<{ dir: string; rules: PlannedRule[] }[]>(`
+      $plan = Get-MaterialMuleFolderPermissionPlan -Config (Get-MaterialMuleHostConfig -Path ${psString(hostConfig)})${account}
+      ConvertTo-Json -Depth 4 -Compress @(foreach ($dir in $plan.Keys) {
+        [ordered]@{ dir = $dir; rules = @($plan[$dir] | ForEach-Object {
+          [ordered]@{ identity = [string]$_.IdentityReference; rights = [string]$_.FileSystemRights;
+                      inheritance = [string]$_.InheritanceFlags; propagation = [string]$_.PropagationFlags } }) }
+      })
+    `);
+    return new Map(entries.map((entry) => [entry.dir.toLowerCase(), entry.rules]));
+  }
+
+  /**
+   * Whether `identity` can read `relative` (a file, or a folder ending in '\') under the plan:
+   * the nearest protected folder's rules, inherited the way Windows does.
+   */
+  function canRead(rules: Map<string, PlannedRule[]>, identity: string, relative: string) {
+    const isFolder = relative.endsWith('\\');
+    const parts = [root, ...relative.split('\\').filter(Boolean)];
+    for (let depth = 0; depth < parts.length; depth++) {
+      const folder = parts
+        .slice(0, parts.length - depth)
+        .join('\\')
+        .toLowerCase();
+      const folderRules = rules.get(folder);
+      if (!folderRules) continue;
+      return folderRules.some((rule) => {
+        if (rule.identity !== identity || !/Read|Modify|FullControl/.test(rule.rights)) {
+          return false;
+        }
+        if (depth === 0) return isFolder;
+        if (depth > 1 && rule.propagation.includes('NoPropagateInherit')) return false;
+        return rule.inheritance.includes(isFolder ? 'ContainerInherit' : 'ObjectInherit');
+      });
+    }
+    return false;
+  }
+
+  // What the "Material Mule Backup" and "Material Mule Monitor" tasks read as the backup account.
+  const needed = [
+    'current\\deploy\\windows\\backup.ps1',
+    'current\\deploy\\windows\\monitor.ps1',
+    'current\\deploy\\windows\\MaterialMuleHosting.psm1',
+    'current\\deploy\\windows\\MaterialMuleOps.psm1',
+    'current\\release.json',
+    'releases\\1.0.0-abc1234\\deploy\\windows\\backup.ps1',
+    'deploy-state.json',
+    'config\\',
+    'config\\backup.config.psd1',
+    'config\\host.config.psd1',
+    'config\\materialmule.env',
+  ];
+  const neverBackup = [
+    'config\\admin\\',
+    'config\\admin\\migrate.env',
+    'config\\tls\\materialmule.pfx',
+    'logs\\materialmule-service.out.log',
+  ];
+
+  it('without the backup account, the protected folders shut it out of its own scripts (the gap)', () => {
+    const before = plan(false);
+    for (const path of needed) expect(canRead(before, backupAccount, path), path).toBe(false);
+  });
+
+  it('lets the backup account read its scripts and configuration, never config\\admin\\', () => {
+    const after = plan(true);
+    for (const path of needed) expect(canRead(after, backupAccount, path), path).toBe(true);
+    for (const path of neverBackup) expect(canRead(after, backupAccount, path), path).toBe(false);
+    // The service account's access is unchanged.
+    const before = plan(false);
+    for (const path of [...needed, ...neverBackup]) {
+      expect(canRead(after, serviceAccount, path), path).toBe(
+        canRead(before, serviceAccount, path),
+      );
+    }
+    expect(after.get(join(root, 'config', 'admin').toLowerCase())).toEqual(
+      before.get(join(root, 'config', 'admin').toLowerCase()),
+    );
   });
 });
 

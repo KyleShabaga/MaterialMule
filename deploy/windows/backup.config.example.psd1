@@ -41,7 +41,9 @@
 
     # --- Scheduled tasks (IT inputs; needed by Install-MaterialMuleHost.ps1 -BackupConfigPath) -----
     # Windows account both tasks run as: a gMSA ('DOMAIN\svc-materialmule-bk$', preferred) or a local
-    # standard user. It needs write access to BackupTarget and read access to PgPassFile only.
+    # standard user. It needs write access to BackupTarget and read access to PgPassFile; the install
+    # gives it read access to <InstallRoot> (the release's scripts) and to the files directly in
+    # config\ (this file, host.config.psd1, materialmule.env), never config\admin\ or tls\.
     BackupAccount           = ''
     # Local times the backup runs, matching the RPO. Proposal: @('02:00') for a 24 h RPO, or
     # @('02:00', '06:00', '10:00', '14:00', '18:00', '22:00') for 4-hourly dumps.
@@ -64,7 +66,9 @@
     RestoreAdminUser        = 'postgres'
 
     # --- Folders (defaults shown; under <InstallRoot>\ops, readable by Administrators and the
-    # backup account only, except status\ which the service account reads) ----------------------
+    # backup account only, except status\ which the service account reads). Outside ops\ the
+    # backup account reads <InstallRoot> and the files directly in config\, nothing else under
+    # config\ (Install-MaterialMuleHost.ps1 -BackupConfigPath) -------------------------------------
     # StagingDir            = 'C:\MaterialMule\ops\staging'
     # StatusFile            = 'C:\MaterialMule\ops\status\backup-status.json'   (BACKUP_STATUS_FILE)
     # MonitorStatusFile     = 'C:\MaterialMule\ops\status\monitor-status.json'
