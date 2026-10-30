@@ -28,6 +28,10 @@ for the schema and [docs/permissions.md](docs/permissions.md) for who can do wha
 
 ## First run
 
+Starting over on a PC that has an older setup (old checkouts, Trapezoid-era or pre-baseline
+databases)? Follow [docs/operations/clean-install.md](docs/operations/clean-install.md) instead: it
+removes everything old first, then does these steps.
+
 ```powershell
 npm ci
 Copy-Item apps/api/.env.example apps/api/.env
@@ -61,8 +65,8 @@ A development database built before the MM-AO02 clean baseline (2026-10-29) is r
 `npm run db:reset:test` for the test database.
 
 Open http://127.0.0.1:5173 (use `127.0.0.1`, not `localhost`). You land on the sign-in page; pick
-**Test sign-in (development only)** and sign in as **Admin (test)**. The dashboard's status card
-should show **API: OK** and **Database: Connected**. Without signing in, check
+**Test sign-in (development only)** and sign in as **Admin (test)**. **Settings → System status**
+should show the database as **Connected**. Without signing in, check
 http://127.0.0.1:5173/api/health.
 
 ## Signing in
@@ -80,7 +84,8 @@ If none is set up, the page says "No sign-in method is set up on this server yet
 ### Test identities (development only)
 
 `npm run db:seed:dev` creates these fictional people, plus project **DEMO-2601** "Riverbank
-investigation" with test holes **TH26-01** and **TH26-02**. Open
+investigation" with test holes **TH26-01** and **TH26-02**, a second project **DEMO-2602**
+"Hillside bridge" and five storage units from 2024 (`BKT-2024-000001`…`000004`, `ST-2024-000001`). Open
 http://127.0.0.1:5173/sign-in/test and pick one; picking another signs the first out. Everything
 they do is audited with a TEST account type.
 
@@ -145,7 +150,7 @@ Remove the `MICROSOFT_*` lines to turn it off again.
    first start (it creates the "receiving" printer once), or as an admin change the printer in
    **Settings → Printers**.
 3. Print from a storage unit's page, `/sample-storage/<ID>` (for example
-   `/sample-storage/BKT-2026-000001`).
+   `/sample-storage/BKT-2024-000001`, one of the dev seed's units).
 
 No printer at all? Use **Preview label** on a unit's page (or on the receiving wizard's labels
 step), then **Print / Save as PDF** and print or save at 100% / Actual size: each PDF page is one
@@ -159,7 +164,7 @@ The labels step then prints (or previews) its labels.
 
 The Zebra DS3678-XR (MM-T16) is a USB keyboard that types the label's ID and then Enter, so you
 can try scanning by typing. Open **Sample Storage → Scan labels** (`/sample-storage/scan`), type
-an ID such as `BKT-2026-000001` into the focused scan field and press Enter. Scanner setup and the
+an ID such as `BKT-2024-000001` (from the dev seed) into the focused scan field and press Enter. Scanner setup and the
 hardware test sheet: [docs/hardware/ds3678-xr.md](docs/hardware/ds3678-xr.md).
 
 Phones scan with **Scan with camera** (MM-T17). The camera only works on HTTPS pages, or on
@@ -227,9 +232,9 @@ are deleted automatically. CI doesn't replace the local gate: run `npm run verif
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `Invalid configuration: - SESSION_SECRET is required` | Set `SESSION_SECRET` (32+ characters) in `apps/api/.env`; see First run             |
 | Sign-in page says no sign-in method is set up         | Set `ENABLE_TEST_AUTH=true` in `apps/api/.env` and restart `npm run dev`            |
-| Page shows **API unavailable**                        | The API isn't running on port 3000; check the `api` output in `npm run dev`         |
-| Status shows **Database: Unavailable** (HTTP 503)     | PostgreSQL isn't running, or `DATABASE_URL` is wrong                                |
-| `Port 5173 is in use`                                 | Another Vite dev server is running; stop it                                         |
+| Page shows **Material Mule is unavailable**           | The API isn't running on port 3000; check the `api` output in `npm run dev`         |
+| `/api/health` returns 503 (database down)             | PostgreSQL isn't running, or `DATABASE_URL` is wrong                                |
+| `Port 5173 is already in use`                         | Another Vite dev server is running; stop it                                         |
 | Microsoft sign-in fails on the way back               | Open the app at `127.0.0.1`, not `localhost`, matching `MICROSOFT_REDIRECT_URI`     |
 | E2E fails waiting for its port                        | `apps/api/.env.test` is missing or invalid, or `E2E_PORT`, +1000 or +2000 is in use |
 | E2E requests time out at random with more workers     | Antivirus web shields (AVG here) can stall browser traffic; keep 2 workers          |

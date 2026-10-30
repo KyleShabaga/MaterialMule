@@ -87,7 +87,7 @@ typography:
       fontFamily: JetBrains Mono,
       fontSize: 11px,
       fontWeight: '500',
-      lineHeight: 14px,
+      lineHeight: 16px,
       letterSpacing: 0.55px,
     }
 rounded:
@@ -177,7 +177,8 @@ Write for a lab technician holding a bucket: short, plain, specific.
 | Shared station: LAB   | kiosk, generic account                    | The badge text in the header.                                                                    |
 
 Navigation labels follow the side-menu order Kyle set on 2026-10-25 (Dashboard, Receiving Log,
-Sample Storage, Lab Testing Worklist, Testing Programs, Disposal & Retention, Projects, Settings).
+Sample Storage, Lab Testing, Disposal & Retention, Projects, Settings; Lab Testing replaced the
+separate Lab Testing Worklist and Testing Programs items).
 Don't rename them in a design pass.
 
 ### Writing rules
@@ -281,7 +282,7 @@ importing its `latin-<weight>.css` next to the others.
 | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phone   | ≤ 640px    | One column. Side menu becomes a full-screen drawer behind a "Menu" button. Tables become stacked cards. Wizard actions stick to the bottom. |
 | Tablet  | 641–1024px | Side menu stays; forms one column; tables keep columns and scroll in their own box if wider.                                                |
-| Desktop | > 1024px   | Side menu (14rem) + content. Content max width 72rem for tables, 48rem for forms and scan panels.                                           |
+| Desktop | > 1024px   | Side menu (14rem) + content. Content max width: not set yet (proposal: 72rem tables, 48rem forms).                                          |
 | Wide    | > 1280px   | Strictly wider than 1280px (`(width > 1280px)`, `WIDE_SCREEN` in `useMediaQuery.ts`). Only the three MM-T66 layouts below change here.      |
 
 Use the single `640px` phone breakpoint everywhere; don't add others without updating this table.
@@ -292,13 +293,14 @@ by their own width (MM-T58/T60, and the Receiving Log tables since MM-T66).
 
 ### Spacing
 
-Use the scale only: 4, 8, 12, 20, 32px (`space-xs`…`space-xl`). Page padding is `space-4` (16px) on
-phone, `space-6` (24px) on desktop. Related fields sit `space-md` apart; sections `space-xl`.
+Use the scale only: 4, 8, 12, 16, 20, 24, 32, 64px (`space-1`…`space-16`). Page padding is
+`space-4` (16px) on phone, `space-6` (24px) top and `space-8` (32px) sides on desktop. Related
+fields sit `space-3` apart; sections `space-8`.
 Lay out groups with flex/grid and `gap`, not margins on children.
 
 ### Density
 
-- Desktop table rows: 36px tall, 8px vertical cell padding, hairline dividers (`line`).
+- Desktop table rows: 36px tall, 10px vertical cell padding, hairline dividers (`line`).
 - Phone rows (stacked cards): 52px minimum per row of content.
 - Nested detail (for example the SAMPLE#/DEPTH summaries under a unit) indents 1.5rem with a 2px
   `line` line on the left.
@@ -327,17 +329,17 @@ markup; add a variant there rather than restyling one screen.
 | Variant      | Look                                                                                                             | Use                                                                |
 | ------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Primary      | `primary` fill, white text, 4px corners, 40px tall (44px on phones), 16px side padding; pressed `primary-active` | One per view: the step forward ("Next: Review", "Confirm receipt") |
-| Secondary    | `card` fill, 1px `line-control`; hover `card-head`                                                               | Everything else ("Back", "Retry", "Reprint")                       |
+| Secondary    | `card-head` fill, 1px `line-control`; hover `inset`                                                              | Everything else ("Back", "Retry", "Reprint")                       |
 | Destructive  | `danger-bg` fill, 1px `danger-line`, `danger`                                                                    | Discard draft, disable a staff member, later disposal              |
 | Link button  | No fill, `accent` colour, underlined                                                                             | Low-weight actions inside text                                     |
-| Scan trigger | Full width on phone, 2px `warning-line` border, label "Scan with camera"                                         | Opens the phone-camera scanner                                     |
+| Scan trigger | A secondary button labelled "Scan with camera"; full width in the Sample Storage look-up card on phones          | Opens the phone-camera scanner                                     |
 
 - Minimum size: **44 × 44px** at phone width, on tablets and on the LAB station; 36px on desktop.
   This includes small "×" buttons on chips and the "Menu" button.
 - Disabled: `disabled`, `cursor: not-allowed`, and the real `disabled` attribute. Don't use
   opacity alone.
 - Busy: keep the label, add the spinner, set `aria-busy`, and block a second click.
-- Disposal (future): confirmation is online-only (App Idea); the button is disabled
+- Disposal: confirmation is online-only (App Idea); the button is disabled
   with a reason shown while offline.
 
 ### Status badges
@@ -352,12 +354,12 @@ via CSS, `badge`, 1px border, tone background.
 | danger  | Print failed · Backups failed                                                                                                                 |
 | info    | Waiting to print · Sending to printer… · Personal · Shared station: LAB                                                                       |
 | neutral | Disposed · Disabled (staff) · Not set up                                                                                                      |
-| review  | Reserved for lab review states (Lab Testing Worklist, future)                                                                                 |
+| review  | Reserved for lab review states (Lab Testing)                                                                                                  |
 
 "Urgent" and "Hold" from the starting direction map to danger and warning when lab requests and
 retention holds arrive; they are not V1 statuses.
 
-### Storage unit ID badge
+### Storage unit ID badge (proposal, not built)
 
 2px corners, `card` fill, `ink` in `id`, with a small barcode glyph before the ID
 (inline SVG, `aria-hidden="true"`). The ID text is selectable and is the accessible name. Use it in
@@ -445,9 +447,9 @@ Use `BandedCard` (MM-T55) for every card the canvas draws with a header band:
 ### Data tables → stacked cards
 
 - Use `DataTable` (real `<table>`, `<th scope="col">`, a visually hidden `<caption>`).
-- Header row: `card`, `label-mono` uppercase via CSS, sort state in the header's text and
+- Header row: `card-head`, `label-mono` uppercase via CSS, sort state in the header's text and
   `aria-sort`.
-- Rows: alternate `shell` / `page`; hover `card`.
+- Rows: `card`, even rows `inset`; no hover tint.
 - At phone width each row becomes a card: header hidden, each cell shows its column name from
   `data-label` above or beside the value; the row's main link (the storage unit ID) comes first and
   the whole card is ≥52px tall.
@@ -457,7 +459,7 @@ Use `BandedCard` (MM-T55) for every card the canvas draws with a header band:
   narrower than 48rem, whatever the viewport. Text wraps only between words
   (`overflow-wrap: break-word`, never `anywhere`); headers, badges, IDs, project numbers and dates
   never break.
-- Future offline-queued rows (moves queued during a connection drop): 3px `sync-offline` left bar
+- Offline-queued rows (moves queued during a connection drop): 3px `sync-offline` left bar
   plus "Waiting to sync" text.
 
 ### Dialogs and drawers
@@ -488,8 +490,8 @@ receiver selector, and times are local.
 
 - Header (`shell`): product name, then the person (initials and name) and the account badge
   ("Personal", "Shared station: LAB", "TEST"), then the LAB session end time.
-- Side menu (`shell`): links ≥44px tall on touch; the current page has a 3px `primary` bar on
-  the left, `card` fill and `aria-current="page"`.
+- Side menu (`shell`): links ≥44px tall on touch; the current page has a 2px `accent` bar on
+  the left, `accent-bg` fill, `accent` text and `aria-current="page"`.
 - A "Skip to content" link is the first focusable element.
 
 ## Scanner and keyboard rules
@@ -534,7 +536,7 @@ receiver selector, and times are local.
   dialog is open. Enter on a test hole (existing or newly added) selects it, closes the list and
   leaves the search box; a failed add keeps the box focused with the error.
 - **Add project from Receive samples:** the Lead Project Engineer list offers only active staff whose position is
-  Lead Project Engineer (`project_engineer`), in one list, with a hint; when nobody qualifies it says so and offers nobody
+  Project Engineer (`project_engineer`), in one list, with a hint; when nobody qualifies it says so and offers nobody
   else. Edit project and Correct details keep the grouped list (MM-T61). This is a
   UI filter: it grants no role and changes no project authority.
 - **Review receipt above 1280px:** the Details card is one strip (labels on one line, values on the
@@ -737,7 +739,6 @@ From the starting direction, kept here so they aren't reinvented, but **not buil
 
 - Sample-type single-letter badges (G, S, T, B, C): only for lab requests. Receiving never creates
   individual samples.
-- Urgent/Hold/Requested/In progress/Completed/Review lifecycle badges: Lab Testing Worklist and
-  Disposal & Retention.
-- Offline-queued rows and sync indicators: offline queuing of ordinary location moves.
-- Location codes (`BAY-04-R2`) and the location scan.
+
+Since built (no longer reserved): hold and lifecycle badges in Lab Testing and Disposal &
+Retention, offline-queued location moves, and location codes with the location scan.

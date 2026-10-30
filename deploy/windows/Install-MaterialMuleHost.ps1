@@ -18,8 +18,8 @@ With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39)
 8. Backup folders under <InstallRoot>\ops (staging, status, logs) readable only by Administrators
    and the backup account; the service account may read status\ (Settings -> System status).
 9. Windows event log source "MaterialMule" for backup and monitoring alerts.
-10. Scheduled tasks "\MaterialMule\MaterialMule Backup" (at BackupTimes) and "\MaterialMule\MaterialMule
-    Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
+10. Scheduled tasks "\MaterialMule\Material Mule Backup" (at BackupTimes) and "\MaterialMule\Material
+    Mule Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
     signed in.
 
 Always preview first with -WhatIf, which changes nothing and also works without elevation.

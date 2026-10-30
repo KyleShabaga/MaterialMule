@@ -73,10 +73,11 @@ active grant, grants never deleted).
   `acceptedViaDelegation`, `reviewActions {canReview, canCorrectionDone, canAccept,
 acceptBlockedReason}`, plus `reviewEvents` and `actionItems`.
 
-Order of checks: 403, 404, 422 `program_not_open`, 409 `version_conflict` (with current state) /
-`idempotency_key_reused` / `correction_superseded`, 422 `invalid_transition` /
-`review_not_complete`. Locks: program `FOR SHARE` → test `FOR UPDATE` → project `FOR SHARE` →
-the actor's grant `FOR SHARE`; revocation takes the grant `FOR UPDATE`.
+Order of checks: 403, 400 (body), 404, retry key (an exact retry returns the saved result;
+otherwise 409 `idempotency_key_reused`), 422 `program_not_open`, 409 `version_conflict` (with
+current state), 422 `invalid_transition` / `review_not_complete`, 409 `correction_superseded`.
+Locks: program `FOR SHARE` → test `FOR UPDATE` → project `FOR SHARE` → the actor's account
+`FOR SHARE` → the actor's grant `FOR SHARE`; revocation takes the grant `FOR UPDATE`.
 
 ## MM-T26 program lifecycle
 
