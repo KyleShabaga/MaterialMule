@@ -71,11 +71,15 @@ describe('location codes and scan payloads (MM-T37)', () => {
   });
 
   it('includes retired locations only when asked', () => {
-    expect(locationListQuerySchema.parse({})).toEqual({ includeRetired: false });
+    expect(locationListQuerySchema.parse({})).toEqual({ includeRetired: false, all: false });
     expect(locationListQuerySchema.parse({ includeRetired: 'true', search: ' wh ' })).toEqual({
       includeRetired: true,
+      all: false,
       search: 'wh',
     });
+    // BUG-007: screens that need every location ask for all=true.
+    expect(locationListQuerySchema.parse({ all: 'true' })).toMatchObject({ all: true });
+    expect(locationListQuerySchema.safeParse({ all: 'yes' }).success).toBe(false);
     expect(locationListQuerySchema.safeParse({ includeRetired: 'yes' }).success).toBe(false);
   });
 });
