@@ -32,6 +32,8 @@ export const RELEASE_FILES = [
   'deploy/windows/host.config.example.psd1',
   'deploy/windows/materialmule.env.example',
   'deploy/windows/migrate.env.example',
+  // Read-only host security check (MM-T68).
+  'deploy/windows/Test-MaterialMuleSecurity.ps1',
   // Backups, restore drills and monitoring (MM-T21).
   'deploy/windows/MaterialMuleOps.psm1',
   'deploy/windows/backup.ps1',

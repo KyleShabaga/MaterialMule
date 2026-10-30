@@ -11,6 +11,9 @@ decision D25). Written so someone who did not build the app can follow it step b
 > Values in _italics_ like _materialmule.example.internal_ are placeholders. The real ones come from IT
 > (see [IT inputs](#it-inputs)).
 
+The security review for this host (assets, accounts, controls, open findings and the decisions
+still needed) is [security.md](security.md) (MM-T68).
+
 ## Contents
 
 1. [IT inputs](#it-inputs)
@@ -24,11 +27,12 @@ decision D25). Written so someone who did not build the app can follow it step b
 9. [Logs and health](#logs-and-health)
 10. [Backups and restore drills](#backups-and-restore-drills) (MM-T21)
 11. [Monitoring and alerts](#monitoring-and-alerts) (MM-T21)
-12. [Recover production from a backup](#recover-production-from-a-backup)
-13. [Host acceptance tests (T1–T6)](#host-acceptance-tests-t1t6)
-14. [Backup acceptance tests (MM-T21)](#backup-acceptance-tests-mm-t21)
-15. [Performance benchmark (MM-T19)](#performance-benchmark-mm-t19)
-16. [Troubleshooting](#troubleshooting)
+12. [Security check](#security-check) (MM-T68)
+13. [Recover production from a backup](#recover-production-from-a-backup)
+14. [Host acceptance tests (T1–T6)](#host-acceptance-tests-t1t6)
+15. [Backup acceptance tests (MM-T21)](#backup-acceptance-tests-mm-t21)
+16. [Performance benchmark (MM-T19)](#performance-benchmark-mm-t19)
+17. [Troubleshooting](#troubleshooting)
 
 ## IT inputs
 
@@ -209,7 +213,8 @@ Then agree the Windows Update restart window with IT (outside office hours).
 ### 7. Finish the roles
 
 Re-run the `setup-roles` command from step 3. Now that the tables exist, it makes
-`schema_migration` read-only and `audit_event` append-only for the app role.
+`schema_migration` read-only and `audit_event` and the other append-only history tables
+append-only for the app role.
 
 ### 8. Check
 
@@ -313,6 +318,46 @@ After any rotation, check no secret reached the logs (AC4):
 node C:\MaterialMule\current\scripts\check-bundle-secrets.mjs --dir C:\MaterialMule\current\apps\web\dist --logs C:\MaterialMule\logs --logs C:\MaterialMule\ops\logs --logs 'C:\Program Files\PostgreSQL\17\data\log' --env-file C:\MaterialMule\config\materialmule.env --env-file C:\MaterialMule\config\admin\migrate.env
 ```
 
+Then run the [security check](#security-check).
+
+### If a secret has leaked
+
+Use this when a secret may have been seen by someone who shouldn't have it (pasted in chat or
+email, left on a shared drive, a lost laptop with a copy, a log that held it), not for routine
+rotation. Work in an elevated PowerShell 7 window on the host; `$psql` is
+`'C:\Program Files\PostgreSQL\17\bin\psql.exe'`. Rehearse it once with non-production credentials
+(for example on a test database) before you need it.
+
+1. **Replace the secret and cut off its current use:**
+
+   | Secret                                    | Do                                                                                                                                                                                                                                                                                                                                                                     |
+   | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Database role password (`materialmule_*`) | Set a new one: `& $psql -h 127.0.0.1 -U postgres -d materialmule -c "\password <role>"`. Update the file that holds it (`materialmule.env`, `config\admin\migrate.env` or the backup `pgpass.conf`) and the password manager. Drop open connections as `postgres` (below), then `Restart-Service MaterialMule`.                                                        |
+   | `postgres` password                       | `\password postgres`, update the password manager, then drop open `postgres` connections other than your own.                                                                                                                                                                                                                                                          |
+   | `SESSION_SECRET`                          | New random value in `materialmule.env`, restart. Today nothing is signed with it (sessions are random tokens stored only as hashes), so rotating it signs nobody out; revoke sessions as below if a session cookie may have leaked too.                                                                                                                                |
+   | Session cookie, or the LAB password       | Revoke sessions. One person: an admin uses "Disable access…" on Settings → Staff & access (revokes all their sessions, audited; re-enable them afterwards). LAB: "Sign out all LAB stations", or reset its password (also revokes every LAB session). Everyone at once (not audited), as `postgres`: `UPDATE session SET revoked_at = now() WHERE revoked_at IS NULL;` |
+   | `MICROSOFT_CLIENT_SECRET` (D38)           | New secret from IT's app registration, update `materialmule.env`, restart; IT deletes the old secret straight away.                                                                                                                                                                                                                                                    |
+   | TLS key or `TLS_PFX_PASSPHRASE`           | Get a new certificate and key from IT ([Renew the certificate](#renew-the-certificate)), and ask IT to revoke the old certificate.                                                                                                                                                                                                                                     |
+
+   Drop the open connections of a database role (as `postgres`; the role's password is already
+   changed, so they can't reconnect with the old one):
+
+   ```powershell
+   $env:PGPASSWORD = (Read-Host 'postgres password' -MaskInput)
+   & $psql -h 127.0.0.1 -U postgres -d materialmule -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = '<role>'"
+   Remove-Item Env:PGPASSWORD
+   ```
+
+2. **Look for misuse.** In the PostgreSQL log (`C:\Program Files\PostgreSQL\17\data\log\`, one week
+   kept) look for connections and failed attempts for that role since the leak. Check the audit
+   history for the period, read-only as `postgres`:
+   `SELECT occurred_at, action, actor_name_snapshot, entity_type FROM audit_event WHERE occurred_at >= '<leak time>' ORDER BY occurred_at;`.
+   Copy the logs somewhere safe on the host before rotation overwrites them.
+3. **Check.** Run the secret check above and the [security check](#security-check).
+4. **Record** the incident like a drill: date, what leaked and how, what was done, who did it, and
+   anything found in step 2. Tell the owner. The wider outline is in
+   [security.md](security.md#incident-response).
+
 ## Renew the certificate
 
 Before the expiry date (put a reminder in the operational owner's calendar a month ahead):
@@ -371,7 +416,13 @@ log_truncate_on_rotation = on
 log_rotation_age = 1d
 log_rotation_size = 50MB
 log_statement = 'none'
+log_connections = on
 ```
+
+PostgreSQL always logs a failed password attempt as a `FATAL` line ("password authentication
+failed for user …"). `log_connections` adds a line for each successful connection; there are few,
+because the API keeps a small pool open. These lines hold role names and client addresses, never
+passwords. The [security check](#security-check) reports both settings.
 
 The API's logs never contain request bodies, tokens, cookies or passwords (pino redaction,
 `apps/api/src/logging/logger.ts`); the scripts never handle passwords at all.
@@ -399,6 +450,10 @@ materialmule-production-20261026T080000Z-0.3.0-cd34ef5.sha256          checksums
 Retention keeps every backup from the last 24 hours plus the newest of each of the last
 `KeepDaily` days, `KeepWeekly` ISO weeks and `KeepMonthly` months. It only deletes complete
 `materialmule-<EnvironmentName>-*` sets in `BackupTarget`; nothing else there is touched.
+
+**Production data stays on the host.** Never copy a production backup or dump to the development
+PC or to any machine other than the host and the approved backup location (`BackupTarget`).
+Restore drills run on the host, into an isolated database (below).
 
 Secrets are **not** in any backup. Recovering them (DB role passwords, `SESSION_SECRET`, TLS
 passphrase, Microsoft client secret) relies on the password manager entry IT owns; check it at
@@ -504,6 +559,46 @@ ask IT. If the backup task itself is disabled, the monitor still raises 1100 onc
 the status page shows the warning. Both tasks run as the backup account, so if its password
 expires or it is locked out the monitor stops too: only the status page warns, so IT should
 watch the tasks' last-run results or the account.
+
+## Security check
+
+MM-T68. A read-only check of the host's security settings. It changes nothing, prints one
+PASS/FAIL line per check (never a secret value) and exits 1 if any check fails. Run it after the
+first install, after every upgrade and after any secret rotation; MM-T90 records its first run on
+the host. Elevated PowerShell 7 on the host:
+
+```powershell
+cd C:\MaterialMule\current\deploy\windows
+.\Test-MaterialMuleSecurity.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1
+```
+
+Add `-BackupRole materialmule_backup` once [backups are set up](#set-up-backups-once-after-its-decisions);
+add `-SkipDatabase` to check only the files and the firewall.
+
+It checks:
+
+- **PostgreSQL exposure:** `listen_addresses` is `localhost` only and `pg_hba.conf` accepts no
+  remote addresses; every `host` line uses `scram-sha-256` (or `reject`), never `md5`, `password`
+  or `trust` ([step 2 of First install](#2-lock-postgresql-to-this-pc-ac5)).
+- **Firewall:** no enabled inbound Allow rule for TCP 5432.
+- **Folder permissions:** `config\admin` and `migrate.env` are for Administrators and SYSTEM only;
+  `config` and `materialmule.env` are not readable by Everyone, Users, Authenticated Users,
+  Anonymous or Guests, and the service account can read `materialmule.env`
+  ([Folder layout](#folder-layout)).
+- **The service's connection:** `DATABASE_URL` in `materialmule.env` connects as the app role, not
+  as `postgres` or the migration role.
+- **The database,** through `node <release>\apps\api\dist\db\cli.js security-check`, connected as
+  the app role: role attributes (no superuser, CREATEDB or CREATEROLE), table privileges, no
+  `PUBLIC` access, the app role can't update or delete append-only history tables, the backup role
+  is read-only, and the server settings `listen_addresses`, `password_encryption`,
+  `log_statement` and `log_connections` ([Log rotation](#log-rotation-ac5)).
+
+`Install-MaterialMuleHost.ps1` checks the PostgreSQL exposure too, but only warns; add
+`-FailOnExposure` to make an open `listen_addresses`, `pg_hba.conf` line or 5432 firewall rule an
+error instead.
+
+A FAIL line names what is wrong and where to fix it. Fix it, run the check again and record the
+result. The review behind these checks is [security.md](security.md).
 
 ## Recover production from a backup
 

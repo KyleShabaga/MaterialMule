@@ -66,6 +66,7 @@ describe('pack-release (MM-T20)', () => {
       'apps/api/seed/reference.sql',
       'apps/web/dist/index.html',
       'deploy/windows/Deploy-MaterialMule.ps1',
+      'deploy/windows/Test-MaterialMuleSecurity.ps1',
       'deploy/windows/backup.ps1',
       'deploy/windows/restore.ps1',
       'deploy/windows/verify-restore.sql',

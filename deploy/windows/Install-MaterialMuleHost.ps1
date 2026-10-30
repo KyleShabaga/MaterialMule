@@ -11,8 +11,9 @@ One-time (re-runnable) setup of the Windows host for Material Mule (MM-T20).
 4. Windows Firewall: inbound HTTPS on the configured profiles only. Nothing opens PostgreSQL.
 5. PostgreSQL service set to start automatically.
 6. Power: never sleep or hibernate on mains power.
-7. Read-only checks: PostgreSQL listens on localhost only, no remote pg_hba entries, no firewall
-   rule opening the database port.
+7. Read-only checks: PostgreSQL listens on localhost only, no remote pg_hba entries, every pg_hba
+   host line uses scram-sha-256, no firewall rule opening the database port. These are warnings;
+   with -FailOnExposure (MM-T68) any of them makes the script fail after the checks have run.
 
 With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39):
 8. Backup folders under <InstallRoot>\ops (staging, status, logs) readable only by Administrators
@@ -24,9 +25,14 @@ With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39)
 
 Always preview first with -WhatIf, which changes nothing and also works without elevation.
 Run for real from an elevated PowerShell 7 prompt on the host. See docs\operations\runbook.md.
+Once the host is set up, Test-MaterialMuleSecurity.ps1 runs the full read-only security check
+(permissions, the service's database role and the database itself).
 
 .EXAMPLE
 .\Install-MaterialMuleHost.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -WhatIf
+
+.EXAMPLE
+.\Install-MaterialMuleHost.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -FailOnExposure -WhatIf
 
 .EXAMPLE
 .\Install-MaterialMuleHost.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -BackupConfigPath C:\MaterialMule\config\backup.config.psd1 -WhatIf
@@ -39,7 +45,11 @@ param(
     [string[]]$Skip = @(),
     # MM-T21: backup.config.psd1. Adds the backup folders, event log source and scheduled tasks;
     # refuses while IT's backup decisions (D39) are missing from it.
-    [string]$BackupConfigPath
+    [string]$BackupConfigPath,
+    # MM-T68: fail (non-zero exit) when the read-only checks (step 7) find PostgreSQL reachable from
+    # other computers, a pg_hba method other than scram-sha-256 or a firewall rule opening TCP 5432,
+    # instead of only warning.
+    [switch]$FailOnExposure
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,6 +77,8 @@ if ($config.ServiceAccount -match '^(NT AUTHORITY\\)?(SYSTEM|LocalSystem|LOCAL S
 $winsw = Join-Path $config.ServiceDir 'materialmule-service.exe'
 $serviceXml = Join-Path $config.ServiceDir 'materialmule-service.xml'
 $warnings = [System.Collections.Generic.List[string]]::new()
+# Step 7 findings, also reported as warnings; -FailOnExposure turns them into a failure.
+$exposure = [System.Collections.Generic.List[string]]::new()
 
 function Step([string]$Name) { Write-Host "`n== $Name ==" -ForegroundColor Cyan }
 
@@ -295,23 +307,31 @@ if ($backupConfig) {
 # 7. Read-only checks ------------------------------------------------------------------------------
 Step 'Database exposure checks (read-only)'
 if ($config.PostgresDataDir) {
-    foreach ($problem in Test-MaterialMuleDatabaseExposure -DataDir $config.PostgresDataDir) {
-        $warnings.Add("PostgreSQL: $problem")
+    $problems = Test-MaterialMuleDatabaseExposure -DataDir $config.PostgresDataDir
+    foreach ($problem in $problems) {
+        $exposure.Add("PostgreSQL: $problem")
+    }
+    if (Test-Path -LiteralPath (Join-Path $config.PostgresDataDir 'pg_hba.conf') -PathType Leaf) {
+        $problems = Test-MaterialMulePgHbaAuthMethod -DataDir $config.PostgresDataDir
+        foreach ($problem in $problems) {
+            $exposure.Add("PostgreSQL: $problem")
+        }
     }
 } else {
-    $warnings.Add('PostgresDataDir is not set; could not check listen_addresses / pg_hba.conf')
+    $exposure.Add('PostgresDataDir is not set; could not check listen_addresses / pg_hba.conf')
 }
-$dbRules = Get-NetFirewallPortFilter -Protocol TCP -ErrorAction SilentlyContinue |
-    Where-Object { $_.LocalPort -contains '5432' } |
-    Get-NetFirewallRule -ErrorAction SilentlyContinue |
-    Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' -and $_.Action -eq 'Allow' }
-foreach ($dbRule in @($dbRules)) {
-    if ($dbRule) { $warnings.Add("Firewall rule '$($dbRule.DisplayName)' allows inbound TCP 5432; disable it") }
+$dbRules = Get-MaterialMuleDatabaseFirewallRule
+foreach ($dbRule in $dbRules) {
+    $exposure.Add("Firewall rule '$($dbRule.DisplayName)' allows inbound TCP 5432; disable it")
 }
+foreach ($problem in $exposure) { $warnings.Add($problem) }
 
 Write-Host ''
 if ($warnings.Count -gt 0) {
     foreach ($warning in $warnings) { Write-Host "WARNING: $warning" -ForegroundColor Yellow }
 } else {
     Write-Host 'No warnings.' -ForegroundColor Green
+}
+if ($FailOnExposure -and $exposure.Count -gt 0) {
+    throw "Database exposure found (-FailOnExposure): $($exposure -join '; ')"
 }

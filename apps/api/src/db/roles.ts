@@ -22,9 +22,16 @@ export interface DatabaseRoleNames {
 const ROLE_NAME = /^[a-z_][a-z0-9_]{0,62}$/;
 
 /** Tables the API must not change even though it can change rows elsewhere. */
-const APP_READ_ONLY_TABLES = ['schema_migration'];
-/** Append-only: the API may add rows, never change or remove them (a trigger enforces it too). */
-const APP_APPEND_ONLY_TABLES = ['audit_event'];
+export const APP_READ_ONLY_TABLES = ['schema_migration'];
+/**
+ * Trigger functions that refuse every UPDATE and DELETE on their table. A table guarded by one of
+ * them is append-only, and the app role loses UPDATE and DELETE on it as a second layer (MM-T68).
+ */
+export const APPEND_ONLY_TRIGGER_FUNCTIONS = [
+  'audit_event_is_append_only',
+  'movement_history_is_append_only',
+  'lab_append_only',
+];
 
 export function assertRoleName(name: string, label: string): void {
   if (!ROLE_NAME.test(name)) {
@@ -124,13 +131,11 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
         );
       }
     }
-    for (const table of APP_APPEND_ONLY_TABLES) {
-      if (await tableExists(client, schema, table)) {
-        await run(
-          `REVOKE UPDATE, DELETE, TRUNCATE ON ${schemaId}.${escapeIdentifier(table)} FROM ${app}`,
-          `${table}: append-only for the app role`,
-        );
-      }
+    for (const table of await appendOnlyTables(client, schema)) {
+      await run(
+        `REVOKE UPDATE, DELETE, TRUNCATE ON ${schemaId}.${escapeIdentifier(table)} FROM ${app}`,
+        `${table}: append-only for the app role`,
+      );
     }
     await client.query('COMMIT');
     return done;
@@ -176,6 +181,24 @@ async function grantReadOnly(
     `ALTER ROLE ${backup} SET default_transaction_read_only = on`,
     `${role}: read-only transactions by default`,
   );
+}
+
+/** Tables in `schema` with a row trigger running one of the append-only functions, by name. */
+export async function appendOnlyTables(
+  client: Pick<PoolClient, 'query'>,
+  schema: string,
+): Promise<string[]> {
+  const { rows } = await client.query<{ table: string }>(
+    `SELECT DISTINCT c.relname AS table
+       FROM pg_trigger t
+       JOIN pg_class c ON c.oid = t.tgrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_proc p ON p.oid = t.tgfoid
+      WHERE n.nspname = $1 AND NOT t.tgisinternal AND p.proname = ANY($2)
+      ORDER BY 1`,
+    [schema, APPEND_ONLY_TRIGGER_FUNCTIONS],
+  );
+  return rows.map((row) => row.table);
 }
 
 async function roleExists(client: PoolClient, role: string): Promise<boolean> {

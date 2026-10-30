@@ -710,3 +710,420 @@ describe.runIf(isWindows)('host setup helpers (MM-T20)', () => {
     expect(result.output).toContain('WinSW not found');
   });
 });
+
+// MM-T68: Test-MaterialMuleSecurity.ps1 and Install-MaterialMuleHost.ps1 -FailOnExposure. Run
+// through tests/harness.ps1 with the firewall query and permission reads replaced by fakes
+// (T68_FAKE_FIREWALL, T68_FAKE_ACLS), and a fake release CLI in place of the database check, so
+// they need no database and read nothing from the real host.
+describe.runIf(isWindows)('host security check (MM-T68)', () => {
+  // A recognizable, fictional password: it must never appear in any output.
+  const PASSWORD = 'T68-fake-Pa55word-not-real';
+  const SERVICE_ACCOUNT = 'NT SERVICE\\MaterialMuleT68TestNoSuchService';
+  const ADMINS = 'BUILTIN\\Administrators';
+  const SYSTEM = 'NT AUTHORITY\\SYSTEM';
+
+  let work: string;
+  let root: string;
+  let pgDirs: Record<string, string>;
+
+  type Rule = { IdentityReference: string; FileSystemRights: string; AccessControlType: string };
+  const allow = (identity: string, rights: string): Rule => ({
+    IdentityReference: identity,
+    FileSystemRights: rights,
+    AccessControlType: 'Allow',
+  });
+
+  // What the Permissions step of Install-MaterialMuleHost.ps1 leaves on a fresh host.
+  function installedAcls(): Record<string, Rule[]> {
+    const full = () => [allow(ADMINS, 'FullControl'), allow(SYSTEM, 'FullControl')];
+    return {
+      [join(root, 'config')]: [...full(), allow(SERVICE_ACCOUNT, 'Read')],
+      [join(root, 'config', 'materialmule.env')]: [
+        ...full(),
+        allow(SERVICE_ACCOUNT, 'Read, Synchronize'),
+      ],
+      [join(root, 'config', 'admin')]: full(),
+      [join(root, 'config', 'admin', 'migrate.env')]: full(),
+    };
+  }
+
+  let caseCount = 0;
+  /** Runs Test-MaterialMuleSecurity.ps1 (or another script) with fakes for one scenario. */
+  function run(
+    options: {
+      script?: string;
+      pg?: string;
+      settings?: Record<string, string>;
+      acls?: Record<string, Rule[]>;
+      firewall?: { DisplayName: string }[];
+      db?: 'pass' | 'fail' | 'crash';
+      args?: string[];
+    } = {},
+  ) {
+    caseCount++;
+    const configPath = join(work, `host.${caseCount}.psd1`);
+    writeConfig(configPath, {
+      InstallRoot: root,
+      ServiceName: 'MaterialMuleT68TestNoSuchService',
+      NodeExe: process.execPath,
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceAccount: SERVICE_ACCOUNT,
+      PostgresServiceName: 'MaterialMuleT68TestNoSuchPostgres',
+      PostgresDataDir: pgDirs[options.pg ?? 'local']!,
+      ...options.settings,
+    });
+    const acls = join(work, `acls.${caseCount}.json`);
+    writeFileSync(acls, JSON.stringify(options.acls ?? installedAcls()));
+    const firewall = join(work, `firewall.${caseCount}.json`);
+    writeFileSync(firewall, JSON.stringify(options.firewall ?? []));
+    return pwsh(['-File', HARNESS, '-ConfigPath', configPath, ...(options.args ?? [])], {
+      T68_SCRIPT: options.script ?? 'Test-MaterialMuleSecurity.ps1',
+      T68_FAKE_ACLS: acls,
+      T68_FAKE_FIREWALL: firewall,
+      T68_FAKE_DB: options.db ?? 'pass',
+    });
+  }
+
+  // The release's db/cli.js `security-check`, faked: T68_FAKE_DB picks pass, fail or crash. The
+  // crash prints the env file, password included, the way a careless error message might.
+  const FAKE_SECURITY_CLI = `
+const { readFileSync } = require('node:fs');
+const { basename } = require('node:path');
+const args = process.argv.slice(2);
+const opt = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : '(none)');
+const mode = process.env.T68_FAKE_DB || 'pass';
+if (args[0] !== 'security-check') { console.error('unexpected command ' + args[0]); process.exit(2); }
+if (mode === 'crash') {
+  console.error('Error: connect ECONNREFUSED with ' + readFileSync(opt('--env-file'), 'utf8'));
+  process.exit(2);
+}
+console.log('PASS fake-db-args: env file ' + basename(opt('--env-file')) + ', app ' + opt('--app-role') +
+  ', migration ' + opt('--migration-role') + ', backup ' + opt('--backup-role'));
+if (mode === 'fail') {
+  console.log('FAIL app-role-privileges: materialmule_app can create objects in schema public');
+  process.exit(1);
+}
+`;
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'materialmule-security-'));
+    root = join(work, 'host');
+    mkdirSync(join(root, 'config', 'admin'), { recursive: true });
+    mkdirSync(join(root, 'current', 'apps', 'api', 'dist', 'db'), { recursive: true });
+    writeFileSync(join(root, 'current', 'apps', 'api', 'dist', 'db', 'cli.js'), FAKE_SECURITY_CLI);
+    writeFileSync(
+      join(root, 'config', 'materialmule.env'),
+      `APP_ENV=production\n# the API's own role\nDATABASE_URL="postgres://materialmule_app:${PASSWORD}@127.0.0.1:5432/fake"\n`,
+    );
+    writeFileSync(
+      join(root, 'config', 'superuser.env'),
+      `DATABASE_URL=postgres://postgres:${PASSWORD}@127.0.0.1:5432/fake\n`,
+    );
+    writeFileSync(
+      join(root, 'config', 'owner.env'),
+      `DATABASE_URL=postgres://materialmule_owner:${PASSWORD}@127.0.0.1:5432/fake\n`,
+    );
+    writeFileSync(
+      join(root, 'config', 'admin', 'migrate.env'),
+      `DATABASE_URL=postgres://materialmule_owner:${PASSWORD}@127.0.0.1:5432/fake\n`,
+    );
+    const scramLocal = [
+      '# TYPE DATABASE USER ADDRESS METHOD',
+      'local all all scram-sha-256',
+      'host all all 127.0.0.1/32 scram-sha-256',
+      'host all all ::1/128 scram-sha-256',
+    ];
+    const pg: Record<string, [string, string[]]> = {
+      local: ["listen_addresses = 'localhost'", scramLocal],
+      listenAll: ["listen_addresses = '*'", scramLocal],
+      remoteHba: [
+        "listen_addresses = 'localhost'",
+        [...scramLocal, 'host all all 0.0.0.0/0 scram-sha-256'],
+      ],
+      md5: [
+        "listen_addresses = 'localhost'",
+        ['host all all 127.0.0.1/32 md5', 'host all all ::1/128 scram-sha-256'],
+      ],
+    };
+    pgDirs = {};
+    for (const [key, [conf, hba]] of Object.entries(pg)) {
+      const dir = join(work, `pg-${key}`);
+      mkdirSync(dir);
+      writeFileSync(join(dir, 'postgresql.conf'), `${conf}\nport = 5432\n`);
+      writeFileSync(join(dir, 'pg_hba.conf'), `${hba.join('\n')}\n`);
+      pgDirs[key] = dir;
+    }
+  });
+
+  afterAll(() => {
+    if (work) rmSync(work, { recursive: true, force: true });
+  });
+
+  /** Every case: no secret in the output, ever. */
+  function expectNoSecret(output: string) {
+    expect(output).not.toContain(PASSWORD);
+    expect(output).not.toMatch(/postgres(ql)?:\/\/[^\s:]*:(?!\*\*\*@)[^\s@]+@/);
+  }
+
+  it('passes a correctly set up host and prints no secret', () => {
+    const result = run({ args: ['-BackupRole', 'materialmule_backup'] });
+    expect(result.code, result.output).toBe(0);
+    for (const check of [
+      'postgres-exposure',
+      'pg-hba-auth-method',
+      'firewall-5432',
+      'acl-admin-config-dir',
+      'acl-migration-env-file',
+      'acl-config-dir',
+      'acl-service-env-file',
+      'service-env-database-user',
+    ]) {
+      expect(result.output).toContain(`PASS ${check}:`);
+    }
+    expect(result.output).toContain(
+      'PASS fake-db-args: env file materialmule.env, app materialmule_app, migration materialmule_owner, backup materialmule_backup',
+    );
+    expect(result.output).not.toContain('FAIL ');
+    expect(result.output).toContain('Summary: 9 passed, 0 failed, 0 skipped');
+    expect(result.output).toContain('Result: PASS');
+    expectNoSecret(result.output);
+  });
+
+  it('relays a crashing database check with its connection string masked', () => {
+    const result = run({ db: 'crash' });
+    expect(result.code, result.output).toBe(1);
+    expect(result.output).toContain('ECONNREFUSED');
+    expect(result.output).toContain('postgres://materialmule_app:***@127.0.0.1:5432/fake');
+    expect(result.output).toContain('Summary: 8 passed, 1 failed, 0 skipped');
+    expectNoSecret(result.output);
+  });
+
+  it('skips the database with -SkipDatabase', () => {
+    const result = run({ args: ['-SkipDatabase'], db: 'crash' });
+    expect(result.code, result.output).toBe(0);
+    expect(result.output).toContain('SKIP database: skipped (-SkipDatabase)');
+    expect(result.output).not.toContain('fake-db-args');
+  });
+
+  it.each([
+    [
+      'PostgreSQL listening on every address',
+      { pg: 'listenAll' },
+      "FAIL postgres-exposure: listen_addresses includes '*'",
+    ],
+    [
+      'pg_hba.conf open to 0.0.0.0/0',
+      { pg: 'remoteHba' },
+      'FAIL postgres-exposure: pg_hba.conf allows host connections from 0.0.0.0/0',
+    ],
+    [
+      'an md5 pg_hba.conf line',
+      { pg: 'md5' },
+      "FAIL pg-hba-auth-method: pg_hba.conf host line for 127.0.0.1/32 uses 'md5'; use scram-sha-256",
+    ],
+    [
+      'a firewall rule opening 5432',
+      { firewall: [{ DisplayName: 'PostgreSQL 17 (fake)' }] },
+      "FAIL firewall-5432: rule 'PostgreSQL 17 (fake)' allows inbound TCP 5432; disable it",
+    ],
+    [
+      'the service env file connecting as postgres',
+      { envFile: 'superuser.env' },
+      'FAIL service-env-database-user: DATABASE_URL connects as the superuser postgres; use materialmule_app',
+    ],
+    [
+      'the service env file connecting as the migration role',
+      { envFile: 'owner.env' },
+      'FAIL service-env-database-user: DATABASE_URL connects as the migration role materialmule_owner',
+    ],
+    [
+      'the database check reporting a failure',
+      { db: 'fail' as const },
+      'FAIL app-role-privileges: materialmule_app can create objects in schema public',
+    ],
+    [
+      'the database check crashing',
+      { db: 'crash' as const },
+      'FAIL database: database check could not run (exit code 2)',
+    ],
+  ])(
+    'fails on %s',
+    (
+      _,
+      { envFile, ...options }: { envFile?: string } & NonNullable<Parameters<typeof run>[0]>,
+      line,
+    ) => {
+      const settings = envFile ? { ServiceEnvFile: join(root, 'config', envFile) } : undefined;
+      const result = run({ ...options, settings });
+      expect(result.code, result.output).toBe(1);
+      expect(result.output).toContain(line);
+      expect(result.output).toContain('Result: FAIL');
+      expectNoSecret(result.output);
+    },
+  );
+
+  it('fails when the config folder is readable by Everyone', () => {
+    const acls = installedAcls();
+    acls[join(root, 'config')]!.push(allow('Everyone', 'ReadAndExecute, Synchronize'));
+    const result = run({ acls });
+    expect(result.code, result.output).toBe(1);
+    expect(result.output).toContain(
+      `FAIL acl-config-dir: ${join(root, 'config')}: Everyone can read it`,
+    );
+    expect(result.output).toContain('PASS acl-service-env-file:');
+  });
+
+  it('fails when the service account can open config\\admin or cannot read its env file', () => {
+    const acls = installedAcls();
+    acls[join(root, 'config', 'admin')]!.push(allow(SERVICE_ACCOUNT, 'Read'));
+    acls[join(root, 'config', 'admin', 'migrate.env')]!.push(allow('BUILTIN\\Users', 'Read'));
+    acls[join(root, 'config', 'materialmule.env')] = [allow(ADMINS, 'FullControl')];
+    const result = run({ acls });
+    expect(result.code, result.output).toBe(1);
+    expect(result.output).toContain(
+      `FAIL acl-admin-config-dir: ${join(root, 'config', 'admin')}: ${SERVICE_ACCOUNT.toUpperCase()} has access (Read)`,
+    );
+    expect(result.output).toMatch(
+      /FAIL acl-migration-env-file: .*migrate\.env: BUILTIN\\Users has access/,
+    );
+    expect(result.output).toContain(
+      `FAIL acl-service-env-file: ${join(root, 'config', 'materialmule.env')}: ${SERVICE_ACCOUNT.toUpperCase()} cannot read it`,
+    );
+  });
+
+  it('evaluates the permissions of a real folder', () => {
+    const dir = join(work, 'acl-real');
+    mkdirSync(dir);
+    const module = psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'));
+    const newRule = (who: string, rights: string) =>
+      `[System.Security.AccessControl.FileSystemAccessRule]::new(${who}, '${rights}', 'ContainerInherit, ObjectInherit', 'None', 'Allow')`;
+    const sid = (value: string) =>
+      `[System.Security.Principal.SecurityIdentifier]::new('${value}')`;
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      `Import-Module ${module}`,
+      `$dir = ${psString(dir)}`,
+      '$me = [System.Security.Principal.WindowsIdentity]::GetCurrent().User',
+      '$acl = [System.Security.AccessControl.DirectorySecurity]::new()',
+      '$acl.SetAccessRuleProtection($true, $false)',
+      `$acl.AddAccessRule(${newRule('$me', 'FullControl')})`,
+      `$acl.AddAccessRule(${newRule(sid('S-1-5-18'), 'FullControl')})`,
+      `$acl.AddAccessRule(${newRule(sid('S-1-1-0'), 'Read')})`,
+      'Set-Acl -LiteralPath $dir -AclObject $acl',
+      "Set-Content -LiteralPath (Join-Path $dir 'f.env') -Value 'X=1'",
+      "$rules = Get-MaterialMuleAclRules -Path (Join-Path $dir 'f.env')",
+      "$problems = Test-MaterialMuleAcl -Rules $rules -AllowedIdentities 'S-1-5-32-544','S-1-5-18' -ForbiddenReaders 'S-1-1-0','S-1-5-11' -RequiredReader $me.Value",
+      '$problems | ForEach-Object { "PROBLEM $_" }',
+      "$ok = Test-MaterialMuleAcl -Rules $rules -AllowedIdentities 'S-1-5-18',$me.Value,'S-1-1-0' -RequiredReader 'S-1-5-18'",
+      '"OK-COUNT $($ok.Count)"',
+    ].join('\n');
+    const result = pwsh(['-Command', script]);
+    expect(result.code, result.output).toBe(0);
+    expect(result.output).toContain('PROBLEM Everyone can read it');
+    expect(result.output).toContain('PROBLEM Everyone has access');
+    expect(result.output).toMatch(/PROBLEM .+ has access \(FullControl\)/);
+    expect(result.output).not.toContain('cannot read it');
+    expect(result.output).toContain('OK-COUNT 0');
+  });
+
+  it('reads env files and connection strings without exposing the password', () => {
+    const envFile = join(work, 'parse.env');
+    writeFileSync(
+      envFile,
+      [
+        '# comment',
+        'export A=plain # trailing comment',
+        "B='single quoted'",
+        'DATABASE_URL="postgresql://app%5Fuser:p%40ss:word@localhost/db?sslmode=disable"',
+      ].join('\n'),
+    );
+    const module = psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'));
+    const result = pwsh([
+      '-Command',
+      [
+        "$ErrorActionPreference = 'Stop'",
+        `Import-Module ${module}`,
+        `$v = Read-MaterialMuleEnvFile -Path ${psString(envFile)}`,
+        '"A=[$($v.A)] B=[$($v.B)]"',
+        '"USER=[$(Get-MaterialMuleDatabaseUrlUser -Url $v.DATABASE_URL)]"',
+        '"QUERY=[$(Get-MaterialMuleDatabaseUrlUser -Url \'postgres://localhost/db?user=materialmule_app\')]"',
+        '"NONE=[$(Get-MaterialMuleDatabaseUrlUser -Url \'postgres://localhost/db\')]"',
+      ].join('\n'),
+    ]);
+    expect(result.code, result.output).toBe(0);
+    expect(result.output).toContain('A=[plain] B=[single quoted]');
+    expect(result.output).toContain('USER=[app_user]');
+    expect(result.output).toContain('QUERY=[materialmule_app]');
+    expect(result.output).toContain('NONE=[]');
+  });
+
+  it('checks pg_hba.conf methods, including lines with a separate mask', () => {
+    const dir = join(work, 'pg-mask');
+    mkdirSync(dir);
+    writeFileSync(
+      join(dir, 'pg_hba.conf'),
+      [
+        'local all all trust',
+        'host all all 127.0.0.1 255.255.255.255 password',
+        'hostssl all all ::1/128 scram-sha-256',
+        'host all all 10.0.0.0/8 reject',
+      ].join('\n'),
+    );
+    const module = psString(join(SCRIPTS, 'MaterialMuleHosting.psm1'));
+    const result = pwsh([
+      '-Command',
+      `$ErrorActionPreference = 'Stop'; Import-Module ${module}; Test-MaterialMulePgHbaAuthMethod -DataDir ${psString(dir)}`,
+    ]);
+    expect(result.code, result.output).toBe(0);
+    expect(result.output.trim().split(/\r?\n/)).toEqual([
+      "pg_hba.conf host line for 127.0.0.1 uses 'password'; use scram-sha-256",
+    ]);
+  });
+
+  describe('Install-MaterialMuleHost.ps1 -FailOnExposure', () => {
+    const install = (pg: string, args: string[], firewall: { DisplayName: string }[] = []) =>
+      run({
+        script: 'Install-MaterialMuleHost.ps1',
+        pg,
+        firewall,
+        settings: { InstallRoot: join(work, 'never-created') },
+        args: [...args, '-WhatIf'],
+      });
+
+    it('still only warns without the switch', () => {
+      const result = install('listenAll', []);
+      expect(result.code, result.output).toBe(0);
+      expect(result.output).toContain("WARNING: PostgreSQL: listen_addresses includes '*'");
+      expect(existsSync(join(work, 'never-created'))).toBe(false);
+    });
+
+    it('fails when PostgreSQL is exposed', () => {
+      const result = install('listenAll', ['-FailOnExposure']);
+      expect(result.code, result.output).not.toBe(0);
+      expect(result.output).toContain('Database exposure found (-FailOnExposure)');
+      expect(result.output).toContain("listen_addresses includes '*'");
+      expect(existsSync(join(work, 'never-created'))).toBe(false);
+    });
+
+    it('fails on an md5 pg_hba.conf line or a firewall rule opening 5432', () => {
+      const md5 = install('md5', ['-FailOnExposure']);
+      expect(md5.code, md5.output).not.toBe(0);
+      expect(md5.output).toContain("uses 'md5'");
+      const firewall = install(
+        'local',
+        ['-FailOnExposure'],
+        [{ DisplayName: 'PostgreSQL 17 (fake)' }],
+      );
+      expect(firewall.code, firewall.output).not.toBe(0);
+      expect(firewall.output).toContain(
+        "Firewall rule 'PostgreSQL 17 (fake)' allows inbound TCP 5432",
+      );
+    });
+
+    it('succeeds with the switch when nothing is exposed', () => {
+      const result = install('local', ['-FailOnExposure']);
+      expect(result.code, result.output).toBe(0);
+      expect(result.output).not.toContain('Database exposure found');
+    });
+  });
+});
