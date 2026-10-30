@@ -251,15 +251,13 @@ describe.runIf(isWindows)('folder permissions for the backup account (MM-T21)', 
   const backupAccount = 'EXAMPLE\\svc-materialmule-bk$';
   const serviceAccount = 'NT SERVICE\\MaterialMuleT21Test';
   let work: string;
-  let root: string;
   let hostConfig: string;
 
   beforeAll(() => {
     work = mkdtempSync(join(tmpdir(), 'materialmule-t21-acl-'));
-    root = join(work, 'install-root');
     hostConfig = join(work, 'host.config.psd1');
     writePsd1(hostConfig, {
-      InstallRoot: root,
+      InstallRoot: join(work, 'install-root'),
       HealthUrl: 'https://materialmule.example.internal/api/health',
       ServiceAccount: serviceAccount,
     });
@@ -267,24 +265,30 @@ describe.runIf(isWindows)('folder permissions for the backup account (MM-T21)', 
   afterAll(() => rmSync(work, { recursive: true, force: true }));
 
   /** Install-MaterialMuleHost.ps1's Permissions plan: protected folder -> rules. */
-  function plan(withBackupAccount: boolean): Map<string, PlannedRule[]> {
+  type Plan = { root: string; rules: Map<string, PlannedRule[]> };
+
+  function plan(withBackupAccount: boolean): Plan {
     const account = withBackupAccount ? ` -BackupAccount ${psString(backupAccount)}` : '';
-    const entries = psJson<{ dir: string; rules: PlannedRule[] }[]>(`
-      $plan = Get-MaterialMuleFolderPermissionPlan -Config (Get-MaterialMuleHostConfig -Path ${psString(hostConfig)})${account}
-      ConvertTo-Json -Depth 4 -Compress @(foreach ($dir in $plan.Keys) {
+    // The root comes from the host config: GetFullPath expands short names (RUNNER~1) in TEMP.
+    const result = psJson<{ root: string; entries: { dir: string; rules: PlannedRule[] }[] }>(`
+      $config = Get-MaterialMuleHostConfig -Path ${psString(hostConfig)}
+      $plan = Get-MaterialMuleFolderPermissionPlan -Config $config${account}
+      ConvertTo-Json -Depth 5 -Compress ([ordered]@{ root = $config.InstallRoot; entries = @(foreach ($dir in $plan.Keys) {
         [ordered]@{ dir = $dir; rules = @($plan[$dir] | ForEach-Object {
           [ordered]@{ identity = [string]$_.IdentityReference; rights = [string]$_.FileSystemRights;
                       inheritance = [string]$_.InheritanceFlags; propagation = [string]$_.PropagationFlags } }) }
-      })
+      }) })
     `);
-    return new Map(entries.map((entry) => [entry.dir.toLowerCase(), entry.rules]));
+    const rules = new Map(result.entries.map((entry) => [entry.dir.toLowerCase(), entry.rules]));
+    expect(rules.has(result.root.toLowerCase())).toBe(true);
+    return { root: result.root, rules };
   }
 
   /**
    * Whether `identity` can read `relative` (a file, or a folder ending in '\') under the plan:
    * the nearest protected folder's rules, inherited the way Windows does.
    */
-  function canRead(rules: Map<string, PlannedRule[]>, identity: string, relative: string) {
+  function canRead({ root, rules }: Plan, identity: string, relative: string) {
     const isFolder = relative.endsWith('\\');
     const parts = [root, ...relative.split('\\').filter(Boolean)];
     for (let depth = 0; depth < parts.length; depth++) {
@@ -329,6 +333,8 @@ describe.runIf(isWindows)('folder permissions for the backup account (MM-T21)', 
 
   it('without the backup account, the protected folders shut it out of its own scripts (the gap)', () => {
     const before = plan(false);
+    // The service account reads the release, so the paths resolve against the plan.
+    expect(canRead(before, serviceAccount, 'current\\deploy\\windows\\backup.ps1')).toBe(true);
     for (const path of needed) expect(canRead(before, backupAccount, path), path).toBe(false);
   });
 
@@ -343,9 +349,8 @@ describe.runIf(isWindows)('folder permissions for the backup account (MM-T21)', 
         canRead(before, serviceAccount, path),
       );
     }
-    expect(after.get(join(root, 'config', 'admin').toLowerCase())).toEqual(
-      before.get(join(root, 'config', 'admin').toLowerCase()),
-    );
+    const admin = join(after.root, 'config', 'admin').toLowerCase();
+    expect(after.rules.get(admin)).toEqual(before.rules.get(admin));
   });
 });
 
