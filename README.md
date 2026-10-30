@@ -65,8 +65,8 @@ A development database built before the MM-AO02 clean baseline (2026-10-29) is r
 `npm run db:reset:test` for the test database.
 
 Open http://127.0.0.1:5173 (use `127.0.0.1`, not `localhost`). You land on the sign-in page; pick
-**Test sign-in (development only)** and sign in as **Admin (test)**. The dashboard's status card
-should show **API: OK** and **Database: Connected**. Without signing in, check
+**Test sign-in (development only)** and sign in as **Admin (test)**. **Settings → System status**
+should show the database as **Connected**. Without signing in, check
 http://127.0.0.1:5173/api/health.
 
 ## Signing in

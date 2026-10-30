@@ -67,8 +67,8 @@ administrator"). Placeholders are in angle brackets, e.g. `<password>`.
 
 ### 1.2 Remove a Windows service install, if there is one _(admin)_
 
-Skip this if the PC was only ever used with `npm run dev` (check: both commands below print
-nothing).
+Skip this if the PC was only ever used with `npm run dev` (check: `Get-Service` below prints
+nothing and `Test-Path` prints `False` twice).
 
 ```powershell
 Get-Service -Name MaterialMule, Trapezoid -ErrorAction SilentlyContinue
@@ -286,8 +286,8 @@ npm run mock:idp -w @materialmule/api
 
 ## Part 5: check everything works
 
-1. The dashboard's status card shows **API: OK** and **Database: Connected**.
-   <http://127.0.0.1:5173/api/health> returns `"status":"ok"` and `"database":"up"`.
+1. <http://127.0.0.1:5173/api/health> returns `"status":"ok"` and `"database":"up"`. As Admin
+   (test), **Settings → System status** shows the database as **Connected**.
 2. Sign in as `at` (Alex Tester) at <http://127.0.0.1:5173/sign-in/test>, open **Receive
    samples**, choose **DEMO-2601**, add a bucket with a summary for **TH26-01**, review and
    confirm. The receipt issues a storage unit ID such as `BKT-2026-000001`, and **Preview label** on the

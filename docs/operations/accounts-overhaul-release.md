@@ -195,7 +195,8 @@ lists until the owning card ships (owner decision 2026-10-29). Not part of this 
 
 - [ ] `npm run verify` and `npm run test:e2e` on the office Windows PC at the merged commit.
 - [ ] `npm run db:migrate` on the office PC (applies `0004`), after a backup.
-- [ ] A restore drill on Windows (`restore.ps1`, runbook MM-T21) once IT has set the D39 backup
-      values; until then the manual `pg_dump` in the runbook.
+- [ ] A restore drill on Windows (`restore.ps1`, runbook MM-T21). It can run now against the
+      manual `pg_dump` in the runbook (result `restored-unverified`: a manual dump has no
+      manifest); a fully `verified` drill needs a `backup.ps1` backup, after IT's D39 values.
 - [ ] A manual pass on a phone and a desktop: Team & Permissions, My access, Staff, Action requests.
 - [ ] Owner acceptance (Kyle) of this release and of the exception register.

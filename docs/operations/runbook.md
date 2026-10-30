@@ -3,7 +3,7 @@
 How to install, upgrade, roll back and look after Material Mule on the office Windows PC (MM-T20,
 decision D25). Written so someone who did not build the app can follow it step by step.
 
-- The API is a Node.js app run as the Windows service **Material Mule** (wrapped by WinSW). It serves
+- The API is a Node.js app run as the Windows service `MaterialMule` (wrapped by WinSW). It serves
   the web app and `/api` from one HTTPS address, e.g. `https://materialmule.example.internal`.
 - PostgreSQL 17 runs on the same PC as its own service and only accepts local connections.
 - Nothing is reachable from outside the office network (D26).
@@ -49,7 +49,8 @@ on the host, not in the repository.
 | Backup design (D39, T21)    | Scheduled and pre-deploy backups, restore drills, alerts            | `backup.config.psd1` (see below)                 |
 
 Not decided here: Microsoft sign-in timing (D38) and backup/recovery design (D39). The T20 scripts
-work without either; the T21 backup scripts **refuse to run** until IT has set every D39 value.
+work without either; `backup.ps1`, `monitor.ps1` and the scheduled-task install **refuse to run**
+until IT has set every D39 value (`restore.ps1` needs only the database settings).
 
 ### Backup decisions IT still has to make (D39)
 
@@ -114,7 +115,8 @@ anything.
    hash: `(Get-FileHash C:\MaterialMule\service\materialmule-service.exe).Hash` → `WinSWSha256` below.
 
 Script files copied from a network share or a downloaded zip may be marked as "from the internet".
-Check where they came from, then `Get-ChildItem C:\MaterialMule\releases -Recurse | Unblock-File`.
+After copying a release folder to the host (here and at every upgrade), check where it came from,
+then `Get-ChildItem D:\materialmule-<version> -Recurse | Unblock-File`.
 Never use `-ExecutionPolicy Bypass`.
 
 ### 2. Lock PostgreSQL to this PC (AC5)
@@ -123,7 +125,7 @@ Never use `-ExecutionPolicy Bypass`.
 2. In `pg_hba.conf` keep only the `127.0.0.1/32` and `::1/128` `host` lines (method
    `scram-sha-256`). Delete any `0.0.0.0/0`, `all` or subnet lines.
 3. If the installer created a Windows Firewall rule for port 5432, disable it:
-   `Get-NetFirewallPortFilter | Where-Object LocalPort -eq 5432 | Get-NetFirewallRule`.
+   `Get-NetFirewallPortFilter -Protocol TCP | Where-Object LocalPort -eq 5432 | Get-NetFirewallRule | Disable-NetFirewallRule`.
 4. Restart PostgreSQL: `Restart-Service postgresql-x64-17`.
 
 `Install-MaterialMuleHost.ps1` checks all three and warns if anything is still open.
@@ -308,7 +310,7 @@ Edit the file, then restart the service: `Restart-Service MaterialMule`, and che
 After any rotation, check no secret reached the logs (AC4):
 
 ```powershell
-node C:\MaterialMule\current\scripts\check-bundle-secrets.mjs --dir C:\MaterialMule\current\apps\web\dist --logs C:\MaterialMule\logs --env-file C:\MaterialMule\config\materialmule.env --env-file C:\MaterialMule\config\admin\migrate.env
+node C:\MaterialMule\current\scripts\check-bundle-secrets.mjs --dir C:\MaterialMule\current\apps\web\dist --logs C:\MaterialMule\logs --logs C:\MaterialMule\ops\logs --logs 'C:\Program Files\PostgreSQL\17\data\log' --env-file C:\MaterialMule\config\materialmule.env --env-file C:\MaterialMule\config\admin\migrate.env
 ```
 
 ## Renew the certificate
@@ -376,8 +378,9 @@ The API's logs never contain request bodies, tokens, cookies or passwords (pino 
 
 ## Backups and restore drills
 
-MM-T21. **Only after IT has decided the backup design (D39)**: every script refuses to run while a
-D39 value is missing from `backup.config.psd1` ([IT inputs](#backup-decisions-it-still-has-to-make-d39)).
+MM-T21. **Only after IT has decided the backup design (D39)**: `backup.ps1`, `monitor.ps1` and the
+scheduled-task install refuse to run while a D39 value is missing from `backup.config.psd1`
+(`restore.ps1` needs only the database settings) ([IT inputs](#backup-decisions-it-still-has-to-make-d39)).
 
 What a backup does (`deploy\windows\backup.ps1`): run `verify-restore.sql` (read-only) → `pg_dump`
 in custom format as the read-only `materialmule_backup` role → run the queries again (equal results
@@ -437,7 +440,8 @@ Elevated PowerShell 7 on the host:
 6. Run the first backup by hand and check Settings → System status shows it:
    `Start-ScheduledTask -TaskPath '\MaterialMule\' -TaskName 'Material Mule Backup'`.
 
-Backups run as the backup account; never run `backup.ps1` elevated. Exit codes: 0 backed up,
+Backups run as the backup account from the scheduled task; apart from the pre-deploy backup the
+deploy script runs, don't run `backup.ps1` elevated by hand. Exit codes: 0 backed up,
 1 failed (recorded and alerted), 2 refused (configuration incomplete; nothing ran).
 
 ### Restore drill (AC2, AC6)
@@ -496,8 +500,10 @@ What to do: **1001** → read the reason (e.g. "Backup location unavailable": re
 share), then run the backup task by hand and confirm Settings → System status shows success.
 **1100** about backups → the same; about the service or health → [Troubleshooting](#troubleshooting);
 about the print queue → check the printer (Settings → Printers); about disk space → free space or
-ask IT. If the backup task itself stops running (disabled, account password expired), the monitor
-still raises 1100 once the RPO passes, and the status page shows the warning.
+ask IT. If the backup task itself is disabled, the monitor still raises 1100 once the RPO passes, and
+the status page shows the warning. Both tasks run as the backup account, so if its password
+expires or it is locked out the monitor stops too: only the status page warns, so IT should
+watch the tasks' last-run results or the account.
 
 ## Recover production from a backup
 
@@ -506,9 +512,13 @@ is deliberately manual: no script ever restores over production.
 
 1. Stop the service: `Stop-Service MaterialMule`.
 2. Restore the chosen backup into a **new** database, keeping owners and grants (the roles must
-   exist: on a rebuilt host, do [First install](#first-install) steps 1–4 and `setup-roles` first):
+   exist: on a rebuilt host, do [First install](#first-install) steps 1–4 and `setup-roles` with all
+   three roles first; on a rebuilt host, `cd` to the release folder's `deploy\windows` instead):
    ```powershell
+   cd C:\MaterialMule\current\deploy\windows
+   $env:PGPASSWORD = (Read-Host 'postgres password' -MaskInput)
    .\restore.ps1 -ConfigPath C:\MaterialMule\config\backup.config.psd1 -BackupFile <backup>.dump -TargetDatabase materialmule_restore_recovery -KeepOwnership
+   Remove-Item Env:PGPASSWORD
    ```
    It must end with `Result: verified`.
 3. Swap the databases (keeps the damaged one for investigation):
@@ -556,7 +566,7 @@ result on the MM-T21 card (and drills in the [drill log](#drill-log)). T4 is aut
 | T2  | Restore drill (AC2, AC6) | [Restore drill](#restore-drill-ac2-ac6) with the latest backup, timed                                                         | `Result: verified`; duration within the RTO; drill logged                                              |
 | T3  | Target unavailable (AC3) | Unplug the drive / disconnect the share, run the backup task                                                                  | Exit 1; status page "Failed: Backup location unavailable"; event 1001 reaches `AlertRecipient`         |
 | T4  | Status endpoint (AC4)    | Automated: `apps/api/src/system-status/system-status.test.ts` (admin only; RPO warning)                                       | Non-admins get 403                                                                                     |
-| T5  | Log rotation (AC5)       | After a week: list `C:\MaterialMule\logs`, `ops\logs` and the PostgreSQL log folder; run the secret check from Rotate secrets | Sizes bounded; no passwords, cookies or tokens found                                                   |
+| T5  | Log rotation (AC5)       | After a week: list `C:\MaterialMule\logs`, `ops\logs` and the PostgreSQL log folder; run the secret check from Rotate secrets | Sizes bounded; no DB password, session secret, client secret or PFX passphrase found                   |
 
 Also for AC4: disable the backup task for longer than the RPO (or set `RpoHours` low on a test
 host) and check the status page shows "Overdue" and the monitor raises event 1100.
