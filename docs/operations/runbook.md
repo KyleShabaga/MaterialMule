@@ -270,7 +270,9 @@ This is the routine task (AC6). Allow 10 minutes, outside busy receiving hours.
      the previous release is running again. Nothing else to do now; send `C:\MaterialMule\logs\deploy.log`
      and the service logs to the developer.
    - `Outcome: RollbackFailed` / `Failed` (exit code 2): the app is down. Go to
-     [Troubleshooting](#troubleshooting).
+     [Troubleshooting](#troubleshooting). This includes a `Stopped: …` line followed by "The
+     release was switched …": an error came after `current` moved. `deploy-state.json` and
+     `deploy.log` say which release `current` points at now.
    - `Stopped: …` (exit code 3): refused before switching anything (bad configuration, backup
      failed, release already present, service would not stop). The running release is unchanged.
 7. Delete the copied release folder from `D:\` (the host keeps its own copy under `releases\`).
