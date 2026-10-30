@@ -457,12 +457,51 @@ interface RenderedJob {
   renderError: string | null;
 }
 
-/** Stickers from the units' current values: a reprint after a correction prints the corrections. */
+/**
+ * Stickers from the units' current values: a reprint after a correction prints the corrections.
+ *
+ * A disposed unit's ID never gets a fresh sticker (MM-T77), even from a job queued before the
+ * disposal and held back by a retry delay, a turned-off printer or earlier jobs (BUG-012). The
+ * units are share-locked here, in id order as at enqueue, inside the claim transaction: either
+ * route's disposal locks the unit FOR UPDATE, so a disposal that commits first is seen and the
+ * whole job fails unsent (no partial job claims labels it never printed), and a disposal that
+ * comes later waits until the claim commits. That commit is the dispatch boundary: labels claimed
+ * before it are already on their way to the printer and can't be called back.
+ */
 async function renderStorageUnitJob(
   client: PoolClient,
   jobId: string,
   templateVersion: string,
 ): Promise<RenderedJob> {
+  const { rows: locked } = await client.query<{ readable_id: string; status: string }>(
+    `SELECT su.readable_id, su.status
+     FROM print_job_item i
+     JOIN storage_unit su ON su.id = i.storage_unit_id
+     WHERE i.print_job_id = $1
+     ORDER BY su.id
+     FOR SHARE OF su`,
+    [jobId],
+  );
+  const disposed = locked.filter((unit) => unit.status === 'disposed').map((u) => u.readable_id);
+  if (disposed.length > 0) {
+    const { rows } = await client.query<{ readable_id: string }>(
+      `SELECT su.readable_id FROM print_job_item i
+       JOIN storage_unit su ON su.id = i.storage_unit_id
+       WHERE i.print_job_id = $1 ORDER BY i.position`,
+      [jobId],
+    );
+    // last_error holds at most 500 characters: name the first few units.
+    const named = disposed.sort().slice(0, 5).join(', ');
+    const more = disposed.length > 5 ? ` and ${disposed.length - 5} more` : '';
+    return {
+      labels: rows.map((row) => row.readable_id),
+      zpl: null,
+      renderError:
+        `Not printed: ${named}${more} ${disposed.length === 1 ? 'was' : 'were'} disposed after ` +
+        'this label was requested. Nothing in this job was sent.',
+    };
+  }
+
   const { rows: units } = await client.query<{
     readable_id: string;
     received_date: string;
