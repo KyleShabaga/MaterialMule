@@ -99,6 +99,25 @@ admin to approve them. `npm run db:reset:dev` puts all of this back (names, role
 applicants) without changing IDs or audit history. In Playwright tests,
 `signInAs(page, 'admin')` from `e2e/support/auth.ts` signs in through the API.
 
+### Demo data
+
+For hands-on testing, `npm run db:seed:demo` adds a fuller fictional dataset through the real API
+(so every rule and audit entry is the app's own). Start the API first (`npm run dev`, with
+`ENABLE_TEST_AUTH=true`); pass `-- --url http://127.0.0.1:<port>` for another port. It adds:
+
+- 8 locations (lab benches, staging, warehouses, cold room) and 5 demo test types
+- 6 projects, DEMO-2610 to DEMO-2615, with leads Pat, Dana and Jamie, project teams, and
+  DEMO-2615 still waiting for an admin to confirm its lead
+- 34 storage units in 10 receipts received 1 to 430 days ago: buckets with every summary type,
+  Shelby tubes and a three-bucket bulk sample, mostly moved out of Receiving
+- Lab programs LP-…: one with tests in every stage (including one returned for correction), an
+  urgent one, a closed one, a requested one and an unsubmitted draft
+- Retention: a hold, an extension and a pending request; three DEMO-2613 units approved for
+  disposal, one of them disposed
+
+If a run stops partway, run it again: it picks up where it left off. Once complete it refuses to
+run again; start over with `npm run db:rebuild:dev -- --disposable <database>`.
+
 The API refuses to start with `ENABLE_TEST_AUTH=true` when `APP_ENV=production`.
 
 ### The shared LAB account
