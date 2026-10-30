@@ -22,7 +22,7 @@ phones, Microsoft tenant) are MM-T22's and are **not** covered here.
 | `npm run test:security`                                              | Pass (11 tests, 2 files)                                                                              |
 | `E2E_PORT=3118 npm run test:e2e` (everything)                        | Pass (110 passed, 4 skipped by design)                                                                |
 | `npm run test:e2e:critical`, run 1 / 2 / 3 (consecutive, no retries) | Pass / Pass / Pass (24 passed each: 12 tests × 2 viewports)                                           |
-| `npm run test:e2e:critical -- --repeat-each=3` (the CI step)         | Pass (72 passed, at `d818555`; CI runs it on every push)                                              |
+| `npm run test:e2e:critical -- --repeat-each=3` (the CI step)         | Pass (72 passed, at `d818555`; CI ran it on every push then, manual runs only since)                  |
 
 Earlier, at `d818555` (before T39) and at `f9922c0` (before T11), the same gates also passed (critical path 18/18 three times
 in a row; CI green on PR #31 at `d1fcc60`).
@@ -76,7 +76,7 @@ shown as saved) and an expired LAB session, keeping its receiver.
   The wizard retried again with the same key, as designed, and no duplicate was created. The test
   had waited only 5 s for the IDs, shorter than the retry back-off (0.5 + 1.5 + 3 s), and now waits
   15 s. Worth watching on the production PC: if connect timeouts show up in its logs, raise
-  `CONNECT_TIMEOUT_MS` in `database.service.ts`.
+  `CONNECT_TIMEOUT_MS` in `database.service.ts` (since raised to 5 s).
 
 ## Known limitations
 
