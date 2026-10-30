@@ -664,7 +664,9 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   testing keep reporting `storage_unit_tested_removal_final` for project and type. A fixture that
   inserts a unit already disposed, with no `disposed_at`, may still add its summaries. The API
   refuses first with 422 `storage_unit_disposed`. Received date and note stay correctable
-  pending an owner decision.
+  pending an owner decision. Migration 0007 makes the summary trigger share-lock each parent
+  unit (id order) before reading its status, so a summary change and a disposal of the same
+  unit serialize: whichever commits first wins, and a change after a disposal is refused.
 
 ## Project assignments and scoped grants (MM-AO02)
 
