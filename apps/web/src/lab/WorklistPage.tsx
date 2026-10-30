@@ -18,11 +18,24 @@ export function WorklistPage() {
   const [testTypeId, setTestTypeId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
-  const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [page, setPage] = useState(1);
   // Every project with a matching program (BUG-006), kept while the next answer loads.
   const [projects, setProjects] = useState<Worklist['projects']>([]);
+  // Each answer is kept with the request it answers; one for an earlier filter, page or retry
+  // never fills the table (it reads as still loading until the current answer arrives).
+  const filters = JSON.stringify([priority, open, testTypeId, projectId]);
+  const requestKey = `${filters}|${page}|${attempt}`;
+  const [answer, setAnswer] = useState<{ key: string; load: Load }>({
+    key: '',
+    load: { state: 'loading' },
+  });
+  const load: Load = answer.key === requestKey ? answer.load : { state: 'loading' };
+  // The last page count seen for these filters, so the pager can show where it is going while
+  // the next page loads.
+  const [shape, setShape] = useState<{ filters: string; total: number; pageSize: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchCatalogue().then(setCatalogue, () => setCatalogue(null));
@@ -32,21 +45,24 @@ export function WorklistPage() {
     fetchWorklist({ priority, open, testTypeId, projectId, page }).then(
       (list) => {
         if (!current) return;
-        const lastPage = Math.max(1, Math.ceil(list.total / list.pageSize));
-        // Programs can leave the worklist between pages: step back to the last page.
-        if (list.items.length === 0 && page > lastPage) {
-          setPage(lastPage);
-          return;
-        }
         setProjects(list.projects);
-        setLoad({ state: 'ready', list });
+        setShape({ filters, total: list.total, pageSize: list.pageSize });
+        const lastPage = Math.max(1, Math.ceil(list.total / list.pageSize));
+        // Programs can leave the worklist between pages: step back to the last page. An answer
+        // kept for that page is from before the change, so it is dropped and fetched again.
+        if (list.items.length === 0 && page > lastPage) {
+          setAnswer({ key: '', load: { state: 'loading' } });
+          setPage(lastPage);
+        } else {
+          setAnswer({ key: requestKey, load: { state: 'ready', list } });
+        }
       },
-      () => current && setLoad({ state: 'error' }),
+      () => current && setAnswer({ key: requestKey, load: { state: 'error' } }),
     );
     return () => {
       current = false;
     };
-  }, [priority, open, testTypeId, projectId, page, attempt]);
+  }, [priority, open, testTypeId, projectId, page, filters, requestKey]);
 
   /** A filter change starts again at the first page. */
   function filter<T>(set: (value: T) => void) {
@@ -56,7 +72,11 @@ export function WorklistPage() {
     };
   }
   const list = load.state === 'ready' ? load.list : null;
-  const totalPages = list ? Math.max(1, Math.ceil(list.total / list.pageSize)) : 1;
+  // Paging: from the shown page once it is here; while a page loads, from the last answer for the
+  // same filters, with both buttons off so a second click can't skip a page.
+  const paging = list ?? (shape && shape.filters === filters ? shape : null);
+  const totalPages = paging ? Math.max(1, Math.ceil(paging.total / paging.pageSize)) : 1;
+  const busy = load.state === 'loading';
   const first = list ? (list.page - 1) * list.pageSize + 1 : 0;
 
   return (
@@ -162,15 +182,19 @@ export function WorklistPage() {
           ]}
         />
       ) : null}
-      {list && list.total > list.pageSize ? (
-        <nav className="pager" aria-label="Pages">
-          <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+      {paging && paging.total > paging.pageSize && load.state !== 'error' ? (
+        <nav className="pager" aria-label="Pages" aria-busy={busy}>
+          <button type="button" disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>
             Previous
           </button>
           <span>
-            Page {list.page} of {totalPages}
+            Page {page} of {totalPages}
           </span>
-          <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+          <button
+            type="button"
+            disabled={busy || page >= totalPages}
+            onClick={() => setPage(page + 1)}
+          >
             Next
           </button>
         </nav>
