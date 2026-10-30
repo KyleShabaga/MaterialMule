@@ -11,10 +11,48 @@ runner in `apps/api/src/db/migrator.ts` (MM-T02).
 | `npm run db:migrate`                                | Apply pending migrations, then load reference data (Receiving lab)                                                |
 | `npm run db:seed:dev`                               | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod         |
 | `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                   |
+| `npm run db:seed:demo`                              | Load demo data through the running dev API (needs `ENABLE_TEST_AUTH=true`); see README "Demo data"                |
 | `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only) |
 | `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)                                           |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
+
+## Seed data
+
+Four sets, each with its own job. All data except the reference data is fictional (DEMO- project
+numbers, invented people and clients) and none of it can be loaded in production.
+
+| Set            | Source                           | Loaded by                                | Where                    | What it is for                                                                                                                                                      |
+| -------------- | -------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reference data | `apps/api/seed/reference.sql`    | `db:migrate`, `db:seed`                  | every environment        | What production needs to start: the Receiving lab, the shared LAB account, the Soils / Advanced Soils groups and the starter template. Idempotent.                  |
+| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2, 3 DEMO test types. Fixed UUIDs; re-runnable. |
+| Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal. Created through the real API, so it is fully audited.   |
+| Benchmark data | `apps/api/src/bench/generate.ts` | `bench:seed`                             | a bench or test database | Ten-year and 5x stress volumes for MM-T19 ([performance/README.md](performance/README.md)). Deterministic; never loaded into dev.                                   |
+
+Which one to change:
+
+- **Something production needs on day one** goes in `reference.sql`, written so it can run again
+  without changing anything.
+- **Something an automated test depends on** goes in `dev.sql`. Keep it small: E2E reloads it
+  before every run (`playwright.config.ts`), test sign-in reads its user IDs
+  (`apps/api/src/auth/test-provider/fixtures.ts`), and E2E and API tests use its fixed units
+  (e.g. `BKT-2024-000001`, DEMO-2602, WH-C2). Don't remove or renumber those to tidy up.
+- **Something that only makes manual testing richer** goes in the demo seeder. It never runs in
+  automated tests, so nothing may depend on it.
+
+### Loading demo data
+
+```powershell
+npm run dev                      # API on 3000 with ENABLE_TEST_AUTH=true; leave it running
+npm run db:seed:demo             # in a second terminal
+npm run db:seed:demo -- --url http://127.0.0.1:3100   # an API on another port
+```
+
+It needs the dev fixtures (it signs in as them) and test sign-in, which never exists in
+production. Received dates count back from today, so retention and "recently received" always
+have something to show. A run that stops partway picks up where it left off when run again;
+once the dataset is complete it refuses to load twice. To start over:
+`npm run db:rebuild:dev -- --disposable materialmule_dev`, then `npm run db:seed:demo`.
 
 ## Migration rules
 

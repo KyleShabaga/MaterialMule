@@ -44,6 +44,7 @@ scripts          Repo tooling (check-bundle-secrets.mjs, pack-release.mjs)
 | `npm run db:migrate`                          | Apply pending migrations, then reference data (Receiving lab)                                                                                                  |
 | `npm run db:seed:dev`                         | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants); refused in production                                            |
 | `npm run db:reset:dev`                        | Re-apply the dev fixtures (names, roles, pending applicants) without changing IDs or audit                                                                     |
+| `npm run db:seed:demo`                        | Richer demo data (DEMO-2610–2615: receipts, moves, lab programs in every stage, retention, disposal) via the running dev API                                   |
 | `npm run db:rebuild:dev -- --disposable <db>` | Drop and rebuild a designated disposable dev database from the baseline, with reference data and fixtures (development only)                                   |
 | `npm run db:reset:test`                       | Drop and rebuild the test database from `apps/api/.env.test`                                                                                                   |
 | `npm run bench:seed`                          | Rebuild a bench DB with fictional ten-year / 5x data (MM-T19; see docs/performance/README.md)                                                                  |
@@ -56,7 +57,10 @@ Database details: [docs/database.md](docs/database.md). Migrations are forward-o
 `apps/api/migrations`, starting from `0001_baseline.sql` (MM-AO02 clean pre-release baseline, a
 one-time owner-approved replacement of the undeployed lineage; never repeat it for a deployed
 database); never edit one that has been applied (the runner checks a checksum). Put
-integrity rules in the database and prove each in `apps/api/src/db/schema*.test.ts`. API tests read
+integrity rules in the database and prove each in `apps/api/src/db/schema*.test.ts`. Seed data
+([docs/database.md#seed-data](docs/database.md#seed-data)): production needs → `seed/reference.sql`;
+anything a test depends on → `seed/dev.sql` (keep its fixed IDs); manual-testing extras → the
+demo seeder, which nothing may depend on. API tests read
 the test database from `apps/api/.env.test` automatically.
 
 A card is done only when `npm run verify` and `npm run test:e2e` pass on Windows. E2E runs
