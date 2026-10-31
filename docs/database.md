@@ -333,6 +333,46 @@ drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `versio
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
 again changes nothing.
 
+## Review eligibility and LPE review approval (MISC-08, migration 0013)
+
+- **Effective eligibility** is one SQL rule, `reviewer_is_eligible(user, scope)`: an active
+  individual `reviewer_eligibility` grant, or an active `review_position_rule` for the person's
+  current position, and no active `reviewer_exclusion` for that scope or for all scopes
+  (`scope_code` NULL, which also covers scopes added later). No position is eligible until an
+  Admin enables a rule. Rules, exclusions and their endings are append-only, need a reason, and
+  are audited with actor, time and before/after.
+- **Reviewing on a project** needs all four: effective eligibility, accepted team membership
+  (`project_team_member_accepted`: members the lead or an Admin added count as accepted; a
+  MISC-07 self-join is pending until accepted), an active reviewer assignment (Admins may still
+  assign) and the lead's active `project_review_approval` of it. A trigger allows only the
+  project's current lead to approve, and only an eligible reviewer on an active assignment.
+- **Loss and restoration.** Every source change takes `review_eligibility_lock()` and, in the
+  same transaction, ends each approval whose reviewer
+  is no longer effectively eligible (`end_kind = 'eligibility_lost'`) and opens a
+  `review_approval_lost` action request for the lead (Admins when there is none). Losing one
+  source while another remains ends nothing. Regaining eligibility, including removing an
+  exclusion, never reactivates an approval: the lead approves again, which settles the request
+  (`reassigned`); removing the assignment also ends its approval and settles it. Approvals take the
+  same lock, so a loss and an approval never interleave.
+- **Lock order (review fix for #122).** `review_eligibility_lock()` is taken first by everything
+  that takes it (source changes, position changes, re-enable, reviewer assignment and approval),
+  before any project row, account or grant row, so its holders queue holding nothing. A change
+  that may end approvals then takes `FOR KEY SHARE` on the projects of every active approval it
+  could end (`beginEligibilityChange`, id order), before the accounts: ending one inserts a
+  `review_approval_lost` request whose project foreign key needs exactly that lock, and taking it
+  last deadlocked with an approval or grant holding the project. The order comment at the top of
+  `0013_review_eligibility.sql` predates this and is superseded here (the file is left unchanged so
+  its checksum still matches databases that applied it). Checks are live on every request, so an
+  open session loses review rights at once.
+- **Deferred:** no scoped review work exists yet (concrete review, MM-AO08), so blocking
+  unfinished review work and keeping drafts belong to the concrete cards C04/C07 (owner decision
+  2026-10-31). Completed work is not touched.
+- **Backfill.** 0013 records each existing active reviewer assignment as approved by its
+  project's lead (audited as "Migration 0013", system), when the project has a lead and the
+  reviewer is effectively eligible; an approval for someone ineligible would otherwise return
+  with their eligibility. A fresh install backfills nothing; seeds and tests create approvals
+  explicitly.
+
 ## Staff position and official initials (MM-T43, MM-T44, MISC-06)
 
 - **Position.** `app_user.position` is `technician`, `technologist`, `engineer`, `lab_manager` or

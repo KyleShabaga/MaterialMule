@@ -8,7 +8,7 @@ import type { Pool, PoolClient } from 'pg';
  * nothing (All projects is unchanged).
  *
  * `user` is a SQL parameter placeholder such as `$1`; the value always travels as a parameter.
- * A reviewer counts only while eligible for the assignment's scope (D05); an issuer only while
+ * A reviewer counts only while effectively eligible for the assignment's scope (D05, MISC-08); an issuer only while
  * the grant is unexpired (D06).
  */
 export function involvementSql(user: string): string {
@@ -20,9 +20,8 @@ export function involvementSql(user: string): string {
     WHERE t.user_id = ${user} AND t.removed_at IS NULL
     UNION ALL
     SELECT a.project_id, 'reviewer' FROM project_reviewer_assignment a
-    JOIN reviewer_eligibility e ON e.user_id = a.reviewer_user_id AND e.scope_code = a.scope_code
-     AND e.revoked_at IS NULL
     WHERE a.reviewer_user_id = ${user} AND a.removed_at IS NULL
+      AND reviewer_is_eligible(a.reviewer_user_id, a.scope_code)
     UNION ALL
     SELECT d.project_id, 'acceptance_delegate' FROM acceptance_delegation d
     WHERE d.delegate_user_id = ${user} AND d.revoked_at IS NULL

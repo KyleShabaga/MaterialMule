@@ -5,6 +5,7 @@ import {
   type ProjectTeam,
   type ReceiverOption,
   type ReportIssuerGrant,
+  type ReviewApproval,
   type ReviewerAssignment,
   type ReviewScope,
   type TeamMember,
@@ -20,6 +21,8 @@ import {
   fetchEligibleReviewers,
   grantIssuer,
   removeReviewer,
+  approveReviewer,
+  withdrawApproval,
   removeTeamMember,
   revokeIssuer,
   type WriteOutcome,
@@ -235,7 +238,15 @@ export function TeamSection({
 
 const REVIEWER_BLOCKED: Record<NonNullable<ReviewerAssignment['blockedReason']>, string> = {
   account_not_active: 'Not effective: account isn’t active',
-  eligibility_revoked: 'Not effective: eligibility revoked',
+  eligibility_revoked: 'Not effective: not eligible to review',
+  not_accepted_member: 'Not effective: not an accepted team member',
+  not_approved: 'Waiting for the lead’s review approval',
+};
+
+const APPROVAL_END: Record<NonNullable<ReviewApproval['endKind']>, string> = {
+  withdrawn: 'Approval withdrawn',
+  eligibility_lost: 'Eligibility lost',
+  assignment_ended: 'Assignment removed',
 };
 
 export function ReviewersSection({
@@ -261,6 +272,7 @@ export function ReviewersSection({
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<ReviewerAssignment | null>(null);
+  const [withdrawing, setWithdrawing] = useState<ReviewerAssignment | null>(null);
   const reviewerId = useId();
 
   useEffect(() => {
@@ -294,6 +306,36 @@ export function ReviewersSection({
         </StatusBadge>
       )}
       <Started row={assignment} verb="Assigned" />
+      {/* MISC-08: eligibility, accepted membership and the lead's approval, each shown apart. */}
+      <span className="field-hint">
+        {assignment.eligible ? 'Eligible' : 'Not eligible'} ·{' '}
+        {assignment.acceptedMember ? 'Accepted team member' : 'Not an accepted team member'} ·{' '}
+        {assignment.approval
+          ? `Approved to review by ${who(assignment.approval.approvedBy)}`
+          : 'Not approved to review'}
+      </span>
+      {data.canApprove && !assignment.approval ? (
+        <button
+          type="button"
+          disabled={busy || !assignment.eligible || !assignment.acceptedMember}
+          onClick={async () => {
+            setBusy(true);
+            await run(
+              approveReviewer(projectId, assignment.id, crypto.randomUUID()),
+              `Approved ${assignment.reviewer.name} to review ${assignment.scope.label}.`,
+              onChange,
+            );
+            setBusy(false);
+          }}
+        >
+          Approve {assignment.reviewer.name} to review ({assignment.scope.label})
+        </button>
+      ) : null}
+      {data.canApprove && assignment.approval ? (
+        <button type="button" disabled={busy} onClick={() => setWithdrawing(assignment)}>
+          Withdraw approval ({assignment.reviewer.name}, {assignment.scope.label})
+        </button>
+      ) : null}
       {data.canManage ? (
         <button type="button" disabled={busy} onClick={() => setRemoving(assignment)}>
           Remove {assignment.reviewer.name} ({assignment.scope.label})
@@ -414,6 +456,40 @@ export function ReviewersSection({
       >
         <p>Reviews they already completed keep their name.</p>
       </ReasonDialog>
+      <ReasonDialog
+        open={withdrawing !== null}
+        title={`Withdraw ${withdrawing?.reviewer.name ?? ''}’s approval to review ${withdrawing?.scope.label ?? ''}?`}
+        confirmLabel="Withdraw approval"
+        onConfirm={async (text) => {
+          const assignment = withdrawing;
+          setWithdrawing(null);
+          if (!assignment?.approval) return;
+          setBusy(true);
+          await run(
+            withdrawApproval(projectId, assignment.approval.id, text),
+            `Withdrew ${assignment.reviewer.name}’s approval to review ${assignment.scope.label}.`,
+            onChange,
+          );
+          setBusy(false);
+        }}
+        onCancel={() => setWithdrawing(null)}
+      >
+        <p>The assignment stays; they can review again only after a new approval.</p>
+      </ReasonDialog>
+      {data.approvalHistory.length > 0 ? (
+        <details>
+          <summary>Ended review approvals ({data.approvalHistory.length})</summary>
+          <ul className="delegate-list" aria-label="Ended review approvals">
+            {data.approvalHistory.map((approval) => (
+              <li key={approval.id}>
+                <strong>{who(approval.reviewer)}</strong> · {approval.scope.label} ·{' '}
+                {APPROVAL_END[approval.endKind ?? 'withdrawn']}
+                {approval.endReason ? `: ${approval.endReason}` : ''}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </BandedCard>
   );
 }

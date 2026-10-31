@@ -20,6 +20,11 @@ import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { revokeTechnicalGrants } from '../project-access/grant-tables.js';
+import {
+  beginEligibilityChange,
+  lockReviewEligibility,
+  settleEligibilityLoss,
+} from '../project-access/review-eligibility.js';
 import { UsersService, assertAnotherActiveAdmin } from '../users/users.service.js';
 import { findPreprovisionedMatch, normalizeUpn } from './first-sign-in.js';
 
@@ -395,6 +400,10 @@ export class StaffService {
    */
   async enable(id: string, change: Change): Promise<StaffMember> {
     return withTransaction(this.database.pool, async (client) => {
+      // Revoking reviewer eligibility grants is an eligibility change (MISC-08): take that lock
+      // first, before the account, like every other one (lock order, review-eligibility.ts). The
+      // person's approvals end with their assignments; no action request is created here.
+      await lockReviewEligibility(client);
       const status = await this.lockStatus(client, id);
       if (status !== 'disabled') {
         throw new UnprocessableEntityException({
@@ -522,6 +531,13 @@ export class StaffService {
     change: Change,
   ): Promise<StaffMember> {
     return withTransaction(this.database.pool, async (client) => {
+      // MISC-08: a position edit may move review eligibility. The eligibility lock and the
+      // projects of this person's approvals come before their account (lock order,
+      // review-eligibility.ts), so ending an approval never waits for a project held by a writer
+      // that is waiting for this account.
+      if (patch.position !== undefined && change.actor.userId) {
+        await beginEligibilityChange(client, { reviewers: [id] });
+      }
       const { rows } = await client.query<{
         official_initials: string | null;
         initials_confirmed_at: Date | null;
@@ -567,6 +583,19 @@ export class StaffService {
           change.actor.userId,
         ],
       );
+      // MISC-08: a position change moves position-based review eligibility at once; an actual
+      // loss ends the person's affected review approvals in this transaction.
+      if (positionChanged && change.actor.userId) {
+        await settleEligibilityLoss(client, {
+          by: {
+            userId: change.actor.userId,
+            initials: change.actor.initials,
+            displayName: change.actor.name ?? '',
+          },
+          actor: change.actor,
+          reason: `position changed from ${old.position ?? 'Not set'} to ${next.position ?? 'Not set'}`,
+        });
+      }
       if (initialsChanged) {
         await recordAudit(client, {
           action: 'staff.initials_changed',

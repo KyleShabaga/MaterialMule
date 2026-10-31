@@ -1,8 +1,13 @@
 import {
+  POSITIONS,
+  POSITION_LABELS,
   STAFF_CAPABILITIES,
   STAFF_CAPABILITY_LABEL,
   formatPerson,
   type AccessSummary,
+  type Position,
+  type PositionRule,
+  type PositionRules,
   type ReviewScope,
   type StaffCapability,
   type StaffGrants,
@@ -12,7 +17,14 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { ConfirmDialog, EmptyState, ErrorState } from '../../components/ui';
 import { shortDateTime } from '../../dashboard/format';
 import { AccessSummaryView } from '../access/AccessSummaryView';
-import { fetchReviewScopes, fetchStaffAccess, fetchStaffGrants, grantsApi } from '../access/api';
+import {
+  fetchPositionRules,
+  fetchReviewScopes,
+  fetchStaffAccess,
+  fetchStaffGrants,
+  grantsApi,
+  rulesApi,
+} from '../access/api';
 import { StaffApiError, staffApi } from './api';
 
 // The Staff drawer's MM-AO06 parts: the job-title override (D16), reviewer eligibility (D05) and
@@ -140,7 +152,7 @@ export function JobTitleSection({
 // Reviewer eligibility and staff capabilities
 // ---------------------------------------------------------------------------------------------
 
-type Ending = { kind: 'eligibility' | 'capability'; id: string; label: string };
+type Ending = { kind: 'eligibility' | 'capability' | 'exclusion'; id: string; label: string };
 
 export function StaffGrantsSection({
   member,
@@ -157,10 +169,14 @@ export function StaffGrantsSection({
   const [scopeReason, setScopeReason] = useState('');
   const [capability, setCapability] = useState<StaffCapability | ''>('');
   const [capabilityReason, setCapabilityReason] = useState('');
+  const [excludeScope, setExcludeScope] = useState('');
+  const [excludeReason, setExcludeReason] = useState('');
   const [keys, setKeys] = useState(() => ({
     scope: crypto.randomUUID(),
     capability: crypto.randomUUID(),
+    exclusion: crypto.randomUUID(),
   }));
+  const excludeId = useId();
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState<Ending | null>(null);
   const [endReason, setEndReason] = useState('');
@@ -232,6 +248,55 @@ export function StaffGrantsSection({
         )
       ) : (
         <>
+          {/* MISC-08: effective eligibility per scope, with each source and any exclusion. */}
+          <ul className="access-list" aria-label="Effective review eligibility">
+            {grants.effectiveEligibility.map((e) => (
+              <li key={e.scope.code}>
+                <strong>
+                  {e.scope.label}: {e.eligible ? 'Eligible to review' : 'Not eligible'}
+                </strong>{' '}
+                <span className="field-hint">
+                  {[
+                    e.individualGrant ? 'individual grant' : null,
+                    e.positionRule ? 'position rule' : null,
+                    e.excluded ? 'excluded' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'no source'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {grants.exclusions.active.length > 0 ? (
+            <ul className="access-list" aria-label="Exclusions">
+              {grants.exclusions.active.map((x) => {
+                const label = `Excluded from ${x.scope ? x.scope.label : 'all review scopes'}`;
+                return (
+                  <li key={x.id}>
+                    <strong>{label}</strong>{' '}
+                    <span className="field-hint">
+                      by {formatPerson(x.startedBy.initials, x.startedBy.name)},{' '}
+                      {shortDateTime(x.startedAt)}
+                      {x.startReason ? ` (${x.startReason})` : ''}
+                    </span>{' '}
+                    {grants.canManage ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setEndReason('');
+                          setEndError(null);
+                          setEnding({ kind: 'exclusion', id: x.id, label });
+                        }}
+                      >
+                        Remove exclusion ({x.scope ? x.scope.label : 'all scopes'})
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
           {grants.capabilities.active.length + grants.reviewerEligibility.active.length === 0 ? (
             <EmptyState>No reviewer eligibility or capabilities.</EmptyState>
           ) : (
@@ -331,6 +396,54 @@ export function StaffGrantsSection({
                   Grant eligibility
                 </button>
               </form>
+              <form
+                className="delegate-add"
+                aria-label="Exclude from review"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!excludeScope || !excludeReason.trim()) return;
+                  const scopeCode = excludeScope === '*' ? null : excludeScope;
+                  const ok = await run(
+                    () =>
+                      grantsApi.addExclusion(member.id, scopeCode, excludeReason, keys.exclusion),
+                    `${member.displayName} is excluded from ${
+                      scopeCode
+                        ? (scopes.find((s) => s.code === scopeCode)?.label ?? scopeCode)
+                        : 'all review scopes'
+                    }.`,
+                  );
+                  setKeys((k) => ({ ...k, exclusion: crypto.randomUUID() }));
+                  if (ok) {
+                    setExcludeScope('');
+                    setExcludeReason('');
+                  }
+                }}
+              >
+                <div className="form-field">
+                  <label htmlFor={excludeId}>Exclude from review</label>
+                  <select
+                    id={excludeId}
+                    value={excludeScope}
+                    onChange={(e) => setExcludeScope(e.target.value)}
+                  >
+                    <option value="">Choose a scope</option>
+                    <option value="*">All review scopes</option>
+                    {scopes.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="field-hint">
+                    Overrides position rules and individual grants. Ends their review approvals in
+                    that scope.
+                  </p>
+                </div>
+                <ReasonInput value={excludeReason} onChange={setExcludeReason} />
+                <button type="submit" disabled={busy || !excludeScope || !excludeReason.trim()}>
+                  Exclude
+                </button>
+              </form>
               {STAFF_CAPABILITIES.some((c) => !heldCapabilities.has(c)) ? (
                 <form
                   className="delegate-add"
@@ -413,8 +526,12 @@ export function StaffGrantsSection({
       )}
       <ConfirmDialog
         open={ending !== null}
-        title={`Revoke ${ending?.label ?? ''}?`}
-        confirmLabel="Revoke"
+        title={
+          ending?.kind === 'exclusion'
+            ? `Remove: ${ending.label}?`
+            : `Revoke ${ending?.label ?? ''}?`
+        }
+        confirmLabel={ending?.kind === 'exclusion' ? 'Remove' : 'Revoke'}
         danger
         onConfirm={async () => {
           if (!ending) return;
@@ -428,13 +545,21 @@ export function StaffGrantsSection({
             () =>
               target.kind === 'capability'
                 ? grantsApi.revokeCapability(member.id, target.id, endReason)
-                : grantsApi.revokeEligibility(member.id, target.id, endReason),
-            `${target.label} revoked for ${member.displayName}.`,
+                : target.kind === 'exclusion'
+                  ? grantsApi.removeExclusion(member.id, target.id, endReason)
+                  : grantsApi.revokeEligibility(member.id, target.id, endReason),
+            target.kind === 'exclusion'
+              ? `${target.label}: removed for ${member.displayName}.`
+              : `${target.label} revoked for ${member.displayName}.`,
           );
         }}
         onCancel={() => setEnding(null)}
       >
-        <p>It stops counting on their next request. Earlier work keeps their name.</p>
+        <p>
+          {ending?.kind === 'exclusion'
+            ? 'Eligibility is recalculated. Project review approvals that ended stay ended: the lead approves again.'
+            : 'It stops counting on their next request. Earlier work keeps their name.'}
+        </p>
         <label htmlFor={endReasonId}>Reason</label>
         <textarea
           id={endReasonId}
@@ -479,5 +604,191 @@ export function StaffAccessSummary({ member }: { member: StaffMember }) {
       {!summary && !error && open ? <p role="status">Loading…</p> : null}
       {summary ? <AccessSummaryView summary={summary} headingLevel={3} /> : null}
     </details>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Position-based review eligibility (MISC-08): no position is eligible until a rule says so
+// ---------------------------------------------------------------------------------------------
+
+export function PositionRulesSection({ onForbidden }: { onForbidden: () => void }) {
+  const [rules, setRules] = useState<PositionRules | null>(null);
+  const [scopes, setScopes] = useState<ReviewScope[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [position, setPosition] = useState<Position | ''>('');
+  const [scope, setScope] = useState('');
+  const [reason, setReason] = useState('');
+  const [key, setKey] = useState(() => crypto.randomUUID());
+  const [disabling, setDisabling] = useState<PositionRule | null>(null);
+  const [disableReason, setDisableReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const positionId = useId();
+  const scopeId = useId();
+  const disableId = useId();
+  const onForbiddenRef = useRef(onForbidden);
+  useEffect(() => {
+    onForbiddenRef.current = onForbidden;
+  });
+  const load = useCallback(() => {
+    Promise.all([fetchPositionRules(), fetchReviewScopes()]).then(
+      ([loaded, loadedScopes]) => {
+        setRules(loaded);
+        setScopes(loadedScopes);
+        setError(null);
+      },
+      (caught: unknown) => {
+        if (forbidden(caught)) onForbiddenRef.current();
+        else setError(message(caught));
+      },
+    );
+  }, []);
+  useEffect(load, [load]);
+
+  async function run(action: () => Promise<PositionRules>): Promise<boolean> {
+    setBusy(true);
+    try {
+      setRules(await action());
+      setError(null);
+      return true;
+    } catch (caught) {
+      if (forbidden(caught)) onForbidden();
+      else setError(message(caught));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="drawer-section" aria-label="Review eligibility by position">
+      <h2>Review eligibility by position</h2>
+      <p className="field-hint">
+        No position is eligible to review until you enable it for a scope. A rule covers everyone
+        with that position now and later. Each change needs a reason.
+      </p>
+      {error ? (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {!rules ? (
+        error ? null : (
+          <p role="status">Loading…</p>
+        )
+      ) : rules.active.length === 0 ? (
+        <EmptyState>No position is eligible to review.</EmptyState>
+      ) : (
+        <ul className="access-list" aria-label="Position rules">
+          {rules.active.map((rule) => (
+            <li key={rule.id}>
+              <strong>
+                {POSITION_LABELS[rule.position]}: {rule.scope.label}
+              </strong>{' '}
+              <span className="field-hint">
+                by {formatPerson(rule.startedBy.initials, rule.startedBy.name)},{' '}
+                {shortDateTime(rule.startedAt)} ({rule.startReason})
+              </span>{' '}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setDisableReason('');
+                  setDisabling(rule);
+                }}
+              >
+                Disable {POSITION_LABELS[rule.position]} ({rule.scope.label})
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="delegate-add"
+        aria-label="Enable a position rule"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!position || !scope || !reason.trim()) return;
+          const ok = await run(() => rulesApi.enable(position, scope, reason, key));
+          setKey(crypto.randomUUID());
+          if (ok) {
+            setPosition('');
+            setScope('');
+            setReason('');
+          }
+        }}
+      >
+        <div className="form-field">
+          <label htmlFor={positionId}>Position</label>
+          <select
+            id={positionId}
+            value={position}
+            onChange={(e) => setPosition(e.target.value as Position | '')}
+          >
+            <option value="">Choose a position</option>
+            {POSITIONS.map((p) => (
+              <option key={p} value={p}>
+                {POSITION_LABELS[p]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <label htmlFor={scopeId}>Review scope</label>
+          <select id={scopeId} value={scope} onChange={(e) => setScope(e.target.value)}>
+            <option value="">Choose a scope</option>
+            {scopes.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <ReasonInput value={reason} onChange={setReason} />
+        <button type="submit" disabled={busy || !position || !scope || !reason.trim()}>
+          Enable rule
+        </button>
+      </form>
+      {rules && rules.history.length > 0 ? (
+        <details className="delegate-history">
+          <summary>Rule history ({rules.history.length})</summary>
+          <ul className="delegate-list">
+            {rules.history.map((rule) => (
+              <li key={rule.id}>
+                {POSITION_LABELS[rule.position]}: {rule.scope.label}; enabled{' '}
+                {shortDateTime(rule.startedAt)}, disabled by{' '}
+                {rule.endedBy ? formatPerson(rule.endedBy.initials, rule.endedBy.name) : ''}{' '}
+                {rule.endedAt ? shortDateTime(rule.endedAt) : ''}
+                {rule.endReason ? ` (${rule.endReason})` : ''}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      <ConfirmDialog
+        open={disabling !== null}
+        title={`Disable ${disabling ? POSITION_LABELS[disabling.position] : ''} for ${disabling?.scope.label ?? ''}?`}
+        confirmLabel="Disable"
+        danger
+        onConfirm={async () => {
+          const rule = disabling;
+          if (!rule || !disableReason.trim()) return;
+          setDisabling(null);
+          await run(() => rulesApi.disable(rule.id, disableReason));
+        }}
+        onCancel={() => setDisabling(null)}
+      >
+        <p>
+          People left with no other source lose eligibility; their review approvals in this scope
+          end and their leads are asked to reassign.
+        </p>
+        <label htmlFor={disableId}>Reason</label>
+        <textarea
+          id={disableId}
+          value={disableReason}
+          maxLength={2000}
+          onChange={(event) => setDisableReason(event.target.value)}
+        />
+      </ConfirmDialog>
+    </section>
   );
 }

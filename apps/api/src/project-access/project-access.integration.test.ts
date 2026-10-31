@@ -473,15 +473,39 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
   it('a reviewer assignment counts only while the reviewer stays eligible for its scope', async () => {
     const person = await addPerson(`elig-${newKey().slice(0, 6)}`, 'Eli Eligible', 'EL');
     const eligibility = staffGrantsSchema.parse((await grantEligibility(person)).body);
-    expect((await assignReviewer('a', person, 'admin')).status).toBe(201);
+    const assigned = await assignReviewer('a', person, 'admin');
+    expect(assigned.status).toBe(201);
     const session = await h.app.get(SessionService).create(person, 'personal');
     const cookie = `${SESSION_COOKIE}=${session.token}`;
     const caps = async () =>
       projectCapabilitiesSchema.parse(
         (await h.http().get(projectPath('a', 'capabilities')).set('Cookie', cookie)).body,
       );
+    // MISC-08: an Admin's assignment alone doesn't make a reviewer: team membership and the
+    // lead's approval come first.
+    expect((await caps()).reviewerScopes).toEqual([]);
+    const assignmentId = projectReviewersSchema
+      .parse(assigned.body)
+      .active.find((r) => r.reviewer.userId === person)!.id;
+    expect(
+      (
+        await send(
+          'post',
+          projectPath('a', 'team-members'),
+          { userId: person, reason: 'Reviews concrete', idempotencyKey: newKey() },
+          'admin',
+        )
+      ).status,
+    ).toBe(201);
+    const approved = await send(
+      'post',
+      projectPath('a', `reviewer-assignments/${assignmentId}/approval`),
+      { idempotencyKey: newKey() },
+      'pe',
+    );
+    expect(approved.status, JSON.stringify(approved.body)).toBe(201);
     expect((await caps()).reviewerScopes.map((s) => s.code)).toEqual(['concrete_field']);
-    expect((await caps()).involvement).toEqual(['reviewer']);
+    expect((await caps()).involvement).toEqual(['team_member', 'reviewer']);
     // Revoking eligibility (admin, with a reason) blocks the assignment without deleting it.
     const revoked = await send(
       'delete',
@@ -498,7 +522,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
       blockedReason: 'eligibility_revoked',
     });
     expect((await caps()).reviewerScopes).toEqual([]);
-    expect((await caps()).involvement).toEqual([]);
+    expect((await caps()).involvement).toEqual(['team_member']);
   });
 
   // ---------------------------------------------------------------------------------------------
@@ -1124,6 +1148,8 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
       const grants = staffGrantsSchema.parse((await grantEligibility(person)).body);
       const eligibilityId = grants.reviewerEligibility.active[0]!.id;
       await blocker.query('BEGIN');
+      // As the revoke route does it (MISC-08): the eligibility lock first, then the grant.
+      await blocker.query('SELECT review_eligibility_lock()');
       await blocker.query(
         `UPDATE reviewer_eligibility SET revoked_at = clock_timestamp(), revoked_by_user_id = $2,
                 revoked_by_name_snapshot = 'Admin Example', revoke_reason = 'Lapsed'
@@ -1131,7 +1157,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
         [eligibilityId, h.users.admin],
       );
       const late = assignReviewer('a', person, 'pe');
-      await waitForLockWait('FROM reviewer_eligibility');
+      await waitForLockWait('review_eligibility_lock');
       await blocker.query('COMMIT');
       const refused = await late;
       expect(refused.status).toBe(422);

@@ -24,7 +24,12 @@ import {
 import { useMe } from '../../session/context';
 import { StaffApiError, listStaff, staffApi } from './api';
 import { LabAccountCard } from './LabAccountCard';
-import { JobTitleSection, StaffAccessSummary, StaffGrantsSection } from './StaffGrantsSection';
+import {
+  JobTitleSection,
+  PositionRulesSection,
+  StaffAccessSummary,
+  StaffGrantsSection,
+} from './StaffGrantsSection';
 
 const STATUS_LABELS: Record<StaffStatus, string> = {
   pending: 'Pending',
@@ -145,6 +150,8 @@ function StaffAccess({ currentUserId }: { currentUserId: string }) {
       <StaffDirectory currentUserId={currentUserId} onForbidden={() => setRevoked(true)} />
       {/* The shared receiving account's password and stations (MM-T06). */}
       <LabAccountCard onForbidden={() => setRevoked(true)} />
+      {/* MISC-08: Eligibility & Capabilities by position (admin only, per review scope). */}
+      <PositionRulesSection onForbidden={() => setRevoked(true)} />
     </div>
   );
 }

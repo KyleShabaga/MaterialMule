@@ -209,6 +209,23 @@ export const removeReviewer = (projectId: string, id: string, reason: string) =>
     projectReviewersSchema,
   );
 
+/** MISC-08: the project's Lead Project Engineer approves an assigned reviewer to review. */
+export const approveReviewer = (projectId: string, id: string, idempotencyKey: string) =>
+  write(
+    projectPath(projectId, `reviewer-assignments/${encodeURIComponent(id)}/approval`),
+    'POST',
+    { idempotencyKey },
+    projectReviewersSchema,
+  );
+
+export const withdrawApproval = (projectId: string, id: string, reason: string) =>
+  write(
+    projectPath(projectId, `review-approvals/${encodeURIComponent(id)}`),
+    'DELETE',
+    { reason },
+    projectReviewersSchema,
+  );
+
 // Authorized report issuers (D06/D07)
 
 export const fetchIssuers = (projectId: string): Promise<LoadResult<ProjectReportIssuers>> =>
