@@ -65,7 +65,10 @@ export function SettingsLayout() {
         {me.accountType === 'shared_lab' ? null : (
           <NavLink to="/settings/access">My access</NavLink>
         )}
-        <NavLink to="/settings/staff">Staff &amp; access</NavLink>
+        {/* MTR-88 / MISC-05: admins only; a direct URL still gets StaffPage's refusal. */}
+        {me.permissions.includes('staff.manage') ? (
+          <NavLink to="/settings/staff">Staff &amp; access</NavLink>
+        ) : null}
         <NavLink to="/settings/locations">Locations</NavLink>
         <NavLink to="/settings/tests">Tests</NavLink>
         <NavLink to="/settings/templates">Templates</NavLink>
