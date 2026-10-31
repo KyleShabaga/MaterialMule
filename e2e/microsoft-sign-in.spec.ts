@@ -11,51 +11,36 @@ async function signInWithMicrosoft(page: Page, name: string) {
   await page.getByRole('link', { name }).click();
 }
 
-test('T5: position setup interrupted, resumed and saved once', async ({ page }, testInfo) => {
+test('MISC-06: a new starter goes straight to Access pending with no position step', async ({
+  page,
+}, testInfo) => {
   // Each browser project uses its own fictional new starter, since the database is shared.
   const name = testInfo.project.name === 'desktop-chromium' ? 'Riley Example' : 'Morgan Example';
 
   await signInWithMicrosoft(page, name);
-  await expect(page).toHaveURL(/\/onboarding\/position$/);
-  await expect(page.getByRole('heading', { name: `Welcome, ${name}` })).toBeVisible();
-  await expect(page.getByText('From Microsoft: Field Technician')).toBeVisible();
-
-  // Interrupted: going elsewhere comes back to setup.
-  await page.goto('/projects');
-  await expect(page).toHaveURL(/\/onboarding\/position$/);
-
-  // Leaving and signing in again resumes setup (nothing was saved).
-  await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page).toHaveURL(/\/sign-in/);
-  await signInWithMicrosoft(page, name);
-  await expect(page).toHaveURL(/\/onboarding\/position$/);
-
-  await page.getByRole('radio', { name: /Engineer \(Eng\)/ }).check();
-  await page.getByRole('button', { name: 'Save' }).click();
-  // New people wait for an administrator before seeing any data.
+  // New people wait for an administrator before seeing any data; Not set blocks nothing.
   await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
 
-  // Saved once: the API refuses a second save, and the next sign-in skips setup.
-  const again = await page.request.post('/api/me/position', {
+  // There is no self-service position any more.
+  const choose = await page.request.post('/api/me/position', {
     headers: { 'x-materialmule-csrf': '1' },
     data: { position: 'technician' },
   });
-  expect(again.status()).toBe(409);
+  expect(choose.status()).toBe(404);
   await page.getByRole('button', { name: 'Sign out' }).click();
   // Wait for sign-out's own navigation; a page.goto during it is aborted (net::ERR_ABORTED).
   await expect(page).toHaveURL(/\/sign-in/);
   await signInWithMicrosoft(page, name);
   await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
   const me = await (await page.request.get('/api/me')).json();
-  expect(me).toMatchObject({ status: 'pending', position: 'engineer', permissions: [] });
+  expect(me).toMatchObject({ status: 'pending', permissions: [] });
+  expect(me).not.toHaveProperty('position');
 });
 
 test('AC1: the bootstrap administrator gets in as an active admin', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium', 'One bootstrap account per run');
   await signInWithMicrosoft(page, 'Avery Bootstrap');
-  await expect(page).toHaveURL(/\/onboarding\/position$/);
-  await page.getByRole('radio', { name: /Project Engineer/ }).check();
-  await page.getByRole('button', { name: 'Save' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByLabel('Signed in user')).toContainText('Avery Bootstrap');
   const me = await (await page.request.get('/api/me')).json();

@@ -60,7 +60,6 @@ function personOption(program: LabProgram): ReceiverOption {
     id: program.requestedBy.userId,
     initials: program.requestedBy.initials ?? '',
     displayName: program.requestedBy.name,
-    position: null,
   };
 }
 

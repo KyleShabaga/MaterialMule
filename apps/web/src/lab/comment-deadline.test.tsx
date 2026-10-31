@@ -15,8 +15,6 @@ const me: MeResponse = {
   roles: [],
   permissions: ['lab_comment.write'],
   sessionExpiresAt: '2026-10-30T16:00:00.000Z',
-  position: 'technician',
-  positionSetupRequired: false,
   profileRefreshFailed: false,
 };
 

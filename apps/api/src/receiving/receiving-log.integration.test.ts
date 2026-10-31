@@ -174,9 +174,7 @@ describe.runIf(testDatabaseUrl)('receiving log API (MM-T51)', () => {
       (await h.http().get(`/api/receipts/receivers?id=${people.casey}`).set('Cookie', cookies.at!))
         .body,
     );
-    expect(byId).toEqual([
-      { id: people.casey, initials: 'CE', displayName: 'Casey Renamed', position: null },
-    ]);
+    expect(byId).toEqual([{ id: people.casey, initials: 'CE', displayName: 'Casey Renamed' }]);
     const byOldName = receiverListResponseSchema.parse(
       (await h.http().get('/api/receipts/receivers?search=example').set('Cookie', cookies.at!))
         .body,

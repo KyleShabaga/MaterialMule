@@ -33,9 +33,7 @@ function who(job: PrintJob): string {
   const account = job.requestedBy.initials ?? job.requestedBy.name;
   if (!job.receiver) return account;
   const { initials, name } = job.receiver;
-  const receiver = initials
-    ? formatReceiver({ initials, displayName: name, position: null })
-    : name;
+  const receiver = initials ? formatReceiver({ initials, displayName: name }) : name;
   return `${account} for ${receiver}`;
 }
 

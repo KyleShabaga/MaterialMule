@@ -487,7 +487,6 @@ export const accessSummarySchema = z.object({
   initials: z.string().nullable(),
   accountType: z.string(),
   status: z.string(),
-  position: z.string().nullable(),
   effectiveJobTitle: effectiveJobTitleSchema,
   roles: z.array(z.enum(['admin', 'lab_manager'])),
   reviewerEligibility: z.array(reviewerEligibilitySchema),

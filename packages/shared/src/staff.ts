@@ -15,14 +15,6 @@ export type StaffPosition = z.infer<typeof staffPositionSchema>;
 
 export const staffAccountTypeSchema = z.enum(['personal', 'shared_lab', 'test']);
 
-/** Short labels used beside initials, e.g. "JS · Jordan Smith (Tech)". */
-export const POSITION_SHORT_LABELS: Record<StaffPosition, string> = {
-  technician: 'Tech',
-  engineer: 'Eng',
-  project_engineer: 'Project Engineer',
-  lab_manager: 'Lab Mgr',
-};
-
 export const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Admin',
   lab_manager: 'Lab Manager',
@@ -147,12 +139,10 @@ export const receiverOptionSchema = z.object({
   id: z.string(),
   initials: z.string(),
   displayName: z.string(),
-  position: staffPositionSchema.nullable(),
 });
 export type ReceiverOption = z.infer<typeof receiverOptionSchema>;
 export const receiverListResponseSchema = z.array(receiverOptionSchema);
 
-/** "JS · Jordan Smith (Tech)": how a receiver is shown everywhere, so duplicates are told apart. */
 /**
  * A person as the app writes them everywhere (MM-T61): "JS · Jordan Smith", so people who share
  * initials are told apart; just one part when the other is missing or the same.
@@ -162,11 +152,9 @@ export function formatPerson(initials: string | null, name: string | null): stri
   return name ?? initials ?? 'Unknown';
 }
 
-export function formatReceiver(
-  option: Pick<ReceiverOption, 'initials' | 'displayName' | 'position'>,
-) {
-  const base = formatPerson(option.initials, option.displayName);
-  return option.position ? `${base} (${POSITION_SHORT_LABELS[option.position]})` : base;
+/** How a receiver is shown everywhere. Positions are never shown outside Settings (MISC-06). */
+export function formatReceiver(option: Pick<ReceiverOption, 'initials' | 'displayName'>) {
+  return formatPerson(option.initials, option.displayName);
 }
 
 /** Error codes the staff API returns in `{ code }` bodies. */

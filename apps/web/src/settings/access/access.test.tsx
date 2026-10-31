@@ -44,7 +44,6 @@ const SUMMARY: AccessSummary = {
   initials: 'JS',
   accountType: 'personal',
   status: 'active',
-  position: 'technician',
   effectiveJobTitle: { value: 'Senior Technician', source: 'override' },
   roles: [],
   reviewerEligibility: [{ ...grant('re-1', 'Qualified field reviewer'), scope: FIELD }],

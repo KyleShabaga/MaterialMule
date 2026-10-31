@@ -367,14 +367,28 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
     expect(ids.sort()).toEqual([users.pe, users.tech].sort());
   });
 
-  it('MM-T61: gives each person their position (null until chosen) for grouping', async () => {
+  it('MM-T61, MISC-06: gives each person their position and effective job title for pickers', async () => {
     await db.pool.query(
-      `UPDATE app_user SET position = 'project_engineer', position_set_at = now() WHERE id = $1`,
+      `UPDATE app_user SET position = 'engineer', position_set_at = now(),
+              job_title = 'Project Engineer' WHERE id = $1`,
       [users.pe],
+    );
+    await db.pool.query(
+      `UPDATE app_user SET job_title = 'Field Technician', job_title_override = 'Lab Lead',
+              job_title_override_set_at = now(), job_title_override_set_by_user_id = id
+       WHERE id = $1`,
+      [users.tech],
     );
     const response = await get('/api/staff/active', cookies.lab!);
     const staff = staffOptionsResponseSchema.parse(response.body);
-    expect(staff.find((s) => s.id === users.pe)?.position).toBe('project_engineer');
-    expect(staff.find((s) => s.id === users.tech)?.position).toBeNull();
+    expect(staff.find((s) => s.id === users.pe)).toMatchObject({
+      position: 'engineer',
+      jobTitle: 'Project Engineer',
+    });
+    // The Admin override wins; no position means null, never a position-derived title.
+    expect(staff.find((s) => s.id === users.tech)).toMatchObject({
+      position: null,
+      jobTitle: 'Lab Lead',
+    });
   });
 });

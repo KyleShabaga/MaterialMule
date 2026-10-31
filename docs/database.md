@@ -84,7 +84,8 @@ it is not permission to reset a deployed database, and forward-only migrations r
 - **Renamed.** `project.pm_pe_user_id` → `lead_project_engineer_user_id`, `project_pm_pe_idx` →
   `project_lead_project_engineer_idx`, `action_item_routes_to_pm_pe()` →
   `action_item_routes_to_lead_project_engineer()`, and the staff position `pm_pe` →
-  `project_engineer` (job metadata, label "Project Engineer"). The Lab Manager role is unchanged.
+  `project_engineer` (job metadata, label "Project Engineer"; folded into `engineer` by migration
+  0012, MISC-06). The Lab Manager role is unchanged.
 - **Databases from the retired lineage.** The migrator refuses any database whose
   `schema_migration` recorded `0001_initial_schema`, with a message naming the rebuild commands;
   it never upgrades one. Rebuild only an explicitly designated disposable database:
@@ -332,14 +333,23 @@ drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `versio
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
 again changes nothing.
 
-## Staff position and official initials (MM-T43, MM-T44)
+## Staff position and official initials (MM-T43, MM-T44, MISC-06)
 
-- **Position.** `position_set_at` records the person's first-login choice; the CHECK
-  `app_user_position_set_has_position` needs a position whenever it is set. When an admin sets a
-  position to Not set (`PATCH /api/staff/:id` with `position: null`), both are cleared in the same
-  statement, so `GET /api/me` reports `positionSetupRequired` again and the person chooses a
-  position at their next sign-in or page load. `staff.profile_changed` records the old position
-  and `positionSetAt`. A non-null position leaves `position_set_at` unchanged.
+- **Position.** `app_user.position` is `technician`, `technologist`, `engineer`, `lab_manager` or
+  NULL ("Not set"), enforced by the CHECK `app_user_position_check` on fresh installs and upgrades
+  alike (migration 0012). Only an Admin sets it (`PATCH /api/staff/:id`, Settings → Staff &
+  access); there is no first-sign-in choice and `POST /api/me/position` no longer exists (404). A
+  position grants nothing and appears nowhere else in the app. `position_set_at` records when the
+  position was last set: a change to a position sets it to now, Not set clears both together (the
+  CHECK `app_user_position_set_has_position` needs a position whenever it is set), and an edit
+  that leaves the position alone leaves it alone. `staff.profile_changed` records the actor, time
+  and the old and new position; no reason is needed.
+- **Migration 0012** turned every `project_engineer` position into `engineer` (a category rename:
+  no Technician became a Technologist, and IDs, identities, initials, `position_set_at`, roles,
+  project roles, assignments, reviewer eligibility and grants are untouched). Each converted
+  person has a `user.position_consolidated` event (actor "Migration 0012", system); one
+  `migration.positions_consolidated` event records the mapping and the count. Earlier audit values
+  that say `project_engineer` stay as written.
 - **Official initials.** Initials assigned by an admin are confirmed by that admin:
   `POST /api/staff` and a `PATCH` that changes `officialInitials` (or submits the same value while
   it is unconfirmed, audited as `staff.initials_confirmed`) write `initials_confirmed_by_user_id`

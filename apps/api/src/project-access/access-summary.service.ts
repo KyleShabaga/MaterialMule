@@ -57,12 +57,11 @@ export class AccessSummaryService {
       official_initials: string | null;
       account_type: string;
       status: string;
-      position: string | null;
       job_title: string | null;
       job_title_override: string | null;
       roles: StaffRole[];
     }>(
-      `SELECT display_name, official_initials, account_type, status, position, job_title,
+      `SELECT display_name, official_initials, account_type, status, job_title,
               job_title_override,
               COALESCE((SELECT array_agg(r.role ORDER BY r.role) FROM role_assignment r
                         WHERE r.user_id = u.id), '{}') AS roles
@@ -193,7 +192,6 @@ export class AccessSummaryService {
       initials: person.official_initials,
       accountType: person.account_type,
       status: person.status,
-      position: person.position,
       effectiveJobTitle: effectiveJobTitle(person.job_title, person.job_title_override),
       roles: person.roles,
       reviewerEligibility: grants.reviewerEligibility.active,

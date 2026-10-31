@@ -20,9 +20,6 @@ export function AccessPendingPage() {
   if (session.status !== 'pending') {
     return <Navigate to="/sign-in" replace />;
   }
-  if (session.me.positionSetupRequired) {
-    return <Navigate to="/onboarding/position" replace />;
-  }
   return (
     <AuthPage wide>
       <section className="auth-card" aria-labelledby="access-pending-title">
@@ -153,10 +150,6 @@ export function RequireActiveSession() {
   }
   if (session.status === 'pending') {
     return <Navigate to="/access-pending" replace />;
-  }
-  // First-login position setup comes before anything else (MM-T05).
-  if (session.me.positionSetupRequired) {
-    return <Navigate to="/onboarding/position" replace />;
   }
   return <Outlet />;
 }

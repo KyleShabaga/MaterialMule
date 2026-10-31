@@ -388,7 +388,7 @@ export function ReceiptWizard({
                   )
                 }
                 staff={staff}
-                projectEngineersOnly
+                engineersOnly
                 staffReady={staffLoaded}
                 receiverUserId={draft.receiver?.id ?? null}
                 online={online}

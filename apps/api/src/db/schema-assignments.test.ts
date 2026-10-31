@@ -417,7 +417,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
       const dana = '00000000-0000-4000-8000-000000000105';
       const pat = '00000000-0000-4000-8000-000000000101';
       await fresh.pool.query(
-        `UPDATE app_user SET job_title = 'Senior Review Engineer', position = 'project_engineer',
+        `UPDATE app_user SET job_title = 'Senior Review Engineer', position = 'engineer',
                 position_set_at = now() WHERE id = $1`,
         [dana],
       );

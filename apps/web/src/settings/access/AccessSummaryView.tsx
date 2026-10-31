@@ -1,12 +1,10 @@
 import {
   JOB_TITLE_SOURCE_LABEL,
-  POSITION_SHORT_LABELS,
   ROLE_LABELS,
   STAFF_CAPABILITY_LABEL,
   formatPerson,
   type AccessProject,
   type AccessSummary,
-  type StaffPosition,
 } from '@materialmule/shared';
 import { Link } from 'react-router';
 import { BandedCard, EmptyState, StatusBadge } from '../../components/ui';
@@ -80,7 +78,6 @@ export function AccessSummaryView({
   summary: AccessSummary;
   headingLevel?: 2 | 3;
 }) {
-  const position = summary.position as StaffPosition | null;
   return (
     <div className="access-summary">
       <BandedCard title="Who" headingLevel={headingLevel}>
@@ -93,10 +90,8 @@ export function AccessSummaryView({
               ? `${summary.effectiveJobTitle.value} (${JOB_TITLE_SOURCE_LABEL[summary.effectiveJobTitle.source]})`
               : 'Not set'}
           </dd>
-          <dt>Position</dt>
-          <dd>{position ? POSITION_SHORT_LABELS[position] : 'Not set'}</dd>
         </dl>
-        <p className="field-hint">A job title or position describes the work; it grants nothing.</p>
+        <p className="field-hint">A job title describes the work; it grants nothing.</p>
       </BandedCard>
 
       <BandedCard title="App roles" headingLevel={headingLevel}>

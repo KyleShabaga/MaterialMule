@@ -18,8 +18,6 @@ const me: MeResponse = {
   roles: [],
   permissions: ['inventory.read', 'lab_program.read'],
   sessionExpiresAt: '2026-10-28T06:00:00.000Z',
-  position: null,
-  positionSetupRequired: false,
   profileRefreshFailed: false,
 };
 

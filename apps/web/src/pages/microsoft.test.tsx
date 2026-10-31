@@ -15,8 +15,6 @@ const NEW_STAFF: MeResponse = {
   roles: [],
   permissions: [],
   sessionExpiresAt: '2026-10-27T03:00:00.000Z',
-  position: null,
-  positionSetupRequired: true,
   profileRefreshFailed: false,
 };
 
@@ -33,8 +31,6 @@ const PROFILE: ProfileResponse = {
   officeLocation: 'Edmonton',
   officialInitials: null,
   initialsConfirmed: false,
-  position: 'technician',
-  positionSetAt: '2026-10-26T15:00:00.000Z',
   source: 'microsoft_graph',
   refreshedAt: '2026-10-26T15:00:00.000Z',
   refreshFailedAt: '2026-10-26T16:00:00.000Z',
@@ -96,17 +92,17 @@ describe('Microsoft callback page', () => {
       // The session the refreshed /api/me would report.
       { status: 'pending', me: NEW_STAFF },
       {
-        '/api/me/profile': () => ({ status: 200, body: { ...PROFILE, position: null } }),
+        '/api/me/profile': () => ({ status: 200, body: PROFILE }),
         '/api/auth/microsoft/callback': () => ({
           status: 200,
-          body: { next: '/onboarding/position' },
+          body: { next: '/access-pending' },
         }),
       },
     );
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     const post = calls.find((c) => c.url === '/api/auth/microsoft/callback')!;
     expect(JSON.parse(String(post.init?.body))).toEqual({ state: 'xyz', code: 'abc' });
-    await waitFor(() => expect(router.state.location.pathname).toBe('/onboarding/position'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/access-pending'));
     expect(calls.filter((c) => c.url === '/api/auth/microsoft/callback')).toHaveLength(1);
   });
 
@@ -131,66 +127,30 @@ describe('Microsoft callback page', () => {
   });
 });
 
-describe('First-login position setup', () => {
-  it('sends a person who has not chosen a position to setup first', async () => {
-    const { router } = renderAt(
-      '/access-pending',
-      { status: 'pending', me: NEW_STAFF },
-      { '/api/me/profile': () => ({ status: 200, body: { ...PROFILE, position: null } }) },
-    );
-    expect(await screen.findByRole('heading', { name: 'Welcome, Riley Example' })).toBeVisible();
-    expect(router.state.location.pathname).toBe('/onboarding/position');
+describe('No position step (MISC-06)', () => {
+  it('sends a pending person straight to Access pending, and an active one to the app', async () => {
+    const { router } = renderAt('/access-pending', { status: 'pending', me: NEW_STAFF });
+    expect(await screen.findByRole('heading', { name: 'Access pending' })).toBeVisible();
+    expect(router.state.location.pathname).toBe('/access-pending');
     const active = renderAt(
-      '/projects',
-      { status: 'active', me: { ...NEW_STAFF, status: 'active' } },
+      '/settings/profile',
+      {
+        status: 'active',
+        me: { ...NEW_STAFF, status: 'active' },
+      },
       { '/api/me/profile': () => ({ status: 200, body: PROFILE }) },
     );
-    await waitFor(() => expect(active.router.state.location.pathname).toBe('/onboarding/position'));
+    expect(await screen.findAllByText('Field Technician')).not.toHaveLength(0);
+    expect(active.router.state.location.pathname).toBe('/settings/profile');
   });
 
-  it('shows the Microsoft job title for reference and saves the choice', async () => {
-    const { calls, refresh } = renderAt(
-      '/onboarding/position',
-      { status: 'pending', me: NEW_STAFF },
-      {
-        '/api/me/profile': () => ({ status: 200, body: { ...PROFILE, position: null } }),
-        '/api/me/position': () => ({ status: 204 }),
-      },
-    );
-    expect(await screen.findByText('From Microsoft: Field Technician')).toBeInTheDocument();
-    for (const label of [
-      'Technician (Tech)',
-      'Engineer (Eng)',
-      'Project Engineer',
-      'Lab Manager',
-    ]) {
-      expect(
-        screen.getByRole('radio', { name: new RegExp(label.replace(/[()/]/g, '.')) }),
-      ).toBeVisible();
-    }
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Choose the position');
-
-    fireEvent.click(screen.getByRole('radio', { name: /Engineer \(Eng\)/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(refresh).toHaveBeenCalled());
-    const save = calls.find((c) => c.url === '/api/me/position')!;
-    expect(JSON.parse(String(save.init?.body))).toEqual({ position: 'engineer' });
-  });
-
-  it('keeps setup open when saving fails', async () => {
-    const { refresh } = renderAt(
-      '/onboarding/position',
-      { status: 'pending', me: NEW_STAFF },
-      {
-        '/api/me/profile': () => ({ status: 200, body: { ...PROFILE, position: null } }),
-        '/api/me/position': () => ({ status: 500 }),
-      },
-    );
-    fireEvent.click(await screen.findByRole('radio', { name: /Lab Manager/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('wasn’t saved');
-    expect(refresh).not.toHaveBeenCalled();
+  it('has no position setup page any more', async () => {
+    renderAt('/onboarding/position', {
+      status: 'active',
+      me: { ...NEW_STAFF, status: 'active' },
+    });
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeVisible();
+    expect(screen.queryByRole('radio')).toBeNull();
   });
 });
 
@@ -198,8 +158,6 @@ describe('My profile', () => {
   const ACTIVE: MeResponse = {
     ...NEW_STAFF,
     status: 'active',
-    position: 'technician',
-    positionSetupRequired: false,
     profileRefreshFailed: true,
   };
 
@@ -220,6 +178,8 @@ describe('My profile', () => {
     expect(screen.getByText('riley@example.test')).toBeInTheDocument();
     expect(screen.getByText('Microsoft 365 profile')).toBeInTheDocument();
     expect(screen.getByText(/Not confirmed yet/)).toBeInTheDocument();
+    // MISC-06: positions show only in Settings → Staff & access, never on the profile.
+    expect(screen.queryByText('Position')).toBeNull();
     expect(screen.getByRole('link', { name: 'Review and retry' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));

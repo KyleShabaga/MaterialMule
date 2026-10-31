@@ -32,7 +32,7 @@ export const TEST_FIXTURES: readonly TestFixture[] = [
   {
     key: 'js-tech',
     userId: '00000000-0000-4000-8000-000000000106',
-    summary: 'Technician sharing the initials JS',
+    summary: 'Technologist sharing the initials JS',
   },
   {
     key: 'js-eng',

@@ -111,7 +111,7 @@ export interface PrintStatusText {
 /** "JS · Jordan Smith", or the name alone for staff without confirmed initials. */
 function personText(person: { initials: string | null; name: string }): string {
   return person.initials
-    ? formatReceiver({ initials: person.initials, displayName: person.name, position: null })
+    ? formatReceiver({ initials: person.initials, displayName: person.name })
     : person.name;
 }
 

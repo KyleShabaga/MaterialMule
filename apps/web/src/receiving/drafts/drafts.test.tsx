@@ -17,13 +17,11 @@ const AT: ReceiverOption = {
   id: '00000000-0000-4000-8000-000000000102',
   initials: 'AT',
   displayName: 'Alex Tester',
-  position: null,
 };
 const PE: ReceiverOption = {
   id: '00000000-0000-4000-8000-000000000101',
   initials: 'PE',
   displayName: 'Pat Example',
-  position: null,
 };
 const project: ProjectSummary = {
   id: '00000000-0000-4000-8000-000000000901',
@@ -47,8 +45,6 @@ const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   roles: [],
   permissions: ['inventory.read', 'project.create', 'test_hole.create', 'receipt.confirm'],
   sessionExpiresAt: '2026-10-26T06:00:00.000Z',
-  position: null,
-  positionSetupRequired: false,
   profileRefreshFailed: false,
   ...overrides,
 });

@@ -21,13 +21,11 @@ const AT: ReceiverOption = {
   id: AT_ACCOUNT.id,
   initials: 'AT',
   displayName: 'Alex Tester',
-  position: 'technician',
 };
 const PE: ReceiverOption = {
   id: PE_ACCOUNT.id,
   initials: 'PE',
   displayName: 'Pat Example',
-  position: 'project_engineer',
 };
 const T0 = new Date('2026-10-26T16:00:00.000Z');
 const T1 = new Date('2026-10-26T16:42:00.000Z');

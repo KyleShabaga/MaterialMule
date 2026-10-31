@@ -62,8 +62,6 @@ const me: MeResponse = {
   roles: [],
   permissions: ['inventory.read', 'project.create', 'test_hole.create', 'receipt.confirm'],
   sessionExpiresAt: '2026-10-26T06:00:00.000Z',
-  position: null,
-  positionSetupRequired: false,
   profileRefreshFailed: false,
 };
 

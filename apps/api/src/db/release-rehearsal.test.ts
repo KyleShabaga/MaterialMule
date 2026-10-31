@@ -226,7 +226,10 @@ describe.runIf(testDatabaseUrl)('release rehearsal: 0001 baseline to latest (MM-
       files.filter((file) => file.version === '0001'),
     );
     await runSeed(db.pool, 'reference', 'test');
-    await runSeed(db.pool, 'dev', 'test');
+    // The dev seed follows the latest schema. The 0001 baseline has no Technologist position
+    // (MISC-06, migration 0012), so the one Technologist fixture starts there as a Technician.
+    const devSeed = await readFile(new URL('../../seed/dev.sql', import.meta.url), 'utf8');
+    await db.pool.query(devSeed.replaceAll("'technologist'", "'technician'"));
     await db.pool.query(LEGACY_ACCESS_FIXTURES);
     before = {
       rights: await effectiveRights(db.pool, permissions),

@@ -16,7 +16,6 @@ import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
-import { PositionSetupPage } from './pages/PositionSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { LabelPrintPage } from './printing/LabelPrintPage';
@@ -88,7 +87,6 @@ export const routes: RouteObject[] = [
       { path: '/sign-in', element: <SignInPage /> },
       { path: '/sign-in/test', element: <TestSignInPage /> },
       { path: '/sign-in/microsoft/callback', element: <MicrosoftCallbackPage /> },
-      { path: '/onboarding/position', element: <PositionSetupPage /> },
       { path: '/access-pending', element: <AccessPendingPage /> },
       {
         element: <RequireActiveSession />,

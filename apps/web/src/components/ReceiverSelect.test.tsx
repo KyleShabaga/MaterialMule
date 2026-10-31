@@ -9,19 +9,16 @@ const JORDAN: ReceiverOption = {
   id: 'id-jordan',
   initials: 'JS',
   displayName: 'Jordan Smith',
-  position: 'technician',
 };
 const ALEX: ReceiverOption = {
   id: 'id-alex',
   initials: 'AT',
   displayName: 'Alex Tester',
-  position: 'technician',
 };
 const JAMIE: ReceiverOption = {
   id: 'id-jamie',
   initials: 'JS',
   displayName: 'Jamie Song',
-  position: 'engineer',
 };
 
 function stubReceivers(byQuery: Record<string, ReceiverOption[]>) {
@@ -68,12 +65,12 @@ describe('ReceiverSelect', () => {
     render(<Harness onChange={onChange} initial={JORDAN} />);
 
     const input = screen.getByRole('combobox', { name: /Received by/ });
-    expect(input).toHaveValue('JS · Jordan Smith (Tech)');
+    expect(input).toHaveValue('JS · Jordan Smith');
     await user.click(input);
     await user.keyboard('AT');
     expect(input).toHaveValue('AT');
     expect(onChange).toHaveBeenCalledWith(null);
-    expect(await screen.findByRole('option', { name: 'AT · Alex Tester (Tech)' })).toBeVisible();
+    expect(await screen.findByRole('option', { name: 'AT · Alex Tester' })).toBeVisible();
   });
 
   it('MM-T53 AC1: tabbing into a chosen receiver selects it too', async () => {
@@ -100,7 +97,7 @@ describe('ReceiverSelect', () => {
     const input = screen.getByRole('combobox', { name: /Received by/ });
     await user.click(input);
     await user.tab();
-    expect(input).toHaveValue('JS · Jordan Smith (Tech)');
+    expect(input).toHaveValue('JS · Jordan Smith');
     expect(onChange).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByText('Choose a person from the list.')).toBeNull();
@@ -122,13 +119,13 @@ describe('ReceiverSelect', () => {
 
     const input = screen.getByRole('combobox', { name: /Received by/ });
     await user.type(input, 'JS');
-    expect(await screen.findByRole('option', { name: 'JS · Jamie Song (Eng)' })).toBeVisible();
-    expect(screen.getByRole('option', { name: 'JS · Jordan Smith (Tech)' })).toBeVisible();
+    expect(await screen.findByRole('option', { name: 'JS · Jamie Song' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'JS · Jordan Smith' })).toBeVisible();
     expect(input).toHaveAttribute('aria-expanded', 'true');
 
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onChange).toHaveBeenLastCalledWith(JORDAN);
-    expect(input).toHaveValue('JS · Jordan Smith (Tech)');
+    expect(input).toHaveValue('JS · Jordan Smith');
     expect(input).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -139,7 +136,7 @@ describe('ReceiverSelect', () => {
     render(<Harness onChange={onChange} />);
     const input = screen.getByRole('combobox', { name: /Received by/ });
     await user.type(input, 'js');
-    await user.click(await screen.findByRole('option', { name: 'JS · Jordan Smith (Tech)' }));
+    await user.click(await screen.findByRole('option', { name: 'JS · Jordan Smith' }));
     expect(onChange).toHaveBeenLastCalledWith(JORDAN);
 
     await user.type(input, 'X');
