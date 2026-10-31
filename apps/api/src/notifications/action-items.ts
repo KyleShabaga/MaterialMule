@@ -215,10 +215,7 @@ export const ROUTED_PEOPLE = `
  * requests and has a work email. Runs inside the transaction that created or reassigned the item;
  * the unique (item, recipient) key means a retry or second call adds nothing.
  */
-export async function enqueueActionItemEmails(
-  client: PoolClient,
-  actionItemId: string,
-): Promise<number> {
+async function enqueueActionItemEmails(client: PoolClient, actionItemId: string): Promise<number> {
   const [row] = await loadItemRows(client, 'a.id = $1', [actionItemId], '');
   if (!row || row.status !== 'open') return 0;
   const title = titleOf(row);
