@@ -89,7 +89,7 @@ test('MM-T82 T3: correct a Shelby tube’s sampling source from Correct details'
   await expect(page.getByRole('heading', { level: 1, name: tube })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Details corrected.' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'History events' })).toContainText(
-    `AT changed sampling source TH26-01: T${tag} → Embankment ${tag}: T${tag} at 1.5 m · Reason: tag misread at receiving`,
+    `AT TEST changed sampling source TH26-01: T${tag} → Embankment ${tag}: T${tag} at 1.5 m · Reason: tag misread at receiving`,
   );
   // Nothing on the page runs wider than the viewport (phone width).
   const overflow = await page.evaluate(

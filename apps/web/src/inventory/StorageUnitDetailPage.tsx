@@ -436,6 +436,19 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
   );
 }
 
+/** Test identities' actions carry the same TEST badge as the header (MTR-3, MM-T33). */
+function ActorTestBadge({ accountType }: { accountType: string | null }) {
+  if (accountType !== 'test') return null;
+  return (
+    <>
+      {' '}
+      <span className="badge" title="Done by a test account">
+        TEST
+      </span>
+    </>
+  );
+}
+
 /** One audit value as text: a location (or any `{name, code}`) reads "name (code)" (MTR-64). */
 function formatHistoryValue(value: unknown): string {
   if (value === null || value === undefined) return '—';
@@ -500,7 +513,8 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
                 {event.action === 'storage_unit.corrected' ? (
                   // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
                   <span>
-                    {event.actor.initials ?? event.actor.name ?? 'Unknown'} changed{' '}
+                    {event.actor.initials ?? event.actor.name ?? 'Unknown'}
+                    <ActorTestBadge accountType={event.actor.accountType} /> changed{' '}
                     {describeStorageUnitCorrection(event.before, event.after).join('; ')}
                     {event.reason ? ` · Reason: ${event.reason}` : ''}
                   </span>
@@ -508,6 +522,7 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
                   <>
                     <span>
                       by {formatPerson(event.actor.initials, event.actor.name)}
+                      <ActorTestBadge accountType={event.actor.accountType} />
                       {event.receiver
                         ? ` for ${formatPerson(event.receiver.initials, event.receiver.name)}`
                         : ''}

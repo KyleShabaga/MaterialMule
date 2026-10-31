@@ -564,7 +564,7 @@ describe('storage unit detail (MM-T12)', () => {
           id: 'e2',
           occurredAt: '2026-10-24T16:00:00.000Z',
           action: 'storage_unit.moved',
-          actor: { initials: 'AT', name: 'Alex Tester', accountType: 'personal' },
+          actor: { initials: 'AT', name: 'Alex Tester', accountType: 'test' },
           receiver: null,
           reason: null,
           before: { location: { code: 'RECEIVING', name: 'Receiving lab' } },
@@ -578,6 +578,31 @@ describe('storage unit detail (MM-T12)', () => {
     const history = await screen.findByRole('list', { name: 'History events' });
     expect(history).toHaveTextContent('location: Receiving lab (RECEIVING) → Warehouse A1 (WH-A1)');
     expect(history).not.toHaveTextContent('[object Object]');
+  });
+
+  it('MTR-3: actions by a test account carry a TEST badge; others do not', async () => {
+    stubDetail({
+      ...HISTORY,
+      items: [
+        {
+          id: 'e3',
+          occurredAt: '2026-10-24T16:00:00.000Z',
+          action: 'receipt.confirmed',
+          actor: { initials: 'AT', name: 'Alex Tester', accountType: 'test' },
+          receiver: null,
+          reason: null,
+          before: null,
+          after: null,
+        },
+        ...HISTORY.items,
+      ],
+      total: 2,
+    });
+    renderAt(`/sample-storage/${DETAIL.readableId}`);
+    const history = await screen.findByRole('list', { name: 'History events' });
+    const [testEvent, labEvent] = within(history).getAllByRole('listitem');
+    expect(within(testEvent!).getByText('TEST')).toBeInTheDocument();
+    expect(within(labEvent!).queryByText('TEST')).not.toBeInTheDocument();
   });
 
   it('AC6: a LAB session sees the detail with no edit actions', async () => {
