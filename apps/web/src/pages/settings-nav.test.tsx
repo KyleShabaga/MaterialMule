@@ -18,8 +18,6 @@ const BASE: MeResponse = {
   roles: [],
   permissions: ['inventory.read', 'label.print', 'lab_program.read', 'action_item.read'],
   sessionExpiresAt: '2026-11-26T16:00:00.000Z',
-  position: null,
-  positionSetupRequired: false,
   profileRefreshFailed: false,
 };
 

@@ -37,7 +37,6 @@ function defaultReceiver(me: MeResponse): ReceiverOption | null {
         id: me.id,
         initials: me.initials,
         displayName: me.displayName,
-        position: me.position ?? null,
       }
     : null;
 }

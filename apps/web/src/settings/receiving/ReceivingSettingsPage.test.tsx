@@ -18,8 +18,6 @@ const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   roles: ['lab_manager'],
   permissions: ['inventory.read', 'settings.drafts.manage'],
   sessionExpiresAt: '2026-10-26T06:00:00.000Z',
-  position: null,
-  positionSetupRequired: false,
   profileRefreshFailed: false,
   ...overrides,
 });

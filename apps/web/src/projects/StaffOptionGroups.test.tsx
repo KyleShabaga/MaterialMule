@@ -3,13 +3,15 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { StaffOptionGroups } from './StaffOptionGroups';
 
-// MM-T61: Lead Project Engineer and review engineer lists are grouped, not filtered. Fictional people only.
+// MM-T61: Lead Project Engineer and review engineer lists are grouped, not filtered. Since
+// MISC-06 the first group is Engineers (the retired Project Engineer position folded into it).
+// Fictional people only.
 
 const PE: StaffOption = {
   id: 'pe',
   displayName: 'Pat Example',
   initials: 'PE',
-  position: 'project_engineer',
+  position: 'engineer',
 };
 const DE: StaffOption = {
   id: 'de',

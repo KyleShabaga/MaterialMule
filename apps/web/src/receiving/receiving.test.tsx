@@ -14,7 +14,7 @@ const PE = {
   id: '00000000-0000-4000-8000-000000000101',
   displayName: 'Pat Example',
   initials: 'PE',
-  position: 'project_engineer' as const,
+  position: 'engineer' as const,
 };
 const AT = {
   id: '00000000-0000-4000-8000-000000000102',
@@ -39,8 +39,6 @@ const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   roles: [],
   permissions: ['inventory.read', 'project.create', 'test_hole.create'],
   sessionExpiresAt: '2026-10-26T06:00:00.000Z',
-  position: null,
-  positionSetupRequired: false,
   profileRefreshFailed: false,
   ...overrides,
 });
@@ -173,23 +171,30 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
   });
 
-  describe('MM-T66 UI-04: Add project lists only Lead Project Engineer staff', () => {
+  describe('MM-T66 UI-04, MISC-06: Add project lists only Engineer staff', () => {
     // GET /api/staff/active already returns only active personal accounts (never pending,
     // disabled or LAB; proven in the API's staff tests). Admin authority isn't a position.
-    const person = (initials: string, displayName: string, position: string | null, n: number) => ({
+    const person = (
+      initials: string,
+      displayName: string,
+      position: string | null,
+      n: number,
+      jobTitle: string | null = null,
+    ) => ({
       id: `00000000-0000-4000-8000-0000000002${String(n).padStart(2, '0')}`,
       initials,
       displayName,
       position,
+      jobTitle,
     });
     const STAFF = [
-      person('PJ', 'Pia Projecteng', 'project_engineer', 1),
-      person('EN', 'Eli Engineer', 'engineer', 2),
+      person('PJ', 'Pia Projecteng', 'engineer', 1, 'Senior Project Engineer'),
+      person('TO', 'Tom Technologist', 'technologist', 2, 'Project Engineer'),
       person('TE', 'Tia Technician', 'technician', 3),
       person('LM', 'Lee Labmanager', 'lab_manager', 4),
       person('NP', 'Nia Noposition', null, 5),
       person('AD', 'Ada Admin', null, 6),
-      person('PX', 'Pax Second-Eng', 'project_engineer', 7),
+      person('PX', 'Pax Second-Eng', 'engineer', 7),
     ];
 
     async function openAddProject(staff: unknown[]) {
@@ -203,7 +208,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       return { user, form: screen.getByRole('group', { name: 'Add project' }) };
     }
 
-    it('offers active project_engineer staff only, in one list without groups', async () => {
+    it('offers active Engineer staff only, in one list without groups, by job title not position', async () => {
       const { form } = await openAddProject(STAFF);
       const select = within(form).getByLabelText('Nominate a Lead Project Engineer (optional)');
       await vi.waitFor(() =>
@@ -213,7 +218,9 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
             .map((o) => o.textContent),
         ).toEqual([
           'No nomination: leave it to an admin',
-          'PJ · Pia Projecteng',
+          // The effective job title shows when there is one, even one saying "Project Engineer";
+          // a Technologist titled "Project Engineer" is still not offered. No position fallback.
+          'PJ · Pia Projecteng — Senior Project Engineer',
           'PX · Pax Second-Eng',
         ]),
       );
@@ -222,11 +229,9 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     });
 
     it('explains an empty list, never substitutes someone else, and saves with no nominee', async () => {
-      const { user, form } = await openAddProject(
-        STAFF.filter((p) => p.position !== 'project_engineer'),
-      );
+      const { user, form } = await openAddProject(STAFF.filter((p) => p.position !== 'engineer'));
       expect(
-        await within(form).findByText(/Nobody active has the Project Engineer position yet\./),
+        await within(form).findByText(/Nobody active has the Engineer position yet\./),
       ).toBeVisible();
       const select = within(form).getByLabelText('Nominate a Lead Project Engineer (optional)');
       expect(

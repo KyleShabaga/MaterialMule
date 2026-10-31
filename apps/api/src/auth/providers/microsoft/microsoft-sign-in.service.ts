@@ -305,11 +305,8 @@ export class MicrosoftSignInService {
         after: { provider: 'microsoft', expiresAt: session.expiresAt.toISOString() },
         requestId,
       });
-      const next = !row.position_set_at
-        ? '/onboarding/position'
-        : status === 'pending'
-          ? '/access-pending'
-          : attempt.return_to;
+      // No position step (MISC-06): an Admin sets positions; Not set never blocks onboarding.
+      const next = status === 'pending' ? '/access-pending' : attempt.return_to;
       return { ok: true as const, session, next };
     });
 

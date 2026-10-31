@@ -21,7 +21,7 @@ const USER = {
   admin: '00000000-0000-4000-8000-000000000103',
   lab: '00000000-0000-4000-8000-000000000104', // Lab Manager
   de: '00000000-0000-4000-8000-000000000105', // Dana Example, engineer
-  'js-tech': '00000000-0000-4000-8000-000000000106', // Jordan Smith, technician
+  'js-tech': '00000000-0000-4000-8000-000000000106', // Jordan Smith, technologist
   'js-eng': '00000000-0000-4000-8000-000000000107', // Jamie Song, engineer
 } as const;
 type FixtureKey = keyof typeof USER;

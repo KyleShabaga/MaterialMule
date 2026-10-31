@@ -3,35 +3,22 @@ import { effectiveJobTitleSchema } from './job-title';
 
 // Microsoft sign-in and profile onboarding (MM-T05).
 
-/** App positions a person picks at first sign-in. They describe the work; they grant nothing. */
-export const POSITIONS = ['technician', 'engineer', 'project_engineer', 'lab_manager'] as const;
+/**
+ * Staff positions (MISC-06), in their canonical order. An Admin sets them in Settings → Staff &
+ * access; null is "Not set", not a fifth position. A position describes the work and grants
+ * nothing: no app role, project leadership or review authority comes from it.
+ */
+export const POSITIONS = ['technician', 'technologist', 'engineer', 'lab_manager'] as const;
 export const positionSchema = z.enum(POSITIONS);
 export type Position = z.infer<typeof positionSchema>;
 
-export const POSITION_LABELS: Record<Position, { label: string; description: string }> = {
-  technician: {
-    label: 'Technician (Tech)',
-    description: 'Receives, moves and tests samples in the lab or field.',
-  },
-  engineer: {
-    label: 'Engineer (Eng)',
-    description: 'Requests and reviews lab testing for projects.',
-  },
-  project_engineer: {
-    label: 'Project Engineer',
-    description:
-      'Works on and leads projects. Project authority comes from project assignments, not this choice.',
-  },
-  lab_manager: {
-    label: 'Lab Manager',
-    description:
-      'Runs the lab. Lab Manager rights are granted by an administrator, not this choice.',
-  },
+/** How a position reads in the Admin's selectors; there are no position descriptions (MISC-06). */
+export const POSITION_LABELS: Record<Position, string> = {
+  technician: 'Technician',
+  technologist: 'Technologist',
+  engineer: 'Engineer',
+  lab_manager: 'Lab Manager',
 };
-
-/** Body of `POST /api/me/position`. */
-export const positionRequestSchema = z.object({ position: positionSchema });
-export type PositionRequest = z.infer<typeof positionRequestSchema>;
 
 /** Where the stored profile fields last came from. */
 export const profileSourceSchema = z.enum(['microsoft_graph', 'microsoft_id_token', 'seed']);
@@ -55,8 +42,6 @@ export const profileResponseSchema = z.object({
   officeLocation: z.string().nullable(),
   officialInitials: z.string().nullable(),
   initialsConfirmed: z.boolean(),
-  position: positionSchema.nullable(),
-  positionSetAt: z.string().nullable(),
   source: profileSourceSchema.nullable(),
   refreshedAt: z.string().nullable(),
   /** Set when the latest refresh failed; the fields above are the last known values. */

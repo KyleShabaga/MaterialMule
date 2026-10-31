@@ -1,6 +1,5 @@
 import {
   JOB_TITLE_SOURCE_LABEL,
-  POSITION_LABELS,
   profileResponseSchema,
   type ProfileResponse,
 } from '@materialmule/shared';
@@ -127,11 +126,6 @@ export function ProfilePage() {
             <p className="profile-name">{p.displayName}</p>
             {p.workEmail ? <p className="profile-email">{p.workEmail}</p> : null}
           </div>
-          {p.position ? (
-            <p className="profile-chips">
-              <span className="profile-chip">{POSITION_LABELS[p.position].label}</span>
-            </p>
-          ) : null}
           {p.canRefresh && !p.refreshFailedAt ? (
             <button type="button" onClick={() => void retry()} disabled={retrying}>
               {retrying ? 'Refreshing…' : 'Refresh from Microsoft'}
@@ -189,8 +183,6 @@ export function ProfilePage() {
                 </span>
               )}
             </dd>
-            <dt>Position</dt>
-            <dd>{p.position ? POSITION_LABELS[p.position].label : field(null)}</dd>
             <dt>Profile source</dt>
             <dd>{p.source ? SOURCE_LABELS[p.source] : field(null)}</dd>
             <dt>Last refreshed</dt>

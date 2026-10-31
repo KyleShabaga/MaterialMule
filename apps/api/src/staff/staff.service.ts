@@ -258,9 +258,8 @@ export class StaffService {
       id: string;
       official_initials: string;
       display_name: string;
-      position: StaffPosition | null;
     }>(
-      `SELECT id, official_initials, display_name, position
+      `SELECT id, official_initials, display_name
        FROM app_user
        WHERE status = 'active' AND account_type <> 'shared_lab' AND official_initials IS NOT NULL
          AND ($1 = '' OR official_initials ILIKE $1 || '%' OR display_name ILIKE '%' || $1 || '%')
@@ -274,7 +273,6 @@ export class StaffService {
       id: row.id,
       initials: row.official_initials,
       displayName: row.display_name,
-      position: row.position,
     }));
   }
 
@@ -324,10 +322,11 @@ export class StaffService {
       // The admin adding the entry assigns its official initials, so they are confirmed by that
       // admin in the same statement (MM-T44).
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO app_user (display_name, official_initials, position, account_type, status,
-                               expected_upn, approved_by, approved_at,
+        `INSERT INTO app_user (display_name, official_initials, position, position_set_at,
+                               account_type, status, expected_upn, approved_by, approved_at,
                                initials_confirmed_by_user_id, initials_confirmed_at)
-         VALUES ($1, $2, $3, 'personal', 'active', $4, $5, now(),
+         VALUES ($1, $2, $3, CASE WHEN $3::text IS NULL THEN NULL ELSE now() END,
+                 'personal', 'active', $4, $5, now(),
                  $5, CASE WHEN $5::uuid IS NULL THEN NULL ELSE now() END)
          RETURNING id`,
         [
@@ -512,9 +511,10 @@ export class StaffService {
    * unconfirmed value is an explicit confirmation). Already-confirmed, unchanged initials keep
    * their original confirmation, and an edit that omits initials never touches it.
    *
-   * Position (MM-T43): "Not set" (null) also clears position_set_at, so the person is asked to
-   * choose a position again at their next sign-in or page load (GET /api/me then reports
-   * positionSetupRequired). A non-null position leaves position_set_at as it was.
+   * Position (MISC-06): only an Admin sets it, here, with no reason. position_set_at records when
+   * it was last set; "Not set" (null) clears both together (CHECK
+   * app_user_position_set_has_position). The change is audited with its before and after values
+   * and grants nothing.
    */
   async update(
     id: string,
@@ -526,10 +526,9 @@ export class StaffService {
         official_initials: string | null;
         initials_confirmed_at: Date | null;
         position: StaffPosition | null;
-        position_set_at: Date | null;
         display_name: string;
       }>(
-        `SELECT official_initials, initials_confirmed_at, position, position_set_at, display_name
+        `SELECT official_initials, initials_confirmed_at, position, display_name
          FROM app_user WHERE id = $1 FOR UPDATE`,
         [id],
       );
@@ -547,12 +546,12 @@ export class StaffService {
         patch.officialInitials !== undefined &&
         change.actor.userId !== null &&
         (initialsChanged || old.initials_confirmed_at === null);
-      // The CHECK app_user_position_set_has_position needs both cleared together.
-      const reopenPosition = next.position === null && old.position_set_at !== null;
+      const positionChanged = next.position !== old.position;
       await client.query(
         `UPDATE app_user
          SET official_initials = $2, position = $3, display_name = $4,
-             position_set_at = CASE WHEN $5 THEN NULL ELSE position_set_at END,
+             position_set_at = CASE WHEN NOT $5 THEN position_set_at
+                                    WHEN $3::text IS NULL THEN NULL ELSE now() END,
              initials_confirmed_by_user_id =
                CASE WHEN $6 THEN $7::uuid ELSE initials_confirmed_by_user_id END,
              initials_confirmed_at = CASE WHEN $6 THEN now() ELSE initials_confirmed_at END,
@@ -563,7 +562,7 @@ export class StaffService {
           next.official_initials,
           next.position,
           next.display_name,
-          reopenPosition,
+          positionChanged,
           confirmInitials,
           change.actor.userId,
         ],
@@ -591,13 +590,9 @@ export class StaffService {
       }
       const before: Record<string, unknown> = {};
       const after: Record<string, unknown> = {};
-      if (next.position !== old.position) {
+      if (positionChanged) {
         before.position = old.position;
         after.position = next.position;
-      }
-      if (reopenPosition) {
-        before.positionSetAt = old.position_set_at!.toISOString();
-        after.positionSetAt = null;
       }
       if (next.display_name !== old.display_name) {
         before.displayName = old.display_name;

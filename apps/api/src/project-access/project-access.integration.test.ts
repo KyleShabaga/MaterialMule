@@ -615,7 +615,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
 
   it('AC3: a job title, position or LAB selection never makes anyone an issuer or reviewer', async () => {
     await h.db.pool.query(
-      `UPDATE app_user SET job_title = 'Senior Project Engineer', position = 'project_engineer',
+      `UPDATE app_user SET job_title = 'Senior Project Engineer', position = 'engineer',
               position_set_at = now() WHERE id = $1`,
       [h.users.tech],
     );

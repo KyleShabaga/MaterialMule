@@ -1,5 +1,6 @@
 import {
-  POSITION_SHORT_LABELS,
+  POSITIONS,
+  POSITION_LABELS,
   ROLE_LABELS,
   type StaffMember,
   type StaffPosition,
@@ -39,13 +40,6 @@ const ACCOUNT_LABELS: Record<StaffMember['accountType'], string> = {
   personal: 'Personal',
   shared_lab: 'Shared LAB',
   test: 'Test',
-};
-const POSITIONS = Object.keys(POSITION_SHORT_LABELS) as StaffPosition[];
-const POSITION_NAMES: Record<StaffPosition, string> = {
-  technician: 'Technician',
-  engineer: 'Engineer',
-  project_engineer: 'Project Engineer',
-  lab_manager: 'Lab Manager',
 };
 
 const dateTime = new Intl.DateTimeFormat('en-CA', {
@@ -310,7 +304,7 @@ function StaffDirectory({
                 { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },
                 {
                   header: 'Position',
-                  cell: (m) => (m.position ? POSITION_NAMES[m.position] : '—'),
+                  cell: (m) => (m.position ? POSITION_LABELS[m.position] : '—'),
                 },
                 { header: 'Account', cell: (m) => ACCOUNT_LABELS[m.accountType] },
                 {
@@ -480,8 +474,6 @@ function StaffDrawer({
   }
 
   const initialsUnconfirmed = Boolean(member.officialInitials) && !member.initialsConfirmed;
-  const clearsPosition =
-    member.accountType === 'personal' && member.position !== null && position === '';
 
   /** Every role change needs a reason (D15, MM-AO03), asked for in the confirmation. */
   function saveRoles(event: FormEvent) {
@@ -594,11 +586,7 @@ function StaffDrawer({
         ) : null}
         <FormField
           label="Position"
-          hint={
-            clearsPosition
-              ? 'Not set: they will be asked to choose a position again at their next sign-in.'
-              : 'Describes their work; grants no permissions.'
-          }
+          hint="Describes their work; grants no permissions. Only shown here."
         >
           {(props) => (
             <select
@@ -609,7 +597,7 @@ function StaffDrawer({
               <option value="">Not set</option>
               {POSITIONS.map((p) => (
                 <option key={p} value={p}>
-                  {POSITION_NAMES[p]}
+                  {POSITION_LABELS[p]}
                 </option>
               ))}
             </select>
@@ -819,7 +807,7 @@ function AddStaffDialog({
               <option value="">Not set</option>
               {POSITIONS.map((p) => (
                 <option key={p} value={p}>
-                  {POSITION_NAMES[p]}
+                  {POSITION_LABELS[p]}
                 </option>
               ))}
             </select>

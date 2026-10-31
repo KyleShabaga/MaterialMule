@@ -12,21 +12,18 @@ async function signInWithMicrosoft(page: Page, name: string) {
   await page.getByRole('link', { name }).click();
 }
 
-test('an admin assigns initials and clears a position; the person chooses again and sees the initials', async ({
+test('an admin assigns initials and a position; the person sees the initials but never the position', async ({
   page,
 }, testInfo) => {
   const desktop = testInfo.project.name === 'desktop-chromium';
   const name = desktop ? 'Casey Example' : 'Drew Example';
   const initials = desktop ? 'CXE' : 'DXE';
 
-  // Onboarding: the new starter chooses a position, then waits for approval.
+  // Onboarding: no position step (MISC-06); the new starter waits for approval.
   await signInWithMicrosoft(page, name);
-  await expect(page).toHaveURL(/\/onboarding\/position$/);
-  await page.getByRole('radio', { name: /Engineer \(Eng\)/ }).check();
-  await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
 
-  // The admin approves them, assigns official initials and sets the position to Not set.
+  // The admin approves them, assigns official initials and sets the position.
   await signInAs(page, 'admin');
   await page.goto('/settings/staff');
   const pending = page.getByRole('region', { name: /Waiting for approval/ });
@@ -36,34 +33,31 @@ test('an admin assigns initials and clears a position; the person chooses again 
   await page.getByRole('button', { name: `Manage ${name}` }).click();
   const drawer = page.getByRole('dialog', { name });
   await drawer.getByLabel('Official initials').fill(initials);
-  // Keyboard: choose Not set on the focused select.
+  // Keyboard: choose Technologist on the focused select; exactly four positions and Not set.
   const position = drawer.getByLabel('Position');
+  await expect(position.locator('option')).toHaveText([
+    'Not set',
+    'Technician',
+    'Technologist',
+    'Engineer',
+    'Lab Manager',
+  ]);
   await position.focus();
-  await position.selectOption({ label: 'Not set' });
-  await expect(
-    drawer.getByText(
-      'Not set: they will be asked to choose a position again at their next sign-in.',
-    ),
-  ).toBeVisible();
+  await position.selectOption({ label: 'Technologist' });
   await drawer.getByRole('button', { name: 'Save profile' }).press('Enter');
   await expect(page.getByRole('status').filter({ hasText: `Saved ${name}.` })).toBeVisible();
   await expect(drawer.getByRole('button', { name: /Confirm initials/ })).toHaveCount(0);
 
-  // Their next sign-in asks for a position again (MM-T43).
+  // Their next sign-in goes straight into the app.
   await signInWithMicrosoft(page, name);
-  await expect(page).toHaveURL(/\/onboarding\/position$/);
-  await page.getByRole('radio', { name: /Technician/ }).check();
-  await page.getByRole('button', { name: 'Save' }).click();
   await expect(page).toHaveURL(/\/$/);
 
-  // My profile shows the admin-assigned initials as confirmed (MM-T44).
+  // My profile shows the admin-assigned initials as confirmed (MM-T44) and no position.
   await page.goto('/settings/profile');
   await expect(page.locator('dt:has-text("Official initials") + dd')).toHaveText(initials);
   await expect(page.getByText('Not confirmed yet')).toHaveCount(0);
+  await expect(page.getByText('Technologist')).toHaveCount(0);
   const me = await (await page.request.get('/api/me/profile')).json();
-  expect(me).toMatchObject({
-    officialInitials: initials,
-    initialsConfirmed: true,
-    position: 'technician',
-  });
+  expect(me).toMatchObject({ officialInitials: initials, initialsConfirmed: true });
+  expect(me).not.toHaveProperty('position');
 });

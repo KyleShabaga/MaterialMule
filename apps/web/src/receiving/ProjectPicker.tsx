@@ -45,7 +45,7 @@ export function ProjectPicker({
   staff,
   receiverUserId,
   online,
-  projectEngineersOnly = false,
+  engineersOnly = false,
   staffReady = true,
   required = false,
   invalid = false,
@@ -58,11 +58,12 @@ export function ProjectPicker({
   receiverUserId: string | null;
   online: boolean;
   /**
-   * Receive samples → Add project (MM-T66 UI-04): offer only active staff whose position is Project Engineer
-   * (`project_engineer`), in one list. Elsewhere the grouped list stays (MM-T61). A UI filter only: it grants
-   * no role and changes no project authority; the server still checks the chosen person.
+   * Receive samples → Add project (MM-T66 UI-04, MISC-06): offer only active staff whose position is
+   * Engineer, in one list, by name, initials and effective job title (never the position). Elsewhere
+   * the grouped list stays (MM-T61). A UI filter only: choosing someone nominates them; it grants no
+   * role and changes no project authority, and the server still checks the chosen person.
    */
-  projectEngineersOnly?: boolean;
+  engineersOnly?: boolean;
   /** False while the staff list is still loading, so "nobody eligible" isn't shown too early. */
   staffReady?: boolean;
   /** Marks the project as required (MTR-133). */
@@ -240,10 +241,10 @@ export function ProjectPicker({
   }
 
   const field = (key: keyof AddForm) => fieldErrors[key]?.join(' ') ?? null;
-  const projectEngineerStaff = projectEngineersOnly
-    ? staff.filter((person) => person.position === 'project_engineer')
+  const engineerStaff = engineersOnly
+    ? staff.filter((person) => person.position === 'engineer')
     : staff;
-  const noProjectEngineer = projectEngineersOnly && staffReady && projectEngineerStaff.length === 0;
+  const noEngineer = engineersOnly && staffReady && engineerStaff.length === 0;
   const setField = (key: Exclude<keyof AddForm, 'appointSelfAsLead'>) => (text: string) =>
     setForm((current) => (current ? { ...current, [key]: text } : current));
 
@@ -364,8 +365,8 @@ export function ProjectPicker({
                 label="Nominate a Lead Project Engineer (optional)"
                 error={field('leadNomineeUserId')}
                 hint={
-                  noProjectEngineer
-                    ? 'Nobody active has the Project Engineer position yet. You can leave this empty: an admin appoints the lead. Positions are set under Settings → Staff & access.'
+                  noEngineer
+                    ? 'Nobody active has the Engineer position yet. You can leave this empty: an admin appoints the lead. Positions are set under Settings → Staff & access.'
                     : 'An admin confirms the nomination. Until then the project has no lead, and receiving carries on as normal.'
                 }
               >
@@ -376,10 +377,11 @@ export function ProjectPicker({
                     onChange={(e) => setField('leadNomineeUserId')(e.target.value)}
                   >
                     <option value="">No nomination: leave it to an admin</option>
-                    {projectEngineersOnly ? (
-                      projectEngineerStaff.map((person) => (
+                    {engineersOnly ? (
+                      engineerStaff.map((person) => (
                         <option key={person.id} value={person.id}>
                           {formatPerson(person.initials, person.displayName)}
+                          {person.jobTitle ? ` — ${person.jobTitle}` : ''}
                         </option>
                       ))
                     ) : (

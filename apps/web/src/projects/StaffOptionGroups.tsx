@@ -1,12 +1,15 @@
 import { formatPerson, type StaffOption } from '@materialmule/shared';
 
-/** Positions listed first wherever a Lead Project Engineer or review engineer is chosen (MM-T61). */
-const PROJECT_POSITIONS = new Set(['project_engineer', 'engineer']);
+/**
+ * Positions listed first wherever a Lead Project Engineer or review engineer is chosen (MM-T61).
+ * Engineer only since MISC-06 folded Project Engineer into it; the position itself is never shown.
+ */
+const PROJECT_POSITIONS = new Set(['engineer']);
 
 /**
  * `<option>`s for choosing a Lead Project Engineer or review engineer: "Lead Project Engineer and Engineers" first, then
- * "Other staff". Grouped, not filtered (decided 2026-10-27): real project engineers added ahead of time have no
- * position until their first sign-in. `current` (the project's person now) is always offered, in
+ * "Other staff". Grouped, not filtered (decided 2026-10-27): people added ahead of time may have no position
+ * yet. `current` (the project's person now) is always offered, in
  * the first group, even if they are no longer active or their position changed.
  */
 export function StaffOptionGroups({

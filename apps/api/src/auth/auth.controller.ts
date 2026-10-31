@@ -10,7 +10,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { AuthProvidersResponse, MeResponse, Position } from '@materialmule/shared';
+import type { AuthProvidersResponse, MeResponse } from '@materialmule/shared';
 import type { Response } from 'express';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { APP_CONFIG } from '../config/config.constants.js';
@@ -124,11 +124,9 @@ export class AuthController {
   async me(@CurrentUser() user: AuthUser): Promise<MeResponse> {
     const { rows } = await this.database.pool.query<{
       expires_at: Date;
-      position: Position | null;
-      position_set_at: Date | null;
       profile_refresh_failed_at: Date | null;
     }>(
-      `SELECT s.expires_at, u.position, u.position_set_at, u.profile_refresh_failed_at
+      `SELECT s.expires_at, u.profile_refresh_failed_at
        FROM session s JOIN app_user u ON u.id = s.user_id WHERE s.id = $1`,
       [user.sessionId],
     );
@@ -144,9 +142,6 @@ export class AuthController {
       // Without project context, can() only grants project-scoped permissions through roles.
       permissions: ALL_GLOBAL_PERMISSIONS.filter((p) => can(user, p)),
       sessionExpiresAt: row.expires_at.toISOString(),
-      position: row.position,
-      // First-login position setup applies to people with personal (Microsoft) accounts.
-      positionSetupRequired: user.accountType === 'personal' && row.position_set_at === null,
       profileRefreshFailed: row.profile_refresh_failed_at !== null,
     };
   }

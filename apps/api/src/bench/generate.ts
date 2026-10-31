@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import type { Position } from '@materialmule/shared';
 import { SeededRandom } from './random.js';
 
 /**
@@ -223,7 +224,9 @@ interface Staff {
   id: string;
   name: string;
   initials: string;
-  position: 'technician' | 'engineer' | 'project_engineer' | 'lab_manager';
+  position: Position;
+  /** Leads projects in the generated data; one Engineer in four as before MISC-06. */
+  leadsProjects: boolean;
 }
 interface Location {
   id: string;
@@ -322,14 +325,15 @@ export async function generateBenchData(
   for (let i = 0; i < profile.staff; i++) {
     const given = staffRandom.pick(GIVEN);
     const surname = staffRandom.pick(SURNAMES);
-    const position = (['technician', 'technician', 'engineer', 'project_engineer'] as const)[
-      i % 4
-    ]!;
+    // MISC-06 positions; every fourth person is an Engineer who leads projects (formerly the
+    // Project Engineer position), and Technologists receive alongside Technicians.
+    const position = (['technician', 'technologist', 'engineer', 'engineer'] as const)[i % 4]!;
     staff.push({
       id: staffRandom.uuid(),
       name: `${given} ${surname} ${String(i + 1).padStart(2, '0')}`,
       initials: `${given[0]}${surname[0]}`,
       position,
+      leadsProjects: i % 4 === 3,
     });
   }
   await insertRows(
@@ -345,8 +349,10 @@ export async function generateBenchData(
     ],
     staff.map((s) => [s.id, s.name, s.initials, s.position, 'personal', 'active']),
   );
-  const pmPool = staff.filter((s) => s.position === 'project_engineer');
-  const receivers = staff.filter((s) => s.position === 'technician');
+  const pmPool = staff.filter((s) => s.leadsProjects);
+  const receivers = staff.filter(
+    (s) => s.position === 'technician' || s.position === 'technologist',
+  );
 
   // --- Locations -------------------------------------------------------------------------------
   const locationRandom = stream(2);

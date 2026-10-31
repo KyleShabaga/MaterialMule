@@ -262,19 +262,23 @@ describe('StaffPage', () => {
       return { user, drawer: await screen.findByRole('dialog', { name: 'Olive Onboarded' }) };
     }
 
-    it('sends only the cleared position and explains that onboarding reopens', async () => {
+    it('MISC-06: offers exactly the four positions plus Not set, and sends only the change', async () => {
       const patches = stubApi();
       const { user, drawer } = await openDrawer();
       const position = within(drawer).getByLabelText('Position');
-      await user.selectOptions(position, 'Not set');
       expect(
-        within(drawer).getByText(
-          'Not set: they will be asked to choose a position again at their next sign-in.',
-        ),
-      ).toBeVisible();
+        within(position)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['Not set', 'Technician', 'Technologist', 'Engineer', 'Lab Manager']);
+      expect(within(drawer).getByText(/grants no permissions/)).toBeVisible();
+      await user.selectOptions(position, 'Technologist');
       await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
       expect(await screen.findByText('Saved Olive Onboarded.')).toBeVisible();
-      expect(patches).toEqual([{ position: null }]);
+      expect(patches).toEqual([{ position: 'technologist' }]);
+      await user.selectOptions(position, 'Not set');
+      await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
+      expect(patches.at(-1)).toEqual({ position: null });
     });
 
     it('never sends unchanged initials, and confirms them only on request', async () => {

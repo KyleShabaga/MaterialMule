@@ -10,7 +10,6 @@ import {
   type ReceiptReceiverQuery,
   type ReceiptUnit,
   type ReceiverOption,
-  type StaffPosition,
 } from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
@@ -207,7 +206,6 @@ export async function listReceiptReceivers(
     id: string;
     initials: string;
     display_name: string;
-    position: StaffPosition | null;
   }>(
     `WITH receivers AS (
        SELECT receiver_user_id AS id,
@@ -218,8 +216,7 @@ export async function listReceiptReceivers(
        WHERE ($2::uuid IS NULL OR receiver_user_id = $2::uuid)
        GROUP BY receiver_user_id
      )
-     SELECT u.id, coalesce(u.official_initials, r.latest_initials) AS initials, u.display_name,
-            u.position
+     SELECT u.id, coalesce(u.official_initials, r.latest_initials) AS initials, u.display_name
      FROM receivers r
      JOIN app_user u ON u.id = r.id
      WHERE $1 = '' OR r.snapshot_match
@@ -233,7 +230,6 @@ export async function listReceiptReceivers(
     id: row.id,
     initials: row.initials,
     displayName: row.display_name,
-    position: row.position,
   }));
 }
 

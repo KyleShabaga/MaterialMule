@@ -15,7 +15,7 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   // Other draft fields, entered first.
   const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
   await receiver.fill('AT');
-  await page.getByRole('option', { name: 'AT · Alex Tester (Tech)' }).click();
+  await page.getByRole('option', { name: 'AT · Alex Tester' }).click();
   await page.getByLabel('Description (optional)').fill('Four buckets from the drill crew');
 
   // Existing project by name.
@@ -42,9 +42,13 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
   await form.getByLabel('Project name').fill('Example Ridge');
   await form.getByLabel('Client').fill('Example Client');
-  await form
-    .getByLabel('Nominate a Lead Project Engineer (optional)')
-    .selectOption({ label: 'PE · Pat Example' });
+  // MISC-06: active Engineers only (Pat, Dana, Jamie), by name and initials; no position label.
+  const nominee = form.getByLabel('Nominate a Lead Project Engineer (optional)');
+  await expect(nominee.locator('option', { hasText: 'JS · Jamie Song' })).toHaveCount(1);
+  await expect(nominee.locator('option', { hasText: 'AT · Alex Tester' })).toHaveCount(0);
+  await expect(nominee.locator('option', { hasText: 'JS · Jordan Smith' })).toHaveCount(0);
+  await expect(nominee.locator('option', { hasText: /Engineer\)|\(Eng/ })).toHaveCount(0);
+  await nominee.selectOption({ label: 'PE · Pat Example' });
   await form.getByRole('button', { name: 'Save project' }).click();
   await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
   await expect(page.getByLabel('Project name')).toHaveValue('Example Ridge');
@@ -59,7 +63,7 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(chips).toContainText('TH26-03');
 
   // AC7: nothing else in the draft was cleared.
-  await expect(receiver).toHaveValue('AT · Alex Tester (Tech)');
+  await expect(receiver).toHaveValue('AT · Alex Tester');
   await expect(page.getByLabel('Description (optional)')).toHaveValue(
     'Four buckets from the drill crew',
   );

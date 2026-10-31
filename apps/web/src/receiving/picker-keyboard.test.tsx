@@ -42,9 +42,9 @@ const HOLES: TestHole[] = ['TH26-01', 'TH26-02', 'TH26-03'].map((name, index) =>
   name,
 }));
 const RECEIVERS: ReceiverOption[] = [
-  { id: 'r-at', initials: 'AT', displayName: 'Alex Tester', position: 'technician' },
-  { id: 'r-ad', initials: 'AD', displayName: 'Avery Demo', position: 'engineer' },
-  { id: 'r-al', initials: 'AL', displayName: 'Ash Lab', position: 'technician' },
+  { id: 'r-at', initials: 'AT', displayName: 'Alex Tester' },
+  { id: 'r-ad', initials: 'AD', displayName: 'Avery Demo' },
+  { id: 'r-al', initials: 'AL', displayName: 'Ash Lab' },
 ];
 
 vi.mock('../api/projects', async (importOriginal) => ({
@@ -193,7 +193,7 @@ it('MM-T62 AC3: in Received by, "AT" + Enter records AT · Alex Tester', async (
   const user = userEvent.setup();
   render(<ReceiverSelect value={null} onChange={picked} />);
   await user.type(screen.getByRole('combobox', { name: /Received by/ }), 'AT');
-  await screen.findByRole('option', { name: 'AT · Alex Tester (Tech)' });
+  await screen.findByRole('option', { name: 'AT · Alex Tester' });
   await user.keyboard('{Enter}');
   expect(picked).toHaveBeenLastCalledWith(RECEIVERS[0]);
 });

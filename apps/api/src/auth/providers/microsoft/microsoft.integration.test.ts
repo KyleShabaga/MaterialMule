@@ -167,74 +167,66 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
   it('T4/AC1: the bootstrap identity becomes an active admin on first sign-in', async () => {
     const { callback, cookie } = await signIn('avery');
     expect(callback.status).toBe(200);
-    expect(callback.body).toEqual({ next: '/onboarding/position' });
+    // MISC-06: no position step; an active admin goes where they were going.
+    expect(callback.body).toEqual({ next: '/projects' });
     const user = await userByOid(oidOf('avery'));
     expect(user).toMatchObject({ status: 'active', roles: ['admin'] });
-    expect(await me(cookie!)).toMatchObject({ status: 'active', positionSetupRequired: true });
+    expect(await me(cookie!)).toMatchObject({ status: 'active' });
     const history = await listAuditForEntity(db.pool, 'app_user', user!.id);
     expect(history.map((e) => e.action)).toContain('user.bootstrap_admin_granted');
   });
 
-  it('T4/AC2: anyone else starts pending with position setup and no data access', async () => {
+  it('T4/AC2: anyone else starts pending, with no position step and no data access', async () => {
     const { callback, cookie } = await signIn('riley');
     expect(callback.status).toBe(200);
-    expect(callback.body).toEqual({ next: '/onboarding/position' });
+    // MISC-06: Not set never blocks onboarding; account approval is the only gate.
+    expect(callback.body).toEqual({ next: '/access-pending' });
     expect(await userByOid(oidOf('riley'))).toMatchObject({ status: 'pending', roles: [] });
 
     const current = await me(cookie!);
-    expect(current).toMatchObject({
-      status: 'pending',
-      positionSetupRequired: true,
-      permissions: [],
-    });
+    expect(current).toMatchObject({ status: 'pending', permissions: [] });
+    expect(current).not.toHaveProperty('positionSetupRequired');
+    expect(current).not.toHaveProperty('position');
     const data = await http().get('/api/activity/recent').set('Cookie', cookie!);
     expect(data.status).toBe(403);
     expect(data.body).toMatchObject({ code: 'access_pending' });
   });
 
-  it('T5 (API): position is saved once and setup is not repeated', async () => {
+  it('MISC-06: nobody chooses their own position; POST /api/me/position is gone', async () => {
     const { cookie } = await signIn('riley');
-    const save = () =>
-      http()
-        .post('/api/me/position')
-        .set('Cookie', cookie!)
-        .set(CSRF_HEADER, '1')
-        .send({ position: 'technician' });
-    expect((await save()).status).toBe(204);
-    expect((await save()).status).toBe(409);
-    expect(await me(cookie!)).toMatchObject({
-      position: 'technician',
-      positionSetupRequired: false,
-    });
+    const save = await http()
+      .post('/api/me/position')
+      .set('Cookie', cookie!)
+      .set(CSRF_HEADER, '1')
+      .send({ position: 'technician' });
+    expect(save.status).toBe(404);
+    const { rows } = await db.pool.query<{ position: string | null; position_set_at: Date | null }>(
+      'SELECT position, position_set_at FROM app_user WHERE id = $1',
+      [(await userByOid(oidOf('riley')))!.id],
+    );
+    expect(rows[0]).toEqual({ position: null, position_set_at: null });
+    const profile = await http().get('/api/me/profile').set('Cookie', cookie!);
+    expect(profile.body).not.toHaveProperty('position');
 
-    // Next sign-in: straight to access-pending, position kept.
+    // Next sign-in: still straight to access-pending.
     const again = await signIn('riley');
     expect(again.callback.body).toEqual({ next: '/access-pending' });
-    const bad = await http()
-      .post('/api/me/position')
-      .set('Cookie', again.cookie!)
-      .set(CSRF_HEADER, '1')
-      .send({ position: 'admin' });
-    expect(bad.status).toBe(400);
   });
 
-  it('AC7: choosing Lab Manager or Lead Project Engineer grants nothing', async () => {
+  it('AC7, MISC-06: a Lab Manager or Engineer position grants nothing', async () => {
     const results: string[][] = [];
     for (const [key, position] of [
       ['casey', 'lab_manager'],
-      ['morgan', 'project_engineer'],
-      ['drew', 'technician'],
+      ['morgan', 'engineer'],
+      ['drew', 'technologist'],
     ] as const) {
       const { cookie } = await signIn(key);
-      await http()
-        .post('/api/me/position')
-        .set('Cookie', cookie!)
-        .set(CSRF_HEADER, '1')
-        .send({ position });
-      // Approve (MM-T07 will do this through the admin screen).
-      await db.pool.query(`UPDATE app_user SET status = 'active' WHERE id = $1`, [
-        (await userByOid(oidOf(key)))!.id,
-      ]);
+      // An Admin sets the position (Settings → Staff & access) and approves the account.
+      await db.pool.query(
+        `UPDATE app_user SET status = 'active', position = $2, position_set_at = now()
+         WHERE id = $1`,
+        [(await userByOid(oidOf(key)))!.id, position],
+      );
       const current = await me(cookie!);
       expect(current.roles).toEqual([]);
       results.push(current.permissions.sort());
@@ -249,7 +241,7 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
     const first = await signIn('morgan');
     const user = (await userByOid(oidOf('morgan')))!;
     const history = await listAuditForEntity(db.pool, 'app_user', user.id, { limit: 100 });
-    const positionEvent = history.find((e) => e.action === 'user.position_set')!;
+    const createdEvent = history.find((e) => e.action === 'user.created')!;
     expect(first.callback.status).toBe(200);
 
     const morgan = mock.users.get('morgan')!;
@@ -274,7 +266,7 @@ describe.runIf(testDatabaseUrl)('Microsoft sign-in (MM-T05)', () => {
     expect(rows[0].n).toBe(1);
 
     const later = await listAuditForEntity(db.pool, 'app_user', user.id, { limit: 100 });
-    expect(later.find((e) => e.id === positionEvent.id)!.actorName).toBe('Morgan Example');
+    expect(later.find((e) => e.id === createdEvent.id)!.actorName).toBe('Morgan Example');
     expect(later.find((e) => e.action === 'profile.refreshed')).toMatchObject({
       before: { work_email: 'morgan.mail@example.test', display_name: 'Morgan Example' },
       after: { work_email: 'morgan.renamed@example.test', display_name: 'Morgan Renamed' },

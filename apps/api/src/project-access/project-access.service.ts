@@ -221,9 +221,8 @@ export class ProjectAccessService {
       id: string;
       official_initials: string;
       display_name: string;
-      position: ReceiverOption['position'];
     }>(
-      `SELECT u.id, u.official_initials, u.display_name, u.position
+      `SELECT u.id, u.official_initials, u.display_name
        FROM app_user u
        JOIN reviewer_eligibility e ON e.user_id = u.id AND e.scope_code = $1 AND e.revoked_at IS NULL
        WHERE u.status = 'active' AND u.account_type <> 'shared_lab'
@@ -237,7 +236,6 @@ export class ProjectAccessService {
       id: row.id,
       initials: row.official_initials,
       displayName: row.display_name,
-      position: row.position,
     }));
   }
 

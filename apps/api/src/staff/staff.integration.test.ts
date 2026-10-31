@@ -214,20 +214,16 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
     const response = await http().get('/api/staff/receivers?search=js').set('Cookie', cookie);
     const options = receiverListResponseSchema.parse(response.body);
     expect(options).toEqual([
-      { id: ids.jamie, initials: 'JS', displayName: 'Jamie Song', position: 'engineer' },
-      { id: ids.jordan, initials: 'JS', displayName: 'Jordan Smith', position: 'technician' },
+      { id: ids.jamie, initials: 'JS', displayName: 'Jamie Song' },
+      { id: ids.jordan, initials: 'JS', displayName: 'Jordan Smith' },
     ]);
     expect(new Set(options.map((o) => o.id)).size).toBe(2);
 
     // Name search works too, and only minimal fields come back.
     const byName = await http().get('/api/staff/receivers?search=jordan').set('Cookie', cookie);
     expect(byName.body).toEqual([options[1]]);
-    expect(Object.keys(byName.body[0]).sort()).toEqual([
-      'displayName',
-      'id',
-      'initials',
-      'position',
-    ]);
+    // MISC-06: no position outside Settings → Staff & access.
+    expect(Object.keys(byName.body[0]).sort()).toEqual(['displayName', 'id', 'initials']);
 
     // The LAB station is not a person; wildcards are literal.
     const lab = await http().get('/api/staff/receivers?search=LAB').set('Cookie', cookie);
@@ -350,6 +346,11 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
     expect((await patch({ officialInitials: 'K1' })).status).toBe(400);
     expect((await patch({})).status).toBe(400);
     expect((await patch({ position: 'wizard' })).status).toBe(400);
+    // MISC-06: the retired Project Engineer position is refused like any unknown value.
+    expect((await patch({ position: 'project_engineer' })).status).toBe(400);
+    expect((await patch({ position: 'technologist' })).body).toMatchObject({
+      position: 'technologist',
+    });
     expect((await patch({ position: 'engineer' })).body).toMatchObject({ position: 'engineer' });
     const missing = await http()
       .patch('/api/staff/00000000-0000-4000-8000-000000000999')
@@ -464,7 +465,7 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
     });
   });
 
-  describe('MM-T43: clearing a position after onboarding', () => {
+  describe('MM-T43, MISC-06: an Admin sets and clears positions', () => {
     const patchAs = (cookie: string, id: string, body: object) =>
       http().patch(`/api/staff/${id}`).set('Cookie', cookie).set(CSRF_HEADER, '1').send(body);
     const positionOf = async (id: string) =>
@@ -475,19 +476,18 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
         )
       ).rows[0]!;
 
-    /** A fictional person who finished first-login position setup. */
+    /** A fictional person whose position was set earlier. */
     async function onboarded(key: string, name: string, initials: string) {
       await addUser(key, { name, initials, position: 'engineer' });
-      await db.pool.query('UPDATE app_user SET position_set_at = now() WHERE id = $1', [ids[key]]);
+      await db.pool.query(
+        `UPDATE app_user SET position_set_at = now() - interval '1 day' WHERE id = $1`,
+        [ids[key]],
+      );
     }
 
-    it('AC1 / AC2: Not set clears position and onboarding, then the person chooses again', async () => {
+    it('AC1 / AC2: Not set clears position and its time; the person carries on unblocked', async () => {
       await onboarded('olive', 'Olive Onboarded', 'OO');
-      const before = await positionOf(ids.olive!);
-      expect(before.position_set_at).not.toBeNull();
       const oliveCookie = await cookieFor('olive');
-      const meBefore = await http().get('/api/me').set('Cookie', oliveCookie);
-      expect(meBefore.body).toMatchObject({ position: 'engineer', positionSetupRequired: false });
 
       // Review reproduction: this used to fail the CHECK app_user_position_set_has_position (500).
       const cleared = await patchAs(await cookieFor('admin'), ids.olive!, { position: null });
@@ -499,27 +499,25 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
         officialInitials: 'OO',
       });
       expect(await positionOf(ids.olive!)).toEqual({ position: null, position_set_at: null });
-      expect((await listAuditForEntity(db.pool, 'app_user', ids.olive!))[0]).toMatchObject({
+      // Audited with actor, time, before and after; no reason needed (MISC-06).
+      const event = (await listAuditForEntity(db.pool, 'app_user', ids.olive!))[0]!;
+      expect(event).toMatchObject({
         action: 'staff.profile_changed',
         actorUserId: ids.admin,
-        before: { position: 'engineer', positionSetAt: before.position_set_at!.toISOString() },
-        after: { position: null, positionSetAt: null },
+        reason: null,
+        before: { position: 'engineer' },
+        after: { position: null },
       });
+      expect(event.occurredAt).toBeTruthy();
 
-      // Their session stays valid; the next page load asks for a position again.
+      // Their session stays valid and nothing asks them to choose a position.
       const meAfter = await http().get('/api/me').set('Cookie', oliveCookie);
       expect(meAfter.status).toBe(200);
-      expect(meAfter.body).toMatchObject({ position: null, positionSetupRequired: true });
-      const chosen = await post('/api/me/position', oliveCookie).send({ position: 'technician' });
-      expect(chosen.status).toBeLessThan(300);
-      expect((await http().get('/api/me').set('Cookie', oliveCookie)).body).toMatchObject({
-        position: 'technician',
-        positionSetupRequired: false,
-      });
-      // Saved once again: a second choice is refused as before.
+      expect(meAfter.body).not.toHaveProperty('positionSetupRequired');
       expect(
-        (await post('/api/me/position', oliveCookie).send({ position: 'engineer' })).status,
-      ).toBe(409);
+        (await post('/api/me/position', oliveCookie).send({ position: 'technician' })).status,
+      ).toBe(404);
+      expect(await positionOf(ids.olive!)).toEqual({ position: null, position_set_at: null });
     });
 
     it('AC3: an edit that omits position leaves position and its metadata unchanged', async () => {
@@ -532,7 +530,7 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       expect(await positionOf(ids.owen!)).toEqual(before);
     });
 
-    it('AC4: a non-null position edit keeps onboarding, other fields and roles', async () => {
+    it('AC4: a non-null position edit records when it was set and keeps other fields and roles', async () => {
       await onboarded('opal', 'Opal Onboarded', 'OP');
       await db.pool.query(
         `INSERT INTO role_assignment (user_id, role) VALUES ($1, 'lab_manager')`,
@@ -540,20 +538,24 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       );
       const before = await positionOf(ids.opal!);
       const changed = await patchAs(await cookieFor('admin'), ids.opal!, {
-        position: 'project_engineer',
+        position: 'technologist',
       });
       expect(changed.status).toBe(200);
       expect(changed.body).toMatchObject({
-        position: 'project_engineer',
+        position: 'technologist',
         displayName: 'Opal Onboarded',
         officialInitials: 'OP',
         roles: ['lab_manager'],
         status: 'active',
       });
-      expect(await positionOf(ids.opal!)).toEqual({
-        position: 'project_engineer',
-        position_set_at: before.position_set_at,
-      });
+      const after = await positionOf(ids.opal!);
+      expect(after.position).toBe('technologist');
+      expect(after.position_set_at!.getTime()).toBeGreaterThan(before.position_set_at!.getTime());
+      // A position grants nothing: the Lab Manager role came from its own grant and stays.
+      const access = await http()
+        .get('/api/me')
+        .set('Cookie', await cookieFor('opal'));
+      expect(access.body.roles).toEqual(['lab_manager']);
     });
 
     it('AC5: only admins may clear a position', async () => {

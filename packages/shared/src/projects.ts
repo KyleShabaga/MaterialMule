@@ -54,8 +54,13 @@ export const staffOptionSchema = z.object({
   id: z.string(),
   displayName: z.string(),
   initials: z.string().nullable(),
-  /** Their position, where the list offers one (`GET /api/staff/active`, MM-T61); null if unset. */
+  /**
+   * Their position, where the list offers one (`GET /api/staff/active`, MM-T61); null if unset.
+   * Pickers group and filter by it but never show it (MISC-06).
+   */
   position: positionSchema.nullable().optional(),
+  /** Their effective job title (Admin override, else Microsoft's), where the list offers one. */
+  jobTitle: z.string().nullable().optional(),
 });
 export type StaffOption = z.infer<typeof staffOptionSchema>;
 

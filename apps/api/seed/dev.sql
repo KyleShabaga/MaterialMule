@@ -5,13 +5,14 @@
 
 INSERT INTO app_user (id, display_name, given_name, surname, official_initials, position, account_type, status)
 VALUES
-  ('00000000-0000-4000-8000-000000000101', 'Pat Example',  'Pat',    'Example', 'PE',  'project_engineer',       'test', 'active'),
+  ('00000000-0000-4000-8000-000000000101', 'Pat Example',  'Pat',    'Example', 'PE',  'engineer',    'test', 'active'),
   ('00000000-0000-4000-8000-000000000102', 'Alex Tester',  'Alex',   'Tester',  'AT',  'technician',  'test', 'active'),
   ('00000000-0000-4000-8000-000000000103', 'Admin (test)', 'Admin',  'Test',    'ADM', NULL,          'test', 'active'),
   ('00000000-0000-4000-8000-000000000104', 'Lab (test)',   'Lab',    'Test',    'LAB', 'lab_manager', 'test', 'active'),
   ('00000000-0000-4000-8000-000000000105', 'Dana Example', 'Dana',   'Example', 'DE',  'engineer',    'test', 'active'),
-  -- Two staff sharing the initials JS, to exercise duplicate-initial handling (MM-T07).
-  ('00000000-0000-4000-8000-000000000106', 'Jordan Smith', 'Jordan', 'Smith',   'JS',  'technician',  'test', 'active'),
+  -- Two staff sharing the initials JS, to exercise duplicate-initial handling (MM-T07). Jordan
+  -- is the fixtures' Technologist (MISC-06).
+  ('00000000-0000-4000-8000-000000000106', 'Jordan Smith', 'Jordan', 'Smith',   'JS',  'technologist', 'test', 'active'),
   ('00000000-0000-4000-8000-000000000107', 'Jamie Song',   'Jamie',  'Song',    'JS',  'engineer',    'test', 'active'),
   -- Pending applicants with no sign-in identity, for the staff approval flow (MM-T07): one per
   -- E2E viewport so parallel runs never approve the same person. Re-seeding makes them pending.

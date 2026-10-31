@@ -10,7 +10,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   too), `@ActiveUser()` (handler checks a project-scoped permission itself) or
   `@RequirePermission(…)`. A route without one is refused, and a test fails the build.
 - **Pending and disabled users** get only `GET /api/me`, their profile (`GET /api/me/profile`,
-  `POST /api/me/profile/refresh`), position setup (`POST /api/me/position`) and sign-out (pending),
+  `POST /api/me/profile/refresh`) and sign-out (pending),
   or a 401 (disabled: their sessions stop authenticating).
 - **Position and job title grant nothing.** Only `role_assignment` (admin, lab_manager), the
   account type and project authority (Lead Project Engineer, acceptance delegates, Authorized
@@ -133,8 +133,9 @@ sources they also have).
 - **Scopes:** `openid profile User.Read` only. Graph is read with
   `GET /v1.0/me?$select=displayName,givenName,surname,mail,userPrincipalName,jobTitle,department,officeLocation`.
   A Graph failure never blocks sign-in: known values stay, and the person sees a Retry.
-- **New people** are created `pending` and see position setup, then access-pending until an admin
-  approves them (MM-T07). **Position grants nothing.** **Official initials** are only ever set by
+- **New people** are created `pending` and see access-pending until an admin approves them
+  (MM-T07); there is no position step (MISC-06), and Not set never blocks anything. **Position
+  grants nothing.** **Official initials** are only ever set by
   an admin; refresh never writes them.
 - **Bootstrap admin:** the account whose object ID matches `BOOTSTRAP_ADMIN_OBJECT_ID` (or, only
   when that is unset, whose UPN matches `BOOTSTRAP_ADMIN_UPN`) becomes active + admin at first

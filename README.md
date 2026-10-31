@@ -92,15 +92,15 @@ investigation" with test holes **TH26-01** and **TH26-02**, a second project **D
 http://127.0.0.1:5173/sign-in/test and pick one; picking another signs the first out. Everything
 they do is audited with a TEST account type.
 
-| Key       | Name         | Initials | Role or position                         |
-| --------- | ------------ | -------- | ---------------------------------------- |
-| `admin`   | Admin (test) | ADM      | Admin: staff, sessions, printers         |
-| `lab`     | Lab (test)   | LAB      | Lab Manager (not the shared LAB account) |
-| `at`      | Alex Tester  | AT       | Technician                               |
-| `pe`      | Pat Example  | PE       | Lead Project Engineer of DEMO-2601       |
-| `de`      | Dana Example | DE       | Engineer                                 |
-| `js-tech` | Jordan Smith | JS       | Technician (duplicate initials)          |
-| `js-eng`  | Jamie Song   | JS       | Engineer (duplicate initials)            |
+| Key       | Name         | Initials | Role or position                             |
+| --------- | ------------ | -------- | -------------------------------------------- |
+| `admin`   | Admin (test) | ADM      | Admin: staff, sessions, printers             |
+| `lab`     | Lab (test)   | LAB      | Lab Manager (not the shared LAB account)     |
+| `at`      | Alex Tester  | AT       | Technician                                   |
+| `pe`      | Pat Example  | PE       | Engineer; Lead Project Engineer of DEMO-2601 |
+| `de`      | Dana Example | DE       | Engineer                                     |
+| `js-tech` | Jordan Smith | JS       | Technologist (duplicate initials)            |
+| `js-eng`  | Jamie Song   | JS       | Engineer (duplicate initials)                |
 
 Two applicants, **Riley Pending** and **Casey Pending**, wait in Settings → Staff & access for an
 admin to approve them. `npm run db:reset:dev` puts all of this back (names, roles, pending
@@ -156,8 +156,8 @@ For real use, IT provides the tenant ID, client ID, secret and redirect URI (see
    BOOTSTRAP_ADMIN_OBJECT_ID=00000000-0000-4000-8000-0000000a0001
    ```
 3. **Sign in with Microsoft** shows the mock's account list: `avery` becomes the active admin
-   (bootstrap); `riley`, `morgan`, `casey` and `drew` are new people who choose a position and
-   then wait for approval; `outsider` (another tenant) and `guest` are refused; `nograph` signs in
+   (bootstrap); `riley`, `morgan`, `casey` and `drew` are new people who wait for approval (an
+   Admin sets positions); `outsider` (another tenant) and `guest` are refused; `nograph` signs in
    with the profile service down; `jordan` links to a staff entry an admin added ahead of time
    with work email `jordan@example.test`; **Cancel** shows the cancelled-sign-in message.
 

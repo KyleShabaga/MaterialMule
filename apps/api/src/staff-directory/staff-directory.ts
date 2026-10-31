@@ -1,4 +1,4 @@
-import type { Position, StaffOption } from '@materialmule/shared';
+import { effectiveJobTitle, type Position, type StaffOption } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuditReceiver } from '../audit/audit.js';
 
@@ -17,17 +17,29 @@ function toOption(row: StaffRow): StaffOption {
 }
 
 /**
- * Every active staff member, by name, with their position so pickers can list Lead Project Engineers and
- * engineers first (MM-T61). The list itself isn't narrowed: people added ahead of time have no
- * position until their first sign-in.
+ * Every active staff member, by name, with their position so pickers can list Engineers first
+ * (MM-T61) and Receiving can offer Engineers as Lead Project Engineer nominees (MISC-06), and
+ * their effective job title to show beside the name. Pickers never show the position. The list
+ * itself isn't narrowed: people added ahead of time may have no position yet.
  */
 export async function listActiveStaff(pool: Pool): Promise<StaffOption[]> {
-  const { rows } = await pool.query<StaffRow & { position: Position | null }>(
-    `SELECT id, display_name, official_initials, position FROM app_user
+  const { rows } = await pool.query<
+    StaffRow & {
+      position: Position | null;
+      job_title: string | null;
+      job_title_override: string | null;
+    }
+  >(
+    `SELECT id, display_name, official_initials, position, job_title, job_title_override
+     FROM app_user
      WHERE ${ACTIVE_STAFF}
      ORDER BY lower(display_name), official_initials NULLS LAST, id`,
   );
-  return rows.map((row) => ({ ...toOption(row), position: row.position }));
+  return rows.map((row) => ({
+    ...toOption(row),
+    position: row.position,
+    jobTitle: effectiveJobTitle(row.job_title, row.job_title_override)?.value ?? null,
+  }));
 }
 
 /** The active staff member with `id`, or null when there is none (or it's the LAB account). */

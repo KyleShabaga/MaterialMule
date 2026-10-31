@@ -1,12 +1,5 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional,
-} from '@nestjs/common';
-import { effectiveJobTitle, type Position, type ProfileResponse } from '@materialmule/shared';
+import { ConflictException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { effectiveJobTitle, type ProfileResponse } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { MicrosoftTokenCache } from '../auth/providers/microsoft/token-cache.js';
@@ -29,8 +22,6 @@ export interface ProfileRow extends ProfileFields {
   status: string;
   official_initials: string | null;
   initials_confirmed_at: Date | null;
-  position: Position | null;
-  position_set_at: Date | null;
   profile_source: ProfileResponse['source'];
   profile_refreshed_at: Date | null;
   profile_refresh_failed_at: Date | null;
@@ -39,7 +30,7 @@ export interface ProfileRow extends ProfileFields {
 
 export const PROFILE_COLUMNS = `id, account_type, status, display_name, given_name, surname,
   work_email, sign_in_username, job_title, department, office_location, official_initials,
-  initials_confirmed_at, position, position_set_at, profile_source, profile_refreshed_at,
+  initials_confirmed_at, profile_source, profile_refreshed_at,
   profile_refresh_failed_at, job_title_override`;
 
 export function profileFieldsOf(row: ProfileRow): ProfileFields {
@@ -163,43 +154,11 @@ export class ProfileService {
       officeLocation: row.office_location,
       officialInitials: row.official_initials,
       initialsConfirmed: row.initials_confirmed_at !== null,
-      position: row.position,
-      positionSetAt: row.position_set_at?.toISOString() ?? null,
       source: row.profile_source,
       refreshedAt: row.profile_refreshed_at?.toISOString() ?? null,
       refreshFailedAt: row.profile_refresh_failed_at?.toISOString() ?? null,
       canRefresh: (await this.hasMicrosoftLink(user.userId)) && this.microsoft !== null,
     };
-  }
-
-  /**
-   * Saves the first-login position once (AC7: it grants nothing). Pending users may do this; the
-   * shared LAB account may not.
-   */
-  async setPosition(user: AuthUser, position: Position, requestId: string | null): Promise<void> {
-    if (user.accountType === 'shared_lab') {
-      throw new ForbiddenException({ code: 'forbidden' });
-    }
-    await withTransaction(this.database.pool, async (client) => {
-      const row = await this.load(user.userId, client, true);
-      if (row.position_set_at) {
-        throw new ConflictException({ code: 'position_already_set' });
-      }
-      await client.query(
-        `UPDATE app_user SET position = $2, position_set_at = now(), updated_at = now()
-         WHERE id = $1`,
-        [user.userId, position],
-      );
-      await recordAudit(client, {
-        action: 'user.position_set',
-        entityType: 'app_user',
-        entityId: user.userId,
-        actor: actorOf(row, user.accountType),
-        before: { position: row.position },
-        after: { position },
-        requestId,
-      });
-    });
   }
 
   /**

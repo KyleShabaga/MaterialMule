@@ -45,7 +45,7 @@ function when(iso: string) {
 function personText(person: { initials: string | null; name: string | null }): string {
   if (!person.name) return person.initials ?? '—';
   return person.initials
-    ? formatReceiver({ initials: person.initials, displayName: person.name, position: null })
+    ? formatReceiver({ initials: person.initials, displayName: person.name })
     : person.name;
 }
 

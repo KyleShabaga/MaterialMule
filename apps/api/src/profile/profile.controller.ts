@@ -1,22 +1,14 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-} from '@nestjs/common';
-import { positionRequestSchema, type ProfileResponse } from '@materialmule/shared';
+import { Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import type { ProfileResponse } from '@materialmule/shared';
 import { requestIdOf } from '../auth/auth.controller.js';
 import { AnySession, CurrentUser, type AuthenticatedRequest } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
 import { ProfileService } from './profile.service.js';
 
 /**
- * The signed-in person's own profile (MM-T05). Pending users may use these: setting a position
- * is part of onboarding before approval, and none of them returns anyone else's data.
+ * The signed-in person's own profile (MM-T05). Pending users may use these: none of them returns
+ * anyone else's data. There is no self-service position (MISC-06): `POST /api/me/position` was
+ * removed, so it answers 404 like any unknown route; an Admin sets positions under Staff & access.
  */
 @Controller('me')
 export class ProfileController {
@@ -36,20 +28,5 @@ export class ProfileController {
     @Req() request: AuthenticatedRequest,
   ): Promise<ProfileResponse> {
     return this.profiles.refresh(user, requestIdOf(request));
-  }
-
-  @Post('position')
-  @AnySession()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async setPosition(
-    @Body() body: unknown,
-    @CurrentUser() user: AuthUser,
-    @Req() request: AuthenticatedRequest,
-  ): Promise<void> {
-    const parsed = positionRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException({ code: 'invalid_position' });
-    }
-    await this.profiles.setPosition(user, parsed.data.position, requestIdOf(request));
   }
 }

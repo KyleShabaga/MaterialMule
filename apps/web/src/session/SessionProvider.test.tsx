@@ -101,8 +101,6 @@ describe('SessionProvider keeps roles current', () => {
     roles: ['admin'],
     permissions: ['inventory.read', 'printer.manage', 'system.status.read', 'staff.manage'],
     sessionExpiresAt: '2026-11-26T16:00:00.000Z',
-    position: null,
-    positionSetupRequired: false,
     profileRefreshFailed: false,
   };
   const DEMOTED: MeResponse = { ...ADMIN, roles: [], permissions: ['inventory.read'] };

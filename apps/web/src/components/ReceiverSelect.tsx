@@ -15,7 +15,7 @@ type Results = { state: 'error' } | { state: 'ready'; options: ReceiverOption[] 
 
 /**
  * "Received by" combobox (MM-T07, used by receiving in MM-T10). Lists active staff matching
- * the typed initials or name, shown as "JS · Jordan Smith (Tech)" so people sharing initials are
+ * the typed initials or name, shown as "JS · Jordan Smith" so people sharing initials are
  * told apart. Starts empty, never pre-selects the signed-in account, and accepts only a listed
  * person: typing after a selection clears it, so free-text initials can't be submitted. Choosing
  * a receiver is attribution only; it grants no permissions.
