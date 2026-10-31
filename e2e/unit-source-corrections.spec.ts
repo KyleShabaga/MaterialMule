@@ -126,7 +126,7 @@ test('MM-T82 T3: make a bulk soil bucket an ordinary bucket; the ID stays', asyn
   await expect(bulk.getByRole('option', { name: 'TH26-02', exact: true })).toBeVisible();
   await hole.press('Enter');
   const summary = bulk.getByRole('group', { name: 'TH26-02 summary' });
-  await summary.getByRole('radio', { name: 'ALL' }).check();
+  await summary.getByLabel('Summary type').selectOption('all');
   // A reason is required, in plain words.
   await bulk.getByRole('button', { name: 'Make it an ordinary bucket' }).click();
   await expect(bulk.getByText('Enter a reason (at least 5 characters).')).toBeVisible();
@@ -142,7 +142,8 @@ test('MM-T82 T3: make a bulk soil bucket an ordinary bucket; the ID stays', asyn
     'TH26-02: ALL',
   );
   await expect(page.getByRole('list', { name: 'History events' })).toContainText(
-    `bulk sample Pit ${tag}: B1 at 1 m (bucket 1 of 2) → none`,
+    // Its place follows the received date, then the (random) storage unit ID.
+    new RegExp(`bulk sample Pit ${tag}: B1 at 1 m \\(bucket [12] of 2\\) → none`),
   );
 
   // The other bucket is now 1 of 1.
