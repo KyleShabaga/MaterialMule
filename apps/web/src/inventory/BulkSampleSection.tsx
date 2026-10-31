@@ -1,4 +1,5 @@
 import {
+  currentLocationName,
   BULK_GROUP_DESCRIPTION_MAX_LENGTH,
   BULK_GROUP_REASON_MIN_LENGTH,
   bulkGroupOptionLabel,
@@ -118,8 +119,8 @@ export function BulkSampleSection({
                   </Link>
                 )}{' '}
                 <span className="muted">
-                  · {storageUnitStatusLabel(member.status)} · {member.location.name} · received{' '}
-                  {member.receivedDate}
+                  · {storageUnitStatusLabel(member.status)} · {currentLocationName(member)} ·
+                  received {member.receivedDate}
                 </span>
               </li>
             ))}

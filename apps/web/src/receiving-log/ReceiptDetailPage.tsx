@@ -1,4 +1,9 @@
-import { storageUnitTypeLabel, type ReceiptDetail, type ReceiptUnit } from '@materialmule/shared';
+import {
+  currentLocationName,
+  storageUnitTypeLabel,
+  type ReceiptDetail,
+  type ReceiptUnit,
+} from '@materialmule/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import {
@@ -211,7 +216,7 @@ function UnitTable({ receipt }: { receipt: ReceiptDetail }) {
         </Current>
       ),
     },
-    { header: 'Saved location', cell: (unit) => unit.location.name },
+    { header: 'Saved location', cell: (unit) => currentLocationName(unit) },
     { header: 'Status', cell: (unit) => <StorageUnitStatusBadge status={unit.status} /> },
     {
       header: 'Label',

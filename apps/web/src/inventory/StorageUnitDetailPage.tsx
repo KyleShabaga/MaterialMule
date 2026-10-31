@@ -1,4 +1,5 @@
 import {
+  currentLocationName,
   SAMPLING_SOURCE_TYPE_LABEL,
   describeStorageUnitCorrection,
   formatDepth,
@@ -200,7 +201,7 @@ function StorageUnitDetail() {
               status={unit.status}
               testedRemovalReason={unit.testing?.removal?.reason ?? null}
             />
-            <span className="muted">{unit.location.name}</span>
+            <span className="muted">{currentLocationName(unit)}</span>
             {unit.locationConflict ? (
               <StatusBadge tone="danger">Location conflict</StatusBadge>
             ) : null}
@@ -383,7 +384,10 @@ function StorageUnitDetail() {
           <BandedCard id="location" title="Location and retention">
             <dl className="details">
               <Detail term="Saved location">
-                {unit.location.name} ({unit.location.code})
+                {/* MISC-12: a disposed unit has no current location; its moves stay in History. */}
+                {unit.status === 'disposed'
+                  ? currentLocationName(unit)
+                  : `${unit.location.name} (${unit.location.code})`}
               </Detail>
               <Detail term="Pending move">
                 <PendingMoveNote unitId={unit.id} />

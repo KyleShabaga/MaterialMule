@@ -1,4 +1,5 @@
 import {
+  currentLocationName,
   printJobStatusText,
   storageUnitTypeLabel,
   type RecentlyReceivedItem,
@@ -78,7 +79,7 @@ const columns: Column<RecentlyReceivedItem>[] = [
       />
     ),
   },
-  { header: 'Location', cell: (item) => item.location.name },
+  { header: 'Location', cell: (item) => currentLocationName(item) },
   {
     header: 'Received',
     cell: (item) => (

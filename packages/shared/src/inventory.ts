@@ -84,6 +84,18 @@ export function splitInventorySearch(search: string | undefined): string[] {
   return splitSearchWords(folded.replace(/(^|\s)-+(?=\s|$)/g, ' '));
 }
 
+/**
+ * Where a unit is now, as screens show it (MISC-12, owner decision 2026-10-31): a disposed unit
+ * has no current location, so it reads "No location". Its last saved location stays in the
+ * database and in History; only the display changes.
+ */
+export function currentLocationName(unit: {
+  status: StorageUnitStatus;
+  location: { name: string };
+}): string {
+  return unit.status === 'disposed' ? 'No location' : unit.location.name;
+}
+
 /** What a typed or scanned storage unit ID is compared as: trimmed and upper case. */
 export function normalizeStorageUnitCode(code: string): string {
   return code.trim().toUpperCase();

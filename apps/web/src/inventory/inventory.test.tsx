@@ -509,9 +509,9 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
 });
 
 describe('storage unit detail (MM-T12)', () => {
-  function stubDetail(history: StorageUnitHistoryPage = HISTORY) {
+  function stubDetail(history: StorageUnitHistoryPage = HISTORY, detail = DETAIL) {
     return stubApi((url) => {
-      if (url.pathname === `/api/storage-units/${DETAIL.readableId}`) return json(200, DETAIL);
+      if (url.pathname === `/api/storage-units/${DETAIL.readableId}`) return json(200, detail);
       if (url.pathname === `/api/storage-units/${DETAIL.id}/history`) return json(200, history);
       if (url.pathname.endsWith('/print-history')) {
         return json(200, {
@@ -554,6 +554,14 @@ describe('storage unit detail (MM-T12)', () => {
       'href',
       '/sample-storage',
     );
+  });
+
+  it('MISC-12: a disposed unit shows No location, though the API still sends its last one', async () => {
+    stubDetail(HISTORY, { ...DETAIL, status: 'disposed' });
+    renderAt(`/sample-storage/${DETAIL.readableId}`);
+    const location = await screen.findByRole('region', { name: 'Location and retention' });
+    expect(within(location).getByText('No location')).toBeInTheDocument();
+    expect(within(location).queryByText(/Receiving lab/)).toBeNull();
   });
 
   it('MTR-64: a move names the locations it came from and went to', async () => {

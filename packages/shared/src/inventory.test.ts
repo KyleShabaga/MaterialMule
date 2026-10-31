@@ -4,6 +4,7 @@ import {
   inventoryQuerySchema,
   inventorySortDirection,
   normalizeStorageUnitCode,
+  currentLocationName,
   splitInventorySearch,
   storageUnitHistoryActionLabel,
 } from './inventory';
@@ -153,5 +154,14 @@ describe('storage unit history labels (MTR-59)', () => {
     expect(storageUnitHistoryActionLabel('test_request.unknown_thing', {})).toBe(
       'test_request.unknown_thing',
     );
+  });
+});
+
+describe('current location for display (MISC-12)', () => {
+  const location = { id: 'l1', code: 'WH-A1', name: 'Warehouse A1' };
+  it('shows the saved location until the unit is disposed, then No location', () => {
+    expect(currentLocationName({ status: 'in_stock', location })).toBe('Warehouse A1');
+    expect(currentLocationName({ status: 'approved_for_disposal', location })).toBe('Warehouse A1');
+    expect(currentLocationName({ status: 'disposed', location })).toBe('No location');
   });
 });

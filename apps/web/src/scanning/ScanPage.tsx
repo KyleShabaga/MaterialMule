@@ -1,4 +1,5 @@
 import {
+  currentLocationName,
   TESTED_CONTENTS_LABEL,
   formatStorageUnitHoleSummary,
   parseScanPayload,
@@ -133,8 +134,8 @@ function ScannedUnit({ readableId }: { readableId: string }) {
           <dd>
             {detail.project.projectNumber} · {detail.project.name}
           </dd>
-          <dt>{detail.status === 'disposed' ? 'Last saved location' : 'Saved location'}</dt>
-          <dd>{detail.location.name}</dd>
+          <dt>Saved location</dt>
+          <dd>{currentLocationName(detail)}</dd>
           <dt>Test holes</dt>
           <dd>
             {detail.holes
