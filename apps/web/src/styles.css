@@ -1412,6 +1412,17 @@ textarea {
   color: var(--danger-panel-ink);
 }
 
+/* Each link is a 24px-tall target with a gap to the next (WCAG 2.5.8, MTR-128-2). */
+.error-summary li + li {
+  margin-top: 0.25rem;
+}
+
+.error-summary li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+
 .unit-list {
   display: grid;
   gap: 0.75rem;
