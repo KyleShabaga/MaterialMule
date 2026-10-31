@@ -574,4 +574,105 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
       });
     });
   });
+
+  describe('team join requests (MISC-07, 0012)', () => {
+    const member = async (userId: string, addedBy = userId, project = projectId) =>
+      insert('project_team_member', {
+        project_id: project,
+        user_id: userId,
+        user_name_snapshot: 'Test joiner',
+        added_by_user_id: addedBy,
+        added_by_name_snapshot: 'Test joiner',
+        add_reason: 'Asked to join the team',
+        add_idempotency_key: randomUUID(),
+        add_request_hash: 'h',
+      });
+    const request = (userId: string, teamMemberId: string, project = projectId) =>
+      insert('project_team_join_request', {
+        project_id: project,
+        user_id: userId,
+        team_member_id: teamMemberId,
+        request_idempotency_key: randomUUID(),
+      });
+    const removal = (by: string) => ({
+      removed_at: new Date(Date.now() + 1000).toISOString(),
+      removed_by_user_id: by,
+      removed_by_name_snapshot: 'Test PE',
+      remove_reason: 'Not on this project',
+    });
+
+    it('needs the requester’s own active membership of that project; one pending per person', async () => {
+      const joiner = await insertUser(db.pool, 'JNA');
+      const own = await member(joiner);
+      // Someone else's membership, one added by another person, or another project's.
+      const other = await insertUser(db.pool, 'JNB');
+      await expect(request(other, own)).rejects.toMatchObject({ code: PG.checkViolation });
+      const addedByLead = await member(other, lead);
+      await expect(request(other, addedByLead)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(request(joiner, own, otherProjectId)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await request(joiner, own);
+      // One request per membership, and one pending per person and project.
+      await expect(request(joiner, own)).rejects.toMatchObject({ code: PG.uniqueViolation });
+      // LAB never asks.
+      await expect(
+        db.pool.query(
+          `INSERT INTO project_team_join_request
+             (project_id, user_id, team_member_id, request_idempotency_key)
+           VALUES ($1, $2, $3, $4)`,
+          [projectId, lab, own, randomUUID()],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+
+    it('accepting needs who; declining needs a reason; decided once, never deleted', async () => {
+      const joiner = await insertUser(db.pool, 'JNC');
+      const id = await request(joiner, await member(joiner));
+      const decided = {
+        status: 'declined',
+        decided_at: new Date(Date.now() + 1000).toISOString(),
+        decided_by_user_id: lead,
+        decided_by_name_snapshot: 'Test PE',
+        decision_reason: null,
+      };
+      await expect(revoke('project_team_join_request', id, decided)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(
+        revoke('project_team_join_request', id, {
+          ...decided,
+          status: 'accepted',
+          decided_by_user_id: null,
+        }),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await revoke('project_team_join_request', id, { ...decided, status: 'accepted' });
+      await expect(
+        revoke('project_team_join_request', id, { ...decided, decision_reason: 'Changed mind' }),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await expect(
+        db.pool.query('DELETE FROM project_team_join_request WHERE id = $1', [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+    });
+
+    it('removing a pending member declines the request with that removal’s reason; they may ask again', async () => {
+      const joiner = await insertUser(db.pool, 'JND');
+      const membership = await member(joiner);
+      const id = await request(joiner, membership);
+      await revoke('project_team_member', membership, removal(lead));
+      const { rows } = await db.pool.query(
+        `SELECT status, decided_by_user_id, decision_reason FROM project_team_join_request
+         WHERE id = $1`,
+        [id],
+      );
+      expect(rows[0]).toEqual({
+        status: 'declined',
+        decided_by_user_id: lead,
+        decision_reason: 'Not on this project',
+      });
+      await expect(request(joiner, await member(joiner))).resolves.toBeTruthy();
+    });
+  });
 });

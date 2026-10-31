@@ -85,6 +85,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'project_lead_nomination',
       'project_report_issuer_grant',
       'project_reviewer_assignment',
+      'project_team_join_request',
       'project_team_member',
       'receipt',
       'retention_extension',

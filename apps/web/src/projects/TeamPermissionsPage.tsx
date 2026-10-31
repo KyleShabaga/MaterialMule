@@ -2,6 +2,7 @@ import {
   BLOCKED_REASON_LABEL,
   CAPABILITY_SOURCE_LABEL,
   GRANT_REVIEW_KIND_LABEL,
+  PENDING_LPE_ACCEPTANCE,
   PROJECT_CAPABILITY_ACTIONS,
   PROJECT_CAPABILITY_ACTION_LABEL,
   PROJECT_INVOLVEMENT_LABEL,
@@ -12,6 +13,7 @@ import {
   type ProjectCapabilityAction,
   type ProjectDetail,
   type ProjectGrantReviews,
+  type ProjectTeamJoinRequests,
   type ProjectPeople,
   type ProjectPerson,
   type ProjectReportIssuers,
@@ -28,12 +30,14 @@ import { fetchDelegates } from '../lab/api';
 import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
 import { GrantReviewsSection, NEEDS_REVIEW } from './GrantReviewsSection';
+import { JoinRequestsSection } from './JoinRequestsSection';
 import { LeadSection } from './LeadSection';
 import { IssuersSection, ReviewersSection, TeamSection, type RunWrite } from './TeamSections';
 import {
   fetchCapabilities,
   fetchGrantReviews,
   fetchIssuers,
+  fetchJoinRequests,
   fetchPeople,
   fetchReviewers,
   fetchScopes,
@@ -63,6 +67,8 @@ interface Loaded {
   people: ProjectPeople | null;
   /** MTR-25: inherited grants flagged for a new lead, and the lead changes; null if unloaded. */
   grantReviews: ProjectGrantReviews | null;
+  /** MISC-07: self-join requests; null if unloaded. */
+  joinRequests: ProjectTeamJoinRequests | null;
 }
 
 type PageState =
@@ -76,18 +82,29 @@ function unwrap<T>(result: LoadResult<T>): T {
 }
 
 async function loadAll(projectId: string): Promise<Loaded> {
-  const [project, capabilities, team, reviewers, issuers, scopes, delegates, people, grantReviews] =
-    await Promise.all([
-      fetchProjectDetail(projectId),
-      fetchCapabilities(projectId),
-      fetchTeam(projectId),
-      fetchReviewers(projectId),
-      fetchIssuers(projectId),
-      fetchScopes(),
-      fetchDelegates(projectId).catch(() => null),
-      fetchPeople(projectId).catch(() => null),
-      fetchGrantReviews(projectId).catch(() => null),
-    ]);
+  const [
+    project,
+    capabilities,
+    team,
+    reviewers,
+    issuers,
+    scopes,
+    delegates,
+    people,
+    grantReviews,
+    joinRequests,
+  ] = await Promise.all([
+    fetchProjectDetail(projectId),
+    fetchCapabilities(projectId),
+    fetchTeam(projectId),
+    fetchReviewers(projectId),
+    fetchIssuers(projectId),
+    fetchScopes(),
+    fetchDelegates(projectId).catch(() => null),
+    fetchPeople(projectId).catch(() => null),
+    fetchGrantReviews(projectId).catch(() => null),
+    fetchJoinRequests(projectId).catch(() => null),
+  ]);
   return {
     project: unwrap(project),
     capabilities: unwrap(capabilities),
@@ -98,6 +115,7 @@ async function loadAll(projectId: string): Promise<Loaded> {
     delegates,
     people: people?.ok ? people.data : null,
     grantReviews: grantReviews?.ok ? grantReviews.data : null,
+    joinRequests: joinRequests?.ok ? joinRequests.data : null,
   };
 }
 
@@ -243,6 +261,7 @@ function TeamPermissions({ projectId }: { projectId: string }) {
     scopes,
     people,
     grantReviews,
+    joinRequests,
   } = page.data;
   return (
     <>
@@ -313,7 +332,21 @@ function TeamPermissions({ projectId }: { projectId: string }) {
         delegates={delegates}
         people={people}
         grantReviews={grantReviews}
+        joinRequests={joinRequests}
       />
+
+      {joinRequests ? (
+        <JoinRequestsSection
+          projectId={project.id}
+          data={joinRequests}
+          run={run}
+          onChange={(next) => {
+            update({ joinRequests: next });
+            // The team itself changed too (a member added or removed).
+            reload();
+          }}
+        />
+      ) : null}
 
       <TeamSection
         projectId={project.id}
@@ -398,6 +431,7 @@ function PeopleSummary({
   delegates,
   people: peopleView,
   grantReviews,
+  joinRequests,
 }: {
   project: ProjectDetail;
   team: ProjectTeam;
@@ -406,7 +440,10 @@ function PeopleSummary({
   delegates: AcceptanceDelegates | null;
   people: ProjectPeople | null;
   grantReviews: ProjectGrantReviews | null;
+  joinRequests: ProjectTeamJoinRequests | null;
 }) {
+  // MISC-07: self-joined members still waiting for the lead's acceptance.
+  const joining = new Set((joinRequests?.pending ?? []).map((r) => r.teamMemberId));
   const details = new Map((peopleView?.people ?? []).map((p) => [p.userId, p]));
   // MTR-25: grants still waiting for the new lead's review carry the badge text.
   const flagged = new Set((grantReviews?.pending ?? []).map((r) => r.grantId));
@@ -425,7 +462,7 @@ function PeopleSummary({
     person(lead.id, lead.initials, lead.displayName).responsibilities.push('Lead Project Engineer');
   for (const member of team.active) {
     person(member.person.userId, member.person.initials, member.person.name).responsibilities.push(
-      'Team member',
+      joining.has(member.id) ? `Team member (${PENDING_LPE_ACCEPTANCE})` : 'Team member',
     );
   }
   for (const assignment of reviewers.active) {

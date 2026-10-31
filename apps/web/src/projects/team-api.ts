@@ -1,6 +1,7 @@
 import {
   projectCapabilitiesSchema,
   projectGrantReviewsSchema,
+  projectTeamJoinRequestsSchema,
   projectPeopleSchema,
   projectReportIssuersSchema,
   projectReviewersSchema,
@@ -11,6 +12,7 @@ import {
   type GrantReportIssuerRequest,
   type ProjectCapabilities,
   type ProjectGrantReviews,
+  type ProjectTeamJoinRequests,
   type ProjectPeople,
   type ProjectReportIssuers,
   type ProjectReviewers,
@@ -75,6 +77,8 @@ const MESSAGES: Record<string, string> = {
   invalid_scope: 'Choose a review scope.',
   invalid_expiry: 'Expiry must be in the future.',
   grant_review_decided: 'That grant was already reviewed. The list now shows the current state.',
+  team_join_request_decided:
+    'That request was already decided. The list now shows the current state.',
 };
 
 async function write<T>(
@@ -241,4 +245,32 @@ export const decideGrantReview = (
     'POST',
     { reason },
     projectGrantReviewsSchema,
+  );
+
+// Team self-join with lead acceptance (MISC-07)
+
+export const fetchJoinRequests = (
+  projectId: string,
+): Promise<LoadResult<ProjectTeamJoinRequests>> =>
+  load(projectPath(projectId, 'team-join-requests'), projectTeamJoinRequestsSchema);
+
+export const requestToJoin = (projectId: string, idempotencyKey: string) =>
+  write(
+    projectPath(projectId, 'team-join-requests'),
+    'POST',
+    { idempotencyKey },
+    projectTeamJoinRequestsSchema,
+  );
+
+export const decideJoinRequest = (
+  projectId: string,
+  id: string,
+  action: 'accept' | 'decline',
+  reason?: string,
+) =>
+  write(
+    projectPath(projectId, `team-join-requests/${encodeURIComponent(id)}/${action}`),
+    'POST',
+    reason ? { reason } : {},
+    projectTeamJoinRequestsSchema,
   );

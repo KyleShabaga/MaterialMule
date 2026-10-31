@@ -555,3 +555,47 @@ export type ProjectGrantReviews = z.infer<typeof projectGrantReviewsSchema>;
 /** Body of `POST …/grant-reviews/:id/keep` and `…/revoke`: both need a reason. */
 export const decideGrantReviewRequestSchema = z.strictObject({ reason: grantReasonSchema });
 export type DecideGrantReviewRequest = z.output<typeof decideGrantReviewRequestSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Team self-join with Lead Project Engineer acceptance (MISC-07, owner decision 2026-10-30)
+// ---------------------------------------------------------------------------------------------
+
+export const TEAM_JOIN_STATUSES = ['pending', 'accepted', 'declined'] as const;
+export type TeamJoinStatus = (typeof TEAM_JOIN_STATUSES)[number];
+
+/** Shown on a self-joined member until the lead or an admin accepts them. */
+export const PENDING_LPE_ACCEPTANCE = 'Pending LPE acceptance';
+
+export const teamJoinRequestSchema = z.object({
+  id: z.string(),
+  teamMemberId: z.string(),
+  person: personSnapshotSchema,
+  requestedAt: z.string(),
+  status: z.enum(TEAM_JOIN_STATUSES),
+  decidedBy: personSnapshotSchema.nullable(),
+  decidedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+export type TeamJoinRequest = z.infer<typeof teamJoinRequestSchema>;
+
+/** `GET /api/projects/:projectId/team-join-requests`. */
+export const projectTeamJoinRequestsSchema = z.object({
+  projectId: z.string(),
+  /** The viewer may ask to join (a personal account not on the team and not its lead). */
+  canRequest: z.boolean(),
+  /** The viewer is the project's lead or an admin. */
+  canDecide: z.boolean(),
+  /** The viewer's own latest request here, so a decline (and its reason) reaches them. */
+  mine: teamJoinRequestSchema.nullable(),
+  pending: z.array(teamJoinRequestSchema),
+});
+export type ProjectTeamJoinRequests = z.infer<typeof projectTeamJoinRequestsSchema>;
+
+/** Body of `POST …/team-join-requests`: a retry with the same key returns the same request. */
+export const requestTeamJoinSchema = z.strictObject({ idempotencyKey: z.uuid() });
+
+/** Body of `POST …/team-join-requests/:id/accept`: a reason is optional. */
+export const acceptTeamJoinSchema = confirmNominationRequestSchema;
+
+/** Body of `POST …/team-join-requests/:id/decline`: a reason is required. */
+export const declineTeamJoinSchema = z.strictObject({ reason: grantReasonSchema });

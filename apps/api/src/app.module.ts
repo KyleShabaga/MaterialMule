@@ -67,6 +67,7 @@ import {
 import { AccessSummaryController } from './project-access/access-summary.controller.js';
 import { AccessSummaryService } from './project-access/access-summary.service.js';
 import { GrantReviewsService } from './project-access/grant-reviews.service.js';
+import { TeamJoinService } from './project-access/team-join.service.js';
 import { LeadNominationsService } from './project-access/lead-nominations.service.js';
 import { ProjectAccessService } from './project-access/project-access.service.js';
 import { StaffGrantsService } from './project-access/staff-grants.service.js';
@@ -167,6 +168,7 @@ export class AppModule {
         ProjectAccessService,
         LeadNominationsService,
         GrantReviewsService,
+        TeamJoinService,
         StaffGrantsService,
         AccessSummaryService,
         TestHolesService,
