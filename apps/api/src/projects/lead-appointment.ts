@@ -71,12 +71,21 @@ export async function lockPendingNomination(
   return rows[0] ?? null;
 }
 
-/** Records the decision on a nomination once (assignment_history_guard), with its audit event. */
+/**
+ * Records the decision on a nomination once (assignment_history_guard), with its audit event.
+ * Only a confirmation may have no reason (MISC-03).
+ */
 export async function decideNomination(
   client: PoolClient,
   nomination: PendingNomination,
   decision: 'confirmed' | 'rejected' | 'withdrawn',
-  input: { by: Recorder; reason: string; actor: AuditActor; projectId: string; extra?: object },
+  input: {
+    by: Recorder;
+    reason: string | null;
+    actor: AuditActor;
+    projectId: string;
+    extra?: object;
+  },
 ): Promise<void> {
   await client.query(
     `UPDATE project_lead_nomination

@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MM-AO04: a project added while receiving waits for its Lead Project Engineer; an admin finds it
-// with "Waiting for a lead" and confirms the nomination with a reason. Fictional data only; the
-// project number is unique per run and viewport.
+// with "Waiting for a lead" and confirms the nomination; a reason is optional (MISC-03). Fictional
+// data only; the project number is unique per run and viewport.
 
 const CSRF = { 'x-materialmule-csrf': '1' };
 
-test('a nominated lead waits for an admin, who confirms with a reason', async ({
+test('a nominated lead waits for an admin, who confirms without a reason', async ({
   page,
 }, testInfo) => {
   const projectNumber = `AO4-${testInfo.project.name.startsWith('phone') ? 'P' : 'D'}${Date.now()}`;
@@ -48,11 +48,13 @@ test('a nominated lead waits for an admin, who confirms with a reason', async ({
   const adminSection = page.getByRole('region', { name: 'Lead Project Engineer' });
   await adminSection.getByRole('button', { name: 'Confirm' }).click();
   const dialog = page.getByRole('dialog', { name: 'Confirm as Lead Project Engineer?' });
-  await dialog.getByRole('button', { name: 'Confirm' }).click();
-  await expect(dialog).toContainText('Enter a reason.');
-  await dialog
-    .getByRole('textbox', { name: 'Reason' })
-    .fill('Checked with the engineering manager');
+  await expect(dialog.getByRole('textbox', { name: 'Reason (optional)' })).toBeVisible();
+  // A click outside the box cancels it, like Escape: nothing changes.
+  await page.mouse.click(4, 4);
+  await expect(dialog).toBeHidden();
+  await expect(adminSection).toContainText('This project has no Lead Project Engineer yet.');
+  // Confirm with the reason left blank.
+  await adminSection.getByRole('button', { name: 'Confirm' }).click();
   await dialog.getByRole('button', { name: 'Confirm' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: 'is now the Lead Project Engineer' }),
@@ -60,5 +62,5 @@ test('a nominated lead waits for an admin, who confirms with a reason', async ({
   await expect(adminSection).toContainText('Pat Example leads this project.');
   await adminSection.getByText(/Nomination history/).click();
   await expect(adminSection).toContainText('Confirmed by');
-  await expect(adminSection).toContainText('(Checked with the engineering manager)');
+  await expect(adminSection).not.toContainText('Enter a reason.');
 });

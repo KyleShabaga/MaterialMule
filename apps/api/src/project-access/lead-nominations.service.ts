@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  confirmNominationRequestSchema,
   decideNominationRequestSchema,
   nominateLeadRequestSchema,
   type LeadNomination,
@@ -212,7 +213,11 @@ export class LeadNominationsService {
     return withTransaction(this.database.pool, async (client) => {
       const project = await findProject(client, projectId, 'FOR UPDATE');
       if (!project) throw new NotFoundException({ code: 'project_not_found' });
-      const { reason } = parseBody(decideNominationRequestSchema, body);
+      // MISC-03: a confirmation's reason is optional; rejecting or withdrawing needs one.
+      const reason: string | null =
+        decision === 'confirmed'
+          ? (parseBody(confirmNominationRequestSchema, body ?? {}).reason ?? null)
+          : parseBody(decideNominationRequestSchema, body).reason;
       const { rows } = UUID_PATTERN.test(nominationId)
         ? await client.query<
             PendingNomination & { status: Decision | 'pending'; decided_by_user_id: string | null }
@@ -290,7 +295,12 @@ export class LeadNominationsService {
         await rerouteOpenItems(
           client,
           { projectId },
-          { actor: actorOf(actor), reason: `Lead Project Engineer appointed: ${reason}` },
+          {
+            actor: actorOf(actor),
+            reason: reason
+              ? `Lead Project Engineer appointed: ${reason}`
+              : 'Lead Project Engineer appointed',
+          },
         );
       }
       return this.view(client, projectId, actor);

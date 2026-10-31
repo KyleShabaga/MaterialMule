@@ -14,7 +14,8 @@ import { StaffOptionGroups } from './StaffOptionGroups';
 // "Lead Project Engineer" on the project page (MM-AO04, D01/D02). A project may wait for a lead:
 // receiving carries on, and only decisions that need the lead wait. Anyone may suggest a lead when
 // there is none; an admin confirms (which appoints them) or rejects; the person who nominated may
-// withdraw. A nomination gives nobody any authority. Every decision needs a reason.
+// withdraw. A nomination gives nobody any authority. Rejecting or withdrawing needs a reason;
+// confirming doesn't (MISC-03), though one given is recorded.
 
 type Decision = 'confirm' | 'reject' | 'withdraw';
 
@@ -221,7 +222,7 @@ export function LeadSection({
         danger={deciding !== 'confirm'}
         onConfirm={async () => {
           if (!deciding || !pending) return;
-          if (!reason.trim()) {
+          if (deciding !== 'confirm' && !reason.trim()) {
             setReasonError('Enter a reason.');
             return;
           }
@@ -240,13 +241,14 @@ export function LeadSection({
           );
         }}
         onCancel={() => setDeciding(null)}
+        cancelOnBackdrop
       >
         <p>
           {deciding === 'confirm'
             ? `${pending?.nominee.name ?? ''} becomes the project's Lead Project Engineer straight away.`
             : 'The project keeps waiting for a lead; anyone may nominate again.'}
         </p>
-        <label htmlFor={reasonId}>Reason</label>
+        <label htmlFor={reasonId}>{deciding === 'confirm' ? 'Reason (optional)' : 'Reason'}</label>
         <textarea
           id={reasonId}
           value={reason}

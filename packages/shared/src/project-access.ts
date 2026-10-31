@@ -395,6 +395,15 @@ export type NominateLeadRequest = z.output<typeof nominateLeadRequestSchema>;
 export const decideNominationRequestSchema = z.strictObject({ reason: grantReasonSchema });
 export type DecideNominationRequest = z.output<typeof decideNominationRequestSchema>;
 
+/** MISC-03: confirming needs no reason (blank or absent is none); one given is recorded. */
+export const confirmNominationRequestSchema = z.strictObject({
+  reason: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    grantReasonSchema.nullish(),
+  ),
+});
+export type ConfirmNominationRequest = z.output<typeof confirmNominationRequestSchema>;
+
 /** `GET /api/projects/:projectId/lead-nominations`: the pending one first, then history. */
 export const projectLeadNominationsSchema = z.object({
   projectId: z.string(),

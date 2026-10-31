@@ -171,6 +171,7 @@ export function decideLeadNomination(
     `/api/projects/${encodeURIComponent(projectId)}/lead-nominations/${encodeURIComponent(
       nominationId,
     )}/${action}`,
-    { reason },
+    // MISC-03: a blank reason on a confirmation is none.
+    action === 'confirm' && !reason.trim() ? {} : { reason },
   );
 }

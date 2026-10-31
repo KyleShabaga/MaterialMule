@@ -299,7 +299,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
         ...values,
       });
 
-    it('one pending nomination per project; deciding needs who and a reason, once', async () => {
+    it('one pending nomination per project; deciding needs who (and a reason to reject), once', async () => {
       const id = await nomination();
       await expect(nomination()).rejects.toMatchObject({ code: PG.uniqueViolation });
       await expect(
@@ -310,10 +310,16 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
         decided_at: new Date(Date.now() + 1000).toISOString(),
         decided_by_user_id: admin,
         decided_by_name_snapshot: 'Test AD',
-        decision_reason: 'Confirmed as lead',
+        decision_reason: null,
       };
+      // MISC-03: rejecting or withdrawing needs a reason; confirming doesn't (0011).
+      for (const status of ['rejected', 'withdrawn']) {
+        await expect(
+          revoke('project_lead_nomination', id, { ...decision, status }),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      }
       await expect(
-        revoke('project_lead_nomination', id, { ...decision, decision_reason: null }),
+        revoke('project_lead_nomination', id, { ...decision, decided_by_name_snapshot: null }),
       ).rejects.toMatchObject({ code: PG.checkViolation });
       await expect(
         revoke('project_lead_nomination', id, { ...decision, nominee_user_id: admin }),
