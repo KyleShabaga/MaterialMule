@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { insertConfirmedBucket } from './support/db';
 import { insertInventoryFixture } from './support/inventory';
 
 // MM-T57: content links follow the theme. In dark mode they used to keep the browser's default
@@ -129,4 +130,34 @@ test('T3: keyboard focus on a content link shows an outline in both themes', asy
     expect(outline.style, colorScheme).not.toBe('none');
     expect(outline.width, colorScheme).toBeGreaterThanOrEqual(2);
   }
+});
+
+test('MM-T79: on the storage unit page a hovered link darkens with no underline; other pages keep it', async ({
+  page,
+}) => {
+  const unit = await insertConfirmedBucket();
+  await signInAs(page, 'pe');
+  const decoration = (link: ReturnType<Page['getByRole']>) =>
+    link.evaluate((a) => getComputedStyle(a).textDecorationLine);
+
+  await page.goto(`/sample-storage/${unit.readableId}`);
+  await expect(page.getByRole('heading', { level: 1, name: unit.readableId })).toBeVisible();
+  const back = page.getByRole('link', { name: '← Back to Sample Storage' });
+  const before = await back.evaluate((a) => getComputedStyle(a).color);
+  await back.hover();
+  await expect.poll(() => decoration(back)).toBe('none');
+  expect(await back.evaluate((a) => getComputedStyle(a).color)).not.toBe(before);
+  // Keyboard focus still shows its outline.
+  await back.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(back).toBeFocused();
+  expect(await back.evaluate((a) => getComputedStyle(a).outlineStyle)).not.toBe('none');
+
+  // Elsewhere UI-01's hover underline stays.
+  await page.goto('/projects');
+  await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
+  const other = page.getByRole('main').getByRole('link').first();
+  await other.hover();
+  await expect.poll(() => decoration(other)).toContain('underline');
 });

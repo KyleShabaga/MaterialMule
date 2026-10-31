@@ -24,7 +24,8 @@ export class InventoryController {
 
   /**
    * `GET /api/inventory?search=&projectId=&testHoleId=&type=&locationId=&status=&receivedFrom=
-   * &receivedTo=&sort=&dir=&page=&pageSize=` → `{items, total, page, pageSize}`.
+   * &receivedTo=&retention=&conflict=open&sort=&dir=&page=&pageSize=` → `{items, total, page,
+   * pageSize}`. Each item carries `openConflict` (MM-T81).
    */
   @Get('inventory')
   @RequirePermission('inventory.read')

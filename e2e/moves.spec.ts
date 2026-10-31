@@ -3,6 +3,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertConfirmedBucket, withDatabase, type TestUnit } from './support/db';
 import { expireSession, signInAsLabStation } from './support/lab-station';
+import { removeTestedTube, testedTube } from './support/tested-tube';
 
 // MM-T28 test plan T4, T5, T7, T8 and T9: destination scans, queued moves and location
 // conflicts, through the real browser queue (IndexedDB) and API. The handheld scanner is a
@@ -273,7 +274,8 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
   await scan(page, kept.readableId);
   await scan(page, removed.readableId);
   await expect(page.getByText('Offline: 2 moves waiting to sync.')).toBeVisible();
-  // Meanwhile the tube/bucket is removed and disposed, and the LAB session runs out.
+  // Meanwhile the tube/bucket is removed and disposed, and the LAB session runs out. (Set
+  // directly here; MM-T80 T2 below runs the same queue against a real removal after testing.)
   await withDatabase((client) =>
     client.query(
       `UPDATE storage_unit SET status = 'disposed', version = version + 1 WHERE id = $1`,
@@ -306,6 +308,44 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
     mover_name_snapshot: 'Alex Tester',
     source: 'queued',
   });
+});
+
+test('MM-T80 T2: a queued LAB move of a tube removed after testing (real MM-T36 route) needs attention', async ({
+  browser,
+  context,
+  page,
+}) => {
+  const staging = await addLocation('S1', 'Staging');
+  const c2 = await addLocation('C2', 'Warehouse');
+  // A second computer for the people who test and remove the tube.
+  const office = await browser.newContext();
+  const officePage = await office.newPage();
+  try {
+    const tube = await testedTube(officePage);
+
+    await signInAsLabStation(page);
+    await openMove(page, /Alex Tester/);
+    await setDestination(page, staging);
+    await scan(page, tube.readableId);
+    await expect(row(page, tube).getByText('Saved')).toBeVisible();
+
+    await context.setOffline(true);
+    await setDestination(page, c2);
+    await scan(page, tube.readableId);
+    await expect(page.getByText(/Offline: 1 move waiting to sync/)).toBeVisible();
+    // Meanwhile Alex confirms the tube has left the lab.
+    await removeTestedTube(officePage, tube);
+    await context.setOffline(false);
+
+    await expect(
+      row(page, tube).filter({ hasText: c2.name }).getByText('Needs attention'),
+    ).toBeVisible();
+    await expect(row(page, tube).filter({ hasText: c2.name })).toContainText('disposed');
+    expect(await savedLocation(tube)).toBe(staging.code);
+    expect((await moveEvents(tube)).map((e) => e.to_code)).toEqual([staging.code]);
+  } finally {
+    await office.close();
+  }
 });
 
 test('Lookup mode stays read-only and tells a location label apart from a unit', async ({

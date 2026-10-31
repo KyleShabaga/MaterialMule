@@ -67,6 +67,64 @@ describe('toActivityItem (T1)', () => {
     ).toBe('AT reprinted the label for BKT-2026-000014');
   });
 
+  it('MM-T79 T1: a location label print or reprint names the location and links to Settings → Locations', () => {
+    const location = { target: 'location', locationId: 'l1', locationCode: 'WH-C1' };
+    expect(
+      toActivityItem(
+        event({ action: 'label.print_requested', actorAccountType: 'personal', after: location }),
+      ),
+    ).toMatchObject({
+      summary: 'AT printed the location label for WH-C1',
+      href: '/settings/locations',
+    });
+    expect(
+      toActivityItem(
+        event({ action: 'label.reprint_requested', actorAccountType: 'personal', after: location }),
+      ),
+    ).toMatchObject({
+      summary: 'AT reprinted the location label for WH-C1',
+      href: '/settings/locations',
+    });
+    // At a LAB station, the person it was printed for, as recorded.
+    expect(
+      toActivityItem(
+        event({
+          action: 'label.print_requested',
+          actorInitials: null,
+          actorName: 'LAB',
+          receiverInitials: 'RE',
+          receiverName: 'Riley Example',
+          after: location,
+        }),
+      ).summary,
+    ).toBe('LAB printed the location label for WH-C1 (for RE)');
+  });
+
+  it('MM-T79 AC3: storage unit label prints read as before', () => {
+    const personal = { actorAccountType: 'personal' as const };
+    expect(
+      toActivityItem(
+        event({
+          ...personal,
+          action: 'label.print_requested',
+          after: { readableIds: ['BKT-2026-000014', 'BKT-2026-000015'] },
+        }),
+      ),
+    ).toMatchObject({ summary: 'AT printed labels for BKT-2026-000014 and 1 more', href: null });
+    expect(
+      toActivityItem(
+        event({
+          ...personal,
+          action: 'label.reprint_requested',
+          after: { readableId: 'BKT-2026-000014' },
+        }),
+      ),
+    ).toMatchObject({
+      summary: 'AT reprinted the label for BKT-2026-000014',
+      href: '/sample-storage/BKT-2026-000014',
+    });
+  });
+
   it('MM-T61: at a LAB station names the receiver as recorded, not just the account', () => {
     const lab = {
       actorInitials: null,

@@ -681,6 +681,8 @@ describe.runIf(testDatabaseUrl)('storage moves and location conflicts (MM-T28)',
       expect(retired.status).toBe(422);
       expect(retired.body.code).toBe('location_retired');
 
+      // The disposed state is set directly here; the real MM-T36 removal and MM-T30 disposal
+      // routes are covered in src/regression/cross-card.integration.test.ts (MM-T80).
       const disposed = await addUnit('disposed');
       const refused = await send(intent(disposed, 'WH-C1'));
       expect(refused.status).toBe(422);
@@ -737,6 +739,8 @@ describe.runIf(testDatabaseUrl)('storage moves and location conflicts (MM-T28)',
 
     it('AC9: a unit disposed (e.g. a tested Shelby tube removed) while the move waits is refused', async () => {
       const unit = await addUnit();
+      // The barrier connection plays the disposal so the move provably waits on it; the real
+      // removal and disposal routes are covered in src/regression/cross-card.integration.test.ts.
       const gate = await barrier('SELECT 1 FROM storage_unit WHERE id = $1 FOR UPDATE', [unit]);
       await gate.client.query(
         `UPDATE storage_unit SET status = 'disposed', version = version + 1 WHERE id = $1`,

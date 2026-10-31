@@ -30,6 +30,16 @@ describe('inventory query builder (MM-T12 T1)', () => {
     ]);
   });
 
+  it('MM-T81: the open-conflict filter is a parameter-free EXISTS on open conflicts', () => {
+    const sql = build({ conflict: 'open' });
+    expect(sql.params).toEqual([]);
+    expect(sql.fromWhere).toMatch(
+      /EXISTS \(SELECT 1 FROM location_conflict c\s+WHERE c\.storage_unit_id = su\.id AND c\.status = 'open'\)/,
+    );
+    expect(build({}).fromWhere).not.toContain('location_conflict');
+    expect(inventoryQuerySchema.safeParse({ conflict: 'resolved' }).success).toBe(false);
+  });
+
   it('combines every filter with AND, values only as parameters', () => {
     const sql = build({
       search: 'bkt',

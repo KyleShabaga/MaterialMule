@@ -23,6 +23,7 @@ interface InventoryRow {
   location_name: string;
   tested_removal_reason: InventoryItem['testedRemovalReason'];
   contents_destroyed: boolean;
+  open_conflict: boolean;
 }
 
 /** One page of the inventory with its total (MM-T12). Never returns more than 100 units. */
@@ -44,7 +45,9 @@ export async function queryInventory(
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
             tr.reason AS tested_removal_reason,
             (su.unit_type = 'shelby_tube'
-             AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed
+             AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed,
+            EXISTS (SELECT 1 FROM location_conflict c
+                    WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict
      FROM (SELECT su.id ${sql.fromWhere}
            ORDER BY ${sql.orderBy}
            LIMIT ${limitParam} OFFSET ${offsetParam}) page
@@ -76,6 +79,7 @@ export async function queryInventory(
       sample: identities.get(row.id)?.sample ?? null,
       bulkGroup: membershipOf(identities.get(row.id)),
       location: { id: row.location_id, code: row.location_code, name: row.location_name },
+      openConflict: row.open_conflict,
       // MM-T36: "Disposed after testing" and a tested Shelby tube's destroyed contents.
       testedRemovalReason: row.tested_removal_reason,
       contentsDestroyed: row.contents_destroyed,
