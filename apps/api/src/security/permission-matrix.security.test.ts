@@ -107,6 +107,11 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // issuers by the project's Lead Project Engineer only. A person reads their own grants.
   'POST /api/projects/:projectId/team-members': 'project_team.manage',
   'DELETE /api/projects/:projectId/team-members/:id': 'project_team.manage',
+  // MTR-25 / MISC-07: the project's lead or an admin, as for managing the team.
+  'POST /api/projects/:projectId/grant-reviews/:reviewId/keep': 'project_team.manage',
+  'POST /api/projects/:projectId/grant-reviews/:reviewId/revoke': 'project_team.manage',
+  'POST /api/projects/:projectId/team-join-requests/:requestId/accept': 'project_team.manage',
+  'POST /api/projects/:projectId/team-join-requests/:requestId/decline': 'project_team.manage',
   'POST /api/projects/:projectId/reviewer-assignments': 'project_reviewer.manage',
   'DELETE /api/projects/:projectId/reviewer-assignments/:id': 'project_reviewer.manage',
   'POST /api/projects/:projectId/report-issuers': 'report_issuer.manage',
