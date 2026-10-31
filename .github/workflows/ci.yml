@@ -130,8 +130,10 @@ jobs:
       # MM-T18 AC2: the receiving critical path three more times in a row, with no retries.
       # Manual runs only, to save minutes; the E2E run above already includes it once. The
       # repeated set is sharded too, so the two shards together run it exactly three times.
+      # Bash, because PowerShell's npx wrapper reads a bare @critical as splatting.
       - name: Critical path x3 (@critical, shard ${{ matrix.shard }}/2)
         if: github.event_name == 'workflow_dispatch'
+        shell: bash
         env:
           E2E_PREBUILT: '1'
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-critical
