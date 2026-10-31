@@ -20,6 +20,10 @@ import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { revokeTechnicalGrants } from '../project-access/grant-tables.js';
+import {
+  lockReviewEligibility,
+  settleEligibilityLoss,
+} from '../project-access/review-eligibility.js';
 import { UsersService, assertAnotherActiveAdmin } from '../users/users.service.js';
 import { findPreprovisionedMatch, normalizeUpn } from './first-sign-in.js';
 
@@ -567,6 +571,20 @@ export class StaffService {
           change.actor.userId,
         ],
       );
+      // MISC-08: a position change moves position-based review eligibility at once; an actual
+      // loss ends the person's affected review approvals in this transaction.
+      if (positionChanged && change.actor.userId) {
+        await lockReviewEligibility(client);
+        await settleEligibilityLoss(client, {
+          by: {
+            userId: change.actor.userId,
+            initials: change.actor.initials,
+            displayName: change.actor.name ?? '',
+          },
+          actor: change.actor,
+          reason: `position changed from ${old.position ?? 'Not set'} to ${next.position ?? 'Not set'}`,
+        });
+      }
       if (initialsChanged) {
         await recordAudit(client, {
           action: 'staff.initials_changed',

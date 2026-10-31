@@ -303,7 +303,9 @@ describe.runIf(testDatabaseUrl)('release rehearsal: 0001 baseline to latest (MM-
   });
 
   it('keeps history, stable IDs and the recorded assignment', async () => {
-    expect(after.counts).toEqual(before.counts);
+    // MISC-08 (owner decision): 0013 records the one eligible legacy reviewer assignment as the
+    // lead's approval, with one migration audit event; nothing else is added.
+    expect(after.counts).toEqual({ ...before.counts, audit_event: before.counts.audit_event! + 1 });
     const { rows: units } = await db.pool.query<{ readable_id: string }>(
       'SELECT readable_id FROM storage_unit ORDER BY id',
     );

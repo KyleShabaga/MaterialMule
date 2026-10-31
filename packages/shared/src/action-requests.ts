@@ -17,6 +17,8 @@ export const ACTION_REQUEST_KINDS = [
   'grant_review',
   // MISC-07: someone joined the team themselves; the lead (or an admin) accepts or declines.
   'team_join_request',
+  // MISC-08: a reviewer lost eligibility; the lead reassigns or approves someone again.
+  'review_approval_lost',
 ] as const;
 export type ActionRequestKind = (typeof ACTION_REQUEST_KINDS)[number];
 
@@ -29,6 +31,7 @@ export const ACTION_REQUEST_RESOLUTIONS = [
   'appointed',
   'reviewed',
   'accepted',
+  'reassigned',
 ] as const;
 export type ActionRequestResolution = (typeof ACTION_REQUEST_RESOLUTIONS)[number];
 
@@ -41,6 +44,7 @@ export const ACTION_REQUEST_ROUTE_LABEL: Record<ActionRequestKind, string> = {
   lead_appointment: 'Admins',
   grant_review: 'Lead Project Engineer',
   team_join_request: 'Lead Project Engineer and Admins',
+  review_approval_lost: 'Lead Project Engineer and Admins',
 };
 
 export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, string> = {
@@ -52,6 +56,7 @@ export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, st
   appointed: 'Lead Project Engineer appointed',
   reviewed: 'Inherited grants reviewed',
   accepted: 'Accepted',
+  reassigned: 'Reviewer reassigned',
 };
 
 export const actionRequestSchema = z.object({

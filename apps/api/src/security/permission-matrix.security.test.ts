@@ -114,6 +114,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/projects/:projectId/team-join-requests/:requestId/decline': 'project_team.manage',
   'POST /api/projects/:projectId/reviewer-assignments': 'project_reviewer.manage',
   'DELETE /api/projects/:projectId/reviewer-assignments/:id': 'project_reviewer.manage',
+  // MISC-08: the project's Lead Project Engineer alone approves a reviewer or withdraws it.
+  'POST /api/projects/:projectId/reviewer-assignments/:id/approval': 'project_review.approve',
+  'DELETE /api/projects/:projectId/review-approvals/:id': 'project_review.approve',
   'POST /api/projects/:projectId/report-issuers': 'report_issuer.manage',
   'DELETE /api/projects/:projectId/report-issuers/:id': 'report_issuer.manage',
   'GET /api/me/grants': null,
