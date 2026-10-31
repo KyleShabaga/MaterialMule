@@ -8,6 +8,7 @@ import { PrintWorkerService } from '../printing/print-worker.service.js';
 import { APP_VERSION } from '../version.js';
 import {
   backupTargetDisk,
+  defaultPrinterSummary,
   diskSpace,
   printQueueSummary,
   readBackupStatusFile,
@@ -43,9 +44,12 @@ export class SystemStatusController {
         'Backups not configured: BACKUP_STATUS_FILE is empty (design pending, D39)',
       );
     }
-    const printQueue = databaseUp
-      ? await printQueueSummary(this.database.pool, now).catch(() => null)
-      : null;
+    const [printQueue, defaultPrinter] = databaseUp
+      ? await Promise.all([
+          printQueueSummary(this.database.pool, now).catch(() => null),
+          defaultPrinterSummary(this.database.pool).catch(() => null),
+        ])
+      : [null, null];
     const worker = this.printWorker.worker.health;
     return {
       checkedAt: now.toISOString(),
@@ -57,6 +61,7 @@ export class SystemStatusController {
         running: worker.running,
         lastPollAt: worker.lastPollAt ? worker.lastPollAt.toISOString() : null,
       },
+      defaultPrinter,
       disks: [hostDisk, backupTargetDisk(backupFile)].filter((disk) => disk !== null),
     };
   }
