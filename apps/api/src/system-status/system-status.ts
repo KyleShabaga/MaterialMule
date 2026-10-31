@@ -5,6 +5,8 @@ import {
   backupStatusFileSchema,
   type BackupStatusFile,
   type DiskSpace,
+  JOB_FAILURE_KINDS,
+  type JobFailureKind,
   type PrinterOutcome,
   type SystemStatusResponse,
 } from '@materialmule/shared';
@@ -142,10 +144,16 @@ const OUTCOME_BY_STATUS = {
 } as const satisfies Record<string, PrinterOutcome>;
 
 /**
- * The default printer and how its newest finished attempt went (MTR-45), from print_job alone.
+ * The default printer and how its newest attempt to reach it went (MTR-45), from print_job alone.
  * An attempt is a job the worker has tried (attempts > 0) and isn't sending right now. Its time is
  * when it was sent, or when the worker last saved it. Uncertain jobs a person has since confirmed
  * are left out: the confirmation moved their updated_at, so the attempt time is no longer known.
+ *
+ * A failed job counts as an attempt on the printer only when the worker recorded that the printer
+ * was contacted (`failure: 'printer'` on its label.print_failed audit entry, written in the same
+ * transaction as the status). Jobs refused before any byte went out (a unit disposed after the
+ * request, a label that couldn't be prepared) say nothing about the printer: they are reported
+ * separately as lastJobFailure, and never as the printer not responding nor as it working.
  */
 export async function defaultPrinterSummary(
   pool: Pool,
@@ -160,30 +168,53 @@ export async function defaultPrinterSummary(
     last_error: string | null;
     printer_message: string | null;
     failing_since: Date | null;
+    job_failure: string | null;
+    job_failure_at: Date | null;
+    job_failure_error: string | null;
   }>(
     `WITH printer AS (
        SELECT key, name, enabled, check_status FROM printer WHERE is_default
      ), attempt AS (
        SELECT j.status, j.created_at, j.last_error, j.printer_message,
-              coalesce(j.sent_at, j.updated_at) AS attempt_at
+              coalesce(j.sent_at, j.updated_at) AS attempt_at,
+              CASE WHEN j.status = 'failed' THEN coalesce(f.kind, 'unknown') END AS failure
          FROM print_job j JOIN printer p ON p.key = j.printer_key
+         LEFT JOIN LATERAL (
+           SELECT a.after_values->>'failure' AS kind
+             FROM audit_event a
+            WHERE a.entity_type = 'print_job' AND a.entity_id = j.id
+              AND a.action = 'label.print_failed'
+            ORDER BY a.occurred_at DESC
+            LIMIT 1
+         ) f ON j.status = 'failed'
         WHERE j.attempts > 0
           AND (j.status IN ('sent', 'queued', 'failed')
                OR (j.status = 'uncertain' AND j.physically_confirmed_at IS NULL))
+     ), reached AS (
+       SELECT * FROM attempt WHERE failure IS NULL OR failure = 'printer'
      ), last_ok AS (
-       SELECT max(attempt_at) AS at FROM attempt WHERE status = 'sent'
+       SELECT max(attempt_at) AS at FROM reached WHERE status = 'sent'
      )
      SELECT p.key, p.name, p.enabled, p.check_status,
             latest.status, latest.attempt_at, latest.last_error, latest.printer_message,
             (SELECT min(greatest(a.created_at, coalesce(o.at, a.created_at)))
-               FROM attempt a
+               FROM reached a
               WHERE a.status <> 'sent' AND a.attempt_at > coalesce(o.at, '-infinity')
-            ) AS failing_since
+            ) AS failing_since,
+            refused.failure AS job_failure, refused.attempt_at AS job_failure_at,
+            refused.last_error AS job_failure_error
        FROM printer p
        CROSS JOIN last_ok o
        LEFT JOIN LATERAL (
-         SELECT * FROM attempt ORDER BY attempt_at DESC LIMIT 1
-       ) latest ON true`,
+         SELECT * FROM reached ORDER BY attempt_at DESC LIMIT 1
+       ) latest ON true
+       LEFT JOIN LATERAL (
+         SELECT * FROM attempt
+          WHERE failure <> 'printer'
+            AND attempt_at > coalesce(latest.attempt_at, '-infinity')
+          ORDER BY attempt_at DESC
+          LIMIT 1
+       ) refused ON true`,
   );
   const row = rows[0];
   if (!row) return null;
@@ -203,7 +234,21 @@ export async function defaultPrinterSummary(
           }
         : null,
     failingSince: !ok && row.failing_since ? row.failing_since.toISOString() : null,
+    lastJobFailure:
+      row.job_failure && row.job_failure_at
+        ? {
+            kind: jobFailureKind(row.job_failure),
+            at: row.job_failure_at.toISOString(),
+            error: row.job_failure_error,
+          }
+        : null,
   };
+}
+
+function jobFailureKind(kind: string): JobFailureKind {
+  return (JOB_FAILURE_KINDS as readonly string[]).includes(kind)
+    ? (kind as JobFailureKind)
+    : 'unknown';
 }
 
 /** Free space on the drive holding `path`, or null where the platform can't tell. */

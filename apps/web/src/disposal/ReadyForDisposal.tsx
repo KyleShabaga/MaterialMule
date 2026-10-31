@@ -41,6 +41,11 @@ const columns: Column<DisposalReadyUnit>[] = [
  * eligibility (holds, extensions, open programs, location conflicts); this only shows its rows.
  * Each row leads to the unit or to its project, where approval and the disposal scan continue.
  * `refresh` changes after an approval or revocation on the page, so the list reloads.
+ *
+ * The list can shrink while a later page is open (units approved, disposed or newly held). A page
+ * past the end comes back with no rows but the real total, so it is never shown as "nothing
+ * ready": the card moves to the last page that exists and loads that instead. Each load belongs
+ * to one effect run, so a response for a page or refresh the card has moved on from is ignored.
  */
 export function ReadyForDisposal({ refresh }: { refresh: number }) {
   const [page, setPage] = useState(1);
@@ -53,7 +58,15 @@ export function ReadyForDisposal({ refresh }: { refresh: number }) {
     void fetchReady(page).then((next) => {
       if (!active) return;
       setFailed(next === null);
-      if (next) setData(next);
+      if (!next) return;
+      const lastPage = Math.max(1, Math.ceil(next.total / next.pageSize));
+      if (page > lastPage) {
+        // Out of range: keep what is shown until the last real page arrives. Only ever moves
+        // down, and page 1 is always in range, so this settles.
+        setPage(lastPage);
+        return;
+      }
+      setData(next);
     });
     return () => {
       active = false;
@@ -61,6 +74,8 @@ export function ReadyForDisposal({ refresh }: { refresh: number }) {
   }, [page, refresh, retry]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  // The page the shown rows belong to (the requested page may still be loading).
+  const shownPage = data?.page ?? page;
   return (
     <BandedCard
       title="Ready for disposal"
@@ -95,13 +110,21 @@ export function ReadyForDisposal({ refresh }: { refresh: number }) {
           />
           {data.total > data.pageSize ? (
             <nav className="pager" aria-label="Ready for disposal pages">
-              <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              <button
+                type="button"
+                disabled={shownPage <= 1}
+                onClick={() => setPage(shownPage - 1)}
+              >
                 Previous
               </button>
               <span>
-                Page {page} of {totalPages}
+                Page {shownPage} of {totalPages}
               </span>
-              <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+              <button
+                type="button"
+                disabled={shownPage >= totalPages}
+                onClick={() => setPage(shownPage + 1)}
+              >
                 Next
               </button>
             </nav>

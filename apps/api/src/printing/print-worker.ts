@@ -1,3 +1,4 @@
+import type { PrintFailureKind } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { withTransaction } from '../db/transaction.js';
@@ -62,7 +63,12 @@ interface ClaimedJob {
   labels: string[];
   zpl: string | null;
   renderError: string | null;
+  /** Why the job can't be sent, when it was refused before reaching the printer. */
+  renderFailure: PreparationFailure | null;
 }
+
+/** Failures decided before any byte goes to the printer: the printer was never contacted. */
+type PreparationFailure = Exclude<PrintFailureKind, 'printer'>;
 
 /** A claim that may have committed although it reported failure. Nothing was sent for it. */
 interface UnresolvedClaim {
@@ -76,7 +82,8 @@ interface UnresolvedClaim {
 interface UnsettledAttempt {
   job: ClaimedJob;
   outcome: SendOutcome;
-  permanent: boolean;
+  /** Set when the job failed before reaching the printer; it is not retried. */
+  preparation: PreparationFailure | null;
   /** True while a save is in progress, so two dispatches never save it at once. */
   saving: boolean;
 }
@@ -243,7 +250,7 @@ export class PrintWorker {
       if (attempt.saving) continue;
       attempt.saving = true;
       try {
-        await this.settle(attempt.job, attempt.outcome, attempt.permanent);
+        await this.settle(attempt.job, attempt.outcome, attempt.preparation);
         this.unsettled.delete(printerKey);
         this.wake();
       } catch (error) {
@@ -289,13 +296,13 @@ export class PrintWorker {
     printerKey: string,
     job: ClaimedJob,
     outcome: SendOutcome,
-    permanent: boolean,
+    preparation: PreparationFailure | null,
   ): Promise<boolean> {
     try {
-      await this.settle(job, outcome, permanent);
+      await this.settle(job, outcome, preparation);
       return true;
     } catch (error) {
-      this.unsettled.set(printerKey, { job, outcome, permanent, saving: false });
+      this.unsettled.set(printerKey, { job, outcome, preparation, saving: false });
       this.log.error(`Print result not saved, will retry: ${(error as Error).message}`);
       return false;
     }
@@ -326,8 +333,8 @@ export class PrintWorker {
         error: job.renderError ?? 'Label error',
         printerMessage: null,
       };
-      // Bad label data won't fix itself: fail without retrying.
-      return this.settleOrKeep(printerKey, job, outcome, true);
+      // Bad label data won't fix itself: fail without retrying. The printer was never contacted.
+      return this.settleOrKeep(printerKey, job, outcome, job.renderFailure ?? 'label_preparation');
     }
     try {
       outcome = await this.transport.send(job.target, job.zpl);
@@ -335,7 +342,7 @@ export class PrintWorker {
       // The transport promises not to throw; if it does, bytes may have gone out.
       outcome = { result: 'uncertain', error: `Printer client error: ${(error as Error).message}` };
     }
-    return this.settleOrKeep(printerKey, job, outcome, false);
+    return this.settleOrKeep(printerKey, job, outcome, null);
   }
 
   private async claim(printerKey: string): Promise<ClaimedJob | null> {
@@ -403,8 +410,12 @@ export class PrintWorker {
     });
   }
 
-  private async settle(job: ClaimedJob, outcome: SendOutcome, permanent: boolean): Promise<void> {
-    const next = permanent
+  private async settle(
+    job: ClaimedJob,
+    outcome: SendOutcome,
+    preparation: PreparationFailure | null,
+  ): Promise<void> {
+    const next = preparation
       ? { status: 'failed' as const, retryInMs: null }
       : statusAfterAttempt(
           outcome,
@@ -441,6 +452,10 @@ export class PrintWorker {
           after: {
             status: next.status,
             attempts: job.attempts,
+            // Structured cause for System status (MTR-45): whether the printer was contacted.
+            ...(next.status === 'failed'
+              ? { failure: (preparation ?? 'printer') satisfies PrintFailureKind }
+              : {}),
             ...(job.labelTarget === 'location'
               ? { target: 'location', locationCodes: job.labels, labelCount: job.labels.length }
               : { readableIds: job.labels, unitCount: job.labels.length }),
@@ -455,6 +470,7 @@ interface RenderedJob {
   labels: string[];
   zpl: string | null;
   renderError: string | null;
+  renderFailure: PreparationFailure | null;
 }
 
 /**
@@ -499,6 +515,7 @@ async function renderStorageUnitJob(
       renderError:
         `Not printed: ${named}${more} ${disposed.length === 1 ? 'was' : 'were'} disposed after ` +
         'this label was requested. Nothing in this job was sent.',
+      renderFailure: 'unit_disposed',
     };
   }
 
@@ -537,9 +554,14 @@ async function renderStorageUnitJob(
           ).zpl,
       )
       .join('');
-    return { labels, zpl, renderError: null };
+    return { labels, zpl, renderError: null, renderFailure: null };
   } catch {
-    return { labels, zpl: null, renderError: 'The label could not be prepared' };
+    return {
+      labels,
+      zpl: null,
+      renderError: 'The label could not be prepared',
+      renderFailure: 'label_preparation',
+    };
   }
 }
 
@@ -568,8 +590,13 @@ async function renderLocationJob(
         ),
       )
       .join('');
-    return { labels, zpl, renderError: null };
+    return { labels, zpl, renderError: null, renderFailure: null };
   } catch {
-    return { labels, zpl: null, renderError: 'The label could not be prepared' };
+    return {
+      labels,
+      zpl: null,
+      renderError: 'The label could not be prepared',
+      renderFailure: 'label_preparation',
+    };
   }
 }
