@@ -436,11 +436,25 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
   );
 }
 
+/** One audit value as text: a location (or any `{name, code}`) reads "name (code)" (MTR-64). */
+function formatHistoryValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value !== 'object') return String(value);
+  const record = value as Record<string, unknown>;
+  if (typeof record.name === 'string' && typeof record.code === 'string') {
+    return `${record.name} (${record.code})`;
+  }
+  return JSON.stringify(value);
+}
+
 function changes(event: StorageUnitHistoryEvent): string[] {
   if (!event.before || !event.after) return [];
   return Object.keys(event.after)
     .filter((key) => key in event.before!)
-    .map((key) => `${key}: ${String(event.before![key])} → ${String(event.after![key])}`);
+    .map(
+      (key) =>
+        `${key}: ${formatHistoryValue(event.before![key])} → ${formatHistoryValue(event.after![key])}`,
+    );
 }
 
 /** Audit history, newest first, 20 per page; never loaded in full. */

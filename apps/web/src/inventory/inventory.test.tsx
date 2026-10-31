@@ -509,10 +509,10 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
 });
 
 describe('storage unit detail (MM-T12)', () => {
-  function stubDetail() {
+  function stubDetail(history: StorageUnitHistoryPage = HISTORY) {
     return stubApi((url) => {
       if (url.pathname === `/api/storage-units/${DETAIL.readableId}`) return json(200, DETAIL);
-      if (url.pathname === `/api/storage-units/${DETAIL.id}/history`) return json(200, HISTORY);
+      if (url.pathname === `/api/storage-units/${DETAIL.id}/history`) return json(200, history);
       if (url.pathname.endsWith('/print-history')) {
         return json(200, {
           storageUnit: { id: DETAIL.id, readableId: DETAIL.readableId },
@@ -554,6 +554,30 @@ describe('storage unit detail (MM-T12)', () => {
       'href',
       '/sample-storage',
     );
+  });
+
+  it('MTR-64: a move names the locations it came from and went to', async () => {
+    stubDetail({
+      ...HISTORY,
+      items: [
+        {
+          id: 'e2',
+          occurredAt: '2026-10-24T16:00:00.000Z',
+          action: 'storage_unit.moved',
+          actor: { initials: 'AT', name: 'Alex Tester', accountType: 'personal' },
+          receiver: null,
+          reason: null,
+          before: { location: { code: 'RECEIVING', name: 'Receiving lab' } },
+          after: { location: { code: 'WH-A1', name: 'Warehouse A1' } },
+        },
+        ...HISTORY.items,
+      ],
+      total: 2,
+    });
+    renderAt(`/sample-storage/${DETAIL.readableId}`);
+    const history = await screen.findByRole('list', { name: 'History events' });
+    expect(history).toHaveTextContent('location: Receiving lab (RECEIVING) → Warehouse A1 (WH-A1)');
+    expect(history).not.toHaveTextContent('[object Object]');
   });
 
   it('AC6: a LAB session sees the detail with no edit actions', async () => {
