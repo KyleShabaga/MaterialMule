@@ -302,6 +302,19 @@ describe.runIf(testDatabaseUrl)('release rehearsal: 0001 baseline to latest (MM-
     expect(after.routes).toContain(`${LEAD_ITEM} ${U.pat}`);
   });
 
+  it('MM-T91 (0013): gives everyone an open item waits on one unread "opened" notification', async () => {
+    const { rows } = await db.pool.query<{ route: string }>(
+      `SELECT action_item_id || ' ' || recipient_user_id AS route FROM notification
+       WHERE kind = 'action_request.opened' AND read_at IS NULL AND dismissed_at IS NULL
+       ORDER BY 1`,
+    );
+    expect(rows.map((row) => row.route)).toEqual(after.routes);
+    const { rows: others } = await db.pool.query(
+      `SELECT 1 FROM notification WHERE kind <> 'action_request.opened'`,
+    );
+    expect(others).toEqual([]);
+  });
+
   it('keeps history, stable IDs and the recorded assignment', async () => {
     expect(after.counts).toEqual(before.counts);
     const { rows: units } = await db.pool.query<{ readable_id: string }>(

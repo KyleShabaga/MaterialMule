@@ -241,3 +241,35 @@ export async function enqueueActionItemEmails(
   );
   return rowCount ?? 0;
 }
+
+/**
+ * MM-T91: one `action_request.opened` notification for each person the item is routed to now
+ * (the same people as ROUTED_PEOPLE), whatever their email preference and whether or not email
+ * sending is enabled. The unique (recipient, event key) means at most one per item per person:
+ * a retry, a second call, or the item coming back to someone after a reroute adds nothing.
+ */
+export async function notifyActionItem(client: PoolClient, actionItemId: string): Promise<number> {
+  const { rowCount } = await client.query(
+    `INSERT INTO notification (recipient_user_id, kind, action_item_id, event_key)
+     SELECT routed.id, 'action_request.opened', a.id, 'action_item:' || a.id::text || ':opened'
+     FROM action_item a
+     CROSS JOIN LATERAL (${ROUTED_PEOPLE}) routed
+     WHERE a.id = $1 AND a.status = 'open'
+     ON CONFLICT ON CONSTRAINT notification_one_per_event DO NOTHING`,
+    [actionItemId],
+  );
+  return rowCount ?? 0;
+}
+
+/**
+ * Tells the people an item is routed to now: an in-app notification for each, and an outbox
+ * email for those who opted in. Call it inside the transaction that created, reassigned or
+ * rerouted the item. Returns the number of emails queued (as enqueueActionItemEmails does).
+ */
+export async function announceActionItem(
+  client: PoolClient,
+  actionItemId: string,
+): Promise<number> {
+  await notifyActionItem(client, actionItemId);
+  return enqueueActionItemEmails(client, actionItemId);
+}

@@ -14,7 +14,7 @@ import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
-import { enqueueActionItemEmails } from '../notifications/action-items.js';
+import { announceActionItem } from '../notifications/action-items.js';
 import { parseBody } from '../validation/parse-body.js';
 import { TEAM_MEMBER, endGrant, hasActive, insertGrant, lockGrant } from './grant-tables.js';
 import {
@@ -179,7 +179,7 @@ export class TeamJoinService {
           `${me.displayName} joined the ${project.project_number} team and waits for acceptance`,
         ],
       );
-      await enqueueActionItemEmails(client, item[0]!.id);
+      await announceActionItem(client, item[0]!.id);
       return this.view(client, project, actor);
     });
   }

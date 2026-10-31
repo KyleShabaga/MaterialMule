@@ -43,6 +43,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | location_conflict.resolve (D29)                                          |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | storage_unit.tested_removal (T36)                                        |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | action_item.read (T27)                                                   |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| notification.read (T91)                                                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | retention.request (T29)                                                  |     |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | test_catalog.manage (D37)                                                |     |                   |      ✓      |   ✓   |                       |                     |
 | program.priority.set (D50)                                               |     |                   |      ✓      |       |           ✓           |                     |
@@ -742,6 +743,36 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   holds the Lab Manager role. Each item says so ("Nobody can act on this now"). Lab Managers and
   admins reassign from it with a reason, to an eligible person only; the recipient restriction is
   unchanged. Routing and the queue grant nothing: every decision rechecks its own permission.
+
+## Notifications (MM-T91)
+
+| Route                                 | Policy                                                     |
+| ------------------------------------- | ---------------------------------------------------------- |
+| `GET /api/notifications?filter=`      | `notification.read`; `active` (default), `unread` or `all` |
+| `GET /api/notifications/count`        | `notification.read`                                        |
+| `POST /api/notifications/:id/read`    | `notification.read`; own notifications only                |
+| `POST /api/notifications/:id/dismiss` | `notification.read`; own notifications only                |
+| `POST /api/notifications/:id/restore` | `notification.read`; own notifications only                |
+| `POST /api/notifications/read-all`    | `notification.read`                                        |
+
+- **Separate from action requests.** A notification tells someone something happened; an action
+  request is work they must do. Reading, dismissing or restoring a notification never resolves,
+  approves or changes an action request, its routing or the audit log. The two counts are
+  separate (`GET /api/action-items/count` is the pending count; `GET /api/notifications/count`
+  the unread count).
+- **What creates one** (owner decisions, Kyle 2026-10-31): an action request now waiting on you
+  (created, reassigned to you or rerouted to you by D10), once per item per person; and a
+  decision notice when someone else resolves a cancellation, closure, retention or team join
+  request you raised, or marks done a correction you returned. No routine-event notifications,
+  none for lead appointments or grant reviews, none for your own resolution. Independent of the
+  email preference and of `EMAIL_ENABLED`.
+- **Own rows only.** Every route works on the signed-in person's notifications; another person's
+  id, a missing one or a malformed one is 404 `notification_not_found`. The mutations are
+  idempotent and return `{ unread }`. Dismiss hides a row (and marks it read); restore undoes it;
+  nothing is deleted. The list and count cover the last 90 days (at most 200 rows, newest
+  first). Following a notification's link grants nothing: the target page checks.
+- **LAB:** 403 on every route above, whoever its station selects. LAB never receives
+  notifications (the database refuses them).
 
 ## Retention (MM-T29)
 

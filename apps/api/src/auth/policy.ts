@@ -96,6 +96,8 @@ export type Permission =
   | 'storage_unit.tested_removal'
   // MM-T27: one's own Action requests inbox and notification preferences (never LAB)
   | 'action_item.read'
+  // MM-T91: one's own in-app notifications (never LAB)
+  | 'notification.read'
   // MM-T29: ask the project's Lead Project Engineer or a Lab Manager for a hold or extension (never LAB)
   | 'retention.request'
   // Lab Manager (and Lead Project Engineer of the project where marked project-scoped)
@@ -196,6 +198,8 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   // MM-T27: a LAB station has no inbox or preferences of its own and never borrows the
   // selected person's.
   'action_item.read',
+  // MM-T91: in-app notifications are personal; LAB has none and never sees the selected person's.
+  'notification.read',
   // MM-T29: retention requests; LAB never asks or decides, whoever is selected.
   'retention.request',
 ]);
