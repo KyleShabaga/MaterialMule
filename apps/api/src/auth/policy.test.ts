@@ -182,6 +182,25 @@ describe('can', () => {
     expect(can(lab, 'inventory.read')).toBe(true);
     expect(can(lab, 'label.print')).toBe(true);
   });
+
+  it('MISC-04: Settings Locations, Tests and Templates management is admin and Lab Manager only', () => {
+    const lab = user({ accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
+    const matrix: [string, AuthUser, boolean][] = [
+      ['admin', user({ roles: ['admin'] }), true],
+      ['lab_manager', user({ roles: ['lab_manager'] }), true],
+      ['technician', user(), false],
+      ['LAB', lab, false],
+    ];
+    for (const [who, u, manages] of matrix) {
+      expect(can(u, 'location.manage'), who).toBe(manages);
+      expect(can(u, 'test_catalog.manage'), who).toBe(manages);
+      // Reads used elsewhere (location pickers, the lab-program catalogue) and label printing
+      // (the print-only Locations view, Kyle 2026-10-30) stay open to everyone.
+      expect(can(u, 'inventory.read'), who).toBe(true);
+      expect(can(u, 'label.print'), who).toBe(true);
+      expect(can(u, 'lab_program.read'), who).toBe(true);
+    }
+  });
 });
 
 describe('MM-AO03 assignments, scoped grants and effective sources', () => {

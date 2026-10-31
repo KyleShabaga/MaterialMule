@@ -13,14 +13,14 @@ import {
   type TestTemplate,
   type TestType,
 } from '@materialmule/shared';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { DataTable, EmptyState, ErrorState, FormField, StatusBadge } from '../../components/ui';
 import { catalogueWrite, fetchCatalogue, fetchTemplates, type WriteResult } from '../../lab/api';
 import { TestPicker } from '../../lab/TestPicker';
 import { useMe } from '../../session/context';
 
-// Settings → Tests and Settings → Templates (MM-T23). Everyone may look; Lab Managers and
-// administrators (`test_catalog.manage`) add, edit, retire and restore. Nothing is deleted:
+// Settings → Tests and Settings → Templates (MM-T23). Only Lab Managers and administrators
+// (`test_catalog.manage`) see them (MISC-04); they add, edit, retire and restore. Nothing is deleted:
 // retired tests leave new selection while submitted requests keep their snapshots.
 
 export const NOT_ALLOWED_TEXT = 'Only Lab Managers and administrators can change the catalogue.';
@@ -51,7 +51,7 @@ function useCatalogue() {
   return { catalogue, failed, reload };
 }
 
-export function TestsSettingsPage() {
+function TestsSettings() {
   const me = useMe();
   const allowed = me.permissions.includes('test_catalog.manage');
   const { catalogue, failed, reload } = useCatalogue();
@@ -434,7 +434,7 @@ function GroupForms({
   );
 }
 
-export function TemplatesSettingsPage() {
+function TemplatesSettings() {
   const me = useMe();
   const allowed = me.permissions.includes('test_catalog.manage');
   const { catalogue, failed, reload: reloadCatalogue } = useCatalogue();
@@ -612,5 +612,40 @@ function TemplateCard({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * MISC-04: Settings → Tests and → Templates are for Lab Managers and administrators only. Others
+ * get a plain refusal; lab programs still read the catalogue and templates through their own
+ * pickers, and the server refuses every catalogue write to anyone else.
+ */
+function CatalogueGate({ title, children }: { title: string; children: ReactNode }) {
+  const me = useMe();
+  if (me.permissions.includes('test_catalog.manage')) return children;
+  const id = `${title.toLowerCase()}-heading`;
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id}>{title}</h2>
+      <EmptyState>{REFUSED_TEXT}</EmptyState>
+    </section>
+  );
+}
+
+export const REFUSED_TEXT = 'Only Lab Managers and administrators can open this page.';
+
+export function TestsSettingsPage() {
+  return (
+    <CatalogueGate title="Tests">
+      <TestsSettings />
+    </CatalogueGate>
+  );
+}
+
+export function TemplatesSettingsPage() {
+  return (
+    <CatalogueGate title="Templates">
+      <TemplatesSettings />
+    </CatalogueGate>
   );
 }

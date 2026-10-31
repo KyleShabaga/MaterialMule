@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 
-// Settings sub-nav: each tab is shown only to the people who can use it (MTR-88, MISC-05).
+// Settings sub-nav: each tab is shown only to the people who can use it (MTR-88, MISC-05,
+// MISC-04).
 
 const BASE: MeResponse = {
   id: 'u',
@@ -101,6 +102,42 @@ describe('Settings sub-nav', () => {
     renderAt('/settings/profile', me);
     expect(await settingsTabs()).not.toContain('Staff & access');
   });
+
+  it.each([
+    ['an admin', ADMIN],
+    ['a Lab Manager', LAB_MANAGER],
+  ])('MISC-04: shows Locations, Tests and Templates to %s', async (_who, me) => {
+    renderAt('/settings/profile', me);
+    expect(await settingsTabs()).toEqual(
+      expect.arrayContaining(['Locations', 'Tests', 'Templates']),
+    );
+  });
+
+  it.each([
+    ['a Technician', TECHNICIAN],
+    ['the shared LAB account', LAB],
+  ])(
+    'MISC-04: %s keeps the print-only Locations tab but not Tests or Templates',
+    async (_who, me) => {
+      renderAt('/settings/profile', me);
+      const tabs = await settingsTabs();
+      expect(tabs).toContain('Locations');
+      expect(tabs).not.toContain('Tests');
+      expect(tabs).not.toContain('Templates');
+    },
+  );
+
+  it.each(['/settings/tests', '/settings/templates'])(
+    'MISC-04: a Technician opening %s directly gets a plain refusal and no catalogue form',
+    async (path) => {
+      renderAt(path, TECHNICIAN);
+      expect(
+        await screen.findByText('Only Lab Managers and administrators can open this page.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('form')).not.toBeInTheDocument();
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    },
+  );
 
   it('MISC-05: a direct URL to Staff & access gets a friendly refusal, not the page', async () => {
     renderAt('/settings/staff', LAB_MANAGER);

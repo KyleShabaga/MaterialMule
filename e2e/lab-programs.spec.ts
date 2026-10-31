@@ -67,7 +67,7 @@ async function submitReviewed(page: Page) {
   await expect(submitted).toBeVisible();
 }
 
-test('Settings → Tests: a Lab Manager adds and retires a test; a technician only reads', async ({
+test('Settings → Tests: a Lab Manager adds and retires a test; a technician is refused', async ({
   page,
 }) => {
   const code = uniqueCode('DEMO_UI');
@@ -84,12 +84,17 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician on
   await row.getByRole('button', { name: 'Retire' }).click();
   await expect(row).toContainText('Retired');
 
+  // MISC-04: a technician has no Tests or Templates tab, and a direct URL is refused.
   await signInAs(page, 'at');
   await page.goto('/settings/tests');
   await expect(
-    page.getByText('Only Lab Managers and administrators can change the catalogue.'),
+    page.getByText('Only Lab Managers and administrators can open this page.'),
   ).toBeVisible();
   await expect(page.getByRole('form', { name: 'Add a test' })).toHaveCount(0);
+  const settingsNav = page.getByRole('navigation', { name: 'Settings' });
+  await expect(settingsNav.getByRole('link', { name: 'Tests' })).toHaveCount(0);
+  await expect(settingsNav.getByRole('link', { name: 'Templates' })).toHaveCount(0);
+  await expect(settingsNav.getByRole('link', { name: 'Locations' })).toBeVisible();
 });
 
 test('MISC-01: New program opens the editor from Programs and Worklist, not the discard dialog', async ({
