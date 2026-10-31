@@ -85,6 +85,37 @@ test('T3: a technician sees the project but no Edit button', async ({ page }) =>
   await expect(page.getByRole('button', { name: 'Edit project' })).toHaveCount(0);
 });
 
+test('MTR-26: Edit project shows what changed and asks before discarding it', async ({ page }) => {
+  const data = await insertInventoryFixture();
+  await signInAs(page, 'pe');
+  await page.goto(`/projects?search=${data.projectB}`);
+  await page.getByRole('link', { name: `Open project ${data.projectB}` }).click();
+  const edit = page.getByRole('button', { name: 'Edit project' });
+  await edit.click();
+  const dialog = page.getByRole('dialog', { name: 'Edit project' });
+  await dialog.getByRole('textbox', { name: 'Client' }).fill('Changed client (fictional)');
+  await expect(dialog).toContainText('Changed: client');
+
+  // Escape asks; Cancel there keeps the edit.
+  await page.keyboard.press('Escape');
+  const confirm = page.getByRole('dialog', { name: 'Discard changes?' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirm).toBeHidden();
+  await expect(dialog.getByRole('textbox', { name: 'Client' })).toHaveValue(
+    'Changed client (fictional)',
+  );
+
+  // The Cancel button asks too; discarding closes the editor and nothing is saved.
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await confirm.getByRole('button', { name: 'Discard changes' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('region', { name: 'Project details' })).not.toContainText(
+    'Changed client (fictional)',
+  );
+  await expect(edit).toBeFocused();
+});
+
 test('T6: phone width list and detail are usable without horizontal scroll', async ({
   page,
 }, testInfo) => {

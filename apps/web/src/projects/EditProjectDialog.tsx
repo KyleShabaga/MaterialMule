@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
-import { FormField } from '../components/ui';
+import { ConfirmDialog, FormField } from '../components/ui';
 import { StaffOptionGroups } from './StaffOptionGroups';
 import { updateProject } from './api';
 
@@ -61,6 +61,15 @@ function changedFields(project: ProjectDetail, draft: Draft): UpdateProjectReque
   return body;
 }
 
+/** How the "Changed:" cue names each field that differs from the saved project (MTR-26). */
+const CHANGED_LABELS: [keyof UpdateProjectRequest, string][] = [
+  ['projectNumber', 'project number'],
+  ['name', 'name'],
+  ['client', 'client'],
+  ['leadProjectEngineerId', 'Lead Project Engineer'],
+  ['serverFolderPath', 'server folder path'],
+];
+
 /**
  * Edit project (MM-T35): admins and the project's Lead Project Engineer change the number (until the first
  * receipt), name, client and server folder path; only admins change the Lead Project Engineer,
@@ -86,6 +95,15 @@ export function EditProjectDialog({
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [staff, setStaff] = useState<StaffOption[]>([]);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
+  // The page unmounts the dialog to close it, so hand focus back to whatever opened it.
+  useEffect(() => {
+    const trigger = document.activeElement;
+    return () => {
+      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+    };
+  }, []);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -109,6 +127,13 @@ export function EditProjectDialog({
   const error = (field: string) => errors[field]?.join(' ') ?? null;
   const leadProjectEngineerChanging =
     draft.leadProjectEngineerId !== (base.leadProjectEngineer?.id ?? '');
+  // MTR-26: what differs from the saved project, and a prompt before throwing it away.
+  const pending = changedFields(base, draft);
+  const changed = CHANGED_LABELS.filter(([field]) => field in pending).map(([, label]) => label);
+  const requestClose = () => {
+    if (changed.length > 0) setConfirmingDiscard(true);
+    else onClose();
+  };
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -159,7 +184,10 @@ export function EditProjectDialog({
       ref={ref}
       className="confirm-dialog edit-project"
       aria-labelledby={titleId}
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        requestClose();
+      }}
     >
       <div className="edit-project-head">
         <h2 id={titleId}>Edit project</h2>
@@ -274,8 +302,11 @@ export function EditProjectDialog({
           )}
         </FormField>
 
+        <p className="field-hint edit-project-changed" role="status">
+          {changed.length > 0 ? `Changed: ${changed.join(', ')}` : ''}
+        </p>
         <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={requestClose}>
             Cancel
           </button>
           <button type="submit" className="primary" disabled={busy}>
@@ -283,6 +314,16 @@ export function EditProjectDialog({
           </button>
         </div>
       </form>
+      <ConfirmDialog
+        open={confirmingDiscard}
+        title="Discard changes?"
+        confirmLabel="Discard changes"
+        danger
+        onConfirm={onClose}
+        onCancel={() => setConfirmingDiscard(false)}
+      >
+        <p>Your changes to {changed.join(', ')} haven’t been saved.</p>
+      </ConfirmDialog>
     </dialog>
   );
 }
