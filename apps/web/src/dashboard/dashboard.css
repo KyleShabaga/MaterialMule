@@ -312,9 +312,10 @@
   list-style: none;
 }
 
-/* Print status sentences wrap rather than widen the column. */
+/* Badges stay on one line ("No label yet" wrapped over 3 lines at 820 px, MTR-92); a table
+   that gets too wide scrolls inside its card (.dash-table is a TableScroll region). */
 .dash-table .badge {
-  max-width: 12rem;
+  white-space: nowrap;
 }
 
 /* ---- Recent activity, drafts, label printer ---- */
@@ -482,5 +483,10 @@
 @media (max-width: 640px) {
   .dash-table .data-table td > * {
     min-width: 0;
+  }
+
+  /* Stacked phone cards: a long print status wraps between words inside its card. */
+  .dash-table .badge {
+    white-space: normal;
   }
 }
