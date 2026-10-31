@@ -333,6 +333,46 @@ drafts when it is on. `PUT /api/settings/drafts` locks the row, compares `versio
 (entity type `app_setting`, before/after, actor) in the same transaction. Saving the same values
 again changes nothing.
 
+## Review eligibility and LPE review approval (MISC-08, migration 0013)
+
+- **Effective eligibility** is one SQL rule, `reviewer_is_eligible(user, scope)`: an active
+  individual `reviewer_eligibility` grant, or an active `review_position_rule` for the person's
+  current position, and no active `reviewer_exclusion` for that scope or for all scopes
+  (`scope_code` NULL, which also covers scopes added later). No position is eligible until an
+  Admin enables a rule. Rules, exclusions and their endings are append-only, need a reason, and
+  are audited with actor, time and before/after.
+- **Reviewing on a project** needs all four: effective eligibility, accepted team membership
+  (`project_team_member_accepted`: members the lead or an Admin added count as accepted; a
+  MISC-07 self-join is pending until accepted), an active reviewer assignment (Admins may still
+  assign) and the lead's active `project_review_approval` of it. A trigger allows only the
+  project's current lead to approve, and only an eligible reviewer on an active assignment.
+- **Loss and restoration.** Every source change takes `review_eligibility_lock()` and, in the
+  same transaction, ends each approval whose reviewer
+  is no longer effectively eligible (`end_kind = 'eligibility_lost'`) and opens a
+  `review_approval_lost` action request for the lead (Admins when there is none). Losing one
+  source while another remains ends nothing. Regaining eligibility, including removing an
+  exclusion, never reactivates an approval: the lead approves again, which settles the request
+  (`reassigned`); removing the assignment also ends its approval and settles it. Approvals take the
+  same lock, so a loss and an approval never interleave.
+- **Lock order (review fix for #122).** `review_eligibility_lock()` is taken first by everything
+  that takes it (source changes, position changes, re-enable, reviewer assignment and approval),
+  before any project row, account or grant row, so its holders queue holding nothing. A change
+  that may end approvals then takes `FOR KEY SHARE` on the projects of every active approval it
+  could end (`beginEligibilityChange`, id order), before the accounts: ending one inserts a
+  `review_approval_lost` request whose project foreign key needs exactly that lock, and taking it
+  last deadlocked with an approval or grant holding the project. The order comment at the top of
+  `0013_review_eligibility.sql` predates this and is superseded here (the file is left unchanged so
+  its checksum still matches databases that applied it). Checks are live on every request, so an
+  open session loses review rights at once.
+- **Deferred:** no scoped review work exists yet (concrete review, MM-AO08), so blocking
+  unfinished review work and keeping drafts belong to the concrete cards C04/C07 (owner decision
+  2026-10-31). Completed work is not touched.
+- **Backfill.** 0013 records each existing active reviewer assignment as approved by its
+  project's lead (audited as "Migration 0013", system), when the project has a lead and the
+  reviewer is effectively eligible; an approval for someone ineligible would otherwise return
+  with their eligibility. A fresh install backfills nothing; seeds and tests create approvals
+  explicitly.
+
 ## Staff position and official initials (MM-T43, MM-T44, MISC-06)
 
 - **Position.** `app_user.position` is `technician`, `technologist`, `engineer`, `lab_manager` or
@@ -619,6 +659,50 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   the transaction that created or reassigned the item. `pending` → `sent`, `failed` (attempts
   exhausted, exponential backoff between) or `skipped` (item resolved first). `last_error` never
   holds an address. Nothing sends while `EMAIL_ENABLED` is false, which startup enforces.
+
+## Notifications (MM-T91, `0014_notifications.sql`)
+
+Separate from action requests: an `action_item` is work someone must do; a `notification` only
+tells a person something happened. Reading, dismissing or restoring one never touches the action
+item, its routing or `audit_event`.
+
+- `notification`: `recipient_user_id`, `kind` (`action_request.opened` or
+  `action_request.decided`), `action_item_id` (required by both kinds), `event_key`
+  (`action_item:<id>:opened` / `:decided`, checked against the item by
+  `notification_shape_check`), `created_at`, `read_at`, `dismissed_at`.
+  `notification_one_per_event` is unique (recipient, event_key): at most one "opened" and one
+  "decided" row per item per person, however often the item is announced, reassigned or
+  rerouted back to them. Indexed by (recipient, created_at) for the list and by recipient for
+  unread rows.
+- Recipients (`notification_recipient_check`, insert trigger): active personal or test accounts
+  only, never LAB or a disabled account (the rule `action_item_person_eligible` and the email
+  outbox use).
+- `notification_guard`: no DELETE or TRUNCATE; only `read_at` (null → a time, once) and
+  `dismissed_at` (null ↔ a time: dismiss and restore) change. `notification_dismissed_is_read`:
+  a dismissed row is read.
+- "Opened" rows are written by the API (`notifyActionItem` in
+  `apps/api/src/notifications/action-items.ts`) for everyone `action_item_routed_to` names, in
+  the transaction that created, reassigned or rerouted the item, whatever their email
+  preference. Every producer, MISC-08's `review_approval_lost` included, calls
+  `announceActionItem`, which writes the notifications and then the opted-in email rows; the
+  email-only helper is private to that module so no path can skip the in-app notice. Old rows are never retargeted; the list reads the item live.
+- `action_item_decided_notification` (AFTER UPDATE on `action_item`, open → resolved only)
+  writes one "decided" row for the requester (`created_by_user_id`; for a correction, the
+  reviewer who returned it) when someone else resolves a cancellation, closure, retention or
+  team join request, or marks a correction done (resolved by a `correction_done` review event).
+  Nothing for lead appointments, grant reviews, a self-resolution, or a disabled or LAB
+  requester. Because `action_item_guard` allows one resolution, concurrent resolvers write one
+  row. Decline reasons are not copied.
+- On upgrade, `0014` gives every person an open item is routed to its unread "opened" row.
+- The API lists the last 90 days in pages (default 50, at most 100), newest first by
+  (`created_at`, `id`), with an opaque keyset cursor: every row in the window is reachable,
+  equal timestamps keep one order, and rows arriving meanwhile never shift later pages. The
+  `(recipient_user_id, created_at DESC, id)` index serves it. Nothing is purged.
+- Migration order: `0013_review_eligibility` (MISC-08, PR #122) then `0014_notifications`. The
+  notifications migration was first numbered 0013 on its branch; neither was ever deployed. A
+  dev or test database that applied either branch's old `0013` refuses to start (version clash
+  or checksum): rebuild it with `npm run db:rebuild:dev -- --disposable <db>` or
+  `npm run db:reset:test`.
 
 ## Retention dates, holds, extensions and requests (MM-T29)
 

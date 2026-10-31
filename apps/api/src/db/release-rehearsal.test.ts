@@ -302,8 +302,23 @@ describe.runIf(testDatabaseUrl)('release rehearsal: 0001 baseline to latest (MM-
     expect(after.routes).toContain(`${LEAD_ITEM} ${U.pat}`);
   });
 
+  it('MM-T91 (0014): gives everyone an open item waits on one unread "opened" notification', async () => {
+    const { rows } = await db.pool.query<{ route: string }>(
+      `SELECT action_item_id || ' ' || recipient_user_id AS route FROM notification
+       WHERE kind = 'action_request.opened' AND read_at IS NULL AND dismissed_at IS NULL
+       ORDER BY 1`,
+    );
+    expect(rows.map((row) => row.route)).toEqual(after.routes);
+    const { rows: others } = await db.pool.query(
+      `SELECT 1 FROM notification WHERE kind <> 'action_request.opened'`,
+    );
+    expect(others).toEqual([]);
+  });
+
   it('keeps history, stable IDs and the recorded assignment', async () => {
-    expect(after.counts).toEqual(before.counts);
+    // MISC-08 (owner decision): 0013 records the one eligible legacy reviewer assignment as the
+    // lead's approval, with one migration audit event; nothing else is added.
+    expect(after.counts).toEqual({ ...before.counts, audit_event: before.counts.audit_event! + 1 });
     const { rows: units } = await db.pool.query<{ readable_id: string }>(
       'SELECT readable_id FROM storage_unit ORDER BY id',
     );

@@ -14,7 +14,7 @@ import { asLocked, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
-import { enqueueActionItemEmails } from '../notifications/action-items.js';
+import { announceActionItem } from '../notifications/action-items.js';
 import type { Recorder } from '../projects/lead-appointment.js';
 import { parseBody } from '../validation/parse-body.js';
 import {
@@ -122,7 +122,7 @@ export async function flagInheritedGrants(
       } to keep or revoke`,
     ],
   );
-  if (rows[0]) await enqueueActionItemEmails(client, rows[0].id);
+  if (rows[0]) await announceActionItem(client, rows[0].id);
 }
 
 /** Only the project's current lead or an admin, on an active personal account (MTR-25). */

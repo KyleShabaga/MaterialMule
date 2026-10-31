@@ -2639,6 +2639,39 @@ button.action-bell {
   }
 }
 
+/* MM-T91: Pending actions and Notifications, two separately labelled header controls. */
+.header-alerts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+a.action-bell {
+  text-decoration: none;
+}
+
+.notifications-bell[aria-current='page'] {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* Notification center: unread rows say "Unread" and are bold; read rows lose the accent edge. */
+.notification-read {
+  border-left-color: var(--line-control);
+}
+
+.notification-unread .notification-event {
+  font-weight: 700;
+}
+
+.notification-event {
+  font-weight: 600;
+}
+
+.notifications-message:empty {
+  display: none;
+}
+
 /* Retention (MM-T29): holds, extensions, requests. */
 .retention-history {
   display: grid;

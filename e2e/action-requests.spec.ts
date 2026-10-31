@@ -3,8 +3,8 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { signInAs } from './support/auth';
 import { signInAsLabStation } from './support/lab-station';
 
-// MM-T27 (card T5, T6): the header bell and Action requests page, resolution through the real
-// workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
+// MM-T27 (card T5, T6): the header Pending actions control (the bell before MM-T91) and the
+// Action requests page, resolution through the real workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
 // Fictional data only: DEMO-2601, Lead Project Engineer Pat Example (pe), Lab Manager "Lab (test)" (lab),
 // Technician Alex Tester (at).
 
@@ -64,7 +64,7 @@ async function submittedProgram(page: Page) {
   };
 }
 
-test('T5: a closure request appears under the Lead Project Engineer bell, opens the program, and closing resolves it', async ({
+test('T5: a closure request appears under the Lead Project Engineer’s Pending actions, opens the program, and closing resolves it', async ({
   page,
 }) => {
   const { programId, programNumber } = await submittedProgram(page);
@@ -82,9 +82,9 @@ test('T5: a closure request appears under the Lead Project Engineer bell, opens 
 
   await signInAs(page, 'pe');
   await page.goto('/');
-  const bell = page.getByRole('button', { name: /^Action requests, \d+ open$/ });
+  const bell = page.getByRole('button', { name: /^Pending actions, \d+ waiting on you$/ });
   await expect(bell).toBeVisible();
-  // MISC-10: the bell previews the newest requests in place; Escape closes it and focus returns.
+  // MISC-10: Pending actions previews the newest requests in place; Escape closes it and focus returns.
   await bell.click();
   const preview = page.getByRole('region', { name: 'Latest action requests' });
   await expect(preview.getByRole('link', { name: new RegExp(programNumber) })).toBeVisible();
@@ -123,13 +123,14 @@ test('T5: a closure request appears under the Lead Project Engineer bell, opens 
   ).toContainText('Resolved by PE · Program closed');
 });
 
-test('T6: LAB has no bell, inbox or preferences, whoever the station would select', async ({
+test('T6: LAB has no Pending actions or Notifications control, inbox or preferences, whoever the station would select', async ({
   page,
 }) => {
   await signInAsLabStation(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Action requests/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Pending actions/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
   for (const path of [
     '/api/action-items',
     '/api/action-items/count',

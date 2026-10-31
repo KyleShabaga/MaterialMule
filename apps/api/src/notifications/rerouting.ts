@@ -1,14 +1,15 @@
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
-import { enqueueActionItemEmails } from './action-items.js';
+import { announceActionItem } from './action-items.js';
 
 /**
  * D10 (MM-AO07, Kyle 2026-10-29): after someone's eligibility changes, their open action items
  * follow it. Routing itself is computed when read (`action_item_routed_to`), so an item assigned
  * to a person who can no longer act on it already shows to its ordinary recipients; this records
- * that the assignment lapsed (once per assignment, with the cause) and emails the people the item
- * now goes to (only those currently routed and opted in; a recipient is never emailed twice for
- * one item). Called inside the transaction that made the change, after the change.
+ * that the assignment lapsed (once per assignment, with the cause) and tells the people the item
+ * now goes to: an in-app notification each (MM-T91) and an email for those opted in. Nobody gets
+ * a second notification or email for one item, even if it comes back to them. `notified` counts
+ * the emails queued. Called inside the transaction that made the change, after the change.
  *
  * - `userId`: the person whose roles changed or who was disabled. Their lapsed assignments.
  * - `projectId`: the project whose Lead Project Engineer changed. Its open lead-routed items and
@@ -66,7 +67,7 @@ export async function rerouteOpenItems(
       // Still assigned and still eligible: nothing changed for this item.
       continue;
     }
-    notified += await enqueueActionItemEmails(client, row.id);
+    notified += await announceActionItem(client, row.id);
   }
   return { lapsed, notified };
 }

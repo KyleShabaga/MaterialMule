@@ -111,6 +111,8 @@ export function titleOf(
       return `Review inherited grants on ${row.project_number}`;
     case 'team_join_request':
       return `Team join request on ${row.project_number}`;
+    case 'review_approval_lost':
+      return `Reviewer lost eligibility on ${row.project_number}`;
   }
 }
 
@@ -118,6 +120,7 @@ export function hrefOf(row: Pick<ItemRow, 'kind' | 'program_id' | 'project_id'>)
   if (row.kind === 'lead_appointment') return `/projects/${row.project_id}#lead`;
   if (row.kind === 'grant_review') return `/projects/${row.project_id}/team#grant-reviews`;
   if (row.kind === 'team_join_request') return `/projects/${row.project_id}/team#join-requests`;
+  if (row.kind === 'review_approval_lost') return `/projects/${row.project_id}/team`;
   return row.program_id
     ? `/lab-testing/programs/${row.program_id}`
     : `/projects/${row.project_id}#retention`;
@@ -131,6 +134,7 @@ const ROUTE_TAG: Record<ActionRequestKind, string> = {
   lead_appointment: 'Admin',
   grant_review: 'Lead Project Engineer',
   team_join_request: 'Lead Project Engineer',
+  review_approval_lost: 'Lead Project Engineer',
 };
 
 function person(id: string | null, initials: string | null, name: string | null) {
@@ -211,10 +215,7 @@ export const ROUTED_PEOPLE = `
  * requests and has a work email. Runs inside the transaction that created or reassigned the item;
  * the unique (item, recipient) key means a retry or second call adds nothing.
  */
-export async function enqueueActionItemEmails(
-  client: PoolClient,
-  actionItemId: string,
-): Promise<number> {
+async function enqueueActionItemEmails(client: PoolClient, actionItemId: string): Promise<number> {
   const [row] = await loadItemRows(client, 'a.id = $1', [actionItemId], '');
   if (!row || row.status !== 'open') return 0;
   const title = titleOf(row);
@@ -240,4 +241,36 @@ export async function enqueueActionItemEmails(
     [actionItemId, subject, body],
   );
   return rowCount ?? 0;
+}
+
+/**
+ * MM-T91: one `action_request.opened` notification for each person the item is routed to now
+ * (the same people as ROUTED_PEOPLE), whatever their email preference and whether or not email
+ * sending is enabled. The unique (recipient, event key) means at most one per item per person:
+ * a retry, a second call, or the item coming back to someone after a reroute adds nothing.
+ */
+export async function notifyActionItem(client: PoolClient, actionItemId: string): Promise<number> {
+  const { rowCount } = await client.query(
+    `INSERT INTO notification (recipient_user_id, kind, action_item_id, event_key)
+     SELECT routed.id, 'action_request.opened', a.id, 'action_item:' || a.id::text || ':opened'
+     FROM action_item a
+     CROSS JOIN LATERAL (${ROUTED_PEOPLE}) routed
+     WHERE a.id = $1 AND a.status = 'open'
+     ON CONFLICT ON CONSTRAINT notification_one_per_event DO NOTHING`,
+    [actionItemId],
+  );
+  return rowCount ?? 0;
+}
+
+/**
+ * Tells the people an item is routed to now: an in-app notification for each, and an outbox
+ * email for those who opted in. Call it inside the transaction that created, reassigned or
+ * rerouted the item. Returns the number of emails queued (as enqueueActionItemEmails does).
+ */
+export async function announceActionItem(
+  client: PoolClient,
+  actionItemId: string,
+): Promise<number> {
+  await notifyActionItem(client, actionItemId);
+  return enqueueActionItemEmails(client, actionItemId);
 }

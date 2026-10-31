@@ -96,6 +96,8 @@ export type Permission =
   | 'storage_unit.tested_removal'
   // MM-T27: one's own Action requests inbox and notification preferences (never LAB)
   | 'action_item.read'
+  // MM-T91: one's own in-app notifications (never LAB)
+  | 'notification.read'
   // MM-T29: ask the project's Lead Project Engineer or a Lab Manager for a hold or extension (never LAB)
   | 'retention.request'
   // Lab Manager (and Lead Project Engineer of the project where marked project-scoped)
@@ -121,6 +123,10 @@ export type Permission =
   // Project team and scoped reviewers (MM-AO03, D04/D05): Lead Project Engineer or admin
   | 'project_team.manage'
   | 'project_reviewer.manage'
+  // MISC-08: explicitly approve an assigned, eligible, accepted team member to review for the
+  // project and scope. The project's Lead Project Engineer only; an admin's assignment never
+  // stands in for it.
+  | 'project_review.approve'
   // Authorized report issuers (MM-AO03, D06/D07): granted by the project's Lead Project Engineer
   // only; issuing is the lead's own or an active grant's. No report route uses it yet.
   | 'report_issuer.manage'
@@ -196,6 +202,8 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   // MM-T27: a LAB station has no inbox or preferences of its own and never borrows the
   // selected person's.
   'action_item.read',
+  // MM-T91: in-app notifications are personal; LAB has none and never sees the selected person's.
+  'notification.read',
   // MM-T29: retention requests; LAB never asks or decides, whoever is selected.
   'retention.request',
 ]);
@@ -255,6 +263,7 @@ const LEAD_PROJECT_ENGINEER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permi
   // MM-AO03 (D04, D06, D07)
   'project_team.manage',
   'project_reviewer.manage',
+  'project_review.approve',
   'report_issuer.manage',
   'report.issue',
   // MM-AO08 concrete contract (planned; see the Permission comments).

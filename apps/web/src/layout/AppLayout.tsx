@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router';
 import { ActionRequestsBell } from '../action-requests/ActionRequestsBell';
 import { StatusBadge } from '../components/ui';
 import { formatExpiry } from '../lib/format';
+import { NotificationsBell } from '../notifications/NotificationsBell';
 import { useMe, useSession } from '../session/context';
 import { DonkeyMark } from './DonkeyMark';
 import { accountBadge, visibleNavItems } from './nav';
@@ -17,6 +18,8 @@ export function AppLayout() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const badge = accountBadge(me);
+  const canSeePending = me.permissions.includes('action_item.read');
+  const canSeeNotifications = me.permissions.includes('notification.read');
   useFocusPageHeading();
 
   // MTR-137: while the phone drawer is open, what it covers is inert; focus starts on the first
@@ -97,9 +100,13 @@ export function AppLayout() {
             Sign out
           </button>
         </div>
-        {/* MISC-02: the bell sits to the right of the user area. */}
-        {me.permissions.includes('action_item.read') ? (
-          <ActionRequestsBell inert={menuOpen} />
+        {/* MISC-02: the header controls sit to the right of the user area. MM-T91: Pending actions
+            and Notifications are two separately labelled controls with their own counts. */}
+        {canSeePending || canSeeNotifications ? (
+          <div className="header-alerts" inert={menuOpen}>
+            {canSeePending ? <ActionRequestsBell inert={menuOpen} /> : null}
+            {canSeeNotifications ? <NotificationsBell inert={menuOpen} /> : null}
+          </div>
         ) : null}
       </header>
       <nav id="side-nav" className="side-nav" aria-label="Main" ref={navRef}>

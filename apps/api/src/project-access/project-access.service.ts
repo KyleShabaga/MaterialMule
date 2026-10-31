@@ -10,6 +10,7 @@ import {
   PROJECT_ACCESS_HISTORY_LIMIT,
   PROJECT_CAPABILITY_ACTIONS,
   addTeamMemberRequestSchema,
+  approveReviewerRequestSchema,
   effectiveJobTitle,
   assignReviewerRequestSchema,
   endGrantRequestSchema,
@@ -41,10 +42,12 @@ import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
 import { likePattern } from '../staff/staff.service.js';
 import { parseBody } from '../validation/parse-body.js';
+import { lockReviewEligibility } from './review-eligibility.js';
 import {
   REPORT_ISSUER_GRANT,
   REVIEWABLE_GRANTS,
   REVIEWER_ASSIGNMENT,
+  REVIEW_APPROVAL,
   TEAM_MEMBER,
   endGrant,
   findByKey,
@@ -115,6 +118,7 @@ export async function projectContext(
   db: Db,
   project: ProjectFacts,
   reportScope?: string,
+  reviewScope?: string,
 ): Promise<ProjectContext> {
   const { rows: delegates } = await db.query<{ delegate_user_id: string }>(
     `SELECT delegate_user_id FROM acceptance_delegation
@@ -134,7 +138,32 @@ export async function projectContext(
     );
     context.reportIssuerUserIds = issuers.map((row) => row.issuer_user_id);
   }
+  if (reviewScope) {
+    context.designatedReviewerUserIds = await designatedReviewers(db, project.id, reviewScope);
+  }
   return context;
+}
+
+/**
+ * MISC-08: who may review on `projectId` in `scope` right now, read live on every check (so an
+ * open session loses it the moment eligibility does): an active reviewer assignment with the
+ * lead's active approval, effective eligibility and accepted team membership. Account state and
+ * the shared LAB rule are applied by the policy on top.
+ */
+export async function designatedReviewers(
+  db: Db,
+  projectId: string,
+  scope: string,
+): Promise<string[]> {
+  const { rows } = await db.query<{ reviewer_user_id: string }>(
+    `SELECT a.reviewer_user_id FROM project_reviewer_assignment a
+     JOIN project_review_approval ap ON ap.reviewer_assignment_id = a.id AND ap.ended_at IS NULL
+     WHERE a.project_id = $1 AND a.scope_code = $2 AND a.removed_at IS NULL
+       AND reviewer_is_eligible(a.reviewer_user_id, a.scope_code)
+       AND project_team_member_accepted(a.project_id, a.reviewer_user_id)`,
+    [projectId, scope],
+  );
+  return rows.map((row) => row.reviewer_user_id);
 }
 
 /** One effective capability, with its sources or the reason it is blocked (MM-AO03). */
@@ -166,13 +195,19 @@ export function capability(
 }
 
 /**
+ * Grants whose start depends on review eligibility (MISC-08). `start` takes
+ * `review_eligibility_lock()` for them before anything else (review-eligibility.ts, lock order).
+ */
+const ELIGIBILITY_LOCKED: readonly GrantTable[] = [REVIEWER_ASSIGNMENT, REVIEW_APPROVAL];
+
+/**
  * Project team (D04), scoped reviewers (D04/D05) and Authorized report issuers (D06/D07), plus the
  * signed-in user's effective capabilities on a project (MM-AO03).
  *
- * Every write is one transaction in the documented lock order: the project (FOR UPDATE for a new
+ * Every write is one transaction in the documented lock order: for a reviewer assignment or
+ * approval the review eligibility lock first (MISC-08), then the project (FOR UPDATE for a new
  * row, so two grants for one project serialise; FOR SHARE for an ending), then the actor's and the
- * recipient's accounts (FOR SHARE, `lockStanding`), then the reviewer's eligibility or the row
- * being ended. Authority is checked with the request's user before the body is read (403 before
+ * recipient's accounts (FOR SHARE, `lockStanding`), then the row being ended. Authority is checked with the request's user before the body is read (403 before
  * 400, and before 404 for a caller who could never manage this anywhere), then again with roles and
  * status as they stand under the locks: a lead change, role removal or disable that committed first
  * wins. The row and its audit event commit together, or nothing does.
@@ -224,8 +259,8 @@ export class ProjectAccessService {
     }>(
       `SELECT u.id, u.official_initials, u.display_name
        FROM app_user u
-       JOIN reviewer_eligibility e ON e.user_id = u.id AND e.scope_code = $1 AND e.revoked_at IS NULL
-       WHERE u.status = 'active' AND u.account_type <> 'shared_lab'
+       WHERE reviewer_is_eligible(u.id, $1)
+         AND u.status = 'active' AND u.account_type <> 'shared_lab'
          AND u.official_initials IS NOT NULL
          AND ($2 = '' OR u.official_initials ILIKE $2 || '%' OR u.display_name ILIKE '%' || $2 || '%')
        ORDER BY u.official_initials, lower(u.display_name), u.id
@@ -327,19 +362,17 @@ export class ProjectAccessService {
           : [],
       }),
     );
-    const { rows: reviewing } = await db.query<{ scope_code: string }>(
-      `SELECT a.scope_code FROM project_reviewer_assignment a
-       JOIN reviewer_eligibility e ON e.user_id = a.reviewer_user_id
-        AND e.scope_code = a.scope_code AND e.revoked_at IS NULL
-       WHERE a.project_id = $1 AND a.reviewer_user_id = $2 AND a.removed_at IS NULL`,
-      [project.id, user.userId],
-    );
-    const reviewerScopes =
-      user.status === 'active' && user.accountType !== 'shared_lab'
-        ? [...scopes.values()].filter((scope) =>
-            reviewing.some((row) => row.scope_code === scope.code),
-          )
-        : [];
+    // MISC-08: the same live check the server applies to a review action, never assignment alone.
+    const reviewerScopes: ReviewScope[] = [];
+    for (const scope of scopes.values()) {
+      const designated = await designatedReviewers(db, project.id, scope.code);
+      if (
+        can(user, 'concrete.review', { ...context, designatedReviewerUserIds: designated }) &&
+        designated.includes(user.userId)
+      ) {
+        reviewerScopes.push(scope);
+      }
+    }
     return {
       projectId: project.id,
       involvement: await involvementOf(db, project.id, user.userId),
@@ -409,14 +442,13 @@ export class ProjectAccessService {
           }),
           check: async (client) => {
             await requireActiveScope(client, request.scopeCode);
-            // FOR SHARE: a concurrent eligibility revocation (FOR UPDATE) commits before or after
-            // this assignment, never between the check and the insert.
-            const { rows } = await client.query(
-              `SELECT 1 FROM reviewer_eligibility
-               WHERE user_id = $1 AND scope_code = $2 AND revoked_at IS NULL FOR SHARE`,
+            // MISC-08: `start` took the eligibility lock first, so any eligibility change commits
+            // before or after this assignment, never between the check and the insert.
+            const { rows } = await client.query<{ eligible: boolean }>(
+              'SELECT reviewer_is_eligible($1, $2) AS eligible',
               [request.reviewerUserId, request.scopeCode],
             );
-            if (rows.length === 0) {
+            if (!rows[0]!.eligible) {
               unprocessable(
                 'not_eligible',
                 'reviewerUserId',
@@ -439,6 +471,93 @@ export class ProjectAccessService {
       'project_reviewer.manage',
       REVIEWER_ASSIGNMENT,
       (c, p, u) => this.reviewersView(c, p, u),
+    );
+  }
+
+  /**
+   * MISC-08: the lead explicitly approves an assigned reviewer for this project and scope. Needs
+   * effective eligibility and accepted team membership now; the database refuses anyone but the
+   * current lead, an ended assignment or an ineligible reviewer (project_review_approval_check).
+   */
+  approveReviewer(
+    projectId: string,
+    assignmentId: string,
+    body: unknown,
+    user: AuthUser,
+  ): Promise<ProjectReviewers> {
+    return this.start(projectId, user, 'project_review.approve', REVIEW_APPROVAL, async (ctx) => {
+      const request = parseBody(approveReviewerRequestSchema, body);
+      const { rows } = UUID_PATTERN.test(assignmentId)
+        ? await this.database.pool.query<{ reviewer_user_id: string; scope_code: string }>(
+            `SELECT reviewer_user_id, scope_code FROM project_reviewer_assignment
+             WHERE id = $1 AND project_id = $2 AND removed_at IS NULL`,
+            [assignmentId, projectId],
+          )
+        : { rows: [] };
+      const assignment = rows[0];
+      if (!assignment) {
+        throw new NotFoundException({ code: 'project_reviewer_assignment_not_found' });
+      }
+      return {
+        subjectId: assignment.reviewer_user_id,
+        subjectField: 'reviewerUserId',
+        scope: assignment.scope_code,
+        reason: request.reason ?? null,
+        key: request.idempotencyKey,
+        hash: intentHash({ projectId, assignmentId, reason: request.reason ?? null }),
+        extra: { reviewer_assignment_id: assignmentId },
+        audit: { reviewerAssignmentId: assignmentId },
+        check: async (client) => {
+          // `start` took the eligibility lock first (see ELIGIBILITY_LOCKED).
+          const { rows: state } = await client.query<{
+            active: boolean;
+            eligible: boolean;
+            member: boolean;
+          }>(
+            `SELECT a.removed_at IS NULL AS active,
+                    reviewer_is_eligible(a.reviewer_user_id, a.scope_code) AS eligible,
+                    project_team_member_accepted(a.project_id, a.reviewer_user_id) AS member
+             FROM project_reviewer_assignment a WHERE a.id = $1 FOR SHARE`,
+            [assignmentId],
+          );
+          if (!state[0]?.active) {
+            throw new NotFoundException({ code: 'project_reviewer_assignment_not_found' });
+          }
+          if (!state[0].eligible) {
+            unprocessable(
+              'not_eligible',
+              'reviewerUserId',
+              'This person isn’t an eligible reviewer for that scope',
+            );
+          }
+          if (!state[0].member) {
+            unprocessable(
+              'not_accepted_member',
+              'reviewerUserId',
+              'Accept this person onto the project team first',
+            );
+          }
+        },
+        view: (client) => this.reviewersView(client, ctx.project, ctx.user),
+      };
+    });
+  }
+
+  /** The lead withdraws an approval, with a reason; the assignment stays (MISC-08). */
+  withdrawApproval(projectId: string, id: string, body: unknown, user: AuthUser) {
+    return this.end(
+      projectId,
+      id,
+      body,
+      user,
+      'project_review.approve',
+      REVIEW_APPROVAL,
+      (c, p, u) => this.reviewersView(c, p, u),
+      (raw) => ({
+        reason: parseBody(endGrantRequestSchema, raw).reason,
+        extra: { end_kind: 'withdrawn' },
+        audit: { endKind: 'withdrawn' },
+      }),
     );
   }
 
@@ -527,7 +646,7 @@ export class ProjectAccessService {
       subjectId: string;
       subjectField: string;
       scope: string | null;
-      reason: string;
+      reason: string | null;
       key: string;
       hash: string;
       extra?: Record<string, unknown>;
@@ -538,6 +657,9 @@ export class ProjectAccessService {
   ): Promise<View> {
     try {
       return await withTransaction(this.database.pool, async (client) => {
+        // MISC-08 lock order: the eligibility lock before the project, so an approval never holds
+        // the project while it waits for a loss that needs the project (review fix for #122).
+        if (ELIGIBILITY_LOCKED.includes(t)) await lockReviewEligibility(client);
         const project = await findProject(client, projectId, 'FOR UPDATE');
         if (!project) {
           if (!can(user, permission)) throw forbidden();
@@ -683,30 +805,67 @@ export class ProjectAccessService {
         historyLimit: PROJECT_ACCESS_HISTORY_LIMIT,
         extra: `(SELECT u.status = 'active' FROM app_user u WHERE u.id = reviewer_user_id)
                   AS account_active,
-                EXISTS (SELECT 1 FROM reviewer_eligibility e
-                        WHERE e.user_id = reviewer_user_id AND e.scope_code = ${REVIEWER_ASSIGNMENT.table}.scope_code
-                          AND e.revoked_at IS NULL) AS eligible`,
+                reviewer_is_eligible(reviewer_user_id, scope_code) AS eligible,
+                project_team_member_accepted(project_id, reviewer_user_id) AS accepted_member,
+                (SELECT row_to_json(ap) FROM project_review_approval ap
+                 WHERE ap.reviewer_assignment_id = ${REVIEWER_ASSIGNMENT.table}.id
+                   AND ap.ended_at IS NULL) AS approval`,
       },
     );
     const toView = (row: GrantRow): ReviewerAssignment => {
+      const approval = row.raw.approval as Record<string, string | null> | null;
       const blockedReason = row.endedAt
         ? null
         : !row.raw.account_active
           ? 'account_not_active'
           : !row.raw.eligible
             ? 'eligibility_revoked'
-            : null;
+            : !row.raw.accepted_member
+              ? 'not_accepted_member'
+              : !approval
+                ? 'not_approved'
+                : null;
       return {
         ...historyView(row),
         reviewer: row.subject,
         scope: scopes.get(row.scope!)!,
         effective: !row.endedAt && blockedReason === null,
         blockedReason,
+        approval:
+          approval && !row.endedAt
+            ? {
+                id: approval.id!,
+                approvedBy: {
+                  userId: approval.approved_by_user_id!,
+                  initials: approval.approved_by_initials_snapshot ?? null,
+                  name: approval.approved_by_name_snapshot ?? '',
+                },
+                approvedAt: new Date(approval.approved_at!).toISOString(),
+                reason: approval.approve_reason ?? null,
+              }
+            : null,
+        eligible: Boolean(row.raw.eligible),
+        acceptedMember: Boolean(row.raw.accepted_member),
       };
     };
+    const approvals = await listGrants(
+      db,
+      REVIEW_APPROVAL,
+      { column: 'project_id', value: project.id },
+      { historyLimit: PROJECT_ACCESS_HISTORY_LIMIT, extra: 'reviewer_assignment_id, end_kind' },
+    );
+    const context = await projectContext(db, project);
     return {
       projectId: project.id,
-      canManage: can(user, 'project_reviewer.manage', await projectContext(db, project)),
+      canManage: can(user, 'project_reviewer.manage', context),
+      canApprove: can(user, 'project_review.approve', context),
+      approvalHistory: approvals.history.map((row) => ({
+        ...historyView(row),
+        reviewer: row.subject,
+        scope: scopes.get(row.scope!)!,
+        reviewerAssignmentId: row.raw.reviewer_assignment_id as string,
+        endKind: row.raw.end_kind as 'withdrawn' | 'eligibility_lost' | 'assignment_ended',
+      })),
       active: rows.active.map(toView),
       history: rows.history.map(toView),
       historyTotal: rows.historyTotal,

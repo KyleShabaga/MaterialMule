@@ -26,7 +26,7 @@ import type { AppConfig } from '../config/env.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
-import { enqueueActionItemEmails, loadItemRows, toActionRequest } from './action-items.js';
+import { announceActionItem, loadItemRows, toActionRequest } from './action-items.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -185,7 +185,7 @@ export class ActionItemsService {
           before: { assignedUserId: item.assigned_user_id },
           after: { assignedUserId: target.userId, assignedName: target.name, kind: item.kind },
         });
-        await enqueueActionItemEmails(client, id);
+        await announceActionItem(client, id);
         return this.view(client, user, id);
       });
     } catch (error) {

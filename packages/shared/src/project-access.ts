@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { effectiveJobTitleSchema } from './job-title';
 import { personSnapshotSchema } from './lab-programs';
+import { positionSchema } from './profile';
 
 // Project assignments, scoped grants and effective capabilities (MM-AO03; owner decisions D01,
 // D04–D08, D12, D15 of 2026-10-29). The server enforces every rule here; the browser only shows
@@ -106,13 +107,57 @@ export const reviewerAssignmentSchema = z.object({
    * eligibility for its scope; `blockedReason` says why it doesn't.
    */
   effective: z.boolean(),
-  blockedReason: z.enum(['account_not_active', 'eligibility_revoked']).nullable(),
+  /**
+   * MISC-08: the first missing condition, in order: an active account, effective eligibility,
+   * accepted team membership, then the lead's review approval.
+   */
+  blockedReason: z
+    .enum(['account_not_active', 'eligibility_revoked', 'not_accepted_member', 'not_approved'])
+    .nullable(),
+  /** The lead's active review approval of this assignment (MISC-08), if any. */
+  approval: z
+    .object({
+      id: z.string(),
+      approvedBy: personSnapshotSchema,
+      approvedAt: z.string(),
+      reason: z.string().nullable(),
+    })
+    .nullable(),
+  /** Eligibility and team membership shown apart from the approval (MISC-08). */
+  eligible: z.boolean(),
+  acceptedMember: z.boolean(),
 });
 export type ReviewerAssignment = z.infer<typeof reviewerAssignmentSchema>;
+
+/** `POST …/reviewer-assignments/:id/approval` (the project's Lead Project Engineer only). */
+export const approveReviewerRequestSchema = z.strictObject({
+  reason: grantReasonSchema.optional(),
+  idempotencyKey: idSchema,
+});
+export type ApproveReviewerRequest = z.output<typeof approveReviewerRequestSchema>;
+
+/** Why a review approval ended (MISC-08). */
+export const REVIEW_APPROVAL_END_KINDS = [
+  'withdrawn',
+  'eligibility_lost',
+  'assignment_ended',
+] as const;
+export const reviewApprovalSchema = z.object({
+  ...historyFields,
+  reviewer: personSnapshotSchema,
+  scope: reviewScopeSchema,
+  reviewerAssignmentId: z.string(),
+  endKind: z.enum(REVIEW_APPROVAL_END_KINDS).nullable(),
+});
+export type ReviewApproval = z.infer<typeof reviewApprovalSchema>;
 
 export const projectReviewersSchema = z.object({
   projectId: z.string(),
   canManage: z.boolean(),
+  /** True for the project's Lead Project Engineer, who alone approves reviewers (MISC-08). */
+  canApprove: z.boolean(),
+  /** Ended approvals, newest first, so a loss and its reason stay visible (MISC-08). */
+  approvalHistory: z.array(reviewApprovalSchema),
   active: z.array(reviewerAssignmentSchema),
   history: z.array(reviewerAssignmentSchema),
   historyTotal: z.number(),
@@ -204,10 +249,42 @@ export const staffCapabilityGrantSchema = z.object({
 });
 export type StaffCapabilityGrant = z.infer<typeof staffCapabilityGrantSchema>;
 
+/** `POST /api/staff/:id/reviewer-exclusions` (admin): one scope, or `scopeCode: null` for all. */
+export const addReviewerExclusionRequestSchema = z.strictObject({
+  scopeCode: z.string().min(1).max(40).nullable(),
+  reason: grantReasonSchema,
+  idempotencyKey: idSchema,
+});
+export type AddReviewerExclusionRequest = z.output<typeof addReviewerExclusionRequestSchema>;
+
+/** An exclusion: `scope` null means every review scope, including ones added later. */
+export const reviewerExclusionSchema = z.object({
+  ...historyFields,
+  scope: reviewScopeSchema.nullable(),
+});
+export type ReviewerExclusion = z.infer<typeof reviewerExclusionSchema>;
+
+/** Effective review eligibility for one scope, with each source shown apart (MISC-08). */
+export const effectiveEligibilitySchema = z.object({
+  scope: reviewScopeSchema,
+  eligible: z.boolean(),
+  individualGrant: z.boolean(),
+  positionRule: z.boolean(),
+  excluded: z.boolean(),
+});
+export type EffectiveEligibility = z.infer<typeof effectiveEligibilitySchema>;
+
 /** `GET /api/staff/:id/grants` (admin), and the person's own via `GET /api/me/access`. */
 export const staffGrantsSchema = z.object({
   userId: z.string(),
   canManage: z.boolean(),
+  /** The person's position as an Admin sees it (Settings → Staff & access only). */
+  position: positionSchema.nullable(),
+  effectiveEligibility: z.array(effectiveEligibilitySchema),
+  exclusions: z.object({
+    active: z.array(reviewerExclusionSchema),
+    history: z.array(reviewerExclusionSchema),
+  }),
   reviewerEligibility: z.object({
     active: z.array(reviewerEligibilitySchema),
     history: z.array(reviewerEligibilitySchema),
@@ -218,6 +295,33 @@ export const staffGrantsSchema = z.object({
   }),
 });
 export type StaffGrants = z.infer<typeof staffGrantsSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Position-based review eligibility (MISC-08), admin only
+// ---------------------------------------------------------------------------------------------
+
+/** `POST /api/review-eligibility/position-rules`. */
+export const enablePositionRuleRequestSchema = z.strictObject({
+  position: positionSchema,
+  scopeCode: z.string().min(1).max(40),
+  reason: grantReasonSchema,
+  idempotencyKey: idSchema,
+});
+export type EnablePositionRuleRequest = z.output<typeof enablePositionRuleRequestSchema>;
+
+export const positionRuleSchema = z.object({
+  ...historyFields,
+  position: positionSchema,
+  scope: reviewScopeSchema,
+});
+export type PositionRule = z.infer<typeof positionRuleSchema>;
+
+/** `GET /api/review-eligibility/position-rules`. No position is eligible until a rule says so. */
+export const positionRulesSchema = z.object({
+  active: z.array(positionRuleSchema),
+  history: z.array(positionRuleSchema),
+});
+export type PositionRules = z.infer<typeof positionRulesSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // Effective capabilities (MM-AO03) and My projects involvement (D12)

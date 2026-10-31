@@ -25,7 +25,7 @@ import { can, type AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { actorOf } from '../lab/attribution.js';
-import { enqueueActionItemEmails } from '../notifications/action-items.js';
+import { announceActionItem } from '../notifications/action-items.js';
 import { BusinessClock } from './business-clock.js';
 import {
   loadProjectDecisions,
@@ -333,7 +333,7 @@ export class RetentionService {
             actionItemId,
           },
         });
-        await enqueueActionItemEmails(client, actionItemId);
+        await announceActionItem(client, actionItemId);
         return { requestId, actionItemId };
       });
     } catch (error) {

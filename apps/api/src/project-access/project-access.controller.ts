@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import type {
+  PositionRules,
   ProjectLeadNominations,
   ProjectCapabilities,
   ProjectPeople,
@@ -277,6 +278,30 @@ export class ProjectAccessController {
     return this.access.removeReviewer(projectId, id, body, user);
   }
 
+  /** MISC-08: the project's Lead Project Engineer approves an assigned reviewer to review. */
+  @Post('projects/:projectId/reviewer-assignments/:id/approval')
+  @ActiveUser()
+  approveReviewer(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectReviewers> {
+    return this.access.approveReviewer(projectId, id, body, user);
+  }
+
+  /** MISC-08: the lead withdraws a review approval, with a reason. */
+  @Delete('projects/:projectId/review-approvals/:id')
+  @ActiveUser()
+  withdrawApproval(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectReviewers> {
+    return this.access.withdrawApproval(projectId, id, body, user);
+  }
+
   @Get('projects/:projectId/report-issuers')
   @RequirePermission('project_access.read')
   issuers(
@@ -348,6 +373,51 @@ export class StaffGrantsController {
     @CurrentUser() user: AuthUser,
   ): Promise<StaffGrants> {
     return this.grants.revokeEligibility(id, grantId, body, user);
+  }
+
+  /** MISC-08: exclude a person from one review scope or all scopes (admin, with a reason). */
+  @Post('staff/:id/reviewer-exclusions')
+  @RequirePermission('reviewer_eligibility.manage')
+  addExclusion(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<StaffGrants> {
+    return this.grants.addExclusion(id, body, user);
+  }
+
+  @Delete('staff/:id/reviewer-exclusions/:exclusionId')
+  @RequirePermission('reviewer_eligibility.manage')
+  removeExclusion(
+    @Param('id') id: string,
+    @Param('exclusionId') exclusionId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<StaffGrants> {
+    return this.grants.removeExclusion(id, exclusionId, body, user);
+  }
+
+  /** MISC-08: position-based review eligibility, per position and scope (admin). */
+  @Get('review-eligibility/position-rules')
+  @RequirePermission('reviewer_eligibility.manage')
+  positionRules(@CurrentUser() user: AuthUser): Promise<PositionRules> {
+    return this.grants.positionRules(user);
+  }
+
+  @Post('review-eligibility/position-rules')
+  @RequirePermission('reviewer_eligibility.manage')
+  enablePositionRule(@Body() body: unknown, @CurrentUser() user: AuthUser): Promise<PositionRules> {
+    return this.grants.enablePositionRule(body, user);
+  }
+
+  @Delete('review-eligibility/position-rules/:id')
+  @RequirePermission('reviewer_eligibility.manage')
+  disablePositionRule(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<PositionRules> {
+    return this.grants.disablePositionRule(id, body, user);
   }
 
   @Post('staff/:id/capabilities')

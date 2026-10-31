@@ -109,6 +109,40 @@ export const STAFF_CAPABILITY_GRANT: GrantTable = {
   audit: { started: 'staff_capability_grant.granted', ended: 'staff_capability_grant.revoked' },
 };
 
+/**
+ * MISC-08: an Admin's exclusion of a person from one review scope, or (scope NULL) from all
+ * scopes. It overrides position rules and individual eligibility grants.
+ */
+export const REVIEWER_EXCLUSION: GrantTable = {
+  table: 'reviewer_exclusion',
+  subject: 'user',
+  scope: 'scope_code',
+  parent: null,
+  start: GRANTED,
+  end: REVOKED,
+  audit: { started: 'reviewer_exclusion.added', ended: 'reviewer_exclusion.removed' },
+};
+
+/**
+ * MISC-08: the Lead Project Engineer's explicit approval of one reviewer assignment. Ended by the
+ * lead (`withdrawn`), by an actual eligibility loss or by the assignment's removal (a trigger).
+ */
+export const REVIEW_APPROVAL: GrantTable = {
+  table: 'project_review_approval',
+  subject: 'reviewer',
+  scope: 'scope_code',
+  parent: 'project_id',
+  start: {
+    by: 'approved_by',
+    at: 'approved_at',
+    reason: 'approve_reason',
+    key: 'approve_idempotency_key',
+    hash: 'approve_request_hash',
+  },
+  end: { by: 'ended_by', at: 'ended_at', reason: 'end_reason' },
+  audit: { started: 'project_review_approval.approved', ended: 'project_review_approval.ended' },
+};
+
 /** The technical grants D08 revokes when a disabled account is re-enabled (not team membership). */
 export const TECHNICAL_GRANTS: readonly GrantTable[] = [
   REVIEWER_ELIGIBILITY,
@@ -263,7 +297,8 @@ export async function hasActive(
   }
   if (t.scope) {
     params.push(match.scope);
-    where.push(`${t.scope} = $${params.length}`);
+    // A NULL scope (an all-scopes exclusion) matches only another NULL scope.
+    where.push(`${t.scope} IS NOT DISTINCT FROM $${params.length}::text`);
   }
   const { rows } = await db.query(`SELECT 1 FROM ${t.table} WHERE ${where.join(' AND ')}`, params);
   return rows.length > 0;
@@ -278,7 +313,8 @@ export async function insertGrant(
     subject: Standing;
     scope: string | null;
     by: Standing;
-    reason: string;
+    /** Null only where the table allows it (a review approval's optional note). */
+    reason: string | null;
     key: string;
     hash: string;
     extra?: Record<string, unknown>;

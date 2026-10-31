@@ -257,6 +257,9 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
         json(200, {
           userId: AT.id,
           canManage: false,
+          position: null,
+          effectiveEligibility: [],
+          exclusions: { active: [], history: [] },
           reviewerEligibility: { active: [], history: [] },
           capabilities: {
             active: [

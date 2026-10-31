@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 
-// MM-T27 UI: header bell count, Action requests page (Open/Resolved, who asked and why, Open
+// MM-T27 UI: header Pending actions count (renamed from the bell in MM-T91), Action requests page (Open/Resolved, who asked and why, Open
 // link, Resolved by), reassignment for Lab Managers and the profile notification preference.
 // Fictional data only (DEMO-2601, LP-2026-0001).
 
@@ -86,10 +86,9 @@ describe('Action requests (MM-T27)', () => {
       if (url.startsWith('/api/action-items?status=open')) return json(200, { items: [item()] });
       return json(404, {});
     });
-    expect(await screen.findByRole('button', { name: 'Action requests, 2 open' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    expect(
+      await screen.findByRole('button', { name: 'Pending actions, 2 waiting on you' }),
+    ).toHaveAttribute('aria-expanded', 'false');
     const row = await screen.findByRole('listitem', { name: 'Closure requested for LP-2026-0001' });
     expect(row).toHaveTextContent(
       'Lead Project Engineer: Closure requested for LP-2026-0001 by AT · All tests are done',
@@ -108,7 +107,7 @@ describe('Action requests (MM-T27)', () => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
       return json(200, { items: [] });
     });
-    const bell = await screen.findByRole('button', { name: 'Action requests, 0 open' });
+    const bell = await screen.findByRole('button', { name: 'Pending actions, 0 waiting on you' });
     const identity = screen.getByLabelText('Signed in user');
     expect(identity.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(identity.nextElementSibling).toContainElement(bell);
@@ -131,7 +130,7 @@ describe('Action requests (MM-T27)', () => {
       if (url.startsWith('/api/projects')) return json(200, { items: [] });
       return json(404, {});
     });
-    const bell = await screen.findByRole('button', { name: 'Action requests, 2 open' });
+    const bell = await screen.findByRole('button', { name: 'Pending actions, 2 waiting on you' });
     await user.click(bell);
     expect(bell).toHaveAttribute('aria-expanded', 'true');
     const panel = screen.getByRole('region', { name: 'Latest action requests' });
@@ -180,7 +179,9 @@ describe('Action requests (MM-T27)', () => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
       return json(200, { items: [] });
     });
-    await user.click(await screen.findByRole('button', { name: 'Action requests, 0 open' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Pending actions, 0 waiting on you' }),
+    );
     const panel = screen.getByRole('region', { name: 'Latest action requests' });
     expect(await within(panel).findByText('Nothing is waiting on you.')).toBeInTheDocument();
     await user.click(within(panel).getByRole('link', { name: 'View all action requests' }));
@@ -338,7 +339,8 @@ describe('Action requests (MM-T27)', () => {
       },
     );
     expect(await screen.findByRole('heading', { name: 'My profile' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Action requests/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Pending actions/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Notifications' })).toBeNull();
   });
 
