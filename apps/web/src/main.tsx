@@ -4,6 +4,7 @@ import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { routes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
+import { applyStoredTheme } from './theme/theme';
 // Interface and identifier fonts, bundled with the app (OFL-1.1) so they load on the LAN alone.
 import '@fontsource/inter/latin-400.css';
 import '@fontsource/inter/latin-500.css';
@@ -15,6 +16,9 @@ import '@fontsource/jetbrains-mono/latin-500.css';
 import '@fontsource/jetbrains-mono/latin-600.css';
 import '@fontsource/jetbrains-mono/latin-700.css';
 import './styles.css';
+
+// index.html applies it before paint already; repeat in case that script didn't run.
+applyStoredTheme();
 
 const root = document.getElementById('root');
 if (!root) {

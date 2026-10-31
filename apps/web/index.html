@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Material Mule</title>
+    <script>
+      // MISC-09: apply a stored light/dark choice before first paint (src/theme/theme.ts).
+      try {
+        var theme = localStorage.getItem('materialmule:theme');
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

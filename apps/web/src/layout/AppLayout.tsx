@@ -7,6 +7,7 @@ import { useMe, useSession } from '../session/context';
 import { DonkeyMark } from './DonkeyMark';
 import { accountBadge, visibleNavItems } from './nav';
 import { NavIcon } from './NavIcon';
+import { SidebarFooter } from './SidebarFooter';
 
 export function AppLayout() {
   const me = useMe();
@@ -75,6 +76,7 @@ export function AppLayout() {
             </li>
           ))}
         </ul>
+        <SidebarFooter />
       </nav>
       <main id="main" className="app-main" tabIndex={-1}>
         {me.profileRefreshFailed ? (
