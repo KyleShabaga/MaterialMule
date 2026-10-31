@@ -32,6 +32,9 @@ const SCRIPTS = resolve(import.meta.dirname, '..');
 const HARNESS = join(SCRIPTS, 'tests', 'ops-harness.ps1');
 const isWindows = process.platform === 'win32';
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+if (!testDatabaseUrl && process.env.REQUIRE_DATABASE_TESTS === '1') {
+  throw new Error('REQUIRE_DATABASE_TESTS=1 but TEST_DATABASE_URL is not set.');
+}
 // CI puts the server's own client tools in PGBIN; locally the EDB default.
 const PG_BIN = process.env.PGBIN ?? 'C:\\Program Files\\PostgreSQL\\17\\bin';
 const VERSION = '0.0.0-t21test';

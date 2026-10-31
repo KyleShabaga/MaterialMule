@@ -1,0 +1,44 @@
+name: Set up Material Mule
+description: Node from .nvmrc with the npm download cache, optionally the test database, then npm ci.
+
+inputs:
+  database:
+    description: "'true' to start PostgreSQL, create materialmule_test and write apps/api/.env.test"
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    # Service containers aren't available on Windows runners. The image ships PostgreSQL
+    # (user postgres / password root) as a stopped service, so start it and create the DB.
+    - name: Start PostgreSQL
+      if: inputs.database == 'true'
+      shell: pwsh
+      run: |
+        $service = Get-Service -Name 'postgresql*' | Select-Object -First 1
+        Set-Service -InputObject $service -StartupType Manual
+        Start-Service -InputObject $service
+        $env:PGPASSWORD = 'root'
+        & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U postgres -c 'CREATE DATABASE materialmule_test;'
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    - name: Write API test environment
+      if: inputs.database == 'true'
+      shell: pwsh
+      run: |
+        if (-not $env:TEST_DATABASE_URL) { throw 'TEST_DATABASE_URL is not set for this job.' }
+        $secret = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+        @(
+          'APP_ENV=test'
+          "DATABASE_URL=$env:TEST_DATABASE_URL"
+          "SESSION_SECRET=$secret"
+          'LOG_LEVEL=warn'
+        ) | Set-Content -Path apps/api/.env.test -Encoding utf8
+
+    - run: npm ci
+      shell: pwsh
