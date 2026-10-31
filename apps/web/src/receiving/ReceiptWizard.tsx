@@ -187,11 +187,15 @@ export function ReceiptWizard({
     focusTarget.current = `unit-${copy.clientRowId}-heading`;
   }
 
+  /** Removes a unit; focus goes to the bucket before it, or Add bucket (MTR-136). */
   function remove(clientRowId: string) {
+    const index = draft.units.findIndex((u) => u.clientRowId === clientRowId);
+    const previous = index > 0 ? draft.units[index - 1] : undefined;
     change((current) => ({
       ...current,
       units: current.units.filter((u) => u.clientRowId !== clientRowId),
     }));
+    focusTarget.current = previous ? `unit-${previous.clientRowId}-heading` : 'wizard-add-unit';
   }
 
   function goToStep(next: Step, focus = 'wizard-step-heading') {
@@ -475,7 +479,12 @@ export function ReceiptWizard({
               {errorByField.get('units') ? (
                 <p className="field-error">{errorByField.get('units')}</p>
               ) : null}
-              <button type="button" onClick={() => addUnit()} aria-keyshortcuts={ADD_UNIT_SHORTCUT}>
+              <button
+                type="button"
+                id="wizard-add-unit"
+                onClick={() => addUnit()}
+                aria-keyshortcuts={ADD_UNIT_SHORTCUT}
+              >
                 Add bucket
               </button>{' '}
               {/* Alt+N (MM-T66 UI-05) still lands in the new bucket's test-hole search: the

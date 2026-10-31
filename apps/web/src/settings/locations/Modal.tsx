@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
-/** Native modal <dialog>: focus stays inside and Escape closes it. */
+/**
+ * Native modal <dialog>: focus stays inside and Escape closes it. The page unmounts it to close
+ * it, so focus goes back to whatever opened it (MTR-136), not the page body.
+ */
 export function Modal({
   title,
   className = 'drawer',
@@ -15,9 +18,14 @@ export function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
+    const trigger = document.activeElement;
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal?.();
-    return () => dialog?.close?.();
+    return () => {
+      dialog?.close?.();
+      const lost = !document.activeElement || document.activeElement === document.body;
+      if (lost && trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+    };
   }, []);
   return (
     <dialog

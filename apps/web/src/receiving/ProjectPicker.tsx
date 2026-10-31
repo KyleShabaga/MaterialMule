@@ -7,7 +7,7 @@ import {
   type ProjectSummary,
   type StaffOption,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createProject, fetchMyGrants, searchProjects } from '../api/projects';
 import { FormField } from '../components/ui';
 import { prefillFromQuery } from './prefill';
@@ -74,6 +74,15 @@ export function ProjectPicker({
   const [saveError, setSaveError] = useState<string | null>(null);
   /** Whether the signed-in person holds "Can create and lead projects" (null: unknown). */
   const [canSelfLead, setCanSelfLead] = useState<boolean | null>(null);
+  // MTR-136: picking (or changing) the project replaces the focused control, so say where focus
+  // goes next instead of letting it fall to the page body.
+  const focusNext = useRef<'change' | 'search' | null>(null);
+  useEffect(() => {
+    const target = focusNext.current;
+    if (!target) return;
+    focusNext.current = null;
+    document.getElementById(`${id}-${target}`)?.focus();
+  }, [value, id]);
 
   const trimmed = query.trim();
   useEffect(() => {
@@ -102,6 +111,7 @@ export function ProjectPicker({
   const active = highlight.active;
 
   function choose(project: ProjectSummary) {
+    focusNext.current = 'change';
     onSelect(project);
     setOpen(false);
     setForm(null);
@@ -209,7 +219,14 @@ export function ProjectPicker({
             )}
           </FormField>
         </div>
-        <button type="button" onClick={() => onSelect(null)}>
+        <button
+          type="button"
+          id={`${id}-change`}
+          onClick={() => {
+            focusNext.current = 'search';
+            onSelect(null);
+          }}
+        >
           Change project
         </button>
       </fieldset>

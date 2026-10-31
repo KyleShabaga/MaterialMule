@@ -417,6 +417,11 @@ describe('Receiving wizard (MM-T10)', () => {
     expect(within(bucket(2)).getByText('TH26-01: G1–S4')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Remove Bucket 3' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
+    // MTR-136: focus goes to the bucket before the removed one, then to Add bucket.
+    expect(screen.getByRole('heading', { level: 3, name: 'Bucket 2' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Remove Bucket 1' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Bucket 1' }));
+    expect(screen.getByRole('button', { name: 'Add bucket' })).toHaveFocus();
   });
 
   describe('MM-T66 UI-08/UI-11: Review receipt above 1280px', () => {
