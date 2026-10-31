@@ -76,24 +76,29 @@ export function splitSearchWords(search: string | undefined): string[] {
 }
 
 /**
- * A decimal's trailing zeros (MTR-57): "3.0" → "3", "1.50" → "1.5". The search document holds
- * depths as trim_scale writes them ("1.5-3 m"), so "1.5–3.0 m" must search as "1.5-3". Search
- * words match anywhere in the document, so a shorter number never loses a match.
+ * Inventory search words (MM-T59): every dash folded to "-" first, so "G1–S10" copied from the
+ * table matches like "G1-S10", and a dash standing alone between spaced words ("G1 – S10") dropped.
+ * Words keep their decimals as typed; inventorySearchWordForms adds the depth form (MTR-57).
  */
+export function splitInventorySearch(search: string | undefined): string[] {
+  const folded = (search ?? '').replace(SEARCH_DASHES, '-');
+  return splitSearchWords(folded.replace(/(^|\s)-+(?=\s|$)/g, ' '));
+}
+
+/** A decimal's trailing zeros (MTR-57): "3.0" → "3", "1.50" → "1.5". */
 const TRAILING_ZEROS = /(\d)\.(\d*?)0+(?!\d)/g;
 
 /**
- * Inventory search words (MM-T59): every dash folded to "-" first, so "G1–S10" copied from the
- * table matches like "G1-S10", and a dash standing alone between spaced words ("G1 – S10") dropped.
- * Decimals lose their trailing zeros (MTR-57).
+ * The forms a search word may match (MTR-57). The search document holds depths as trim_scale
+ * writes them ("1.5-3 m"), so "1.5–3.0" must also match as "1.5-3"; but names, references and
+ * custom text keep their decimals as entered ("TH3.0-A", "1.50-3.00"), so the word as typed is
+ * always tried too. A word matches when any form appears in the document.
  */
-export function splitInventorySearch(search: string | undefined): string[] {
-  const folded = (search ?? '')
-    .replace(SEARCH_DASHES, '-')
-    .replace(TRAILING_ZEROS, (_, whole: string, fraction: string) =>
-      fraction ? `${whole}.${fraction}` : whole,
-    );
-  return splitSearchWords(folded.replace(/(^|\s)-+(?=\s|$)/g, ' '));
+export function inventorySearchWordForms(word: string): string[] {
+  const depth = word.replace(TRAILING_ZEROS, (_, whole: string, fraction: string) =>
+    fraction ? `${whole}.${fraction}` : whole,
+  );
+  return depth === word ? [word] : [word, depth];
 }
 
 /**

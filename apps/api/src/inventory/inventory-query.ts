@@ -1,4 +1,5 @@
 import {
+  inventorySearchWordForms,
   inventorySortDirection,
   splitInventorySearch,
   type InventoryQuery,
@@ -33,8 +34,12 @@ export function buildInventoryQuery(
 
   const words = splitInventorySearch(query.search);
   for (const word of words) {
-    // Backslash is LIKE's default escape character, which likeEscape uses.
-    where.push(`s.document LIKE ${param(`%${likeEscape(word)}%`)}`);
+    // Backslash is LIKE's default escape character, which likeEscape uses. A word matches as
+    // typed or in its depth form (MTR-57).
+    const forms = inventorySearchWordForms(word).map(
+      (form) => `s.document LIKE ${param(`%${likeEscape(form)}%`)}`,
+    );
+    where.push(forms.length === 1 ? forms[0]! : `(${forms.join(' OR ')})`);
   }
   if (query.projectId) {
     where.push(`su.project_id = ${param(query.projectId)}`);

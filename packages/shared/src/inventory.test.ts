@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatStorageUnitHoleSummary,
   inventoryQuerySchema,
+  inventorySearchWordForms,
   inventorySortDirection,
   normalizeStorageUnitCode,
   currentLocationName,
@@ -56,23 +57,29 @@ describe('inventory query (MM-T12)', () => {
     expect(splitInventorySearch('a b c d e f g h i j k l')).toHaveLength(10);
   });
 
-  it('MTR-57: drops trailing zeros of a decimal, as trim_scale does in the search document', () => {
-    expect(splitInventorySearch('1.5–3.0 m')).toEqual(['1.5-3', 'm']);
-    expect(splitInventorySearch('3.0 m')).toEqual(['3', 'm']);
-    expect(splitInventorySearch('1.50-3.00m 0.0 10.0 2.05 100 20')).toEqual([
-      '1.5-3m',
-      '0',
-      '10',
-      '2.05',
-      '100',
-      '20',
-    ]);
+  it('MTR-57: a word also matches without its trailing zeros, as trim_scale writes depths', () => {
+    expect(splitInventorySearch('1.5–3.0 m')).toEqual(['1.5-3.0', 'm']);
+    expect(inventorySearchWordForms('1.5-3.0')).toEqual(['1.5-3.0', '1.5-3']);
+    expect(inventorySearchWordForms('3.0')).toEqual(['3.0', '3']);
+    expect(inventorySearchWordForms('1.50-3.00m')).toEqual(['1.50-3.00m', '1.5-3m']);
+    expect(inventorySearchWordForms('0.0')).toEqual(['0.0', '0']);
+    expect(inventorySearchWordForms('10.0')).toEqual(['10.0', '10']);
+    // No trailing zeros: one form.
+    for (const word of ['1.5-3', '2.05', '100', '20', 'm']) {
+      expect(inventorySearchWordForms(word), word).toEqual([word]);
+    }
     // Words that only look numeric keep their other digits.
-    expect(splitInventorySearch('TH26-01 G1-S10 BKT-2026-000010')).toEqual([
-      'th26-01',
-      'g1-s10',
-      'bkt-2026-000010',
-    ]);
+    for (const word of ['th26-01', 'g1-s10', 'bkt-2026-000010']) {
+      expect(inventorySearchWordForms(word), word).toEqual([word]);
+    }
+  });
+
+  it('MTR-57: identifiers and custom text with decimals still match as typed', () => {
+    // A hole tag or custom summary keeps its decimals in the search document.
+    expect(splitInventorySearch('TH3.0-A')).toEqual(['th3.0-a']);
+    expect(inventorySearchWordForms('th3.0-a')[0]).toBe('th3.0-a');
+    expect(splitInventorySearch('1.50-3.00')).toEqual(['1.50-3.00']);
+    expect(inventorySearchWordForms('1.50-3.00')[0]).toBe('1.50-3.00');
   });
 
   it('folds en dashes, em dashes and minus signs to a hyphen, as the search document does (MM-T59)', () => {

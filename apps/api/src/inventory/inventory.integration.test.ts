@@ -301,6 +301,27 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     expect(await search('3–6 ft')).toEqual([]);
   });
 
+  it('MTR-57: names and custom text with decimals still match as typed', async () => {
+    projects.decimal = await insertProject(db.pool, 'DEMO-2607', users.pe!);
+    holes.decimal = await insertTestHole(db.pool, projects.decimal, 'TH3.0-A');
+    const holeUnit = await addUnit({
+      project: 'decimal',
+      holes: [['decimal', { type: 'sample_range', sampleFrom: 'G1', sampleTo: 'G2' }]],
+    });
+    const customUnit = await addUnit({
+      project: 'decimal',
+      holes: [['decimal', { type: 'custom', customText: 'Lift 1.50-3.00' }]],
+    });
+    const search = async (text: string) =>
+      ids(await inventory({ search: text, projectId: projects.decimal!, sort: 'id' }));
+
+    expect(await search('TH3.0-A G1')).toEqual([holeUnit]);
+    expect(await search('1.50-3.00')).toEqual([customUnit]);
+    expect(await search('1.50–3.00 lift')).toEqual([customUnit]);
+    // The hole name is on both units.
+    expect(await search('TH3.0-A')).toEqual([holeUnit, customUnit].sort());
+  });
+
   it('keeps search current when a project, test hole or location is renamed', async () => {
     const unit = await addUnit({ project: 'p1', holes: [['p1th2', ALL]], note: 'rename-check' });
     await db.pool.query(`UPDATE location SET name = 'Receiving bay' WHERE id = $1`, [
