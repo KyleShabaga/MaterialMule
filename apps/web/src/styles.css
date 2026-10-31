@@ -2005,10 +2005,31 @@ textarea {
   white-space: nowrap;
 }
 
+/* A wide table scrolls inside its own box, never the page (MTR-58, MTR-93). The box is a
+   focusable region (TableScroll), so keyboard users can scroll it with the arrow keys. */
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll:focus-visible {
+  outline-offset: -2px;
+}
+
 @container (max-width: 47.99rem) {
   .table-stack .data-table {
     border: none;
     background: none;
+  }
+
+  /* Stacked cards take the box's width; long badges (a bulk bucket, "Disposed after testing")
+     wrap between words instead of pushing the card past its box (MTR-58). */
+  .table-stack .data-table td > * {
+    min-width: 0;
+  }
+
+  .table-stack .badge {
+    white-space: normal;
   }
 
   .table-stack .data-table thead {

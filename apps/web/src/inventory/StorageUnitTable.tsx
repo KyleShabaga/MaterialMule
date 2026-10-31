@@ -5,7 +5,7 @@ import {
   type InventoryItem,
 } from '@materialmule/shared';
 import { Link } from 'react-router';
-import { DataTable, type Column } from '../components/ui';
+import { DataTable, TableScroll, type Column } from '../components/ui';
 import type { QueuedMove } from '../moves/store';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
 import { UnitContentsLine, UnitContentsList } from './UnitContents';
@@ -165,7 +165,8 @@ export function StorageUnitTable({
     },
   ];
   return (
-    <div
+    <TableScroll
+      label="Storage unit table"
       className={
         compact ? 'inventory-table inventory-table-compact' : 'inventory-table table-stack'
       }
@@ -177,7 +178,7 @@ export function StorageUnitTable({
         empty="No storage units."
         columns={columns}
       />
-    </div>
+    </TableScroll>
   );
 }
 
