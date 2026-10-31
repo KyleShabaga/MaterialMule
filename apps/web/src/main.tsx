@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
+import { applyPageTitle } from './layout/page-title';
 import { routes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
 import { applyStoredTheme } from './theme/theme';
@@ -26,6 +27,9 @@ if (!root) {
 }
 
 const router = createBrowserRouter(routes);
+// MTR-134: pages without their own title get the route's label (see layout/page-title.ts).
+applyPageTitle(router.state.location.pathname);
+router.subscribe((state) => applyPageTitle(state.location.pathname));
 
 createRoot(root).render(
   <StrictMode>

@@ -1,8 +1,19 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { usePageTitle } from '../layout/page-title';
 
 // Small shared building blocks for later screens (MM-T34). Keep them plain and accessible.
 
-export function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  actions,
+  documentTitle = true,
+}: {
+  title: string;
+  actions?: ReactNode;
+  /** MTR-134: names the browser tab after this heading. Layouts whose pages name it set false. */
+  documentTitle?: boolean;
+}) {
+  usePageTitle(documentTitle ? title : null);
   return (
     <div className="page-header">
       <h1>{title}</h1>

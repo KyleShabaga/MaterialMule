@@ -17,6 +17,7 @@ export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
     <>
       <PageHeader
         title="Lab Testing"
+        documentTitle={false}
         actions={
           canEnter && !onEditor ? (
             <Link className="button primary" to="/lab-testing/programs/new">
