@@ -16,7 +16,7 @@ export function NotificationPreferencesCard() {
     <BandedCard
       className="profile-card"
       title="Notifications"
-      subtitle="Action requests always appear under the bell at the top of the page."
+      subtitle="Action requests always appear under Pending actions at the top of the page."
     />
   );
 }

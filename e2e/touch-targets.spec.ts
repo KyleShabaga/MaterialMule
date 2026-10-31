@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-94: on a 375 px phone every control a person taps is at least 44 × 44 px: buttons, the
-// action requests bell, date and select fields (the receive step's too), checkbox rows (the label
+// Pending actions and Notifications controls, date and select fields (the receive step's too), checkbox rows (the label
 // is the hit area), back links, "See all" links and the dashboard filter chips. Inline links in a
 // sentence or a table cell are exempt (WCAG 2.5.8) and not measured.
 
@@ -57,10 +57,12 @@ for (const route of [
   });
 }
 
-test('MTR-94: the open menu and the bell popover have 44 px targets', async ({ page }) => {
+test('MTR-94: the open menu and the Pending actions popover have 44 px targets', async ({
+  page,
+}) => {
   await signInAs(page, 'at');
   await page.goto('/');
-  await page.getByRole('button', { name: /^Action requests/ }).click();
+  await page.getByRole('button', { name: /^Pending actions/ }).click();
   await expect(page.locator('.action-bell-panel')).toBeVisible();
   expect(await smallTargets(page)).toEqual([]);
   await page.keyboard.press('Escape');

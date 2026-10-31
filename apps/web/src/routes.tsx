@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { ActionRequestsPage } from './action-requests/ActionRequestsPage';
+import { NotificationsPage } from './notifications/NotificationsPage';
 import { DisposalPage } from './disposal/DisposalPage';
 import { DisposalScanPage } from './disposal/DisposalScanPage';
 import { InventoryPage } from './inventory/InventoryPage';
@@ -119,6 +120,9 @@ export const routes: RouteObject[] = [
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
               // Action requests inbox (MM-T27): personal accounts; the header bell links here.
               { path: 'action-requests', element: <ActionRequestsPage /> },
+              // Notification center (MM-T91): personal accounts; the header Notifications control
+              // links here. Separate from action requests; nothing here resolves one.
+              { path: 'notifications', element: <NotificationsPage /> },
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },
