@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   TEST_REQUEST_STATUSES,
+  coverageUnitSchema,
   personSnapshotSchema,
   type TestRequestStatus,
 } from './lab-programs';
@@ -384,6 +385,17 @@ export const amendmentResultSchema = z.object({
   version: z.number().int(),
 });
 export type AmendmentResult = z.infer<typeof amendmentResultSchema>;
+
+/**
+ * 409 `coverage_changed` from the amend route: for each new ALL/Grabs/SPT line (by its index in
+ * `addLines`) whose included units differ from `reviewedCoverageUnitIds`, the coverage the
+ * server would freeze now. Nothing was changed; the requester checks it and sends it back.
+ */
+export const amendmentCoverageChangedSchema = z.object({
+  code: z.literal('coverage_changed'),
+  lines: z.array(z.object({ index: z.number().int(), coverage: z.array(coverageUnitSchema) })),
+});
+export type AmendmentCoverageChanged = z.infer<typeof amendmentCoverageChangedSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // Responses
