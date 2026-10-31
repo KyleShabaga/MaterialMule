@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { ActionRequestsBell } from '../action-requests/ActionRequestsBell';
 import { StatusBadge } from '../components/ui';
@@ -13,7 +13,45 @@ export function AppLayout() {
   const me = useMe();
   const { signOut } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
   const badge = accountBadge(me);
+
+  // MTR-137: while the phone drawer is open, what it covers is inert; focus starts on the first
+  // link, and Escape or a tap outside closes it and returns focus to Menu.
+  useEffect(() => {
+    if (!menuOpen) return;
+    navRef.current?.querySelector<HTMLElement>('a[href]')?.focus();
+    const closeToMenu = () => {
+      setMenuOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault();
+        closeToMenu();
+      }
+    };
+    // On click rather than pointerdown, so the tap's own focus change can't undo the return.
+    const onOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (navRef.current?.contains(target) || menuButtonRef.current?.contains(target)) return;
+      closeToMenu();
+    };
+    // Widening past phone width hides the drawer; don't leave the page inert behind it.
+    const wide = window.matchMedia?.('(min-width: 641px)');
+    const onWide = (event: MediaQueryListEvent) => {
+      if (event.matches) setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('click', onOutsideClick, true);
+    wide?.addEventListener('change', onWide);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('click', onOutsideClick, true);
+      wide?.removeEventListener('change', onWide);
+    };
+  }, [menuOpen]);
 
   return (
     <div className={`app ${menuOpen ? 'menu-open' : ''}`}>
@@ -22,6 +60,7 @@ export function AppLayout() {
       </a>
       <header className="app-header">
         <button
+          ref={menuButtonRef}
           type="button"
           className="menu-toggle"
           aria-expanded={menuOpen}
@@ -36,7 +75,7 @@ export function AppLayout() {
           </span>
           <span className="app-name">Material Mule</span>
         </Link>
-        <div className="identity" aria-label="Signed in user">
+        <div className="identity" aria-label="Signed in user" inert={menuOpen}>
           <span className="identity-name">
             {me.displayName}
             {me.initials ? <span className="identity-initials"> ({me.initials})</span> : null}
@@ -57,9 +96,11 @@ export function AppLayout() {
           </button>
         </div>
         {/* MISC-02: the bell sits to the right of the user area. */}
-        {me.permissions.includes('action_item.read') ? <ActionRequestsBell /> : null}
+        {me.permissions.includes('action_item.read') ? (
+          <ActionRequestsBell inert={menuOpen} />
+        ) : null}
       </header>
-      <nav id="side-nav" className="side-nav" aria-label="Main">
+      <nav id="side-nav" className="side-nav" aria-label="Main" ref={navRef}>
         <p className="nav-heading">Primary navigation</p>
         <ul>
           {visibleNavItems().map((item) => (
@@ -78,7 +119,7 @@ export function AppLayout() {
         </ul>
         <SidebarFooter />
       </nav>
-      <main id="main" className="app-main" tabIndex={-1}>
+      <main id="main" className="app-main" tabIndex={-1} inert={menuOpen}>
         {me.profileRefreshFailed ? (
           <p className="notice" role="status">
             Your Microsoft profile couldn’t be refreshed, so your last known details are in use.{' '}

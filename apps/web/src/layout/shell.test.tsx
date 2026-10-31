@@ -1,5 +1,6 @@
 import type { MeResponse } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -201,5 +202,38 @@ describe('dashboard', () => {
   it('shows a not-found page for unknown paths inside the app', async () => {
     renderAt('/nowhere', { status: 'active', me: me() });
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+  });
+});
+
+describe('phone menu drawer (MTR-137)', () => {
+  it('makes the covered page inert, focuses the first link, and closes on Escape or an outside tap', async () => {
+    const user = userEvent.setup();
+    renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
+    const menu = screen.getByRole('button', { name: 'Menu' });
+    const main = document.getElementById('main')!;
+    const identity = screen.getByLabelText('Signed in user');
+    expect(main).not.toHaveAttribute('inert');
+
+    await user.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    expect(main).toHaveAttribute('inert');
+    expect(identity).toHaveAttribute('inert');
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    expect(menu).toHaveFocus();
+    expect(main).not.toHaveAttribute('inert');
+    expect(identity).not.toHaveAttribute('inert');
+
+    await user.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    // A tap inside the drawer keeps it open; one outside closes it.
+    await user.click(within(nav).getByText('Primary navigation'));
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    await user.click(document.body);
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    expect(menu).toHaveFocus();
   });
 });

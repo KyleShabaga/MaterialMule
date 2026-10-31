@@ -20,7 +20,7 @@ type Preview =
  * Each entry only links to the item; nothing here approves or resolves anything. Read/unread
  * state arrives with MM-T91.
  */
-export function ActionRequestsBell() {
+export function ActionRequestsBell({ inert = false }: { inert?: boolean } = {}) {
   const [count, setCount] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<Preview>({ state: 'loading' });
@@ -100,7 +100,7 @@ export function ActionRequestsBell() {
 
   const label = count === null ? 'Action requests' : `Action requests, ${count} open`;
   return (
-    <div className="action-bell-wrap" ref={wrapRef}>
+    <div className="action-bell-wrap" ref={wrapRef} inert={inert}>
       <button
         ref={buttonRef}
         type="button"
