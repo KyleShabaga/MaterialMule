@@ -183,6 +183,7 @@ describe('Staff drawer: job title, eligibility and capabilities (MM-AO06)', () =
     lastSignInAt: null,
     approvedAt: null,
     disabledReason: null,
+    statusHistory: [],
     createdAt: '2026-10-26T00:00:00.000Z',
     jobTitle: 'Field Technician',
     jobTitleOverride: null,

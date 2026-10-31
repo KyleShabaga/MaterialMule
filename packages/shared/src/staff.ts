@@ -47,6 +47,17 @@ export const expectedUpnSchema = z
 
 const reasonSchema = z.string().trim().min(1, 'Enter a reason.').max(2000);
 
+/** MTR-12: one access status change of a staff member, from its audit event. */
+export const staffStatusChangeSchema = z.object({
+  change: z.enum(['approved', 'disabled', 'enabled']),
+  /** Who made the change, as their name was then; null for a system change. */
+  byName: z.string().nullable(),
+  at: z.string(),
+  /** Disabling needs a reason; approving and re-enabling take none (owner decision). */
+  reason: z.string().nullable(),
+});
+export type StaffStatusChange = z.infer<typeof staffStatusChangeSchema>;
+
 /** One row of `GET /api/staff`. */
 export const staffMemberSchema = z.object({
   id: z.string(),
@@ -66,6 +77,8 @@ export const staffMemberSchema = z.object({
   lastSignInAt: z.string().nullable(),
   approvedAt: z.string().nullable(),
   disabledReason: z.string().nullable(),
+  /** Approvals, disables and re-enables, oldest first (MTR-12). */
+  statusHistory: z.array(staffStatusChangeSchema),
   createdAt: z.string(),
   /** Microsoft Graph's job title, as last refreshed (D16). */
   jobTitle: z.string().nullable(),

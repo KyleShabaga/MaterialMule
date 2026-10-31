@@ -20,6 +20,23 @@ test('an admin approves a pending applicant', async ({ page }, testInfo) => {
   // The directory now lists them as active.
   await page.getByLabel('Search staff').fill(applicant);
   await expect(page.getByRole('row').filter({ hasText: applicant })).toContainText('Active');
+
+  // MTR-12: the drawer says who approved, disabled and re-enabled them, and when. Approve and
+  // re-enable take no reason; disable needs one.
+  await page.getByRole('button', { name: `Manage ${applicant}` }).click();
+  const drawer = page.getByRole('dialog', { name: applicant });
+  const history = drawer.getByRole('list', { name: 'Access history' });
+  await expect(history.getByRole('listitem')).toHaveText([/^Approved by .+ on .+\d{4}$/]);
+  await drawer.getByRole('button', { name: 'Disable access…' }).click();
+  const confirm = page.getByRole('dialog', { name: `Disable ${applicant}?` });
+  await confirm.getByRole('textbox', { name: 'Reason' }).fill('Example leave of absence');
+  await confirm.getByRole('button', { name: 'Disable' }).click();
+  await drawer.getByRole('button', { name: 'Re-enable access' }).click();
+  await expect(history.getByRole('listitem')).toHaveText([
+    /^Approved by .+ on /,
+    /^Disabled by .+ on .+: Example leave of absence$/,
+    /^Re-enabled by .+ on .+\d{4}$/,
+  ]);
 });
 
 test('receiver selector: keyboard picks one of two people sharing "JS"', async ({ page }) => {
