@@ -85,6 +85,44 @@ export const disposalCandidatesSchema = z.object({
 });
 export type DisposalCandidates = z.infer<typeof disposalCandidatesSchema>;
 
+// MISC-13: units in every project that standard disposal can take now. The server decides with
+// unit_disposal_eligible (the same rule as the per-project list); the page only shows the rows.
+// Tested units (retention exempt) leave through "Confirm removal after testing" and never appear.
+
+/** Units per page of the "Ready for disposal" list. */
+export const DISPOSAL_READY_PAGE_SIZE = 50;
+
+/** `GET /api/disposal/ready?page=` */
+export const disposalReadyQuerySchema = disposalCandidatesQuerySchema;
+
+export const DISPOSAL_READY_REASONS = ['retention_ended', 'extension_ended'] as const;
+
+export const disposalReadyUnitSchema = z.object({
+  storageUnitId: z.string(),
+  readableId: z.string(),
+  unitType: z.string(),
+  project: z.object({ id: z.string(), projectNumber: z.string(), name: z.string() }),
+  location: z.object({ code: z.string(), name: z.string() }),
+  effectiveRetainUntil: z.string(),
+  /** In stock and waiting for approval, or approved and waiting for the disposal scan. */
+  stage: z.enum(['awaiting_approval', 'approved']),
+  /** Why it is eligible: "Retention ended 2026-08-27 (1 year after receipt); no hold, …". */
+  reason: z.object({ code: z.enum(DISPOSAL_READY_REASONS), label: z.string() }),
+  /** The viewer may approve or revoke for this unit's project. */
+  canApprove: z.boolean(),
+});
+export type DisposalReadyUnit = z.infer<typeof disposalReadyUnitSchema>;
+
+export const disposalReadySchema = z.object({
+  asOf: z.string(),
+  units: z.array(disposalReadyUnitSchema),
+  /** Every ready unit across all pages. */
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+export type DisposalReady = z.infer<typeof disposalReadySchema>;
+
 /** `POST /api/disposal/approvals` */
 export const approveDisposalSchema = z.strictObject({
   unitIds: z

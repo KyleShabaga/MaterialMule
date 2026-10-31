@@ -1,4 +1,4 @@
-import type { DisposalCandidates, MeResponse } from '@materialmule/shared';
+import type { DisposalCandidates, DisposalReady, MeResponse } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
@@ -231,5 +231,154 @@ describe('Disposal (MM-T30)', () => {
     );
     expect(await screen.findByText(/need a personal sign-in/)).toBeVisible();
     expect(screen.getByLabelText('Scan or type a storage unit ID')).toBeDisabled();
+  });
+});
+
+const readyUnit = (
+  id: string,
+  overrides: Partial<DisposalReady['units'][number]> = {},
+): DisposalReady['units'][number] => ({
+  storageUnitId: id,
+  readableId: `BKT-2026-00010${id}`,
+  unitType: 'bucket',
+  project: { id: 'p1', projectNumber: 'DEMO-2601', name: 'Fictional project' },
+  location: { code: 'WH-D1', name: 'Warehouse D1 (long-term)' },
+  effectiveRetainUntil: '2027-10-23',
+  stage: 'awaiting_approval',
+  reason: {
+    code: 'retention_ended',
+    label:
+      'Retention ended 2027-10-23 (1 year after receipt 2026-10-23); no hold, open program or location conflict',
+  },
+  canApprove: true,
+  ...overrides,
+});
+
+const ready = (units: DisposalReady['units']): DisposalReady => ({
+  asOf: '2027-10-24',
+  units,
+  total: units.length,
+  page: 1,
+  pageSize: 50,
+});
+
+describe('Ready for disposal (MISC-13)', () => {
+  it('lists ready units from every project before a project is chosen, each linked onward', async () => {
+    const fetchMock = renderAt('/disposal-retention', me(), (url) => {
+      if (url.startsWith('/api/disposal/ready')) {
+        return json(
+          200,
+          ready([
+            readyUnit('1'),
+            readyUnit('2', {
+              readableId: 'ST-2026-000102',
+              unitType: 'shelby_tube',
+              project: { id: 'p2', projectNumber: 'DEMO-2603', name: 'Other project' },
+              stage: 'approved',
+              canApprove: false,
+            }),
+            readyUnit('3', {
+              project: { id: 'p3', projectNumber: 'DEMO-2604', name: 'Third project' },
+              canApprove: false,
+              reason: {
+                code: 'extension_ended',
+                label:
+                  'Extended retention ended 2027-10-23; no hold, open program or location conflict',
+              },
+            }),
+          ]),
+        );
+      }
+      return json(200, { open: 0 });
+    });
+    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
+    expect(within(card).getByLabelText('Ready count')).toHaveTextContent('3 units');
+    expect(card).toHaveTextContent('As of 2027-10-24, all projects');
+    const rows = within(card).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(3);
+    const [first, approved, waiting] = rows as [HTMLElement, HTMLElement, HTMLElement];
+    expect(within(first).getByRole('link', { name: 'BKT-2026-000101' })).toHaveAttribute(
+      'href',
+      '/sample-storage/BKT-2026-000101',
+    );
+    expect(within(first).getByRole('link', { name: 'DEMO-2601' })).toHaveAttribute(
+      'href',
+      '/disposal-retention?projectId=p1',
+    );
+    expect(first).toHaveTextContent('Warehouse D1 (long-term)');
+    expect(first).toHaveTextContent('2027-10-23');
+    expect(first).toHaveTextContent('Retention ended 2027-10-23 (1 year after receipt 2026-10-23)');
+    expect(within(first).getByRole('link', { name: 'Approve in project' })).toHaveAttribute(
+      'href',
+      '/disposal-retention?projectId=p1',
+    );
+    expect(within(approved).getByRole('link', { name: 'Scan to dispose' })).toHaveAttribute(
+      'href',
+      '/disposal-retention/scan',
+    );
+    expect(waiting).toHaveTextContent('Extended retention ended 2027-10-23');
+    expect(waiting).toHaveTextContent(/Waiting for the Lead Project Engineer or a Lab Manager/);
+    expect(within(waiting).queryByRole('link', { name: 'Approve in project' })).toBeNull();
+    // Eligibility is the server's: the page asked for no project's units to work it out.
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/disposal/eligible')),
+    ).toBe(false);
+  });
+
+  it('says so when nothing is ready', async () => {
+    renderAt('/disposal-retention', me(), (url) =>
+      url.startsWith('/api/disposal/ready') ? json(200, ready([])) : json(200, { open: 0 }),
+    );
+    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
+    expect(
+      await within(card).findByText('No storage units are ready for disposal right now.'),
+    ).toBeVisible();
+    expect(within(card).getByLabelText('Ready count')).toHaveTextContent('0 units');
+    expect(within(card).queryByRole('table')).toBeNull();
+  });
+
+  it('shows an error with Retry when the list fails to load', async () => {
+    const user = userEvent.setup();
+    let fail = true;
+    renderAt('/disposal-retention', me(), (url) => {
+      if (url.startsWith('/api/disposal/ready')) {
+        return fail ? json(500, {}) : json(200, ready([readyUnit('1')]));
+      }
+      return json(200, { open: 0 });
+    });
+    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
+    const alert = await within(card).findByRole('alert');
+    expect(alert).toHaveTextContent(/couldn.t be loaded/);
+    fail = false;
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
+    expect(await within(card).findByRole('link', { name: 'BKT-2026-000101' })).toBeVisible();
+    expect(within(card).queryByRole('alert')).toBeNull();
+  });
+
+  it('reloads after an approval on the page', async () => {
+    const user = userEvent.setup();
+    let readyCalls = 0;
+    renderAt('/disposal-retention?projectId=p1', me(), (url, init) => {
+      if (url.startsWith('/api/disposal/ready')) {
+        readyCalls += 1;
+        return json(200, ready(readyCalls === 1 ? [readyUnit('1')] : []));
+      }
+      if (url.startsWith('/api/disposal/eligible')) return json(200, candidates);
+      if (url === '/api/disposal/approvals' && init?.method === 'POST') {
+        return json(201, { batchId: 'b1', approvals: [{ id: 'a1', storageUnitId: '1' }] });
+      }
+      return json(200, { open: 0 });
+    });
+    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
+    expect(await within(card).findByRole('link', { name: 'BKT-2026-000101' })).toBeVisible();
+    const eligible = await screen.findByRole('region', { name: 'Eligible for disposal' });
+    await user.click(within(eligible).getByRole('checkbox'));
+    await user.click(within(eligible).getByRole('button', { name: 'Approve 1 for disposal' }));
+    const dialog = document.querySelector<HTMLElement>('dialog.confirm-dialog')!;
+    await user.click(within(dialog).getByRole('button', { name: 'Approve', hidden: true }));
+    expect(
+      await within(card).findByText('No storage units are ready for disposal right now.'),
+    ).toBeVisible();
+    expect(readyCalls).toBe(2);
   });
 });
