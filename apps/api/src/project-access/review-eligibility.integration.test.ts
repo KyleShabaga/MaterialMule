@@ -421,6 +421,182 @@ describe.runIf(testDatabaseUrl)('review eligibility and LPE review approval (MIS
       expect((await late).status).toBe(201);
       expect(await approvals(id)).toEqual([{ ended: true, end_kind: 'eligibility_lost' }]);
     });
+
+    // Review fix (#122): an approval used to hold the project FOR UPDATE and then wait for the
+    // eligibility lock, while a loss held that lock and then needed the project for its action
+    // request's foreign key. PostgreSQL broke the cycle by failing one of them. Now the
+    // eligibility lock comes first everywhere, and a loss locks its approvals' projects next.
+
+    /**
+     * Waits until `n` backends are queued behind the blocker, directly or through each other
+     * (pg_blocking_pids), so other test files sharing the database never count.
+     */
+    async function waitForLockWaiters(n: number) {
+      const { rows: me } = await blocker.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      for (let i = 0; i < 2000; i += 1) {
+        const { rows } = await h.db.pool.query<{ n: number }>(
+          `WITH RECURSIVE chain(pid) AS (
+             SELECT $1::int
+             UNION
+             SELECT a.pid FROM pg_stat_activity a JOIN chain c ON c.pid = ANY (pg_blocking_pids(a.pid))
+           )
+           SELECT count(*)::int - 1 AS n FROM chain`,
+          [me[0]!.pid],
+        );
+        if (rows[0]!.n >= n) return;
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      throw new Error(`fewer than ${n} backends waited behind the blocker`);
+    }
+
+    /** Holds `userId`'s active approval rows so a loss pauses right before ending them. */
+    async function holdApprovals(userId: string) {
+      await blocker.query('BEGIN');
+      await blocker.query(
+        `SELECT 1 FROM project_review_approval WHERE reviewer_user_id = $1 AND ended_at IS NULL
+         FOR UPDATE`,
+        [userId],
+      );
+    }
+
+    const lossRequests = async (userId: string) =>
+      (
+        await h.db.pool.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM action_item i
+           JOIN project_review_approval a ON a.id = i.entity_id
+           WHERE i.kind = 'review_approval_lost' AND a.reviewer_user_id = $1`,
+          [userId],
+        )
+      ).rows[0]!.n;
+
+    const activeApproval = async (userId: string) =>
+      (
+        await h.db.pool.query<{ eligible: boolean }>(
+          `SELECT reviewer_is_eligible(reviewer_user_id, scope_code) AS eligible
+           FROM project_review_approval WHERE reviewer_user_id = $1 AND ended_at IS NULL`,
+          [userId],
+        )
+      ).rows;
+
+    it('a loss that reaches its approvals first and an approval on the same project both commit', async () => {
+      const a = await reviewer('Ann Ahead');
+      const b = await person('Ben Behind');
+      await grant(b);
+      await join('a', b);
+      const bAssignment = await assign('a', b);
+
+      // The loss takes the eligibility lock and pauses on A's approval row.
+      await holdApprovals(a.id);
+      const loss = exclude(a.id, FIELD);
+      await waitForLockWaiters(1);
+      // The approval of B on the same project starts while the loss holds the eligibility lock.
+      const approval = approve('a', bAssignment);
+      await waitForLockWaiters(2);
+      await blocker.query('COMMIT');
+
+      const [lossResult, approvalResult] = await Promise.all([loss, approval]);
+      expect(lossResult.status, JSON.stringify(lossResult.body)).toBe(201);
+      expect(approvalResult.status, JSON.stringify(approvalResult.body)).toBe(201);
+      expect(await approvals(a.id)).toEqual([{ ended: true, end_kind: 'eligibility_lost' }]);
+      expect(await lossRequests(a.id)).toBe(1);
+      expect(await activeApproval(b)).toEqual([{ eligible: true }]);
+    });
+
+    it('an approval that holds its accounts first and a loss on the same project both commit', async () => {
+      const a = await reviewer('Ada Already');
+      const b = await person('Bea Blocked');
+      await grant(b);
+      await join('a', b);
+      const bAssignment = await assign('a', b);
+
+      // The approval pauses on B's account (as a concurrent re-enable or role change would).
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT 1 FROM app_user WHERE id = $1 FOR UPDATE', [b]);
+      const approval = approve('a', bAssignment);
+      await waitForLockWaiters(1);
+      const loss = exclude(a.id, FIELD);
+      await waitForLockWaiters(2);
+      await blocker.query('COMMIT');
+
+      const [approvalResult, lossResult] = await Promise.all([approval, loss]);
+      expect(approvalResult.status, JSON.stringify(approvalResult.body)).toBe(201);
+      expect(lossResult.status, JSON.stringify(lossResult.body)).toBe(201);
+      expect(await approvals(a.id)).toEqual([{ ended: true, end_kind: 'eligibility_lost' }]);
+      expect(await lossRequests(a.id)).toBe(1);
+      expect(await activeApproval(b)).toEqual([{ eligible: true }]);
+    });
+
+    it('a position change that ends an approval and a grant on the same project both commit', async () => {
+      // A is eligible only through a position rule, so changing A's position is the loss.
+      expect((await enableRule('lab_manager', STRENGTH)).status).toBe(201);
+      const a = await person('Lee Labman', 'lab_manager');
+      await join('a', a);
+      const assignment = await assign('a', a, STRENGTH);
+      expect((await approve('a', assignment)).status).toBe(201);
+
+      // The position change locks A's account, then pauses on A's approval row.
+      await holdApprovals(a);
+      const change = send('patch', `/api/staff/${a}`, { position: 'technician' }, 'admin');
+      await waitForLockWaiters(1);
+      // An ordinary project grant for A on the same project (project row, then A's account).
+      const issuer = send(
+        'post',
+        projectPath('a', 'report-issuers'),
+        {
+          issuerUserId: a,
+          scopeCode: FIELD,
+          reason: 'Issues field reports',
+          idempotencyKey: newKey(),
+        },
+        'pe',
+      );
+      await waitForLockWaiters(2);
+      await blocker.query('COMMIT');
+
+      const [changed, granted] = await Promise.all([change, issuer]);
+      expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+      expect(granted.status, JSON.stringify(granted.body)).toBe(201);
+      expect(await approvals(a)).toEqual([{ ended: true, end_kind: 'eligibility_lost' }]);
+      expect(await lossRequests(a)).toBe(1);
+
+      // Leave no lab_manager rule for later tests.
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM review_position_rule
+         WHERE position = 'lab_manager' AND scope_code = $1 AND revoked_at IS NULL`,
+        [STRENGTH],
+      );
+      const disabled = await send(
+        'delete',
+        `/api/review-eligibility/position-rules/${rows[0]!.id}`,
+        { reason: 'Test over' },
+        'admin',
+      );
+      expect(disabled.status).toBe(200);
+    });
+
+    it('regaining eligibility after a raced loss does not restore the ended approval', async () => {
+      const a = await reviewer('Ria Regain');
+      await holdApprovals(a.id);
+      const loss = exclude(a.id, FIELD);
+      await waitForLockWaiters(1);
+      await blocker.query('COMMIT');
+      expect((await loss).status).toBe(201);
+
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM reviewer_exclusion WHERE user_id = $1 AND revoked_at IS NULL`,
+        [a.id],
+      );
+      const lifted = await send(
+        'delete',
+        `/api/staff/${a.id}/reviewer-exclusions/${rows[0]!.id}`,
+        { reason: 'Review finished' },
+        'admin',
+      );
+      expect(lifted.status).toBe(200);
+      expect(await effective(a.id)).toContainEqual([FIELD, true]);
+      expect(await activeApproval(a.id)).toEqual([]);
+      expect(await approvals(a.id)).toEqual([{ ended: true, end_kind: 'eligibility_lost' }]);
+    });
   });
 
   it('the database refuses an approval by anyone but the lead, or for an ineligible reviewer', async () => {

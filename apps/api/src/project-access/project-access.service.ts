@@ -195,13 +195,19 @@ export function capability(
 }
 
 /**
+ * Grants whose start depends on review eligibility (MISC-08). `start` takes
+ * `review_eligibility_lock()` for them before anything else (review-eligibility.ts, lock order).
+ */
+const ELIGIBILITY_LOCKED: readonly GrantTable[] = [REVIEWER_ASSIGNMENT, REVIEW_APPROVAL];
+
+/**
  * Project team (D04), scoped reviewers (D04/D05) and Authorized report issuers (D06/D07), plus the
  * signed-in user's effective capabilities on a project (MM-AO03).
  *
- * Every write is one transaction in the documented lock order: the project (FOR UPDATE for a new
+ * Every write is one transaction in the documented lock order: for a reviewer assignment or
+ * approval the review eligibility lock first (MISC-08), then the project (FOR UPDATE for a new
  * row, so two grants for one project serialise; FOR SHARE for an ending), then the actor's and the
- * recipient's accounts (FOR SHARE, `lockStanding`), then the reviewer's eligibility or the row
- * being ended. Authority is checked with the request's user before the body is read (403 before
+ * recipient's accounts (FOR SHARE, `lockStanding`), then the row being ended. Authority is checked with the request's user before the body is read (403 before
  * 400, and before 404 for a caller who could never manage this anywhere), then again with roles and
  * status as they stand under the locks: a lead change, role removal or disable that committed first
  * wins. The row and its audit event commit together, or nothing does.
@@ -436,9 +442,8 @@ export class ProjectAccessService {
           }),
           check: async (client) => {
             await requireActiveScope(client, request.scopeCode);
-            // MISC-08: any eligibility change commits before or after this assignment, never
-            // between the check and the insert.
-            await lockReviewEligibility(client);
+            // MISC-08: `start` took the eligibility lock first, so any eligibility change commits
+            // before or after this assignment, never between the check and the insert.
             const { rows } = await client.query<{ eligible: boolean }>(
               'SELECT reviewer_is_eligible($1, $2) AS eligible',
               [request.reviewerUserId, request.scopeCode],
@@ -503,7 +508,7 @@ export class ProjectAccessService {
         extra: { reviewer_assignment_id: assignmentId },
         audit: { reviewerAssignmentId: assignmentId },
         check: async (client) => {
-          await lockReviewEligibility(client);
+          // `start` took the eligibility lock first (see ELIGIBILITY_LOCKED).
           const { rows: state } = await client.query<{
             active: boolean;
             eligible: boolean;
@@ -652,6 +657,9 @@ export class ProjectAccessService {
   ): Promise<View> {
     try {
       return await withTransaction(this.database.pool, async (client) => {
+        // MISC-08 lock order: the eligibility lock before the project, so an approval never holds
+        // the project while it waits for a loss that needs the project (review fix for #122).
+        if (ELIGIBILITY_LOCKED.includes(t)) await lockReviewEligibility(client);
         const project = await findProject(client, projectId, 'FOR UPDATE');
         if (!project) {
           if (!can(user, permission)) throw forbidden();

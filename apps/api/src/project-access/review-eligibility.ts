@@ -1,4 +1,4 @@
-import type { EffectiveEligibility, ReviewScope } from '@materialmule/shared';
+import type { EffectiveEligibility, Position, ReviewScope } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuditActor } from '../audit/audit.js';
 import { enqueueActionItemEmails } from '../notifications/action-items.js';
@@ -12,13 +12,59 @@ type Db = Pool | PoolClient;
  * individual grant or a position rule for the person's current position, and no exclusion for
  * that scope or for all scopes.
  *
- * Every change to a source (an individual grant, a position, a rule or an exclusion) takes
- * `review_eligibility_lock()` after the accounts it locks and before any grant row, then settles
- * actual losses in the same transaction. Approvals take the same lock, so an approval and a loss
- * never interleave: the one that commits second sees the other.
+ * Every change to a source (an individual grant, a position, a rule or an exclusion, or a
+ * re-enable that revokes grants) and every reviewer assignment or approval takes
+ * `review_eligibility_lock()`, then settles actual losses in the same transaction, so an approval
+ * and a loss never interleave: the one that commits second sees the other.
+ *
+ * Lock order (review fix for #122): the eligibility lock comes FIRST, before any project row,
+ * account, grant-review lock or grant row. Everything that takes it therefore queues for it while
+ * holding nothing, and no two of them can deadlock. A change that may end approvals then locks the
+ * projects of every approval it could end (`beginEligibilityChange`), in id order and before any
+ * account, because ending one inserts an action request whose foreign key needs its project: taken
+ * last, that project lock waited on a writer holding the project and waiting for an account or for
+ * this lock. After those: the project the write is about, accounts, the grant-review lock, the
+ * grant, its flag and the action item, as documented in project-access.
  */
 export async function lockReviewEligibility(client: PoolClient): Promise<void> {
   await client.query('SELECT review_eligibility_lock()');
+}
+
+/** Whose approvals an eligibility change may end: some reviewers, or a position rule's holders. */
+export type EligibilityChangeScope =
+  { reviewers: readonly string[] } | { position: Position; scopeCode: string };
+
+/**
+ * Starts an eligibility change: the eligibility lock, then FOR KEY SHARE on the projects of every
+ * active approval the change could end (id order). With the eligibility lock held no approval can
+ * start, so the set can only shrink before `settleEligibilityLoss` runs; KEY SHARE is exactly what
+ * that action request's foreign key takes, so it never has to wait for a project later. Call this
+ * first in the transaction, before locking any account.
+ */
+export async function beginEligibilityChange(
+  client: PoolClient,
+  affected: EligibilityChangeScope,
+): Promise<void> {
+  await lockReviewEligibility(client);
+  const { text, values } =
+    'reviewers' in affected
+      ? {
+          text: 'a.reviewer_user_id = ANY ($1::uuid[])',
+          values: [[...affected.reviewers]],
+        }
+      : {
+          text: `a.scope_code = $2 AND EXISTS (SELECT 1 FROM app_user u
+                   WHERE u.id = a.reviewer_user_id AND u.position = $1)`,
+          values: [affected.position, affected.scopeCode],
+        };
+  await client.query(
+    `SELECT p.id FROM project p
+     WHERE p.id IN (SELECT a.project_id FROM project_review_approval a
+                    WHERE a.ended_at IS NULL AND ${text})
+     ORDER BY p.id
+     FOR KEY SHARE`,
+    values,
+  );
 }
 
 /** The person making the change, as `endGrant` and action requests record them. */
@@ -31,8 +77,8 @@ export interface EligibilityChanger {
  * Ends every active review approval whose reviewer is no longer effectively eligible for its
  * scope (`eligibility_lost`), and asks each project's lead (admins when it has none) to reassign.
  * A change that leaves another valid source in place ends nothing. Completed work keeps its
- * attribution: nothing here touches anything but the approval. Call under
- * `lockReviewEligibility`.
+ * attribution: nothing here touches anything but the approval. Call after
+ * `beginEligibilityChange` (or with the projects of every approval it could end already locked).
  */
 export async function settleEligibilityLoss(
   client: PoolClient,

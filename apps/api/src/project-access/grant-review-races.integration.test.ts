@@ -409,11 +409,13 @@ describe.runIf(testDatabaseUrl)('grant review and team join races (PR #118 revie
     await disable('jo');
 
     // Each re-enable takes both projects' locks in id order, so one waits for the other wholly.
+    // Since the #122 review fix a re-enable takes the review eligibility lock first, so the
+    // second one may queue there behind the first instead of on a project's lock.
     await blocker.query('BEGIN');
     await holdReviewLocks([p1, p2]);
     const a = enable('js');
     const b = enable('jo');
-    await waiters(2, ['project_grant_review_lock']);
+    await waiters(2, ['project_grant_review_lock', 'review_eligibility_lock']);
     await blocker.query('COMMIT');
 
     const [first, second] = await Promise.all([a, b]);

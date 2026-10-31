@@ -35,6 +35,7 @@ import {
 import { activeScopes, forbidden, intentHash, unprocessable } from './project-access.service.js';
 import {
   effectiveEligibility,
+  beginEligibilityChange,
   lockReviewEligibility,
   settleEligibilityLoss,
 } from './review-eligibility.js';
@@ -132,10 +133,11 @@ export class StaffGrantsService {
     });
     try {
       return await withTransaction(this.database.pool, async (client) => {
+        // Eligibility lock first (lock order, review-eligibility.ts). A new rule ends nothing.
+        await lockReviewEligibility(client);
         const standing = await lockStanding(client, [user.userId]);
         const actor = asLocked(user, standing);
         if (!can(actor, 'reviewer_eligibility.manage')) throw forbidden();
-        await lockReviewEligibility(client);
         const { rows: previous } = await client.query<{ hash: string; by: string }>(
           `SELECT grant_request_hash AS hash, granted_by_user_id AS by FROM review_position_rule
            WHERE grant_idempotency_key = $1`,
@@ -196,10 +198,22 @@ export class StaffGrantsService {
       throw new NotFoundException({ code: 'review_position_rule_not_found' });
     }
     return withTransaction(this.database.pool, async (client) => {
+      // Eligibility lock first, then the projects of the approvals this rule's holders may lose
+      // (rules only change under that lock, so the rule read before it is the one disabled).
+      await lockReviewEligibility(client);
+      const { rows: target } = await client.query<{ position: Position; scope_code: string }>(
+        'SELECT position, scope_code FROM review_position_rule WHERE id = $1',
+        [id],
+      );
+      if (target[0]) {
+        await beginEligibilityChange(client, {
+          position: target[0].position,
+          scopeCode: target[0].scope_code,
+        });
+      }
       const standing = await lockStanding(client, [user.userId]);
       const actor = asLocked(user, standing);
       if (!can(actor, 'reviewer_eligibility.manage')) throw forbidden();
-      await lockReviewEligibility(client);
       const { rows } = await client.query<{
         position: Position;
         scope_code: string;
@@ -270,13 +284,15 @@ export class StaffGrantsService {
     const intent = prepare();
     const run = () =>
       withTransaction(this.database.pool, async (client) => {
+        // An eligibility source: the eligibility lock and this person's approval projects come
+        // before the accounts (lock order, review-eligibility.ts).
+        const source = ELIGIBILITY_SOURCES.includes(t);
+        if (source) await beginEligibilityChange(client, { reviewers: [userId] });
         const standing = await lockStanding(client, [user.userId, userId]);
         const actor = asLocked(user, standing);
         if (!can(actor, permission)) throw forbidden();
         const subject = standing.get(userId);
         if (!subject) throw new NotFoundException({ code: 'not_found' });
-        const source = ELIGIBILITY_SOURCES.includes(t);
-        if (source) await lockReviewEligibility(client);
 
         const previous = await findByKey(client, t, intent.key);
         if (previous) {
@@ -340,11 +356,11 @@ export class StaffGrantsService {
       throw new NotFoundException({ code: `${t.table}_not_found` });
     }
     return withTransaction(this.database.pool, async (client) => {
+      const source = ELIGIBILITY_SOURCES.includes(t);
+      if (source) await beginEligibilityChange(client, { reviewers: [userId] });
       const standing = await lockStanding(client, [user.userId]);
       const actor = asLocked(user, standing);
       if (!can(actor, permission)) throw forbidden();
-      const source = ELIGIBILITY_SOURCES.includes(t);
-      if (source) await lockReviewEligibility(client);
       const row = await lockGrant(client, t, id, { column: 'user_id', value: userId });
       if (!row) throw new NotFoundException({ code: `${t.table}_not_found` });
       if (!row.endedAt) {
