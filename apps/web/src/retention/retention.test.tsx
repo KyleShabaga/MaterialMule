@@ -1,8 +1,8 @@
-import type { StorageUnitRetention } from '@materialmule/shared';
+import type { ProjectRetention, StorageUnitRetention } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UnitRetentionCard } from './RetentionSections';
+import { ProjectRetentionSection, UnitRetentionCard } from './RetentionSections';
 
 // MM-T29 UI: the unit Retention card (dates, hold with reason and who, tested-unit exception)
 // and the request form for people without authority. Fictional data only.
@@ -104,5 +104,61 @@ describe('Retention card (MM-T29)', () => {
       unitIds: ['u1'],
       reason: 'Client may dispute',
     });
+  });
+});
+
+describe('Project retention release (MTR-83)', () => {
+  const hold = view().holds[0]!;
+  const project = (active: boolean): ProjectRetention => ({
+    projectId: 'p1',
+    holds: [
+      active
+        ? hold
+        : {
+            ...hold,
+            active: false,
+            releasedBy: { userId: 'pe', initials: 'PE', name: 'Pat Example' },
+            releasedAt: '2026-10-30T16:00:00.000Z',
+            releaseReason: 'Claim settled',
+            version: 2,
+          },
+    ],
+    extensions: [],
+    requests: [],
+    counts: { current: 3, onHold: active ? 3 : 1 },
+    canManage: true,
+    canRequest: true,
+  });
+
+  it('closes the release form after a successful release and tells the page', async () => {
+    const user = userEvent.setup();
+    let released = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/projects/p1/retention') {
+        return new Response(JSON.stringify(project(!released)), {
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      released = true;
+      return new Response(JSON.stringify({ id: 'h1', version: 2 }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const onChanged = vi.fn();
+    render(<ProjectRetentionSection projectId="p1" onChanged={onChanged} />);
+
+    const item = await screen.findByRole('listitem', { name: 'Hold: Claim review' });
+    await user.click(within(item).getByRole('button', { name: 'Release' }));
+    const form = within(item).getByRole('form', { name: 'Release' });
+    await user.type(within(form).getByLabelText('Reason for releasing (required)'), 'Settled');
+    await user.click(within(form).getByRole('button', { name: 'Release' }));
+
+    expect(await within(item).findByText(/Released by PE · Pat Example/)).toBeVisible();
+    expect(within(item).queryByRole('form', { name: 'Release' })).toBeNull();
+    expect(within(item).queryByLabelText('Reason for releasing (required)')).toBeNull();
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('1 of 3 current units on hold')).toBeVisible();
   });
 });

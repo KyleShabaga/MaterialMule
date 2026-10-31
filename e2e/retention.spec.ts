@@ -55,6 +55,8 @@ test('T5: request → approve on the project page → On hold → release, with 
     .click();
   await expect(hold).toContainText('Released');
   await expect(hold).toContainText('Dispute settled');
+  // MTR-83: the release form closes once the hold is released.
+  await expect(hold.getByRole('form', { name: 'Release' })).toHaveCount(0);
   await expect(card).not.toContainText('Retain until 2026-11-03 · On hold');
 
   await page.goto('/action-requests');

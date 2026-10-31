@@ -53,6 +53,8 @@ export function ProjectDetailPage() {
 
   const [result, setResult] = useState<(LoadResult<ProjectDetail> & { key: string }) | null>(null);
   const [reloads, setReloads] = useState(0);
+  // MTR-83: retention changes refresh the units table (its ON HOLD flags), not the whole page.
+  const [unitReloads, setUnitReloads] = useState(0);
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   usePageTitle(result?.ok ? result.data.projectNumber : null);
@@ -228,11 +230,18 @@ export function ProjectDetailPage() {
           </Link>
         }
       >
-        <ProjectUnits projectId={project.id} total={project.unitCount} reloadKey={reloads} />
+        <ProjectUnits
+          projectId={project.id}
+          total={project.unitCount}
+          reloadKey={reloads + unitReloads}
+        />
       </Section>
 
       {/* MM-T29: project-wide holds, extensions and retention requests. */}
-      <ProjectRetentionSection projectId={project.id} />
+      <ProjectRetentionSection
+        projectId={project.id}
+        onChanged={() => setUnitReloads((n) => n + 1)}
+      />
 
       {me.permissions.includes('acceptance_delegation.read') ? (
         <AcceptanceDelegatesSection projectId={project.id} />

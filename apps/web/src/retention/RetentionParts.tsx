@@ -226,8 +226,12 @@ function DecisionRow({
       version: item.version,
       idempotencyKey: key,
     });
-    if (outcome.ok) onChanged();
-    else {
+    if (outcome.ok) {
+      // MTR-83: the item reloads as released; its form closes rather than lingering under it.
+      setReleasing(false);
+      setReason('');
+      onChanged();
+    } else {
       setError(outcome.message);
       onChanged();
     }
@@ -252,7 +256,7 @@ function DecisionRow({
           Release
         </button>
       ) : null}
-      {releasing ? (
+      {releasing && item.active ? (
         <form aria-label="Release" onSubmit={(event) => void release(event)}>
           <label>
             Reason for releasing (required)

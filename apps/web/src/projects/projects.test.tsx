@@ -388,3 +388,58 @@ describe('Project detail (MM-T35)', () => {
     );
   });
 });
+
+describe('Project retention refreshes the units table (MTR-83)', () => {
+  it('reloads the storage units after a hold is released', async () => {
+    const user = userEvent.setup();
+    let released = false;
+    const hold = {
+      id: 'h1',
+      projectId: PROJECT_ID,
+      scope: 'project' as const,
+      units: [],
+      reason: 'Litigation hold (fictional)',
+      placedBy: { userId: 'u-pe', initials: 'PE', name: 'Pat Example' },
+      placedAt: '2026-10-27T16:00:00.000Z',
+      fromRequestId: null,
+      active: true,
+      releasedBy: null,
+      releasedAt: null,
+      releaseReason: null,
+      version: 1,
+    };
+    const fetchMock = stubApi((url) => {
+      if (url.pathname === `/api/projects/${PROJECT_ID}`) return json(200, detail());
+      if (url.pathname === `/api/projects/${PROJECT_ID}/retention`) {
+        return json(200, {
+          projectId: PROJECT_ID,
+          holds: [released ? { ...hold, active: false, version: 2 } : hold],
+          extensions: [],
+          requests: [],
+          counts: { current: 3, onHold: released ? 0 : 3 },
+          canManage: true,
+          canRequest: true,
+        });
+      }
+      if (url.pathname === '/api/retention/holds/h1/release') {
+        released = true;
+        return json(200, { id: 'h1', version: 2 });
+      }
+      return undefined;
+    });
+    renderAt(`/projects/${PROJECT_ID}`);
+    const item = await screen.findByRole('listitem', { name: 'Hold: Litigation hold (fictional)' });
+    const before = callsTo(fetchMock, '/api/inventory').length;
+    await user.click(within(item).getByRole('button', { name: 'Release' }));
+    await user.type(within(item).getByLabelText('Reason for releasing (required)'), 'Settled');
+    await user.click(
+      within(within(item).getByRole('form', { name: 'Release' })).getByRole('button', {
+        name: 'Release',
+      }),
+    );
+    expect(await screen.findByText('0 of 3 current units on hold')).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(callsTo(fetchMock, '/api/inventory').length).toBeGreaterThan(before),
+    );
+  });
+});
