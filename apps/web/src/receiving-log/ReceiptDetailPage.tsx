@@ -12,6 +12,7 @@ import {
   ErrorState,
   PageHeader,
   StatusBadge,
+  TableScroll,
   type Column,
 } from '../components/ui';
 import '../inventory/inventory.css';
@@ -161,9 +162,9 @@ export function ReceiptDetailPage() {
           Current values. A unit whose project or received date was corrected is marked “Corrected”;
           its history shows the change.
         </p>
-        <div className="receiving-log-table table-stack">
+        <TableScroll label="Storage unit table" className="receiving-log-table table-stack">
           <UnitTable receipt={receipt} />
-        </div>
+        </TableScroll>
       </section>
     </>
   );

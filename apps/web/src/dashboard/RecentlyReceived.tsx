@@ -7,7 +7,7 @@ import {
 } from '@materialmule/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { DataTable, ErrorState, StatusBadge, type Column } from '../components/ui';
+import { DataTable, ErrorState, StatusBadge, TableScroll, type Column } from '../components/ui';
 import type { InventoryLinkState } from '../inventory/InventoryPage';
 import { UnitContentsList } from '../inventory/UnitContents';
 import { fetchRecentlyReceived } from './api';
@@ -145,7 +145,7 @@ export function RecentlyReceived() {
         ) : load.state === 'error' ? (
           <ErrorState message={load.message} onRetry={retry} />
         ) : (
-          <div className="dash-table">
+          <TableScroll label="Recent unit table" className="dash-table">
             <DataTable
               rows={load.data.items}
               rowKey={(item) => item.id}
@@ -153,7 +153,7 @@ export function RecentlyReceived() {
               empty={EMPTY[show]}
               columns={columns}
             />
-          </div>
+          </TableScroll>
         )}
       </div>
       <div className="dash-foot">
@@ -162,7 +162,9 @@ export function RecentlyReceived() {
             ? `Showing the ${data.items.length} most recent of ${data.total} ${SHOWING[show]}`
             : null}
         </span>
-        <Link to={sampleStorageLink(show)}>See all in Sample Storage →</Link>
+        <Link className="see-all-link" to={sampleStorageLink(show)}>
+          See all in Sample Storage →
+        </Link>
       </div>
     </section>
   );

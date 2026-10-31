@@ -446,7 +446,9 @@ function ProjectUnits({
       {result.data.total > result.data.items.length ? (
         <p className="field-hint">
           Showing {result.data.items.length} of {result.data.total}.{' '}
-          <Link to={sampleStorageLink(projectId)}>See all in Sample Storage</Link>
+          <Link className="see-all-link" to={sampleStorageLink(projectId)}>
+            See all in Sample Storage
+          </Link>
         </p>
       ) : null}
     </>
