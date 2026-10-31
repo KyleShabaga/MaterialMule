@@ -64,14 +64,29 @@ const diskSchema = z.object({
 export type DiskSpace = z.infer<typeof diskSchema>;
 
 /**
- * The newest finished attempt on the default printer (MTR-45), from its print jobs:
+ * The newest attempt to reach the default printer (MTR-45), from its print jobs:
  * - ok: the labels went out (sent, or a person confirmed they printed);
- * - retrying: nothing reached the printer and the job will be tried again;
- * - failed: nothing reached the printer and the retries ran out (or the job couldn't be sent);
+ * - retrying: the printer didn't take the labels and the job will be tried again;
+ * - failed: the printer didn't take the labels and the retries ran out;
  * - uncertain: the connection broke part-way, so the labels may or may not have printed.
+ * Jobs refused before the printer was contacted are not attempts (see PRINT_FAILURE_KINDS).
  */
 export const PRINTER_OUTCOMES = ['ok', 'retrying', 'failed', 'uncertain'] as const;
 export type PrinterOutcome = (typeof PRINTER_OUTCOMES)[number];
+
+/**
+ * Why a print job failed, recorded by the print worker when it fails the job:
+ * - printer: the printer was contacted and didn't take the labels (retries ran out);
+ * - unit_disposed: a unit was disposed after the label was requested, so nothing was sent;
+ * - label_preparation: the label couldn't be prepared, so nothing was sent.
+ * Only `printer` says anything about the printer itself.
+ */
+export const PRINT_FAILURE_KINDS = ['printer', 'unit_disposed', 'label_preparation'] as const;
+export type PrintFailureKind = (typeof PRINT_FAILURE_KINDS)[number];
+
+/** Failures that never reached the printer, plus `unknown` for jobs failed before kinds existed. */
+export const JOB_FAILURE_KINDS = ['unit_disposed', 'label_preparation', 'unknown'] as const;
+export type JobFailureKind = (typeof JOB_FAILURE_KINDS)[number];
 
 const defaultPrinterSchema = z.object({
   key: z.string(),
@@ -92,6 +107,19 @@ const defaultPrinterSchema = z.object({
     .nullable(),
   /** When the printer stopped printing: the first attempt since its last good print. */
   failingSince: isoTimestamp.nullable(),
+  /**
+   * The newest job that failed without the printer being contacted, when it is newer than
+   * lastAttempt. It describes that job only: it says nothing about whether the printer works.
+   * `unknown` is a job failed before failure kinds were recorded.
+   */
+  lastJobFailure: z
+    .object({
+      kind: z.enum(JOB_FAILURE_KINDS),
+      at: isoTimestamp,
+      /** The worker's plain-language reason, e.g. "Not printed: BKT-… was disposed…". */
+      error: z.string().nullable(),
+    })
+    .nullable(),
 });
 
 export type DefaultPrinterStatus = z.infer<typeof defaultPrinterSchema>;
