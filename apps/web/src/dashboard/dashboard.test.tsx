@@ -114,10 +114,13 @@ const recent: RecentlyReceivedResponse = {
   labelsToCheck: 2,
 };
 
+type DefaultPrinter = NonNullable<SystemStatusResponse['defaultPrinter']>;
+
 function printer(
-  lastAttempt: NonNullable<SystemStatusResponse['defaultPrinter']>['lastAttempt'] = null,
+  lastAttempt: DefaultPrinter['lastAttempt'] = null,
   failingSince: string | null = null,
-): NonNullable<SystemStatusResponse['defaultPrinter']> {
+  lastJobFailure: DefaultPrinter['lastJobFailure'] = null,
+): DefaultPrinter {
   return {
     key: 'front',
     name: 'Front bench',
@@ -125,6 +128,7 @@ function printer(
     checkStatus: true,
     lastAttempt,
     failingSince,
+    lastJobFailure,
   };
 }
 
@@ -459,6 +463,74 @@ describe('Dashboard', () => {
     expect(await within(card).findByText('Printer OK')).toHaveClass('badge-success');
     expect(within(card).getByText(/^Front bench: last labels printed at /)).toBeInTheDocument();
     expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
+  });
+
+  it('MTR-45: a job refused before sending is reported as the job, not as the printer', async () => {
+    renderDashboard(
+      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
+      {
+        '/api/admin/system-status': () =>
+          json(
+            200,
+            status({
+              defaultPrinter: printer(
+                {
+                  outcome: 'ok',
+                  at: '2026-10-26T05:00:00.000Z',
+                  error: null,
+                  printerMessage: null,
+                },
+                null,
+                {
+                  kind: 'unit_disposed',
+                  at: '2026-10-26T05:07:00.000Z',
+                  error:
+                    'Not printed: BKT-2026-000024 was disposed after this label was requested. Nothing in this job was sent.',
+                },
+              ),
+            }),
+          ),
+      },
+    );
+    const card = await screen.findByRole('region', { name: 'Label printer' });
+    // The printer line still reflects the printer's own last attempt.
+    expect(await within(card).findByText('Printer OK')).toHaveClass('badge-success');
+    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
+    expect(within(card).getByText('Label job not sent')).toHaveClass('badge-danger');
+    expect(
+      within(card).getByText(
+        /^At Oct 25, 2026 23:07, the last label job was not sent to the printer — Not printed: BKT-2026-000024 was disposed/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('MTR-45: a label preparation failure with no printer attempt claims nothing about the printer', async () => {
+    renderDashboard(
+      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
+      {
+        '/api/admin/system-status': () =>
+          json(
+            200,
+            status({
+              defaultPrinter: printer(null, null, {
+                kind: 'label_preparation',
+                at: '2026-10-26T05:07:00.000Z',
+                error: 'The label could not be prepared',
+              }),
+            }),
+          ),
+      },
+    );
+    const card = await screen.findByRole('region', { name: 'Label printer' });
+    expect(await within(card).findByText('Not used yet')).toHaveClass('badge-neutral');
+    expect(within(card).queryByText('Printer OK')).not.toBeInTheDocument();
+    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
+    expect(within(card).getByText('Label job not sent')).toHaveClass('badge-danger');
+    expect(
+      within(card).getByText(
+        /the last label job was not sent to the printer — The label could not be prepared$/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('MTR-45: says when no printer is the default', async () => {
