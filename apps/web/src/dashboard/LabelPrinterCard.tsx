@@ -1,4 +1,4 @@
-import type { DefaultPrinterStatus } from '@materialmule/shared';
+import type { DefaultPrinterStatus, JobFailureKind } from '@materialmule/shared';
 import { Link } from 'react-router';
 import { ErrorState, StatusBadge, type BadgeTone } from '../components/ui';
 import { fetchSystemStatus } from '../settings/system-status/api';
@@ -39,6 +39,7 @@ export function LabelPrinterCard() {
         ) : (
           <>
             <PrinterLine printer={status?.defaultPrinter ?? null} />
+            <JobFailureLine failure={status?.defaultPrinter?.lastJobFailure ?? null} />
             <dl className="dash-tiles">
               <div className="dash-tile">
                 <dt>Waiting to print</dt>
@@ -106,6 +107,8 @@ function printerState(printer: DefaultPrinterStatus | null): {
         text: `${printer.name}: not responding since ${since}${because}. Trying again.`,
       };
     case 'failed':
+      // Only failures where the printer was contacted reach lastAttempt (jobs refused before
+      // sending are lastJobFailure), so this one really is the printer.
       return {
         tone: 'danger',
         badge: 'Printer not responding',
@@ -125,6 +128,35 @@ function PrinterLine({ printer }: { printer: DefaultPrinterStatus | null }) {
   return (
     <p className="dash-printer">
       <StatusBadge tone={tone}>{badge}</StatusBadge> <span>{text}</span>
+    </p>
+  );
+}
+
+const JOB_FAILURE_BADGE: Record<JobFailureKind, string> = {
+  unit_disposed: 'Label job not sent',
+  label_preparation: 'Label job not sent',
+  unknown: 'Label job failed',
+};
+
+/**
+ * A job that failed before the printer was contacted (a unit disposed after the request, or a
+ * label that couldn't be prepared). It is about that job only: the printer line above still shows
+ * the printer's own last attempt, and this never says the printer is offline or working.
+ */
+function JobFailureLine({ failure }: { failure: DefaultPrinterStatus['lastJobFailure'] }) {
+  if (!failure) return null;
+  const because = failure.error ? ` — ${failure.error}` : '';
+  const what =
+    failure.kind === 'unknown'
+      ? 'the last label job failed'
+      : 'the last label job was not sent to the printer';
+  return (
+    <p className="dash-printer">
+      <StatusBadge tone="danger">{JOB_FAILURE_BADGE[failure.kind]}</StatusBadge>{' '}
+      <span>
+        At {formatWhen(failure.at)}, {what}
+        {because}
+      </span>
     </p>
   );
 }

@@ -232,20 +232,30 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
     await db.pool.query('DELETE FROM print_job');
   });
 
-  /** A job the worker has tried, `minutesAgo` before now. */
+  /**
+   * A job the worker has tried, `minutesAgo` before now. A failed job also gets the worker's
+   * label.print_failed entry with its failure kind (`printer` unless given; null writes none, as
+   * for a job failed before kinds were recorded).
+   */
   async function job(
     printer: string,
     status: 'queued' | 'sent' | 'failed' | 'uncertain',
     minutesAgo: number,
-    details: { attempts?: number; error?: string; printerMessage?: string } = {},
+    details: {
+      attempts?: number;
+      error?: string;
+      printerMessage?: string;
+      failure?: 'printer' | 'unit_disposed' | 'label_preparation' | null;
+    } = {},
   ): Promise<void> {
-    await db.pool.query(
+    const { rows } = await db.pool.query<{ id: string }>(
       `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
                               requested_by_name_snapshot, status, attempts, last_error,
                               printer_message, created_at, updated_at, sent_at)
        VALUES ('reprint', $1, 'v1', $2, 'Tech', $3, $4, $5, $6,
                now() - make_interval(mins => $7), now() - make_interval(mins => $7),
-               CASE WHEN $3 = 'sent' THEN now() - make_interval(mins => $7) END)`,
+               CASE WHEN $3 = 'sent' THEN now() - make_interval(mins => $7) END)
+       RETURNING id`,
       [
         printer,
         tech,
@@ -256,6 +266,16 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
         minutesAgo,
       ],
     );
+    const failure = details.failure === undefined ? 'printer' : details.failure;
+    if (status === 'failed' && failure !== null) {
+      await db.pool.query(
+        `INSERT INTO audit_event (occurred_at, action, entity_type, entity_id, actor_account_type,
+                                  actor_name_snapshot, after_values)
+         VALUES (now() - make_interval(mins => $3), 'label.print_failed', 'print_job', $1,
+                 'system', 'Print queue', jsonb_build_object('status', 'failed', 'failure', $2::text))`,
+        [rows[0]!.id, failure, minutesAgo],
+      );
+    }
   }
 
   it('names the default printer with no attempt before anything has been tried', async () => {
@@ -268,6 +288,7 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
       checkStatus: true,
       lastAttempt: null,
       failingSince: null,
+      lastJobFailure: null,
     });
   });
 
@@ -326,6 +347,40 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
       outcome: 'uncertain',
       error: 'Connection dropped',
     });
+  });
+
+  it('a job refused before sending is a job failure, not a printer attempt', async () => {
+    await job('front', 'sent', 10);
+    await job('front', 'failed', 2, {
+      error: 'Not printed: BKT-2026-000024 was disposed after this label was requested.',
+      failure: 'unit_disposed',
+    });
+    const summary = await defaultPrinterSummary(db.pool);
+    // The printer's own last attempt still stands: the refused job never reached it.
+    expect(summary!.lastAttempt).toMatchObject({ outcome: 'ok' });
+    expect(summary!.failingSince).toBeNull();
+    expect(summary!.lastJobFailure).toMatchObject({
+      kind: 'unit_disposed',
+      error: 'Not printed: BKT-2026-000024 was disposed after this label was requested.',
+    });
+  });
+
+  it('drops a job failure once the printer has been tried again since', async () => {
+    await job('front', 'failed', 10, {
+      error: 'The label could not be prepared',
+      failure: 'label_preparation',
+    });
+    await job('front', 'queued', 2, { attempts: 1, error: "Printer didn't respond" });
+    const summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({ outcome: 'retrying' });
+    expect(summary!.lastJobFailure).toBeNull();
+  });
+
+  it('reports a failed job without a recorded kind as unknown, not as the printer', async () => {
+    await job('front', 'failed', 2, { error: 'Printer refused the connection', failure: null });
+    const summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toBeNull();
+    expect(summary!.lastJobFailure).toMatchObject({ kind: 'unknown' });
   });
 
   it('is null when no printer is the default', async () => {
