@@ -9,6 +9,7 @@ import {
   type ProjectSummary,
   type ReceiptUnitType,
   type ReceiverOption,
+  type SampleIdentity,
   type SamplingSourceType,
   type TestHole,
 } from '@materialmule/shared';
@@ -137,6 +138,24 @@ export function emptySample(): SampleDraft {
     depthFrom: '',
     depthTo: '',
     depthUnit: '',
+  };
+}
+
+/** A saved sample identity as editable fields (corrections, MM-T36 / MM-T82). */
+export function sampleDraftOf(identity: SampleIdentity, projectId: string): SampleDraft {
+  return {
+    sourceType: identity.source.type,
+    testHole:
+      identity.source.type === 'test_hole'
+        ? { id: identity.source.testHoleId, projectId, name: identity.source.testHoleName }
+        : null,
+    holeQuery: '',
+    locationReference:
+      identity.source.type === 'standalone_location' ? identity.source.locationReference : '',
+    sampleReference: identity.sampleReference ?? '',
+    depthFrom: identity.depthFrom === null ? '' : String(identity.depthFrom),
+    depthTo: identity.depthTo === null ? '' : String(identity.depthTo),
+    depthUnit: identity.depthUnit ?? '',
   };
 }
 

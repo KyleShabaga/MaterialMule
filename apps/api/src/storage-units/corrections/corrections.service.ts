@@ -7,6 +7,7 @@ import {
 import {
   normalizeStorageUnitCode,
   type FieldError,
+  type SampleIdentity,
   type StorageUnitCorrectionRequest,
   type StorageUnitDetail,
   type StorageUnitHoleSummary,
@@ -24,6 +25,7 @@ import { withTransaction } from '../../db/transaction.js';
 import { businessToday } from '../../receiving/receipts.service.js';
 import { validationError } from '../../validation/parse-body.js';
 import { loadHoleSummaries } from '../hole-summaries.js';
+import { loadSampleIdentities } from '../sample-identity.js';
 import { getStorageUnitDetail } from '../storage-units.service.js';
 import { diffCorrection, type CorrectableValues } from './correction-diff.js';
 import { LAB_REQUEST_LINK_CHECKER, type LabRequestLinkChecker } from './lab-request-links.js';
@@ -42,12 +44,20 @@ interface LockedUnit {
   unit_type: StorageUnitType;
   holder_kind: string;
   status: string;
+  bulk_group_id: string | null;
   /** True for a Shelby tube with a sampling source or a bulk soil bucket (MM-T36). */
   has_sample_identity: boolean;
   note: string | null;
   received_date: string;
   project_id: string;
   project_number: string;
+}
+
+function unprocessable(code: string, fields: string[], message: string): never {
+  throw new UnprocessableEntityException({
+    code,
+    errors: fields.map((field) => ({ field, code, message })),
+  });
 }
 
 /**
@@ -79,41 +89,63 @@ export class StorageUnitCorrectionsService {
       if (unit.version !== request.version) {
         throw new ConflictException({ code: 'version_conflict', currentVersion: unit.version });
       }
-      // A Shelby tube's source or a bulk bucket's group is its only contents summary (MM-T36):
-      // type, project and hole-summary changes would leave it with none, or two. Bulk buckets
-      // change group through PATCH /storage-units/:id/bulk-group; tube source corrections are a
-      // later increment. Received date and note can be corrected as for any unit.
-      // A disposed unit's project, type and test holes are final (owner decision 2026-10-30,
-      // BUG-014): its disposal record and approval rest on them. The database refuses it too.
+      const { changes } = request;
+      const present = (fields: readonly (keyof typeof changes)[]) =>
+        fields.filter((field) => changes[field] !== undefined).map((field) => `changes.${field}`);
+      // MM-T82: setting a bulk soil bucket to Bucket, with its test holes, takes it out of its
+      // bulk sample and makes it an ordinary bucket. The ID never changes.
+      const converting = unit.bulk_group_id !== null && changes.unitType === 'bucket';
+      // A disposed unit's project, type, source and test holes are final (owner decisions
+      // 2026-10-30, BUG-014 and MM-T82): its disposal record and approval rest on them. The
+      // database refuses it too. A unit removed after testing is disposed.
       if (unit.status === 'disposed') {
-        const blocked = (['unitType', 'projectId', 'holeSummaries'] as const).filter(
-          (field) => request.changes[field] !== undefined,
-        );
+        const blocked = present(['unitType', 'projectId', 'sample', 'holeSummaries']);
         if (blocked.length > 0) {
-          throw new UnprocessableEntityException({
-            code: 'storage_unit_disposed',
-            errors: blocked.map((field) => ({
-              field: `changes.${field}`,
-              code: 'storage_unit_disposed',
-              message: 'is not corrected for a disposed storage unit',
-            })),
-          });
+          unprocessable(
+            'storage_unit_disposed',
+            blocked,
+            'is not corrected for a disposed storage unit',
+          );
         }
       }
-      if (unit.has_sample_identity) {
-        const blocked = (['unitType', 'projectId', 'holeSummaries'] as const).filter(
-          (field) => request.changes[field] !== undefined,
+      if (changes.sample !== undefined && unit.unit_type !== 'shelby_tube') {
+        unprocessable(
+          'not_a_shelby_tube',
+          ['changes.sample'],
+          'only a Shelby tube has its own sampling source',
+        );
+      }
+      // A Shelby tube's source or a bulk bucket's group is its only contents summary (MM-T36):
+      // type, project and hole-summary changes would leave it with none, or two. A tube's source
+      // is corrected as `sample`; a bulk bucket changes group through
+      // PATCH /storage-units/:id/bulk-group, or becomes an ordinary bucket (above). Received
+      // date and note can be corrected as for any unit.
+      if (unit.has_sample_identity || changes.sample !== undefined) {
+        const blocked = present(
+          converting ? ['projectId'] : ['unitType', 'projectId', 'holeSummaries'],
         );
         if (blocked.length > 0) {
-          throw new UnprocessableEntityException({
-            code: 'not_correctable_for_contents',
-            errors: blocked.map((field) => ({
-              field: `changes.${field}`,
-              code: 'not_correctable_for_contents',
-              message: 'is not corrected here for a Shelby tube or bulk soil bucket',
-            })),
-          });
+          unprocessable(
+            'not_correctable_for_contents',
+            blocked,
+            'is not corrected here for a Shelby tube or bulk soil bucket',
+          );
         }
+      }
+      if (converting) {
+        if (changes.holeSummaries === undefined) {
+          throw validationError([
+            {
+              field: 'changes.holeSummaries',
+              code: 'required',
+              message: 'choose the test holes this bucket holds',
+            },
+          ]);
+        }
+        // The group's identity can't change under the history entry (as changeMembership).
+        await client.query('SELECT 1 FROM bulk_group WHERE id = $1 FOR SHARE', [
+          unit.bulk_group_id,
+        ]);
       }
 
       // Checked before the new values are validated, so the reason given is the approval.
@@ -140,10 +172,23 @@ export class StorageUnitCorrectionsService {
         }
       }
 
+      const identity = (await loadSampleIdentities(client, [unit.id])).get(unit.id);
+      const group = identity?.bulkGroup;
       const current: CorrectableValues = {
         unitType: unit.unit_type,
         receivedDate: unit.received_date,
         project: { id: unit.project_id, projectNumber: unit.project_number },
+        sample: group ? null : (identity?.sample ?? null),
+        bulkGroup:
+          identity && group
+            ? {
+                id: group.groupId,
+                ...identity.sample,
+                description: group.description,
+                memberNumber: group.memberNumber,
+                memberCount: group.memberCount,
+              }
+            : null,
         holeSummaries: (await loadHoleSummaries(client, [unit.id])).get(unit.id) ?? [],
         note: unit.note,
       };
@@ -153,6 +198,23 @@ export class StorageUnitCorrectionsService {
         throw validationError([
           { field: 'changes', code: 'no_changes', message: 'has nothing to change' },
         ]);
+      }
+
+      // MM-T82 (owner decision 2026-10-30): exact-unit evidence of a completed test rests on the
+      // source the unit had, so neither the source nor the bulk sample changes once there is
+      // any. The unit is locked, and a link insert locks it too (test_request_unit_link_guard).
+      if (diff.fields.includes('sample') || diff.fields.includes('bulkGroup')) {
+        const { rows: tested } = await client.query(
+          'SELECT 1 FROM test_request_unit_link WHERE storage_unit_id = $1 LIMIT 1',
+          [unit.id],
+        );
+        if (tested.length > 0) {
+          unprocessable(
+            'storage_unit_tested',
+            [diff.fields.includes('sample') ? 'changes.sample' : 'changes.unitType'],
+            'is not corrected for a unit used in a completed test',
+          );
+        }
       }
 
       if (diff.fields.includes('project')) {
@@ -187,9 +249,13 @@ export class StorageUnitCorrectionsService {
           unit.id,
         ]);
       }
+      const source = next.sample?.source;
       await client.query(
         `UPDATE storage_unit
          SET unit_type = $2, holder_kind = $3, note = $4, received_date = $5, project_id = $6,
+             source_type = $7, source_test_hole_id = $8, source_location_reference = $9,
+             sample_reference = $10, sample_depth_from = $11, sample_depth_to = $12,
+             sample_depth_unit = $13, bulk_group_id = $14,
              version = version + 1, updated_at = now()
          WHERE id = $1`,
         [
@@ -201,6 +267,14 @@ export class StorageUnitCorrectionsService {
           next.note,
           next.receivedDate,
           next.project.id,
+          source?.type ?? null,
+          source?.type === 'test_hole' ? source.testHoleId : null,
+          source?.type === 'standalone_location' ? source.locationReference : null,
+          next.sample?.sampleReference ?? null,
+          next.sample?.depthFrom ?? null,
+          next.sample?.depthTo ?? null,
+          next.sample?.depthUnit ?? null,
+          next.bulkGroup?.id ?? null,
         ],
       );
       if (rewriteSummaries) {
@@ -252,6 +326,7 @@ export class StorageUnitCorrectionsService {
     const byUuid = UUID_PATTERN.test(idOrCode);
     const { rows } = await client.query<LockedUnit>(
       `SELECT su.id, su.readable_id, su.version, su.unit_type, su.holder_kind, su.note, su.status,
+              su.bulk_group_id,
               (su.source_type IS NOT NULL OR su.bulk_group_id IS NOT NULL) AS has_sample_identity,
               su.received_date::text AS received_date, su.project_id, p.project_number
        FROM storage_unit su
@@ -300,7 +375,41 @@ export class StorageUnitCorrectionsService {
     }
     if (errors.length > 0) throw validationError(errors);
 
+    let sample = current.sample;
     let holeSummaries = current.holeSummaries;
+    if (changes.sample !== undefined) {
+      const input = changes.sample;
+      let source: SampleIdentity['source'];
+      if (input.sourceType === 'test_hole') {
+        // The source hole must be a hole of the tube's project, as at receiving.
+        const { rows } = await client.query<{ name: string }>(
+          'SELECT name FROM test_hole WHERE project_id = $1 AND id = $2',
+          [project.id, input.testHoleId],
+        );
+        if (!rows[0]) {
+          unprocessable(
+            'test_hole_not_in_project',
+            ['changes.sample.testHoleId'],
+            'test hole is not part of this project',
+          );
+        }
+        source = { type: 'test_hole', testHoleId: input.testHoleId!, testHoleName: rows[0].name };
+      } else {
+        source = { type: 'standalone_location', locationReference: input.sourceLocationReference! };
+      }
+      sample = {
+        source,
+        sampleReference: input.sampleReference,
+        depthFrom: input.depthFrom,
+        depthTo: input.depthTo,
+        depthUnit: input.depthUnit,
+      };
+      // A tube received before sources existed may still have hole summaries: its source
+      // replaces them (one contents summary per unit), and the history keeps both.
+      holeSummaries = [];
+    }
+    // MM-T82: leaving its bulk sample, the bucket takes the test holes given with the change.
+    const bulkGroup = changes.unitType === 'bucket' ? null : current.bulkGroup;
     if (changes.holeSummaries !== undefined) {
       // Every hole must belong to the unit's (new) project, as at receiving (D12).
       const { rows } = await client.query<{ id: string; name: string }>(
@@ -336,6 +445,8 @@ export class StorageUnitCorrectionsService {
       unitType: changes.unitType ?? current.unitType,
       receivedDate: changes.receivedDate ?? current.receivedDate,
       project,
+      sample,
+      bulkGroup,
       holeSummaries,
       note: changes.note === undefined ? current.note : changes.note,
     };

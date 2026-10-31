@@ -1,4 +1,5 @@
 import type {
+  SampleIdentity,
   StorageUnitCorrectionField,
   StorageUnitHoleSummary,
   StorageUnitType,
@@ -9,9 +10,21 @@ export interface CorrectableValues {
   unitType: StorageUnitType;
   receivedDate: string;
   project: { id: string; projectNumber: string };
+  /** A Shelby tube's own sampling source (MM-T82); null for every other unit. */
+  sample: SampleIdentity | null;
+  /** A bulk soil bucket's group as audit events record it; null once it's an ordinary bucket. */
+  bulkGroup: BulkGroupValue | null;
   holeSummaries: StorageUnitHoleSummary[];
   note: string | null;
 }
+
+/** The group's identity, with the bucket's "n of N" place, as the history shows it. */
+export type BulkGroupValue = SampleIdentity & {
+  id: string;
+  description: string | null;
+  memberNumber: number;
+  memberCount: number;
+};
 
 export interface CorrectionDiff {
   /** Changed fields in display order. */
@@ -40,6 +53,20 @@ function summariesKey(summaries: StorageUnitHoleSummary[]): string {
   );
 }
 
+/** Sources compared by value; the hole's display name doesn't matter. */
+function sampleKey(sample: SampleIdentity | null): string {
+  if (!sample) return 'null';
+  const { source } = sample;
+  return JSON.stringify([
+    source.type,
+    source.type === 'test_hole' ? source.testHoleId : source.locationReference,
+    sample.sampleReference,
+    sample.depthFrom,
+    sample.depthTo,
+    sample.depthUnit,
+  ]);
+}
+
 /** Which correctable fields differ between the current and proposed values. */
 export function diffCorrection(
   current: CorrectableValues,
@@ -56,6 +83,12 @@ export function diffCorrection(
     changed('receivedDate', current.receivedDate, next.receivedDate);
   }
   if (current.project.id !== next.project.id) changed('project', current.project, next.project);
+  if (sampleKey(current.sample) !== sampleKey(next.sample)) {
+    changed('sample', current.sample, next.sample);
+  }
+  if ((current.bulkGroup?.id ?? null) !== (next.bulkGroup?.id ?? null)) {
+    changed('bulkGroup', current.bulkGroup, next.bulkGroup);
+  }
   if (summariesKey(current.holeSummaries) !== summariesKey(next.holeSummaries)) {
     changed('holeSummaries', current.holeSummaries, next.holeSummaries);
   }

@@ -667,6 +667,12 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   pending an owner decision. Migration 0007 makes the summary trigger share-lock each parent
   unit (id order) before reading its status, so a summary change and a disposal of the same
   unit serialize: whichever commits first wins, and a change after a disposal is refused.
+- MM-T82 (owner decision 2026-10-30: refuse): a unit's sampling source (`source_*`,
+  `sample_reference`, `sample_depth_*`) and `bulk_group_id` are final once it is disposed (either
+  route, so a tested removal too) or has any `test_request_unit_link`
+  (`storage_unit_source_final`, migration 0008). A link insert already locks its unit
+  (`test_request_unit_link_guard`), so a link and a source change serialize. The API refuses first with 422 (`storage_unit_disposed`,
+  `storage_unit_tested`). A bulk group's own identity (`bulk_group`) is not covered.
 
 ## Project assignments and scoped grants (MM-AO02)
 

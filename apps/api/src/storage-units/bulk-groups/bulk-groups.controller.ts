@@ -28,6 +28,7 @@ export class BulkGroupsController {
   /**
    * `{version, reason, groupId | newGroup}` → the corrected unit. 409 `version_conflict`;
    * 422 `not_bulk_bucket`, `bulk_identity_required` (groupId null), `bulk_group_not_in_project`,
+   * `storage_unit_disposed`, `storage_unit_tested` (MM-T82),
    * `test_hole_not_in_project`; 400 for validation.
    */
   @Patch('storage-units/:id/bulk-group')

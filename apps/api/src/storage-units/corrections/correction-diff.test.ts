@@ -24,6 +24,8 @@ const current: CorrectableValues = {
   unitType: 'bucket',
   receivedDate: '2026-10-23',
   project: { id: 'p1', projectNumber: 'DEMO-2601' },
+  sample: null,
+  bulkGroup: null,
   holeSummaries: [hole('h1', 'TH26-01'), hole('h2', 'TH26-02')],
   note: 'Lid taped',
 };
@@ -68,5 +70,65 @@ describe('diffCorrection (MM-T13 T1)', () => {
     });
     expect(diff.after).toMatchObject({ project: { projectNumber: 'DEMO-2602' }, note: null });
     expect(Object.keys(diff.after)).not.toContain('receivedDate');
+  });
+
+  it('MM-T82: compares a tube source by value, not by the hole name shown', () => {
+    const tube: CorrectableValues = {
+      ...current,
+      unitType: 'shelby_tube',
+      holeSummaries: [],
+      sample: {
+        source: { type: 'test_hole', testHoleId: 'h1', testHoleName: 'TH26-01' },
+        sampleReference: 'T5',
+        depthFrom: 1.5,
+        depthTo: null,
+        depthUnit: 'm',
+      },
+    };
+    const renamed = {
+      ...tube,
+      sample: {
+        ...tube.sample!,
+        source: { type: 'test_hole' as const, testHoleId: 'h1', testHoleName: 'TH26-01A' },
+      },
+    };
+    expect(diffCorrection(tube, renamed).fields).toEqual([]);
+    const moved = {
+      ...tube,
+      sample: {
+        ...tube.sample!,
+        source: { type: 'standalone_location' as const, locationReference: 'Pit 3' },
+      },
+    };
+    const diff = diffCorrection(tube, moved);
+    expect(diff.fields).toEqual(['sample']);
+    expect(diff.after.sample).toEqual(moved.sample);
+  });
+
+  it('MM-T82: leaving the bulk sample is a bulkGroup change, listed before the new test holes', () => {
+    const bulk: CorrectableValues = {
+      ...current,
+      unitType: 'bulk_container',
+      holeSummaries: [],
+      bulkGroup: {
+        id: 'g1',
+        source: { type: 'test_hole', testHoleId: 'h1', testHoleName: 'TH26-01' },
+        sampleReference: 'B1',
+        depthFrom: 1,
+        depthTo: 2,
+        depthUnit: 'm',
+        description: null,
+        memberNumber: 1,
+        memberCount: 2,
+      },
+    };
+    const diff = diffCorrection(bulk, {
+      ...bulk,
+      unitType: 'bucket',
+      bulkGroup: null,
+      holeSummaries: [hole('h1', 'TH26-01')],
+    });
+    expect(diff.fields).toEqual(['unitType', 'bulkGroup', 'holeSummaries']);
+    expect(diff.after.bulkGroup).toBeNull();
   });
 });

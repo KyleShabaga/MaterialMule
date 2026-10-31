@@ -123,3 +123,71 @@ describe('describeStorageUnitCorrection', () => {
     ).toEqual(['test holes TH26-01: G1–S10 → TH26-01: G1–S12']);
   });
 });
+
+describe('MM-T82 tube source and bulk → ordinary bucket', () => {
+  const sample = {
+    sourceType: 'test_hole',
+    testHoleId: '00000000-0000-4000-8000-0000000000a1',
+    sampleReference: 'T5',
+  };
+
+  it('accepts a Shelby sample change with the receiving shape rules', () => {
+    const parsed = storageUnitCorrectionRequestSchema.safeParse({
+      version: 1,
+      reason: 'Tag misread',
+      changes: { sample },
+    });
+    expect(parsed.success).toBe(true);
+    const reversed = storageUnitCorrectionRequestSchema.safeParse({
+      version: 1,
+      reason: 'Tag misread',
+      changes: { sample: { ...sample, depthFrom: 3, depthTo: 2, depthUnit: 'm' } },
+    });
+    expect(reversed.success).toBe(false);
+  });
+
+  it('describes a source change and leaving a bulk sample in words', () => {
+    const tube = (name: string, reference: string) => ({
+      source: { type: 'test_hole', testHoleId: 'h', testHoleName: name },
+      sampleReference: reference,
+      depthFrom: null,
+      depthTo: null,
+      depthUnit: null,
+    });
+    expect(
+      describeStorageUnitCorrection(
+        { sample: tube('TH26-01', 'T5') },
+        { sample: tube('TH26-02', 'T6') },
+      ),
+    ).toEqual(['sampling source TH26-01: T5 → TH26-02: T6']);
+    expect(
+      describeStorageUnitCorrection(
+        {
+          unitType: 'bulk_container',
+          bulkGroup: {
+            id: 'g',
+            ...tube('TH26-01', 'B1'),
+            depthFrom: 1,
+            depthUnit: 'm',
+            memberNumber: 2,
+            memberCount: 3,
+          },
+        },
+        {
+          unitType: 'bucket',
+          bulkGroup: null,
+          holeSummaries: [
+            {
+              testHoleName: 'TH26-01',
+              type: 'all',
+            },
+          ],
+        },
+      ),
+    ).toEqual([
+      'type Bulk soil sample → Bucket',
+      'bulk sample TH26-01: B1 at 1 m (bucket 2 of 3) → none',
+      'test holes none → TH26-01: ALL',
+    ]);
+  });
+});

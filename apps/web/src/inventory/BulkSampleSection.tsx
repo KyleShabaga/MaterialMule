@@ -14,9 +14,18 @@ import { Link } from 'react-router';
 import { listBulkGroups } from '../api/projects';
 import { BandedCard, FormField } from '../components/ui';
 import { useOnline } from '../lib/online';
-import { sampleFields, type BulkIdentityDraft } from '../receiving/draft';
+import {
+  newSummary,
+  sampleDraftOf,
+  sampleFields,
+  type BulkIdentityDraft,
+  type SummaryDraft,
+} from '../receiving/draft';
 import { SampleFields } from '../receiving/SampleFields';
-import { changeBulkGroup, correctBulkGroup, fetchStorageUnit } from './api';
+import { SummaryEditor } from '../receiving/SummaryEditor';
+import { TestHolePicker } from '../receiving/TestHolePicker';
+import { changeBulkGroup, correctBulkGroup, correctStorageUnit, fetchStorageUnit } from './api';
+import { messageFor, summaryPayload } from './correction-fields';
 import { BulkBadge } from './UnitContents';
 
 // A bulk soil bucket's bulk sample on its detail page (MM-T36): the shared identity, this
@@ -24,24 +33,14 @@ import { BulkBadge } from './UnitContents';
 // saved location). Personal accounts can move this bucket to another bulk sample, or correct the
 // sample's identity for all its buckets, each with a reason kept in the history (D45).
 
-type Mode = 'view' | 'move' | 'correct';
+type Mode = 'view' | 'move' | 'correct' | 'convert';
 
-function toDraft(identity: SampleIdentity, projectId: string, description: string | null) {
-  return {
-    sourceType: identity.source.type,
-    testHole:
-      identity.source.type === 'test_hole'
-        ? { id: identity.source.testHoleId, projectId, name: identity.source.testHoleName }
-        : null,
-    holeQuery: '',
-    locationReference:
-      identity.source.type === 'standalone_location' ? identity.source.locationReference : '',
-    sampleReference: identity.sampleReference ?? '',
-    depthFrom: identity.depthFrom === null ? '' : String(identity.depthFrom),
-    depthTo: identity.depthTo === null ? '' : String(identity.depthTo),
-    depthUnit: identity.depthUnit ?? '',
-    description: description ?? '',
-  } satisfies BulkIdentityDraft;
+function toDraft(
+  identity: SampleIdentity,
+  projectId: string,
+  description: string | null,
+): BulkIdentityDraft {
+  return { ...sampleDraftOf(identity, projectId), description: description ?? '' };
 }
 
 function identityInput(draft: BulkIdentityDraft) {
@@ -61,12 +60,21 @@ const LABELS: Record<string, string> = {
   description: 'Description',
 };
 
+/** Plain refusals (MM-T82, owner decision 2026-10-30): the bucket keeps its bulk sample. */
+const REFUSALS: Record<string, string> = {
+  storage_unit_tested:
+    'This bucket was used in a completed test: it stays in its bulk sample, as recorded.',
+  storage_unit_disposed: 'This bucket is disposed: it stays in its bulk sample, as recorded.',
+};
+
 function errorMap(errors: FieldError[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const error of errors) {
     const key = error.field.split('.').at(-1) ?? '';
     const label = LABELS[key] ?? 'This';
-    if (!map.has(error.field)) map.set(error.field, `${label} ${error.message}.`);
+    if (!map.has(error.field)) {
+      map.set(error.field, REFUSALS[error.code] ?? `${label} ${error.message}.`);
+    }
   }
   return map;
 }
@@ -131,7 +139,15 @@ export function BulkSampleSection({
           <button type="button" onClick={() => setMode('correct')}>
             Correct bulk sample
           </button>
+          {unit.status === 'disposed' ? null : (
+            <button type="button" onClick={() => setMode('convert')}>
+              Make it an ordinary bucket
+            </button>
+          )}
         </div>
+      ) : null}
+      {canCorrect && mode === 'convert' ? (
+        <ConvertForm unit={unit} onCancel={() => setMode('view')} onSaved={onChanged} />
       ) : null}
       {canCorrect && mode === 'move' ? (
         <MoveForm unit={unit} onCancel={() => setMode('view')} onSaved={onChanged} />
@@ -400,6 +416,144 @@ function IdentityForm({
       <div className="row-actions">
         <button type="submit" className="primary" disabled={saving}>
           Save correction
+        </button>
+        <button type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+const SUMMARIES_PATH = 'changes.holeSummaries';
+
+/**
+ * MM-T82: take this bucket out of its bulk sample and make it an ordinary bucket, with one
+ * SAMPLE#/DEPTH summary per test hole as at receiving. Its ID, receipt, location and history
+ * stay; the other buckets of the sample are renumbered.
+ */
+function ConvertForm({
+  unit,
+  onCancel,
+  onSaved,
+}: {
+  unit: StorageUnitDetail;
+  onCancel: () => void;
+  onSaved: (unit: StorageUnitDetail, message: string) => void;
+}) {
+  const online = useOnline();
+  const [summaries, setSummaries] = useState<SummaryDraft[]>([]);
+  const [holeQuery, setHoleQuery] = useState('');
+  const [reason, setReason] = useState('');
+  const [errors, setErrors] = useState<FieldError[]>([]);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const map = new Map<string, string>();
+  for (const error of errors) {
+    if (!map.has(error.field)) map.set(error.field, messageFor(error));
+  }
+  // Refusals and whole-change errors have no field of their own on this form.
+  const general = errors
+    .filter((e) => !e.field.startsWith(`${SUMMARIES_PATH}.`) && e.field !== 'reason')
+    .filter((e) => e.field !== SUMMARIES_PATH)
+    .map(messageFor)[0];
+  const others = unit.bulkGroup!.memberCount - 1;
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setFailure(null);
+    setSaving(true);
+    const result = await correctStorageUnit(unit.id, {
+      version: unit.version,
+      reason,
+      changes: { unitType: 'bucket', holeSummaries: summaries.map(summaryPayload) },
+    });
+    setSaving(false);
+    switch (result.kind) {
+      case 'saved':
+        onSaved(
+          result.unit,
+          `${result.unit.readableId} is now an ordinary bucket. Reprint its label if the origin line is now wrong.`,
+        );
+        break;
+      case 'invalid':
+        setErrors(result.errors);
+        break;
+      case 'conflict':
+        setFailure(CONFLICT);
+        break;
+      case 'error':
+        setFailure(result.message);
+        break;
+      default:
+        setFailure("The correction wasn't saved. Try again.");
+    }
+  }
+
+  return (
+    <form className="correction-form" onSubmit={(event) => void submit(event)} noValidate>
+      <h3>Make it an ordinary bucket</h3>
+      <p className="field-hint">
+        {unit.readableId} leaves this bulk sample and keeps its ID, receipt, location and history.
+        {others > 0
+          ? ` The other ${others === 1 ? 'bucket stays' : `${others} buckets stay`} in the bulk sample.`
+          : ''}{' '}
+        Choose the test holes it holds.
+      </p>
+      {failure ? (
+        <p className="field-error" role="alert">
+          {failure}
+        </p>
+      ) : null}
+      {general ? (
+        <p className="field-error" role="alert">
+          {general}
+        </p>
+      ) : null}
+      <div id="correction-holeSummaries" className="correction-holes">
+        <div>
+          <TestHolePicker
+            projectId={unit.project.id}
+            selected={summaries.map((summary) => summary.testHole)}
+            onChange={(holes) =>
+              setSummaries((current) => {
+                const byHole = new Map(current.map((s) => [s.testHole.id, s]));
+                return holes.map((hole) => byHole.get(hole.id) ?? newSummary(hole));
+              })
+            }
+            query={holeQuery}
+            onQueryChange={setHoleQuery}
+            receiverUserId={null}
+            online={online}
+          />
+          {map.get(SUMMARIES_PATH) ? (
+            <p className="field-error">{map.get(SUMMARIES_PATH)}</p>
+          ) : null}
+        </div>
+        {summaries.map((summary, index) => (
+          <SummaryEditor
+            key={summary.testHole.id}
+            summary={summary}
+            path={`${SUMMARIES_PATH}.${index}`}
+            errors={map}
+            onChange={(changes) =>
+              setSummaries((current) =>
+                current.map((s, i) => (i === index ? { ...s, ...changes } : s)),
+              )
+            }
+          />
+        ))}
+      </div>
+      <ReasonField
+        id="bulk-convert-reason"
+        value={reason}
+        onChange={setReason}
+        error={map.get('reason') ?? null}
+      />
+      <div className="row-actions">
+        <button type="submit" className="primary" disabled={saving}>
+          Make it an ordinary bucket
         </button>
         <button type="button" onClick={onCancel}>
           Cancel
