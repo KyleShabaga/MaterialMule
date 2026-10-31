@@ -311,7 +311,12 @@ export class ActionItemsService {
     if (item.assigned_user_id && item.assignee_eligible !== false) {
       return item.assigned_user_id === user.userId;
     }
-    return item.kind === 'closure_request' && leadProjectEngineerUserId === user.userId;
+    return (
+      (item.kind === 'closure_request' ||
+        item.kind === 'grant_review' ||
+        item.kind === 'team_join_request') &&
+      leadProjectEngineerUserId === user.userId
+    );
   }
 
   private mayReassign(
@@ -351,9 +356,13 @@ interface ItemFacts {
  */
 async function eligiblePeople(db: Db, item: ItemFacts): Promise<PersonSnapshot[]> {
   // MM-AO04: a lead appointment goes to admins only.
-  const admins = item.kind === 'lead_appointment';
-  const lm = item.kind !== 'closure_request' && !admins;
-  const leadProjectEngineer = item.kind !== 'correction' && !admins;
+  // MISC-07: a team join request goes to the lead and admins.
+  const joining = item.kind === 'team_join_request';
+  const admins = item.kind === 'lead_appointment' || joining;
+  // MTR-25: inherited grants go to the project's lead only, like a closure request.
+  const leadOnly = item.kind === 'closure_request' || item.kind === 'grant_review';
+  const lm = !leadOnly && !admins;
+  const leadProjectEngineer = item.kind !== 'correction' && item.kind !== 'lead_appointment';
   const { rows } = await db.query<{
     id: string;
     official_initials: string | null;

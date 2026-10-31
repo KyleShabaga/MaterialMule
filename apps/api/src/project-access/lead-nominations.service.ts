@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  confirmNominationRequestSchema,
   decideNominationRequestSchema,
   nominateLeadRequestSchema,
   type LeadNomination,
@@ -22,6 +23,7 @@ import {
 } from '../projects/lead-appointment.js';
 import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { parseBody } from '../validation/parse-body.js';
+import { flagInheritedGrants } from './grant-reviews.service.js';
 import { findProject, forbidden, unprocessable } from './project-access.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -212,7 +214,11 @@ export class LeadNominationsService {
     return withTransaction(this.database.pool, async (client) => {
       const project = await findProject(client, projectId, 'FOR UPDATE');
       if (!project) throw new NotFoundException({ code: 'project_not_found' });
-      const { reason } = parseBody(decideNominationRequestSchema, body);
+      // MISC-03: a confirmation's reason is optional; rejecting or withdrawing needs one.
+      const reason: string | null =
+        decision === 'confirmed'
+          ? (parseBody(confirmNominationRequestSchema, body ?? {}).reason ?? null)
+          : parseBody(decideNominationRequestSchema, body).reason;
       const { rows } = UUID_PATTERN.test(nominationId)
         ? await client.query<
             PendingNomination & { status: Decision | 'pending'; decided_by_user_id: string | null }
@@ -286,11 +292,24 @@ export class LeadNominationsService {
       });
       if (decision === 'confirmed') {
         await resolveLeadAppointment(client, projectId, by);
+        // MTR-25: grants made while the project had no lead (or under an earlier one).
+        await flagInheritedGrants(client, {
+          projectId,
+          projectNumber: project.project_number,
+          lead: found.nominee_user_id,
+          by,
+          actor: actorOf(actor),
+        });
         // D10 (MM-AO07): requests that waited for a lead now go to them, and they are told.
         await rerouteOpenItems(
           client,
           { projectId },
-          { actor: actorOf(actor), reason: `Lead Project Engineer appointed: ${reason}` },
+          {
+            actor: actorOf(actor),
+            reason: reason
+              ? `Lead Project Engineer appointed: ${reason}`
+              : 'Lead Project Engineer appointed',
+          },
         );
       }
       return this.view(client, projectId, actor);

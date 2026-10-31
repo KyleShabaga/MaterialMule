@@ -189,6 +189,9 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
     expect(approved.status).toBe(200);
     expect(staffMemberSchema.parse(approved.body)).toMatchObject({ status: 'active' });
     expect(approved.body.approvedAt).not.toBeNull();
+    expect(staffMemberSchema.parse(approved.body).statusHistory).toEqual([
+      expect.objectContaining({ change: 'approved', reason: null }),
+    ]);
 
     const after = await http().get('/api/activity/recent').set('Cookie', pendCookie);
     expect(after.status).toBe(200);
@@ -268,6 +271,21 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
     const enabled = await post(`/api/staff/${ids.jamie}/enable`, admin);
     expect(enabled.status).toBe(200);
     expect(enabled.body).toMatchObject({ status: 'active', disabledReason: null });
+    // MTR-12: the staff record says who disabled and re-enabled them, when, and why.
+    const member = staffMemberSchema.parse(enabled.body);
+    expect(member.statusHistory.map(({ change, reason }) => ({ change, reason }))).toEqual([
+      { change: 'disabled', reason: 'Left the company' },
+      { change: 'enabled', reason: null },
+    ]);
+    for (const change of member.statusHistory) {
+      expect(change.byName).toBeTruthy();
+      expect(Number.isNaN(Date.parse(change.at))).toBe(false);
+    }
+    const listed = staffMemberSchema
+      .array()
+      .parse((await http().get('/api/staff?search=Jamie').set('Cookie', admin)).body)
+      .find((m) => m.id === ids.jamie);
+    expect(listed?.statusHistory).toEqual(member.statusHistory);
     const back = await http().get('/api/staff/receivers?search=JS').set('Cookie', admin);
     expect(back.body).toHaveLength(2);
     expect((await listAuditForEntity(db.pool, 'app_user', ids.jamie!))[0]).toMatchObject({

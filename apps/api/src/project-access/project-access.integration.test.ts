@@ -2,6 +2,7 @@ import {
   labProgramReviewSchema,
   labProgramSchema,
   projectCapabilitiesSchema,
+  projectPeopleSchema,
   projectReportIssuersSchema,
   projectReviewersSchema,
   projectTeamSchema,
@@ -563,6 +564,53 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
       expect(read.status).toBe(200);
       expect(read.body.canManage).toBe(false);
     }
+  });
+
+  it('MTR-21: each person on the project, with job title, reports the permissions they hold here', async () => {
+    await h.db.pool.query(`UPDATE app_user SET job_title = 'Field Technologist' WHERE id = $1`, [
+      people.team,
+    ]);
+    const response = await get(projectPath('a', 'people'), 'tech');
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const view = projectPeopleSchema.parse(response.body);
+    const byId = new Map(view.people.map((p) => [p.userId, p]));
+    // The lead, team member, reviewer, delegate and issuer (and whoever earlier tests added);
+    // never someone with no part in the project.
+    for (const id of [h.users.pe, people.team, people.rev, people.del, people.iss]) {
+      expect(byId.has(id!), id).toBe(true);
+    }
+    expect(byId.has(people.pending!)).toBe(false);
+    expect(byId.has(h.users.lab!)).toBe(false);
+    // Each person's list is exactly what they'd see for themselves.
+    for (const [key, id] of [
+      ['pe', h.users.pe],
+      ['team', people.team],
+      ['rev', people.rev],
+      ['del', people.del],
+      ['iss', people.iss],
+    ] as const) {
+      const own = await capabilities('a', key);
+      expect(byId.get(id!), key).toMatchObject({
+        involvement: own.involvement,
+        issuerScopes: own.issuerScopes,
+        reviewerScopes: own.reviewerScopes,
+        capabilities: own.capabilities,
+      });
+    }
+    expect(byId.get(people.team!)!.jobTitle).toEqual({
+      value: 'Field Technologist',
+      source: 'microsoft',
+    });
+    expect(
+      byId.get(h.users.pe!)!.capabilities.find((c) => c.action === 'program.close')!.sources,
+    ).toEqual(['lead_project_engineer']);
+    // The same viewers as the team itself: never LAB or anyone signed out; unknown project 404.
+    expect((await get(projectPath('a', 'people'), 'lab')).status).toBe(403);
+    expect((await get(projectPath('a', 'people'), 'pending')).status).toBe(403);
+    expect((await get(projectPath('a', 'people'), 'anonymous')).status).toBe(401);
+    expect(
+      (await get('/api/projects/00000000-0000-4000-8000-000000000000/people', 'tech')).status,
+    ).toBe(404);
   });
 
   it('AC3: a job title, position or LAB selection never makes anyone an issuer or reviewer', async () => {

@@ -346,6 +346,25 @@ export const projectCapabilitiesSchema = z.object({
 });
 export type ProjectCapabilities = z.infer<typeof projectCapabilitiesSchema>;
 
+/**
+ * MTR-21: one person involved in the project (lead, team, reviewer, delegate or issuer), their
+ * effective job title, and what they may do here and why, computed as for themselves.
+ */
+export const projectPersonSchema = projectCapabilitiesSchema.omit({ projectId: true }).extend({
+  userId: z.string(),
+  initials: z.string().nullable(),
+  name: z.string(),
+  jobTitle: effectiveJobTitleSchema,
+});
+export type ProjectPerson = z.infer<typeof projectPersonSchema>;
+
+/** `GET /api/projects/:projectId/people`: the same viewers as the team (project_access.read). */
+export const projectPeopleSchema = z.object({
+  projectId: z.string(),
+  people: z.array(projectPersonSchema),
+});
+export type ProjectPeople = z.infer<typeof projectPeopleSchema>;
+
 // ---------------------------------------------------------------------------------------------
 // Lead nomination and appointment (MM-AO04; D01, D02)
 // ---------------------------------------------------------------------------------------------
@@ -394,6 +413,15 @@ export type NominateLeadRequest = z.output<typeof nominateLeadRequestSchema>;
 /** Confirm, reject (admin) or withdraw (the nominator): always with a reason (D15). */
 export const decideNominationRequestSchema = z.strictObject({ reason: grantReasonSchema });
 export type DecideNominationRequest = z.output<typeof decideNominationRequestSchema>;
+
+/** MISC-03: confirming needs no reason (blank or absent is none); one given is recorded. */
+export const confirmNominationRequestSchema = z.strictObject({
+  reason: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    grantReasonSchema.nullish(),
+  ),
+});
+export type ConfirmNominationRequest = z.output<typeof confirmNominationRequestSchema>;
 
 /** `GET /api/projects/:projectId/lead-nominations`: the pending one first, then history. */
 export const projectLeadNominationsSchema = z.object({
@@ -468,3 +496,106 @@ export const accessSummarySchema = z.object({
   projectsTotal: z.number(),
 });
 export type AccessSummary = z.infer<typeof accessSummarySchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Inherited grants after a lead change (MTR-25, owner decision 2026-10-30)
+// ---------------------------------------------------------------------------------------------
+
+export const GRANT_REVIEW_KINDS = ['acceptance_delegate', 'report_issuer', 'reviewer'] as const;
+export type GrantReviewKind = (typeof GRANT_REVIEW_KINDS)[number];
+
+export const GRANT_REVIEW_KIND_LABEL: Record<GrantReviewKind, string> = {
+  acceptance_delegate: 'Acceptance delegate',
+  report_issuer: 'Report issuer',
+  reviewer: 'Reviewer',
+};
+
+export const GRANT_REVIEW_STATUSES = ['pending', 'kept', 'revoked'] as const;
+export type GrantReviewStatus = (typeof GRANT_REVIEW_STATUSES)[number];
+
+/** One inherited grant flagged "Needs review by new lead", and how it was settled. */
+export const grantReviewSchema = z.object({
+  id: z.string(),
+  kind: z.enum(GRANT_REVIEW_KINDS),
+  grantId: z.string(),
+  /** Who holds the grant. */
+  holder: personSnapshotSchema,
+  /** The scope label of an issuer grant or reviewer assignment; null for a delegate. */
+  scope: z.string().nullable(),
+  flaggedFor: personSnapshotSchema,
+  flaggedAt: z.string(),
+  status: z.enum(GRANT_REVIEW_STATUSES),
+  decidedBy: personSnapshotSchema.nullable(),
+  decidedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+export type GrantReview = z.infer<typeof grantReviewSchema>;
+
+/** A change of the project's Lead Project Engineer, from the audit (MTR-25 History). */
+export const leadChangeSchema = z.object({
+  at: z.string(),
+  /** The new lead; null when the lead was removed. */
+  lead: personSnapshotSchema.nullable(),
+  by: personSnapshotSchema.nullable(),
+  reason: z.string().nullable(),
+});
+export type LeadChange = z.infer<typeof leadChangeSchema>;
+
+/** `GET /api/projects/:projectId/grant-reviews`. */
+export const projectGrantReviewsSchema = z.object({
+  projectId: z.string(),
+  /** The project's lead or an admin may keep or revoke a flagged grant. */
+  canDecide: z.boolean(),
+  pending: z.array(grantReviewSchema),
+  history: z.array(grantReviewSchema),
+  leadChanges: z.array(leadChangeSchema),
+});
+export type ProjectGrantReviews = z.infer<typeof projectGrantReviewsSchema>;
+
+/** Body of `POST …/grant-reviews/:id/keep` and `…/revoke`: both need a reason. */
+export const decideGrantReviewRequestSchema = z.strictObject({ reason: grantReasonSchema });
+export type DecideGrantReviewRequest = z.output<typeof decideGrantReviewRequestSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Team self-join with Lead Project Engineer acceptance (MISC-07, owner decision 2026-10-30)
+// ---------------------------------------------------------------------------------------------
+
+export const TEAM_JOIN_STATUSES = ['pending', 'accepted', 'declined'] as const;
+export type TeamJoinStatus = (typeof TEAM_JOIN_STATUSES)[number];
+
+/** Shown on a self-joined member until the lead or an admin accepts them. */
+export const PENDING_LPE_ACCEPTANCE = 'Pending LPE acceptance';
+
+export const teamJoinRequestSchema = z.object({
+  id: z.string(),
+  teamMemberId: z.string(),
+  person: personSnapshotSchema,
+  requestedAt: z.string(),
+  status: z.enum(TEAM_JOIN_STATUSES),
+  decidedBy: personSnapshotSchema.nullable(),
+  decidedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+export type TeamJoinRequest = z.infer<typeof teamJoinRequestSchema>;
+
+/** `GET /api/projects/:projectId/team-join-requests`. */
+export const projectTeamJoinRequestsSchema = z.object({
+  projectId: z.string(),
+  /** The viewer may ask to join (a personal account not on the team and not its lead). */
+  canRequest: z.boolean(),
+  /** The viewer is the project's lead or an admin. */
+  canDecide: z.boolean(),
+  /** The viewer's own latest request here, so a decline (and its reason) reaches them. */
+  mine: teamJoinRequestSchema.nullable(),
+  pending: z.array(teamJoinRequestSchema),
+});
+export type ProjectTeamJoinRequests = z.infer<typeof projectTeamJoinRequestsSchema>;
+
+/** Body of `POST …/team-join-requests`: a retry with the same key returns the same request. */
+export const requestTeamJoinSchema = z.strictObject({ idempotencyKey: z.uuid() });
+
+/** Body of `POST …/team-join-requests/:id/accept`: a reason is optional. */
+export const acceptTeamJoinSchema = confirmNominationRequestSchema;
+
+/** Body of `POST …/team-join-requests/:id/decline`: a reason is required. */
+export const declineTeamJoinSchema = z.strictObject({ reason: grantReasonSchema });

@@ -12,6 +12,7 @@ import {
   type StaffMember,
   type StaffPosition,
   type StaffRole,
+  type StaffStatusChange,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
@@ -40,6 +41,12 @@ interface StaffRow {
   last_sign_in_at: Date | null;
   approved_at: Date | null;
   disabled_reason: string | null;
+  status_history: {
+    change: StaffStatusChange['change'];
+    by: string | null;
+    at: string;
+    reason: string | null;
+  }[];
   created_at: Date;
   job_title: string | null;
   job_title_override: string | null;
@@ -57,7 +64,16 @@ const SELECT_STAFF = `
          COALESCE((SELECT array_agg(r.role ORDER BY r.role) FROM role_assignment r
                    WHERE r.user_id = u.id), '{}') AS roles,
          EXISTS (SELECT 1 FROM identity_link l WHERE l.user_id = u.id) AS linked,
-         (SELECT max(s.created_at) FROM session s WHERE s.user_id = u.id) AS last_sign_in_at
+         (SELECT max(s.created_at) FROM session s WHERE s.user_id = u.id) AS last_sign_in_at,
+         -- MTR-12: who approved, disabled or re-enabled them, and when, from the audit.
+         COALESCE((SELECT json_agg(json_build_object(
+                            'change', split_part(e.action, '.', 2), 'by', e.actor_name_snapshot,
+                            'at', e.occurred_at, 'reason', e.reason)
+                          ORDER BY e.occurred_at, e.id)
+                   FROM audit_event e
+                   WHERE e.entity_type = 'app_user' AND e.entity_id = u.id
+                     AND e.action IN ('staff.approved', 'staff.disabled', 'staff.enabled')),
+                  '[]') AS status_history
   FROM app_user u`;
 
 function toMember(row: StaffRow): StaffMember {
@@ -77,6 +93,12 @@ function toMember(row: StaffRow): StaffMember {
     lastSignInAt: row.last_sign_in_at?.toISOString() ?? null,
     approvedAt: row.approved_at?.toISOString() ?? null,
     disabledReason: row.disabled_reason,
+    statusHistory: row.status_history.map((e) => ({
+      change: e.change,
+      byName: e.by,
+      at: new Date(e.at).toISOString(),
+      reason: e.reason,
+    })),
     createdAt: row.created_at.toISOString(),
     jobTitle: row.job_title,
     jobTitleOverride: row.job_title_override,

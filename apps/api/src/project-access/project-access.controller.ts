@@ -2,6 +2,9 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@ne
 import type {
   ProjectLeadNominations,
   ProjectCapabilities,
+  ProjectPeople,
+  ProjectGrantReviews,
+  ProjectTeamJoinRequests,
   ProjectReportIssuers,
   ProjectReviewers,
   ProjectTeam,
@@ -12,6 +15,8 @@ import type {
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
+import { GrantReviewsService } from './grant-reviews.service.js';
+import { TeamJoinService } from './team-join.service.js';
 import { LeadNominationsService } from './lead-nominations.service.js';
 import { activeScopes, ProjectAccessService } from './project-access.service.js';
 import { StaffGrantsService } from './staff-grants.service.js';
@@ -34,6 +39,8 @@ export class ProjectAccessController {
   constructor(
     private readonly access: ProjectAccessService,
     private readonly nominations: LeadNominationsService,
+    private readonly grantReviews: GrantReviewsService,
+    private readonly teamJoin: TeamJoinService,
     private readonly database: DatabaseService,
   ) {}
 
@@ -122,6 +129,95 @@ export class ProjectAccessController {
     @CurrentUser() user: AuthUser,
   ): Promise<ProjectCapabilities> {
     return this.access.capabilities(projectId, user);
+  }
+
+  // MTR-25: inherited grants flagged for a new lead. Anyone who reads the team sees them; the
+  // lead or an admin keeps or revokes each one, with `{reason}`.
+
+  @Get('projects/:projectId/grant-reviews')
+  @RequirePermission('project_access.read')
+  grantReviewList(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectGrantReviews> {
+    return this.grantReviews.list(projectId, user);
+  }
+
+  @Post('projects/:projectId/grant-reviews/:reviewId/keep')
+  @ActiveUser()
+  @HttpCode(200)
+  keepGrant(
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectGrantReviews> {
+    return this.grantReviews.keep(projectId, reviewId, body, user);
+  }
+
+  @Post('projects/:projectId/grant-reviews/:reviewId/revoke')
+  @ActiveUser()
+  @HttpCode(200)
+  revokeGrant(
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectGrantReviews> {
+    return this.grantReviews.revoke(projectId, reviewId, body, user);
+  }
+
+  // MISC-07: any active personal account joins a team itself (pending LPE acceptance); the lead
+  // or an admin accepts, or declines with `{reason}`. LAB reads and asks nothing.
+
+  @Get('projects/:projectId/team-join-requests')
+  @RequirePermission('project_access.read')
+  teamJoinRequests(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectTeamJoinRequests> {
+    return this.teamJoin.list(projectId, user);
+  }
+
+  @Post('projects/:projectId/team-join-requests')
+  @RequirePermission('project_access.read')
+  requestTeamJoin(
+    @Param('projectId') projectId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectTeamJoinRequests> {
+    return this.teamJoin.request(projectId, body, user);
+  }
+
+  @Post('projects/:projectId/team-join-requests/:requestId/accept')
+  @ActiveUser()
+  @HttpCode(200)
+  acceptTeamJoin(
+    @Param('projectId') projectId: string,
+    @Param('requestId') requestId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectTeamJoinRequests> {
+    return this.teamJoin.accept(projectId, requestId, body, user);
+  }
+
+  @Post('projects/:projectId/team-join-requests/:requestId/decline')
+  @ActiveUser()
+  @HttpCode(200)
+  declineTeamJoin(
+    @Param('projectId') projectId: string,
+    @Param('requestId') requestId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectTeamJoinRequests> {
+    return this.teamJoin.decline(projectId, requestId, body, user);
+  }
+
+  /** MTR-21: each person on the project, their job title and permissions here, and why. */
+  @Get('projects/:projectId/people')
+  @RequirePermission('project_access.read')
+  people(@Param('projectId') projectId: string): Promise<ProjectPeople> {
+    return this.access.people(projectId);
   }
 
   @Get('projects/:projectId/team-members')

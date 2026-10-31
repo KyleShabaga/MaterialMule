@@ -299,7 +299,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
         ...values,
       });
 
-    it('one pending nomination per project; deciding needs who and a reason, once', async () => {
+    it('one pending nomination per project; deciding needs who (and a reason to reject), once', async () => {
       const id = await nomination();
       await expect(nomination()).rejects.toMatchObject({ code: PG.uniqueViolation });
       await expect(
@@ -310,10 +310,16 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
         decided_at: new Date(Date.now() + 1000).toISOString(),
         decided_by_user_id: admin,
         decided_by_name_snapshot: 'Test AD',
-        decision_reason: 'Confirmed as lead',
+        decision_reason: null,
       };
+      // MISC-03: rejecting or withdrawing needs a reason; confirming doesn't (0010).
+      for (const status of ['rejected', 'withdrawn']) {
+        await expect(
+          revoke('project_lead_nomination', id, { ...decision, status }),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      }
       await expect(
-        revoke('project_lead_nomination', id, { ...decision, decision_reason: null }),
+        revoke('project_lead_nomination', id, { ...decision, decided_by_name_snapshot: null }),
       ).rejects.toMatchObject({ code: PG.checkViolation });
       await expect(
         revoke('project_lead_nomination', id, { ...decision, nominee_user_id: admin }),
@@ -442,5 +448,231 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
     } finally {
       await fresh.drop();
     }
+  });
+
+  describe('inherited grant review flags (MTR-25, 0009)', () => {
+    const flag = (values: Record<string, unknown>) =>
+      insert('project_grant_review', {
+        project_id: projectId,
+        flagged_for_user_id: engineer,
+        ...values,
+      });
+    const decision = (values: Record<string, unknown> = {}) => ({
+      status: 'kept',
+      decided_at: new Date(Date.now() + 1000).toISOString(),
+      decided_by_user_id: engineer,
+      decided_by_name_snapshot: 'Test DE',
+      decision_reason: 'Still needed',
+      ...values,
+    });
+    const grantFor = async (initials: string) =>
+      issuerGrant({ issuer_user_id: await insertUser(db.pool, initials) });
+
+    it('names exactly one active grant of its own project, pending once per grant', async () => {
+      const grant = await grantFor('GRA');
+      const other = await grantFor('GRB');
+      await expect(
+        flag({ report_issuer_grant_id: grant, acceptance_delegation_id: null }),
+      ).resolves.toBeTruthy();
+      // A second pending flag for the same grant.
+      await expect(flag({ report_issuer_grant_id: grant })).rejects.toMatchObject({
+        code: PG.uniqueViolation,
+      });
+      // None, or two grants at once.
+      await expect(flag({})).rejects.toMatchObject({ code: PG.checkViolation });
+      const reviewer = await db.pool.query<{ id: string }>(
+        `SELECT id FROM project_reviewer_assignment LIMIT 1`,
+      );
+      if (reviewer.rows[0]) {
+        await expect(
+          flag({ report_issuer_grant_id: other, reviewer_assignment_id: reviewer.rows[0].id }),
+        ).rejects.toMatchObject({ code: PG.checkViolation });
+      }
+      // Another project's grant, or one already ended.
+      await expect(
+        flag({ project_id: otherProjectId, report_issuer_grant_id: other }),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await revoke('project_report_issuer_grant', other, issuerRevocation());
+      await expect(flag({ report_issuer_grant_id: other })).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+    });
+
+    it('is decided once, with who and a reason, and never deleted', async () => {
+      const id = await flag({ report_issuer_grant_id: await grantFor('GRC') });
+      await expect(
+        revoke('project_grant_review', id, decision({ decision_reason: null })),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        revoke('project_grant_review', id, decision({ decided_by_user_id: null })),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await expect(
+        revoke('project_grant_review', id, decision({ flagged_for_user_id: admin })),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await revoke('project_grant_review', id, decision());
+      await expect(
+        revoke('project_grant_review', id, decision({ status: 'revoked' })),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await expect(
+        db.pool.query('DELETE FROM project_grant_review WHERE id = $1', [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+    });
+
+    it('ending a flagged grant by any route settles its flag, and the last one resolves the request', async () => {
+      const grant = await grantFor('GRD');
+      const flagId = await flag({ report_issuer_grant_id: grant });
+      // Settle any earlier pending flags on this project so this one is the last.
+      await db.pool.query(
+        `UPDATE project_grant_review SET status = 'kept', decided_at = now(),
+                decided_by_user_id = $2, decided_by_name_snapshot = 'Test DE',
+                decision_reason = 'Still needed'
+         WHERE project_id = $1 AND status = 'pending' AND id <> $3`,
+        [projectId, engineer, flagId],
+      );
+      const item = await insert('action_item', {
+        kind: 'grant_review',
+        target_user_id: engineer,
+        entity_type: 'project',
+        entity_id: projectId,
+        project_id: projectId,
+        created_by_user_id: admin,
+        created_by_name_snapshot: 'Test AD',
+        reason: 'DEMO-2601: new Lead Project Engineer; 1 inherited grant to keep or revoke',
+      });
+      // The request needs a named lead.
+      await expect(
+        insert('action_item', {
+          kind: 'grant_review',
+          entity_type: 'project',
+          entity_id: otherProjectId,
+          project_id: otherProjectId,
+          created_by_user_id: admin,
+          created_by_name_snapshot: 'Test AD',
+          reason: 'No target',
+        }),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+
+      await revoke('project_report_issuer_grant', grant, issuerRevocation());
+      const { rows } = await db.pool.query(
+        `SELECT status, decided_by_user_id, decision_reason FROM project_grant_review
+         WHERE id = $1`,
+        [flagId],
+      );
+      expect(rows[0]).toEqual({
+        status: 'revoked',
+        decided_by_user_id: lead,
+        decision_reason: 'No longer issuing for this project',
+      });
+      const resolved = await db.pool.query(
+        `SELECT status, resolution, resolved_by_user_id FROM action_item WHERE id = $1`,
+        [item],
+      );
+      expect(resolved.rows[0]).toEqual({
+        status: 'resolved',
+        resolution: 'reviewed',
+        resolved_by_user_id: lead,
+      });
+    });
+  });
+
+  describe('team join requests (MISC-07, 0011)', () => {
+    const member = async (userId: string, addedBy = userId, project = projectId) =>
+      insert('project_team_member', {
+        project_id: project,
+        user_id: userId,
+        user_name_snapshot: 'Test joiner',
+        added_by_user_id: addedBy,
+        added_by_name_snapshot: 'Test joiner',
+        add_reason: 'Asked to join the team',
+        add_idempotency_key: randomUUID(),
+        add_request_hash: 'h',
+      });
+    const request = (userId: string, teamMemberId: string, project = projectId) =>
+      insert('project_team_join_request', {
+        project_id: project,
+        user_id: userId,
+        team_member_id: teamMemberId,
+        request_idempotency_key: randomUUID(),
+      });
+    const removal = (by: string) => ({
+      removed_at: new Date(Date.now() + 1000).toISOString(),
+      removed_by_user_id: by,
+      removed_by_name_snapshot: 'Test PE',
+      remove_reason: 'Not on this project',
+    });
+
+    it('needs the requester’s own active membership of that project; one pending per person', async () => {
+      const joiner = await insertUser(db.pool, 'JNA');
+      const own = await member(joiner);
+      // Someone else's membership, one added by another person, or another project's.
+      const other = await insertUser(db.pool, 'JNB');
+      await expect(request(other, own)).rejects.toMatchObject({ code: PG.checkViolation });
+      const addedByLead = await member(other, lead);
+      await expect(request(other, addedByLead)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(request(joiner, own, otherProjectId)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await request(joiner, own);
+      // One request per membership, and one pending per person and project.
+      await expect(request(joiner, own)).rejects.toMatchObject({ code: PG.uniqueViolation });
+      // LAB never asks.
+      await expect(
+        db.pool.query(
+          `INSERT INTO project_team_join_request
+             (project_id, user_id, team_member_id, request_idempotency_key)
+           VALUES ($1, $2, $3, $4)`,
+          [projectId, lab, own, randomUUID()],
+        ),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+    });
+
+    it('accepting needs who; declining needs a reason; decided once, never deleted', async () => {
+      const joiner = await insertUser(db.pool, 'JNC');
+      const id = await request(joiner, await member(joiner));
+      const decided = {
+        status: 'declined',
+        decided_at: new Date(Date.now() + 1000).toISOString(),
+        decided_by_user_id: lead,
+        decided_by_name_snapshot: 'Test PE',
+        decision_reason: null,
+      };
+      await expect(revoke('project_team_join_request', id, decided)).rejects.toMatchObject({
+        code: PG.checkViolation,
+      });
+      await expect(
+        revoke('project_team_join_request', id, {
+          ...decided,
+          status: 'accepted',
+          decided_by_user_id: null,
+        }),
+      ).rejects.toMatchObject({ code: PG.checkViolation });
+      await revoke('project_team_join_request', id, { ...decided, status: 'accepted' });
+      await expect(
+        revoke('project_team_join_request', id, { ...decided, decision_reason: 'Changed mind' }),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+      await expect(
+        db.pool.query('DELETE FROM project_team_join_request WHERE id = $1', [id]),
+      ).rejects.toMatchObject({ code: PG.restrictViolation });
+    });
+
+    it('removing a pending member declines the request with that removal’s reason; they may ask again', async () => {
+      const joiner = await insertUser(db.pool, 'JND');
+      const membership = await member(joiner);
+      const id = await request(joiner, membership);
+      await revoke('project_team_member', membership, removal(lead));
+      const { rows } = await db.pool.query(
+        `SELECT status, decided_by_user_id, decision_reason FROM project_team_join_request
+         WHERE id = $1`,
+        [id],
+      );
+      expect(rows[0]).toEqual({
+        status: 'declined',
+        decided_by_user_id: lead,
+        decision_reason: 'Not on this project',
+      });
+      await expect(request(joiner, await member(joiner))).resolves.toBeTruthy();
+    });
   });
 });

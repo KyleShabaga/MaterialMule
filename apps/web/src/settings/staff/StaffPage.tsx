@@ -5,6 +5,7 @@ import {
   type StaffPosition,
   type StaffRole,
   type StaffStatus,
+  type StaffStatusChange,
   type UpdateStaffRequest,
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
@@ -53,6 +54,23 @@ const dateTime = new Intl.DateTimeFormat('en-CA', {
   timeStyle: 'short',
 });
 const when = (iso: string | null) => (iso ? dateTime.format(new Date(iso)) : 'Never');
+const dateOnly = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Edmonton',
+  dateStyle: 'medium',
+});
+
+const STATUS_CHANGE_LABELS: Record<StaffStatusChange['change'], string> = {
+  approved: 'Approved',
+  disabled: 'Disabled',
+  enabled: 'Re-enabled',
+};
+
+/** MTR-12: "Approved by X on date", "Disabled by X on date: reason", "Re-enabled by X on date". */
+function statusChangeText(change: StaffStatusChange): string {
+  const by = change.byName ? ` by ${change.byName}` : '';
+  const reason = change.reason ? `: ${change.reason}` : '';
+  return `${STATUS_CHANGE_LABELS[change.change]}${by} on ${dateOnly.format(new Date(change.at))}${reason}`;
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof StaffApiError ? error.message : 'Something went wrong. Try again.';
@@ -514,6 +532,18 @@ function StaffDrawer({
           </StatusBadge>
           {member.disabledReason ? ` · ${member.disabledReason}` : ''}
         </dd>
+        {member.statusHistory.length > 0 ? (
+          <>
+            <dt>Access history</dt>
+            <dd>
+              <ul className="status-history" aria-label="Access history">
+                {member.statusHistory.map((change) => (
+                  <li key={`${change.change}-${change.at}`}>{statusChangeText(change)}</li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        ) : null}
         <dt>Account</dt>
         <dd>{ACCOUNT_LABELS[member.accountType]}</dd>
         <dt>Sign-in</dt>

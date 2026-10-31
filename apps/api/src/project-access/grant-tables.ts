@@ -384,6 +384,25 @@ export async function lockActiveFor(
   return rows.map((row) => toRow(t, row));
 }
 
+/** The project grants a new lead reviews (MTR-25), whose ending settles a review flag. */
+export const REVIEWABLE_GRANTS: readonly GrantTable[] = [
+  ACCEPTANCE_DELEGATION,
+  REPORT_ISSUER_GRANT,
+  REVIEWER_ASSIGNMENT,
+];
+
+/**
+ * MTR-25: serialises every change to these projects' grant review flags until commit (migration
+ * 0009, `project_grant_review_lock`). Lock order: the project row, then the accounts, then this
+ * (each project once, in id order), then the grant, its flag and the action item. Taking it
+ * before re-reading a flag's state is what makes "last flag decided" visible to the next writer.
+ */
+export async function lockGrantReviews(client: PoolClient, projectIds: readonly string[]) {
+  for (const id of [...new Set(projectIds)].sort()) {
+    await client.query('SELECT project_grant_review_lock($1)', [id]);
+  }
+}
+
 /** D08: the reason recorded on every technical grant a re-enable revokes. */
 export const REENABLE_REVOKE_REASON =
   'Account re-enabled: technical grants need revalidation (D08)';
@@ -400,6 +419,20 @@ export async function revokeTechnicalGrants(
   by: { userId: string; initials: string | null; displayName: string },
   actor: AuditActor,
 ): Promise<number> {
+  // The caller holds the account FOR UPDATE, so no grant for this person can start meanwhile;
+  // every project whose review flags these endings settle is locked first, in id order (MTR-25).
+  const { rows: projects } = await client.query<{ project_id: string }>(
+    `SELECT project_id FROM acceptance_delegation WHERE delegate_user_id = $1 AND revoked_at IS NULL
+     UNION SELECT project_id FROM project_report_issuer_grant
+           WHERE issuer_user_id = $1 AND revoked_at IS NULL
+     UNION SELECT project_id FROM project_reviewer_assignment
+           WHERE reviewer_user_id = $1 AND removed_at IS NULL`,
+    [userId],
+  );
+  await lockGrantReviews(
+    client,
+    projects.map((p) => p.project_id),
+  );
   let revoked = 0;
   for (const t of TECHNICAL_GRANTS) {
     for (const row of await lockActiveFor(client, t, userId)) {

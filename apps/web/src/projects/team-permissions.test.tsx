@@ -1,8 +1,10 @@
 import type {
   AcceptanceDelegates,
+  GrantReview,
   MeResponse,
   ProjectCapabilities,
   ProjectDetail,
+  ProjectGrantReviews,
   ProjectReportIssuers,
   ProjectReviewers,
   ProjectTeam,
@@ -168,6 +170,8 @@ interface World {
   lead: boolean;
   team: ProjectTeam;
   reviewers: ProjectReviewers;
+  issuers?: ProjectReportIssuers;
+  grantReviews?: ProjectGrantReviews;
 }
 
 function stubApi(world: World, writes: (url: URL, init: RequestInit) => Response | undefined) {
@@ -182,12 +186,30 @@ function stubApi(world: World, writes: (url: URL, init: RequestInit) => Response
         return json(200, detail());
       case `${BASE}/capabilities`:
         return json(200, capabilities(world.lead));
+      case `${BASE}/people`:
+        return json(200, {
+          projectId: PROJECT_ID,
+          people: [
+            {
+              userId: 'u-tm',
+              initials: 'TM',
+              name: 'Taylor Member',
+              jobTitle: { value: 'Field Technologist', source: 'microsoft' },
+              ...capabilities(false),
+              projectId: undefined,
+            },
+          ],
+        });
       case `${BASE}/team-members`:
         return json(200, world.team);
       case `${BASE}/reviewer-assignments`:
         return json(200, world.reviewers);
       case `${BASE}/report-issuers`:
-        return json(200, issuers(world.lead));
+        return json(200, world.issuers ?? issuers(world.lead));
+      case `${BASE}/grant-reviews`:
+        return world.grantReviews
+          ? json(200, world.grantReviews)
+          : json(404, { code: 'not_found' });
       case `${BASE}/acceptance-delegates`:
         return json(200, delegates(world.lead));
       case `${BASE}/lead-nominations`:
@@ -257,10 +279,22 @@ describe('Team & Permissions (MM-AO05)', () => {
     const people = await screen.findByRole('region', { name: 'People on this project' });
     const taylor = within(people).getByText('TM · Taylor Member').closest('tr')!;
     const cells = within(taylor).getAllByRole('cell');
-    expect(cells[1]).toHaveTextContent('Team member; Reviewer: Concrete field');
-    expect(cells[2]).toHaveTextContent('—');
+    // MTR-21: their effective job title, and their permissions here with each one's source.
+    expect(cells[1]).toHaveTextContent('Field Technologist');
+    expect(cells[2]).toHaveTextContent('Team member; Reviewer: Concrete field');
+    expect(cells[3]).toHaveTextContent('—');
+    expect(cells[4]).toHaveTextContent('Permissions here (none)');
+    expect(
+      within(within(taylor).getByRole('list', { name: 'Permissions of Taylor Member' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'Add or remove team members: No · Allowed for: Lead Project Engineer, Administrator',
+      'Close lab programs: No · Allowed for: Lead Project Engineer',
+    ]);
     const iris = within(people).getByText('II · Iris Issuer').closest('tr')!;
-    expect(within(iris).getAllByRole('cell')[2]).toHaveTextContent('Report issuer: Concrete field');
+    expect(within(iris).getAllByRole('cell')[1]).toHaveTextContent('—');
+    expect(within(iris).getAllByRole('cell')[3]).toHaveTextContent('Report issuer: Concrete field');
     expect(within(people).getByText('DD · Dakota Delegate').closest('tr')).toHaveTextContent(
       'Acceptance delegate',
     );
@@ -318,6 +352,127 @@ describe('Team & Permissions (MM-AO05)', () => {
     ).toHaveTextContent('RR · Riley Reviewer');
     // Capabilities are re-read after the change.
     expect(calls(fetchMock, `${BASE}/capabilities`).length).toBeGreaterThan(1);
+  });
+
+  it('MTR-25: revoking an inherited reviewer or issuer grant updates every list without a reload', async () => {
+    const flag = (id: string, kind: GrantReview['kind'], grantId: string, holder = TAYLOR) => ({
+      id,
+      kind,
+      grantId,
+      holder,
+      scope: 'Concrete field',
+      flaggedFor: PAT,
+      flaggedAt: '2026-10-30T15:00:00.000Z',
+      status: 'pending' as const,
+      decidedBy: null,
+      decidedAt: null,
+      reason: null,
+    });
+    const IRIS = snap('u-ii', 'Iris Issuer', 'II');
+    const reviewerFlag = flag('rv-1', 'reviewer', 'ra-u-tm-concrete_field');
+    const issuerFlag = flag('rv-2', 'report_issuer', 'ig-1', IRIS);
+    const world: World = {
+      lead: true,
+      team: team(true, []),
+      reviewers: reviewers(true),
+      issuers: issuers(true),
+      grantReviews: {
+        projectId: PROJECT_ID,
+        canDecide: true,
+        pending: [reviewerFlag, issuerFlag],
+        history: [],
+        leadChanges: [],
+      },
+    };
+    const settle = (review: typeof reviewerFlag) => {
+      const reviews = world.grantReviews!;
+      world.grantReviews = {
+        ...reviews,
+        pending: reviews.pending.filter((r) => r.id !== review.id),
+        history: [
+          {
+            ...review,
+            status: 'revoked',
+            decidedBy: PAT,
+            decidedAt: '2026-10-31T15:00:00.000Z',
+            reason: 'No longer needed',
+          },
+          ...reviews.history,
+        ],
+      };
+      return json(200, world.grantReviews);
+    };
+    stubApi(world, (url, init) => {
+      if (init.method !== 'POST') return undefined;
+      // The server ends the grant itself; only the lists read afterwards show it.
+      if (url.pathname === `${BASE}/grant-reviews/rv-1/revoke`) {
+        world.reviewers = reviewers(true, []);
+        return settle(reviewerFlag);
+      }
+      if (url.pathname === `${BASE}/grant-reviews/rv-2/revoke`) {
+        world.issuers = { ...issuers(true), active: [] };
+        return settle(issuerFlag);
+      }
+      return undefined;
+    });
+    renderPage();
+    const user = userEvent.setup();
+    const revoke = async (label: string) => {
+      const section = await screen.findByRole('region', { name: 'Inherited grants to review' });
+      await user.click(within(section).getByRole('button', { name: label }));
+      const dialog = await screen.findByRole('dialog');
+      await user.type(within(dialog).getByLabelText('Reason'), 'No longer needed');
+      await user.click(within(dialog).getByRole('button', { name: 'Revoke' }));
+    };
+
+    const people = await screen.findByRole('region', { name: 'People on this project' });
+    expect(within(people).getByText('TM · Taylor Member')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: 'Review responsibilities' })).getByRole('list', {
+        name: 'Reviewers: Concrete field',
+      }),
+    ).toHaveTextContent('TM · Taylor Member');
+
+    await revoke('Revoke Reviewer: Concrete field · TM · Taylor Member');
+    expect(
+      await screen.findByText('Revoked Reviewer: Concrete field · TM · Taylor Member.'),
+    ).toBeInTheDocument();
+    // The reviewer list and the people summary drop the revoked grant without a reload.
+    await vi.waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Review responsibilities' })).queryByRole(
+          'list',
+          { name: 'Reviewers: Concrete field' },
+        ),
+      ).not.toBeInTheDocument(),
+    );
+    await vi.waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'People on this project' })).queryByText(
+          'TM · Taylor Member',
+        ),
+      ).not.toBeInTheDocument(),
+    );
+
+    await revoke('Revoke Report issuer: Concrete field · II · Iris Issuer');
+    expect(
+      await screen.findByText('Revoked Report issuer: Concrete field · II · Iris Issuer.'),
+    ).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'Authorized report issuers' })).toBeNull(),
+    );
+    await vi.waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'People on this project' })).queryByText(
+          'II · Iris Issuer',
+        ),
+      ).not.toBeInTheDocument(),
+    );
+    // Both flags are settled: the review card is gone, the notice stays.
+    expect(screen.queryByRole('region', { name: 'Inherited grants to review' })).toBeNull();
+    expect(
+      screen.getByText('Revoked Report issuer: Concrete field · II · Iris Issuer.'),
+    ).toBeInTheDocument();
   });
 
   it('AC3: authority revoked mid-session: the refusal hides the controls and claims no success', async () => {

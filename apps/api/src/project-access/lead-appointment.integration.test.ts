@@ -215,11 +215,13 @@ describe.runIf(testDatabaseUrl)('project lead appointment (MM-AO04)', () => {
       (await create('tech', { leadNomineeUserId: h.users.jo })).body,
     );
     const pending = (await nominations(project.id)).pending!;
-    // Only admins decide; a reason is required.
+    // Only admins decide; rejecting needs a reason (MISC-03: confirming doesn't).
     for (const who of ['tech', 'jo', 'lm', 'pe', 'lab'] as const) {
       expect((await decide(project.id, pending.id, 'confirm', who)).status, who).toBe(403);
+      expect((await decide(project.id, pending.id, 'confirm', who, null)).status, who).toBe(403);
     }
-    expect((await decide(project.id, pending.id, 'confirm', 'admin', null)).status).toBe(400);
+    expect((await decide(project.id, pending.id, 'reject', 'admin', null)).status).toBe(400);
+    expect((await decide(project.id, pending.id, 'reject', 'admin', '  ')).status).toBe(400);
     expect((await detail(project.id)).leadProjectEngineer).toBeNull();
 
     const confirmed = await decide(project.id, pending.id, 'confirm', 'admin');
@@ -251,6 +253,33 @@ describe.runIf(testDatabaseUrl)('project lead appointment (MM-AO04)', () => {
     const late = await decide(project.id, pending.id, 'reject', 'admin');
     expect(late.status).toBe(409);
     expect(late.body).toMatchObject({ code: 'nomination_decided', status: 'confirmed' });
+  });
+
+  it('MISC-03: an admin confirms with no reason; the appointment and its audit are still recorded', async () => {
+    for (const reason of [null, '']) {
+      const project = projectSummarySchema.parse(
+        (await create('tech', { leadNomineeUserId: h.users.jo })).body,
+      );
+      const pending = (await nominations(project.id)).pending!;
+      const confirmed = await decide(project.id, pending.id, 'confirm', 'admin', reason);
+      expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200);
+      expect(projectLeadNominationsSchema.parse(confirmed.body).history[0]).toMatchObject({
+        status: 'confirmed',
+        decidedBy: { userId: h.users.admin },
+        decisionReason: null,
+      });
+      expect((await detail(project.id)).leadProjectEngineer?.id).toBe(h.users.jo);
+      expect(await leadItems(project.id)).toEqual([
+        { status: 'resolved', resolution: 'appointed' },
+      ]);
+      const events = await listAuditForEntity(h.db.pool, 'project', project.id);
+      expect(events.find((e) => e.action === 'project.lead_appointed')).toMatchObject({
+        actorUserId: h.users.admin,
+        reason: null,
+      });
+      const decided = await listAuditForEntity(h.db.pool, 'project_lead_nomination', pending.id);
+      expect(decided.map((e) => e.action)).toContain('project_lead_nomination.confirmed');
+    }
   });
 
   it('rejecting or withdrawing keeps the project waiting; anyone may then nominate again', async () => {

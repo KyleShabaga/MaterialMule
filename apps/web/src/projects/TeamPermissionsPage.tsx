@@ -1,6 +1,8 @@
 import {
   BLOCKED_REASON_LABEL,
   CAPABILITY_SOURCE_LABEL,
+  GRANT_REVIEW_KIND_LABEL,
+  PENDING_LPE_ACCEPTANCE,
   PROJECT_CAPABILITY_ACTIONS,
   PROJECT_CAPABILITY_ACTION_LABEL,
   PROJECT_INVOLVEMENT_LABEL,
@@ -10,6 +12,10 @@ import {
   type ProjectCapabilities,
   type ProjectCapabilityAction,
   type ProjectDetail,
+  type ProjectGrantReviews,
+  type ProjectTeamJoinRequests,
+  type ProjectPeople,
+  type ProjectPerson,
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
@@ -23,11 +29,16 @@ import { useMe } from '../session/context';
 import { fetchDelegates } from '../lab/api';
 import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
+import { GrantReviewsSection, NEEDS_REVIEW } from './GrantReviewsSection';
+import { JoinRequestsSection } from './JoinRequestsSection';
 import { LeadSection } from './LeadSection';
 import { IssuersSection, ReviewersSection, TeamSection, type RunWrite } from './TeamSections';
 import {
   fetchCapabilities,
+  fetchGrantReviews,
   fetchIssuers,
+  fetchJoinRequests,
+  fetchPeople,
   fetchReviewers,
   fetchScopes,
   fetchTeam,
@@ -52,6 +63,12 @@ interface Loaded {
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
   scopes: ReviewScope[];
+  /** MTR-21: null when it couldn't be loaded; the people list then shows no permissions. */
+  people: ProjectPeople | null;
+  /** MTR-25: inherited grants flagged for a new lead, and the lead changes; null if unloaded. */
+  grantReviews: ProjectGrantReviews | null;
+  /** MISC-07: self-join requests; null if unloaded. */
+  joinRequests: ProjectTeamJoinRequests | null;
 }
 
 type PageState =
@@ -65,7 +82,18 @@ function unwrap<T>(result: LoadResult<T>): T {
 }
 
 async function loadAll(projectId: string): Promise<Loaded> {
-  const [project, capabilities, team, reviewers, issuers, scopes, delegates] = await Promise.all([
+  const [
+    project,
+    capabilities,
+    team,
+    reviewers,
+    issuers,
+    scopes,
+    delegates,
+    people,
+    grantReviews,
+    joinRequests,
+  ] = await Promise.all([
     fetchProjectDetail(projectId),
     fetchCapabilities(projectId),
     fetchTeam(projectId),
@@ -73,6 +101,9 @@ async function loadAll(projectId: string): Promise<Loaded> {
     fetchIssuers(projectId),
     fetchScopes(),
     fetchDelegates(projectId).catch(() => null),
+    fetchPeople(projectId).catch(() => null),
+    fetchGrantReviews(projectId).catch(() => null),
+    fetchJoinRequests(projectId).catch(() => null),
   ]);
   return {
     project: unwrap(project),
@@ -82,6 +113,9 @@ async function loadAll(projectId: string): Promise<Loaded> {
     issuers: unwrap(issuers),
     scopes: unwrap(scopes),
     delegates,
+    people: people?.ok ? people.data : null,
+    grantReviews: grantReviews?.ok ? grantReviews.data : null,
+    joinRequests: joinRequests?.ok ? joinRequests.data : null,
   };
 }
 
@@ -129,18 +163,26 @@ function TeamPermissions({ projectId }: { projectId: string }) {
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
-  /** Reloads only the capability list (and the people summary's delegate list). */
+  /** Reloads only the capability lists (and the people summary's delegate list). */
   const refreshCapabilities = useCallback(() => {
     void Promise.all([
       fetchCapabilities(projectId),
       fetchDelegates(projectId).catch(() => null),
-    ]).then(([capabilities, delegates]) => {
+      fetchPeople(projectId).catch(() => null),
+      fetchGrantReviews(projectId).catch(() => null),
+    ]).then(([capabilities, delegates, people, grantReviews]) => {
       if (!capabilities.ok) return;
       setPage((current) =>
         current.state === 'ready'
           ? {
               state: 'ready',
-              data: { ...current.data, capabilities: capabilities.data, delegates },
+              data: {
+                ...current.data,
+                capabilities: capabilities.data,
+                delegates,
+                people: people?.ok ? people.data : null,
+                grantReviews: grantReviews?.ok ? grantReviews.data : current.data.grantReviews,
+              },
             }
           : current,
       );
@@ -209,7 +251,18 @@ function TeamPermissions({ projectId }: { projectId: string }) {
     );
   }
 
-  const { project, capabilities, team, reviewers, issuers, delegates, scopes } = page.data;
+  const {
+    project,
+    capabilities,
+    team,
+    reviewers,
+    issuers,
+    delegates,
+    scopes,
+    people,
+    grantReviews,
+    joinRequests,
+  } = page.data;
   return (
     <>
       {back}
@@ -262,13 +315,42 @@ function TeamPermissions({ projectId }: { projectId: string }) {
         }}
       />
 
+      {grantReviews ? (
+        <GrantReviewsSection
+          projectId={project.id}
+          data={grantReviews}
+          run={run}
+          onChange={(next) => {
+            update({ grantReviews: next });
+            // A Revoke ended a reviewer, issuer or delegate grant: reload every list that shows it.
+            reload();
+          }}
+        />
+      ) : null}
+
       <PeopleSummary
         project={project}
         team={team}
         reviewers={reviewers}
         issuers={issuers}
         delegates={delegates}
+        people={people}
+        grantReviews={grantReviews}
+        joinRequests={joinRequests}
       />
+
+      {joinRequests ? (
+        <JoinRequestsSection
+          projectId={project.id}
+          data={joinRequests}
+          run={run}
+          onChange={(next) => {
+            update({ joinRequests: next });
+            // The team itself changed too (a member added or removed).
+            reload();
+          }}
+        />
+      ) : null}
 
       <TeamSection
         projectId={project.id}
@@ -300,7 +382,13 @@ function TeamPermissions({ projectId }: { projectId: string }) {
 
       <YourPermissions capabilities={capabilities} onRefresh={reload} />
 
-      <HistorySection team={team} reviewers={reviewers} issuers={issuers} delegates={delegates} />
+      <HistorySection
+        team={team}
+        reviewers={reviewers}
+        issuers={issuers}
+        delegates={delegates}
+        grantReviews={grantReviews}
+      />
     </>
   );
 }
@@ -316,19 +404,54 @@ interface PersonRow {
   grants: string[];
 }
 
+/** MTR-21: what one person may do here, and why, as the server computes it for them. */
+function PersonPermissions({ person }: { person: ProjectPerson }) {
+  const known = new Set<string>(PROJECT_CAPABILITY_ACTIONS);
+  const allowed = person.capabilities.filter((c) => known.has(c.action) && c.allowed);
+  return (
+    <details className="person-permissions">
+      <summary>Permissions here ({allowed.length ? `${allowed.length} allowed` : 'none'})</summary>
+      <ul aria-label={`Permissions of ${person.name}`}>
+        {person.capabilities
+          .filter((c) => known.has(c.action))
+          .map((c) => (
+            <li key={c.action}>
+              <strong>
+                {PROJECT_CAPABILITY_ACTION_LABEL[c.action as ProjectCapabilityAction]}:
+              </strong>{' '}
+              {c.allowed ? 'Yes' : 'No'} · {whyFor(c)}
+            </li>
+          ))}
+      </ul>
+    </details>
+  );
+}
+
 function PeopleSummary({
   project,
   team,
   reviewers,
   issuers,
   delegates,
+  people: peopleView,
+  grantReviews,
+  joinRequests,
 }: {
   project: ProjectDetail;
   team: ProjectTeam;
   reviewers: ProjectReviewers;
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
+  people: ProjectPeople | null;
+  grantReviews: ProjectGrantReviews | null;
+  joinRequests: ProjectTeamJoinRequests | null;
 }) {
+  // MISC-07: self-joined members still waiting for the lead's acceptance.
+  const joining = new Set((joinRequests?.pending ?? []).map((r) => r.teamMemberId));
+  const details = new Map((peopleView?.people ?? []).map((p) => [p.userId, p]));
+  // MTR-25: grants still waiting for the new lead's review carry the badge text.
+  const flagged = new Set((grantReviews?.pending ?? []).map((r) => r.grantId));
+  const badge = (grantId: string) => (flagged.has(grantId) ? ` (${NEEDS_REVIEW})` : '');
   const people = new Map<string, PersonRow>();
   const person = (id: string, initials: string | null, name: string) => {
     let row = people.get(id);
@@ -343,23 +466,27 @@ function PeopleSummary({
     person(lead.id, lead.initials, lead.displayName).responsibilities.push('Lead Project Engineer');
   for (const member of team.active) {
     person(member.person.userId, member.person.initials, member.person.name).responsibilities.push(
-      'Team member',
+      joining.has(member.id) ? `Team member (${PENDING_LPE_ACCEPTANCE})` : 'Team member',
     );
   }
   for (const assignment of reviewers.active) {
     const r = assignment.reviewer;
     person(r.userId, r.initials, r.name).responsibilities.push(
-      `Reviewer: ${assignment.scope.label}${assignment.effective ? '' : ' (not effective)'}`,
+      `Reviewer: ${assignment.scope.label}${assignment.effective ? '' : ' (not effective)'}${badge(
+        assignment.id,
+      )}`,
     );
   }
   for (const grant of delegates?.active ?? []) {
     const d = grant.delegate;
-    person(d.userId, d.initials, d.name).grants.push('Acceptance delegate');
+    person(d.userId, d.initials, d.name).grants.push(`Acceptance delegate${badge(grant.id)}`);
   }
   for (const grant of issuers.active) {
     const i = grant.issuer;
     person(i.userId, i.initials, i.name).grants.push(
-      `Report issuer: ${grant.scope.label}${grant.effective ? '' : ' (not effective)'}`,
+      `Report issuer: ${grant.scope.label}${grant.effective ? '' : ' (not effective)'}${badge(
+        grant.id,
+      )}`,
     );
   }
   const rows = [...people.values()];
@@ -377,12 +504,23 @@ function PeopleSummary({
         columns={[
           { header: 'Person', cell: (row) => <strong>{row.name}</strong> },
           {
+            header: 'Job title',
+            cell: (row) => details.get(row.id)?.jobTitle?.value ?? '—',
+          },
+          {
             header: 'Responsibilities',
             cell: (row) => (row.responsibilities.length ? row.responsibilities.join('; ') : '—'),
           },
           {
             header: 'Grants',
             cell: (row) => (row.grants.length ? row.grants.join('; ') : '—'),
+          },
+          {
+            header: 'Permissions',
+            cell: (row) => {
+              const person = details.get(row.id);
+              return person ? <PersonPermissions person={person} /> : '—';
+            },
           },
         ]}
       />
@@ -393,6 +531,15 @@ function PeopleSummary({
 // ---------------------------------------------------------------------------------------------
 // What the signed-in person may do here, and why (the server's capability list)
 // ---------------------------------------------------------------------------------------------
+
+/** The source of a permission held by someone else ("As …"), or who it's allowed for. */
+function whyFor(capability: Capability): string {
+  if (capability.allowed) {
+    return `As ${capability.sources.map((s) => CAPABILITY_SOURCE_LABEL[s]).join(', ')}`;
+  }
+  const grantedBy = capability.blocked?.grantedBy.map((s) => CAPABILITY_SOURCE_LABEL[s]) ?? [];
+  return grantedBy.length ? `Allowed for: ${grantedBy.join(', ')}` : 'Not allowed';
+}
 
 function why(capability: Capability): string {
   if (capability.allowed) {
@@ -486,13 +633,42 @@ function HistorySection({
   reviewers,
   issuers,
   delegates,
+  grantReviews,
 }: {
   team: ProjectTeam;
   reviewers: ProjectReviewers;
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
+  grantReviews: ProjectGrantReviews | null;
 }) {
   const events: HistoryEvent[] = [];
+  // MTR-25: lead changes and the new lead's review of inherited grants.
+  for (const change of grantReviews?.leadChanges ?? []) {
+    const by = change.by ? ` by ${formatPerson(change.by.initials, change.by.name)}` : '';
+    const reason = change.reason ? ` (${change.reason})` : '';
+    events.push({
+      key: `lead:${change.at}`,
+      at: change.at,
+      text: change.lead
+        ? `Lead Project Engineer changed to ${formatPerson(change.lead.initials, change.lead.name)}${by}${reason}`
+        : `Lead Project Engineer removed${by}${reason}`,
+    });
+  }
+  for (const review of grantReviews?.history ?? []) {
+    if (!review.decidedAt || review.status === 'pending') continue;
+    const by = review.decidedBy
+      ? ` by ${formatPerson(review.decidedBy.initials, review.decidedBy.name)}`
+      : '';
+    events.push({
+      key: `review:${review.id}`,
+      at: review.decidedAt,
+      text: `Inherited ${GRANT_REVIEW_KIND_LABEL[review.kind].toLowerCase()} grant of ${
+        review.holder.name
+      } ${review.status === 'kept' ? 'kept' : 'revoked'}${by}${
+        review.reason ? ` (${review.reason})` : ''
+      }`,
+    });
+  }
   const add = (
     id: string,
     what: string,

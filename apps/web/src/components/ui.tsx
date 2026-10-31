@@ -267,6 +267,7 @@ export function ConfirmDialog({
   danger = false,
   onConfirm,
   onCancel,
+  cancelOnBackdrop = false,
 }: {
   open: boolean;
   title: string;
@@ -276,6 +277,8 @@ export function ConfirmDialog({
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** A click outside the box cancels it, the same as Escape (MISC-03). */
+  cancelOnBackdrop?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -286,7 +289,28 @@ export function ConfirmDialog({
     if (!open && dialog.open) dialog.close?.();
   }, [open]);
   return (
-    <dialog ref={ref} className="confirm-dialog" onCancel={onCancel} aria-labelledby={titleId}>
+    <dialog
+      ref={ref}
+      className="confirm-dialog"
+      onCancel={onCancel}
+      onClick={
+        cancelOnBackdrop
+          ? (event) => {
+              // A click on the backdrop targets the dialog itself, outside its box.
+              const dialog = event.currentTarget;
+              if (event.target !== dialog) return;
+              const box = dialog.getBoundingClientRect();
+              const inside =
+                event.clientX >= box.left &&
+                event.clientX <= box.right &&
+                event.clientY >= box.top &&
+                event.clientY <= box.bottom;
+              if (!inside) onCancel();
+            }
+          : undefined
+      }
+      aria-labelledby={titleId}
+    >
       <h2 id={titleId}>{title}</h2>
       <div>{children}</div>
       <div className="dialog-actions">

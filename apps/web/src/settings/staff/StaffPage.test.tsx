@@ -32,6 +32,7 @@ const member = (overrides: Partial<StaffMember>): StaffMember => ({
   lastSignInAt: null,
   approvedAt: null,
   disabledReason: null,
+  statusHistory: [],
   createdAt: '2026-10-26T00:00:00.000Z',
   jobTitle: null,
   jobTitleOverride: null,
@@ -292,6 +293,40 @@ describe('StaffPage', () => {
       await user.click(within(drawer).getByRole('button', { name: 'Confirm initials OO' }));
       expect(await screen.findByText('Initials OO confirmed for Olive Renamed.')).toBeVisible();
       expect(patches.at(-1)).toEqual({ officialInitials: 'OO' });
+    });
+
+    it('MTR-12: shows who approved, disabled and re-enabled them, and when', async () => {
+      Object.assign(OLIVE, {
+        statusHistory: [
+          {
+            change: 'approved',
+            byName: 'Avery Admin',
+            at: '2026-10-20T17:00:00.000Z',
+            reason: null,
+          },
+          {
+            change: 'disabled',
+            byName: 'Avery Admin',
+            at: '2026-10-22T17:00:00.000Z',
+            reason: 'On leave',
+          },
+          { change: 'enabled', byName: 'Sam Admin', at: '2026-10-24T17:00:00.000Z', reason: null },
+        ],
+      });
+      stubApi();
+      try {
+        const { drawer } = await openDrawer();
+        const items = within(within(drawer).getByRole('list', { name: 'Access history' }))
+          .getAllByRole('listitem')
+          .map((item) => item.textContent);
+        expect(items).toEqual([
+          'Approved by Avery Admin on Oct 20, 2026',
+          'Disabled by Avery Admin on Oct 22, 2026: On leave',
+          'Re-enabled by Sam Admin on Oct 24, 2026',
+        ]);
+      } finally {
+        OLIVE.statusHistory = [];
+      }
     });
   });
 });

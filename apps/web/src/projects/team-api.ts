@@ -1,5 +1,8 @@
 import {
   projectCapabilitiesSchema,
+  projectGrantReviewsSchema,
+  projectTeamJoinRequestsSchema,
+  projectPeopleSchema,
   projectReportIssuersSchema,
   projectReviewersSchema,
   projectTeamSchema,
@@ -8,6 +11,9 @@ import {
   type FieldError,
   type GrantReportIssuerRequest,
   type ProjectCapabilities,
+  type ProjectGrantReviews,
+  type ProjectTeamJoinRequests,
+  type ProjectPeople,
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
@@ -70,6 +76,9 @@ const MESSAGES: Record<string, string> = {
   not_eligible: 'This person isn’t an eligible reviewer for that scope.',
   invalid_scope: 'Choose a review scope.',
   invalid_expiry: 'Expiry must be in the future.',
+  grant_review_decided: 'That grant was already reviewed. The list now shows the current state.',
+  team_join_request_decided:
+    'That request was already decided. The list now shows the current state.',
 };
 
 async function write<T>(
@@ -145,6 +154,10 @@ const projectPath = (projectId: string, rest: string) =>
 export const fetchCapabilities = (projectId: string): Promise<LoadResult<ProjectCapabilities>> =>
   load(projectPath(projectId, 'capabilities'), projectCapabilitiesSchema);
 
+/** MTR-21: each person on the project with job title and permissions here. */
+export const fetchPeople = (projectId: string): Promise<LoadResult<ProjectPeople>> =>
+  load(projectPath(projectId, 'people'), projectPeopleSchema);
+
 export const fetchScopes = (): Promise<LoadResult<ReviewScope[]>> =>
   load('/api/review-scopes', reviewScopesSchema);
 
@@ -214,4 +227,50 @@ export const revokeIssuer = (
     'DELETE',
     body,
     projectReportIssuersSchema,
+  );
+
+// Inherited grants after a lead change (MTR-25)
+
+export const fetchGrantReviews = (projectId: string): Promise<LoadResult<ProjectGrantReviews>> =>
+  load(projectPath(projectId, 'grant-reviews'), projectGrantReviewsSchema);
+
+export const decideGrantReview = (
+  projectId: string,
+  id: string,
+  action: 'keep' | 'revoke',
+  reason: string,
+) =>
+  write(
+    projectPath(projectId, `grant-reviews/${encodeURIComponent(id)}/${action}`),
+    'POST',
+    { reason },
+    projectGrantReviewsSchema,
+  );
+
+// Team self-join with lead acceptance (MISC-07)
+
+export const fetchJoinRequests = (
+  projectId: string,
+): Promise<LoadResult<ProjectTeamJoinRequests>> =>
+  load(projectPath(projectId, 'team-join-requests'), projectTeamJoinRequestsSchema);
+
+export const requestToJoin = (projectId: string, idempotencyKey: string) =>
+  write(
+    projectPath(projectId, 'team-join-requests'),
+    'POST',
+    { idempotencyKey },
+    projectTeamJoinRequestsSchema,
+  );
+
+export const decideJoinRequest = (
+  projectId: string,
+  id: string,
+  action: 'accept' | 'decline',
+  reason?: string,
+) =>
+  write(
+    projectPath(projectId, `team-join-requests/${encodeURIComponent(id)}/${action}`),
+    'POST',
+    reason ? { reason } : {},
+    projectTeamJoinRequestsSchema,
   );

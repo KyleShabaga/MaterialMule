@@ -10,12 +10,14 @@ import {
   PROJECT_ACCESS_HISTORY_LIMIT,
   PROJECT_CAPABILITY_ACTIONS,
   addTeamMemberRequestSchema,
+  effectiveJobTitle,
   assignReviewerRequestSchema,
   endGrantRequestSchema,
   grantReportIssuerRequestSchema,
   revokeReportIssuerRequestSchema,
   type Capability,
   type ProjectCapabilities,
+  type ProjectPeople,
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
@@ -41,6 +43,7 @@ import { likePattern } from '../staff/staff.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import {
   REPORT_ISSUER_GRANT,
+  REVIEWABLE_GRANTS,
   REVIEWER_ASSIGNMENT,
   TEAM_MEMBER,
   endGrant,
@@ -50,10 +53,11 @@ import {
   insertGrant,
   listGrants,
   lockGrant,
+  lockGrantReviews,
   type GrantRow,
   type GrantTable,
 } from './grant-tables.js';
-import { involvementOf } from './involvement.js';
+import { involvementOf, projectPeopleIds } from './involvement.js';
 
 /** People offered by the reviewer lookup (MM-AO05); typing narrows it. */
 const ELIGIBLE_REVIEWER_LIMIT = 50;
@@ -242,6 +246,75 @@ export class ProjectAccessService {
     const project = await this.mustFind(projectId);
     const context = await projectContext(db, project);
     const scopes = await activeScopes(db);
+    return this.capabilitiesOf(db, project, context, scopes, user);
+  }
+
+  /**
+   * MTR-21: each person on the project with their effective job title and what they may do here,
+   * and why: the capability list computed as for them, from their roles and status as they stand.
+   * The same viewers as the team itself (project_access.read); it reveals nothing the team,
+   * reviewer and grant lists don't already show, apart from each person's org-wide roles.
+   */
+  async people(projectId: string): Promise<ProjectPeople> {
+    const db = this.database.pool;
+    const project = await this.mustFind(projectId);
+    const context = await projectContext(db, project);
+    const scopes = await activeScopes(db);
+    const ids = await projectPeopleIds(db, project.id);
+    const { rows } = await db.query<{
+      id: string;
+      account_type: AuthUser['accountType'];
+      status: AuthUser['status'];
+      display_name: string;
+      official_initials: string | null;
+      job_title: string | null;
+      job_title_override: string | null;
+      roles: AuthUser['roles'];
+    }>(
+      `SELECT u.id, u.account_type, u.status, u.display_name, u.official_initials, u.job_title,
+              u.job_title_override,
+              COALESCE((SELECT array_agg(r.role ORDER BY r.role) FROM role_assignment r
+                        WHERE r.user_id = u.id), '{}') AS roles
+       FROM app_user u WHERE u.id = ANY($1::uuid[])
+       ORDER BY u.official_initials NULLS LAST, lower(u.display_name), u.id`,
+      [ids],
+    );
+    const people = [];
+    for (const row of rows) {
+      const subject: AuthUser = {
+        userId: row.id,
+        sessionId: '',
+        accountType: row.account_type,
+        status: row.status,
+        roles: row.roles,
+        displayName: row.display_name,
+        initials: row.official_initials,
+      };
+      const { projectId: _projectId, ...capabilities } = await this.capabilitiesOf(
+        db,
+        project,
+        context,
+        scopes,
+        subject,
+      );
+      people.push({
+        userId: row.id,
+        initials: row.official_initials,
+        name: row.display_name,
+        jobTitle: effectiveJobTitle(row.job_title, row.job_title_override),
+        ...capabilities,
+      });
+    }
+    return { projectId: project.id, people };
+  }
+
+  private async capabilitiesOf(
+    db: Pool,
+    project: ProjectFacts,
+    context: ProjectContext,
+    scopes: Map<string, ReviewScope>,
+    user: AuthUser,
+  ): Promise<ProjectCapabilities> {
     const { rows: issuing } = await db.query<{ report_scope_code: string }>(
       `SELECT report_scope_code FROM project_report_issuer_grant
        WHERE project_id = $1 AND issuer_user_id = $2 AND revoked_at IS NULL
@@ -550,6 +623,8 @@ export class ProjectAccessService {
       const standing = await lockStanding(client, [user.userId]);
       const actor = asLocked(user, standing);
       if (!can(actor, permission, await projectContext(client, project))) throw forbidden();
+      // Ending a reviewable grant settles its review flag (MTR-25): same lock order as Revoke.
+      if (REVIEWABLE_GRANTS.includes(t)) await lockGrantReviews(client, [project.id]);
       const row = UUID_PATTERN.test(id)
         ? await lockGrant(client, t, id, { column: 'project_id', value: project.id })
         : null;

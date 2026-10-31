@@ -1049,6 +1049,15 @@ textarea {
   gap: 0.5rem;
 }
 
+/* MTR-12: who approved, disabled or re-enabled someone, in the staff drawer. */
+.status-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
 .pending-staff li {
   display: flex;
   flex-wrap: wrap;
