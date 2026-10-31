@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { DEMO, uniqueTag } from './support/receiving';
+import { DEMO, receiptsDescribed, receiveThroughApi, uniqueTag } from './support/receiving';
 import { removeTestedTube, testedTube } from './support/tested-tube';
 
 // MTR-58: Sample Storage's Standard view never clips a column, card or badge. Where the table is
 // wider than its card it scrolls inside the card (a focusable region), and stacked cards wrap long
-// badges instead of running past the card. Desktop only: the widths are set here.
+// badges instead of running past the card. MTR-93: no page scrolls sideways at any width; wide
+// tables scroll inside their own region. Desktop only: the widths are set here.
 
 test.skip(({ isMobile }) => isMobile, 'Sets its own widths');
 
@@ -107,6 +108,38 @@ test('MTR-58: Standard view scrolls inside its card or wraps; nothing is clipped
           .poll(() => region.evaluate((element) => element.scrollLeft), { message: what })
           .toBeGreaterThan(0);
       }
+    }
+  }
+});
+
+const SWEEP = [320, 375, 640, 770, 820, 870, 1024, 1280, 1281, 1440];
+
+test('MTR-93: table pages never scroll sideways from 320 to 1440 px', async ({ page }) => {
+  test.setTimeout(120_000);
+  const tag = uniqueTag('mtr93');
+  await signInAs(page, 'at');
+  await receiveThroughApi(page, { description: tag });
+  const [receipt] = await receiptsDescribed(tag);
+  const routes: [Parameters<typeof signInAs>[1], string, string][] = [
+    ['at', '/receiving-log', 'Receipt table'],
+    ['at', `/receiving-log/${receipt!.receipt_id}`, 'Storage unit table'],
+    ['at', '/lab-testing', 'Lab worklist'],
+    ['lab', '/lab-testing', 'Lab worklist'],
+    ['admin', '/settings/tests', 'Lab tests'],
+    ['admin', '/settings/staff', 'Staff table'],
+  ];
+  for (const [who, route, table] of routes) {
+    await signInAs(page, who);
+    await page.setViewportSize({ width: SWEEP[0]!, height: 900 });
+    await page.goto(route);
+    const region = page.getByRole('region', { name: table, exact: true });
+    await expect(region).toBeVisible();
+    await expect(region).toHaveAttribute('tabindex', '0');
+    for (const width of SWEEP) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect
+        .poll(() => pageOverflow(page), { message: `${who} ${route} at ${width}px` })
+        .toBeLessThanOrEqual(0);
     }
   }
 });

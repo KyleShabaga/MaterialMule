@@ -1,7 +1,7 @@
 import { TEST_REQUEST_STATUS_LABEL, type TestCatalogue, type Worklist } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { DataTable, ErrorState, StatusBadge } from '../components/ui';
+import { DataTable, ErrorState, StatusBadge, TableScroll } from '../components/ui';
 import { shortDateTime } from '../dashboard/format';
 import { openAge } from './format';
 import { fetchCatalogue, fetchWorklist } from './api';
@@ -138,49 +138,56 @@ export function WorklistPage() {
         </p>
       ) : null}
       {load.state === 'ready' ? (
-        <DataTable
-          caption="Lab worklist"
-          rows={load.list.items}
-          rowKey={(item) => item.programId}
-          empty="Nothing waiting. Submitted programs appear here."
-          columns={[
-            {
-              header: 'Priority',
-              cell: (item) =>
-                item.priority === 'urgent' ? (
-                  <StatusBadge tone="danger">Urgent</StatusBadge>
-                ) : (
-                  <StatusBadge>Normal</StatusBadge>
+        <TableScroll label="Lab worklist">
+          <DataTable
+            caption="Lab worklist"
+            rows={load.list.items}
+            rowKey={(item) => item.programId}
+            empty="Nothing waiting. Submitted programs appear here."
+            columns={[
+              {
+                header: 'Priority',
+                cell: (item) =>
+                  item.priority === 'urgent' ? (
+                    <StatusBadge tone="danger">Urgent</StatusBadge>
+                  ) : (
+                    <StatusBadge>Normal</StatusBadge>
+                  ),
+              },
+              {
+                header: 'Program',
+                cell: (item) => (
+                  <Link className="mono" to={`/lab-testing/programs/${item.programId}`}>
+                    {item.programNumber}
+                  </Link>
                 ),
-            },
-            {
-              header: 'Program',
-              cell: (item) => (
-                <Link className="mono" to={`/lab-testing/programs/${item.programId}`}>
-                  {item.programNumber}
-                </Link>
-              ),
-            },
-            {
-              header: 'Project',
-              cell: (item) => `${item.project.projectNumber} · ${item.project.name}`,
-            },
-            { header: 'Submitted', cell: (item) => shortDateTime(item.submittedAt) },
-            {
-              header: 'Tests',
-              cell: (item) =>
-                (Object.entries(item.counts) as [keyof typeof TEST_REQUEST_STATUS_LABEL, number][])
-                  .filter(([, n]) => n > 0)
-                  .map(([status, n]) => `${n} ${TEST_REQUEST_STATUS_LABEL[status].toLowerCase()}`)
-                  .join(', '),
-            },
-            {
-              header: 'Oldest open',
-              cell: (item) =>
-                item.oldestOpenSeconds === null ? '—' : openAge(item.oldestOpenSeconds),
-            },
-          ]}
-        />
+              },
+              {
+                header: 'Project',
+                cell: (item) => `${item.project.projectNumber} · ${item.project.name}`,
+              },
+              { header: 'Submitted', cell: (item) => shortDateTime(item.submittedAt) },
+              {
+                header: 'Tests',
+                cell: (item) =>
+                  (
+                    Object.entries(item.counts) as [
+                      keyof typeof TEST_REQUEST_STATUS_LABEL,
+                      number,
+                    ][]
+                  )
+                    .filter(([, n]) => n > 0)
+                    .map(([status, n]) => `${n} ${TEST_REQUEST_STATUS_LABEL[status].toLowerCase()}`)
+                    .join(', '),
+              },
+              {
+                header: 'Oldest open',
+                cell: (item) =>
+                  item.oldestOpenSeconds === null ? '—' : openAge(item.oldestOpenSeconds),
+              },
+            ]}
+          />
+        </TableScroll>
       ) : null}
       {paging && paging.total > paging.pageSize && load.state !== 'error' ? (
         <nav className="pager" aria-label="Pages" aria-busy={busy}>

@@ -1978,6 +1978,7 @@ textarea {
 
   .data-table td {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     border-bottom: none;
   }
@@ -2048,9 +2049,11 @@ textarea {
     background: var(--card);
   }
 
+  /* A value too wide to sit beside its label (a date and time at 320 px) goes under it (MTR-93). */
   .table-stack .data-table td {
     display: flex;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
     border-bottom: none;
   }
 

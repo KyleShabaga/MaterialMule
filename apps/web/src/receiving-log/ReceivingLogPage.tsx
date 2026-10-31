@@ -9,7 +9,7 @@ import {
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { DataTable, ErrorState, PageHeader, type Column } from '../components/ui';
+import { DataTable, ErrorState, PageHeader, TableScroll, type Column } from '../components/ui';
 import { fetchProject } from '../inventory/api';
 import '../inventory/inventory.css';
 import { ProjectFilter } from '../inventory/ProjectFilter';
@@ -254,9 +254,13 @@ export function ReceivingLogPage() {
             </div>
           )
         ) : (
-          <div className="receiving-log-table table-stack" aria-busy={loading}>
+          <TableScroll
+            label="Receipt table"
+            className="receiving-log-table table-stack"
+            aria-busy={loading}
+          >
             <ReceiptTable items={shown.items} linkState={linkState} />
-          </div>
+          </TableScroll>
         )
       ) : null}
 
