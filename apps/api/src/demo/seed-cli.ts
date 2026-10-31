@@ -618,6 +618,60 @@ async function bringTo(
   await crew.lead.post(`/test-requests/${test.id}/accept`, { version, idempotencyKey: key() });
 }
 
+// ---- MISC-13: "Ready for disposal" examples ----------------------------------------------------
+
+const READY_HOLE = 'BH25-201';
+const BLOCKED_HOLE = 'BH25-202';
+const READY_HOLD_REASON = 'Client dispute - keep until settled';
+const READY_EXTENSION_REASON = 'Owner asked to keep this bucket another year';
+
+/**
+ * Units on DEMO-2612 (lead Jamie Song, so other engineers see them but can't approve) on two
+ * holes no program covers. Dates are relative to the seed date: received 395 days ago, so their
+ * one-year retention has passed (3 ready, including an untested Shelby tube, which follows the
+ * normal rules), one on hold, one extended a year; and one received 120 days ago, still under
+ * retention. Every step reuses what an earlier run made.
+ */
+async function seedDisposalExamples(as: Record<FixtureKey, Actor>, project: Project) {
+  for (const name of [READY_HOLE, BLOCKED_HOLE]) {
+    project.holes[name] ??= (await as.admin.post(`/projects/${project.id}/test-holes`, { name }))
+      .id as string;
+  }
+  const ready = project.holes[READY_HOLE]!;
+  const blocked = project.holes[BLOCKED_HOLE]!;
+  const past = await receive(as.at, project, 395, 'at', 'Retention examples - past retention', [
+    bucket(samples(ready, 'G1', 'G4')),
+    bucket(samples(ready, 'G5', 'G9')),
+    tube(ready, 'T1', 6, 8),
+    bucket(all(blocked)),
+    bucket(custom(blocked, 'Archive bucket, client copy')),
+  ]);
+  const recent = await receive(as.at, project, 120, 'js-tech', 'Retention examples - recent', [
+    bucket(samples(ready, 'G10', 'G12')),
+  ]);
+  const retention = await as.lab.get(`/projects/${project.id}/retention`);
+  if (!(retention.holds as Json[]).some((h) => h.reason === READY_HOLD_REASON)) {
+    await as.lab.post('/retention/holds', {
+      projectId: project.id,
+      scope: 'units',
+      unitIds: [past[3]!.id],
+      reason: READY_HOLD_REASON,
+      idempotencyKey: key(),
+    });
+  }
+  if (!(retention.extensions as Json[]).some((e) => e.reason === READY_EXTENSION_REASON)) {
+    await as.lab.post('/retention/extensions', {
+      projectId: project.id,
+      scope: 'units',
+      unitIds: [past[4]!.id],
+      extendMonths: 12,
+      reason: READY_EXTENSION_REASON,
+      idempotencyKey: key(),
+    });
+  }
+  return { past, recent };
+}
+
 // ---- Main -------------------------------------------------------------------------------------
 
 async function main(): Promise<void> {
@@ -820,6 +874,13 @@ async function main(): Promise<void> {
       idempotencyKey: key(),
     });
   }
+  log('Ready for disposal examples');
+  const examples = await seedDisposalExamples(as, wtp);
+  for (const unit of [...examples.past, ...examples.recent]) {
+    await moveAlong(as.at, unit, ['WH-D1'], loc);
+  }
+  log('  3 ready (2 buckets, 1 Shelby tube), 1 on hold, 1 extended, 1 still under retention');
+
   // Last: its presence marks the dataset as complete.
   await as.pe.post('/retention/holds', {
     projectId: nr.id,

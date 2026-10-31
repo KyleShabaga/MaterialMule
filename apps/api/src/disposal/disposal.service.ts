@@ -8,11 +8,13 @@ import {
 } from '@nestjs/common';
 import {
   DISPOSAL_PAGE_SIZE,
+  DISPOSAL_READY_PAGE_SIZE,
   normalizeStorageUnitCode,
   type ApproveDisposal,
   type ApproveDisposalResult,
   type DisposalBlocker,
   type DisposalCandidates,
+  type DisposalReady,
   type DisposalScanResult,
   type RemoveDisposal,
   type RevokeDisposal,
@@ -34,6 +36,24 @@ const projectChanged = (): DisposalBlocker => ({
   code: 'approval_project_changed',
   label: 'Approved under another project: revoke it and approve again',
 });
+
+/**
+ * MISC-13: units standard disposal can take now ($1 = today). In stock, or approved under a live
+ * approval for the unit's current project (MM-T70); never a tested (retention exempt) unit.
+ */
+const READY_FROM = `FROM storage_unit su
+       JOIN unit_retention ur ON ur.storage_unit_id = su.id
+       JOIN project p ON p.id = su.project_id
+       JOIN location l ON l.id = su.current_location_id
+       WHERE su.status IN ('in_stock', 'approved_for_disposal')
+         -- Cheap pre-filter: nothing is eligible before its one-year minimum.
+         AND retention_minimum(su.received_date) <= $1::date
+         AND NOT ur.retention_exempt
+         AND unit_disposal_eligible(su.id, $1::date, true)
+         AND (su.status = 'in_stock' OR EXISTS (
+               SELECT 1 FROM disposal_approval a
+               WHERE a.storage_unit_id = su.id AND a.project_id = su.project_id
+                 AND a.revoked_at IS NULL AND a.used_at IS NULL))`;
 
 function intentHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -221,6 +241,90 @@ export class DisposalService {
           blockers: shown,
           approval,
           retentionExempt: unit.retention_exempt,
+        };
+      }),
+    };
+  }
+
+  /**
+   * MISC-13: units in every project that standard disposal can take now, oldest retain-until
+   * first. Readable by anyone with inventory.read, as the per-project list is; `canApprove` says
+   * whether the viewer may approve for each unit's project. Eligibility is the database's
+   * (unit_disposal_eligible): no hold, retain-until (extensions included) reached, covering
+   * programs closed, no open location conflict. An approved unit counts only under a live approval
+   * for its current project (MM-T70). Tested units are left out: they leave through their own
+   * removal (MM-T36/T71). The approve and scan routes recheck everything when submitted.
+   */
+  async ready(user: AuthUser, page = 1): Promise<DisposalReady> {
+    const asOf = this.clock.today();
+    const { rows } = await this.database.pool.query<{
+      id: string;
+      readable_id: string;
+      unit_type: string;
+      status: 'in_stock' | 'approved_for_disposal';
+      received_date: string;
+      minimum_retain_until: string;
+      effective_retain_until: string;
+      project_id: string;
+      project_number: string;
+      project_name: string;
+      lead_project_engineer_user_id: string | null;
+      location_code: string;
+      location_name: string;
+      total: number;
+    }>(
+      `SELECT su.id, su.readable_id, su.unit_type, su.status, su.received_date::text,
+              ur.minimum_retain_until::text, ur.effective_retain_until::text,
+              p.id AS project_id, p.project_number, p.name AS project_name,
+              p.lead_project_engineer_user_id, l.code AS location_code, l.name AS location_name,
+              count(*) OVER ()::int AS total
+       ${READY_FROM}
+       ORDER BY ur.effective_retain_until, su.readable_id COLLATE "C", su.id
+       LIMIT $2 OFFSET $3`,
+      [asOf, DISPOSAL_READY_PAGE_SIZE, (page - 1) * DISPOSAL_READY_PAGE_SIZE],
+    );
+    const total =
+      rows[0]?.total ??
+      (page > 1
+        ? (
+            await this.database.pool.query<{ n: number }>(
+              `SELECT count(*)::int AS n ${READY_FROM}`,
+              [asOf],
+            )
+          ).rows[0]!.n
+        : 0);
+    const clear = 'no hold, open program or location conflict';
+    return {
+      asOf,
+      total,
+      page,
+      pageSize: DISPOSAL_READY_PAGE_SIZE,
+      units: rows.map((row) => {
+        const extended = row.effective_retain_until > row.minimum_retain_until;
+        return {
+          storageUnitId: row.id,
+          readableId: row.readable_id,
+          unitType: row.unit_type,
+          project: {
+            id: row.project_id,
+            projectNumber: row.project_number,
+            name: row.project_name,
+          },
+          location: { code: row.location_code, name: row.location_name },
+          effectiveRetainUntil: row.effective_retain_until,
+          stage: row.status === 'in_stock' ? 'awaiting_approval' : 'approved',
+          reason: extended
+            ? {
+                code: 'extension_ended',
+                label: `Extended retention ended ${row.effective_retain_until}; ${clear}`,
+              }
+            : {
+                code: 'retention_ended',
+                label: `Retention ended ${row.effective_retain_until} (1 year after receipt ${row.received_date}); ${clear}`,
+              },
+          canApprove: can(user, 'disposal.approve', {
+            leadProjectEngineerUserId: row.lead_project_engineer_user_id,
+          }),
         };
       }),
     };

@@ -5,11 +5,13 @@ import { BandedCard, ConfirmDialog, EmptyState, PageHeader, StatusBadge } from '
 import { formatExpiry } from '../lib/format';
 import { ProjectFilter } from '../inventory/ProjectFilter';
 import { approveUnits, fetchCandidates, revokeApproval } from './api';
+import { ReadyForDisposal } from './ReadyForDisposal';
 
 /**
  * Disposal & Retention (MM-T30): pick a project, see each current unit's standard eligibility
  * and reasons, approve eligible units (single or batch) or revoke an approval with a reason.
- * Approval never disposes: approved units are scanned out in Disposal scan mode.
+ * Approval never disposes: approved units are scanned out in Disposal scan mode. "Ready for
+ * disposal" (MISC-13) lists what can go now in every project, before a project is chosen.
  */
 export function DisposalPage() {
   const [params, setParams] = useSearchParams();
@@ -78,6 +80,8 @@ export function DisposalPage() {
         in Disposal scan mode, which checks holds and programs again at that moment. Tested Shelby
         tubes and bulk samples use “Confirm removal after testing” on their own page instead.
       </p>
+      {notice ? <p role="status">{notice}</p> : null}
+      <ReadyForDisposal refresh={tick} />
       <ProjectFilter
         selected={project}
         selectedId={projectId}
@@ -88,8 +92,11 @@ export function DisposalPage() {
           setParams(next ? { projectId: next.id } : {});
         }}
       />
-      {notice ? <p role="status">{notice}</p> : null}
-      {!projectId ? <EmptyState>Choose a project to see its units.</EmptyState> : null}
+      {!projectId ? (
+        <EmptyState>
+          Choose a project to approve its units or see why others aren’t eligible.
+        </EmptyState>
+      ) : null}
       {shown ? (
         <>
           <p className="field-hint" aria-label="Units shown">

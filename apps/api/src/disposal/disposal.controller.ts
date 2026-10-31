@@ -12,10 +12,12 @@ import {
 import {
   approveDisposalSchema,
   disposalCandidatesQuerySchema,
+  disposalReadyQuerySchema,
   removeDisposalSchema,
   revokeDisposalSchema,
   type ApproveDisposalResult,
   type DisposalCandidates,
+  type DisposalReady,
   type DisposalScanResult,
 } from '@materialmule/shared';
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
@@ -42,6 +44,16 @@ export class DisposalController {
   ): Promise<DisposalCandidates> {
     const query = parseBody(disposalCandidatesQuerySchema, { page });
     return this.disposal.candidates(user, projectId ?? '', query.page);
+  }
+
+  /** MISC-13: ready for disposal now, every project; same permission as `eligible`. */
+  @Get('ready')
+  @RequirePermission('inventory.read')
+  ready(
+    @Query('page') page: string | undefined,
+    @CurrentUser() user: AuthUser,
+  ): Promise<DisposalReady> {
+    return this.disposal.ready(user, parseBody(disposalReadyQuerySchema, { page }).page);
   }
 
   @Post('approvals')
