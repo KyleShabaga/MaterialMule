@@ -35,7 +35,6 @@ export function AppLayout() {
           </span>
           <span className="app-name">Material Mule</span>
         </Link>
-        {me.permissions.includes('action_item.read') ? <ActionRequestsBell /> : null}
         <div className="identity" aria-label="Signed in user">
           <span className="identity-name">
             {me.displayName}
@@ -56,6 +55,8 @@ export function AppLayout() {
             Sign out
           </button>
         </div>
+        {/* MISC-02: the bell sits to the right of the user area. */}
+        {me.permissions.includes('action_item.read') ? <ActionRequestsBell /> : null}
       </header>
       <nav id="side-nav" className="side-nav" aria-label="Main">
         <p className="nav-heading">Primary navigation</p>

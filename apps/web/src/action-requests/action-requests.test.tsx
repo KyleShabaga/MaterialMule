@@ -105,6 +105,17 @@ describe('Action requests (MM-T27)', () => {
     expect(within(row).queryByRole('button', { name: 'Reassign' })).toBeNull();
   });
 
+  it('MISC-02: the bell sits to the right of the signed-in user area', async () => {
+    renderAt('/action-requests', me(), (url) => {
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      return json(200, { items: [] });
+    });
+    const bell = await screen.findByRole('link', { name: 'Action requests, 0 open' });
+    const identity = screen.getByLabelText('Signed in user');
+    expect(identity.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(identity.nextElementSibling).toBe(bell);
+  });
+
   it('Resolved filter shows who resolved it for everyone', async () => {
     const user = userEvent.setup();
     renderAt('/action-requests', me({ roles: ['lab_manager'] }), (url) => {

@@ -2248,15 +2248,10 @@ textarea {
   justify-content: center;
   min-width: 36px;
   min-height: 36px;
-  margin-left: auto;
   border: 1px solid var(--line-shell);
   border-radius: var(--radius-control);
   background: var(--card);
   color: var(--ink-soft);
-}
-
-.action-bell + .identity {
-  margin-left: 0;
 }
 
 .action-bell-count {
