@@ -773,6 +773,7 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 | Route                                     | Policy                                                     |
 | ----------------------------------------- | ---------------------------------------------------------- |
 | `GET /api/disposal/eligible?projectId=`   | `inventory.read` (`canApprove` says whether to offer it)   |
+| `GET /api/disposal/ready?page=`           | `inventory.read`, every project (`canApprove` per unit)    |
 | `POST /api/disposal/approvals`            | `disposal.approve` for each unit's project (handler)       |
 | `POST /api/disposal/approvals/:id/revoke` | `disposal.approve` for that project (handler)              |
 | `POST /api/disposal/remove`               | `storage_unit.dispose_scan` (personal accounts; never LAB) |

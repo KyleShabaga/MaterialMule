@@ -63,6 +63,39 @@ const diskSchema = z.object({
 
 export type DiskSpace = z.infer<typeof diskSchema>;
 
+/**
+ * The newest finished attempt on the default printer (MTR-45), from its print jobs:
+ * - ok: the labels went out (sent, or a person confirmed they printed);
+ * - retrying: nothing reached the printer and the job will be tried again;
+ * - failed: nothing reached the printer and the retries ran out (or the job couldn't be sent);
+ * - uncertain: the connection broke part-way, so the labels may or may not have printed.
+ */
+export const PRINTER_OUTCOMES = ['ok', 'retrying', 'failed', 'uncertain'] as const;
+export type PrinterOutcome = (typeof PRINTER_OUTCOMES)[number];
+
+const defaultPrinterSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  enabled: z.boolean(),
+  /** Whether the worker asks the printer for its host status before sending (Settings). */
+  checkStatus: z.boolean(),
+  /** Null until a job for this printer has been attempted. */
+  lastAttempt: z
+    .object({
+      outcome: z.enum(PRINTER_OUTCOMES),
+      at: isoTimestamp,
+      /** Plain-language reason, e.g. "Printer refused the connection"; null when ok. */
+      error: z.string().nullable(),
+      /** The printer's own condition from the host status check, e.g. "Printer out of labels". */
+      printerMessage: z.string().nullable(),
+    })
+    .nullable(),
+  /** When the printer stopped printing: the first attempt since its last good print. */
+  failingSince: isoTimestamp.nullable(),
+});
+
+export type DefaultPrinterStatus = z.infer<typeof defaultPrinterSchema>;
+
 export const systemStatusResponseSchema = z.object({
   checkedAt: isoTimestamp,
   version: z.string(),
@@ -96,6 +129,8 @@ export const systemStatusResponseSchema = z.object({
     running: z.boolean(),
     lastPollAt: isoTimestamp.nullable(),
   }),
+  /** Null when no printer is the default, or the database is down. */
+  defaultPrinter: defaultPrinterSchema.nullable(),
   /** Only the disks whose space could be measured. */
   disks: z.array(diskSchema),
 });

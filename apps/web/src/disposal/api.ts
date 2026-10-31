@@ -1,7 +1,9 @@
 import {
   disposalCandidatesSchema,
+  disposalReadySchema,
   disposalScanResultSchema,
   type DisposalCandidates,
+  type DisposalReady,
   type DisposalScanResult,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
@@ -16,6 +18,17 @@ export async function fetchCandidates(
     );
     if (!response.ok) return null;
     return disposalCandidatesSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+/** MISC-13: units ready for disposal in every project; null when it couldn't be loaded. */
+export async function fetchReady(page = 1): Promise<DisposalReady | null> {
+  try {
+    const response = await apiFetch(`/api/disposal/ready?page=${page}`);
+    if (!response.ok) return null;
+    return disposalReadySchema.parse(await response.json());
   } catch {
     return null;
   }

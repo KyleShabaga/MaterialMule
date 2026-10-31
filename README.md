@@ -118,12 +118,15 @@ For hands-on testing, `npm run db:seed:demo` adds a fuller fictional dataset thr
 - 8 locations (lab benches, staging, warehouses, cold room) and 5 demo test types
 - 6 projects, DEMO-2610 to DEMO-2615, with leads Pat, Dana and Jamie, project teams, and
   DEMO-2615 still waiting for an admin to confirm its lead
-- 34 storage units in 10 receipts received 1 to 430 days ago: buckets with every summary type,
+- 40 storage units in 12 receipts received 1 to 430 days ago: buckets with every summary type,
   Shelby tubes and a three-bucket bulk sample, mostly moved out of Receiving
 - Lab programs LP-…: one with tests in every stage (including one returned for correction), an
   urgent one, a closed one, a requested one and an unsubmitted draft
 - Retention: a hold, an extension and a pending request; three DEMO-2613 units approved for
   disposal, one of them disposed
+- "Ready for disposal" examples on DEMO-2612 (MISC-13), dated from the seed day: two buckets and
+  an untested Shelby tube past retention, with a bucket on hold, one extended a year and one
+  received 120 days ago next to them for contrast
 
 If a run stops partway, run it again: it picks up where it left off. Once complete it refuses to
 run again; start over with `npm run db:rebuild:dev -- --disposable <database>`. How the seed sets
