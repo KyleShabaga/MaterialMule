@@ -29,6 +29,7 @@ import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { flagInheritedGrants } from '../project-access/grant-reviews.service.js';
 import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
@@ -605,6 +606,7 @@ export class ProjectsService {
    * `project.updated`). Existing grants survive either way (D08). Appointing someone resolves the
    * admins' "Lead appointment" request and closes a pending nomination: confirmed when it named
    * that person, rejected (with the admin's reason) otherwise. Removing the lead opens the request.
+   * A new lead's inherited delegate, issuer and reviewer grants are flagged for review (MTR-25).
    */
   private async afterLeadChange(
     client: PoolClient,
@@ -647,6 +649,14 @@ export class ProjectsService {
       );
     }
     await resolveLeadAppointment(client, projectId, by);
+    // MTR-25: the new lead reviews the grants the project already has.
+    await flagInheritedGrants(client, {
+      projectId,
+      projectNumber: context.projectNumber,
+      lead,
+      by,
+      actor,
+    });
   }
 
   private async conflict(projectNumber: string): Promise<ConflictException> {

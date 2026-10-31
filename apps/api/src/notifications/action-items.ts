@@ -107,11 +107,14 @@ export function titleOf(
     }
     case 'lead_appointment':
       return `Lead Project Engineer needed for ${row.project_number}`;
+    case 'grant_review':
+      return `Review inherited grants on ${row.project_number}`;
   }
 }
 
 export function hrefOf(row: Pick<ItemRow, 'kind' | 'program_id' | 'project_id'>): string {
   if (row.kind === 'lead_appointment') return `/projects/${row.project_id}#lead`;
+  if (row.kind === 'grant_review') return `/projects/${row.project_id}/team#grant-reviews`;
   return row.program_id
     ? `/lab-testing/programs/${row.program_id}`
     : `/projects/${row.project_id}#retention`;
@@ -123,6 +126,7 @@ const ROUTE_TAG: Record<ActionRequestKind, string> = {
   closure_request: 'Lead Project Engineer',
   retention_request: 'LM · Lead Project Engineer',
   lead_appointment: 'Admin',
+  grant_review: 'Lead Project Engineer',
 };
 
 function person(id: string | null, initials: string | null, name: string | null) {

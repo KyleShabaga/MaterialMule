@@ -13,6 +13,8 @@ export const ACTION_REQUEST_KINDS = [
   'retention_request',
   // MM-AO04 (D02): a project waiting for a Lead Project Engineer, for admins to appoint one.
   'lead_appointment',
+  // MTR-25: inherited grants for a project's new Lead Project Engineer to keep or revoke.
+  'grant_review',
 ] as const;
 export type ActionRequestKind = (typeof ACTION_REQUEST_KINDS)[number];
 
@@ -23,6 +25,7 @@ export const ACTION_REQUEST_RESOLUTIONS = [
   'approved',
   'declined',
   'appointed',
+  'reviewed',
 ] as const;
 export type ActionRequestResolution = (typeof ACTION_REQUEST_RESOLUTIONS)[number];
 
@@ -33,6 +36,7 @@ export const ACTION_REQUEST_ROUTE_LABEL: Record<ActionRequestKind, string> = {
   closure_request: 'Lead Project Engineer',
   retention_request: 'Lead Project Engineer and Lab Managers',
   lead_appointment: 'Admins',
+  grant_review: 'Lead Project Engineer',
 };
 
 export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, string> = {
@@ -42,6 +46,7 @@ export const ACTION_REQUEST_RESOLUTION_LABEL: Record<ActionRequestResolution, st
   approved: 'Approved',
   declined: 'Declined',
   appointed: 'Lead Project Engineer appointed',
+  reviewed: 'Inherited grants reviewed',
 };
 
 export const actionRequestSchema = z.object({

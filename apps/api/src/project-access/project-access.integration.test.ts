@@ -574,10 +574,13 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     const view = projectPeopleSchema.parse(response.body);
     const byId = new Map(view.people.map((p) => [p.userId, p]));
-    // The lead, team member, reviewer, delegate and issuer; nobody else.
-    expect(new Set(byId.keys())).toEqual(
-      new Set([h.users.pe, people.team, people.rev, people.del, people.iss]),
-    );
+    // The lead, team member, reviewer, delegate and issuer (and whoever earlier tests added);
+    // never someone with no part in the project.
+    for (const id of [h.users.pe, people.team, people.rev, people.del, people.iss]) {
+      expect(byId.has(id!), id).toBe(true);
+    }
+    expect(byId.has(people.pending!)).toBe(false);
+    expect(byId.has(h.users.lab!)).toBe(false);
     // Each person's list is exactly what they'd see for themselves.
     for (const [key, id] of [
       ['pe', h.users.pe],

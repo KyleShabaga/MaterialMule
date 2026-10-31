@@ -3,6 +3,7 @@ import type {
   ProjectLeadNominations,
   ProjectCapabilities,
   ProjectPeople,
+  ProjectGrantReviews,
   ProjectReportIssuers,
   ProjectReviewers,
   ProjectTeam,
@@ -13,6 +14,7 @@ import type {
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
+import { GrantReviewsService } from './grant-reviews.service.js';
 import { LeadNominationsService } from './lead-nominations.service.js';
 import { activeScopes, ProjectAccessService } from './project-access.service.js';
 import { StaffGrantsService } from './staff-grants.service.js';
@@ -35,6 +37,7 @@ export class ProjectAccessController {
   constructor(
     private readonly access: ProjectAccessService,
     private readonly nominations: LeadNominationsService,
+    private readonly grantReviews: GrantReviewsService,
     private readonly database: DatabaseService,
   ) {}
 
@@ -123,6 +126,42 @@ export class ProjectAccessController {
     @CurrentUser() user: AuthUser,
   ): Promise<ProjectCapabilities> {
     return this.access.capabilities(projectId, user);
+  }
+
+  // MTR-25: inherited grants flagged for a new lead. Anyone who reads the team sees them; the
+  // lead or an admin keeps or revokes each one, with `{reason}`.
+
+  @Get('projects/:projectId/grant-reviews')
+  @RequirePermission('project_access.read')
+  grantReviewList(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectGrantReviews> {
+    return this.grantReviews.list(projectId, user);
+  }
+
+  @Post('projects/:projectId/grant-reviews/:reviewId/keep')
+  @ActiveUser()
+  @HttpCode(200)
+  keepGrant(
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectGrantReviews> {
+    return this.grantReviews.keep(projectId, reviewId, body, user);
+  }
+
+  @Post('projects/:projectId/grant-reviews/:reviewId/revoke')
+  @ActiveUser()
+  @HttpCode(200)
+  revokeGrant(
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectGrantReviews> {
+    return this.grantReviews.revoke(projectId, reviewId, body, user);
   }
 
   /** MTR-21: each person on the project, their job title and permissions here, and why. */

@@ -267,3 +267,20 @@
   display: grid;
   gap: 0.25rem;
 }
+
+/* MTR-25: inherited grants waiting for the new lead's review. */
+.grant-reviews {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.grant-reviews li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}

@@ -23,6 +23,7 @@ import {
 } from '../projects/lead-appointment.js';
 import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { parseBody } from '../validation/parse-body.js';
+import { flagInheritedGrants } from './grant-reviews.service.js';
 import { findProject, forbidden, unprocessable } from './project-access.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -291,6 +292,14 @@ export class LeadNominationsService {
       });
       if (decision === 'confirmed') {
         await resolveLeadAppointment(client, projectId, by);
+        // MTR-25: grants made while the project had no lead (or under an earlier one).
+        await flagInheritedGrants(client, {
+          projectId,
+          projectNumber: project.project_number,
+          lead: found.nominee_user_id,
+          by,
+          actor: actorOf(actor),
+        });
         // D10 (MM-AO07): requests that waited for a lead now go to them, and they are told.
         await rerouteOpenItems(
           client,

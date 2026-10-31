@@ -1,6 +1,7 @@
 import {
   BLOCKED_REASON_LABEL,
   CAPABILITY_SOURCE_LABEL,
+  GRANT_REVIEW_KIND_LABEL,
   PROJECT_CAPABILITY_ACTIONS,
   PROJECT_CAPABILITY_ACTION_LABEL,
   PROJECT_INVOLVEMENT_LABEL,
@@ -10,6 +11,7 @@ import {
   type ProjectCapabilities,
   type ProjectCapabilityAction,
   type ProjectDetail,
+  type ProjectGrantReviews,
   type ProjectPeople,
   type ProjectPerson,
   type ProjectReportIssuers,
@@ -25,10 +27,12 @@ import { useMe } from '../session/context';
 import { fetchDelegates } from '../lab/api';
 import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
+import { GrantReviewsSection, NEEDS_REVIEW } from './GrantReviewsSection';
 import { LeadSection } from './LeadSection';
 import { IssuersSection, ReviewersSection, TeamSection, type RunWrite } from './TeamSections';
 import {
   fetchCapabilities,
+  fetchGrantReviews,
   fetchIssuers,
   fetchPeople,
   fetchReviewers,
@@ -57,6 +61,8 @@ interface Loaded {
   scopes: ReviewScope[];
   /** MTR-21: null when it couldn't be loaded; the people list then shows no permissions. */
   people: ProjectPeople | null;
+  /** MTR-25: inherited grants flagged for a new lead, and the lead changes; null if unloaded. */
+  grantReviews: ProjectGrantReviews | null;
 }
 
 type PageState =
@@ -70,7 +76,7 @@ function unwrap<T>(result: LoadResult<T>): T {
 }
 
 async function loadAll(projectId: string): Promise<Loaded> {
-  const [project, capabilities, team, reviewers, issuers, scopes, delegates, people] =
+  const [project, capabilities, team, reviewers, issuers, scopes, delegates, people, grantReviews] =
     await Promise.all([
       fetchProjectDetail(projectId),
       fetchCapabilities(projectId),
@@ -80,6 +86,7 @@ async function loadAll(projectId: string): Promise<Loaded> {
       fetchScopes(),
       fetchDelegates(projectId).catch(() => null),
       fetchPeople(projectId).catch(() => null),
+      fetchGrantReviews(projectId).catch(() => null),
     ]);
   return {
     project: unwrap(project),
@@ -90,6 +97,7 @@ async function loadAll(projectId: string): Promise<Loaded> {
     scopes: unwrap(scopes),
     delegates,
     people: people?.ok ? people.data : null,
+    grantReviews: grantReviews?.ok ? grantReviews.data : null,
   };
 }
 
@@ -143,7 +151,8 @@ function TeamPermissions({ projectId }: { projectId: string }) {
       fetchCapabilities(projectId),
       fetchDelegates(projectId).catch(() => null),
       fetchPeople(projectId).catch(() => null),
-    ]).then(([capabilities, delegates, people]) => {
+      fetchGrantReviews(projectId).catch(() => null),
+    ]).then(([capabilities, delegates, people, grantReviews]) => {
       if (!capabilities.ok) return;
       setPage((current) =>
         current.state === 'ready'
@@ -154,6 +163,7 @@ function TeamPermissions({ projectId }: { projectId: string }) {
                 capabilities: capabilities.data,
                 delegates,
                 people: people?.ok ? people.data : null,
+                grantReviews: grantReviews?.ok ? grantReviews.data : current.data.grantReviews,
               },
             }
           : current,
@@ -223,7 +233,17 @@ function TeamPermissions({ projectId }: { projectId: string }) {
     );
   }
 
-  const { project, capabilities, team, reviewers, issuers, delegates, scopes, people } = page.data;
+  const {
+    project,
+    capabilities,
+    team,
+    reviewers,
+    issuers,
+    delegates,
+    scopes,
+    people,
+    grantReviews,
+  } = page.data;
   return (
     <>
       {back}
@@ -276,6 +296,15 @@ function TeamPermissions({ projectId }: { projectId: string }) {
         }}
       />
 
+      {grantReviews ? (
+        <GrantReviewsSection
+          projectId={project.id}
+          data={grantReviews}
+          run={run}
+          onChange={(next) => update({ grantReviews: next })}
+        />
+      ) : null}
+
       <PeopleSummary
         project={project}
         team={team}
@@ -283,6 +312,7 @@ function TeamPermissions({ projectId }: { projectId: string }) {
         issuers={issuers}
         delegates={delegates}
         people={people}
+        grantReviews={grantReviews}
       />
 
       <TeamSection
@@ -315,7 +345,13 @@ function TeamPermissions({ projectId }: { projectId: string }) {
 
       <YourPermissions capabilities={capabilities} onRefresh={reload} />
 
-      <HistorySection team={team} reviewers={reviewers} issuers={issuers} delegates={delegates} />
+      <HistorySection
+        team={team}
+        reviewers={reviewers}
+        issuers={issuers}
+        delegates={delegates}
+        grantReviews={grantReviews}
+      />
     </>
   );
 }
@@ -361,6 +397,7 @@ function PeopleSummary({
   issuers,
   delegates,
   people: peopleView,
+  grantReviews,
 }: {
   project: ProjectDetail;
   team: ProjectTeam;
@@ -368,8 +405,12 @@ function PeopleSummary({
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
   people: ProjectPeople | null;
+  grantReviews: ProjectGrantReviews | null;
 }) {
   const details = new Map((peopleView?.people ?? []).map((p) => [p.userId, p]));
+  // MTR-25: grants still waiting for the new lead's review carry the badge text.
+  const flagged = new Set((grantReviews?.pending ?? []).map((r) => r.grantId));
+  const badge = (grantId: string) => (flagged.has(grantId) ? ` (${NEEDS_REVIEW})` : '');
   const people = new Map<string, PersonRow>();
   const person = (id: string, initials: string | null, name: string) => {
     let row = people.get(id);
@@ -390,17 +431,21 @@ function PeopleSummary({
   for (const assignment of reviewers.active) {
     const r = assignment.reviewer;
     person(r.userId, r.initials, r.name).responsibilities.push(
-      `Reviewer: ${assignment.scope.label}${assignment.effective ? '' : ' (not effective)'}`,
+      `Reviewer: ${assignment.scope.label}${assignment.effective ? '' : ' (not effective)'}${badge(
+        assignment.id,
+      )}`,
     );
   }
   for (const grant of delegates?.active ?? []) {
     const d = grant.delegate;
-    person(d.userId, d.initials, d.name).grants.push('Acceptance delegate');
+    person(d.userId, d.initials, d.name).grants.push(`Acceptance delegate${badge(grant.id)}`);
   }
   for (const grant of issuers.active) {
     const i = grant.issuer;
     person(i.userId, i.initials, i.name).grants.push(
-      `Report issuer: ${grant.scope.label}${grant.effective ? '' : ' (not effective)'}`,
+      `Report issuer: ${grant.scope.label}${grant.effective ? '' : ' (not effective)'}${badge(
+        grant.id,
+      )}`,
     );
   }
   const rows = [...people.values()];
@@ -547,13 +592,42 @@ function HistorySection({
   reviewers,
   issuers,
   delegates,
+  grantReviews,
 }: {
   team: ProjectTeam;
   reviewers: ProjectReviewers;
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
+  grantReviews: ProjectGrantReviews | null;
 }) {
   const events: HistoryEvent[] = [];
+  // MTR-25: lead changes and the new lead's review of inherited grants.
+  for (const change of grantReviews?.leadChanges ?? []) {
+    const by = change.by ? ` by ${formatPerson(change.by.initials, change.by.name)}` : '';
+    const reason = change.reason ? ` (${change.reason})` : '';
+    events.push({
+      key: `lead:${change.at}`,
+      at: change.at,
+      text: change.lead
+        ? `Lead Project Engineer changed to ${formatPerson(change.lead.initials, change.lead.name)}${by}${reason}`
+        : `Lead Project Engineer removed${by}${reason}`,
+    });
+  }
+  for (const review of grantReviews?.history ?? []) {
+    if (!review.decidedAt || review.status === 'pending') continue;
+    const by = review.decidedBy
+      ? ` by ${formatPerson(review.decidedBy.initials, review.decidedBy.name)}`
+      : '';
+    events.push({
+      key: `review:${review.id}`,
+      at: review.decidedAt,
+      text: `Inherited ${GRANT_REVIEW_KIND_LABEL[review.kind].toLowerCase()} grant of ${
+        review.holder.name
+      } ${review.status === 'kept' ? 'kept' : 'revoked'}${by}${
+        review.reason ? ` (${review.reason})` : ''
+      }`,
+    });
+  }
   const add = (
     id: string,
     what: string,

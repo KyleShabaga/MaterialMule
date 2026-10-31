@@ -1,5 +1,6 @@
 import {
   projectCapabilitiesSchema,
+  projectGrantReviewsSchema,
   projectPeopleSchema,
   projectReportIssuersSchema,
   projectReviewersSchema,
@@ -9,6 +10,7 @@ import {
   type FieldError,
   type GrantReportIssuerRequest,
   type ProjectCapabilities,
+  type ProjectGrantReviews,
   type ProjectPeople,
   type ProjectReportIssuers,
   type ProjectReviewers,
@@ -72,6 +74,7 @@ const MESSAGES: Record<string, string> = {
   not_eligible: 'This person isn’t an eligible reviewer for that scope.',
   invalid_scope: 'Choose a review scope.',
   invalid_expiry: 'Expiry must be in the future.',
+  grant_review_decided: 'That grant was already reviewed. The list now shows the current state.',
 };
 
 async function write<T>(
@@ -220,4 +223,22 @@ export const revokeIssuer = (
     'DELETE',
     body,
     projectReportIssuersSchema,
+  );
+
+// Inherited grants after a lead change (MTR-25)
+
+export const fetchGrantReviews = (projectId: string): Promise<LoadResult<ProjectGrantReviews>> =>
+  load(projectPath(projectId, 'grant-reviews'), projectGrantReviewsSchema);
+
+export const decideGrantReview = (
+  projectId: string,
+  id: string,
+  action: 'keep' | 'revoke',
+  reason: string,
+) =>
+  write(
+    projectPath(projectId, `grant-reviews/${encodeURIComponent(id)}/${action}`),
+    'POST',
+    { reason },
+    projectGrantReviewsSchema,
   );

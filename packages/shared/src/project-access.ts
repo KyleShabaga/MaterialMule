@@ -496,3 +496,62 @@ export const accessSummarySchema = z.object({
   projectsTotal: z.number(),
 });
 export type AccessSummary = z.infer<typeof accessSummarySchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Inherited grants after a lead change (MTR-25, owner decision 2026-10-30)
+// ---------------------------------------------------------------------------------------------
+
+export const GRANT_REVIEW_KINDS = ['acceptance_delegate', 'report_issuer', 'reviewer'] as const;
+export type GrantReviewKind = (typeof GRANT_REVIEW_KINDS)[number];
+
+export const GRANT_REVIEW_KIND_LABEL: Record<GrantReviewKind, string> = {
+  acceptance_delegate: 'Acceptance delegate',
+  report_issuer: 'Report issuer',
+  reviewer: 'Reviewer',
+};
+
+export const GRANT_REVIEW_STATUSES = ['pending', 'kept', 'revoked'] as const;
+export type GrantReviewStatus = (typeof GRANT_REVIEW_STATUSES)[number];
+
+/** One inherited grant flagged "Needs review by new lead", and how it was settled. */
+export const grantReviewSchema = z.object({
+  id: z.string(),
+  kind: z.enum(GRANT_REVIEW_KINDS),
+  grantId: z.string(),
+  /** Who holds the grant. */
+  holder: personSnapshotSchema,
+  /** The scope label of an issuer grant or reviewer assignment; null for a delegate. */
+  scope: z.string().nullable(),
+  flaggedFor: personSnapshotSchema,
+  flaggedAt: z.string(),
+  status: z.enum(GRANT_REVIEW_STATUSES),
+  decidedBy: personSnapshotSchema.nullable(),
+  decidedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+export type GrantReview = z.infer<typeof grantReviewSchema>;
+
+/** A change of the project's Lead Project Engineer, from the audit (MTR-25 History). */
+export const leadChangeSchema = z.object({
+  at: z.string(),
+  /** The new lead; null when the lead was removed. */
+  lead: personSnapshotSchema.nullable(),
+  by: personSnapshotSchema.nullable(),
+  reason: z.string().nullable(),
+});
+export type LeadChange = z.infer<typeof leadChangeSchema>;
+
+/** `GET /api/projects/:projectId/grant-reviews`. */
+export const projectGrantReviewsSchema = z.object({
+  projectId: z.string(),
+  /** The project's lead or an admin may keep or revoke a flagged grant. */
+  canDecide: z.boolean(),
+  pending: z.array(grantReviewSchema),
+  history: z.array(grantReviewSchema),
+  leadChanges: z.array(leadChangeSchema),
+});
+export type ProjectGrantReviews = z.infer<typeof projectGrantReviewsSchema>;
+
+/** Body of `POST …/grant-reviews/:id/keep` and `…/revoke`: both need a reason. */
+export const decideGrantReviewRequestSchema = z.strictObject({ reason: grantReasonSchema });
+export type DecideGrantReviewRequest = z.output<typeof decideGrantReviewRequestSchema>;
