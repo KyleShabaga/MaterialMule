@@ -71,7 +71,13 @@ parallel browsers made the API stall (AVG Web Shield); CI uses the default.
 Parallel worktrees: each worktree needs its own test database (point its `apps/api/.env.test` at
 e.g. `materialmule_test_t07`) and its own E2E port (`E2E_PORT=3107 npm run test:e2e`), because E2E
 resets the database it runs against. Playwright never reuses a server already on the port unless
-`E2E_REUSE_SERVER=1` is set.
+`E2E_REUSE_SERVER=1` is set. If the database role can't create databases, worktrees share
+`materialmule_test`: integration tests are safe (random schemas), but only one E2E run at a time.
+Before copying `.env.test` into a worktree, check which database it names: `db:reset:test` (and
+so E2E) refuses any database whose name doesn't contain `test`. The API timeouts and phone-spec stalls seen on the dev
+PC came from several lanes sharing one PC and PostgreSQL, not from the specs (MM-T85: the full suite
+and the phone project pass with 2 workers when run alone). Under that load, rerun failing API files
+alone before treating them as failures.
 
 ## Configuration
 
