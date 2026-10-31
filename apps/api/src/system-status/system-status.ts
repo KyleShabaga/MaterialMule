@@ -5,6 +5,7 @@ import {
   backupStatusFileSchema,
   type BackupStatusFile,
   type DiskSpace,
+  type PrinterOutcome,
   type SystemStatusResponse,
 } from '@materialmule/shared';
 import type { Pool } from 'pg';
@@ -130,6 +131,78 @@ export async function printQueueSummary(pool: Pool, now: Date): Promise<PrintQue
     oldestQueuedAgeSeconds: oldest
       ? Math.max(0, Math.floor((now.getTime() - oldest.getTime()) / 1000))
       : null,
+  };
+}
+
+const OUTCOME_BY_STATUS = {
+  sent: 'ok',
+  queued: 'retrying',
+  failed: 'failed',
+  uncertain: 'uncertain',
+} as const satisfies Record<string, PrinterOutcome>;
+
+/**
+ * The default printer and how its newest finished attempt went (MTR-45), from print_job alone.
+ * An attempt is a job the worker has tried (attempts > 0) and isn't sending right now. Its time is
+ * when it was sent, or when the worker last saved it. Uncertain jobs a person has since confirmed
+ * are left out: the confirmation moved their updated_at, so the attempt time is no longer known.
+ */
+export async function defaultPrinterSummary(
+  pool: Pool,
+): Promise<SystemStatusResponse['defaultPrinter']> {
+  const { rows } = await pool.query<{
+    key: string;
+    name: string;
+    enabled: boolean;
+    check_status: boolean;
+    status: keyof typeof OUTCOME_BY_STATUS | null;
+    attempt_at: Date | null;
+    last_error: string | null;
+    printer_message: string | null;
+    failing_since: Date | null;
+  }>(
+    `WITH printer AS (
+       SELECT key, name, enabled, check_status FROM printer WHERE is_default
+     ), attempt AS (
+       SELECT j.status, j.created_at, j.last_error, j.printer_message,
+              coalesce(j.sent_at, j.updated_at) AS attempt_at
+         FROM print_job j JOIN printer p ON p.key = j.printer_key
+        WHERE j.attempts > 0
+          AND (j.status IN ('sent', 'queued', 'failed')
+               OR (j.status = 'uncertain' AND j.physically_confirmed_at IS NULL))
+     ), last_ok AS (
+       SELECT max(attempt_at) AS at FROM attempt WHERE status = 'sent'
+     )
+     SELECT p.key, p.name, p.enabled, p.check_status,
+            latest.status, latest.attempt_at, latest.last_error, latest.printer_message,
+            (SELECT min(greatest(a.created_at, coalesce(o.at, a.created_at)))
+               FROM attempt a
+              WHERE a.status <> 'sent' AND a.attempt_at > coalesce(o.at, '-infinity')
+            ) AS failing_since
+       FROM printer p
+       CROSS JOIN last_ok o
+       LEFT JOIN LATERAL (
+         SELECT * FROM attempt ORDER BY attempt_at DESC LIMIT 1
+       ) latest ON true`,
+  );
+  const row = rows[0];
+  if (!row) return null;
+  const ok = row.status === 'sent';
+  return {
+    key: row.key,
+    name: row.name,
+    enabled: row.enabled,
+    checkStatus: row.check_status,
+    lastAttempt:
+      row.status && row.attempt_at
+        ? {
+            outcome: OUTCOME_BY_STATUS[row.status],
+            at: row.attempt_at.toISOString(),
+            error: ok ? null : row.last_error,
+            printerMessage: ok ? null : row.printer_message,
+          }
+        : null,
+    failingSince: !ok && row.failing_since ? row.failing_since.toISOString() : null,
   };
 }
 

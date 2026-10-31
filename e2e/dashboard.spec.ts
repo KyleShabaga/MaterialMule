@@ -65,7 +65,14 @@ test('admins see the label printer card from system status', async ({ page }) =>
   const printer = page.getByRole('region', { name: 'Label printer' });
   await expect(printer).toContainText('Waiting to print');
   await expect(printer).toContainText('Not sure if printed');
-  await expect(printer.getByText(/^(Running|Stopped)$/)).toBeVisible();
+  await expect(printer.getByText(/^Print queue (running|stopped)$/)).toBeVisible();
+  // MTR-45: a line for the default printer (the fake printer). Other specs print in parallel and
+  // one drops a job on purpose, so only the shape is fixed here; the states are unit tested.
+  await expect(
+    printer.getByText(
+      /^(Printer OK|Printer not responding|Check the printer|Not used yet|Printer off|No default printer)$/,
+    ),
+  ).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
   await printer.getByRole('link', { name: 'Print queue in System status' }).click();
