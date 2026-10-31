@@ -1,11 +1,19 @@
 import {
   LIFECYCLE_REASON_MAX_LENGTH,
+  LINE_SCOPE_LABEL,
+  MATCHING_BASIS_LABEL,
   formatPerson,
+  type AmendmentLineInput,
+  type CoverageUnit,
+  type DepthDiscrepancy,
   type LabLine,
   type LabProgram,
+  type LabSource,
   type LaterReceipts,
   type ProgramWork,
+  type TestCatalogue,
   type TestRequest,
+  type TestTemplate,
   type TestType,
 } from '@materialmule/shared';
 import { useEffect, useId, useState } from 'react';
@@ -15,14 +23,18 @@ import {
   changeTestRequest,
   fetchCatalogue,
   fetchLaterReceipts,
+  fetchSources,
+  fetchTemplates,
   type WriteResult,
 } from './api';
+import { LineEditor } from './LineEditor';
+import { emptyLine, numberOrNull, type LineDraft } from './line-draft';
 import { problemText } from './problem-text';
 
 // Amendments to an open program (D02) and changes to an accepted test (D09), MM-T26. Every
 // change here is explicit: later receipts join a line only when ticked, and changing an accepted
-// test says that it returns to Requested and needs a fresh review and acceptance. New testing
-// lines are added through the API (`addLines`); this screen offers tests and later receipts.
+// test says that it returns to Requested and needs a fresh review and acceptance. A new testing
+// line (MM-T83) is added only after the person has seen and confirmed what it will cover.
 
 const newKey = () => crypto.randomUUID();
 
@@ -167,6 +179,18 @@ export function AmendProgram({
           Add test
         </button>
       </fieldset>
+      <AddTestingLine
+        program={program}
+        version={life.version}
+        reason={reason}
+        onDone={(message) => {
+          if (message === null) {
+            setOpen(false);
+            setReason('');
+          }
+          onDone(message);
+        }}
+      />
       <fieldset>
         <legend>Include later receipts</legend>
         <p className="field-hint">
@@ -242,6 +266,263 @@ export function AmendProgram({
       </div>
       {history}
     </div>
+  );
+}
+
+// Never a real unit: sent as the reviewed coverage of the first request so the server always
+// answers 409 `coverage_changed` with the coverage it would freeze now. That answer is the
+// preview; nothing changes until the person confirms it and the line goes with that coverage.
+const PREVIEW_PROBE_UNIT_ID = '00000000-0000-4000-8000-000000000000';
+
+function amendmentLine(line: LineDraft, reviewedCoverageUnitIds: string[]): AmendmentLineInput {
+  const specific = line.scope === 'specific';
+  return {
+    source: line.source!,
+    scope: line.scope,
+    identity: specific
+      ? {
+          sampleLabel: line.sampleLabel.trim(),
+          depthMode: line.depthMode,
+          depthFrom: Number(line.depthFrom),
+          depthTo: line.depthMode === 'interval' ? numberOrNull(line.depthTo) : null,
+          depthUnit: line.depthUnit,
+        }
+      : null,
+    testTypeIds: line.testTypeIds,
+    unitIds: line.scope === 'all' ? [] : line.unitIds,
+    reviewedCoverageUnitIds: specific ? [] : reviewedCoverageUnitIds,
+    acknowledgedDepths: specific ? line.acknowledgedDepths : [],
+  };
+}
+
+/**
+ * Add a testing line to a submitted program (MM-T83): source, scope, explicit Grabs/SPT units
+ * and tests, then a preview of what it will cover before anything is saved. The coverage is the
+ * server's own answer, so disposed units and tubes destroyed in testing are never included.
+ */
+function AddTestingLine({
+  program,
+  version,
+  reason,
+  onDone,
+}: {
+  program: LabProgram;
+  version: number;
+  reason: string;
+  onDone: (message: string | null) => void;
+}) {
+  const id = useId();
+  const [adding, setAdding] = useState(false);
+  const [line, setLine] = useState<LineDraft>(emptyLine);
+  const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
+  const [templates, setTemplates] = useState<TestTemplate[]>([]);
+  const [sources, setSources] = useState<LabSource[]>([]);
+  // What the line would freeze (ALL/Grabs/SPT, from the server); [] for a Specific line.
+  const [preview, setPreview] = useState<CoverageUnit[] | null>(null);
+  const [discrepancy, setDiscrepancy] = useState<DepthDiscrepancy | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [key, setKey] = useState(newKey);
+  const [busy, setBusy] = useState(false);
+  const projectId = program.project.id;
+
+  useEffect(() => {
+    if (!adding) return;
+    Promise.all([fetchCatalogue(), fetchTemplates(), fetchSources(projectId)]).then(
+      ([c, t, s]) => {
+        setCatalogue(c);
+        setTemplates(t);
+        setSources(s);
+      },
+      () => setProblem('The test catalogue or sampling sources couldn’t be loaded. Try again.'),
+    );
+  }, [adding, projectId]);
+
+  if (!adding) {
+    return (
+      <div className="form-actions">
+        <button type="button" onClick={() => setAdding(true)}>
+          Add a testing line
+        </button>
+      </div>
+    );
+  }
+
+  const specific = line.scope === 'specific';
+  const lineNumber = program.lines.length + 1;
+  const ready =
+    line.source !== null &&
+    line.testTypeIds.length > 0 &&
+    (!specific || (line.sampleLabel.trim() !== '' && numberOrNull(line.depthFrom) !== null));
+
+  function reset() {
+    setAdding(false);
+    setLine(emptyLine());
+    setPreview(null);
+    setDiscrepancy(null);
+    setProblem(null);
+  }
+
+  async function send(reviewed: string[]): Promise<WriteResult<unknown>> {
+    setBusy(true);
+    setProblem(null);
+    const result = await amendProgram(program.id, {
+      version,
+      idempotencyKey: key,
+      reason: reason.trim() || null,
+      addLines: [amendmentLine(line, reviewed)],
+    });
+    setBusy(false);
+    // Same key on a network retry: an amendment that did commit is returned, never duplicated.
+    if (result.ok || result.kind !== 'network') setKey(newKey());
+    return result;
+  }
+
+  function refused(result: Exclude<WriteResult<unknown>, { ok: true }>) {
+    if (result.kind === 'invalid' && result.discrepancy) {
+      setDiscrepancy(result.discrepancy);
+    }
+    if (result.kind === 'forbidden') {
+      onDone(problemText(result));
+      return;
+    }
+    setProblem(
+      result.kind === 'conflict'
+        ? 'This program changed since you opened it. Close the amendment and open it again.'
+        : problemText(result),
+    );
+  }
+
+  async function showPreview() {
+    if (specific) {
+      // A Specific line covers only the units linked to it: nothing to compare with the server.
+      setPreview([]);
+      return;
+    }
+    const result = await send([PREVIEW_PROBE_UNIT_ID]);
+    if (!result.ok && result.kind === 'conflict' && result.coverageChanged) {
+      setPreview(result.coverageChanged[0]?.coverage ?? []);
+      return;
+    }
+    if (result.ok) {
+      reset();
+      onDone(null);
+      return;
+    }
+    refused(result);
+  }
+
+  async function confirm() {
+    if (preview === null) return;
+    const result = await send(preview.filter((u) => u.included).map((u) => u.storageUnitId));
+    if (result.ok) {
+      reset();
+      onDone(null);
+      return;
+    }
+    if (result.kind === 'conflict' && result.coverageChanged) {
+      setPreview(result.coverageChanged[0]?.coverage ?? []);
+      setProblem(
+        'The material for this line changed since the preview (for example a new receipt or a disposal). Check the updated coverage and add the line again.',
+      );
+      return;
+    }
+    if (result.kind === 'invalid' && result.discrepancy) setPreview(null);
+    refused(result);
+  }
+
+  const included = preview?.filter((unit) => unit.included) ?? [];
+  const excluded = preview?.filter((unit) => !unit.included) ?? [];
+  const tests = line.testTypeIds.length;
+
+  return (
+    <section className="add-line" aria-labelledby={`${id}-title`}>
+      <p id={`${id}-title`} className="action-title">
+        Add a testing line
+      </p>
+      {catalogue ? (
+        <LineEditor
+          index={lineNumber - 1}
+          line={line}
+          projectId={projectId}
+          sources={sources}
+          catalogue={catalogue}
+          templates={templates}
+          review={discrepancy ? { discrepancy } : null}
+          title={`New line ${lineNumber}`}
+          onChange={(change) => {
+            // Acknowledging a depth keeps the preview; any other change needs a fresh one.
+            if (Object.keys(change).some((field) => field !== 'acknowledgedDepths')) {
+              setPreview(null);
+              setDiscrepancy(null);
+            }
+            setLine((current) => ({ ...current, ...change }));
+          }}
+        />
+      ) : problem ? null : (
+        <p aria-busy="true">Loading the test catalogue…</p>
+      )}
+      {preview ? (
+        <div className="review-line" role="region" aria-label={`Preview of new line ${lineNumber}`}>
+          <p className="action-title">
+            Preview: line {lineNumber} · {LINE_SCOPE_LABEL[line.scope]} · {tests} test
+            {tests === 1 ? '' : 's'}
+          </p>
+          {specific ? (
+            <p>
+              Sample {line.sampleLabel.trim()} at {line.depthFrom}
+              {line.depthMode === 'interval' ? `–${line.depthTo}` : ''} {line.depthUnit}
+              {line.unitIds.length > 0
+                ? `, linked to ${line.unitIds.length} unit${line.unitIds.length === 1 ? '' : 's'}`
+                : ', no physical unit linked'}
+              .
+            </p>
+          ) : included.length > 0 ? (
+            <p>Covers {included.map((unit) => unit.readableId).join(', ')} received so far.</p>
+          ) : (
+            <p className="text-warning">Covers no units.</p>
+          )}
+          {!specific && excluded.length > 0 ? (
+            <p className="text-warning">
+              {excluded.length} unit{excluded.length === 1 ? '' : 's'} with unknown G/S
+              classification excluded ({excluded.map((unit) => unit.readableId).join(', ')}).
+            </p>
+          ) : null}
+          {preview.length > 0 ? (
+            <ul className="coverage-list">
+              {preview.map((unit) => (
+                <li key={unit.storageUnitId}>
+                  <span className="mono">{unit.readableId}</span> {unit.contents ?? ''} —{' '}
+                  {MATCHING_BASIS_LABEL[unit.matchingBasis]}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="field-hint">
+            The new tests start as Requested. Coverage is frozen when you add the line; later
+            receipts join it only by another amendment.
+          </p>
+        </div>
+      ) : null}
+      {problem ? (
+        <p className="notice notice-warning" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      <div className="form-actions">
+        <button type="button" onClick={reset} disabled={busy}>
+          Cancel new line
+        </button>
+        {preview ? (
+          <button type="button" className="primary" disabled={busy} onClick={() => void confirm()}>
+            Add line {lineNumber}
+          </button>
+        ) : (
+          <button type="button" disabled={busy || !ready} onClick={() => void showPreview()}>
+            Preview line
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 

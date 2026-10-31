@@ -762,7 +762,8 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
         )
       ).status,
     ).toBe(200);
-    // The tube is physically gone (MM-T36's removal, played here by its end state).
+    // The tube is physically gone (MM-T36's removal, played here by its end state; the real
+    // removal route is covered in src/regression/cross-card.integration.test.ts, MM-T80).
     await h.db.pool.query(`UPDATE storage_unit SET status = 'disposed' WHERE id = $1`, [tube.id]);
     const repeated = await repeat(id);
     expect(repeated.status).toBe(201);

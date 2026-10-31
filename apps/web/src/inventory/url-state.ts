@@ -18,6 +18,7 @@ const KEYS = [
   'receivedFrom',
   'receivedTo',
   'retention',
+  'conflict',
   'sort',
   'dir',
   'page',
@@ -55,6 +56,7 @@ export function inventorySearchParams(query: InventoryQuery): URLSearchParams {
   set('receivedFrom', query.receivedFrom);
   set('receivedTo', query.receivedTo);
   set('retention', query.retention);
+  set('conflict', query.conflict);
   set('sort', query.sort, 'received');
   set('dir', query.dir);
   set('page', query.page, 1);
@@ -74,7 +76,8 @@ export function hasActiveFilters(query: InventoryQuery): boolean {
     query.status !== 'current' ||
     query.receivedFrom ||
     query.receivedTo ||
-    query.retention,
+    query.retention ||
+    query.conflict,
   );
 }
 

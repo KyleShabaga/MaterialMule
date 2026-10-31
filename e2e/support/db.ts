@@ -35,10 +35,11 @@ export interface TestUnit {
 }
 
 /**
- * A confirmed one-bucket receipt at the Receiving lab. IDs use issue year 2025 and a random
- * number so they never collide with IDs the app issues during the same run.
+ * A confirmed one-bucket receipt at the Receiving lab, summarised under `holeId` (TH26-01 by
+ * default). IDs use issue year 2025 and a random number so they never collide with IDs the app
+ * issues during the same run.
  */
-export async function insertConfirmedBucket(): Promise<TestUnit> {
+export async function insertConfirmedBucket(holeId: string = TH26_01_ID): Promise<TestUnit> {
   return withDatabase(async (client) => {
     await client.query('BEGIN');
     try {
@@ -64,7 +65,7 @@ export async function insertConfirmedBucket(): Promise<TestUnit> {
         `INSERT INTO storage_unit_hole_summary (storage_unit_id, project_id, test_hole_id,
                                                 summary_type)
          VALUES ($1, $2, $3, 'all')`,
-        [unit.rows[0]!.id, DEMO_PROJECT_ID, TH26_01_ID],
+        [unit.rows[0]!.id, DEMO_PROJECT_ID, holeId],
       );
       await client.query('COMMIT');
       return { id: unit.rows[0]!.id, readableId };
