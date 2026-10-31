@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type HTMLAttributes, type ReactNode } from 'react';
 import { usePageTitle } from '../layout/page-title';
 
 // Small shared building blocks for later screens (MM-T34). Keep them plain and accessible.
@@ -163,6 +163,33 @@ export function DataTable<Row>({
         ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * A wide table scrolls sideways inside this box instead of widening or clipping the page
+ * (MTR-58, MTR-93). It is a labelled, focusable region so keyboard users can scroll it too.
+ */
+export function TableScroll({
+  label,
+  className,
+  children,
+  ...rest
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'className' | 'children' | 'role' | 'tabIndex'>) {
+  return (
+    <div
+      {...rest}
+      className={className ? `table-scroll ${className}` : 'table-scroll'}
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+    >
+      {children}
+    </div>
   );
 }
 

@@ -1421,6 +1421,17 @@ textarea {
   color: var(--danger-panel-ink);
 }
 
+/* Each link is a 24px-tall target with a gap to the next (WCAG 2.5.8, MTR-128-2). */
+.error-summary li + li {
+  margin-top: 0.25rem;
+}
+
+.error-summary li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+
 .unit-list {
   display: grid;
   gap: 0.75rem;
@@ -1964,6 +1975,44 @@ textarea {
     min-height: var(--target);
   }
 
+  /* MTR-94: the rest of what a phone user taps gets the 44px target too. The receive step's
+     inputs and selects have a more specific base rule (.receipt-draft), so they are named here. */
+  input[type='date'],
+  .receipt-draft select,
+  .receipt-draft input:not([type='checkbox'], [type='radio']) {
+    min-height: var(--target);
+  }
+
+  .action-bell,
+  .dash-filters button {
+    min-width: var(--target);
+    min-height: var(--target);
+  }
+
+  /* A checkbox's label is its hit area: the whole row is 44px tall. */
+  .checkbox,
+  .checkbox-option,
+  .checkbox-label,
+  .scan-sound {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: var(--target);
+  }
+
+  .radio {
+    min-height: var(--target);
+  }
+
+  /* Links that stand on their own line (Back, See all, the brand) are 44px tall. */
+  .back-link a,
+  .see-all-link,
+  .app-brand {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target);
+  }
+
   .data-table {
     border: none;
     background: none;
@@ -1987,6 +2036,7 @@ textarea {
 
   .data-table td {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     border-bottom: none;
   }
@@ -2014,10 +2064,31 @@ textarea {
   white-space: nowrap;
 }
 
+/* A wide table scrolls inside its own box, never the page (MTR-58, MTR-93). The box is a
+   focusable region (TableScroll), so keyboard users can scroll it with the arrow keys. */
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll:focus-visible {
+  outline-offset: -2px;
+}
+
 @container (max-width: 47.99rem) {
   .table-stack .data-table {
     border: none;
     background: none;
+  }
+
+  /* Stacked cards take the box's width; long badges (a bulk bucket, "Disposed after testing")
+     wrap between words instead of pushing the card past its box (MTR-58). */
+  .table-stack .data-table td > * {
+    min-width: 0;
+  }
+
+  .table-stack .badge {
+    white-space: normal;
   }
 
   .table-stack .data-table thead {
@@ -2036,9 +2107,11 @@ textarea {
     background: var(--card);
   }
 
+  /* A value too wide to sit beside its label (a date and time at 320 px) goes under it (MTR-93). */
   .table-stack .data-table td {
     display: flex;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
     border-bottom: none;
   }
 
@@ -2696,4 +2769,67 @@ button.action-bell {
 .access-projects li {
   display: grid;
   gap: 0.25rem;
+}
+
+/* ---- Windows contrast themes (MTR-131) ---- */
+
+/* Forced colours replace the backgrounds and border colours that mark a selection, so every
+   chip, segment, tab and menu item looked the same. The selected one is drawn in the system
+   Highlight colours, with a thicker edge and an underline as cues that need no colour. */
+@media (forced-colors: active) {
+  .dash-filters button[aria-pressed='true'],
+  .view-switch button[aria-pressed='true'],
+  .side-nav a[aria-current='page'],
+  .sub-nav a[aria-current='page'],
+  .sub-nav a.active,
+  .listbox li[aria-selected='true'],
+  .receiver-options li[aria-selected='true'] {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .side-nav a[aria-current='page'] {
+    border-left-width: 4px;
+  }
+
+  .sub-nav a[aria-current='page'],
+  .sub-nav a.active {
+    border-bottom-width: 4px;
+  }
+
+  /* Only the current item keeps its bar; the others' transparent bars would show as lines. */
+  .side-nav a:not([aria-current='page']) {
+    border-left-color: Canvas;
+  }
+
+  .sub-nav a:not([aria-current='page'], .active) {
+    border-bottom-color: Canvas;
+  }
+
+  .theme-switch-track,
+  .theme-switch-thumb {
+    forced-color-adjust: none;
+  }
+
+  .theme-switch-track {
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .theme-switch-thumb {
+    background: CanvasText;
+  }
+
+  .theme-switch[aria-checked='true'] .theme-switch-track {
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  .theme-switch[aria-checked='true'] .theme-switch-thumb {
+    background: HighlightText;
+  }
 }

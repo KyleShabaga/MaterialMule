@@ -70,7 +70,14 @@ export function LabelPreviewPanel({
     body = (
       <div className="label-preview">
         <div className={dual ? 'label-preview-well' : undefined}>
-          <div className={`label-preview-frame${zoomed ? ' zoomed' : ''}`}>
+          {/* MTR-128: zoomed, the label is wider than a phone and the frame scrolls, so it is a
+              labelled region keyboard users can focus and scroll. */}
+          <div
+            className={`label-preview-frame${zoomed ? ' zoomed' : ''}`}
+            {...(zoomed
+              ? { role: 'region', 'aria-label': 'Label preview, scrolls sideways', tabIndex: 0 }
+              : {})}
+          >
             <LabelImage svg={label.svg} readableId={label.readableId} className="label-image" />
           </div>
           <p className="field-hint label-preview-size">

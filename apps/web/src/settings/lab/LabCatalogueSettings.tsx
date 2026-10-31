@@ -14,7 +14,14 @@ import {
   type TestType,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { DataTable, EmptyState, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import {
+  DataTable,
+  EmptyState,
+  ErrorState,
+  FormField,
+  StatusBadge,
+  TableScroll,
+} from '../../components/ui';
 import { catalogueWrite, fetchCatalogue, fetchTemplates, type WriteResult } from '../../lab/api';
 import { TestPicker } from '../../lab/TestPicker';
 import { useMe } from '../../session/context';
@@ -123,75 +130,77 @@ function TestsSettings() {
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      <DataTable
-        caption="Lab tests"
-        rows={tests}
-        rowKey={(test) => test.id}
-        empty={
-          catalogue.tests.length === 0
-            ? 'No tests yet. The catalogue is filled from the verified lab workbook.'
-            : 'No test matches.'
-        }
-        columns={[
-          { header: 'Code', cell: (test) => <span className="mono">{test.code}</span> },
-          {
-            header: 'Test',
-            cell: (test) => (
-              <>
-                {testDisplayName(test)}
-                {test.name ? <p className="field-hint">{test.description}</p> : null}
-              </>
-            ),
-          },
-          { header: 'Group', cell: (test) => testGroupPath(test.groupName, test.subgroupName) },
-          {
-            header: 'Sample ID tag',
-            cell: (test) =>
-              test.sampleTagMode === 'shared'
-                ? `Shared: ${test.sampleTagGroup ?? ''}`
-                : SAMPLE_TAG_MODE_LABEL[test.sampleTagMode],
-          },
-          {
-            header: 'Status',
-            cell: (test) =>
-              test.active ? (
-                <StatusBadge tone="success">Available</StatusBadge>
-              ) : (
-                <StatusBadge>Retired</StatusBadge>
+      <TableScroll label="Lab tests">
+        <DataTable
+          caption="Lab tests"
+          rows={tests}
+          rowKey={(test) => test.id}
+          empty={
+            catalogue.tests.length === 0
+              ? 'No tests yet. The catalogue is filled from the verified lab workbook.'
+              : 'No test matches.'
+          }
+          columns={[
+            { header: 'Code', cell: (test) => <span className="mono">{test.code}</span> },
+            {
+              header: 'Test',
+              cell: (test) => (
+                <>
+                  {testDisplayName(test)}
+                  {test.name ? <p className="field-hint">{test.description}</p> : null}
+                </>
               ),
-          },
-          ...(allowed
-            ? [
-                {
-                  header: 'Actions',
-                  cell: (test: TestType) => (
-                    <div className="row-actions">
-                      <button type="button" onClick={() => setEditing(test)}>
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void act(
-                            catalogueWrite(
-                              `/api/test-types/${test.id}/${test.active ? 'retire' : 'restore'}`,
-                              'POST',
-                              { version: test.version },
-                              (b) => testTypeSchema.parse(b),
-                            ),
-                            `${test.active ? 'Retired' : 'Restored'} ${test.code}.`,
-                          )
-                        }
-                      >
-                        {test.active ? 'Retire' : 'Restore'}
-                      </button>
-                    </div>
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
+            },
+            { header: 'Group', cell: (test) => testGroupPath(test.groupName, test.subgroupName) },
+            {
+              header: 'Sample ID tag',
+              cell: (test) =>
+                test.sampleTagMode === 'shared'
+                  ? `Shared: ${test.sampleTagGroup ?? ''}`
+                  : SAMPLE_TAG_MODE_LABEL[test.sampleTagMode],
+            },
+            {
+              header: 'Status',
+              cell: (test) =>
+                test.active ? (
+                  <StatusBadge tone="success">Available</StatusBadge>
+                ) : (
+                  <StatusBadge>Retired</StatusBadge>
+                ),
+            },
+            ...(allowed
+              ? [
+                  {
+                    header: 'Actions',
+                    cell: (test: TestType) => (
+                      <div className="row-actions">
+                        <button type="button" onClick={() => setEditing(test)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void act(
+                              catalogueWrite(
+                                `/api/test-types/${test.id}/${test.active ? 'retire' : 'restore'}`,
+                                'POST',
+                                { version: test.version },
+                                (b) => testTypeSchema.parse(b),
+                              ),
+                              `${test.active ? 'Retired' : 'Restored'} ${test.code}.`,
+                            )
+                          }
+                        >
+                          {test.active ? 'Retire' : 'Restore'}
+                        </button>
+                      </div>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </TableScroll>
     </section>
   );
 }

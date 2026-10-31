@@ -10,7 +10,8 @@
   display: block;
   width: 3.5in;
   height: auto;
-  max-width: 100%;
+  /* Room for the 1px border, so a scaled-down label never makes the frame scroll (MTR-128). */
+  max-width: calc(100% - 2px);
   border: 1px solid var(--line);
   background: var(--label-paper);
 }

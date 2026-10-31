@@ -17,6 +17,7 @@ import {
   ErrorState,
   FormField,
   StatusBadge,
+  TableScroll,
   type BadgeTone,
 } from '../../components/ui';
 import { useMe } from '../../session/context';
@@ -290,49 +291,57 @@ function StaffDirectory({
               name, initials or email to find the rest.
             </p>
           ) : null}
-          <DataTable
-            rows={list.data.members}
-            rowKey={(member) => member.id}
-            caption="Staff"
-            empty="No staff match these filters."
-            columns={[
-              {
-                header: 'Name',
-                cell: (m) => (
-                  <>
-                    {m.displayName}
-                    {m.id === currentUserId ? ' (you)' : ''}
-                  </>
-                ),
-              },
-              { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },
-              { header: 'Position', cell: (m) => (m.position ? POSITION_NAMES[m.position] : '—') },
-              { header: 'Account', cell: (m) => ACCOUNT_LABELS[m.accountType] },
-              {
-                header: 'Status',
-                cell: (m) => (
-                  <StatusBadge tone={STATUS_TONES[m.status]}>{STATUS_LABELS[m.status]}</StatusBadge>
-                ),
-              },
-              {
-                header: 'Roles',
-                cell: (m) => (m.roles.length ? m.roles.map((r) => ROLE_LABELS[r]).join(', ') : '—'),
-              },
-              { header: 'Last sign-in', cell: (m) => when(m.lastSignInAt) },
-              {
-                header: 'Actions',
-                cell: (m) => (
-                  <button
-                    type="button"
-                    aria-label={`Manage ${m.displayName}`}
-                    onClick={() => setSelected(m)}
-                  >
-                    Manage
-                  </button>
-                ),
-              },
-            ]}
-          />
+          <TableScroll label="Staff table">
+            <DataTable
+              rows={list.data.members}
+              rowKey={(member) => member.id}
+              caption="Staff"
+              empty="No staff match these filters."
+              columns={[
+                {
+                  header: 'Name',
+                  cell: (m) => (
+                    <>
+                      {m.displayName}
+                      {m.id === currentUserId ? ' (you)' : ''}
+                    </>
+                  ),
+                },
+                { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },
+                {
+                  header: 'Position',
+                  cell: (m) => (m.position ? POSITION_NAMES[m.position] : '—'),
+                },
+                { header: 'Account', cell: (m) => ACCOUNT_LABELS[m.accountType] },
+                {
+                  header: 'Status',
+                  cell: (m) => (
+                    <StatusBadge tone={STATUS_TONES[m.status]}>
+                      {STATUS_LABELS[m.status]}
+                    </StatusBadge>
+                  ),
+                },
+                {
+                  header: 'Roles',
+                  cell: (m) =>
+                    m.roles.length ? m.roles.map((r) => ROLE_LABELS[r]).join(', ') : '—',
+                },
+                { header: 'Last sign-in', cell: (m) => when(m.lastSignInAt) },
+                {
+                  header: 'Actions',
+                  cell: (m) => (
+                    <button
+                      type="button"
+                      aria-label={`Manage ${m.displayName}`}
+                      onClick={() => setSelected(m)}
+                    >
+                      Manage
+                    </button>
+                  ),
+                },
+              ]}
+            />
+          </TableScroll>
         </>
       )}
 
