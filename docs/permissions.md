@@ -749,14 +749,14 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Notifications (MM-T91)
 
-| Route                                 | Policy                                                     |
-| ------------------------------------- | ---------------------------------------------------------- |
-| `GET /api/notifications?filter=`      | `notification.read`; `active` (default), `unread` or `all` |
-| `GET /api/notifications/count`        | `notification.read`                                        |
-| `POST /api/notifications/:id/read`    | `notification.read`; own notifications only                |
-| `POST /api/notifications/:id/dismiss` | `notification.read`; own notifications only                |
-| `POST /api/notifications/:id/restore` | `notification.read`; own notifications only                |
-| `POST /api/notifications/read-all`    | `notification.read`                                        |
+| Route                                           | Policy                                                                           |
+| ----------------------------------------------- | -------------------------------------------------------------------------------- |
+| `GET /api/notifications?filter=&cursor=&limit=` | `notification.read`; own rows only; `active` (default), `unread` or `all`; paged |
+| `GET /api/notifications/count`                  | `notification.read`                                                              |
+| `POST /api/notifications/:id/read`              | `notification.read`; own notifications only                                      |
+| `POST /api/notifications/:id/dismiss`           | `notification.read`; own notifications only                                      |
+| `POST /api/notifications/:id/restore`           | `notification.read`; own notifications only                                      |
+| `POST /api/notifications/read-all`              | `notification.read`                                                              |
 
 - **Separate from action requests.** A notification tells someone something happened; an action
   request is work they must do. Reading, dismissing or restoring a notification never resolves,

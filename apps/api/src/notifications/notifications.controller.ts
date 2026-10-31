@@ -1,6 +1,6 @@
 import { BadRequestException, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import {
-  notificationFilterSchema,
+  notificationListQuerySchema,
   type NotificationCount,
   type NotificationList,
 } from '@materialmule/shared';
@@ -19,9 +19,16 @@ export class NotificationsController {
 
   @Get()
   @RequirePermission('notification.read')
-  list(@CurrentUser() user: AuthUser, @Query('filter') filter?: string): Promise<NotificationList> {
-    const parsed = notificationFilterSchema.safeParse(filter ?? 'active');
-    if (!parsed.success) throw new BadRequestException({ code: 'invalid_filter' });
+  list(@CurrentUser() user: AuthUser, @Query() query: unknown): Promise<NotificationList> {
+    const parsed = notificationListQuerySchema.safeParse(query ?? {});
+    if (!parsed.success) {
+      const field = parsed.error.issues[0]?.path[0];
+      const code =
+        field === 'filter' || field === 'cursor' || field === 'limit'
+          ? `invalid_${field}`
+          : 'invalid_query';
+      throw new BadRequestException({ code });
+    }
     return this.notifications.list(user, parsed.data);
   }
 

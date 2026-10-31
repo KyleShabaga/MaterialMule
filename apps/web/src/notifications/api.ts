@@ -37,8 +37,17 @@ export class NotificationsForbiddenError extends Error {
   }
 }
 
-export async function fetchNotifications(filter: NotificationFilter): Promise<NotificationList> {
-  const response = await apiFetch(`/api/notifications?filter=${filter}`);
+/**
+ * One page of notifications, newest first. Pass the previous page's `nextCursor` (with the same
+ * filter) for the next, older page; null `nextCursor` in the answer means there are no more.
+ */
+export async function fetchNotifications(
+  filter: NotificationFilter,
+  cursor: string | null = null,
+): Promise<NotificationList> {
+  const query = new URLSearchParams({ filter });
+  if (cursor) query.set('cursor', cursor);
+  const response = await apiFetch(`/api/notifications?${query.toString()}`);
   if (response.status === 403) throw new NotificationsForbiddenError();
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return notificationListSchema.parse(await response.json());

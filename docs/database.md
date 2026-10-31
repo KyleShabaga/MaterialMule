@@ -651,7 +651,7 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   exhausted, exponential backoff between) or `skipped` (item resolved first). `last_error` never
   holds an address. Nothing sends while `EMAIL_ENABLED` is false, which startup enforces.
 
-## Notifications (MM-T91, `0013_notifications.sql`)
+## Notifications (MM-T91, `0014_notifications.sql`)
 
 Separate from action requests: an `action_item` is work someone must do; a `notification` only
 tells a person something happened. Reading, dismissing or restoring one never touches the action
@@ -674,7 +674,9 @@ item, its routing or `audit_event`.
 - "Opened" rows are written by the API (`notifyActionItem` in
   `apps/api/src/notifications/action-items.ts`) for everyone `action_item_routed_to` names, in
   the transaction that created, reassigned or rerouted the item, whatever their email
-  preference. Old rows are never retargeted; the list reads the item live.
+  preference. Every producer, MISC-08's `review_approval_lost` included, calls
+  `announceActionItem`, which writes the notifications and then the opted-in email rows; the
+  email-only helper is private to that module so no path can skip the in-app notice. Old rows are never retargeted; the list reads the item live.
 - `action_item_decided_notification` (AFTER UPDATE on `action_item`, open → resolved only)
   writes one "decided" row for the requester (`created_by_user_id`; for a correction, the
   reviewer who returned it) when someone else resolves a cancellation, closure, retention or
@@ -682,8 +684,16 @@ item, its routing or `audit_event`.
   Nothing for lead appointments, grant reviews, a self-resolution, or a disabled or LAB
   requester. Because `action_item_guard` allows one resolution, concurrent resolvers write one
   row. Decline reasons are not copied.
-- On upgrade, `0013` gives every person an open item is routed to its unread "opened" row.
-- The API lists the last 90 days (newest first, at most 200); nothing is purged.
+- On upgrade, `0014` gives every person an open item is routed to its unread "opened" row.
+- The API lists the last 90 days in pages (default 50, at most 100), newest first by
+  (`created_at`, `id`), with an opaque keyset cursor: every row in the window is reachable,
+  equal timestamps keep one order, and rows arriving meanwhile never shift later pages. The
+  `(recipient_user_id, created_at DESC, id)` index serves it. Nothing is purged.
+- Migration order: `0013_review_eligibility` (MISC-08, PR #122) then `0014_notifications`. The
+  notifications migration was first numbered 0013 on its branch; neither was ever deployed. A
+  dev or test database that applied either branch's old `0013` refuses to start (version clash
+  or checksum): rebuild it with `npm run db:rebuild:dev -- --disposable <db>` or
+  `npm run db:reset:test`.
 
 ## Retention dates, holds, extensions and requests (MM-T29)
 

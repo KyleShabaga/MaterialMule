@@ -21,8 +21,12 @@ export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /** How far back the notification list reaches. */
 export const NOTIFICATION_LIST_DAYS = 90;
-/** Most rows one list call returns (newest first). */
-export const NOTIFICATION_LIST_LIMIT = 200;
+/** Rows one list page returns when the caller doesn't ask for a size (newest first). */
+export const NOTIFICATION_PAGE_SIZE = 50;
+/** Largest page a caller may ask for. Older rows are reached with `cursor`, never a bigger page. */
+export const NOTIFICATION_PAGE_SIZE_MAX = 100;
+/** Longest cursor the API accepts (an encoded timestamp and id is about 70 characters). */
+export const NOTIFICATION_CURSOR_MAX_LENGTH = 200;
 
 /**
  * `GET /api/notifications?filter=`: `active` (default; everything not dismissed), `unread`
@@ -61,7 +65,24 @@ export const notificationSchema = z.object({
 });
 export type Notification = z.infer<typeof notificationSchema>;
 
-export const notificationListSchema = z.object({ items: z.array(notificationSchema) });
+/**
+ * `GET /api/notifications?filter=&cursor=&limit=`: one page, newest first, ordered by
+ * (createdAt, id) descending so equal timestamps still have one fixed order. `nextCursor` is
+ * opaque; pass it back unchanged (with the same filter) for the next, older page. It is null on
+ * the last page. A notification that arrives while someone pages lands before the first page, so
+ * it never shifts or repeats rows on later pages; reload the first page to see it.
+ */
+export const notificationListQuerySchema = z.strictObject({
+  filter: notificationFilterSchema.default('active'),
+  cursor: z.string().min(1).max(NOTIFICATION_CURSOR_MAX_LENGTH).optional(),
+  limit: z.coerce.number().int().min(1).max(NOTIFICATION_PAGE_SIZE_MAX).optional(),
+});
+export type NotificationListQuery = z.output<typeof notificationListQuerySchema>;
+
+export const notificationListSchema = z.object({
+  items: z.array(notificationSchema),
+  nextCursor: z.string().nullable(),
+});
 export type NotificationList = z.infer<typeof notificationListSchema>;
 
 /**

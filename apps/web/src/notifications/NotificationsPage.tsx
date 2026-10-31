@@ -11,17 +11,28 @@ import { formatAge, formatExpiry } from '../lib/format';
 import { useMe } from '../session/context';
 import {
   fetchNotifications,
+  fetchUnreadCount,
   markAllRead,
+  NOTIFICATIONS_CHANGED_EVENT,
   NotificationsForbiddenError,
   updateNotification,
   type NotificationAction,
 } from './api';
 
+/**
+ * The rows loaded so far for one filter, newest first. `nextCursor` is where the next, older page
+ * starts (null: nothing older matches); `more` is the state of loading that page.
+ */
 type Load =
   | { state: 'loading' }
   | { state: 'error' }
   | { state: 'forbidden' }
-  | { state: 'ready'; items: Notification[] };
+  | {
+      state: 'ready';
+      items: Notification[];
+      nextCursor: string | null;
+      more: 'idle' | 'loading' | 'error';
+    };
 
 const FILTER_LABEL: Record<NotificationFilter, string> = {
   active: 'Active',
@@ -100,7 +111,18 @@ function NotificationCenter() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [message, setMessage] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // The server's unread count: "Mark all read" covers every unread notification, not only the
+  // ones loaded so far, so it is enabled from this count rather than from the rows on screen.
+  const [unreadTotal, setUnreadTotal] = useState<number | null>(null);
   const messageRef = useRef<HTMLParagraphElement>(null);
+  // Bumped whenever the list starts over (filter change, retry, mark all read), so an answer to
+  // an earlier request, first page or "Load more", is ignored instead of mixing two lists.
+  const generation = useRef(0);
+  // The list as last rendered, for decisions made after an await (see apply).
+  const latest = useRef<Load>(load);
+  useEffect(() => {
+    latest.current = load;
+  }, [load]);
 
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => {
@@ -109,36 +131,91 @@ function NotificationCenter() {
   }, []);
 
   useEffect(() => {
-    let active = true;
+    const id = ++generation.current;
     fetchNotifications(filter)
       .then((list) => {
-        if (active) setLoad({ state: 'ready', items: list.items });
+        if (id !== generation.current) return;
+        setLoad({ state: 'ready', items: list.items, nextCursor: list.nextCursor, more: 'idle' });
       })
       .catch((error: unknown) => {
-        if (!active) return;
+        if (id !== generation.current) return;
         setLoad({ state: error instanceof NotificationsForbiddenError ? 'forbidden' : 'error' });
       });
-    return () => {
-      active = false;
-    };
   }, [filter, tick]);
 
-  /** Applies a successful change to the rows on screen; rows the filter no longer shows go. */
-  const apply = useCallback(
-    (id: string, action: NotificationAction) => {
-      setLoad((current) =>
-        current.state !== 'ready'
-          ? current
-          : {
+  useEffect(() => {
+    let active = true;
+    const refresh = () =>
+      void fetchUnreadCount()
+        .then((value) => {
+          if (active) setUnreadTotal(value);
+        })
+        .catch(() => undefined);
+    refresh();
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    return () => {
+      active = false;
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  /** The next, older page for the current list. A failure keeps the rows and offers a retry. */
+  const loadMore = useCallback(
+    (cursor: string) => {
+      const id = generation.current;
+      setLoad((current) => (current.state === 'ready' ? { ...current, more: 'loading' } : current));
+      fetchNotifications(filter, cursor)
+        .then((list) => {
+          if (id !== generation.current) return;
+          setLoad((current) => {
+            if (current.state !== 'ready') return current;
+            const seen = new Set(current.items.map((item) => item.id));
+            return {
               state: 'ready',
-              items: current.items
-                .map((item) => (item.id === id ? changed(item, action) : item))
-                .filter((item) => shown(item, filter)),
-            },
-      );
+              items: [...current.items, ...list.items.filter((item) => !seen.has(item.id))],
+              nextCursor: list.nextCursor,
+              more: 'idle',
+            };
+          });
+        })
+        .catch(() => {
+          if (id !== generation.current) return;
+          setLoad((current) =>
+            current.state === 'ready' ? { ...current, more: 'error' } : current,
+          );
+        });
     },
     [filter],
   );
+
+  /**
+   * Applies a successful change to the rows on screen; rows the filter no longer shows go. When
+   * that empties the list but older matching rows exist, it fetches them (refill) rather than
+   * claiming there are none. The cursor still points after the last row loaded, so nothing older
+   * is skipped.
+   */
+  const apply = (id: string, action: NotificationAction) => {
+    const update = (current: Load): Load =>
+      current.state !== 'ready'
+        ? current
+        : {
+            ...current,
+            items: current.items
+              .map((item) => (item.id === id ? changed(item, action) : item))
+              .filter((item) => shown(item, filter)),
+          };
+    // Two rows can finish close together, so update from the latest state, never this render's.
+    const next = update(latest.current);
+    setLoad(update);
+    if (
+      next.state === 'ready' &&
+      next.items.length === 0 &&
+      next.nextCursor !== null &&
+      next.more !== 'loading'
+    ) {
+      loadMore(next.nextCursor);
+    }
+  };
 
   const announce = (text: string, moveFocus: boolean) => {
     setMessage(text);
@@ -147,6 +224,7 @@ function NotificationCenter() {
 
   const unreadShown =
     load.state === 'ready' && load.items.some((item) => !item.readAt && !item.dismissedAt);
+  const anyUnread = unreadShown || (unreadTotal ?? 0) > 0;
 
   async function readAll() {
     setBulkBusy(true);
@@ -156,17 +234,9 @@ function NotificationCenter() {
       announce('Notifications couldn’t be marked read. Try again.', false);
       return;
     }
-    const readAt = new Date().toISOString();
-    setLoad((current) =>
-      current.state !== 'ready'
-        ? current
-        : {
-            state: 'ready',
-            items: current.items
-              .map((item) => ({ ...item, readAt: item.readAt ?? readAt }))
-              .filter((item) => shown(item, filter)),
-          },
-    );
+    setUnreadTotal(unread);
+    // Every unread notification changed, loaded or not: start the list over from the top.
+    reload();
     announce('All notifications marked read.', filter === 'unread');
   }
 
@@ -184,7 +254,7 @@ function NotificationCenter() {
       <PageHeader
         title="Notifications"
         actions={
-          <button type="button" disabled={!unreadShown || bulkBusy} onClick={() => void readAll()}>
+          <button type="button" disabled={!anyUnread || bulkBusy} onClick={() => void readAll()}>
             Mark all read
           </button>
         }
@@ -219,7 +289,7 @@ function NotificationCenter() {
       {load.state === 'error' ? (
         <ErrorState message="Notifications couldn’t load." onRetry={reload} />
       ) : null}
-      {load.state === 'ready' && load.items.length === 0 ? (
+      {load.state === 'ready' && load.items.length === 0 && load.nextCursor === null ? (
         <EmptyState>{EMPTY[filter]}</EmptyState>
       ) : null}
       {load.state === 'ready' && load.items.length > 0 ? (
@@ -248,6 +318,27 @@ function NotificationCenter() {
             />
           ))}
         </ul>
+      ) : null}
+      {load.state === 'ready' && load.more === 'loading' ? (
+        <p>Loading older notifications…</p>
+      ) : null}
+      {load.state === 'ready' && load.more === 'error' && load.nextCursor !== null ? (
+        <ErrorState
+          message="Older notifications couldn’t load."
+          onRetry={() => loadMore(load.nextCursor!)}
+        />
+      ) : null}
+      {load.state === 'ready' &&
+      load.more === 'idle' &&
+      load.nextCursor !== null &&
+      load.items.length > 0 ? (
+        <button
+          type="button"
+          className="notifications-more"
+          onClick={() => loadMore(load.nextCursor!)}
+        >
+          Load more
+        </button>
       ) : null}
     </div>
   );
