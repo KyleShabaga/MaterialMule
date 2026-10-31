@@ -122,7 +122,11 @@ test('T4/AC1: LAB scans a destination, then two units; both save with actor, per
     }),
   ]);
   await page.goto(`/sample-storage/${u1.readableId}`);
-  await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText('Moved');
+  const history = page.getByRole('region', { name: 'History', exact: true });
+  await expect(history).toContainText('Moved');
+  // MTR-64: the move names where the unit came from and went to.
+  await expect(history).toContainText(`location: Receiving lab (RECEIVING) → ${c2.name} (`);
+  await expect(history).not.toContainText('[object Object]');
 });
 
 test('T5/AC2: offline scans stay Pending (saved location unchanged) and sync once on reconnect, with two tabs open', async ({
