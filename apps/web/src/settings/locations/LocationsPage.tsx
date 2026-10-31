@@ -25,6 +25,7 @@ import {
 } from './api';
 import { LocationDrawer } from './LocationDrawer';
 import { MANAGE_PERMISSION, NOT_ALLOWED_TEXT, inventoryLink } from './location-links';
+import { useFocusFirstInvalid } from '../../components/useFocusFirstInvalid';
 import { Modal } from './Modal';
 import './locations.css';
 
@@ -115,6 +116,8 @@ function LocationFormDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const codeLocked = Boolean(location?.codeLocked || location?.isSystem);
+  const { formRef, focusFirstInvalid } = useFocusFirstInvalid();
+  const codeError = fieldError(errors, 'code');
 
   function localErrors(): FieldError[] {
     const found: FieldError[] = [];
@@ -129,11 +132,13 @@ function LocationFormDialog({
     if (failure.kind === 'invalid') {
       setErrors(failure.errors);
       setError(failure.message);
+      focusFirstInvalid();
     } else if (failure.kind === 'failed' && failure.field) {
       setErrors([
         { field: failure.field, code: failure.code ?? 'invalid', message: failure.message },
       ]);
       setError(null);
+      focusFirstInvalid();
     } else if (failure.kind === 'conflict') {
       onConflict(failure.current, failure.message);
     } else {
@@ -146,7 +151,10 @@ function LocationFormDialog({
     const found = localErrors();
     setErrors(found);
     setError(null);
-    if (found.length > 0) return;
+    if (found.length > 0) {
+      focusFirstInvalid();
+      return;
+    }
     setBusy(true);
     const values = {
       code: normalizeLocationCode(code),
@@ -183,16 +191,23 @@ function LocationFormDialog({
 
   return (
     <Modal title={location ? `Edit ${location.name}` : 'Add location'} onClose={onClose}>
-      <form className="drawer-section" noValidate onSubmit={(event) => void submit(event)}>
+      <form
+        ref={formRef}
+        className="drawer-section"
+        noValidate
+        onSubmit={(event) => void submit(event)}
+      >
         <FormField
           label="Code"
-          error={fieldError(errors, 'code')}
+          error={codeError}
+          required={!codeLocked}
           hint={
             codeLocked
               ? location?.isSystem
                 ? 'The system location’s code can’t change.'
                 : 'A label has been printed or queued for this code, so it can’t change.'
-              : `${LOCATION_CODE_MESSAGE}. Printed on the label as LOC-${normalizeLocationCode(code) || 'CODE'}.`
+              : // MTR-133: the error already gives the rule, so the hint doesn't repeat it.
+                `${codeError ? '' : `${LOCATION_CODE_MESSAGE}. `}Printed on the label as LOC-${normalizeLocationCode(code) || 'CODE'}.`
           }
         >
           {(props) => (
@@ -210,7 +225,7 @@ function LocationFormDialog({
             />
           )}
         </FormField>
-        <FormField label="Name" error={fieldError(errors, 'name')}>
+        <FormField label="Name" error={fieldError(errors, 'name')} required>
           {(props) => (
             <input
               {...props}
@@ -297,11 +312,13 @@ function RetireDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { formRef, focusFirstInvalid } = useFocusFirstInvalid();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!reason.trim()) {
       setReasonError('Give a reason');
+      focusFirstInvalid();
       return;
     }
     setReasonError(null);
@@ -318,12 +335,18 @@ function RetireDialog({
     } else if (result.kind === 'conflict') onConflict(result.current, result.message);
     else if (result.kind === 'invalid') {
       setReasonError(fieldError(result.errors, 'reason') ?? result.message);
+      focusFirstInvalid();
     } else setError(result.message);
   }
 
   return (
     <Modal title={`Retire ${location.name}`} onClose={onClose}>
-      <form className="drawer-section" noValidate onSubmit={(event) => void submit(event)}>
+      <form
+        ref={formRef}
+        className="drawer-section"
+        noValidate
+        onSubmit={(event) => void submit(event)}
+      >
         <p>
           A retired location stays on every record that names it, but no storage unit can be moved
           there. Retiring can’t be undone here.
@@ -338,7 +361,7 @@ function RetireDialog({
             </p>
           </div>
         ) : null}
-        <FormField label="Reason" error={reasonError}>
+        <FormField label="Reason" error={reasonError} required>
           {(props) => (
             <textarea
               {...props}

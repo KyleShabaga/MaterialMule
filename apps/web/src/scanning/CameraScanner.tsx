@@ -95,6 +95,7 @@ export function CameraScanner({
   const [decoderName, setDecoderName] = useState<BarcodeDecoder['name'] | null>(null);
   const [result, setResult] = useState<ResultView | null>(null);
 
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -156,8 +157,17 @@ export function CameraScanner({
 
   useEffect(() => () => clearTimeout(foundTimer.current), []);
 
+  // MTR-143: a native modal dialog keeps Tab inside the scanner and gives Escape for free. If
+  // closing leaves focus nowhere, it goes back to whatever opened the scanner.
   useEffect(() => {
+    const trigger = document.activeElement;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal?.();
     closeRef.current?.focus();
+    return () => {
+      const lost = !document.activeElement || document.activeElement === document.body;
+      if (lost && trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+    };
   }, []);
 
   // Stop the camera while the page is hidden (another app, locked phone).
@@ -294,13 +304,14 @@ export function CameraScanner({
           : '');
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       className="camera-scanner"
-      role="dialog"
-      aria-modal="true"
       aria-labelledby={headingId}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onClose();
+      onCancel={(event) => {
+        // The parent unmounts the scanner, which stops the camera.
+        event.preventDefault();
+        onClose();
       }}
     >
       <div className="camera-top">
@@ -356,7 +367,7 @@ export function CameraScanner({
           <p className="camera-decoder">Decoder: {DECODER_LABEL[decoderName]}</p>
         ) : null}
       </div>
-    </div>
+    </dialog>
   );
 }
 

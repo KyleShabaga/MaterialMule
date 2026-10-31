@@ -17,7 +17,7 @@ import { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { ErrorState, StatusBadge } from '../components/ui';
-import { shortDateTime } from '../dashboard/format';
+import { shortDateTime, shortTime } from '../dashboard/format';
 import { useMe } from '../session/context';
 import {
   addComment,
@@ -394,7 +394,7 @@ function CommentBox({
   );
 }
 
-function CommentItem({
+export function CommentItem({
   comment,
   onChanged,
 }: {
@@ -407,9 +407,16 @@ function CommentItem({
   const [body, setBody] = useState(comment.body);
   const [person, setPerson] = useState<ReceiverOption | null>(null);
   const [key, setKey] = useState(newKey);
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const mine = comment.account.userId === me.id;
-  const canEdit = mine && new Date(comment.editableUntil).getTime() > now;
+  const deadline = new Date(comment.editableUntil).getTime();
+  const canEdit = mine && deadline > now;
+  // MTR-139: Edit (and its deadline) goes away when the window closes, without a reload.
+  useEffect(() => {
+    if (!canEdit) return;
+    const timer = setTimeout(() => setNow(Date.now()), deadline - now);
+    return () => clearTimeout(timer);
+  }, [canEdit, deadline, now]);
   return (
     <li className="comment">
       <p className="comment-meta">
@@ -459,9 +466,12 @@ function CommentItem({
         <p className="pre-wrap">{comment.body}</p>
       )}
       {canEdit && !editing ? (
-        <button type="button" onClick={() => setEditing(true)}>
-          Edit
-        </button>
+        <p className="comment-edit">
+          <button type="button" onClick={() => setEditing(true)}>
+            Edit
+          </button>{' '}
+          <span className="field-hint">Editable until {shortTime(comment.editableUntil)}</span>
+        </p>
       ) : null}
       {comment.revisions.length > 1 ? (
         <details>

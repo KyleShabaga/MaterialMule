@@ -8,6 +8,7 @@ import { DonkeyMark } from './DonkeyMark';
 import { accountBadge, visibleNavItems } from './nav';
 import { NavIcon } from './NavIcon';
 import { SidebarFooter } from './SidebarFooter';
+import { useFocusPageHeading } from './useFocusPageHeading';
 
 export function AppLayout() {
   const me = useMe();
@@ -16,6 +17,7 @@ export function AppLayout() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const badge = accountBadge(me);
+  useFocusPageHeading();
 
   // MTR-137: while the phone drawer is open, what it covers is inert; focus starts on the first
   // link, and Escape or a tap outside closes it and returns focus to Menu.

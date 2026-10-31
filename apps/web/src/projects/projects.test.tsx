@@ -4,7 +4,7 @@ import type {
   ProjectListItem,
   ProjectListPage,
 } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -386,5 +386,103 @@ describe('Project detail (MM-T35)', () => {
     expect(screen.getByRole('region', { name: 'Project details' })).toHaveTextContent(
       'DE · Dana Example',
     );
+  });
+});
+
+describe('Project retention refreshes the units table (MTR-83)', () => {
+  it('reloads the storage units after a hold is released', async () => {
+    const user = userEvent.setup();
+    let released = false;
+    const hold = {
+      id: 'h1',
+      projectId: PROJECT_ID,
+      scope: 'project' as const,
+      units: [],
+      reason: 'Litigation hold (fictional)',
+      placedBy: { userId: 'u-pe', initials: 'PE', name: 'Pat Example' },
+      placedAt: '2026-10-27T16:00:00.000Z',
+      fromRequestId: null,
+      active: true,
+      releasedBy: null,
+      releasedAt: null,
+      releaseReason: null,
+      version: 1,
+    };
+    const fetchMock = stubApi((url) => {
+      if (url.pathname === `/api/projects/${PROJECT_ID}`) return json(200, detail());
+      if (url.pathname === `/api/projects/${PROJECT_ID}/retention`) {
+        return json(200, {
+          projectId: PROJECT_ID,
+          holds: [released ? { ...hold, active: false, version: 2 } : hold],
+          extensions: [],
+          requests: [],
+          counts: { current: 3, onHold: released ? 0 : 3 },
+          canManage: true,
+          canRequest: true,
+        });
+      }
+      if (url.pathname === '/api/retention/holds/h1/release') {
+        released = true;
+        return json(200, { id: 'h1', version: 2 });
+      }
+      return undefined;
+    });
+    renderAt(`/projects/${PROJECT_ID}`);
+    const item = await screen.findByRole('listitem', { name: 'Hold: Litigation hold (fictional)' });
+    const before = callsTo(fetchMock, '/api/inventory').length;
+    await user.click(within(item).getByRole('button', { name: 'Release' }));
+    await user.type(within(item).getByLabelText('Reason for releasing (required)'), 'Settled');
+    await user.click(
+      within(within(item).getByRole('form', { name: 'Release' })).getByRole('button', {
+        name: 'Release',
+      }),
+    );
+    expect(await screen.findByText('0 of 3 current units on hold')).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(callsTo(fetchMock, '/api/inventory').length).toBeGreaterThan(before),
+    );
+  });
+});
+
+describe('Edit project unsaved changes (MTR-26)', () => {
+  it('names what changed and asks before Cancel or Escape discards it', async () => {
+    const user = userEvent.setup();
+    stubApi((url) =>
+      url.pathname === `/api/projects/${PROJECT_ID}` ? json(200, detail()) : undefined,
+    );
+    renderAt(`/projects/${PROJECT_ID}`);
+    await user.click(await screen.findByRole('button', { name: 'Edit project' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit project' });
+    const cue = within(dialog).getAllByRole('status').at(-1)!;
+    expect(cue).toHaveTextContent('');
+
+    // Nothing changed: Cancel closes at once.
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Edit project' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Edit project' }));
+    const again = screen.getByRole('dialog', { name: 'Edit project' });
+    await user.type(within(again).getByRole('textbox', { name: 'Name' }), ' (fictional)');
+    await user.type(within(again).getByRole('textbox', { name: 'Client' }), ' Ltd');
+    expect(again).toHaveTextContent('Changed: name, client');
+
+    // Cancel asks; keeping editing leaves the draft alone.
+    await user.click(within(again).getByRole('button', { name: 'Cancel' }));
+    const confirm = screen.getByRole('dialog', { name: 'Discard changes?' });
+    expect(confirm).toHaveTextContent('Your changes to name, client haven’t been saved.');
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Discard changes?' })).toBeNull();
+    expect(within(again).getByRole('textbox', { name: 'Name' })).toHaveValue(
+      'Riverbank investigation (fictional)',
+    );
+
+    // Escape asks too; Discard changes closes the editor.
+    fireEvent(again, new Event('cancel', { cancelable: true }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Discard changes?' })).getByRole('button', {
+        name: 'Discard changes',
+      }),
+    );
+    expect(screen.queryByRole('dialog', { name: 'Edit project' })).toBeNull();
   });
 });

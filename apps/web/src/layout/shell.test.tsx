@@ -1,5 +1,5 @@
 import type { MeResponse } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -184,6 +184,20 @@ describe('dashboard', () => {
       name: 'AT received BKT-2026-000014 for DEMO-2601',
     });
     expect(link).toHaveAttribute('href', '/sample-storage?receiptId=r1&status=all');
+  });
+
+  it('MTR-136: a menu link moves focus to the new page heading, not the old link', async () => {
+    const user = userEvent.setup();
+    renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
+    await screen.findByText('No activity yet. Receive the first storage unit.');
+    // The first page load keeps the browser's own focus.
+    expect(screen.getByRole('heading', { level: 1 })).not.toHaveFocus();
+    const link = screen.getByRole('link', { name: 'Projects' });
+    link.focus();
+    await user.keyboard('{Enter}');
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Projects' });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(heading).toHaveAttribute('tabindex', '-1');
   });
 
   it('shows the empty state when nothing has happened yet', async () => {

@@ -167,11 +167,25 @@ export function DataTable<Row>({
 }
 
 /** Label, input and error text wired together with aria attributes. */
+/**
+ * Visible "(required)" after a label (MTR-133). Hidden from screen readers, which hear the
+ * input's own required state instead, so the field's name stays the label text.
+ */
+export function RequiredMarker() {
+  return (
+    <span className="required-marker" aria-hidden="true">
+      {' '}
+      (required)
+    </span>
+  );
+}
+
 export function FormField({
   id: fixedId,
   label,
   error,
   hint,
+  required = false,
   children,
 }: {
   /** Fixed id for the input, e.g. so an error summary can link to it. */
@@ -179,6 +193,8 @@ export function FormField({
   label: string;
   error?: string | null;
   hint?: string;
+  /** Shows the "(required)" marker; the input itself still sets `required`. */
+  required?: boolean;
   children: (props: {
     id: string;
     'aria-invalid': boolean;
@@ -192,7 +208,10 @@ export function FormField({
     .join(' ');
   return (
     <div className="form-field">
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>
+        {label}
+        {required ? <RequiredMarker /> : null}
+      </label>
       {children({
         id,
         'aria-invalid': Boolean(error),

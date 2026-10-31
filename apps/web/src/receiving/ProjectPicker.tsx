@@ -7,9 +7,9 @@ import {
   type ProjectSummary,
   type StaffOption,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createProject, fetchMyGrants, searchProjects } from '../api/projects';
-import { FormField } from '../components/ui';
+import { FormField, RequiredMarker } from '../components/ui';
 import { prefillFromQuery } from './prefill';
 import { useListHighlight } from '../components/useListHighlight';
 import { StaffOptionGroups } from '../projects/StaffOptionGroups';
@@ -47,6 +47,8 @@ export function ProjectPicker({
   online,
   projectEngineersOnly = false,
   staffReady = true,
+  required = false,
+  invalid = false,
 }: {
   value: ProjectSummary | null;
   query: string;
@@ -63,6 +65,10 @@ export function ProjectPicker({
   projectEngineersOnly?: boolean;
   /** False while the staff list is still loading, so "nobody eligible" isn't shown too early. */
   staffReady?: boolean;
+  /** Marks the project as required (MTR-133). */
+  required?: boolean;
+  /** The form reported a problem with the project: the search box says so (MTR-133). */
+  invalid?: boolean;
 }) {
   const id = useId();
   const [search, setSearch] = useState<Search>({ state: 'idle' });
@@ -74,6 +80,15 @@ export function ProjectPicker({
   const [saveError, setSaveError] = useState<string | null>(null);
   /** Whether the signed-in person holds "Can create and lead projects" (null: unknown). */
   const [canSelfLead, setCanSelfLead] = useState<boolean | null>(null);
+  // MTR-136: picking (or changing) the project replaces the focused control, so say where focus
+  // goes next instead of letting it fall to the page body.
+  const focusNext = useRef<'change' | 'search' | null>(null);
+  useEffect(() => {
+    const target = focusNext.current;
+    if (!target) return;
+    focusNext.current = null;
+    document.getElementById(`${id}-${target}`)?.focus();
+  }, [value, id]);
 
   const trimmed = query.trim();
   useEffect(() => {
@@ -102,6 +117,7 @@ export function ProjectPicker({
   const active = highlight.active;
 
   function choose(project: ProjectSummary) {
+    focusNext.current = 'change';
     onSelect(project);
     setOpen(false);
     setForm(null);
@@ -209,7 +225,14 @@ export function ProjectPicker({
             )}
           </FormField>
         </div>
-        <button type="button" onClick={() => onSelect(null)}>
+        <button
+          type="button"
+          id={`${id}-change`}
+          onClick={() => {
+            focusNext.current = 'search';
+            onSelect(null);
+          }}
+        >
           Change project
         </button>
       </fieldset>
@@ -226,13 +249,18 @@ export function ProjectPicker({
 
   return (
     <fieldset className="picker">
-      <legend>Project</legend>
+      <legend>
+        Project
+        {required ? <RequiredMarker /> : null}
+      </legend>
       <div className="form-field combobox">
         <label htmlFor={`${id}-search`}>Find project (number or name)</label>
         <div className="combobox-row">
           <input
             id={`${id}-search`}
             role="combobox"
+            aria-required={required || undefined}
+            aria-invalid={invalid || undefined}
             aria-autocomplete="list"
             aria-expanded={showList}
             aria-controls={listboxId}

@@ -254,3 +254,8 @@
 .team-history li {
   display: block;
 }
+
+/* MTR-26: names the fields that differ from the saved project. */
+.edit-project-changed {
+  margin: 0.5rem 0 0;
+}

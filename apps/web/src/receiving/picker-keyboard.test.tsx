@@ -380,3 +380,17 @@ it('MM-T62: a new answer for the same query highlights its own first match', asy
   await user.keyboard('{Enter}');
   expect(picked).toHaveBeenLastCalledWith(RECEIVERS[2]);
 });
+
+it('MTR-136: picking a project focuses Change project, and Change project focuses the search', async () => {
+  const user = userEvent.setup();
+  render(<ProjectHarness onSelect={vi.fn()} />);
+  await user.type(screen.getByRole('combobox'), 'DEMO-260');
+  await screen.findAllByRole('option');
+  await user.keyboard('{ArrowDown}{Enter}');
+  const change = await screen.findByRole('button', { name: 'Change project' });
+  expect(change).toHaveFocus();
+  expect(screen.getByRole('textbox', { name: 'Project number' })).toHaveValue('DEMO-2602');
+
+  await user.click(change);
+  expect(screen.getByRole('combobox', { name: 'Find project (number or name)' })).toHaveFocus();
+});

@@ -52,3 +52,8 @@ export function receivedWhen(receivedDate: string, receivedAt: string, now = new
 export function shortDateTime(iso: string): string {
   return DATE_TIME.format(new Date(iso));
 }
+
+/** "2:05 p.m.": the time of day of an instant in the lab's time zone. */
+export function shortTime(iso: string): string {
+  return TIME.format(new Date(iso));
+}

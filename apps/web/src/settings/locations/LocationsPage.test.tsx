@@ -1,5 +1,5 @@
 import type { MeResponse, PrintJob, StorageLocation } from '@materialmule/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -327,6 +327,48 @@ describe('Settings → Locations (MM-T37)', () => {
       kind: 'warehouse',
       area: null,
     });
+  });
+
+  it('MTR-136: closing the Add location panel returns focus to Add location', async () => {
+    const user = userEvent.setup();
+    fakeApi([RECEIVING]);
+    renderPage(MANAGER);
+    const trigger = await screen.findByRole('button', { name: 'Add location' });
+    await user.click(trigger);
+    let dialog = await screen.findByRole('dialog', { name: 'Add location' });
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Add location' })).toBeNull();
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    dialog = await screen.findByRole('dialog', { name: 'Add location' });
+    fireEvent(dialog, new Event('cancel', { cancelable: true }));
+    expect(screen.queryByRole('dialog', { name: 'Add location' })).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('MTR-133: Code and Name are marked required; an empty add focuses Code once', async () => {
+    const user = userEvent.setup();
+    fakeApi([RECEIVING]);
+    renderPage(MANAGER);
+    await user.click(await screen.findByRole('button', { name: 'Add location' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add location' });
+    const code = within(dialog).getByRole('textbox', { name: 'Code' });
+    const name = within(dialog).getByRole('textbox', { name: 'Name' });
+    expect(within(dialog).getAllByText('(required)')).toHaveLength(2);
+    expect(code).toBeRequired();
+    expect(name).toBeRequired();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add location' }));
+    expect(code).toHaveFocus();
+    expect(code).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    // The rule is said once, in the error, not again in the hint.
+    expect(within(dialog).getAllByText(/Use 2–20 letters, digits or hyphens/)).toHaveLength(1);
+
+    await user.type(code, 'WH-C3');
+    await user.click(within(dialog).getByRole('button', { name: 'Add location' }));
+    expect(name).toHaveFocus();
   });
 
   it('shows a duplicate code as a field error', async () => {

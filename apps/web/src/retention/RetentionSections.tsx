@@ -117,7 +117,14 @@ export function UnitRetentionCard({
 }
 
 /** Project → Retention (MM-T29): project-wide holds/extensions, requests and decisions. */
-export function ProjectRetentionSection({ projectId }: { projectId: string }) {
+export function ProjectRetentionSection({
+  projectId,
+  onChanged,
+}: {
+  projectId: string;
+  /** Called after a hold, extension or request changes, so the page can refresh what it shows. */
+  onChanged?: () => void;
+}) {
   const load = useCallback(() => fetchProjectRetention(projectId), [projectId]);
   const [data, reload] = useLoad<ProjectRetention>(load);
   const [adding, setAdding] = useState(false);
@@ -125,6 +132,7 @@ export function ProjectRetentionSection({ projectId }: { projectId: string }) {
   const changed = () => {
     setAdding(false);
     reload();
+    onChanged?.();
   };
   return (
     <BandedCard

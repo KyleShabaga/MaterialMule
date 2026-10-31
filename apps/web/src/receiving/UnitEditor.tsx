@@ -153,6 +153,8 @@ export function UnitEditor({
                   onQueryChange={(holeQuery) => onChange((current) => ({ ...current, holeQuery }))}
                   receiverUserId={receiverUserId}
                   online={online}
+                  required
+                  invalid={Boolean(holesError)}
                   // Holes are shared project data, kept even if the draft is discarded (decided
                   // 2026-10-27, MM-T61).
                   addedNote={(holeName) =>

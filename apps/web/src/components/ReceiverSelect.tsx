@@ -5,6 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../api/client';
+import { RequiredMarker } from './ui';
 import { useListHighlight } from './useListHighlight';
 
 const SEARCH_DELAY_MS = 150;
@@ -139,7 +140,7 @@ export function ReceiverSelect({
     <div className="form-field receiver-select">
       <label htmlFor={id}>
         {label}
-        {required ? <span aria-hidden="true"> *</span> : null}
+        {required ? <RequiredMarker /> : null}
       </label>
       <div className="receiver-anchor">
         <input
