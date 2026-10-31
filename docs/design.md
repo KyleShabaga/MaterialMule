@@ -605,7 +605,7 @@ Approved by Kyle on 2026-10-27 (canvas: "APPROVED — Dashboard"); built in
 Built to the canvas artboards "Sample Storage — list", "Storage unit detail", "Correct details" and
 "Print status — every state" in MM-T50 (`apps/web/src/inventory/`).
 
-- **List:** Look up ID (with Scan with camera) beside Search inventory, each on its own card; the
+- **List:** Look up ID (with Scan with camera) beside Search Sample Storage, each on its own card; the
   filters in a four-column card (two on tablets, one on phones); active filter chips, the count and
   Clear filters on one line; the results table and its pager on one card. The storage unit ID is
   the row's link (no View column); its type is a small mono tag under it, the project number is

@@ -1,4 +1,5 @@
 import {
+  currentLocationName,
   TESTED_CONTENTS_LABEL,
   storageUnitTypeLabel,
   type InventoryItem,
@@ -87,12 +88,13 @@ export function StorageUnitTable({
       header: 'Location',
       cell: (item) => {
         const pending = pendingMoves?.get(item.id);
+        const name = currentLocationName(item);
         const saved = compact ? (
-          <span className="location-line" title={item.location.name}>
-            {item.location.name}
+          <span className="location-line" title={name}>
+            {name}
           </span>
         ) : (
-          item.location.name
+          name
         );
         if (!pending) return saved;
         return (

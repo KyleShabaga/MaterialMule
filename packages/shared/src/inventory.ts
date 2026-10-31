@@ -78,10 +78,39 @@ export function splitSearchWords(search: string | undefined): string[] {
 /**
  * Inventory search words (MM-T59): every dash folded to "-" first, so "G1–S10" copied from the
  * table matches like "G1-S10", and a dash standing alone between spaced words ("G1 – S10") dropped.
+ * Words keep their decimals as typed; inventorySearchWordForms adds the depth form (MTR-57).
  */
 export function splitInventorySearch(search: string | undefined): string[] {
   const folded = (search ?? '').replace(SEARCH_DASHES, '-');
   return splitSearchWords(folded.replace(/(^|\s)-+(?=\s|$)/g, ' '));
+}
+
+/** A decimal's trailing zeros (MTR-57): "3.0" → "3", "1.50" → "1.5". */
+const TRAILING_ZEROS = /(\d)\.(\d*?)0+(?!\d)/g;
+
+/**
+ * The forms a search word may match (MTR-57). The search document holds depths as trim_scale
+ * writes them ("1.5-3 m"), so "1.5–3.0" must also match as "1.5-3"; but names, references and
+ * custom text keep their decimals as entered ("TH3.0-A", "1.50-3.00"), so the word as typed is
+ * always tried too. A word matches when any form appears in the document.
+ */
+export function inventorySearchWordForms(word: string): string[] {
+  const depth = word.replace(TRAILING_ZEROS, (_, whole: string, fraction: string) =>
+    fraction ? `${whole}.${fraction}` : whole,
+  );
+  return depth === word ? [word] : [word, depth];
+}
+
+/**
+ * Where a unit is now, as screens show it (MISC-12, owner decision 2026-10-31): a disposed unit
+ * has no current location, so it reads "No location". Its last saved location stays in the
+ * database and in History; only the display changes.
+ */
+export function currentLocationName(unit: {
+  status: StorageUnitStatus;
+  location: { name: string };
+}): string {
+  return unit.status === 'disposed' ? 'No location' : unit.location.name;
 }
 
 /** What a typed or scanned storage unit ID is compared as: trimmed and upper case. */
@@ -389,7 +418,56 @@ export function storageUnitHistoryActionLabel(
       return 'Disposal approval used';
     case 'disposal.blocked':
       return 'Disposal scan refused';
+    // MTR-59: holds and extensions covering the unit (its own or its project's).
+    case 'retention.hold_placed':
+      return after?.scope === 'project' ? 'Project-wide hold placed' : 'Hold placed';
+    case 'retention.hold_released':
+      return 'Hold released';
+    case 'retention.extended': {
+      const what =
+        after?.scope === 'project' ? 'Project-wide retention extended' : 'Retention extended';
+      if (typeof after?.retainUntil === 'string') return `${what} to ${after.retainUntil}`;
+      if (typeof after?.extendMonths === 'number') return `${what} by ${after.extendMonths} months`;
+      return what;
+    }
+    case 'retention.extension_released':
+      return 'Retention extension released';
     default:
-      return action;
+      return labHistoryLabel(action, after) ?? action;
   }
+}
+
+const LAB_PROGRAM_ACTIONS: Record<string, string> = {
+  created: 'created',
+  submitted: 'submitted',
+  amended: 'amended',
+  priority_changed: 'priority changed',
+  closure_requested: 'closure requested',
+  closed: 'closed',
+  reopened: 'reopened',
+  discarded: 'discarded',
+};
+
+const TEST_REQUEST_ACTIONS: Record<string, string> = {
+  created: 'requested',
+  status_changed: 'status changed',
+  cancellation_requested: 'cancellation requested',
+  cancelled: 'cancelled',
+  repeat_created: 'repeat requested',
+  identity_changed: 'changed by amendment',
+};
+
+/** MTR-59: lab program and test request events for programs covering the unit. */
+function labHistoryLabel(action: string, after?: Record<string, unknown> | null): string | null {
+  const [entity, verb = ''] = action.split('.');
+  const program = typeof after?.programNumber === 'string' ? ` ${after.programNumber}` : '';
+  if (entity === 'lab_program' && verb in LAB_PROGRAM_ACTIONS) {
+    return `Lab program${program} ${LAB_PROGRAM_ACTIONS[verb]}`;
+  }
+  if (entity === 'test_request' && verb in TEST_REQUEST_ACTIONS) {
+    const code = typeof after?.code === 'string' ? ` ${after.code}` : '';
+    const where = program ? ` (${program.trim()})` : '';
+    return `Test${code}${where} ${TEST_REQUEST_ACTIONS[verb]}`;
+  }
+  return null;
 }

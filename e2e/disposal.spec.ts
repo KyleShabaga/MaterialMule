@@ -109,9 +109,40 @@ test('T4/AC2: approve → hold placed after approval blocks the scan → release
   await expect(results.getByRole('listitem').first()).toContainText('already disposed');
 
   await page.goto(`/sample-storage/${unit.readableId}`);
-  await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText(
-    'Disposed',
+  const history = page.getByRole('region', { name: 'History', exact: true });
+  await expect(history).toContainText('Disposed');
+  // MTR-59: the unit's own hold and its release are in History, with who placed them; MTR-3:
+  // the Lab Manager fixture is a test account, so its events carry TEST.
+  const placed = history.getByRole('listitem').filter({ hasText: 'Hold placed' });
+  await expect(placed).toContainText('E2E claim review');
+  await expect(placed.getByText('TEST', { exact: true })).toBeVisible();
+  await expect(history.getByRole('listitem').filter({ hasText: 'Hold released' })).toContainText(
+    'Settled',
   );
+
+  // MISC-12: the page shows no current location; the database keeps the last saved one.
+  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+    'No location',
+  );
+  const kept = await withDatabase((client) =>
+    client.query<{ code: string }>(
+      `SELECT l.code_normalized AS code FROM storage_unit su
+       JOIN location l ON l.id = su.current_location_id WHERE su.id = $1`,
+      [unit.id],
+    ),
+  );
+  expect(kept.rows).toEqual([{ code: 'RECEIVING' }]);
+  // MTR-48: the preview stays, watermarked, with no way to print it.
+  await expect(page.getByRole('img', { name: new RegExp(unit.readableId) }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /Print \/ Save as PDF/ })).toHaveCount(0);
+  const preview = await page.request.get(`/api/storage-units/${unit.readableId}/label/preview`);
+  expect(await preview.json()).toMatchObject({ disposed: true });
+  expect((await preview.json()).svg).toContain('data-watermark="DISPOSED"');
+  await page.goto(`/labels/print/unit/${unit.readableId}`);
+  await expect(page.getByRole('status')).toHaveText(
+    'This storage unit is disposed; its label is not printed again.',
+  );
+  await expect(page.getByRole('button', { name: 'Print / Save as PDF' })).toHaveCount(0);
 });
 
 test('T5/AC3: offline, Disposal scan is disabled and nothing is queued', async ({

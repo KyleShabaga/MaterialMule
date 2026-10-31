@@ -30,6 +30,10 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   await expect(count).toHaveText('2 storage units');
   await expect(table.getByText(data.aDisposed)).toBeVisible();
   await expect(table.getByText('Disposed')).toBeVisible();
+  // MISC-12: its saved location is kept, but the list shows it has no current location.
+  await expect(table.locator('tbody tr').filter({ hasText: data.aDisposed })).toContainText(
+    'No location',
+  );
   const chips = page.getByRole('list', { name: 'Active filters' });
   await expect(chips).toContainText(`Project: ${data.projectA}`);
   await expect(chips).toContainText('Status: All statuses');
@@ -135,6 +139,13 @@ test('MM-T59 T3: a summary copied from the table finds its units', async ({ page
   await search(depth);
   await expect(table.locator('tbody tr')).toHaveCount(1);
   await expect(row(data.aOtherHole)).toBeVisible();
+
+  // MTR-57: a depth typed with trailing zeros finds the same unit.
+  for (const typed of ['3.0–5.0 ft', '5.00 ft']) {
+    await search(typed);
+    await expect(table.locator('tbody tr')).toHaveCount(1);
+    await expect(row(data.aOtherHole)).toBeVisible();
+  }
 
   await search(sample);
   // Current stock: a1, b1 and aReceiving hold TH26-01 G1–S12; aDisposed is hidden.

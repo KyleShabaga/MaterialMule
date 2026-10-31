@@ -15,6 +15,7 @@ interface StickerRow {
   project_number: string;
   project_name: string;
   test_holes: string[];
+  disposed: boolean;
 }
 
 /**
@@ -27,24 +28,30 @@ interface StickerRow {
 const STICKER_SELECT = `
   SELECT su.id, su.readable_id, su.received_date::text AS received_date,
          p.project_number, p.name AS project_name,
-         storage_unit_origin_names(su.id) AS test_holes
+         storage_unit_origin_names(su.id) AS test_holes,
+         su.status = 'disposed' AS disposed
   FROM storage_unit su
   JOIN project p ON p.id = su.project_id`;
 
+// MTR-48: a disposed unit's label is served only watermarked DISPOSED, never printable.
 function toPreview(row: StickerRow): LabelPreview {
-  const preview = renderPreviewSvg({
-    storageUnitId: row.readable_id,
-    projectNumber: row.project_number,
-    projectName: row.project_name,
-    receivedDate: row.received_date,
-    testHoles: row.test_holes,
-  });
+  const preview = renderPreviewSvg(
+    {
+      storageUnitId: row.readable_id,
+      projectNumber: row.project_number,
+      projectName: row.project_name,
+      receivedDate: row.received_date,
+      testHoles: row.test_holes,
+    },
+    { disposed: row.disposed },
+  );
   return {
     storageUnitId: row.id,
     readableId: row.readable_id,
     svg: preview.svg,
     templateVersion: preview.templateVersion,
     warnings: preview.warnings,
+    disposed: row.disposed,
   };
 }
 

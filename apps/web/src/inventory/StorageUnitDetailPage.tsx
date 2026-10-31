@@ -1,4 +1,5 @@
 import {
+  currentLocationName,
   SAMPLING_SOURCE_TYPE_LABEL,
   describeStorageUnitCorrection,
   formatDepth,
@@ -200,7 +201,7 @@ function StorageUnitDetail() {
               status={unit.status}
               testedRemovalReason={unit.testing?.removal?.reason ?? null}
             />
-            <span className="muted">{unit.location.name}</span>
+            <span className="muted">{currentLocationName(unit)}</span>
             {unit.locationConflict ? (
               <StatusBadge tone="danger">Location conflict</StatusBadge>
             ) : null}
@@ -383,7 +384,10 @@ function StorageUnitDetail() {
           <BandedCard id="location" title="Location and retention">
             <dl className="details">
               <Detail term="Saved location">
-                {unit.location.name} ({unit.location.code})
+                {/* MISC-12: a disposed unit has no current location; its moves stay in History. */}
+                {unit.status === 'disposed'
+                  ? currentLocationName(unit)
+                  : `${unit.location.name} (${unit.location.code})`}
               </Detail>
               <Detail term="Pending move">
                 <PendingMoveNote unitId={unit.id} />
@@ -436,11 +440,39 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
   );
 }
 
+/** Test identities' actions carry the same TEST badge as the header (MTR-3, MM-T33). */
+function ActorTestBadge({ accountType }: { accountType: string | null }) {
+  if (accountType !== 'test') return null;
+  return (
+    <>
+      {' '}
+      <span className="badge" title="Done by a test account">
+        TEST
+      </span>
+    </>
+  );
+}
+
+/** One audit value as text: a location (or any `{name, code}`) reads "name (code)" (MTR-64). */
+function formatHistoryValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value !== 'object') return String(value);
+  const record = value as Record<string, unknown>;
+  if (typeof record.name === 'string' && typeof record.code === 'string') {
+    return `${record.name} (${record.code})`;
+  }
+  return JSON.stringify(value);
+}
+
 function changes(event: StorageUnitHistoryEvent): string[] {
-  if (!event.before || !event.after) return [];
+  // A hold's or extension's label says it all; its audit values are bookkeeping (MTR-59).
+  if (!event.before || !event.after || event.action.startsWith('retention.')) return [];
   return Object.keys(event.after)
     .filter((key) => key in event.before!)
-    .map((key) => `${key}: ${String(event.before![key])} → ${String(event.after![key])}`);
+    .map(
+      (key) =>
+        `${key}: ${formatHistoryValue(event.before![key])} → ${formatHistoryValue(event.after![key])}`,
+    );
 }
 
 /** Audit history, newest first, 20 per page; never loaded in full. */
@@ -486,7 +518,8 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
                 {event.action === 'storage_unit.corrected' ? (
                   // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
                   <span>
-                    {event.actor.initials ?? event.actor.name ?? 'Unknown'} changed{' '}
+                    {event.actor.initials ?? event.actor.name ?? 'Unknown'}
+                    <ActorTestBadge accountType={event.actor.accountType} /> changed{' '}
                     {describeStorageUnitCorrection(event.before, event.after).join('; ')}
                     {event.reason ? ` · Reason: ${event.reason}` : ''}
                   </span>
@@ -494,6 +527,7 @@ function HistorySection({ storageUnitId, refresh }: { storageUnitId: string; ref
                   <>
                     <span>
                       by {formatPerson(event.actor.initials, event.actor.name)}
+                      <ActorTestBadge accountType={event.actor.accountType} />
                       {event.receiver
                         ? ` for ${formatPerson(event.receiver.initials, event.receiver.name)}`
                         : ''}

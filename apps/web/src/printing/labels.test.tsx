@@ -21,6 +21,7 @@ function preview(overrides: Partial<LabelPreview> = {}): LabelPreview {
     svg: SVG,
     templateVersion: 'sticker-v1',
     warnings: [],
+    disposed: false,
     ...overrides,
   };
 }
@@ -169,6 +170,19 @@ describe('LabelPreviewPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('MTR-48: a disposed unit keeps its watermarked preview but offers no print view', async () => {
+    stubApi((url) =>
+      url === '/api/storage-units/BKT-2026-000014/label/preview'
+        ? json(200, preview({ disposed: true }))
+        : undefined,
+    );
+    renderPanel({ storageUnit: 'BKT-2026-000014', layout: 'dual' });
+    expect(await screen.findByRole('img', { name: /BKT-2026-000014/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Print \/ Save as PDF/ })).toBeNull();
+    expect(screen.getAllByText(/its label is not printed again/).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Pages in the print view')).toBeNull();
+  });
+
   it('shows an error with Retry, then the label', async () => {
     let calls = 0;
     stubApi(() => {
@@ -278,6 +292,46 @@ describe('LabelPrintPage', () => {
       'href',
       '/sample-storage',
     );
+  });
+
+  it('MTR-48: a disposed unit has no printable label, only the reason', async () => {
+    stubApi((url) =>
+      url === '/api/storage-units/BKT-2026-000014/label/preview'
+        ? json(200, preview({ disposed: true }))
+        : undefined,
+    );
+    renderRoute('/labels/print/unit/BKT-2026-000014');
+    expect(await screen.findByRole('heading', { name: 'Label BKT-2026-000014' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'This storage unit is disposed; its label is not printed again.',
+    );
+    expect(screen.queryByLabelText('Labels to print')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
+  });
+
+  it('MTR-48: a receipt print view skips disposed units and names them', async () => {
+    stubApi((url) =>
+      url === '/api/receipts/r1/labels/preview'
+        ? json(200, {
+            receiptId: 'r1',
+            labels: [
+              preview({ readableId: 'BKT-2026-000014', storageUnitId: 'a' }),
+              preview({ readableId: 'BKT-2026-000015', storageUnitId: 'b', disposed: true }),
+              preview({ readableId: 'BKT-2026-000016', storageUnitId: 'c' }),
+            ],
+          })
+        : undefined,
+    );
+    renderRoute('/labels/print/receipt/r1');
+    expect(await screen.findByRole('heading', { name: '2 labels' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Disposed units are not printed again: BKT-2026-000015.',
+    );
+    expect(
+      within(screen.getByLabelText('Labels to print'))
+        .getAllByRole('img')
+        .map((img) => img.getAttribute('alt')),
+    ).toEqual(['Label for storage unit BKT-2026-000014', 'Label for storage unit BKT-2026-000016']);
   });
 
   it('says when the receipt does not exist', async () => {

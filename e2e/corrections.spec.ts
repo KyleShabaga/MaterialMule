@@ -40,7 +40,8 @@ test('T7: correct a summary from the detail page; the history shows it and the I
     'TH26-01: G1–S10',
   );
   await expect(page.getByRole('list', { name: 'History events' })).toContainText(
-    'AT changed test holes TH26-01: G1–S12 → TH26-01: G1–S10 · Reason: wrong range on tag',
+    // MTR-3: Alex Tester is a test account, so the TEST badge follows the initials.
+    'AT TEST changed test holes TH26-01: G1–S12 → TH26-01: G1–S10 · Reason: wrong range on tag',
   );
 
   // The change survives a reload.

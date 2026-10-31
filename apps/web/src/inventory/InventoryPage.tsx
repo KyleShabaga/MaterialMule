@@ -466,8 +466,8 @@ function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: 
     onSearch(text.trim());
   }
   return (
-    <form role="search" aria-label="Search inventory" className="tool-card" onSubmit={submit}>
-      <label htmlFor={id}>Search inventory</label>
+    <form role="search" aria-label="Search Sample Storage" className="tool-card" onSubmit={submit}>
+      <label htmlFor={id}>Search Sample Storage</label>
       <div className="inline-input">
         <input
           id={id}

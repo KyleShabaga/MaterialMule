@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   formatStorageUnitHoleSummary,
   inventoryQuerySchema,
+  inventorySearchWordForms,
   inventorySortDirection,
   normalizeStorageUnitCode,
+  currentLocationName,
   splitInventorySearch,
+  storageUnitHistoryActionLabel,
 } from './inventory';
 
 const PROJECT = '00000000-0000-4000-8000-000000000201';
@@ -52,6 +55,31 @@ describe('inventory query (MM-T12)', () => {
     ]);
     expect(splitInventorySearch(undefined)).toEqual([]);
     expect(splitInventorySearch('a b c d e f g h i j k l')).toHaveLength(10);
+  });
+
+  it('MTR-57: a word also matches without its trailing zeros, as trim_scale writes depths', () => {
+    expect(splitInventorySearch('1.5–3.0 m')).toEqual(['1.5-3.0', 'm']);
+    expect(inventorySearchWordForms('1.5-3.0')).toEqual(['1.5-3.0', '1.5-3']);
+    expect(inventorySearchWordForms('3.0')).toEqual(['3.0', '3']);
+    expect(inventorySearchWordForms('1.50-3.00m')).toEqual(['1.50-3.00m', '1.5-3m']);
+    expect(inventorySearchWordForms('0.0')).toEqual(['0.0', '0']);
+    expect(inventorySearchWordForms('10.0')).toEqual(['10.0', '10']);
+    // No trailing zeros: one form.
+    for (const word of ['1.5-3', '2.05', '100', '20', 'm']) {
+      expect(inventorySearchWordForms(word), word).toEqual([word]);
+    }
+    // Words that only look numeric keep their other digits.
+    for (const word of ['th26-01', 'g1-s10', 'bkt-2026-000010']) {
+      expect(inventorySearchWordForms(word), word).toEqual([word]);
+    }
+  });
+
+  it('MTR-57: identifiers and custom text with decimals still match as typed', () => {
+    // A hole tag or custom summary keeps its decimals in the search document.
+    expect(splitInventorySearch('TH3.0-A')).toEqual(['th3.0-a']);
+    expect(inventorySearchWordForms('th3.0-a')[0]).toBe('th3.0-a');
+    expect(splitInventorySearch('1.50-3.00')).toEqual(['1.50-3.00']);
+    expect(inventorySearchWordForms('1.50-3.00')[0]).toBe('1.50-3.00');
   });
 
   it('folds en dashes, em dashes and minus signs to a hyphen, as the search document does (MM-T59)', () => {
@@ -110,5 +138,56 @@ describe('inventory query (MM-T12)', () => {
     expect(formatStorageUnitHoleSummary({ ...empty, type: 'custom', customText: 'Bag 3' })).toBe(
       'Bag 3',
     );
+  });
+});
+
+describe('storage unit history labels (MTR-59)', () => {
+  it('names holds and extensions, project-wide or not', () => {
+    expect(storageUnitHistoryActionLabel('retention.hold_placed', { scope: 'units' })).toBe(
+      'Hold placed',
+    );
+    expect(storageUnitHistoryActionLabel('retention.hold_placed', { scope: 'project' })).toBe(
+      'Project-wide hold placed',
+    );
+    expect(storageUnitHistoryActionLabel('retention.hold_released', {})).toBe('Hold released');
+    expect(
+      storageUnitHistoryActionLabel('retention.extended', { scope: 'units', extendMonths: 6 }),
+    ).toBe('Retention extended by 6 months');
+    expect(
+      storageUnitHistoryActionLabel('retention.extended', {
+        scope: 'project',
+        retainUntil: '2029-01-01',
+      }),
+    ).toBe('Project-wide retention extended to 2029-01-01');
+    expect(storageUnitHistoryActionLabel('retention.extension_released', {})).toBe(
+      'Retention extension released',
+    );
+  });
+
+  it('names lab program and test request events with the program number and test code', () => {
+    expect(
+      storageUnitHistoryActionLabel('lab_program.submitted', { programNumber: 'LP-2026-0014' }),
+    ).toBe('Lab program LP-2026-0014 submitted');
+    expect(storageUnitHistoryActionLabel('lab_program.created', { lineCount: 1 })).toBe(
+      'Lab program created',
+    );
+    expect(
+      storageUnitHistoryActionLabel('test_request.status_changed', {
+        programNumber: 'LP-2026-0014',
+        code: 'MC',
+      }),
+    ).toBe('Test MC (LP-2026-0014) status changed');
+    expect(storageUnitHistoryActionLabel('test_request.unknown_thing', {})).toBe(
+      'test_request.unknown_thing',
+    );
+  });
+});
+
+describe('current location for display (MISC-12)', () => {
+  const location = { id: 'l1', code: 'WH-A1', name: 'Warehouse A1' };
+  it('shows the saved location until the unit is disposed, then No location', () => {
+    expect(currentLocationName({ status: 'in_stock', location })).toBe('Warehouse A1');
+    expect(currentLocationName({ status: 'approved_for_disposal', location })).toBe('Warehouse A1');
+    expect(currentLocationName({ status: 'disposed', location })).toBe('No location');
   });
 });

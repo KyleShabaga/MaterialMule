@@ -88,17 +88,27 @@ function qrPath(layout: LabelLayout): string {
  * width the layout measured, so the preview shows the space each field reserves; the physical
  * ZD621 print remains the final check of font rendering.
  */
-export function renderPreviewSvg(input: StickerInput): StickerPreview {
+export function renderPreviewSvg(
+  input: StickerInput,
+  options: { disposed?: boolean } = {},
+): StickerPreview {
   const layout = layoutStickerV1(input);
   return {
-    svg: svgForLayout(layout),
+    svg: svgForLayout(layout, options.disposed ? DISPOSED_WATERMARK : undefined),
     warnings: layout.warnings,
     templateVersion: TEMPLATE_VERSION,
   };
 }
 
-/** Real-size SVG of any positioned label (sticker or location label, MM-T37). */
-export function svgForLayout(layout: LabelLayout): string {
+/** MTR-48: a disposed unit's preview is never a printable label. */
+const DISPOSED_WATERMARK = 'DISPOSED';
+
+/**
+ * Real-size SVG of any positioned label (sticker or location label, MM-T37). A `watermark`
+ * (fixed text, never user data) is drawn across the label and both barcodes are struck through,
+ * so the image can't pass for a printable label.
+ */
+export function svgForLayout(layout: LabelLayout, watermark?: string): string {
   const { widthDots, heightDots } = layout;
   const texts = layout.texts.map(
     (text) =>
@@ -118,7 +128,23 @@ export function svgForLayout(layout: LabelLayout): string {
     '</g>',
     `<path data-symbol="code128" fill="#000" d="${code128Path(layout)}"/>`,
     `<path data-symbol="qr" fill="#000" d="${qrPath(layout)}"/>`,
+    ...(watermark ? watermarkSvg(widthDots, heightDots, watermark) : []),
     '</svg>',
   ];
   return svg.join('\n') + '\n';
+}
+
+function watermarkSvg(width: number, height: number, text: string): string[] {
+  const size = Math.round(height * 0.38);
+  return [
+    `<g data-watermark="${escapeXml(text)}" pointer-events="none">`,
+    `<rect width="${width}" height="${height}" fill="#fff" fill-opacity="0.45"/>`,
+    `<line x1="0" y1="0" x2="${width}" y2="${height}" stroke="#b00020" stroke-width="${Math.round(height * 0.03)}"/>`,
+    `<line x1="0" y1="${height}" x2="${width}" y2="0" stroke="#b00020" stroke-width="${Math.round(height * 0.03)}"/>`,
+    `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" dominant-baseline="central" ` +
+      `font-family="Arial, sans-serif" font-weight="700" font-size="${size}" fill="#b00020" ` +
+      `fill-opacity="0.85" stroke="#fff" stroke-width="${Math.round(size * 0.04)}" ` +
+      `transform="rotate(-12 ${width / 2} ${height / 2})">${escapeXml(text)}</text>`,
+    '</g>',
+  ];
 }
