@@ -213,7 +213,7 @@ describe('Sample Storage inventory (MM-T12)', () => {
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument();
 
     await userEvent.type(
-      screen.getByRole('searchbox', { name: 'Search inventory' }),
+      screen.getByRole('searchbox', { name: 'Search Sample Storage' }),
       'TH26-01 warehouse',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
@@ -238,7 +238,7 @@ describe('Sample Storage inventory (MM-T12)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(router.state.location.search).toBe('');
     expect(await screen.findByText('42 storage units')).toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('');
+    expect(screen.getByRole('searchbox', { name: 'Search Sample Storage' })).toHaveValue('');
   });
 
   it('MM-T66 UI-10: switches between Standard and Compact with the same rows, and remembers it', async () => {
@@ -477,16 +477,16 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
     stubInventory();
     const router = renderAt('/sample-storage?search=TH26-01&type=bucket');
     await screen.findByText('1 storage unit');
-    const box = screen.getByRole('searchbox', { name: 'Search inventory' });
+    const box = screen.getByRole('searchbox', { name: 'Search Sample Storage' });
 
     act(() => {
       fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
       fireEvent.change(box, { target: { value: 'TH26-02' } });
-      fireEvent.submit(screen.getByRole('search', { name: 'Search inventory' }));
+      fireEvent.submit(screen.getByRole('search', { name: 'Search Sample Storage' }));
     });
 
     await waitFor(() => expect(router.state.location.search).toBe('?search=TH26-02'));
-    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('TH26-02');
+    expect(screen.getByRole('searchbox', { name: 'Search Sample Storage' })).toHaveValue('TH26-02');
     const chips = screen.getByRole('list', { name: 'Active filters' });
     expect(within(chips).getAllByRole('listitem')).toHaveLength(1);
   });
@@ -498,13 +498,13 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
 
     act(() => {
       fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-      fireEvent.change(screen.getByRole('searchbox', { name: 'Search inventory' }), {
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search Sample Storage' }), {
         target: { value: 'TH26-02' },
       });
     });
 
     await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('TH26-02');
+    expect(screen.getByRole('searchbox', { name: 'Search Sample Storage' })).toHaveValue('TH26-02');
   });
 });
 

@@ -1,6 +1,6 @@
 /* ---- Inventory and storage unit detail (MM-T12; canvas layout MM-T50) ---- */
 
-/* Look up ID beside Search inventory, then the filters, each on its own card. */
+/* Look up ID beside Search Sample Storage, then the filters, each on its own card. */
 .storage-tools {
   display: grid;
   grid-template-columns: minmax(0, 23.75rem) minmax(0, 1fr);
