@@ -117,7 +117,7 @@ test('AC1/T2: a Lead Project Engineer adds a Grabs line with explicit units afte
 
   await page.goto('/lab-testing');
   await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
-  await page.getByLabel('Test', { exact: true }).selectOption({ label: added });
+  await page.getByRole('combobox', { name: /^Test\b/ }).selectOption({ label: added });
   await expect(page.getByRole('link', { name: program.programNumber })).toBeVisible();
 });
 
