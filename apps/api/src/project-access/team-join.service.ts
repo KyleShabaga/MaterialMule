@@ -208,9 +208,10 @@ export class TeamJoinService {
         decision === 'accepted'
           ? (parseBody(acceptTeamJoinSchema, body ?? {}).reason ?? null)
           : parseBody(declineTeamJoinSchema, body).reason;
+      // Unlocked: only to find the request and its membership (neither ever changes).
       const { rows } = UUID_PATTERN.test(requestId)
         ? await client.query<RequestRow>(
-            `${SELECT_REQUESTS} WHERE r.id = $1 AND r.project_id = $2 FOR UPDATE OF r`,
+            `${SELECT_REQUESTS} WHERE r.id = $1 AND r.project_id = $2`,
             [requestId, project.id],
           )
         : { rows: [] };
@@ -219,12 +220,24 @@ export class TeamJoinService {
       const standing = await lockStanding(client, [user.userId]);
       const actor = asLocked(user, standing);
       if (!mayDecide(actor, lead)) throw forbidden();
-      if (found.status !== 'pending') {
+      // Lock order as an ordinary removal (whose 0011 trigger then declines the request): the
+      // membership, then the request, re-read under the locks so the first committed decision wins.
+      const member =
+        decision === 'declined' ? await lockGrant(client, TEAM_MEMBER, found.team_member_id) : null;
+      const { rows: locked } = await client.query<{
+        status: TeamJoinRequest['status'];
+        decided_by_user_id: string | null;
+      }>(
+        `SELECT status, decided_by_user_id FROM project_team_join_request WHERE id = $1 FOR UPDATE`,
+        [found.id],
+      );
+      const now = locked[0]!;
+      if (now.status !== 'pending') {
         // An exact retry of this decision by this person returns the current state.
-        if (found.status === decision && found.decided_by_user_id === user.userId) {
+        if (now.status === decision && now.decided_by_user_id === user.userId) {
           return this.view(client, project, actor);
         }
-        throw new ConflictException({ code: 'team_join_request_decided', status: found.status });
+        throw new ConflictException({ code: 'team_join_request_decided', status: now.status });
       }
       const by = { userId: user.userId, initials: user.initials, displayName: user.displayName };
       const receiver = {
@@ -248,7 +261,6 @@ export class TeamJoinService {
           [found.id, by.userId],
         );
       } else {
-        const member = await lockGrant(client, TEAM_MEMBER, found.team_member_id);
         if (!member) throw new NotFoundException({ code: 'team_join_request_not_found' });
         // Removing them declines the request and resolves its action request (0011 trigger).
         await endGrant(client, TEAM_MEMBER, member, {
