@@ -48,7 +48,7 @@ export function DisposalScanPage() {
           mode.
         </p>
       </div>
-      <p>
+      <p className="back-link">
         <Link to="/disposal-retention">← Disposal & Retention</Link>
       </p>
       {!allowed ? (

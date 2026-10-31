@@ -1955,6 +1955,44 @@ textarea {
     min-height: var(--target);
   }
 
+  /* MTR-94: the rest of what a phone user taps gets the 44px target too. The receive step's
+     inputs and selects have a more specific base rule (.receipt-draft), so they are named here. */
+  input[type='date'],
+  .receipt-draft select,
+  .receipt-draft input:not([type='checkbox'], [type='radio']) {
+    min-height: var(--target);
+  }
+
+  .action-bell,
+  .dash-filters button {
+    min-width: var(--target);
+    min-height: var(--target);
+  }
+
+  /* A checkbox's label is its hit area: the whole row is 44px tall. */
+  .checkbox,
+  .checkbox-option,
+  .checkbox-label,
+  .scan-sound {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: var(--target);
+  }
+
+  .radio {
+    min-height: var(--target);
+  }
+
+  /* Links that stand on their own line (Back, See all, the brand) are 44px tall. */
+  .back-link a,
+  .see-all-link,
+  .app-brand {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target);
+  }
+
   .data-table {
     border: none;
     background: none;

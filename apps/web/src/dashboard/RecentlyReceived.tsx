@@ -162,7 +162,9 @@ export function RecentlyReceived() {
             ? `Showing the ${data.items.length} most recent of ${data.total} ${SHOWING[show]}`
             : null}
         </span>
-        <Link to={sampleStorageLink(show)}>See all in Sample Storage →</Link>
+        <Link className="see-all-link" to={sampleStorageLink(show)}>
+          See all in Sample Storage →
+        </Link>
       </div>
     </section>
   );
