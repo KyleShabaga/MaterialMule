@@ -110,7 +110,8 @@ test('the lead adds a team member who also reviews; others see it read-only', as
   // MTR-21: each person shows a job title column and expands to their permissions here, with the
   // source of each.
   const colleagues = page.getByRole('region', { name: 'People on this project' });
-  await expect(colleagues.getByRole('columnheader', { name: 'Job title' })).toBeVisible();
+  // A column on desktop, a field label on phone cards.
+  await expect(colleagues).toContainText('Job title');
   const pat = colleagues.getByRole('row').filter({ hasText: 'PE · Pat Example' });
   await pat.getByText(/^Permissions here/).click();
   const patPermissions = pat.getByRole('list', { name: 'Permissions of Pat Example' });
