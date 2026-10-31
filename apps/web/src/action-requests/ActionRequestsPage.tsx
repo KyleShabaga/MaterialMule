@@ -29,6 +29,22 @@ function who(person: PersonSnapshot): string {
  */
 export function ActionRequestsPage() {
   const me = useMe();
+  // MTR-2: the shared LAB account has no inbox, so don't ask the server for one.
+  if (!me.permissions.includes('action_item.read')) {
+    return (
+      <div className="action-requests-page">
+        <PageHeader title="Action requests" />
+        <EmptyState>
+          Action requests are for personal accounts. Sign in with your own account.
+        </EmptyState>
+      </div>
+    );
+  }
+  return <ActionRequestsInbox />;
+}
+
+function ActionRequestsInbox() {
+  const me = useMe();
   const canReassign = me.permissions.includes('action_item.reassign');
   const [status, setStatus] = useState<'open' | 'resolved'>('open');
   const [scope, setScope] = useState<ActionRequestScope>('mine');

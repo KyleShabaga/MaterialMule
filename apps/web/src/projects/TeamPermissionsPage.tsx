@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { BandedCard, DataTable, EmptyState, ErrorState, StatusBadge } from '../components/ui';
 import { shortDateTime } from '../dashboard/format';
+import { useMe } from '../session/context';
 import { fetchDelegates } from '../lab/api';
 import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
@@ -86,6 +87,25 @@ async function loadAll(projectId: string): Promise<Loaded> {
 
 export function TeamPermissionsPage() {
   const { projectId = '' } = useParams();
+  const me = useMe();
+  // MTR-2: the shared LAB account reads none of this; say so instead of six refused requests.
+  if (!me.permissions.includes('project_access.read')) {
+    return (
+      <>
+        <p className="back-link">
+          <Link to={`/projects/${encodeURIComponent(projectId)}`}>← Back to project</Link>
+        </p>
+        <h1>Team &amp; Permissions</h1>
+        <EmptyState>
+          Team &amp; Permissions is for personal accounts. Sign in with your own account.
+        </EmptyState>
+      </>
+    );
+  }
+  return <TeamPermissions projectId={projectId} />;
+}
+
+function TeamPermissions({ projectId }: { projectId: string }) {
   const [page, setPage] = useState<PageState>({ state: 'loading' });
   const [reloads, setReloads] = useState(0);
   const [notice, setNotice] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
