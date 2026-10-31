@@ -1,6 +1,7 @@
 import type { AccessSummary } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorState } from '../../components/ui';
+import { useMe } from '../../session/context';
 import { StaffApiError } from '../staff/api';
 import { AccessSummaryView } from './AccessSummaryView';
 import { fetchMyAccess } from './api';
@@ -16,6 +17,23 @@ type State =
  * ID). Refreshes when the window regains focus, so a grant or revocation made meanwhile shows.
  */
 export function MyAccessPage() {
+  const me = useMe();
+  // MTR-2: LAB has no personal access, so don't ask the server for it.
+  if (me.accountType === 'shared_lab') {
+    return (
+      <section aria-labelledby="my-access-heading" className="my-access">
+        <h2 id="my-access-heading">My access</h2>
+        <p className="empty-state">{LAB_TEXT}</p>
+      </section>
+    );
+  }
+  return <MyAccess />;
+}
+
+const LAB_TEXT =
+  'My access is for personal accounts. The shared LAB account has no personal access; sign in with your own account to see yours.';
+
+function MyAccess() {
   const [page, setPage] = useState<State>({ state: 'loading' });
   const [reloads, setReloads] = useState(0);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
@@ -62,10 +80,7 @@ export function MyAccessPage() {
       {page.state === 'loading' ? <p role="status">Loading…</p> : null}
       {page.state === 'error' ? (
         page.lab ? (
-          <p className="empty-state">
-            My access is for personal accounts. The shared LAB account has no personal access; sign
-            in with your own account to see yours.
-          </p>
+          <p className="empty-state">{LAB_TEXT}</p>
         ) : (
           <ErrorState message={page.message} onRetry={reload} />
         )
