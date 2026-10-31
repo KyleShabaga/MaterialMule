@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
@@ -27,6 +27,41 @@ export async function withDatabase<T>(work: (client: pg.Client) => Promise<T>): 
   } finally {
     await client.end();
   }
+}
+
+export interface TestLocation {
+  id: string;
+  code: string;
+  name: string;
+}
+
+/**
+ * A fictional warehouse location whose code no other test or viewport in the run has: `prefix`,
+ * 40 random bits and `suffix` (at most 20 characters, as `location.code` allows). Both
+ * Playwright viewports share one database, so a short random number used to collide now and then
+ * (location_code_key); on the rare clash this draws a new code, so the database's own uniqueness
+ * rule is what guarantees it.
+ */
+export async function insertLocation(
+  prefix: string,
+  suffix: string,
+  name: string,
+): Promise<TestLocation> {
+  return withDatabase(async (client) => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const code = `${prefix}${randomBytes(5).toString('hex').toUpperCase()}-${suffix}`;
+      try {
+        const { rows } = await client.query<{ id: string }>(
+          `INSERT INTO location (code, name, kind) VALUES ($1, $2, 'warehouse') RETURNING id`,
+          [code, `${name} ${code}`],
+        );
+        return { id: rows[0]!.id, code, name: `${name} ${code}` };
+      } catch (error) {
+        if ((error as { constraint?: string }).constraint !== 'location_code_key') throw error;
+      }
+    }
+    throw new Error('Could not draw an unused location code in 5 tries');
+  });
 }
 
 export interface TestUnit {

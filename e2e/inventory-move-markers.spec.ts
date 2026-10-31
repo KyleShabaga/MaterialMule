@@ -1,28 +1,22 @@
-import { randomInt } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { insertConfirmedBucket, withDatabase, type TestUnit } from './support/db';
+import {
+  insertConfirmedBucket,
+  insertLocation,
+  withDatabase,
+  type TestLocation,
+  type TestUnit,
+} from './support/db';
 
 // MM-T81 test plan T2 and T3: Sample Storage shows an open location conflict and a move still
 // queued on this device. A move scanned offline stays in this browser's queue (IndexedDB); the
 // list shows "Pending" beside the saved location, which it never replaces. Fictional data only.
 
-interface Place {
-  id: string;
-  code: string;
-  name: string;
-}
+type Place = TestLocation;
 
-async function addLocation(suffix: string, name: string): Promise<Place> {
-  const code = `IM${randomInt(1000, 9999)}-${suffix}`;
-  return withDatabase(async (client) => {
-    const { rows } = await client.query<{ id: string }>(
-      `INSERT INTO location (code, name, kind) VALUES ($1, $2, 'warehouse') RETURNING id`,
-      [code, `${name} ${code}`],
-    );
-    return { id: rows[0]!.id, code, name: `${name} ${code}` };
-  });
-}
+/** A fictional location with a code unique to this run (both viewports share one database). */
+const addLocation = (suffix: string, name: string): Promise<Place> =>
+  insertLocation('IM', suffix, name);
 
 /** An open conflict on the unit's saved location, as MM-T28 records one. */
 async function openConflict(unit: TestUnit): Promise<void> {
