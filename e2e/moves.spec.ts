@@ -1,7 +1,12 @@
-import { randomInt } from 'node:crypto';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { insertConfirmedBucket, withDatabase, type TestUnit } from './support/db';
+import {
+  insertConfirmedBucket,
+  insertLocation,
+  withDatabase,
+  type TestLocation,
+  type TestUnit,
+} from './support/db';
 import { expireSession, signInAsLabStation } from './support/lab-station';
 import { removeTestedTube, testedTube } from './support/tested-tube';
 
@@ -10,23 +15,11 @@ import { removeTestedTube, testedTube } from './support/tested-tube';
 // keyboard that types the payload and Enter. Two LAB stations are two browser contexts signed in
 // as the same fictional LAB account. Locations and units are fictional and unique to each test.
 
-interface Place {
-  id: string;
-  code: string;
-  name: string;
-}
+type Place = TestLocation;
 
 /** A fictional location with a code unique to this run (both viewports share one database). */
-async function addLocation(suffix: string, name: string): Promise<Place> {
-  const code = `MV${randomInt(1000, 9999)}-${suffix}`;
-  return withDatabase(async (client) => {
-    const { rows } = await client.query<{ id: string }>(
-      `INSERT INTO location (code, name, kind) VALUES ($1, $2, 'warehouse') RETURNING id`,
-      [code, `${name} ${code}`],
-    );
-    return { id: rows[0]!.id, code, name: `${name} ${code}` };
-  });
-}
+const addLocation = (suffix: string, name: string): Promise<Place> =>
+  insertLocation('MV', suffix, name);
 
 async function savedLocation(unit: TestUnit): Promise<string> {
   return withDatabase(async (client) => {
