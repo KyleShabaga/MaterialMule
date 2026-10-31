@@ -47,7 +47,7 @@ async function depth(unit: Locator, from: string, to: string, depthUnit: 'ft' | 
  * specs rely on when the projects run in parallel.
  */
 async function useReceivedDate(page: Page) {
-  await page.getByLabel('Received date', { exact: true }).fill(RECEIVED);
+  await page.getByLabel(/^Received date/).fill(RECEIVED);
 }
 
 /**

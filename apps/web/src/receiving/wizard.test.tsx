@@ -284,6 +284,34 @@ describe('Receiving wizard (MM-T10)', () => {
     expect(await screen.findByText('0–10.5 m')).toBeInTheDocument();
   });
 
+  it('MTR-133: required fields are marked before submit and errors set aria-invalid', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const details = await screen.findByRole('region', { name: 'Details' });
+    // Project, Received date and Received by, shown as text before anything is submitted.
+    expect(within(details).getAllByText('(required)')).toHaveLength(3);
+    expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveAttribute(
+      'aria-required',
+      'true',
+    );
+    expect(screen.getByLabelText(/^Received date/)).toBeRequired();
+
+    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    expect(screen.getByRole('alert')).toHaveFocus();
+    expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+
+    await chooseProject(user);
+    const holes = within(bucket(1)).getByRole('group', { name: /Test holes/ });
+    expect(within(holes).getByText('(required)')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    expect(
+      within(bucket(1)).getByRole('combobox', { name: 'Find or add a test hole' }),
+    ).toHaveAttribute('aria-invalid', 'true');
+  });
+
   it('AC3: empty Custom text and a unit without a test hole are reported', async () => {
     const user = userEvent.setup();
     renderWizard();
@@ -479,7 +507,7 @@ describe('Receiving wizard (MM-T10)', () => {
       // No separate card per unit at this width.
       expect(screen.queryByRole('region', { name: 'Bucket 1' })).toBeNull();
       // UI-11: the Details summary keeps every field and its action.
-      const details = screen.getByRole('region', { name: 'Details' });
+      const details = await screen.findByRole('region', { name: 'Details' });
       for (const term of ['Project', 'Received date', 'Received by', 'Description', 'Quantity']) {
         expect(within(details).getByText(term)).toBeInTheDocument();
       }

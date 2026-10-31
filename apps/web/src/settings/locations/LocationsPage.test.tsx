@@ -347,6 +347,30 @@ describe('Settings → Locations (MM-T37)', () => {
     expect(trigger).toHaveFocus();
   });
 
+  it('MTR-133: Code and Name are marked required; an empty add focuses Code once', async () => {
+    const user = userEvent.setup();
+    fakeApi([RECEIVING]);
+    renderPage(MANAGER);
+    await user.click(await screen.findByRole('button', { name: 'Add location' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add location' });
+    const code = within(dialog).getByRole('textbox', { name: 'Code' });
+    const name = within(dialog).getByRole('textbox', { name: 'Name' });
+    expect(within(dialog).getAllByText('(required)')).toHaveLength(2);
+    expect(code).toBeRequired();
+    expect(name).toBeRequired();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add location' }));
+    expect(code).toHaveFocus();
+    expect(code).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    // The rule is said once, in the error, not again in the hint.
+    expect(within(dialog).getAllByText(/Use 2–20 letters, digits or hyphens/)).toHaveLength(1);
+
+    await user.type(code, 'WH-C3');
+    await user.click(within(dialog).getByRole('button', { name: 'Add location' }));
+    expect(name).toHaveFocus();
+  });
+
   it('shows a duplicate code as a field error', async () => {
     const user = userEvent.setup();
     fakeApi([location()], {

@@ -392,6 +392,8 @@ export function ReceiptWizard({
                 staffReady={staffLoaded}
                 receiverUserId={draft.receiver?.id ?? null}
                 online={online}
+                required
+                invalid={errorByField.has('projectId')}
               />
               {errorByField.get('projectId') ? (
                 <p className="field-error">{errorByField.get('projectId')}</p>
@@ -402,6 +404,7 @@ export function ReceiptWizard({
               id={fieldId('receivedDate')}
               label="Received date"
               error={errorByField.get('receivedDate')}
+              required
             >
               {(props) => (
                 <input

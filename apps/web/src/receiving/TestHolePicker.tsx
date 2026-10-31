@@ -6,6 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createTestHole, listTestHoles } from '../api/projects';
+import { RequiredMarker } from '../components/ui';
 import { useListHighlight } from '../components/useListHighlight';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing
@@ -28,6 +29,8 @@ export function TestHolePicker({
   addedNote,
   single = false,
   legend = 'Test holes',
+  required = false,
+  invalid = false,
 }: {
   projectId: string;
   selected: TestHole[];
@@ -45,6 +48,10 @@ export function TestHolePicker({
   /** Exactly one hole: a new choice replaces the current one. */
   single?: boolean;
   legend?: string;
+  /** Marks the test holes as required (MTR-133). */
+  required?: boolean;
+  /** The form reported a problem with the holes: the search box says so (MTR-133). */
+  invalid?: boolean;
 }) {
   const id = useId();
   const [loaded, setLoaded] = useState<{ projectId: string; holes: Holes } | null>(null);
@@ -182,7 +189,10 @@ export function TestHolePicker({
 
   return (
     <fieldset className="picker">
-      <legend>{legend}</legend>
+      <legend>
+        {legend}
+        {required ? <RequiredMarker /> : null}
+      </legend>
       {selected.length > 0 ? (
         <ul className="chips" aria-label={single ? 'Selected test hole' : 'Selected test holes'}>
           {selected.map((hole) => (
@@ -207,6 +217,8 @@ export function TestHolePicker({
           ref={input}
           id={`${id}-search`}
           role="combobox"
+          aria-required={required || undefined}
+          aria-invalid={invalid || undefined}
           aria-autocomplete="list"
           aria-expanded={showList}
           aria-controls={listboxId}

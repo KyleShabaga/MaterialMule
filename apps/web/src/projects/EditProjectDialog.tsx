@@ -7,6 +7,7 @@ import {
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
 import { ConfirmDialog, FormField } from '../components/ui';
+import { useFocusFirstInvalid } from '../components/useFocusFirstInvalid';
 import { StaffOptionGroups } from './StaffOptionGroups';
 import { updateProject } from './api';
 
@@ -121,6 +122,12 @@ export function EditProjectDialog({
     };
   }, []);
 
+  // MTR-133: after a failed save, focus the first field with an error.
+  const { formRef, focusFirstInvalid } = useFocusFirstInvalid();
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) focusFirstInvalid();
+  }, [errors, focusFirstInvalid]);
+
   const set = (field: keyof Draft) => (value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));
   };
@@ -193,7 +200,7 @@ export function EditProjectDialog({
         <h2 id={titleId}>Edit project</h2>
         <span className="project-number">{base.projectNumber}</span>
       </div>
-      <form noValidate onSubmit={(event) => void submit(event)}>
+      <form ref={formRef} noValidate onSubmit={(event) => void submit(event)}>
         {message ? (
           <p className="notice notice-warning" role="alert">
             {message}

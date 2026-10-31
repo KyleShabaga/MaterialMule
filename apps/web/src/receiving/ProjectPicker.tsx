@@ -9,7 +9,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createProject, fetchMyGrants, searchProjects } from '../api/projects';
-import { FormField } from '../components/ui';
+import { FormField, RequiredMarker } from '../components/ui';
 import { prefillFromQuery } from './prefill';
 import { useListHighlight } from '../components/useListHighlight';
 import { StaffOptionGroups } from '../projects/StaffOptionGroups';
@@ -47,6 +47,8 @@ export function ProjectPicker({
   online,
   projectEngineersOnly = false,
   staffReady = true,
+  required = false,
+  invalid = false,
 }: {
   value: ProjectSummary | null;
   query: string;
@@ -63,6 +65,10 @@ export function ProjectPicker({
   projectEngineersOnly?: boolean;
   /** False while the staff list is still loading, so "nobody eligible" isn't shown too early. */
   staffReady?: boolean;
+  /** Marks the project as required (MTR-133). */
+  required?: boolean;
+  /** The form reported a problem with the project: the search box says so (MTR-133). */
+  invalid?: boolean;
 }) {
   const id = useId();
   const [search, setSearch] = useState<Search>({ state: 'idle' });
@@ -243,13 +249,18 @@ export function ProjectPicker({
 
   return (
     <fieldset className="picker">
-      <legend>Project</legend>
+      <legend>
+        Project
+        {required ? <RequiredMarker /> : null}
+      </legend>
       <div className="form-field combobox">
         <label htmlFor={`${id}-search`}>Find project (number or name)</label>
         <div className="combobox-row">
           <input
             id={`${id}-search`}
             role="combobox"
+            aria-required={required || undefined}
+            aria-invalid={invalid || undefined}
             aria-autocomplete="list"
             aria-expanded={showList}
             aria-controls={listboxId}

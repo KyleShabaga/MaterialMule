@@ -79,3 +79,23 @@ test('MTR-136: a menu link moves focus to the new page heading', async ({ page }
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeFocused();
 });
+
+test('MTR-133: required fields are marked and a failed Add location focuses the first error', async ({
+  page,
+}) => {
+  await signInAs(page, 'at');
+  await openWizard(page);
+  const details = page.getByRole('region', { name: 'Details' });
+  await expect(details.getByText('(required)')).toHaveCount(3);
+
+  await signInAs(page, 'lab');
+  await page.goto('/settings/locations');
+  await page.getByRole('button', { name: 'Add location' }).click();
+  const panel = page.getByRole('dialog', { name: 'Add location' });
+  await expect(panel.getByText('(required)')).toHaveCount(2);
+  await panel.getByRole('button', { name: 'Add location' }).click();
+  const code = panel.getByRole('textbox', { name: 'Code' });
+  await expect(code).toBeFocused();
+  await expect(code).toHaveAttribute('aria-invalid', 'true');
+  await expect(panel.getByText(/Use 2–20 letters, digits or hyphens/)).toHaveCount(1);
+});
