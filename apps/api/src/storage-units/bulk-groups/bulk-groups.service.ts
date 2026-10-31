@@ -35,6 +35,7 @@ interface LockedUnit {
   unit_type: string;
   holder_kind: string;
   project_id: string;
+  status: string;
   bulk_group_id: string | null;
 }
 
@@ -75,7 +76,8 @@ export class BulkGroupsService {
    * Moves a bulk soil bucket into an existing group of its project, or into a new group of its
    * own. The bucket keeps its BKT- ID, receipt, location and history; only the link changes.
    * Null (leaving every group) is refused: a bulk soil bucket's only contents summary is its
-   * group, and turning it back into an ordinary bucket is a different correction.
+   * group. Making it an ordinary bucket is a unit correction that gives its test holes
+   * (PATCH /storage-units/:id, MM-T82).
    */
   async changeMembership(
     idOrCode: string,
@@ -100,6 +102,22 @@ export class BulkGroupsService {
           'bulk_identity_required',
           'groupId',
           'a bulk soil bucket must stay in a bulk sample; choose another one or describe a new one',
+        );
+      }
+      // MM-T82 (owner decision 2026-10-30): a disposed or tested bucket keeps its bulk sample;
+      // its disposal record or test evidence rests on it. The database refuses it too (0008).
+      if (unit.status === 'disposed') {
+        unprocessable('storage_unit_disposed', 'groupId', 'is not changed for a disposed unit');
+      }
+      const { rows: tested } = await client.query(
+        'SELECT 1 FROM test_request_unit_link WHERE storage_unit_id = $1 LIMIT 1',
+        [unit.id],
+      );
+      if (tested.length > 0) {
+        unprocessable(
+          'storage_unit_tested',
+          'groupId',
+          'is not changed for a unit used in a completed test',
         );
       }
 
@@ -268,7 +286,7 @@ export class BulkGroupsService {
   private async lockUnit(client: PoolClient, idOrCode: string): Promise<LockedUnit | null> {
     const byUuid = UUID_PATTERN.test(idOrCode);
     const { rows } = await client.query<LockedUnit>(
-      `SELECT id, readable_id, version, unit_type, holder_kind, project_id, bulk_group_id
+      `SELECT id, readable_id, version, unit_type, holder_kind, project_id, status, bulk_group_id
        FROM storage_unit WHERE ${byUuid ? 'id' : 'readable_id'} = $1
        FOR UPDATE`,
       [byUuid ? idOrCode : normalizeStorageUnitCode(idOrCode)],

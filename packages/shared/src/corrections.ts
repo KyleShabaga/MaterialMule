@@ -6,14 +6,21 @@ import {
   type StorageUnitHoleSummary,
 } from './inventory';
 import { holeSummaryInputSchema } from './receipts';
+import {
+  formatBucketPosition,
+  formatSampleIdentity,
+  sampleIdentitySchema,
+  shelbySampleInputSchema,
+} from './samples';
 
 // Corrections to a confirmed storage unit, `PATCH /api/storage-units/:id` (MM-T13, D45–D47).
 // A correction changes current values only: the storage unit ID, saved location, print history
 // and the original receipt header are never rewritten.
 
 /**
- * Types a correction may set. Still Bucket only: a Shelby tube or bulk soil bucket needs its
- * sampling source or bulk sample, which this correction doesn't carry (MM-T36).
+ * Types a correction may set. Bucket only: a Shelby tube needs its own sampling source, which a
+ * type correction doesn't carry (MM-T36). Setting a bulk soil bucket to Bucket, with its test
+ * holes, makes it an ordinary bucket (MM-T82).
  */
 export const CORRECTION_UNIT_TYPES = ['bucket'] as const;
 
@@ -25,6 +32,8 @@ export const STORAGE_UNIT_CORRECTION_FIELDS = [
   'unitType',
   'receivedDate',
   'project',
+  'sample',
+  'bulkGroup',
   'holeSummaries',
   'note',
 ] as const;
@@ -59,7 +68,15 @@ export const storageUnitCorrectionRequestSchema = z
         receivedDate: z.iso.date({ error: 'must be a date (YYYY-MM-DD)' }).optional(),
         /** Moves the unit to another project; its test holes must be chosen again there. */
         projectId: z.uuid({ error: 'must be a project ID' }).optional(),
-        /** Replaces the unit's test holes and summaries as a set. */
+        /**
+         * Shelby tubes only (MM-T82): replaces the tube's sampling source, sample reference and
+         * depth. Refused once the tube is disposed or used in a completed test.
+         */
+        sample: shelbySampleInputSchema.optional(),
+        /**
+         * Replaces the unit's test holes and summaries as a set. With `unitType: 'bucket'` on a
+         * bulk soil bucket, they become the ordinary bucket's summaries (MM-T82).
+         */
         holeSummaries: z
           .array(holeSummaryInputSchema, { error: 'must be a list' })
           .min(1, { error: 'needs at least one test hole summary' })
@@ -152,6 +169,8 @@ const FIELD_LABELS: Record<StorageUnitCorrectionField, string> = {
   unitType: 'type',
   receivedDate: 'received date',
   project: 'project',
+  sample: 'sampling source',
+  bulkGroup: 'bulk sample',
   holeSummaries: 'test holes',
   note: 'note',
 };
@@ -180,9 +199,24 @@ function correctionValueText(field: StorageUnitCorrectionField, value: unknown):
       const project = z.object({ projectNumber: z.string() }).safeParse(value);
       return project.success ? project.data.projectNumber : 'unknown';
     }
+    case 'sample': {
+      const sample = sampleIdentitySchema.safeParse(value);
+      return sample.success ? formatSampleIdentity(sample.data) : 'unknown';
+    }
+    case 'bulkGroup': {
+      // The group's identity as the bucket last showed it, with its "bucket n of N" place.
+      const group = sampleIdentitySchema.safeParse(value);
+      if (!group.success) return 'unknown';
+      const place = z
+        .object({ memberNumber: z.number(), memberCount: z.number() })
+        .safeParse(value);
+      const text = formatSampleIdentity(group.data);
+      return place.success ? `${text} (${formatBucketPosition(place.data)})` : text;
+    }
     case 'holeSummaries': {
       const holes = z.array(summaryValueSchema).safeParse(value);
       if (!holes.success) return 'unknown';
+      if (holes.data.length === 0) return 'none';
       return holes.data
         .map((hole) => {
           const summary: Pick<

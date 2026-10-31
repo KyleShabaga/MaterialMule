@@ -263,7 +263,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const form = screen.getByRole('form', { name: 'Correct details' });
     expect(
       within(form).getByText(
-        'This storage unit is disposed: its type, project and test holes stay as they are.',
+        'This storage unit is disposed: its type, project, sampling source and test holes stay as they are.',
       ),
     ).toBeInTheDocument();
     expect(within(form).queryByLabelText('Type')).not.toBeInTheDocument();
@@ -279,6 +279,91 @@ describe('storage unit corrections (MM-T13)', () => {
     expect(patches).toEqual([
       { version: 1, reason: 'lid was swapped', changes: { note: 'Lid replaced' } },
     ]);
+  });
+
+  it("MM-T82: corrects a Shelby tube's sampling source, and says plainly when testing blocks it", async () => {
+    const tube: StorageUnitDetail = {
+      ...UNIT,
+      unitType: 'shelby_tube',
+      holes: [],
+      sample: {
+        source: {
+          type: 'test_hole',
+          testHoleId: UNIT.holes[0]!.testHoleId,
+          testHoleName: 'TH26-01',
+        },
+        sampleReference: 'T5',
+        depthFrom: null,
+        depthTo: null,
+        depthUnit: null,
+      },
+    };
+    let tested = true;
+    const patches = stubApi({
+      unit: tube,
+      history: EMPTY_HISTORY,
+      patch: () =>
+        tested
+          ? json(422, {
+              code: 'storage_unit_tested',
+              errors: [
+                {
+                  field: 'changes.sample',
+                  code: 'storage_unit_tested',
+                  message: 'is not corrected for a unit used in a completed test',
+                },
+              ],
+            })
+          : json(200, {
+              ...tube,
+              version: 2,
+              sample: {
+                ...tube.sample!,
+                source: { type: 'standalone_location', locationReference: 'Pit 4' },
+              },
+            }),
+    });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    const form = screen.getByRole('form', { name: 'Correct details' });
+    expect(within(form).queryByText(/can’t be corrected here yet/)).not.toBeInTheDocument();
+    expect(within(form).queryByLabelText('Type')).not.toBeInTheDocument();
+    const source = within(form).getByRole('group', { name: 'Sampling source' });
+    expect(within(source).getByText('TH26-01: T5')).toBeInTheDocument();
+    await user.click(within(source).getByRole('button', { name: 'Change sampling source' }));
+    await user.click(within(source).getByRole('radio', { name: 'Standalone sampling location' }));
+    await user.type(within(source).getByLabelText('Location reference'), 'Pit 4');
+    expect(within(form).getByText('1 field changed')).toBeInTheDocument();
+    await user.type(within(form).getByLabelText('Reason for the correction'), 'tag misread');
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+
+    expect(
+      await within(form).findByText(
+        'This unit was used in a completed test: its sampling source and bulk sample can’t change.',
+      ),
+    ).toBeInTheDocument();
+    const sent = {
+      version: 1,
+      reason: 'tag misread',
+      changes: {
+        sample: {
+          sourceType: 'standalone_location',
+          sourceLocationReference: 'Pit 4',
+          sampleReference: 'T5',
+          depthFrom: null,
+          depthTo: null,
+          depthUnit: null,
+        },
+      },
+    };
+    expect(patches).toEqual([sent]);
+
+    tested = false;
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+    expect(await screen.findByText('Details corrected.')).toBeInTheDocument();
+    expect(patches).toEqual([sent, sent]);
   });
 
   it('AC2: LAB sees no Correct action and an explanation', async () => {

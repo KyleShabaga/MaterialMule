@@ -13,6 +13,9 @@ export class StorageUnitCorrectionsController {
   /**
    * `{version, reason, changes}` → the corrected unit. 409 `version_conflict` for a stale
    * version, 409 `unresolved_lab_links` when a project change is blocked, 400 for validation.
+   * MM-T82: `changes.sample` corrects a Shelby tube's source; `unitType: 'bucket'` with
+   * `holeSummaries` makes a bulk soil bucket an ordinary bucket. Both 422 `storage_unit_tested`
+   * once the unit has a completed-test link, `storage_unit_disposed` once it is disposed.
    * Accepts the unit's UUID or readable ID.
    */
   @Patch(':id')

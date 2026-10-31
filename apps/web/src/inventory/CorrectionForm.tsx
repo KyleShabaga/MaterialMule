@@ -1,11 +1,11 @@
 import {
   CORRECTION_UNIT_TYPES,
   STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH,
+  formatSampleIdentity,
   storageUnitCorrectionRequestSchema,
   storageUnitTypeLabel,
   toFieldErrors,
   type FieldError,
-  type HoleSummaryType,
   type LabRequestLink,
   type ProjectSummary,
   type StaffOption,
@@ -19,14 +19,25 @@ import { Link } from 'react-router';
 import { listActiveStaff } from '../api/projects';
 import { FormField } from '../components/ui';
 import { useOnline } from '../lib/online';
-import { newSummary, todayInEdmonton, type SummaryDraft } from '../receiving/draft';
+import {
+  emptySample,
+  newSummary,
+  sampleDraftOf,
+  sampleFields,
+  todayInEdmonton,
+  type SampleDraft,
+  type SummaryDraft,
+} from '../receiving/draft';
 import { ProjectPicker } from '../receiving/ProjectPicker';
+import { SampleFields } from '../receiving/SampleFields';
 import { SummaryEditor } from '../receiving/SummaryEditor';
 import { TestHolePicker } from '../receiving/TestHolePicker';
 import { correctStorageUnit } from './api';
+import { messageFor, summaryPayload } from './correction-fields';
 
 // Correct a confirmed storage unit (MM-T13, D45–D47): type, received date, project, test holes
-// and summaries, and note. The storage unit ID, saved location and receipt header never change.
+// and summaries, and note; a Shelby tube's sampling source (MM-T82). The storage unit ID, saved
+// location and receipt header never change.
 
 export const CONFLICT_MESSAGE =
   'Someone else changed this unit. Review the latest values and try again.';
@@ -46,77 +57,6 @@ function toSummaryDraft(unit: StorageUnitDetail, index: number): SummaryDraft {
     customText: hole.customText ?? '',
     note: hole.note ?? '',
   };
-}
-
-function depthValue(text: string): number | null {
-  const trimmed = text.trim();
-  return trimmed === '' ? null : Number(trimmed);
-}
-
-/** The request shape of one summary: only the chosen type's fields. */
-function summaryPayload(s: SummaryDraft) {
-  return {
-    testHoleId: s.testHole.id,
-    type: s.type as HoleSummaryType,
-    note: s.note.trim(),
-    ...(s.type === 'sample_range'
-      ? { sampleFrom: s.sampleFrom.trim(), sampleTo: s.sampleTo.trim() }
-      : {}),
-    ...(s.type === 'depth_range'
-      ? {
-          depthFrom: depthValue(s.depthFrom),
-          depthTo: depthValue(s.depthTo),
-          depthUnit: s.depthUnit === '' ? null : s.depthUnit,
-        }
-      : {}),
-    ...(s.type === 'custom' ? { customText: s.customText.trim() } : {}),
-  };
-}
-
-const FIELD_LABEL: Record<string, string> = {
-  reason: 'Reason',
-  unitType: 'Type',
-  receivedDate: 'Received date',
-  projectId: 'Project',
-  note: 'Note',
-  holeSummaries: 'Test holes',
-  testHoleId: 'Test hole',
-  type: 'Summary type',
-  sampleFrom: 'Sample from',
-  sampleTo: 'Sample to',
-  depthFrom: 'Depth from',
-  depthTo: 'Depth to',
-  depthUnit: 'Depth unit',
-  customText: 'Custom summary',
-};
-
-function messageFor(error: FieldError): string {
-  const key = error.field.split('.').at(-1) ?? error.field;
-  if (key === 'reason') {
-    return `Enter a reason (at least ${STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH} characters).`;
-  }
-  if (key === 'changes' && error.code === 'no_changes') return 'Change at least one value.';
-  if (key === 'receivedDate' && error.code === 'in_future') {
-    return "Received date can't be in the future.";
-  }
-  if (key === 'projectId') {
-    return error.code === 'not_found'
-      ? 'Project not found. Choose it again.'
-      : 'Choose the new project, or keep the current one.';
-  }
-  if (key === 'holeSummaries') return 'Choose at least one test hole in the project.';
-  if (key === 'type') return 'Choose a summary type: ALL, Sample range, Depth range or Custom.';
-  if (key === 'depthUnit') return 'Choose ft or m.';
-  if (key === 'depthTo' && error.code === 'depth_range_reversed') {
-    return 'Depth to must be greater than or equal to depth from.';
-  }
-  if (error.code === 'storage_unit_disposed') {
-    return 'This storage unit is disposed: its type, project and test holes can’t change.';
-  }
-  if (error.code === 'test_hole_not_in_project') return 'This test hole isn’t in the project.';
-  const label = FIELD_LABEL[key] ?? key;
-  if (error.code === 'required') return `${label} is required.`;
-  return `${label} ${error.message}.`;
 }
 
 function Changed({ when, children }: { when: boolean; children: ReactNode }) {
@@ -155,6 +95,12 @@ export function CorrectionForm({
   const [projectQuery, setProjectQuery] = useState('');
   const [summaries, setSummaries] = useState<SummaryDraft[]>(initialSummaries);
   const [holeQuery, setHoleQuery] = useState('');
+  const initialSample = useMemo(
+    () => (unit.sample && !unit.bulkGroup ? sampleDraftOf(unit.sample, unit.project.id) : null),
+    [unit],
+  );
+  const [changingSample, setChangingSample] = useState(false);
+  const [sample, setSample] = useState<SampleDraft>(initialSample ?? emptySample());
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [links, setLinks] = useState<LabRequestLink[]>([]);
@@ -185,6 +131,10 @@ export function CorrectionForm({
   const summariesChanged =
     JSON.stringify(summaries.map(summaryPayload)) !==
     JSON.stringify(initialSummaries.map(summaryPayload));
+  const sampleChanged =
+    changingSample &&
+    JSON.stringify(sampleFields(sample)) !==
+      JSON.stringify(initialSample ? sampleFields(initialSample) : null);
 
   const errorByField = new Map<string, string>();
   for (const error of errors) {
@@ -199,6 +149,8 @@ export function CorrectionForm({
   // A disposed unit's project, type and test holes are final (owner decision 2026-10-30).
   const disposed = unit.status === 'disposed';
   const contentsFixed = hasSample || disposed;
+  // MM-T82: a tube's own source is corrected here (refused once tested or disposed).
+  const tubeSource = unit.unitType === 'shelby_tube' && !disposed;
 
   function request(): StorageUnitCorrectionRequestInput {
     const changes: StorageUnitCorrectionRequestInput['changes'] = {};
@@ -208,6 +160,7 @@ export function CorrectionForm({
     if (changingProject && projectId === null) changes.projectId = '';
     if (projectChanged) changes.projectId = projectId;
     if (projectChanged || summariesChanged) changes.holeSummaries = summaries.map(summaryPayload);
+    if (sampleChanged) changes.sample = sampleFields(sample);
     return { version: unit.version, reason, changes };
   }
 
@@ -265,8 +218,10 @@ export function CorrectionForm({
     dateChanged,
     projectChanged,
     summariesChanged,
+    sampleChanged,
     noteChanged,
   ].filter(Boolean).length;
+  const sampleError = fieldError('changes.sample');
 
   return (
     <form
@@ -294,14 +249,59 @@ export function CorrectionForm({
       {hasSample && !disposed ? (
         <p className="field-hint">
           {unit.bulkGroup
-            ? 'This bucket holds a bulk soil sample: change its bulk sample from the Bulk sample section.'
-            : 'This Shelby tube’s sampling source can’t be corrected here yet.'}{' '}
+            ? 'This bucket holds a bulk soil sample: change its bulk sample, or make it an ordinary bucket, from the Bulk sample section.'
+            : 'This Shelby tube’s sampling source is its contents summary.'}{' '}
           Type and project stay as they are.
         </p>
       ) : null}
+      {tubeSource ? (
+        <Changed when={sampleChanged}>
+          <fieldset id="correction-sample" className="correction-group">
+            <legend>Sampling source</legend>
+            {changingSample ? (
+              <>
+                <SampleFields
+                  sample={sample}
+                  path="changes.sample"
+                  errors={errorByField}
+                  onChange={(changes) => setSample((current) => ({ ...current, ...changes }))}
+                  projectId={unit.project.id}
+                  projectNumber={unit.project.projectNumber}
+                  receiverUserId={null}
+                  online={online}
+                  required={false}
+                  referencePlaceholder="T5"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChangingSample(false);
+                    setSample(initialSample ?? emptySample());
+                  }}
+                >
+                  Keep the current source
+                </button>
+              </>
+            ) : (
+              <div className="correction-project">
+                <p>{unit.sample ? formatSampleIdentity(unit.sample) : 'None recorded'}</p>
+                <button type="button" onClick={() => setChangingSample(true)}>
+                  Change sampling source
+                </button>
+              </div>
+            )}
+            {sampleError ? (
+              <p className="field-error" role="alert">
+                {sampleError}
+              </p>
+            ) : null}
+          </fieldset>
+        </Changed>
+      ) : null}
       {disposed ? (
         <p className="field-hint">
-          This storage unit is disposed: its type, project and test holes stay as they are.
+          This storage unit is disposed: its type, project, sampling source and test holes stay as
+          they are.
         </p>
       ) : null}
       <div className="correction-pair">
