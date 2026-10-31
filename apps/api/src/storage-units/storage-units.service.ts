@@ -221,6 +221,11 @@ export async function getStorageUnitHistory(
             WHERE s.storage_unit_id = $1 AND s.included
       UNION SELECT 'test_request', l.test_request_id FROM test_request_unit_link l
             WHERE l.storage_unit_id = $1
+      -- A unit tested by a completion link outside frozen coverage (a later same-source tube or
+      -- bulk bucket) still belongs to that request's program: closure, reopening and so on.
+      UNION SELECT 'lab_program', tr.program_id FROM test_request_unit_link l
+            JOIN test_request tr ON tr.id = l.test_request_id
+            WHERE l.storage_unit_id = $1
     )`;
   // A program's unsaved draft steps are not part of the unit's story.
   const events = `covered c

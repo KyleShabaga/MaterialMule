@@ -181,4 +181,121 @@ describe.runIf(testDatabaseUrl)('storage unit history coverage (MTR-59)', () => 
     expect(other).not.toContain('Own hold');
     expect(other).not.toContain('Other project');
   });
+
+  it('a unit tested by a same-source completion link outside frozen coverage lists its program, including closure and reopening', async () => {
+    const hole = await newHole();
+    // A Specific line with no unit chosen: the tube is outside the frozen coverage (MM-T73).
+    const tube = await h.tube({ holeId: hole, sampleReference: 'T5' });
+    const created = await h.send(
+      'post',
+      '/api/lab-programs',
+      {
+        projectId: h.projects.a,
+        idempotencyKey: newKey(),
+        lines: [
+          line({ kind: 'test_hole', id: hole }, 'specific', [moisture], {
+            sampleLabel: 'T5',
+            depthMode: 'interval',
+            depthFrom: 10,
+            depthTo: 12,
+            depthUnit: 'ft',
+          }),
+        ],
+      },
+      'tech',
+    );
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const submitted = await h.send(
+      'post',
+      `/api/lab-programs/${created.body.id}/submit`,
+      {
+        version: created.body.version,
+        idempotencyKey: newKey(),
+        coverage: [{ lineId: created.body.lines[0].id, unitIds: [] }],
+      },
+      'tech',
+    );
+    expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
+    const programId = created.body.id as string;
+    const { rows: frozen } = await h.db.pool.query(
+      'SELECT 1 FROM program_scope_snapshot WHERE program_id = $1 AND storage_unit_id = $2',
+      [programId, tube.id],
+    );
+    expect(frozen).toHaveLength(0);
+    const requestId = submitted.body.lines[0].requests[0].id as string;
+
+    const status = async (to: string, extra: Record<string, unknown> = {}, as = 'tech') => {
+      const { rows } = await h.db.pool.query<{ version: number }>(
+        'SELECT version FROM test_request WHERE id = $1',
+        [requestId],
+      );
+      const moved = await h.send(
+        'post',
+        `/api/test-requests/${requestId}/status`,
+        { to, version: rows[0]!.version, idempotencyKey: newKey(), ...extra },
+        as,
+      );
+      expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+      return moved.body.version as number;
+    };
+    await status('in_progress');
+    await status('completed', {
+      testedStorageUnitIds: [tube.id],
+      sameSourceConfirmedUnitIds: [tube.id],
+    });
+    let version = await status('review');
+    version = (
+      await h.send(
+        'post',
+        `/api/test-requests/${requestId}/review`,
+        { action: 'complete', version, idempotencyKey: newKey() },
+        'tech',
+      )
+    ).body.version;
+    const accepted = await h.send(
+      'post',
+      `/api/test-requests/${requestId}/accept`,
+      { version, idempotencyKey: newKey() },
+      'pe',
+    );
+    expect(accepted.status, JSON.stringify(accepted.body)).toBe(200);
+
+    const programVersion = async () =>
+      (
+        await h.db.pool.query<{ version: number }>(
+          'SELECT version FROM lab_program WHERE id = $1',
+          [programId],
+        )
+      ).rows[0]!.version;
+    const closed = await h.send(
+      'post',
+      `/api/lab-programs/${programId}/close`,
+      { version: await programVersion(), idempotencyKey: newKey() },
+      'pe',
+    );
+    expect(closed.status, JSON.stringify(closed.body)).toBe(200);
+    const reopened = await h.send(
+      'post',
+      `/api/lab-programs/${programId}/reopen`,
+      {
+        reason: 'Client asked for a repeat',
+        version: await programVersion(),
+        idempotencyKey: newKey(),
+      },
+      'lm',
+    );
+    expect(reopened.status, JSON.stringify(reopened.body)).toBe(200);
+
+    const actions = (await history(tube.id)).items.map((event) => event.action);
+    for (const action of [
+      'lab_program.created',
+      'lab_program.submitted',
+      'lab_program.closed',
+      'lab_program.reopened',
+      'test_request.created',
+      'test_request.status_changed',
+    ]) {
+      expect(actions, action).toContain(action);
+    }
+  });
 });
