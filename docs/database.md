@@ -13,7 +13,7 @@ runner in `apps/api/src/db/migrator.ts` (MM-T02).
 | `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                   |
 | `npm run db:seed:demo`                              | Load demo data through the running dev API (needs `ENABLE_TEST_AUTH=true`); see README "Demo data"                |
 | `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only) |
-| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test only)                                           |
+| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test, database name containing `test`)               |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
 

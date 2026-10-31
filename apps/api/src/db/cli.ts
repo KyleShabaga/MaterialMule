@@ -14,6 +14,7 @@ import { Pool } from 'pg';
 import { loadConfigOrExit } from '../config/env.js';
 import { migrate } from './migrator.js';
 import { rebuildDisposableDatabase } from './rebuild.js';
+import { resetTestDatabase } from './reset-test.js';
 import { setUpDatabaseRoles } from './roles.js';
 import { checkDatabaseSecurity, formatSecurityCheck } from './security-check.js';
 import { runSeed } from './seed.js';
@@ -82,13 +83,8 @@ async function main(argv: string[]): Promise<void> {
         log('Development fixtures loaded.');
         break;
       case 'reset-test': {
-        // Destructive, so allowed only against a test database.
-        if (config.APP_ENV !== 'test') {
-          throw new Error('reset-test only runs with APP_ENV=test (use --env-file .env.test).');
-        }
-        await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-        const result = await migrate(pool);
-        await runSeed(pool, 'reference', config.APP_ENV);
+        // Destructive, so allowed only against a test database (see reset-test.ts).
+        const result = await resetTestDatabase(pool, { appEnv: config.APP_ENV });
         log(`Test database reset. Applied: ${result.applied.join(', ')}`);
         break;
       }
