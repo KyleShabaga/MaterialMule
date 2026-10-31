@@ -111,6 +111,8 @@ export function titleOf(
       return `Review inherited grants on ${row.project_number}`;
     case 'team_join_request':
       return `Team join request on ${row.project_number}`;
+    case 'review_approval_lost':
+      return `Reviewer lost eligibility on ${row.project_number}`;
   }
 }
 
@@ -118,6 +120,7 @@ export function hrefOf(row: Pick<ItemRow, 'kind' | 'program_id' | 'project_id'>)
   if (row.kind === 'lead_appointment') return `/projects/${row.project_id}#lead`;
   if (row.kind === 'grant_review') return `/projects/${row.project_id}/team#grant-reviews`;
   if (row.kind === 'team_join_request') return `/projects/${row.project_id}/team#join-requests`;
+  if (row.kind === 'review_approval_lost') return `/projects/${row.project_id}/team`;
   return row.program_id
     ? `/lab-testing/programs/${row.program_id}`
     : `/projects/${row.project_id}#retention`;
@@ -131,6 +134,7 @@ const ROUTE_TAG: Record<ActionRequestKind, string> = {
   lead_appointment: 'Admin',
   grant_review: 'Lead Project Engineer',
   team_join_request: 'Lead Project Engineer',
+  review_approval_lost: 'Lead Project Engineer',
 };
 
 function person(id: string | null, initials: string | null, name: string | null) {

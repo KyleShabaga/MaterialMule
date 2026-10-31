@@ -63,6 +63,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | project.edit (T35)                                                       |     |                   |             |   ✓   |           ✓           |                     |
 | project_team.manage (AO03, D04)                                          |     |                   |             |   ✓   |           ✓           |                     |
 | project_reviewer.manage (AO03, D04/D05)                                  |     |                   |             |   ✓   |           ✓           |                     |
+| project_review.approve (MISC-08)                                         |     |                   |             |       |           ✓           |                     |
 | report_issuer.manage (AO03, D06)                                         |     |                   |             |       |           ✓           |                     |
 | report.issue (AO03, D07)                                                 |     |                   |             |       |           ✓           |                     |
 | concrete_mix.manage / concrete_mix.approve (AO08, planned)               |     |                   |             |       |           ✓           |                     |
@@ -311,6 +312,8 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 | `GET /api/projects/:projectId/reviewer-assignments`                                                                              | `project_access.read`                                 |
 | `POST /api/projects/:projectId/reviewer-assignments {reviewerUserId, scopeCode, reason, idempotencyKey}`                         | active user; handler checks `project_reviewer.manage` |
 | `DELETE /api/projects/:projectId/reviewer-assignments/:id {reason}`                                                              | active user; handler checks `project_reviewer.manage` |
+| `POST /api/projects/:projectId/reviewer-assignments/:id/approval {reason?, idempotencyKey}` (MISC-08)                            | active user; handler checks `project_review.approve`  |
+| `DELETE /api/projects/:projectId/review-approvals/:id {reason}` (MISC-08)                                                        | active user; handler checks `project_review.approve`  |
 | `GET /api/projects/:projectId/report-issuers`                                                                                    | `project_access.read`                                 |
 | `POST /api/projects/:projectId/report-issuers {issuerUserId, scopeCode, reason, approvalReference?, expiresAt?, idempotencyKey}` | active user; handler checks `report_issuer.manage`    |
 | `DELETE /api/projects/:projectId/report-issuers/:id {reason, kind?}`                                                             | active user; handler checks `report_issuer.manage`    |

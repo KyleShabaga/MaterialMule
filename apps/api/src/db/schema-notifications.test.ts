@@ -7,11 +7,11 @@ import {
 } from '../test-support/database.js';
 import { PG, insertProject } from '../test-support/fixtures.js';
 
-// MM-T91 (migration 0013): in-app notifications, proven in the database. Only active personal or
+// MM-T91 (migration 0014): in-app notifications, proven in the database. Only active personal or
 // test accounts receive them; only the read state changes; nothing is deleted; one row per
 // (recipient, event); and the decision notice is written once, to the requester, when someone
 // else resolves their request. Fictional data only (DEMO-2601, invented people).
-describe.runIf(testDatabaseUrl)('notifications (MM-T91, migration 0013)', () => {
+describe.runIf(testDatabaseUrl)('notifications (MM-T91, migration 0014)', () => {
   let db: TestSchema;
   let lead: string;
   let manager: string;

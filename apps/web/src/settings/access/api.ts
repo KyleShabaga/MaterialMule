@@ -1,8 +1,11 @@
 import {
   accessSummarySchema,
+  positionRulesSchema,
   reviewScopesSchema,
   staffGrantsSchema,
   type AccessSummary,
+  type Position,
+  type PositionRules,
   type ReviewScope,
   type StaffCapability,
   type StaffGrants,
@@ -71,4 +74,35 @@ export const grantsApi = {
   ) => write(staffPath(id, 'capabilities'), 'POST', { capability, reason, idempotencyKey }),
   revokeCapability: (id: string, grantId: string, reason: string) =>
     write(staffPath(id, `capabilities/${encodeURIComponent(grantId)}`), 'DELETE', { reason }),
+  // MISC-08: `scopeCode` null excludes them from every review scope.
+  addExclusion: (id: string, scopeCode: string | null, reason: string, idempotencyKey: string) =>
+    write(staffPath(id, 'reviewer-exclusions'), 'POST', { scopeCode, reason, idempotencyKey }),
+  removeExclusion: (id: string, exclusionId: string, reason: string) =>
+    write(staffPath(id, `reviewer-exclusions/${encodeURIComponent(exclusionId)}`), 'DELETE', {
+      reason,
+    }),
+};
+
+/** MISC-08: position-based review eligibility rules (admin). */
+export const fetchPositionRules = (): Promise<PositionRules> =>
+  getJson('/api/review-eligibility/position-rules', (b) => positionRulesSchema.parse(b));
+
+async function writeRules(path: string, method: 'POST' | 'DELETE', body: unknown) {
+  const response = await apiFetch(path, { method, body: JSON.stringify(body) });
+  if (!response.ok) throw await fail(response);
+  return positionRulesSchema.parse(await response.json());
+}
+
+export const rulesApi = {
+  enable: (position: Position, scopeCode: string, reason: string, idempotencyKey: string) =>
+    writeRules('/api/review-eligibility/position-rules', 'POST', {
+      position,
+      scopeCode,
+      reason,
+      idempotencyKey,
+    }),
+  disable: (id: string, reason: string) =>
+    writeRules(`/api/review-eligibility/position-rules/${encodeURIComponent(id)}`, 'DELETE', {
+      reason,
+    }),
 };

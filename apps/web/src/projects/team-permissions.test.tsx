@@ -85,6 +85,14 @@ const reviewer = (person = TAYLOR, scope = FIELD): ReviewerAssignment => ({
   scope,
   effective: true,
   blockedReason: null,
+  approval: {
+    id: `ap-${person.userId}-${scope.code}`,
+    approvedBy: { userId: 'u-pe', initials: 'PE', name: 'Pat Example' },
+    approvedAt: '2026-10-28T15:00:00.000Z',
+    reason: null,
+  },
+  eligible: true,
+  acceptedMember: true,
 });
 
 const team = (canManage: boolean, active = [member()]): ProjectTeam => ({
@@ -98,6 +106,8 @@ const team = (canManage: boolean, active = [member()]): ProjectTeam => ({
 const reviewers = (canManage: boolean, active = [reviewer()]): ProjectReviewers => ({
   projectId: PROJECT_ID,
   canManage,
+  canApprove: false,
+  approvalHistory: [],
   active,
   history: [],
   historyTotal: 0,

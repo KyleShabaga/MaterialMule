@@ -194,6 +194,17 @@ describe('Staff drawer: job title, eligibility and capabilities (MM-AO06)', () =
   const grants = (eligible: boolean): StaffGrants => ({
     userId: 'u-js',
     canManage: true,
+    position: 'technician',
+    effectiveEligibility: [
+      {
+        scope: FIELD,
+        eligible,
+        individualGrant: eligible,
+        positionRule: false,
+        excluded: false,
+      },
+    ],
+    exclusions: { active: [], history: [] },
     reviewerEligibility: {
       active: eligible ? [{ ...grant('re-1', 'Qualified field reviewer'), scope: FIELD }] : [],
       history: [],
