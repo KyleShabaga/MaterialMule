@@ -1,11 +1,13 @@
 /* Lab Testing (MM-T23/T24). Tokens and radii from docs/design.md: no pill shapes. */
 
+/* Children skip <dialog>: display here would beat the UA's dialog:not([open]) { display: none }
+   and show the closed discard dialog (MISC-01); margin-top would also pull a modal off centre. */
 .program-editor,
-.program-editor > * + * {
+.program-editor > * + :not(dialog) {
   display: block;
 }
 
-.program-editor > * + * {
+.program-editor > * + :not(dialog) {
   margin-top: var(--space-4, 16px);
 }
 

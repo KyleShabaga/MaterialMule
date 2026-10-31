@@ -1,9 +1,9 @@
 import type { MeResponse, TestCatalogue, TestTemplate } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 
@@ -157,6 +157,16 @@ function renderAt(
   return { fetchMock, router };
 }
 
+beforeEach(() => {
+  // jsdom has no <dialog> methods.
+  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+    this.open = false;
+  };
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -210,5 +220,28 @@ describe('Lab Testing (MM-T23)', () => {
     await user.type(screen.getByLabelText('Find a test'), 'fictional');
     expect(screen.queryByRole('button', { name: /DEMO-OLD/ })).toBeNull();
     expect(screen.queryByLabelText(/result/i)).toBeNull();
+  });
+
+  it('MISC-01: New program opens the editor; the discard dialog opens only from Discard draft', async () => {
+    const user = userEvent.setup();
+    renderAt(me(), '/lab-testing/programs');
+    await user.click(await screen.findByRole('link', { name: 'New program' }));
+    expect(await screen.findByLabelText('Project')).toBeVisible();
+    // A closed dialog has no accessible name, so find it by its title text.
+    const dialog = screen.getByRole<HTMLDialogElement>('dialog', { hidden: true });
+    expect(dialog).toHaveTextContent('Discard this draft?');
+    expect(dialog.open).toBe(false);
+    expect(dialog).not.toHaveAttribute('open');
+
+    await user.click(screen.getByRole('button', { name: 'Discard draft' }));
+    expect(dialog.open).toBe(true);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(dialog.open).toBe(false);
+
+    // Escape fires the dialog's cancel event in a browser; jsdom needs it dispatched.
+    await user.click(screen.getByRole('button', { name: 'Discard draft' }));
+    expect(dialog.open).toBe(true);
+    fireEvent(dialog, new Event('cancel'));
+    expect(dialog.open).toBe(false);
   });
 });
