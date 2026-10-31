@@ -106,4 +106,23 @@ test('the lead adds a team member who also reviews; others see it read-only', as
       .getByRole('row')
       .filter({ hasText: 'Assign or remove reviewers' }),
   ).toContainText(/Allowed for: .*Lead Project Engineer/);
+
+  // MTR-21: each person shows a job title column and expands to their permissions here, with the
+  // source of each.
+  const colleagues = page.getByRole('region', { name: 'People on this project' });
+  await expect(colleagues.getByRole('columnheader', { name: 'Job title' })).toBeVisible();
+  const pat = colleagues.getByRole('row').filter({ hasText: 'PE · Pat Example' });
+  await pat.getByText(/^Permissions here/).click();
+  const patPermissions = pat.getByRole('list', { name: 'Permissions of Pat Example' });
+  await expect(
+    patPermissions.getByRole('listitem').filter({ hasText: 'Add or remove team members' }),
+  ).toHaveText('Add or remove team members: Yes · As Lead Project Engineer');
+  const danaRow = colleagues.getByRole('row').filter({ hasText: 'DE · Dana Example' });
+  await danaRow.getByText(/^Permissions here/).click();
+  await expect(
+    danaRow
+      .getByRole('list', { name: 'Permissions of Dana Example' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Add or remove team members' }),
+  ).toHaveText(/: No · Allowed for: .*Lead Project Engineer/);
 });

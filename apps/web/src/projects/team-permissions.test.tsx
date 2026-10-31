@@ -182,6 +182,20 @@ function stubApi(world: World, writes: (url: URL, init: RequestInit) => Response
         return json(200, detail());
       case `${BASE}/capabilities`:
         return json(200, capabilities(world.lead));
+      case `${BASE}/people`:
+        return json(200, {
+          projectId: PROJECT_ID,
+          people: [
+            {
+              userId: 'u-tm',
+              initials: 'TM',
+              name: 'Taylor Member',
+              jobTitle: { value: 'Field Technologist', source: 'microsoft' },
+              ...capabilities(false),
+              projectId: undefined,
+            },
+          ],
+        });
       case `${BASE}/team-members`:
         return json(200, world.team);
       case `${BASE}/reviewer-assignments`:
@@ -257,10 +271,22 @@ describe('Team & Permissions (MM-AO05)', () => {
     const people = await screen.findByRole('region', { name: 'People on this project' });
     const taylor = within(people).getByText('TM · Taylor Member').closest('tr')!;
     const cells = within(taylor).getAllByRole('cell');
-    expect(cells[1]).toHaveTextContent('Team member; Reviewer: Concrete field');
-    expect(cells[2]).toHaveTextContent('—');
+    // MTR-21: their effective job title, and their permissions here with each one's source.
+    expect(cells[1]).toHaveTextContent('Field Technologist');
+    expect(cells[2]).toHaveTextContent('Team member; Reviewer: Concrete field');
+    expect(cells[3]).toHaveTextContent('—');
+    expect(cells[4]).toHaveTextContent('Permissions here (none)');
+    expect(
+      within(within(taylor).getByRole('list', { name: 'Permissions of Taylor Member' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'Add or remove team members: No · Allowed for: Lead Project Engineer, Administrator',
+      'Close lab programs: No · Allowed for: Lead Project Engineer',
+    ]);
     const iris = within(people).getByText('II · Iris Issuer').closest('tr')!;
-    expect(within(iris).getAllByRole('cell')[2]).toHaveTextContent('Report issuer: Concrete field');
+    expect(within(iris).getAllByRole('cell')[1]).toHaveTextContent('—');
+    expect(within(iris).getAllByRole('cell')[3]).toHaveTextContent('Report issuer: Concrete field');
     expect(within(people).getByText('DD · Dakota Delegate').closest('tr')).toHaveTextContent(
       'Acceptance delegate',
     );

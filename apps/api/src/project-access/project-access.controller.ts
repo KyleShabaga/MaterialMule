@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@ne
 import type {
   ProjectLeadNominations,
   ProjectCapabilities,
+  ProjectPeople,
   ProjectReportIssuers,
   ProjectReviewers,
   ProjectTeam,
@@ -122,6 +123,13 @@ export class ProjectAccessController {
     @CurrentUser() user: AuthUser,
   ): Promise<ProjectCapabilities> {
     return this.access.capabilities(projectId, user);
+  }
+
+  /** MTR-21: each person on the project, their job title and permissions here, and why. */
+  @Get('projects/:projectId/people')
+  @RequirePermission('project_access.read')
+  people(@Param('projectId') projectId: string): Promise<ProjectPeople> {
+    return this.access.people(projectId);
   }
 
   @Get('projects/:projectId/team-members')

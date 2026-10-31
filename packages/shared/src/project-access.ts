@@ -346,6 +346,25 @@ export const projectCapabilitiesSchema = z.object({
 });
 export type ProjectCapabilities = z.infer<typeof projectCapabilitiesSchema>;
 
+/**
+ * MTR-21: one person involved in the project (lead, team, reviewer, delegate or issuer), their
+ * effective job title, and what they may do here and why, computed as for themselves.
+ */
+export const projectPersonSchema = projectCapabilitiesSchema.omit({ projectId: true }).extend({
+  userId: z.string(),
+  initials: z.string().nullable(),
+  name: z.string(),
+  jobTitle: effectiveJobTitleSchema,
+});
+export type ProjectPerson = z.infer<typeof projectPersonSchema>;
+
+/** `GET /api/projects/:projectId/people`: the same viewers as the team (project_access.read). */
+export const projectPeopleSchema = z.object({
+  projectId: z.string(),
+  people: z.array(projectPersonSchema),
+});
+export type ProjectPeople = z.infer<typeof projectPeopleSchema>;
+
 // ---------------------------------------------------------------------------------------------
 // Lead nomination and appointment (MM-AO04; D01, D02)
 // ---------------------------------------------------------------------------------------------

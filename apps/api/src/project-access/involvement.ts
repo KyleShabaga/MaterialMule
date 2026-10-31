@@ -49,3 +49,32 @@ export async function involvementOf(
   );
   return orderInvolvement(rows.map((row) => row.involvement));
 }
+
+/**
+ * MTR-21: everyone the Team & Permissions people list shows for a project: the lead, active team
+ * members, reviewer assignments (eligible or not), and unrevoked delegate and issuer grants
+ * (expired or not), so each listed row can expand to its permissions.
+ */
+export async function projectPeopleIds(
+  db: Pool | PoolClient,
+  projectId: string,
+): Promise<string[]> {
+  const { rows } = await db.query<{ user_id: string }>(
+    `SELECT DISTINCT user_id FROM (
+       SELECT lead_project_engineer_user_id AS user_id FROM project WHERE id = $1
+       UNION ALL
+       SELECT user_id FROM project_team_member WHERE project_id = $1 AND removed_at IS NULL
+       UNION ALL
+       SELECT reviewer_user_id FROM project_reviewer_assignment
+       WHERE project_id = $1 AND removed_at IS NULL
+       UNION ALL
+       SELECT delegate_user_id FROM acceptance_delegation
+       WHERE project_id = $1 AND revoked_at IS NULL
+       UNION ALL
+       SELECT issuer_user_id FROM project_report_issuer_grant
+       WHERE project_id = $1 AND revoked_at IS NULL
+     ) people WHERE user_id IS NOT NULL`,
+    [projectId],
+  );
+  return rows.map((row) => row.user_id);
+}

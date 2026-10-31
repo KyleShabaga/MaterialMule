@@ -259,3 +259,11 @@
 .edit-project-changed {
   margin: 0.5rem 0 0;
 }
+
+/* MTR-21: each person's permissions on Team & Permissions, folded until opened. */
+.person-permissions ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.25rem;
+}

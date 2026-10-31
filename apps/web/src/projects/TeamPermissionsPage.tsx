@@ -10,6 +10,8 @@ import {
   type ProjectCapabilities,
   type ProjectCapabilityAction,
   type ProjectDetail,
+  type ProjectPeople,
+  type ProjectPerson,
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
@@ -28,6 +30,7 @@ import { IssuersSection, ReviewersSection, TeamSection, type RunWrite } from './
 import {
   fetchCapabilities,
   fetchIssuers,
+  fetchPeople,
   fetchReviewers,
   fetchScopes,
   fetchTeam,
@@ -52,6 +55,8 @@ interface Loaded {
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
   scopes: ReviewScope[];
+  /** MTR-21: null when it couldn't be loaded; the people list then shows no permissions. */
+  people: ProjectPeople | null;
 }
 
 type PageState =
@@ -65,15 +70,17 @@ function unwrap<T>(result: LoadResult<T>): T {
 }
 
 async function loadAll(projectId: string): Promise<Loaded> {
-  const [project, capabilities, team, reviewers, issuers, scopes, delegates] = await Promise.all([
-    fetchProjectDetail(projectId),
-    fetchCapabilities(projectId),
-    fetchTeam(projectId),
-    fetchReviewers(projectId),
-    fetchIssuers(projectId),
-    fetchScopes(),
-    fetchDelegates(projectId).catch(() => null),
-  ]);
+  const [project, capabilities, team, reviewers, issuers, scopes, delegates, people] =
+    await Promise.all([
+      fetchProjectDetail(projectId),
+      fetchCapabilities(projectId),
+      fetchTeam(projectId),
+      fetchReviewers(projectId),
+      fetchIssuers(projectId),
+      fetchScopes(),
+      fetchDelegates(projectId).catch(() => null),
+      fetchPeople(projectId).catch(() => null),
+    ]);
   return {
     project: unwrap(project),
     capabilities: unwrap(capabilities),
@@ -82,6 +89,7 @@ async function loadAll(projectId: string): Promise<Loaded> {
     issuers: unwrap(issuers),
     scopes: unwrap(scopes),
     delegates,
+    people: people?.ok ? people.data : null,
   };
 }
 
@@ -129,18 +137,24 @@ function TeamPermissions({ projectId }: { projectId: string }) {
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
-  /** Reloads only the capability list (and the people summary's delegate list). */
+  /** Reloads only the capability lists (and the people summary's delegate list). */
   const refreshCapabilities = useCallback(() => {
     void Promise.all([
       fetchCapabilities(projectId),
       fetchDelegates(projectId).catch(() => null),
-    ]).then(([capabilities, delegates]) => {
+      fetchPeople(projectId).catch(() => null),
+    ]).then(([capabilities, delegates, people]) => {
       if (!capabilities.ok) return;
       setPage((current) =>
         current.state === 'ready'
           ? {
               state: 'ready',
-              data: { ...current.data, capabilities: capabilities.data, delegates },
+              data: {
+                ...current.data,
+                capabilities: capabilities.data,
+                delegates,
+                people: people?.ok ? people.data : null,
+              },
             }
           : current,
       );
@@ -209,7 +223,7 @@ function TeamPermissions({ projectId }: { projectId: string }) {
     );
   }
 
-  const { project, capabilities, team, reviewers, issuers, delegates, scopes } = page.data;
+  const { project, capabilities, team, reviewers, issuers, delegates, scopes, people } = page.data;
   return (
     <>
       {back}
@@ -268,6 +282,7 @@ function TeamPermissions({ projectId }: { projectId: string }) {
         reviewers={reviewers}
         issuers={issuers}
         delegates={delegates}
+        people={people}
       />
 
       <TeamSection
@@ -316,19 +331,45 @@ interface PersonRow {
   grants: string[];
 }
 
+/** MTR-21: what one person may do here, and why, as the server computes it for them. */
+function PersonPermissions({ person }: { person: ProjectPerson }) {
+  const known = new Set<string>(PROJECT_CAPABILITY_ACTIONS);
+  const allowed = person.capabilities.filter((c) => known.has(c.action) && c.allowed);
+  return (
+    <details className="person-permissions">
+      <summary>Permissions here ({allowed.length ? `${allowed.length} allowed` : 'none'})</summary>
+      <ul aria-label={`Permissions of ${person.name}`}>
+        {person.capabilities
+          .filter((c) => known.has(c.action))
+          .map((c) => (
+            <li key={c.action}>
+              <strong>
+                {PROJECT_CAPABILITY_ACTION_LABEL[c.action as ProjectCapabilityAction]}:
+              </strong>{' '}
+              {c.allowed ? 'Yes' : 'No'} · {whyFor(c)}
+            </li>
+          ))}
+      </ul>
+    </details>
+  );
+}
+
 function PeopleSummary({
   project,
   team,
   reviewers,
   issuers,
   delegates,
+  people: peopleView,
 }: {
   project: ProjectDetail;
   team: ProjectTeam;
   reviewers: ProjectReviewers;
   issuers: ProjectReportIssuers;
   delegates: AcceptanceDelegates | null;
+  people: ProjectPeople | null;
 }) {
+  const details = new Map((peopleView?.people ?? []).map((p) => [p.userId, p]));
   const people = new Map<string, PersonRow>();
   const person = (id: string, initials: string | null, name: string) => {
     let row = people.get(id);
@@ -377,12 +418,23 @@ function PeopleSummary({
         columns={[
           { header: 'Person', cell: (row) => <strong>{row.name}</strong> },
           {
+            header: 'Job title',
+            cell: (row) => details.get(row.id)?.jobTitle?.value ?? '—',
+          },
+          {
             header: 'Responsibilities',
             cell: (row) => (row.responsibilities.length ? row.responsibilities.join('; ') : '—'),
           },
           {
             header: 'Grants',
             cell: (row) => (row.grants.length ? row.grants.join('; ') : '—'),
+          },
+          {
+            header: 'Permissions',
+            cell: (row) => {
+              const person = details.get(row.id);
+              return person ? <PersonPermissions person={person} /> : '—';
+            },
           },
         ]}
       />
@@ -393,6 +445,15 @@ function PeopleSummary({
 // ---------------------------------------------------------------------------------------------
 // What the signed-in person may do here, and why (the server's capability list)
 // ---------------------------------------------------------------------------------------------
+
+/** The source of a permission held by someone else ("As …"), or who it's allowed for. */
+function whyFor(capability: Capability): string {
+  if (capability.allowed) {
+    return `As ${capability.sources.map((s) => CAPABILITY_SOURCE_LABEL[s]).join(', ')}`;
+  }
+  const grantedBy = capability.blocked?.grantedBy.map((s) => CAPABILITY_SOURCE_LABEL[s]) ?? [];
+  return grantedBy.length ? `Allowed for: ${grantedBy.join(', ')}` : 'Not allowed';
+}
 
 function why(capability: Capability): string {
   if (capability.allowed) {

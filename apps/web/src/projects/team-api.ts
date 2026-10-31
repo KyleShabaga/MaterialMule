@@ -1,5 +1,6 @@
 import {
   projectCapabilitiesSchema,
+  projectPeopleSchema,
   projectReportIssuersSchema,
   projectReviewersSchema,
   projectTeamSchema,
@@ -8,6 +9,7 @@ import {
   type FieldError,
   type GrantReportIssuerRequest,
   type ProjectCapabilities,
+  type ProjectPeople,
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
@@ -144,6 +146,10 @@ const projectPath = (projectId: string, rest: string) =>
 
 export const fetchCapabilities = (projectId: string): Promise<LoadResult<ProjectCapabilities>> =>
   load(projectPath(projectId, 'capabilities'), projectCapabilitiesSchema);
+
+/** MTR-21: each person on the project with job title and permissions here. */
+export const fetchPeople = (projectId: string): Promise<LoadResult<ProjectPeople>> =>
+  load(projectPath(projectId, 'people'), projectPeopleSchema);
 
 export const fetchScopes = (): Promise<LoadResult<ReviewScope[]>> =>
   load('/api/review-scopes', reviewScopesSchema);
