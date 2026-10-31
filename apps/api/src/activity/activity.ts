@@ -18,6 +18,9 @@ interface DisplayDetails {
   readableIds?: string[];
   projectNumber?: string;
   unitCount?: number;
+  /** MM-T37 location label jobs: `target: 'location'` with the location's code. */
+  target?: string;
+  locationCode?: string;
 }
 
 function details(event: AuditEvent): DisplayDetails {
@@ -29,6 +32,8 @@ function details(event: AuditEvent): DisplayDetails {
       : undefined,
     projectNumber: typeof after.projectNumber === 'string' ? after.projectNumber : undefined,
     unitCount: typeof after.unitCount === 'number' ? after.unitCount : undefined,
+    target: typeof after.target === 'string' ? after.target : undefined,
+    locationCode: typeof after.locationCode === 'string' ? after.locationCode : undefined,
   };
 }
 
@@ -69,9 +74,18 @@ export function toActivityItem(event: AuditEvent): ActivityItem {
       href = d.readableId ? `/sample-storage/${d.readableId}` : null;
       break;
     case 'label.print_requested':
-      summary = `${who} printed labels for ${units(d)}${forReceiver}`;
-      break;
     case 'label.reprint_requested':
+      if (d.target === 'location') {
+        // MM-T79: a location label names its location and opens Settings → Locations.
+        const verb = event.action === 'label.reprint_requested' ? 'reprinted' : 'printed';
+        summary = `${who} ${verb} the location label for ${d.locationCode ?? 'a location'}${forReceiver}`;
+        href = '/settings/locations';
+        break;
+      }
+      if (event.action === 'label.print_requested') {
+        summary = `${who} printed labels for ${units(d)}${forReceiver}`;
+        break;
+      }
       summary = `${who} reprinted the label for ${units(d)}${forReceiver}`;
       href = d.readableId ? `/sample-storage/${d.readableId}` : null;
       break;
