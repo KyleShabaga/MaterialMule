@@ -79,9 +79,21 @@ test('AC2/AC5: no prompt before tapping; Close and Escape turn the camera off', 
   await page.getByRole('button', { name: 'Scan with camera' }).click();
   await expect(dialog.getByRole('status')).toHaveText('Point at the label');
   expect((await cameraState(page)).live).toBe(1);
+  // MTR-143: a modal dialog; Tab never reaches the page hidden behind it. Past the last
+  // control Chromium may hand focus to the browser itself (activeElement is then the body).
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press('Tab');
+    const where = await page.evaluate(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) return 'browser';
+      return active.closest('dialog.camera-scanner') ? 'scanner' : active.outerHTML.slice(0, 80);
+    });
+    expect(['scanner', 'browser'], `Tab ${step + 1}`).toContain(where);
+  }
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   expect(await cameraState(page)).toEqual({ calls: 2, live: 0 });
+  await expect(page.getByRole('button', { name: 'Scan with camera' })).toBeFocused();
 });
 
 test('T3/AC4: permission denied explains itself and manual entry still opens the unit', async ({

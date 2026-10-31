@@ -1,6 +1,7 @@
 import type { MeResponse } from '@materialmule/shared';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -95,6 +96,13 @@ const frame = () => ({}) as ImageData;
 
 beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  // jsdom has no <dialog> methods; the scanner is a native modal dialog (MTR-143).
+  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+    this.open = false;
+  };
 });
 
 afterEach(() => {
@@ -364,5 +372,50 @@ describe('Scan with camera button (MM-T17)', () => {
     expect(screen.getByRole('button', { name: 'Scan with camera' })).toHaveFocus();
     Reflect.deleteProperty(navigator, 'mediaDevices');
     Reflect.deleteProperty(window, 'isSecureContext');
+  });
+
+  it('MTR-143: the scanner is a modal dialog; Escape stops the camera and refocuses the button', async () => {
+    // The fake decoder, not the wasm one: on CI the wasm load fails and the scanner switches to
+    // its problem view, which would race with this test.
+    const camera = fakeCamera();
+    const { factory } = fakeDecoder();
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal');
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Scan with camera
+          </button>
+          {open ? (
+            <CameraScanner
+              onClose={() => setOpen(false)}
+              onFound={vi.fn()}
+              devices={camera.devices}
+              secureContext
+              decoderFactory={factory}
+              readFrame={frame}
+            />
+          ) : null}
+        </>
+      );
+    }
+    render(<Harness />);
+    await userEvent.click(screen.getByRole('button', { name: 'Scan with camera' }));
+    const dialog = screen.getByRole('dialog', { name: 'Scan with camera' });
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(showModal).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole('button', { name: 'Close camera' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('status')).toHaveTextContent('Point at the label'),
+    );
+    expect(camera.live()).toHaveLength(1);
+
+    // Escape on a modal dialog fires "cancel" on it. The harness doesn't refocus anything, so
+    // the button getting focus back is the scanner's own doing.
+    fireEvent(dialog, new Event('cancel', { cancelable: true }));
+    expect(screen.queryByRole('dialog', { name: 'Scan with camera' })).not.toBeInTheDocument();
+    expect(camera.live()).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Scan with camera' })).toHaveFocus();
   });
 });
