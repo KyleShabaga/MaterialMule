@@ -629,6 +629,141 @@ describe.runIf(testDatabaseUrl)('lab amendments and accepted-request changes (MM
     expect(changeRefused.body.code).toBe('program_not_open');
   });
 
+  it('MM-T83 T1/AC2: an amended Grabs/SPT line covers exactly its explicit units; destroyed and disposed tubes are refused', async () => {
+    const hole = await newHole();
+    const ticked = await h.bucket({ hole });
+    const unticked = await h.bucket({ hole });
+    const tube = await h.tube({ holeId: hole, sampleReference: 'T1' });
+    const destroyed = await h.tube({ holeId: hole, sampleReference: 'T2' });
+    const disposed = await h.tube({ holeId: hole, sampleReference: 'T3' });
+    const p = await submit([line({ kind: 'test_hole', id: hole }, 'all', [moisture])]);
+
+    // Testing destroys a tube's contents; removal by disposal takes another out of stock.
+    const tested = p.lines[0]!.requests[0]!.id;
+    let version = (await row(tested)).version;
+    version = (await status(tested, 'in_progress', version)).body.version as number;
+    const completed = await status(tested, 'completed', version, {
+      testedStorageUnitIds: [destroyed.id],
+    });
+    expect(completed.status, JSON.stringify(completed.body)).toBe(200);
+    await h.db.pool.query(
+      `UPDATE storage_unit SET status = 'disposed', disposed_at = now() WHERE id = $1`,
+      [disposed.id],
+    );
+
+    const source = { kind: 'test_hole', id: hole };
+    const grabs = { source, scope: 'grabs', testTypeIds: [sieve], unitIds: [ticked.id] };
+    // A reviewed coverage that can't match: the 409 answer is the preview, and nothing changes.
+    const before = await programVersion(p.id);
+    const preview = await amend(p.id, {
+      addLines: [{ ...grabs, reviewedCoverageUnitIds: ['00000000-0000-4000-8000-000000000000'] }],
+    });
+    expect(preview.status).toBe(409);
+    expect(preview.body.code).toBe('coverage_changed');
+    const offered = preview.body.lines[0].coverage as {
+      storageUnitId: string;
+      included: boolean;
+      matchingBasis: string;
+    }[];
+    expect(
+      offered.map(({ storageUnitId, included, matchingBasis }) => ({
+        storageUnitId,
+        included,
+        matchingBasis,
+      })),
+    ).toEqual(
+      expect.arrayContaining([
+        { storageUnitId: ticked.id, included: true, matchingBasis: 'reviewed_included' },
+        {
+          storageUnitId: unticked.id,
+          included: false,
+          matchingBasis: 'unknown_classification_excluded',
+        },
+        {
+          storageUnitId: tube.id,
+          included: false,
+          matchingBasis: 'unknown_classification_excluded',
+        },
+      ]),
+    );
+    expect(offered.map((c) => c.storageUnitId)).not.toContain(destroyed.id);
+    expect(offered.map((c) => c.storageUnitId)).not.toContain(disposed.id);
+    expect(await programVersion(p.id)).toBe(before);
+
+    const added = await amend(p.id, {
+      addLines: [{ ...grabs, reviewedCoverageUnitIds: [ticked.id] }],
+    });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    const spt = await amend(p.id, {
+      addLines: [
+        {
+          source,
+          scope: 'spt',
+          testTypeIds: [moisture],
+          unitIds: [tube.id],
+          reviewedCoverageUnitIds: [tube.id],
+        },
+      ],
+    });
+    expect(spt.status, JSON.stringify(spt.body)).toBe(201);
+
+    const program = labProgramSchema.parse((await h.get(`/api/lab-programs/${p.id}`, 'tech')).body);
+    const snapshot = async (lineId: string) =>
+      (
+        await h.db.pool.query<{
+          storage_unit_id: string;
+          matching_basis: string;
+          included: boolean;
+        }>(
+          `SELECT storage_unit_id, matching_basis, included FROM program_scope_snapshot
+           WHERE line_id = $1 ORDER BY storage_unit_id`,
+          [lineId],
+        )
+      ).rows;
+    const excluded = (id: string) => ({
+      storage_unit_id: id,
+      matching_basis: 'unknown_classification_excluded',
+      included: false,
+    });
+    const reviewed = (id: string) => ({
+      storage_unit_id: id,
+      matching_basis: 'reviewed_included',
+      included: true,
+    });
+    const byId = (a: { storage_unit_id: string }, b: { storage_unit_id: string }) =>
+      a.storage_unit_id < b.storage_unit_id ? -1 : 1;
+    expect(program.lines[1]).toMatchObject({
+      scope: 'grabs',
+      amendmentId: added.body.amendmentId,
+      requests: [expect.objectContaining({ code: 'DEMO-SV27', status: 'requested' })],
+    });
+    expect(await snapshot(program.lines[1]!.id)).toEqual(
+      [reviewed(ticked.id), excluded(unticked.id), excluded(tube.id)].sort(byId),
+    );
+    expect(program.lines[2]).toMatchObject({ scope: 'spt', amendmentId: spt.body.amendmentId });
+    expect(await snapshot(program.lines[2]!.id)).toEqual(
+      [excluded(ticked.id), excluded(unticked.id), reviewed(tube.id)].sort(byId),
+    );
+
+    // AC2: a destroyed or disposed tube can't be chosen, whatever the requester "reviewed".
+    for (const gone of [destroyed.id, disposed.id]) {
+      const refused = await amend(p.id, {
+        addLines: [
+          {
+            source,
+            scope: 'spt',
+            testTypeIds: [sieve],
+            unitIds: [gone],
+            reviewedCoverageUnitIds: [gone],
+          },
+        ],
+      });
+      expect(refused.status).toBe(422);
+      expect(refused.body.code).toBe('unit_not_in_source');
+    }
+    expect((await h.get(`/api/lab-programs/${p.id}`, 'tech')).body.lines).toHaveLength(3);
+  });
+
   it('a Specific line added by amendment must acknowledge a different depth of the same sample', async () => {
     const hole = await newHole();
     await h.bucket({ hole });

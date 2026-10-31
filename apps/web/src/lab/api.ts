@@ -35,7 +35,11 @@ import {
   type TestCatalogue,
   type TestTemplate,
   type UpdateLabProgramRequestInput,
+  amendmentCoverageChangedSchema,
   amendmentResultSchema,
+  depthDiscrepancySchema,
+  type AmendmentCoverageChanged,
+  type DepthDiscrepancy,
   laterReceiptsSchema,
   lifecycleRequestResultSchema,
   programLifecycleResultSchema,
@@ -51,8 +55,24 @@ import { apiFetch } from '../api/client';
 
 export type WriteResult<T> =
   | { ok: true; value: T; status: number }
-  | { ok: false; kind: 'conflict'; code: string; current?: LabProgram; review?: LabProgramReview }
-  | { ok: false; kind: 'invalid'; code: string; errors: FieldError[]; review?: LabProgramReview }
+  | {
+      ok: false;
+      kind: 'conflict';
+      code: string;
+      current?: LabProgram;
+      review?: LabProgramReview;
+      /** Amendment `coverage_changed`: the coverage of each new line to review (MM-T83). */
+      coverageChanged?: AmendmentCoverageChanged['lines'];
+    }
+  | {
+      ok: false;
+      kind: 'invalid';
+      code: string;
+      errors: FieldError[];
+      review?: LabProgramReview;
+      /** Amendment `depth_discrepancy`: the other depths to acknowledge (MM-T83). */
+      discrepancy?: DepthDiscrepancy;
+    }
   | { ok: false; kind: 'forbidden' | 'not_found' | 'unauthenticated' | 'network' | 'error' };
 
 async function getJson<T>(path: string, parse: (body: unknown) => T): Promise<T> {
@@ -82,12 +102,14 @@ async function write<T>(
   const review = json?.review ? labProgramReviewSchema.safeParse(json.review) : null;
   if (response.status === 409) {
     const current = json?.current ? labProgramSchema.safeParse(json.current) : null;
+    const coverage = amendmentCoverageChangedSchema.safeParse(json);
     return {
       ok: false,
       kind: 'conflict',
       code,
       current: current?.success ? current.data : undefined,
       review: review?.success ? review.data : undefined,
+      coverageChanged: coverage.success ? coverage.data.lines : undefined,
     };
   }
   if (response.status === 400 || response.status === 422) {
@@ -97,6 +119,9 @@ async function write<T>(
       code,
       errors: Array.isArray(json?.errors) ? (json.errors as FieldError[]) : [],
       review: review?.success ? review.data : undefined,
+      discrepancy: json?.discrepancy
+        ? depthDiscrepancySchema.safeParse(json.discrepancy).data
+        : undefined,
     };
   }
   if (response.status === 401) return { ok: false, kind: 'unauthenticated' };
