@@ -5,6 +5,7 @@ import {
 } from '@materialmule/shared';
 import { Link } from 'react-router';
 import { DataTable, type Column } from '../components/ui';
+import type { QueuedMove } from '../moves/store';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
 import { UnitContentsLine, UnitContentsList } from './UnitContents';
 
@@ -28,17 +29,24 @@ export interface StorageUnitLinkState {
  *
  * MM-T36: the "Sampling source" column holds hole summaries, a Shelby tube's source or a bulk
  * soil bucket's bulk sample with its "bucket n of N" badge, in both views (UnitContents).
+ *
+ * MM-T81: an open location conflict shows a "Conflict" tag in Status, and a move scanned on this
+ * device but not saved yet (`pendingMoves`, from the local queue) shows "Pending" beside the saved
+ * location, which it never replaces.
  */
 export function StorageUnitTable({
   items,
   linkState,
   showProject = true,
   view = 'standard',
+  pendingMoves,
 }: {
   items: InventoryItem[];
   linkState?: StorageUnitLinkState;
   showProject?: boolean;
   view?: StorageUnitTableView;
+  /** This device's unsaved moves by storage unit ID (MM-T81). */
+  pendingMoves?: ReadonlyMap<string, QueuedMove>;
 }) {
   const compact = view === 'compact';
   const columns: Column<InventoryItem>[] = [
@@ -77,14 +85,29 @@ export function StorageUnitTable({
     },
     {
       header: 'Location',
-      cell: (item) =>
-        compact ? (
+      cell: (item) => {
+        const pending = pendingMoves?.get(item.id);
+        const saved = compact ? (
           <span className="location-line" title={item.location.name}>
             {item.location.name}
           </span>
         ) : (
           item.location.name
-        ),
+        );
+        if (!pending) return saved;
+        return (
+          <span className="unit-cell">
+            {compact ? saved : <span>{saved}</span>}
+            <span
+              className="type-tag type-tag-accent"
+              data-testid="pending-move"
+              title={`Pending → ${pending.destination.name} (scanned on this device, not saved yet)`}
+            >
+              Pending
+            </span>
+          </span>
+        );
+      },
     },
     { header: 'Received', cell: (item) => <span className="nowrap">{item.receivedDate}</span> },
     {
@@ -95,6 +118,15 @@ export function StorageUnitTable({
             status={item.status}
             testedRemovalReason={item.testedRemovalReason ?? null}
           />
+          {item.openConflict ? (
+            // MM-T28: the saved location needs a person to confirm it (on the unit's page).
+            <span
+              className="type-tag type-tag-warning"
+              title="Location conflict: confirm the location on this unit’s page"
+            >
+              Conflict
+            </span>
+          ) : null}
           {item.contentsDestroyed && item.status !== 'disposed' ? (
             // MM-T36: tested, still on the shelf until its removal is confirmed.
             <span className="type-tag" title={`Contents: ${TESTED_CONTENTS_LABEL}`}>

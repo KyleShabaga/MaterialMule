@@ -321,6 +321,30 @@ describe('Sample Storage inventory (MM-T12)', () => {
     expect(router.state.location.search).toBe('');
   });
 
+  it('MM-T81: filters to open location conflicts with a removable chip', async () => {
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(
+            200,
+            url.searchParams.get('conflict')
+              ? page([{ ...item('BKT-2026-000014'), openConflict: true }], 1)
+              : page([item('BKT-2026-000014'), item('BKT-2026-000015')], 42),
+          )
+        : undefined,
+    );
+    const router = renderAt('/sample-storage');
+    expect(await screen.findByText('42 storage units')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Conflict'), 'Open location conflict');
+    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?conflict=open');
+    expect(inventoryCalls(fetchMock).at(-1)!.searchParams.get('conflict')).toBe('open');
+    expect(within(screen.getByRole('table')).getByText('Conflict')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter Conflict: Open' }));
+    expect(router.state.location.search).toBe('');
+  });
+
   it('shows a no-match state', async () => {
     stubApi((url) => (url.pathname === '/api/inventory' ? json(200, page([], 0)) : undefined));
     renderAt('/sample-storage?search=nothing');

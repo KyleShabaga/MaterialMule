@@ -118,6 +118,10 @@ export const INVENTORY_RETENTION_FILTER_LABEL: Record<InventoryRetentionFilter, 
   eligible_for_disposal: 'Eligible for disposal',
 };
 
+/** MM-T81: units whose saved location has an open conflict (MM-T28) that a person must confirm. */
+export const INVENTORY_CONFLICT_FILTERS = ['open'] as const;
+export type InventoryConflictFilter = (typeof INVENTORY_CONFLICT_FILTERS)[number];
+
 export const inventoryQuerySchema = z.object({
   search: optionalParam(z.string().trim().max(200, { error: 'must be at most 200 characters' })),
   projectId: optionalParam(z.uuid({ error: 'must be a project ID' })),
@@ -134,6 +138,10 @@ export const inventoryQuerySchema = z.object({
   receivedTo: optionalParam(z.iso.date({ error: 'must be a date (YYYY-MM-DD)' })),
   retention: optionalParam(
     z.enum(INVENTORY_RETENTION_FILTERS, { error: 'is not a retention filter' }),
+  ),
+  /** MM-T81: only units with an open location conflict. */
+  conflict: optionalParam(
+    z.enum(INVENTORY_CONFLICT_FILTERS, { error: 'is not a conflict filter' }),
   ),
   sort: z.preprocess(
     blankToUndefined,
@@ -232,6 +240,11 @@ export const inventoryItemSchema = z.object({
   bulkGroup: bulkMembershipSchema.nullable(),
   /** Last saved location (a pending move never replaces it, MM-T28). */
   location: locationRef,
+  /**
+   * MM-T81: the saved location has an open conflict. Always sent by the API; optional so older
+   * fixtures stay valid.
+   */
+  openConflict: z.boolean().optional(),
   receivedDate: z.string(),
   /**
    * MM-T36: the post-testing route that disposed this unit ("Disposed after testing"), or null.

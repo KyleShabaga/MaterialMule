@@ -82,6 +82,14 @@ export function buildInventoryQuery(
     where.push(`unit_disposal_eligible(su.id, ${param(options.asOf ?? null)}::date)`);
   }
 
+  // MM-T81: one open conflict per unit at most (location_conflict_one_open_idx).
+  if (query.conflict === 'open') {
+    where.push(
+      `EXISTS (SELECT 1 FROM location_conflict c
+               WHERE c.storage_unit_id = su.id AND c.status = 'open')`,
+    );
+  }
+
   const fromWhere = [
     'FROM storage_unit su',
     words.length > 0 ? 'JOIN storage_unit_search s ON s.storage_unit_id = su.id' : '',

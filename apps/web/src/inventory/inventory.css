@@ -385,6 +385,13 @@
   color: var(--accent-ink);
 }
 
+/* MM-T81: an open location conflict on an inventory row; the word carries the meaning. */
+.type-tag-warning {
+  border-color: var(--warning-line);
+  background: var(--warning-bg);
+  color: var(--warning-panel-ink);
+}
+
 /* Summaries and History on the left, Receipt and Location on the right; one column on tablets. */
 .unit-columns {
   display: grid;
