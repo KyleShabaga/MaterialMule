@@ -8,6 +8,7 @@ import { safeReturnTo } from '../lib/return-to';
 import { routes } from '../routes';
 import { SessionContext, type SessionState } from '../session/context';
 import { NAV_ITEMS, accountBadge, visibleNavItems } from './nav';
+import { NavIcon } from './NavIcon';
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   id: 'u1',
@@ -235,5 +236,15 @@ describe('phone menu drawer (MTR-137)', () => {
     await user.click(document.body);
     expect(menu).toHaveAttribute('aria-expanded', 'false');
     expect(menu).toHaveFocus();
+  });
+});
+
+describe('menu icons (MTR-92)', () => {
+  it('every menu destination has an icon, so no label sits beside a blank gap', () => {
+    for (const item of NAV_ITEMS) {
+      const { container, unmount } = render(<NavIcon to={item.to} />);
+      expect(container.querySelector('.nav-icon svg path'), item.label).not.toBeNull();
+      unmount();
+    }
   });
 });

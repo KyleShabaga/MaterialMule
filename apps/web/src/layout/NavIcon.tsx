@@ -1,6 +1,10 @@
 // Side-menu icons from Kyle's Figma (2026-10-26), paths unchanged; fill follows the text colour.
 
-const ICONS: Record<string, { viewBox: string; width: number; height: number; d: string }> = {
+// MTR-92: Lab Testing (flask) and Disposal & Retention (bin) drawn to match, with even-odd fills.
+const ICONS: Record<
+  string,
+  { viewBox: string; width: number; height: number; d: string; fillRule?: 'evenodd' }
+> = {
   '/': {
     viewBox: '0 0 18 18',
     width: 18,
@@ -18,6 +22,20 @@ const ICONS: Record<string, { viewBox: string; width: number; height: number; d:
     width: 20,
     height: 20,
     d: 'M3 20C2.45 20 1.97917 19.8042 1.5875 19.4125C1.19583 19.0208 1 18.55 1 18V6.725C0.7 6.54167 0.458333 6.30417 0.275 6.0125C0.0916667 5.72083 0 5.38333 0 5V2C0 1.45 0.195833 0.979167 0.5875 0.5875C0.979167 0.195833 1.45 0 2 0H18C18.55 0 19.0208 0.195833 19.4125 0.5875C19.8042 0.979167 20 1.45 20 2V5C20 5.38333 19.9083 5.72083 19.725 6.0125C19.5417 6.30417 19.3 6.54167 19 6.725V18C19 18.55 18.8042 19.0208 18.4125 19.4125C18.0208 19.8042 17.55 20 17 20H3V20M3 7V18V18V18H17V18V18V7H3V7M2 5H18V5V5V2V2V2H2V2V2V5V5V5V5M7 12H13V10H7V12V12M10 12.5V12.5V12.5V12.5V12.5V12.5V12.5V12.5V12.5V12.5',
+  },
+  '/lab-testing': {
+    viewBox: '0 0 20 20',
+    width: 20,
+    height: 20,
+    fillRule: 'evenodd',
+    d: 'M6 0H14V2H13V7L18.7 17C19.4 18.3 18.5 20 17 20H3C1.5 20 0.6 18.3 1.3 17L7 7V2H6V0M9 2V7.5L3.4 17.5C3.3 17.8 3.5 18 3.7 18H16.3C16.6 18 16.7 17.8 16.6 17.5L11 7.5V2H9M5.5 13H14.5L16.2 16H3.8L5.5 13',
+  },
+  '/disposal-retention': {
+    viewBox: '0 0 20 20',
+    width: 20,
+    height: 20,
+    fillRule: 'evenodd',
+    d: 'M7 0H13V1H18V3H2V1H7V0M4 4H16V17C16 18.7 14.7 20 13 20H7C5.3 20 4 18.7 4 17V4M6 6V17C6 17.6 6.4 18 7 18H13C13.6 18 14 17.6 14 17V6H6M8 8H9.5V16H8V8M10.5 8H12V16H10.5V8',
   },
   '/projects': {
     viewBox: '0 0 21.5 16',
@@ -40,7 +58,7 @@ export function NavIcon({ to }: { to: string }) {
   return (
     <span className="nav-icon" aria-hidden="true">
       <svg width={icon.width} height={icon.height} viewBox={icon.viewBox} focusable="false">
-        <path d={icon.d} fill="currentColor" />
+        <path d={icon.d} fill="currentColor" fillRule={icon.fillRule} />
       </svg>
     </span>
   );
