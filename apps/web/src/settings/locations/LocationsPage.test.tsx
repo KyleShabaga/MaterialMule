@@ -271,7 +271,7 @@ describe('Settings → Locations (MM-T37)', () => {
     expect(within(system).queryByRole('button', { name: /Retire/ })).toBeNull();
     // Other Settings tabs are still there.
     const nav = screen.getByRole('navigation', { name: 'Settings' });
-    for (const tab of ['My profile', 'Staff & access', 'Locations']) {
+    for (const tab of ['My profile', 'My access', 'Locations']) {
       expect(within(nav).getByRole('link', { name: tab })).toBeTruthy();
     }
   });
@@ -510,8 +510,10 @@ describe('Settings → Locations (MM-T37)', () => {
     const api = fakeApi([location()]);
     renderPage(LAB);
     const table = await screen.findByRole('table', { name: 'Locations' });
+    // MISC-04 (Kyle 2026-10-30): a print-only view; no add, edit or retire for LAB.
     expect(screen.queryByRole('button', { name: 'Add location' })).toBeNull();
     expect(within(table).queryByRole('button', { name: /^Edit / })).toBeNull();
+    expect(within(table).queryByRole('button', { name: /^Retire / })).toBeNull();
     await user.click(
       within(table).getByRole('button', { name: 'Label and history for Warehouse C1' }),
     );

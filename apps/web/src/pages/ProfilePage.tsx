@@ -34,7 +34,9 @@ const RETRY_START = '/api/auth/microsoft/start?returnTo=%2Fsettings%2Fprofile';
 
 /** Settings → My profile (MM-T05): imported fields, their source and freshness, and Retry. */
 export function ProfilePage() {
-  const { refresh: refreshSession } = useSession();
+  const { session, refresh: refreshSession } = useSession();
+  const canReadActionItems =
+    session.status === 'active' && session.me.permissions.includes('action_item.read');
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [retrying, setRetrying] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -195,7 +197,8 @@ export function ProfilePage() {
             <dd>{p.refreshedAt ? formatExpiry(p.refreshedAt) : field(null)}</dd>
           </dl>
         </BandedCard>
-        <NotificationPreferencesCard />
+        {/* MTR-2: LAB has no notification preferences of its own. */}
+        {canReadActionItems ? <NotificationPreferencesCard /> : null}
       </div>
     </div>
   );

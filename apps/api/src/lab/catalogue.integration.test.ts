@@ -212,4 +212,44 @@ describe.runIf(testDatabaseUrl)('lab test catalogue API (MM-T23)', () => {
     const { rows } = await h.db.pool.query(`SELECT 1 FROM test_type WHERE code = 'NOPE'`);
     expect(rows).toHaveLength(0);
   });
+
+  it('MISC-04: admins and Lab Managers manage tests and templates; LAB and technicians are refused', async () => {
+    for (const as of ['admin', 'lm'] as const) {
+      const code = `MISC04-${as.toUpperCase()}`;
+      const add = await h.send(
+        'post',
+        '/api/test-types',
+        { groupId: SOILS, code, description: 'Fictional MISC-04 test' },
+        as,
+      );
+      expect(add.status, as).toBe(201);
+      const template = await h.send(
+        'post',
+        '/api/test-templates',
+        { name: `MISC-04 ${as}`, testTypeIds: [add.body.id] },
+        as,
+      );
+      expect(template.status, as).toBe(201);
+    }
+    const { body: templates } = await h.get('/api/test-templates', 'tech');
+    const target = (templates as { id: string; name: string; version: number }[]).find(
+      (t) => t.name === 'MISC-04 admin',
+    )!;
+    for (const as of ['tech', 'lab'] as const) {
+      const rename = await h.send(
+        'patch',
+        `/api/test-templates/${target.id}`,
+        { version: target.version, name: 'Renamed' },
+        as,
+      );
+      expect(rename.status, as).toBe(403);
+      const retire = await h.send(
+        'post',
+        `/api/test-templates/${target.id}/retire`,
+        { version: target.version },
+        as,
+      );
+      expect(retire.status, as).toBe(403);
+    }
+  });
 });
