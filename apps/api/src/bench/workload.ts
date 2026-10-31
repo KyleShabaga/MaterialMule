@@ -143,6 +143,8 @@ export function inventoryKinds(
       'inventory: all statuses by ID, deep page',
       () => ({ status: 'all', sort: 'id', dir: 'asc', page: random.int(20, 200) }),
     ],
+    // MM-T81: units with an open location conflict (location_conflict_one_open_idx).
+    ['inventory: filter open conflicts', () => ({ conflict: 'open' })],
   ];
 }
 

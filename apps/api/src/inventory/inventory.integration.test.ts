@@ -374,6 +374,57 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     expect((await inventory({ locationId: locations.wh!, type: 'shelby_tube' })).total).toBe(0);
   });
 
+  it('MM-T81 T1: flags units with an open location conflict and filters to them', async () => {
+    // Its own project, so the other tests' counts don't change.
+    projects.conflicts = await insertProject(db.pool, 'DEMO-2605', users.pe!);
+    holes.conflicts = await insertTestHole(db.pool, projects.conflicts, 'TH26-06');
+    const spec = { project: 'conflicts', holes: [['conflicts', ALL]] } satisfies UnitSpec;
+    const conflicted = await addUnit({ ...spec, location: 'wh' });
+    const resolved = await addUnit({ ...spec, location: 'wh' });
+    const plain = await addUnit(spec);
+    const unitId = async (readableId: string) =>
+      (
+        await db.pool.query<{ id: string }>('SELECT id FROM storage_unit WHERE readable_id = $1', [
+          readableId,
+        ])
+      ).rows[0]!.id;
+    for (const readableId of [conflicted, resolved]) {
+      await db.pool.query(
+        `INSERT INTO location_conflict (storage_unit_id, saved_location_id, saved_version)
+         VALUES ($1, $2, 1)`,
+        [await unitId(readableId), locations.wh],
+      );
+    }
+    // A resolved conflict no longer counts.
+    await db.pool.query(
+      `UPDATE location_conflict
+       SET status = 'resolved', version = version + 1, resolved_at = now(),
+           resolved_by_user_id = $2, resolved_by_initials_snapshot = 'AT',
+           resolved_location_id = $3, client_resolution_id = gen_random_uuid(),
+           resolution_request_hash = 'test'
+       WHERE storage_unit_id = $1`,
+      [await unitId(resolved), users.at, locations.wh],
+    );
+
+    const all = await inventory({ projectId: projects.conflicts });
+    const flags = Object.fromEntries(all.items.map((item) => [item.readableId, item.openConflict]));
+    expect(flags[conflicted]).toBe(true);
+    expect(flags[resolved]).toBe(false);
+    expect(flags[plain]).toBe(false);
+
+    const open = await inventory({ conflict: 'open' });
+    expect(ids(open)).toEqual([conflicted]);
+    expect(open.total).toBe(1);
+    expect(ids(await inventory({ conflict: 'open', locationId: locations.bench! }))).toEqual([]);
+    expect(ids(await inventory({ conflict: 'open' }, 'lab'))).toEqual([conflicted]);
+
+    const bad = await http()
+      .get('/api/inventory?conflict=closed')
+      .set('Cookie', await cookieFor('at'));
+    expect(bad.status).toBe(400);
+    expect(bad.body.errors).toEqual([expect.objectContaining({ field: 'conflict' })]);
+  });
+
   it('filters by receipt, including disposed units under All statuses', async () => {
     const receiptId = await insertReceipt(db.pool, projects.p2!, users.at!);
     const kept = await addUnit({ project: 'p2', holes: [['p2th1', ALL]], receiptId });

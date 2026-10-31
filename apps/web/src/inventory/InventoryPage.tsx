@@ -1,4 +1,5 @@
 import {
+  INVENTORY_CONFLICT_FILTERS,
   INVENTORY_RETENTION_FILTERS,
   INVENTORY_RETENTION_FILTER_LABEL,
   INVENTORY_STATUS_FILTERS,
@@ -20,7 +21,9 @@ import { fetchInventory, fetchLocations, fetchProject } from './api';
 import './inventory.css';
 import { LookUpId } from './LookUpId';
 import { ProjectFilter } from './ProjectFilter';
+import { usePendingMoves } from '../moves/usePendingMoves';
 import { CameraScanButton } from '../scanning/CameraScanButton';
+import { useMe } from '../session/context';
 import { StorageUnitTable, type StorageUnitTableView } from './StorageUnitTable';
 import { readTableView, rememberTableView } from './table-view';
 import { useLatestSearchParams } from './useLatestSearchParams';
@@ -53,6 +56,9 @@ function countLabel(total: number): string {
 export function InventoryPage() {
   const [params, setParams] = useLatestSearchParams();
   const location = useLocation();
+  const me = useMe();
+  // MM-T81: this device's unsaved moves for the signed-in account only.
+  const pendingMoves = usePendingMoves(me.id);
   const query = useMemo(() => readInventoryQuery(params), [params]);
   const [view, setView] = useState<StorageUnitTableView>(readTableView);
   const chooseView = (next: StorageUnitTableView) => {
@@ -235,6 +241,17 @@ export function InventoryPage() {
             })),
           ]}
         />
+        <SelectFilter
+          label="Location conflict"
+          value={query.conflict ?? ''}
+          onChange={(value) =>
+            update({ conflict: (value || undefined) as InventoryQuery['conflict'] })
+          }
+          options={[
+            { value: '', label: 'Any' },
+            ...INVENTORY_CONFLICT_FILTERS.map((value) => ({ value, label: 'Open conflict' })),
+          ]}
+        />
         <DateFilter
           label="Received from"
           value={query.receivedFrom ?? ''}
@@ -314,7 +331,12 @@ export function InventoryPage() {
           </EmptyState>
         ) : (
           <div className="table-card">
-            <StorageUnitTable items={page.items} linkState={linkState} view={view} />
+            <StorageUnitTable
+              items={page.items}
+              linkState={linkState}
+              view={view}
+              pendingMoves={pendingMoves}
+            />
             {page.total > page.pageSize ? (
               <nav className="pager" aria-label="Pages">
                 <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>
@@ -400,6 +422,13 @@ function activeChips(
       key: 'retention',
       label: `Retention: ${INVENTORY_RETENTION_FILTER_LABEL[query.retention]}`,
       remove: { retention: undefined },
+    });
+  }
+  if (query.conflict) {
+    chips.push({
+      key: 'conflict',
+      label: 'Location conflict: Open',
+      remove: { conflict: undefined },
     });
   }
   if (query.receivedFrom) {
