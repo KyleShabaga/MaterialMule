@@ -23,6 +23,7 @@ import {
   REVIEWER_ASSIGNMENT,
   endGrant,
   lockGrant,
+  lockGrantReviews,
   type GrantTable,
 } from './grant-tables.js';
 import { activeScopes, findProject, forbidden } from './project-access.service.js';
@@ -58,6 +59,9 @@ export async function flagInheritedGrants(
     actor: AuditActor;
   },
 ): Promise<void> {
+  // Before any flag or action item row: an ending settling this project's flags elsewhere then
+  // commits wholly before these flags are raised, or sees them (lockGrantReviews).
+  await lockGrantReviews(client, [input.projectId]);
   const params = [input.projectId, input.lead];
   const { rowCount: delegates } = await client.query(
     `INSERT INTO project_grant_review (project_id, acceptance_delegation_id, flagged_for_user_id)
@@ -206,30 +210,46 @@ export class GrantReviewsService {
       const lead = project.lead_project_engineer_user_id;
       if (!mayDecide(user, lead)) throw forbidden();
       const { reason } = parseBody(decideGrantReviewRequestSchema, body);
+      // Unlocked: only to find the flag and its grant (neither ever changes).
       const { rows } = UUID_PATTERN.test(reviewId)
-        ? await client.query<ReviewRow>(
-            `${SELECT_REVIEWS} WHERE r.id = $1 AND r.project_id = $2 FOR UPDATE OF r`,
-            [reviewId, project.id],
-          )
+        ? await client.query<ReviewRow>(`${SELECT_REVIEWS} WHERE r.id = $1 AND r.project_id = $2`, [
+            reviewId,
+            project.id,
+          ])
         : { rows: [] };
       const review = rows[0];
       if (!review) throw new NotFoundException({ code: 'grant_review_not_found' });
       const standing = await lockStanding(client, [user.userId]);
       const actor = asLocked(user, standing);
       if (!mayDecide(actor, lead)) throw forbidden();
-      if (review.status !== 'pending') {
-        // An exact retry of this decision by this person returns the current state.
-        if (review.status === decision && review.decided_by_user_id === user.userId) {
-          return this.view(client, project.id, lead, actor);
-        }
-        throw new ConflictException({ code: 'grant_review_decided', status: review.status });
-      }
-      const by = { userId: user.userId, initials: user.initials, displayName: user.displayName };
       const kind = kindOf(review);
       const grantId =
         review.acceptance_delegation_id ??
         review.report_issuer_grant_id ??
         review.reviewer_assignment_id!;
+      // Lock order as every grant ending (lockGrantReviews): this project's flags, the grant, then
+      // the flag, re-read under the locks so the first committed decision wins.
+      await lockGrantReviews(client, [project.id]);
+      const { table } = GRANTS[kind];
+      const grant =
+        decision === 'revoked'
+          ? await lockGrant(client, table, grantId, { column: 'project_id', value: project.id })
+          : null;
+      const { rows: locked } = await client.query<{
+        status: GrantReview['status'];
+        decided_by_user_id: string | null;
+      }>(`SELECT status, decided_by_user_id FROM project_grant_review WHERE id = $1 FOR UPDATE`, [
+        review.id,
+      ]);
+      const now = locked[0]!;
+      if (now.status !== 'pending') {
+        // An exact retry of this decision by this person returns the current state.
+        if (now.status === decision && now.decided_by_user_id === user.userId) {
+          return this.view(client, project.id, lead, actor);
+        }
+        throw new ConflictException({ code: 'grant_review_decided', status: now.status });
+      }
+      const by = { userId: user.userId, initials: user.initials, displayName: user.displayName };
       if (decision === 'kept') {
         await client.query(
           `UPDATE project_grant_review
@@ -241,11 +261,6 @@ export class GrantReviewsService {
         );
         await client.query('SELECT project_grant_review_settle($1, $2)', [project.id, by.userId]);
       } else {
-        const { table } = GRANTS[kind];
-        const grant = await lockGrant(client, table, grantId, {
-          column: 'project_id',
-          value: project.id,
-        });
         if (!grant) throw new NotFoundException({ code: 'grant_review_not_found' });
         // Ending the grant settles its flag and, with the last one, the request (0009 trigger).
         await endGrant(client, table, grant, {

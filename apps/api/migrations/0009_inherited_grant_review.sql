@@ -80,14 +80,34 @@ CREATE TRIGGER project_grant_review_grant_check
   BEFORE INSERT ON project_grant_review
   FOR EACH ROW EXECUTE FUNCTION project_grant_review_grant_check();
 
--- The project's "Review inherited grants" request is resolved once no flag is pending.
+-- One project's flags change one transaction at a time: deciding, ending a flagged grant by any
+-- route, and raising flags all hold this transaction-scoped lock until commit. Without it, two
+-- transactions deciding a project's last two flags each see the other's flag still pending, both
+-- leave the request open, and it stays open with nothing to review. The API takes it right after
+-- the project row and the accounts, before any grant, flag or action item row (lock order:
+-- project, accounts, this lock in project-id order, grant, flag, action item); settling takes it
+-- again (re-entrant) so a writer outside the API is still serialised.
+CREATE FUNCTION project_grant_review_lock(project uuid) RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  -- Two-key form: its key space never overlaps the migrator's single-key advisory lock.
+  PERFORM pg_advisory_xact_lock(25, hashtext(project::text));
+END;
+$$;
+
+-- The project's "Review inherited grants" request is resolved once no flag is pending. PL/pgSQL
+-- runs each statement in a fresh snapshot, so the check below sees every flag a writer that held
+-- the lock before us committed.
 CREATE FUNCTION project_grant_review_settle(project uuid, by_user uuid) RETURNS void
-LANGUAGE sql AS $$
+LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM project_grant_review_lock(project);
   UPDATE action_item SET status = 'resolved', resolution = 'reviewed', resolved_at = now(),
          resolved_by_user_id = by_user
   WHERE kind = 'grant_review' AND entity_id = project AND status = 'open'
     AND NOT EXISTS (SELECT 1 FROM project_grant_review r
                     WHERE r.project_id = project AND r.status = 'pending');
+END;
 $$;
 
 -- However a flagged grant ends (Revoke here, the grant's own remove/revoke, or D08 revalidation),

@@ -43,6 +43,7 @@ import { likePattern } from '../staff/staff.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import {
   REPORT_ISSUER_GRANT,
+  REVIEWABLE_GRANTS,
   REVIEWER_ASSIGNMENT,
   TEAM_MEMBER,
   endGrant,
@@ -52,6 +53,7 @@ import {
   insertGrant,
   listGrants,
   lockGrant,
+  lockGrantReviews,
   type GrantRow,
   type GrantTable,
 } from './grant-tables.js';
@@ -621,6 +623,8 @@ export class ProjectAccessService {
       const standing = await lockStanding(client, [user.userId]);
       const actor = asLocked(user, standing);
       if (!can(actor, permission, await projectContext(client, project))) throw forbidden();
+      // Ending a reviewable grant settles its review flag (MTR-25): same lock order as Revoke.
+      if (REVIEWABLE_GRANTS.includes(t)) await lockGrantReviews(client, [project.id]);
       const row = UUID_PATTERN.test(id)
         ? await lockGrant(client, t, id, { column: 'project_id', value: project.id })
         : null;

@@ -28,6 +28,7 @@ import { asLocked, isActiveStaff, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { enqueueActionItemEmails } from '../notifications/action-items.js';
+import { lockGrantReviews } from '../project-access/grant-tables.js';
 import { parseBody } from '../validation/parse-body.js';
 import { actorOf } from './attribution.js';
 
@@ -540,6 +541,8 @@ export class LabReviewService {
       if (!UUID_PATTERN.test(delegationId)) {
         throw new NotFoundException({ code: 'delegation_not_found' });
       }
+      // Revoking settles the delegation's review flag (MTR-25): lock order as every grant ending.
+      await lockGrantReviews(client, [projectId]);
       const { rows } = await client.query<{
         id: string;
         revoked_at: Date | null;
