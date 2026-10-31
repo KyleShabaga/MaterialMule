@@ -88,9 +88,9 @@ describe('Action requests (MM-T27)', () => {
       if (url.startsWith('/api/action-items?status=open')) return json(200, { items: [item()] });
       return json(404, {});
     });
-    expect(await screen.findByRole('link', { name: 'Action requests, 2 open' })).toHaveAttribute(
-      'href',
-      '/action-requests',
+    expect(await screen.findByRole('button', { name: 'Action requests, 2 open' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
     );
     const row = await screen.findByRole('listitem', { name: 'Closure requested for LP-2026-0001' });
     expect(row).toHaveTextContent(
@@ -110,10 +110,83 @@ describe('Action requests (MM-T27)', () => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
       return json(200, { items: [] });
     });
-    const bell = await screen.findByRole('link', { name: 'Action requests, 0 open' });
+    const bell = await screen.findByRole('button', { name: 'Action requests, 0 open' });
     const identity = screen.getByLabelText('Signed in user');
     expect(identity.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(identity.nextElementSibling).toBe(bell);
+    expect(identity.nextElementSibling).toContainElement(bell);
+  });
+
+  it('MISC-10: the bell previews the newest open requests without leaving the page', async () => {
+    const user = userEvent.setup();
+    let failList = true;
+    const fetchMock = renderAt('/projects', me(), (url) => {
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 2 });
+      if (url.startsWith('/api/action-items?status=open&scope=mine')) {
+        if (failList) return json(500, {});
+        return json(200, {
+          items: [
+            item({ id: 'ai-old', title: 'Older request', createdAt: '2026-10-26T16:00:00.000Z' }),
+            item({ id: 'ai-new', title: 'Newer request', createdAt: '2026-10-27T16:00:00.000Z' }),
+          ],
+        });
+      }
+      if (url.startsWith('/api/projects')) return json(200, { items: [] });
+      return json(404, {});
+    });
+    const bell = await screen.findByRole('button', { name: 'Action requests, 2 open' });
+    await user.click(bell);
+    expect(bell).toHaveAttribute('aria-expanded', 'true');
+    const panel = screen.getByRole('region', { name: 'Latest action requests' });
+    expect(await within(panel).findByRole('alert')).toHaveTextContent(
+      'Action requests couldn’t be loaded.',
+    );
+    failList = false;
+    await user.click(within(panel).getByRole('button', { name: 'Retry' }));
+    const links = await within(panel).findAllByRole('link');
+    expect(links.map((link) => link.textContent)).toEqual([
+      expect.stringContaining('Newer request'),
+      expect.stringContaining('Older request'),
+      'View all action requests',
+    ]);
+    expect(links[0]).toHaveAttribute('href', '/lab-testing/programs/lp1');
+    expect(within(panel).queryByRole('button', { name: /approve|resolve|close/i })).toBeNull();
+    // Still on the same page; only GETs were sent.
+    expect(screen.getByRole('heading', { level: 1, name: 'Projects' })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(
+      true,
+    );
+
+    // Escape closes and returns focus to the bell.
+    links[0]!.focus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('region', { name: 'Latest action requests' })).toBeNull();
+    expect(bell).toHaveFocus();
+    expect(bell).toHaveAttribute('aria-expanded', 'false');
+
+    // Keyboard open, then a second activation closes it.
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('region', { name: 'Latest action requests' })).toBeInTheDocument();
+    await user.click(bell);
+    expect(screen.queryByRole('region', { name: 'Latest action requests' })).toBeNull();
+    expect(bell).toHaveFocus();
+
+    // An outside click closes it.
+    await user.click(bell);
+    await user.click(screen.getByRole('heading', { level: 1, name: 'Projects' }));
+    expect(screen.queryByRole('region', { name: 'Latest action requests' })).toBeNull();
+  });
+
+  it('MISC-10: the preview says so when nothing is waiting', async () => {
+    const user = userEvent.setup();
+    renderAt('/action-requests', me(), (url) => {
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      return json(200, { items: [] });
+    });
+    await user.click(await screen.findByRole('button', { name: 'Action requests, 0 open' }));
+    const panel = screen.getByRole('region', { name: 'Latest action requests' });
+    expect(await within(panel).findByText('Nothing is waiting on you.')).toBeInTheDocument();
+    await user.click(within(panel).getByRole('link', { name: 'View all action requests' }));
+    expect(screen.queryByRole('region', { name: 'Latest action requests' })).toBeNull();
   });
 
   it('Resolved filter shows who resolved it for everyone', async () => {
@@ -268,7 +341,7 @@ describe('Action requests (MM-T27)', () => {
       },
     );
     expect(await screen.findByRole('heading', { name: 'My profile' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Action requests/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Action requests/ })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Notifications' })).toBeNull();
   });
 

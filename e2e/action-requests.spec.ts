@@ -82,9 +82,18 @@ test('T5: a closure request appears under the Lead Project Engineer bell, opens 
 
   await signInAs(page, 'pe');
   await page.goto('/');
-  const bell = page.getByRole('link', { name: /^Action requests, \d+ open$/ });
+  const bell = page.getByRole('button', { name: /^Action requests, \d+ open$/ });
   await expect(bell).toBeVisible();
+  // MISC-10: the bell previews the newest requests in place; Escape closes it and focus returns.
   await bell.click();
+  const preview = page.getByRole('region', { name: 'Latest action requests' });
+  await expect(preview.getByRole('link', { name: new RegExp(programNumber) })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await page.keyboard.press('Escape');
+  await expect(preview).toHaveCount(0);
+  await expect(bell).toBeFocused();
+  await page.keyboard.press('Enter');
+  await preview.getByRole('link', { name: 'View all action requests' }).click();
   const row = page.getByRole('listitem', { name: `Closure requested for ${programNumber}` });
   await expect(row).toContainText(
     `Lead Project Engineer: Closure requested for ${programNumber} by AT · All tests done (E2E)`,
@@ -120,7 +129,7 @@ test('T6: LAB has no bell, inbox or preferences, whoever the station would selec
   await signInAsLabStation(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Action requests/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Action requests/ })).toHaveCount(0);
   for (const path of [
     '/api/action-items',
     '/api/action-items/count',
