@@ -235,7 +235,7 @@ None of these has an answer yet. Do not fill any of them with a default.
 | npm packages  | Updated in the repository and shipped as a normal release                  | `npm ci` from the lockfile; production `node_modules` are packed with install scripts disabled                                  |
 | Certificate   | Before expiry                                                              | Runbook [Renew the certificate](runbook.md#renew-the-certificate)                                                               |
 
-CI (`.github/workflows/ci.yml`) runs `npm run verify` and the E2E tests; it does **not** run
+CI (`.github/workflows/ci.yml`) runs the `npm run verify` checks and the E2E tests; it does **not** run
 `npm audit` or any other dependency vulnerability scan today. Moving to a new Node.js or
 PostgreSQL major version is a developer task with its own release, not routine patching.
 
