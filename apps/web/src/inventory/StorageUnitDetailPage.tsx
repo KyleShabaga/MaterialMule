@@ -50,7 +50,19 @@ function formatTime(iso: string) {
  * location, history and labels. Personal accounts can correct details (MM-T13); moves (T28) and
  * holds (T29) arrive with their cards.
  */
+/**
+ * MM-T79 (owner decision 2026-10-30): links on this page answer hover with darker text only, no
+ * underline, like Settings. The `unit-page` wrapper scopes that; other pages keep UI-01's hover.
+ */
 export function StorageUnitDetailPage() {
+  return (
+    <div className="unit-page">
+      <StorageUnitDetail />
+    </div>
+  );
+}
+
+function StorageUnitDetail() {
   const { readableId = '' } = useParams();
   const location = useLocation();
   const from = (location.state as InventoryLinkState | null)?.from ?? '';
