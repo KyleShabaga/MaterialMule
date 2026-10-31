@@ -27,6 +27,9 @@ const PRINT_CSS = `
 
 type Labels = PreviewResult<LabelPreview[]>;
 
+/** MTR-48 (MM-T77): a disposed unit's ID never gets a fresh sticker. */
+export const DISPOSED_NOTE = 'This storage unit is disposed; its label is not printed again.';
+
 /** The browser print settings for a true-size PDF; shared with the unit page's print view card. */
 export function LabelPrintSteps() {
   return (
@@ -69,12 +72,15 @@ export function LabelPrintPage({ scope }: { scope: 'unit' | 'receipt' }) {
     };
   }, [scope, id, loadKey]);
 
-  const labels = result?.key === loadKey && result.value.ok ? result.value.data : null;
+  const loaded = result?.key === loadKey && result.value.ok ? result.value.data : null;
+  // MTR-48: disposed units are never printed; a receipt's print view names the ones it skips.
+  const labels = loaded?.filter((label) => !label.disposed) ?? null;
+  const skipped = loaded?.filter((label) => label.disposed) ?? [];
   // The unit to return to: the one shown, or for a receipt the unit it was opened from, if that
   // unit is on the receipt (MM-T61).
   const from = searchParams.get('from');
   const backUnit =
-    scope === 'unit' ? labels?.[0] : labels?.find((label) => label.readableId === from);
+    scope === 'unit' ? loaded?.[0] : loaded?.find((label) => label.readableId === from);
   const back = backUnit ? (
     <Link to={`/sample-storage/${encodeURIComponent(backUnit.readableId)}`}>
       ← Back to {backUnit.readableId}
@@ -96,6 +102,17 @@ export function LabelPrintPage({ scope }: { scope: 'unit' | 'receipt' }) {
     );
   } else if (result.value.data.length === 0) {
     body = <EmptyState>This receipt has no storage units to label.</EmptyState>;
+  } else if (scope === 'unit' && skipped.length > 0) {
+    body = <p role="status">{DISPOSED_NOTE}</p>;
+  } else if (skipped.length > 0) {
+    body = (
+      <p role="status">
+        {labels!.length === 0
+          ? 'Every storage unit on this receipt is disposed, so no labels are printed. '
+          : ''}
+        Disposed units are not printed again: {skipped.map((label) => label.readableId).join(', ')}.
+      </p>
+    );
   }
 
   return (
@@ -104,11 +121,13 @@ export function LabelPrintPage({ scope }: { scope: 'unit' | 'receipt' }) {
       <section className="label-print-instructions" aria-labelledby="label-print-heading">
         <p className="back-link">{back}</p>
         <h1 id="label-print-heading">
-          {labels
-            ? labels.length === 1
-              ? `Label ${labels[0]!.readableId}`
-              : `${labels.length} labels`
-            : 'Labels'}
+          {loaded && scope === 'unit'
+            ? `Label ${loaded[0]!.readableId}`
+            : labels && labels.length > 0
+              ? labels.length === 1
+                ? `Label ${labels[0]!.readableId}`
+                : `${labels.length} labels`
+              : 'Labels'}
         </h1>
         {body}
         {labels && labels.length > 0 ? (

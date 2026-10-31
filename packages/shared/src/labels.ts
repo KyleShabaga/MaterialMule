@@ -14,6 +14,11 @@ export const labelPreviewSchema = z.object({
   templateVersion: z.string(),
   /** Plain-language fit warnings, e.g. "Project name shortened to fit". */
   warnings: z.array(z.string()),
+  /**
+   * MTR-48: the unit is disposed. Its `svg` is then watermarked DISPOSED with struck-through
+   * barcodes, and the print views must not offer it.
+   */
+  disposed: z.boolean(),
 });
 
 export type LabelPreview = z.infer<typeof labelPreviewSchema>;

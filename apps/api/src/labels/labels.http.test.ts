@@ -240,6 +240,55 @@ describe.runIf(testDatabaseUrl)('label preview API (MM-T39)', () => {
     ]);
   });
 
+  // MTR-48: a disposed unit's label is only ever served watermarked DISPOSED.
+  it('serves a disposed unit only as a DISPOSED-watermarked, flagged preview', async () => {
+    const { rows } = await db.pool.query<{
+      project_id: string;
+      current_location_id: string;
+      receiver_user_id: string;
+    }>(
+      `SELECT su.project_id, su.current_location_id, r.receiver_user_id
+       FROM storage_unit su JOIN receipt r ON r.id = su.receipt_id WHERE su.id = $1`,
+      [unitIds['BKT-2026-000014']],
+    );
+    const ids = {
+      projectId: rows[0]!.project_id,
+      locationId: rows[0]!.current_location_id,
+      receiptId: await insertReceipt(db.pool, rows[0]!.project_id, rows[0]!.receiver_user_id, 2),
+    };
+    const kept = await insertStorageUnit(db.pool, ids, { readableId: 'BKT-2026-000201' });
+    const gone = await insertStorageUnit(db.pool, ids, { readableId: 'BKT-2026-000202' });
+    await db.pool.query(
+      `UPDATE storage_unit SET status = 'disposed', disposed_at = now() WHERE id = $1`,
+      [gone],
+    );
+
+    const disposed = labelPreviewSchema.parse(
+      (await get('/api/storage-units/BKT-2026-000202/label/preview', 'tech')).body,
+    );
+    expect(disposed.disposed).toBe(true);
+    expect(disposed.svg).toContain('data-watermark="DISPOSED"');
+    const current = labelPreviewSchema.parse(
+      (await get(`/api/storage-units/${kept}/label/preview`, 'tech')).body,
+    );
+    expect(current.disposed).toBe(false);
+    expect(current.svg).not.toContain('data-watermark');
+
+    const receipt = receiptLabelPreviewsSchema.parse(
+      (await get(`/api/receipts/${ids.receiptId}/labels/preview`, 'lab')).body,
+    );
+    expect(
+      receipt.labels.map((label) => [
+        label.readableId,
+        label.disposed,
+        label.svg.includes('data-watermark="DISPOSED"'),
+      ]),
+    ).toEqual([
+      ['BKT-2026-000201', false, false],
+      ['BKT-2026-000202', true, true],
+    ]);
+  });
+
   // AC6: the same fit warnings as T14.
   it('reports the same fit warnings as the T14 renderer', async () => {
     const response = await get(`/api/storage-units/${longReceiptUnit}/label/preview`, 'tech');

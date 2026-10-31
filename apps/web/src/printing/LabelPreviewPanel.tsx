@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { BandedCard, EmptyState, ErrorState } from '../components/ui';
 import { fetchLabelPreview, type PreviewResult } from './api';
 import { LabelImage } from './LabelImage';
-import { LabelPrintSteps } from './LabelPrintPage';
+import { DISPOSED_NOTE, LabelPrintSteps } from './LabelPrintPage';
 import './labels.css';
 import { receiptPrintPath, unitPrintPath } from './print-paths';
 
@@ -92,22 +92,29 @@ export function LabelPreviewPanel({
             </ul>
           </div>
         ) : null}
-        <p className="field-hint">
-          Printer fonts may differ slightly; the ZD621 print is the final check.
-          {dual ? null : ` Template ${label.templateVersion}.`}
-        </p>
+        {label.disposed ? (
+          // MTR-48: kept for reference only, watermarked DISPOSED by the server.
+          <p className="field-hint">Shown for reference only. {DISPOSED_NOTE}</p>
+        ) : (
+          <p className="field-hint">
+            Printer fonts may differ slightly; the ZD621 print is the final check.
+            {dual ? null : ` Template ${label.templateVersion}.`}
+          </p>
+        )}
         <div className="issued-actions">
           <button type="button" aria-pressed={zoomed} onClick={() => setZoomed((z) => !z)}>
             Zoom in
           </button>
-          <Link
-            className={dual ? 'button primary' : 'button'}
-            to={unitPrintPath(label.readableId)}
-            {...newTab}
-          >
-            Print / Save as PDF
-            {dual ? <span aria-hidden="true"> ↗</span> : null}
-          </Link>
+          {label.disposed ? null : (
+            <Link
+              className={dual ? 'button primary' : 'button'}
+              to={unitPrintPath(label.readableId)}
+              {...newTab}
+            >
+              Print / Save as PDF
+              {dual ? <span aria-hidden="true"> ↗</span> : null}
+            </Link>
+          )}
           {receipt && receipt.quantity > 1 ? (
             <Link
               className="button"
@@ -138,28 +145,34 @@ export function LabelPreviewPanel({
       >
         {body}
       </BandedCard>
-      <BandedCard
-        as="div"
-        title="Print view · 1 label"
-        aside={<span className="banded-card-meta">Opens in a new tab</span>}
-      >
-        <LabelPrintSteps />
-        <p className="field-hint">
-          This doesn&apos;t count as a label print and creates no print job.
-        </p>
-        {preview ? (
-          <div className="label-print-pages" aria-label="Pages in the print view">
-            <span className="label-page-number">Page 1 of 1</span>
-            <div className="label-page">
-              <LabelImage
-                svg={preview.svg}
-                readableId={preview.readableId}
-                alt={`Page 1: label for storage unit ${preview.readableId}`}
-              />
+      {preview?.disposed ? (
+        <BandedCard as="div" title="Print view">
+          <p>{DISPOSED_NOTE}</p>
+        </BandedCard>
+      ) : (
+        <BandedCard
+          as="div"
+          title="Print view · 1 label"
+          aside={<span className="banded-card-meta">Opens in a new tab</span>}
+        >
+          <LabelPrintSteps />
+          <p className="field-hint">
+            This doesn&apos;t count as a label print and creates no print job.
+          </p>
+          {preview ? (
+            <div className="label-print-pages" aria-label="Pages in the print view">
+              <span className="label-page-number">Page 1 of 1</span>
+              <div className="label-page">
+                <LabelImage
+                  svg={preview.svg}
+                  readableId={preview.readableId}
+                  alt={`Page 1: label for storage unit ${preview.readableId}`}
+                />
+              </div>
             </div>
-          </div>
-        ) : null}
-      </BandedCard>
+          ) : null}
+        </BandedCard>
+      )}
     </div>
   );
 }
