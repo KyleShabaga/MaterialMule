@@ -389,7 +389,56 @@ export function storageUnitHistoryActionLabel(
       return 'Disposal approval used';
     case 'disposal.blocked':
       return 'Disposal scan refused';
+    // MTR-59: holds and extensions covering the unit (its own or its project's).
+    case 'retention.hold_placed':
+      return after?.scope === 'project' ? 'Project-wide hold placed' : 'Hold placed';
+    case 'retention.hold_released':
+      return 'Hold released';
+    case 'retention.extended': {
+      const what =
+        after?.scope === 'project' ? 'Project-wide retention extended' : 'Retention extended';
+      if (typeof after?.retainUntil === 'string') return `${what} to ${after.retainUntil}`;
+      if (typeof after?.extendMonths === 'number') return `${what} by ${after.extendMonths} months`;
+      return what;
+    }
+    case 'retention.extension_released':
+      return 'Retention extension released';
     default:
-      return action;
+      return labHistoryLabel(action, after) ?? action;
   }
+}
+
+const LAB_PROGRAM_ACTIONS: Record<string, string> = {
+  created: 'created',
+  submitted: 'submitted',
+  amended: 'amended',
+  priority_changed: 'priority changed',
+  closure_requested: 'closure requested',
+  closed: 'closed',
+  reopened: 'reopened',
+  discarded: 'discarded',
+};
+
+const TEST_REQUEST_ACTIONS: Record<string, string> = {
+  created: 'requested',
+  status_changed: 'status changed',
+  cancellation_requested: 'cancellation requested',
+  cancelled: 'cancelled',
+  repeat_created: 'repeat requested',
+  identity_changed: 'changed by amendment',
+};
+
+/** MTR-59: lab program and test request events for programs covering the unit. */
+function labHistoryLabel(action: string, after?: Record<string, unknown> | null): string | null {
+  const [entity, verb = ''] = action.split('.');
+  const program = typeof after?.programNumber === 'string' ? ` ${after.programNumber}` : '';
+  if (entity === 'lab_program' && verb in LAB_PROGRAM_ACTIONS) {
+    return `Lab program${program} ${LAB_PROGRAM_ACTIONS[verb]}`;
+  }
+  if (entity === 'test_request' && verb in TEST_REQUEST_ACTIONS) {
+    const code = typeof after?.code === 'string' ? ` ${after.code}` : '';
+    const where = program ? ` (${program.trim()})` : '';
+    return `Test${code}${where} ${TEST_REQUEST_ACTIONS[verb]}`;
+  }
+  return null;
 }

@@ -461,7 +461,8 @@ function formatHistoryValue(value: unknown): string {
 }
 
 function changes(event: StorageUnitHistoryEvent): string[] {
-  if (!event.before || !event.after) return [];
+  // A hold's or extension's label says it all; its audit values are bookkeeping (MTR-59).
+  if (!event.before || !event.after || event.action.startsWith('retention.')) return [];
   return Object.keys(event.after)
     .filter((key) => key in event.before!)
     .map(

@@ -25,6 +25,7 @@ async function findUnit(
   readable_id: string;
   receipt_id: string;
   bulk_group_id: string | null;
+  project_id: string;
 } | null> {
   const byUuid = UUID_PATTERN.test(idOrCode);
   const { rows } = await pool.query<{
@@ -32,8 +33,9 @@ async function findUnit(
     readable_id: string;
     receipt_id: string;
     bulk_group_id: string | null;
+    project_id: string;
   }>(
-    `SELECT id, readable_id, receipt_id, bulk_group_id
+    `SELECT id, readable_id, receipt_id, bulk_group_id, project_id
      FROM storage_unit WHERE ${byUuid ? 'id' : 'readable_id'} = $1`,
     [byUuid ? idOrCode : normalizeStorageUnitCode(idOrCode)],
   );
@@ -183,7 +185,13 @@ interface HistoryRow {
 /**
  * Audit history of a unit, newest first and paged: its own events, its receipt's confirmation
  * and, for a bulk soil bucket, its current group's creation and identity corrections (MM-T36).
+ * MTR-59 adds the retention holds and extensions that cover it (its own units-scope ones and
+ * its project's project-wide ones: placed, extended, released) and the lab programs and test
+ * requests that cover it (frozen program scope, or a completion linked to it).
  * Print jobs have their own section (print history, MM-T15).
+ *
+ * The covered entities are listed first from their indexed link tables, then joined to
+ * audit_event on its (entity_type, entity_id) index, so this never scans the audit log.
  */
 export async function getStorageUnitHistory(
   pool: Pool,
@@ -193,19 +201,42 @@ export async function getStorageUnitHistory(
   const unit = await findUnit(pool, idOrCode);
   if (!unit) return null;
   const pageSize = STORAGE_UNIT_HISTORY_PAGE_SIZE;
-  const where = `(e.entity_type = 'storage_unit' AND e.entity_id = $1)
-                 OR (e.entity_type = 'receipt' AND e.entity_id = $2)
-                 OR (e.entity_type = 'bulk_group' AND e.entity_id = $5)`;
+  // $1 unit, $2 receipt, $3 bulk group, $4 project.
+  const covered = `WITH covered (entity_type, entity_id) AS (
+      SELECT 'storage_unit', $1::uuid
+      UNION SELECT 'receipt', $2::uuid
+      UNION SELECT 'bulk_group', $3::uuid WHERE $3::uuid IS NOT NULL
+      UNION SELECT 'retention_hold', h.id FROM retention_hold h
+            WHERE h.project_id = $4 AND h.scope = 'project'
+      UNION SELECT 'retention_hold', hu.hold_id FROM retention_hold_unit hu
+            WHERE hu.storage_unit_id = $1
+      UNION SELECT 'retention_extension', x.id FROM retention_extension x
+            WHERE x.project_id = $4 AND x.scope = 'project'
+      UNION SELECT 'retention_extension', xu.extension_id FROM retention_extension_unit xu
+            WHERE xu.storage_unit_id = $1
+      UNION SELECT 'lab_program', s.program_id FROM program_scope_snapshot s
+            WHERE s.storage_unit_id = $1 AND s.included
+      UNION SELECT 'test_request', tr.id FROM program_scope_snapshot s
+            JOIN test_request tr ON tr.program_id = s.program_id AND tr.line_id = s.line_id
+            WHERE s.storage_unit_id = $1 AND s.included
+      UNION SELECT 'test_request', l.test_request_id FROM test_request_unit_link l
+            WHERE l.storage_unit_id = $1
+    )`;
+  // A program's unsaved draft steps are not part of the unit's story.
+  const events = `covered c
+     JOIN audit_event e ON e.entity_type = c.entity_type AND e.entity_id = c.entity_id`;
+  const shown = `e.action <> 'lab_program.draft_saved'`;
+  const keys = [unit.id, unit.receipt_id, unit.bulk_group_id, unit.project_id];
   const count = await pool.query<{ total: number }>(
-    `SELECT count(*)::int AS total FROM audit_event e
-     WHERE ${where.replace('$5', '$3')}`,
-    [unit.id, unit.receipt_id, unit.bulk_group_id],
+    `${covered} SELECT count(*)::int AS total FROM ${events} WHERE ${shown}`,
+    keys,
   );
   // The receiver as they were at the event (MM-T56): the event's own snapshot, which the schema
   // requires for every event that credits a receiver. The receipt snapshot and then the person as
   // they are now are defensive fallbacks only. Initials and name always come from the same source.
   const { rows } = await pool.query<HistoryRow>(
-    `SELECT e.id, e.occurred_at, e.action, e.actor_initials_snapshot, e.actor_name_snapshot,
+    `${covered}
+     SELECT e.id, e.occurred_at, e.action, e.actor_initials_snapshot, e.actor_name_snapshot,
             e.actor_account_type,
             CASE
               WHEN e.receiver_name_snapshot IS NOT NULL THEN e.receiver_initials_snapshot
@@ -218,10 +249,10 @@ export async function getStorageUnitHistory(
               ELSE u.display_name
             END AS receiver_name,
             e.reason, e.before_values, e.after_values
-     FROM audit_event e
+     FROM ${events}
      LEFT JOIN receipt rc ON rc.id = $2
      LEFT JOIN app_user u ON u.id = e.receiver_user_id AND e.receiver_name_snapshot IS NULL
-     WHERE ${where}
+     WHERE ${shown}
      -- Events of one transaction share occurred_at and the ids are random, so rank them: the
      -- unit's creation is the oldest of its instant, then by action (MM-T61, same order everywhere).
      ORDER BY e.occurred_at DESC,
@@ -229,8 +260,8 @@ export async function getStorageUnitHistory(
                             ELSE 0 END,
               e.action DESC,
               e.id DESC
-     LIMIT $3 OFFSET $4`,
-    [unit.id, unit.receipt_id, pageSize, (page - 1) * pageSize, unit.bulk_group_id],
+     LIMIT $5 OFFSET $6`,
+    [...keys, pageSize, (page - 1) * pageSize],
   );
   return {
     items: rows.map((row) => ({

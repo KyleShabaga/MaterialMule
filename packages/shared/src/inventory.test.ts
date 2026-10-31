@@ -5,6 +5,7 @@ import {
   inventorySortDirection,
   normalizeStorageUnitCode,
   splitInventorySearch,
+  storageUnitHistoryActionLabel,
 } from './inventory';
 
 const PROJECT = '00000000-0000-4000-8000-000000000201';
@@ -109,6 +110,48 @@ describe('inventory query (MM-T12)', () => {
     ).toBe('0–1.5 m');
     expect(formatStorageUnitHoleSummary({ ...empty, type: 'custom', customText: 'Bag 3' })).toBe(
       'Bag 3',
+    );
+  });
+});
+
+describe('storage unit history labels (MTR-59)', () => {
+  it('names holds and extensions, project-wide or not', () => {
+    expect(storageUnitHistoryActionLabel('retention.hold_placed', { scope: 'units' })).toBe(
+      'Hold placed',
+    );
+    expect(storageUnitHistoryActionLabel('retention.hold_placed', { scope: 'project' })).toBe(
+      'Project-wide hold placed',
+    );
+    expect(storageUnitHistoryActionLabel('retention.hold_released', {})).toBe('Hold released');
+    expect(
+      storageUnitHistoryActionLabel('retention.extended', { scope: 'units', extendMonths: 6 }),
+    ).toBe('Retention extended by 6 months');
+    expect(
+      storageUnitHistoryActionLabel('retention.extended', {
+        scope: 'project',
+        retainUntil: '2029-01-01',
+      }),
+    ).toBe('Project-wide retention extended to 2029-01-01');
+    expect(storageUnitHistoryActionLabel('retention.extension_released', {})).toBe(
+      'Retention extension released',
+    );
+  });
+
+  it('names lab program and test request events with the program number and test code', () => {
+    expect(
+      storageUnitHistoryActionLabel('lab_program.submitted', { programNumber: 'LP-2026-0014' }),
+    ).toBe('Lab program LP-2026-0014 submitted');
+    expect(storageUnitHistoryActionLabel('lab_program.created', { lineCount: 1 })).toBe(
+      'Lab program created',
+    );
+    expect(
+      storageUnitHistoryActionLabel('test_request.status_changed', {
+        programNumber: 'LP-2026-0014',
+        code: 'MC',
+      }),
+    ).toBe('Test MC (LP-2026-0014) status changed');
+    expect(storageUnitHistoryActionLabel('test_request.unknown_thing', {})).toBe(
+      'test_request.unknown_thing',
     );
   });
 });
