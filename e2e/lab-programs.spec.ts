@@ -92,6 +92,30 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician on
   await expect(page.getByRole('form', { name: 'Add a test' })).toHaveCount(0);
 });
 
+test('MISC-01: New program opens the editor from Programs and Worklist, not the discard dialog', async ({
+  page,
+}) => {
+  await signInAs(page, 'at');
+  const discard = page.getByRole('dialog', { name: 'Discard this draft?' });
+  const tabs = page.getByRole('navigation', { name: 'Lab Testing' });
+  for (const tab of ['Programs', 'Worklist']) {
+    await page.goto('/lab-testing');
+    await tabs.getByRole('link', { name: tab }).click();
+    await expect(page.getByRole('heading', { name: tab, level: 2 })).toBeVisible();
+    await page.getByRole('link', { name: 'New program' }).click();
+    await expect(page.getByRole('heading', { name: 'New program', level: 2 })).toBeVisible();
+    await expect(page.getByLabel('Project', { exact: true })).toBeVisible();
+    await expect(page.getByText('Discard this draft?')).toBeHidden();
+    await expect(discard).toBeHidden();
+  }
+  // The dialog opens only from Discard draft, and Cancel closes it again.
+  await page.getByRole('button', { name: 'Discard draft' }).click();
+  await expect(discard).toBeVisible();
+  await discard.getByRole('button', { name: 'Cancel' }).click();
+  await expect(discard).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'New program', level: 2 })).toBeVisible();
+});
+
 test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as Requested', async ({
   page,
 }) => {
