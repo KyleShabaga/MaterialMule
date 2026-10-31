@@ -141,22 +141,14 @@ test('T6: LAB has no bell, inbox or preferences, whoever the station would selec
   await expect(page.getByRole('heading', { name: 'Notifications' })).toHaveCount(0);
 });
 
-test('My profile: action-request email defaults off, saves, and explains sending is switched off', async ({
+test('MISC-11: My profile shows Notifications without the Email me opt-in; the stored preference stays', async ({
   page,
 }) => {
   await signInAs(page, 'de');
   await page.goto('/settings/profile');
-  const box = page.getByRole('checkbox', {
-    name: 'Email me when an action request needs my decision',
-  });
-  await expect(box).toBeVisible();
-  await expect(page.getByText(/switched off for everyone until IT approves it/)).toBeVisible();
-  const before = await box.isChecked();
-  await box.click();
-  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-  await page.reload();
-  await expect(box).toBeChecked({ checked: !before });
-  // Restore, so reruns start from the same state.
-  await box.click();
-  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Email me/ })).toHaveCount(0);
+  await expect(page.getByText(/Email me|switched off for everyone/)).toHaveCount(0);
+  // UI only: the stored preference is still served.
+  expect((await page.request.get('/api/me/notification-preferences')).status()).toBe(200);
 });

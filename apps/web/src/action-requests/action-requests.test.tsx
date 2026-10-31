@@ -345,8 +345,7 @@ describe('Action requests (MM-T27)', () => {
     expect(screen.queryByRole('heading', { name: 'Notifications' })).toBeNull();
   });
 
-  it('My profile: email for action requests defaults off and explains sending is switched off', async () => {
-    const user = userEvent.setup();
+  it('MISC-11: My profile shows Notifications without the Email me opt-in', async () => {
     const fetchMock = renderAt('/settings/profile', me(), (url, init) => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
       if (url.startsWith('/api/me/notification-preferences')) {
@@ -388,14 +387,12 @@ describe('Action requests (MM-T27)', () => {
       }
       return json(404, {});
     });
-    const box = await screen.findByRole('checkbox', {
-      name: 'Email me when an action request needs my decision',
-    });
-    expect(box).not.toBeChecked();
-    expect(screen.getByText(/switched off for everyone until IT approves it/)).toBeInTheDocument();
-    await user.click(box);
-    expect(await screen.findByText('Saved.')).toBeInTheDocument();
-    const put = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
-    expect(JSON.parse(String(put![1]!.body))).toEqual({ emailActionRequests: true, version: 0 });
+    expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByText(/Email me|switched off for everyone|work email/)).toBeNull();
+    // UI only: nothing reads or writes the stored preference from this page any more.
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('notification-preferences')),
+    ).toBe(false);
   });
 });
