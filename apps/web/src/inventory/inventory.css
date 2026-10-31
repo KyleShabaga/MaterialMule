@@ -320,6 +320,15 @@
   margin: 0;
 }
 
+/* MM-T79 (owner decision 2026-10-30): on the storage unit page only, hovering a link (Back, body
+   links, IDs) darkens its text and never underlines it, like Settings. Focus keeps its outline
+   (:focus-visible in styles.css is untouched). */
+.unit-page a:hover,
+.unit-page .unit-link:hover {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
 /* The ID large on the left, type, status and location under it; actions on the right. */
 .unit-header {
   display: flex;

@@ -1424,4 +1424,95 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       await expect(remove(c.storageUnitId, ok, c.projectId)).resolves.toBeDefined();
     });
   });
+
+  describe('location conflicts (MM-T28, MM-T80)', () => {
+    const open = (unitId: string) =>
+      db.pool.query<{ id: string }>(
+        `INSERT INTO location_conflict (storage_unit_id, saved_location_id, saved_version)
+         VALUES ($1, $2, 1) RETURNING id`,
+        [unitId, locationId],
+      );
+    const resolve = (id: string) =>
+      db.pool.query(
+        `UPDATE location_conflict
+         SET status = 'resolved', version = version + 1, resolved_at = now(),
+             resolved_by_user_id = $2, resolved_by_name_snapshot = 'Test AT',
+             resolved_location_id = $3, client_resolution_id = gen_random_uuid(),
+             resolution_request_hash = 'x'
+         WHERE id = $1`,
+        [id, userId, locationId],
+      );
+
+    it('location_conflict_one_open_idx: one open conflict per unit; a new one after resolving', async () => {
+      const a = await bucketSetup('DEMO-8001', 'BKT-2026-080001');
+      const b = await bucketSetup('DEMO-8002', 'BKT-2026-080002');
+      const first = (await open(a.storageUnitId)).rows[0]!.id;
+      await expect(open(a.storageUnitId)).rejects.toMatchObject({
+        code: PG.uniqueViolation,
+        constraint: 'location_conflict_one_open_idx',
+      });
+      // Another unit's conflict is independent.
+      await expect(open(b.storageUnitId)).resolves.toBeDefined();
+      await resolve(first);
+      const second = (await open(a.storageUnitId)).rows[0]!.id;
+      await expect(open(a.storageUnitId)).rejects.toMatchObject({
+        constraint: 'location_conflict_one_open_idx',
+      });
+      await resolve(second);
+      const { rows } = await db.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM location_conflict
+         WHERE storage_unit_id = $1 AND status = 'resolved'`,
+        [a.storageUnitId],
+      );
+      expect(rows[0]!.n).toBe(2);
+    });
+
+    it('location_conflict_guard: an open conflict only gains attempts or is resolved; then it is final', async () => {
+      const a = await bucketSetup('DEMO-8003', 'BKT-2026-080003');
+      const other = await bucketSetup('DEMO-8004', 'BKT-2026-080004');
+      const id = (await open(a.storageUnitId)).rows[0]!.id;
+      const refused = { code: PG.restrictViolation };
+      for (const sql of [
+        `UPDATE location_conflict SET storage_unit_id = '${other.storageUnitId}', version = version + 1 WHERE id = $1`,
+        `UPDATE location_conflict SET opened_at = opened_at - interval '1 hour', version = version + 1 WHERE id = $1`,
+        `UPDATE location_conflict SET saved_version = 2, version = version + 1 WHERE id = $1`,
+        `UPDATE location_conflict SET version = version + 2 WHERE id = $1`,
+        `UPDATE location_conflict SET version = version WHERE id = $1`,
+        `DELETE FROM location_conflict WHERE id = $1`,
+      ]) {
+        await expect(db.pool.query(sql, [id]), sql).rejects.toMatchObject(refused);
+      }
+      // A joining attempt bumps the version by one.
+      await db.pool.query('UPDATE location_conflict SET version = version + 1 WHERE id = $1', [id]);
+      // Resolving needs the whole resolution, not just the status.
+      await expect(
+        db.pool.query(
+          `UPDATE location_conflict SET status = 'resolved', version = version + 1 WHERE id = $1`,
+          [id],
+        ),
+      ).rejects.toMatchObject({
+        code: PG.checkViolation,
+        constraint: 'location_conflict_resolution_check',
+      });
+      await resolve(id);
+      // Resolved: no reopening, no new attempts, no rewritten resolution, no delete.
+      for (const sql of [
+        `UPDATE location_conflict SET status = 'open', version = version + 1, resolved_at = NULL,
+                resolved_by_user_id = NULL, resolved_by_name_snapshot = NULL,
+                resolved_location_id = NULL, client_resolution_id = NULL,
+                resolution_request_hash = NULL
+         WHERE id = $1`,
+        `UPDATE location_conflict SET version = version + 1 WHERE id = $1`,
+        `UPDATE location_conflict SET resolution_note = 'Rewritten', version = version + 1 WHERE id = $1`,
+        `DELETE FROM location_conflict WHERE id = $1`,
+      ]) {
+        await expect(db.pool.query(sql, [id]), sql).rejects.toMatchObject(refused);
+      }
+      const { rows } = await db.pool.query<{ status: string; version: number }>(
+        'SELECT status, version FROM location_conflict WHERE id = $1',
+        [id],
+      );
+      expect(rows[0]).toEqual({ status: 'resolved', version: 3 });
+    });
+  });
 });
