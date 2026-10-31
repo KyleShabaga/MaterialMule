@@ -291,6 +291,10 @@ describe.runIf(testDatabaseUrl)('inventory, lookup and detail API (MM-T12)', () 
     for (const text of ['Lot A–B', 'a-b fines', 'TH26-02: Lot A—B fines']) {
       expect(await search(text), text).toEqual([customUnit]);
     }
+    // MTR-57: a trailing zero ("3.0", "5.00") matches the stored trim_scale form.
+    for (const text of ['3.0–5.0 ft', '3.0 ft', '3.00-5 ft', 'TH26-01: 3.0–5 ft']) {
+      expect(await search(text), text).toEqual([depthUnit]);
+    }
     // Ranges still match by either end, and other ranges don't match.
     expect(await search('S10')).toEqual([sampleUnit]);
     expect(await search('G1–S12')).toEqual([]);

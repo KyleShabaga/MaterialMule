@@ -56,6 +56,25 @@ describe('inventory query (MM-T12)', () => {
     expect(splitInventorySearch('a b c d e f g h i j k l')).toHaveLength(10);
   });
 
+  it('MTR-57: drops trailing zeros of a decimal, as trim_scale does in the search document', () => {
+    expect(splitInventorySearch('1.5–3.0 m')).toEqual(['1.5-3', 'm']);
+    expect(splitInventorySearch('3.0 m')).toEqual(['3', 'm']);
+    expect(splitInventorySearch('1.50-3.00m 0.0 10.0 2.05 100 20')).toEqual([
+      '1.5-3m',
+      '0',
+      '10',
+      '2.05',
+      '100',
+      '20',
+    ]);
+    // Words that only look numeric keep their other digits.
+    expect(splitInventorySearch('TH26-01 G1-S10 BKT-2026-000010')).toEqual([
+      'th26-01',
+      'g1-s10',
+      'bkt-2026-000010',
+    ]);
+  });
+
   it('folds en dashes, em dashes and minus signs to a hyphen, as the search document does (MM-T59)', () => {
     const displayed = formatStorageUnitHoleSummary({
       type: 'sample_range',

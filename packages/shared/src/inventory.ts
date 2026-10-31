@@ -76,11 +76,23 @@ export function splitSearchWords(search: string | undefined): string[] {
 }
 
 /**
+ * A decimal's trailing zeros (MTR-57): "3.0" → "3", "1.50" → "1.5". The search document holds
+ * depths as trim_scale writes them ("1.5-3 m"), so "1.5–3.0 m" must search as "1.5-3". Search
+ * words match anywhere in the document, so a shorter number never loses a match.
+ */
+const TRAILING_ZEROS = /(\d)\.(\d*?)0+(?!\d)/g;
+
+/**
  * Inventory search words (MM-T59): every dash folded to "-" first, so "G1–S10" copied from the
  * table matches like "G1-S10", and a dash standing alone between spaced words ("G1 – S10") dropped.
+ * Decimals lose their trailing zeros (MTR-57).
  */
 export function splitInventorySearch(search: string | undefined): string[] {
-  const folded = (search ?? '').replace(SEARCH_DASHES, '-');
+  const folded = (search ?? '')
+    .replace(SEARCH_DASHES, '-')
+    .replace(TRAILING_ZEROS, (_, whole: string, fraction: string) =>
+      fraction ? `${whole}.${fraction}` : whole,
+    );
   return splitSearchWords(folded.replace(/(^|\s)-+(?=\s|$)/g, ' '));
 }
 
