@@ -59,7 +59,7 @@ export function SettingsLayout() {
   const me = useMe();
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings" documentTitle={false} />
       <nav className="sub-nav" aria-label="Settings">
         <NavLink to="/settings/profile">My profile</NavLink>
         {me.accountType === 'shared_lab' ? null : (

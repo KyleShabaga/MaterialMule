@@ -27,6 +27,7 @@ import type { InventoryLinkState } from './InventoryPage';
 import './inventory.css';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
 import { TestedRemovalSection } from './TestedRemovalSection';
+import { usePageTitle } from '../layout/page-title';
 
 type Loaded<T> =
   | { key: string; ok: true; data: T }
@@ -64,6 +65,7 @@ export function StorageUnitDetailPage() {
 
 function StorageUnitDetail() {
   const { readableId = '' } = useParams();
+  usePageTitle(readableId);
   const location = useLocation();
   const from = (location.state as InventoryLinkState | null)?.from ?? '';
   const [result, setResult] = useState<Loaded<StorageUnitDetail> | null>(null);

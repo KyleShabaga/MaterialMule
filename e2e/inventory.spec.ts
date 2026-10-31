@@ -89,11 +89,11 @@ test('AC4: Look up ID opens a unit from a lower-case ID with a trailing space', 
   const lookUp = page.getByRole('textbox', { name: 'Look up ID' });
 
   await lookUp.fill('BKT-1999-000001');
-  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText('No storage unit found');
 
   await lookUp.fill(`${data.b1.toLowerCase()} `);
-  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.b1}$`));
   await expect(page.getByRole('heading', { level: 1, name: data.b1 })).toBeVisible();
 });

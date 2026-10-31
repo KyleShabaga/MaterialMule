@@ -82,9 +82,18 @@ test('T5: a closure request appears under the Lead Project Engineer bell, opens 
 
   await signInAs(page, 'pe');
   await page.goto('/');
-  const bell = page.getByRole('link', { name: /^Action requests, \d+ open$/ });
+  const bell = page.getByRole('button', { name: /^Action requests, \d+ open$/ });
   await expect(bell).toBeVisible();
+  // MISC-10: the bell previews the newest requests in place; Escape closes it and focus returns.
   await bell.click();
+  const preview = page.getByRole('region', { name: 'Latest action requests' });
+  await expect(preview.getByRole('link', { name: new RegExp(programNumber) })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await page.keyboard.press('Escape');
+  await expect(preview).toHaveCount(0);
+  await expect(bell).toBeFocused();
+  await page.keyboard.press('Enter');
+  await preview.getByRole('link', { name: 'View all action requests' }).click();
   const row = page.getByRole('listitem', { name: `Closure requested for ${programNumber}` });
   await expect(row).toContainText(
     `Lead Project Engineer: Closure requested for ${programNumber} by AT · All tests done (E2E)`,
@@ -120,7 +129,7 @@ test('T6: LAB has no bell, inbox or preferences, whoever the station would selec
   await signInAsLabStation(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Action requests/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Action requests/ })).toHaveCount(0);
   for (const path of [
     '/api/action-items',
     '/api/action-items/count',
@@ -132,22 +141,14 @@ test('T6: LAB has no bell, inbox or preferences, whoever the station would selec
   await expect(page.getByRole('heading', { name: 'Notifications' })).toHaveCount(0);
 });
 
-test('My profile: action-request email defaults off, saves, and explains sending is switched off', async ({
+test('MISC-11: My profile shows Notifications without the Email me opt-in; the stored preference stays', async ({
   page,
 }) => {
   await signInAs(page, 'de');
   await page.goto('/settings/profile');
-  const box = page.getByRole('checkbox', {
-    name: 'Email me when an action request needs my decision',
-  });
-  await expect(box).toBeVisible();
-  await expect(page.getByText(/switched off for everyone until IT approves it/)).toBeVisible();
-  const before = await box.isChecked();
-  await box.click();
-  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-  await page.reload();
-  await expect(box).toBeChecked({ checked: !before });
-  // Restore, so reruns start from the same state.
-  await box.click();
-  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Email me/ })).toHaveCount(0);
+  await expect(page.getByText(/Email me|switched off for everyone/)).toHaveCount(0);
+  // UI only: the stored preference is still served.
+  expect((await page.request.get('/api/me/notification-preferences')).status()).toBe(200);
 });

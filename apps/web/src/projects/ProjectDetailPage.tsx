@@ -19,6 +19,7 @@ import { EditProjectDialog } from './EditProjectDialog';
 import { LeadSection } from './LeadSection';
 import type { ProjectLinkState } from './ProjectsPage';
 import './projects.css';
+import { usePageTitle } from '../layout/page-title';
 
 /** Units shown on the project page; the full list is a link to Sample Storage. */
 const PROJECT_UNITS_PAGE_SIZE = 25;
@@ -54,6 +55,7 @@ export function ProjectDetailPage() {
   const [reloads, setReloads] = useState(0);
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  usePageTitle(result?.ok ? result.data.projectNumber : null);
 
   useEffect(() => {
     let cancelled = false;
