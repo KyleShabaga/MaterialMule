@@ -24,6 +24,7 @@ const LAB: MeResponse = {
 const PROJECT = '00000000-0000-4000-8000-000000000a01';
 const PERSONAL = [
   '/api/action-items',
+  '/api/notifications',
   '/api/me/notification-preferences',
   '/api/me/access',
   `/api/projects/${PROJECT}/capabilities`,
@@ -72,6 +73,17 @@ describe('MTR-2: LAB on personal-account pages', () => {
     expect(
       await screen.findByText(
         'Action requests are for personal accounts. Sign in with your own account.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(personalCalls(urls)).toEqual([]);
+  });
+
+  it('Notifications shows a plain refusal and loads nothing (MM-T91)', async () => {
+    const urls = renderAsLab('/notifications');
+    expect(
+      await screen.findByText(
+        'Notifications are for personal accounts. Sign in with your own account.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();

@@ -19,6 +19,11 @@ export function announceActionRequestsChanged(): void {
   window.dispatchEvent(new Event(ACTION_REQUESTS_CHANGED_EVENT));
 }
 
+/** The control's accessible name; never mentions notifications, whose unread count is separate. */
+export function pendingActionsLabel(count: number | null): string {
+  return count === null ? 'Pending actions' : `Pending actions, ${count} waiting on you`;
+}
+
 export async function fetchOpenCount(): Promise<number | null> {
   const response = await apiFetch('/api/action-items/count');
   if (!response.ok) return null;

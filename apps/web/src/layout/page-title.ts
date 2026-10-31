@@ -10,6 +10,7 @@ const APP_NAME = 'Material Mule';
 
 const EXTRA_SECTIONS: readonly { to: string; label: string }[] = [
   { to: '/action-requests', label: 'Action requests' },
+  { to: '/notifications', label: 'Notifications' },
 ];
 
 const ROUTE_LABELS: readonly [RegExp, string][] = [

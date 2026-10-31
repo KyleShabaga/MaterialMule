@@ -1,7 +1,7 @@
 import type { EffectiveEligibility, Position, ReviewScope } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuditActor } from '../audit/audit.js';
-import { enqueueActionItemEmails } from '../notifications/action-items.js';
+import { announceActionItem } from '../notifications/action-items.js';
 import { REVIEW_APPROVAL, endGrant, lockGrant } from './grant-tables.js';
 
 type Db = Pool | PoolClient;
@@ -122,7 +122,7 @@ export async function settleEligibilityLoss(
         row.parentId,
       ],
     );
-    if (items[0]) await enqueueActionItemEmails(client, items[0].id);
+    if (items[0]) await announceActionItem(client, items[0].id);
   }
   return rows.length;
 }

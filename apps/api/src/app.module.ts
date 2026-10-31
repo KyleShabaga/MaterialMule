@@ -55,6 +55,8 @@ import { RetentionController } from './retention/retention.controller.js';
 import { RetentionService } from './retention/retention.service.js';
 import { ActionItemsService } from './notifications/action-items.service.js';
 import { EmailWorkerService } from './notifications/email-worker.service.js';
+import { NotificationsController } from './notifications/notifications.controller.js';
+import { NotificationsService } from './notifications/notifications.service.js';
 import { MovesService } from './moves/moves.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
@@ -139,6 +141,7 @@ export class AppModule {
         LabReviewController,
         LabLifecycleController,
         ActionItemsController,
+        NotificationsController,
         RetentionController,
         DisposalController,
         SystemStatusController,
@@ -189,6 +192,7 @@ export class AppModule {
         LabLifecycleService,
         LabAmendmentsService,
         ActionItemsService,
+        NotificationsService,
         EmailWorkerService,
         BusinessClock,
         RetentionService,

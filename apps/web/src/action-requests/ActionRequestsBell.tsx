@@ -2,7 +2,12 @@ import type { ActionRequest } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { formatExpiry } from '../lib/format';
-import { ACTION_REQUESTS_CHANGED_EVENT, fetchActionRequests, fetchOpenCount } from './api';
+import {
+  ACTION_REQUESTS_CHANGED_EVENT,
+  fetchActionRequests,
+  fetchOpenCount,
+  pendingActionsLabel,
+} from './api';
 
 const POLL_MS = 60_000;
 /** How many of the newest open requests the bell's preview lists (MISC-10). */
@@ -12,13 +17,15 @@ type Preview =
   { state: 'loading' } | { state: 'error' } | { state: 'ready'; items: ActionRequest[] };
 
 /**
- * Header bell (MM-T27): how many action requests wait on the signed-in person. Personal accounts
- * only; the layout doesn't render it for LAB. Refreshes on navigation, on focus, after an action
- * and every minute. Routine activity (moves, progress, comments) never counts here.
+ * Header Pending actions control (MM-T27, renamed in MM-T91): how many action requests wait on
+ * the signed-in person. Personal accounts only (`action_item.read`); the layout doesn't render it
+ * for LAB. Refreshes on navigation, on focus, after an action and every minute. Routine activity
+ * (moves, progress, comments) never counts here, and neither do notifications: the Notifications
+ * control beside it has its own unread count, and the two are never added together. Reading a
+ * notification never changes this count; only the real workflow action resolves a request.
  *
  * MISC-10: clicking it opens a preview of the newest open requests without leaving the page.
- * Each entry only links to the item; nothing here approves or resolves anything. Read/unread
- * state arrives with MM-T91.
+ * Each entry only links to the item; nothing here approves or resolves anything.
  */
 export function ActionRequestsBell({ inert = false }: { inert?: boolean } = {}) {
   const [count, setCount] = useState<number | null>(null);
@@ -98,7 +105,7 @@ export function ActionRequestsBell({ inert = false }: { inert?: boolean } = {}) 
     };
   }, [open, close]);
 
-  const label = count === null ? 'Action requests' : `Action requests, ${count} open`;
+  const label = pendingActionsLabel(count);
   return (
     <div className="action-bell-wrap" ref={wrapRef} inert={inert}>
       <button
@@ -118,9 +125,10 @@ export function ActionRequestsBell({ inert = false }: { inert?: boolean } = {}) 
           }
         }}
       >
+        {/* A clipboard with a check: work waiting on you, distinct from the Notifications bell. */}
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
           <path
-            d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.2A1 1 0 0 0 5.3 17h13.4a1 1 0 0 0 .9-1.8L18 12.6V9a6 6 0 0 0-6-6Zm-2.5 15.5a2.5 2.5 0 0 0 5 0"
+            d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V4Zm0 9.5 2 2 4-4.5"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.6"

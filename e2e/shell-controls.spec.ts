@@ -21,7 +21,7 @@ test('MTR-137: the phone drawer keeps focus, closes on Escape and outside taps, 
   for (let i = 0; i < 14; i += 1) {
     await page.keyboard.press('Tab');
     const inCovered = await page.evaluate(
-      () => !!document.activeElement?.closest('#main, .identity, .action-bell-wrap'),
+      () => !!document.activeElement?.closest('#main, .identity, .header-alerts'),
     );
     expect(inCovered, `Tab ${i + 1}`).toBe(false);
   }

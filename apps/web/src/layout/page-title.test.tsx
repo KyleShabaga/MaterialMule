@@ -27,6 +27,7 @@ describe('pageTitle', () => {
     ['/settings/profile', null, 'My profile · Settings · Material Mule'],
     ['/settings/system-status', null, 'System status · Settings · Material Mule'],
     ['/action-requests', 'Action requests', 'Action requests · Material Mule'],
+    ['/notifications', 'Notifications', 'Notifications · Material Mule'],
     ['/disposal-retention/scan', null, 'Disposal scan · Disposal & Retention · Material Mule'],
     ['/nowhere', 'Page not found', 'Page not found · Material Mule'],
   ])('%s (%s) → %s', (path, title, expected) => {

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
-import { enqueueActionItemEmails } from '../notifications/action-items.js';
+import { announceActionItem } from '../notifications/action-items.js';
 
 // MM-AO04 (D01, D02): the facts around a project's one effective Lead Project Engineer
 // (project.lead_project_engineer_user_id). A nomination is a suggestion an admin confirms or
@@ -34,7 +34,7 @@ export async function openLeadAppointment(
      RETURNING id`,
     [projectId, by.userId, by.initials, by.displayName, reason.slice(0, 2000)],
   );
-  if (rows[0]) await enqueueActionItemEmails(client, rows[0].id);
+  if (rows[0]) await announceActionItem(client, rows[0].id);
 }
 
 /** Resolves the open "Lead appointment" request, if any, as appointed by `by`. */
