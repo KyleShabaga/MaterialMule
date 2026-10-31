@@ -47,6 +47,7 @@ function status(overrides: Partial<SystemStatusResponse> = {}): SystemStatusResp
       oldestQueuedAgeSeconds: 720,
     },
     printWorker: { running: true, lastPollAt: '2026-10-26T17:59:58.000Z' },
+    defaultPrinter: null,
     disks: [
       {
         label: 'Material Mule host',

@@ -5,7 +5,7 @@ import type {
   RecentlyReceivedResponse,
   SystemStatusResponse,
 } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -116,6 +116,20 @@ const recent: RecentlyReceivedResponse = {
   labelsToCheck: 2,
 };
 
+function printer(
+  lastAttempt: NonNullable<SystemStatusResponse['defaultPrinter']>['lastAttempt'] = null,
+  failingSince: string | null = null,
+): NonNullable<SystemStatusResponse['defaultPrinter']> {
+  return {
+    key: 'front',
+    name: 'Front bench',
+    enabled: true,
+    checkStatus: true,
+    lastAttempt,
+    failingSince,
+  };
+}
+
 function status(overrides: Partial<SystemStatusResponse> = {}): SystemStatusResponse {
   return {
     checkedAt: '2026-10-26T20:00:00.000Z',
@@ -144,6 +158,7 @@ function status(overrides: Partial<SystemStatusResponse> = {}): SystemStatusResp
       oldestQueuedAgeSeconds: null,
     },
     printWorker: { running: true, lastPollAt: '2026-10-26T19:59:58.000Z' },
+    defaultPrinter: printer(),
     disks: [],
     ...overrides,
   };
@@ -365,7 +380,8 @@ describe('Dashboard', () => {
       },
     );
     const card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Stopped')).toBeInTheDocument();
+    expect(await within(card).findByText('Print queue stopped')).toBeInTheDocument();
+    expect(within(card).getByText('Front bench: no labels sent yet.')).toBeInTheDocument();
     const waiting = within(card).getByText('Waiting to print').closest('div')!;
     expect(waiting).toHaveTextContent('0');
     const unsure = within(card).getByText('Not sure if printed').closest('div')!;
@@ -373,5 +389,86 @@ describe('Dashboard', () => {
     expect(
       within(card).getByRole('link', { name: 'Print queue in System status' }),
     ).toHaveAttribute('href', '/settings/system-status');
+  });
+  it('MTR-45: a failed last attempt on the default printer shows a warning with the reason', async () => {
+    renderDashboard(
+      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
+      {
+        '/api/admin/system-status': () =>
+          json(
+            200,
+            status({
+              defaultPrinter: printer(
+                {
+                  outcome: 'failed',
+                  at: '2026-10-26T05:07:00.000Z',
+                  error: 'Printer refused the connection',
+                  printerMessage: null,
+                },
+                '2026-10-26T05:05:00.000Z',
+              ),
+            }),
+          ),
+      },
+    );
+    const card = await screen.findByRole('region', { name: 'Label printer' });
+    // The worker still runs: the queue badge says so, the printer line says the printer is down.
+    expect(await within(card).findByText('Print queue running')).toHaveClass('badge-success');
+    expect(within(card).getByText('Printer not responding')).toHaveClass('badge-danger');
+    expect(
+      within(card).getByText(
+        /^Front bench: not responding since Oct 25, 2026 23:05 — Printer refused the connection$/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('MTR-45: a retrying printer warns with the printer message; a later success shows OK', async () => {
+    const retrying = status({
+      defaultPrinter: printer(
+        {
+          outcome: 'retrying',
+          at: '2026-10-26T05:06:00.000Z',
+          error: "Printer didn't respond",
+          printerMessage: 'Printer out of labels',
+        },
+        '2026-10-26T05:05:00.000Z',
+      ),
+    });
+    const admin = me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] });
+    renderDashboard(admin, {
+      '/api/admin/system-status': () => json(200, retrying),
+    });
+    let card = await screen.findByRole('region', { name: 'Label printer' });
+    expect(await within(card).findByText('Printer not responding')).toHaveClass('badge-warning');
+    expect(within(card).getByText(/Printer out of labels\. Trying again\.$/)).toBeInTheDocument();
+    cleanup();
+
+    renderDashboard(admin, {
+      '/api/admin/system-status': () =>
+        json(
+          200,
+          status({
+            defaultPrinter: printer({
+              outcome: 'ok',
+              at: '2026-10-26T05:30:00.000Z',
+              error: null,
+              printerMessage: null,
+            }),
+          }),
+        ),
+    });
+    card = await screen.findByRole('region', { name: 'Label printer' });
+    expect(await within(card).findByText('Printer OK')).toHaveClass('badge-success');
+    expect(within(card).getByText(/^Front bench: last labels printed at /)).toBeInTheDocument();
+    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
+  });
+
+  it('MTR-45: says when no printer is the default', async () => {
+    renderDashboard(
+      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
+      { '/api/admin/system-status': () => json(200, status({ defaultPrinter: null })) },
+    );
+    const card = await screen.findByRole('region', { name: 'Label printer' });
+    expect(await within(card).findByText('No default printer')).toHaveClass('badge-warning');
   });
 });

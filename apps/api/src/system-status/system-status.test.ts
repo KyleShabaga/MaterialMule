@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { systemStatusResponseSchema, type BackupStatusFile } from '@materialmule/shared';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
 import { loadConfig } from '../config/env.js';
@@ -17,7 +17,7 @@ import {
 } from '../test-support/database.js';
 import { insertUser } from '../test-support/fixtures.js';
 import { APP_VERSION } from '../version.js';
-import { readBackupStatusFile, summarizeBackup } from './system-status.js';
+import { defaultPrinterSummary, readBackupStatusFile, summarizeBackup } from './system-status.js';
 
 const NOW = new Date('2026-10-26T12:00:00Z');
 
@@ -196,6 +196,8 @@ describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (MM-T21)', () => {
       backup: { state: expect.any(String), lastSuccessAt: '2026-10-26T08:02:00Z', rpoHours: 24 },
       printQueue: { queued: 2, sending: 0 },
       printWorker: { running: true },
+      // The only printer isn't the default.
+      defaultPrinter: null,
     });
     expect(body.printQueue!.oldestQueuedAgeSeconds).toBeGreaterThanOrEqual(600);
     expect(body.printQueue!.oldestQueuedAgeSeconds).toBeLessThan(900);
@@ -204,5 +206,134 @@ describe.runIf(testDatabaseUrl)('GET /api/admin/system-status (MM-T21)', () => {
     expect(body.disks.map((disk) => disk.label)).toContain('Material Mule host');
     // Never leaks connection details.
     expect(JSON.stringify(body)).not.toMatch(/postgres:\/\//);
+  });
+});
+
+describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
+  let db: TestSchema;
+  let tech: string;
+
+  beforeAll(async () => {
+    db = await createMigratedSchema();
+    tech = await insertUser(db.pool, 'TEC');
+    // Fictional printers; nothing listens on these ports and the worker isn't running here.
+    await db.pool.query(
+      `INSERT INTO printer (key, name, host, port, is_default, check_status) VALUES
+         ('front', 'Front bench', '127.0.0.1', 9191, true, true),
+         ('back', 'Back bench', '127.0.0.1', 9192, false, false)`,
+    );
+  });
+
+  afterAll(async () => {
+    await db?.drop();
+  });
+
+  beforeEach(async () => {
+    await db.pool.query('DELETE FROM print_job');
+  });
+
+  /** A job the worker has tried, `minutesAgo` before now. */
+  async function job(
+    printer: string,
+    status: 'queued' | 'sent' | 'failed' | 'uncertain',
+    minutesAgo: number,
+    details: { attempts?: number; error?: string; printerMessage?: string } = {},
+  ): Promise<void> {
+    await db.pool.query(
+      `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
+                              requested_by_name_snapshot, status, attempts, last_error,
+                              printer_message, created_at, updated_at, sent_at)
+       VALUES ('reprint', $1, 'v1', $2, 'Tech', $3, $4, $5, $6,
+               now() - make_interval(mins => $7), now() - make_interval(mins => $7),
+               CASE WHEN $3 = 'sent' THEN now() - make_interval(mins => $7) END)`,
+      [
+        printer,
+        tech,
+        status,
+        details.attempts ?? 1,
+        details.error ?? null,
+        details.printerMessage ?? null,
+        minutesAgo,
+      ],
+    );
+  }
+
+  it('names the default printer with no attempt before anything has been tried', async () => {
+    // A queued job nobody has tried yet isn't an outcome.
+    await job('front', 'queued', 1, { attempts: 0 });
+    expect(await defaultPrinterSummary(db.pool)).toEqual({
+      key: 'front',
+      name: 'Front bench',
+      enabled: true,
+      checkStatus: true,
+      lastAttempt: null,
+      failingSince: null,
+    });
+  });
+
+  it('reports a retrying job with its reason and printer message, failing since the first one after the last good print', async () => {
+    await job('front', 'sent', 30);
+    await job('front', 'failed', 20, { attempts: 3, error: 'Printer refused the connection' });
+    await job('front', 'queued', 5, {
+      attempts: 2,
+      error: "Printer didn't respond",
+      printerMessage: 'Printer out of labels',
+    });
+    // Another printer's newer success doesn't count.
+    await job('back', 'sent', 1);
+    const summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({
+      outcome: 'retrying',
+      error: "Printer didn't respond",
+      printerMessage: 'Printer out of labels',
+    });
+    const at = Date.parse(summary!.lastAttempt!.at);
+    const since = Date.parse(summary!.failingSince!);
+    expect(Date.now() - at).toBeGreaterThanOrEqual(5 * 60_000 - 5_000);
+    expect(at - since).toBeGreaterThanOrEqual(15 * 60_000 - 5_000);
+    expect(at - since).toBeLessThan(16 * 60_000);
+  });
+
+  it('reports failed once the retries run out', async () => {
+    await job('front', 'failed', 2, { attempts: 3, error: 'Printer refused the connection' });
+    const summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({
+      outcome: 'failed',
+      error: 'Printer refused the connection',
+    });
+    expect(summary!.failingSince).not.toBeNull();
+  });
+
+  it('goes back to ok after a successful print, and ignores confirmed uncertain jobs', async () => {
+    await job('front', 'failed', 20, { attempts: 3, error: 'Printer refused the connection' });
+    await job('front', 'sent', 10);
+    await job('front', 'uncertain', 30, { error: 'Connection dropped' });
+    await db.pool.query(
+      `UPDATE print_job SET physically_confirmed_at = now(), physically_confirmed_by_user_id = $1,
+                            confirmed_by_name_snapshot = 'Tech', updated_at = now()
+        WHERE status = 'uncertain'`,
+      [tech],
+    );
+    const summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({ outcome: 'ok', error: null });
+    expect(summary!.failingSince).toBeNull();
+  });
+
+  it('reports an unconfirmed uncertain job as uncertain', async () => {
+    await job('front', 'sent', 10);
+    await job('front', 'uncertain', 1, { error: 'Connection dropped' });
+    expect((await defaultPrinterSummary(db.pool))!.lastAttempt).toMatchObject({
+      outcome: 'uncertain',
+      error: 'Connection dropped',
+    });
+  });
+
+  it('is null when no printer is the default', async () => {
+    await db.pool.query(`UPDATE printer SET is_default = false`);
+    try {
+      expect(await defaultPrinterSummary(db.pool)).toBeNull();
+    } finally {
+      await db.pool.query(`UPDATE printer SET is_default = true WHERE key = 'front'`);
+    }
   });
 });
