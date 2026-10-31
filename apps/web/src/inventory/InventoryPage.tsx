@@ -242,14 +242,17 @@ export function InventoryPage() {
           ]}
         />
         <SelectFilter
-          label="Location conflict"
+          label="Conflict"
           value={query.conflict ?? ''}
           onChange={(value) =>
             update({ conflict: (value || undefined) as InventoryQuery['conflict'] })
           }
           options={[
             { value: '', label: 'Any' },
-            ...INVENTORY_CONFLICT_FILTERS.map((value) => ({ value, label: 'Open conflict' })),
+            ...INVENTORY_CONFLICT_FILTERS.map((value) => ({
+              value,
+              label: 'Open location conflict',
+            })),
           ]}
         />
         <DateFilter
@@ -427,7 +430,7 @@ function activeChips(
   if (query.conflict) {
     chips.push({
       key: 'conflict',
-      label: 'Location conflict: Open',
+      label: 'Conflict: Open',
       remove: { conflict: undefined },
     });
   }

@@ -114,11 +114,11 @@ test('T1/AC1/T3: a unit with an open conflict shows Conflict, appears under the 
   await signInAs(page, 'at');
 
   await page.goto('/sample-storage');
-  await page.getByLabel('Location conflict').selectOption({ label: 'Open conflict' });
+  await page
+    .getByRole('combobox', { name: 'Conflict' })
+    .selectOption({ label: 'Open location conflict' });
   await expect(page).toHaveURL(/conflict=open/);
-  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText(
-    'Location conflict: Open',
-  );
+  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Conflict: Open');
   const row = inventoryRow(page, conflicted);
   await expect(row.getByText('Conflict', { exact: true })).toBeVisible();
 

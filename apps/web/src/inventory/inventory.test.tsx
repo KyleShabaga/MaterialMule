@@ -335,15 +335,13 @@ describe('Sample Storage inventory (MM-T12)', () => {
     const router = renderAt('/sample-storage');
     expect(await screen.findByText('42 storage units')).toBeInTheDocument();
 
-    await userEvent.selectOptions(screen.getByLabelText('Location conflict'), 'Open conflict');
+    await userEvent.selectOptions(screen.getByLabelText('Conflict'), 'Open location conflict');
     expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
     expect(router.state.location.search).toBe('?conflict=open');
     expect(inventoryCalls(fetchMock).at(-1)!.searchParams.get('conflict')).toBe('open');
     expect(within(screen.getByRole('table')).getByText('Conflict')).toBeInTheDocument();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Remove filter Location conflict: Open' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter Conflict: Open' }));
     expect(router.state.location.search).toBe('');
   });
 
