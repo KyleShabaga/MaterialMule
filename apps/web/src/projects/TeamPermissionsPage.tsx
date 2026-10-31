@@ -320,7 +320,11 @@ function TeamPermissions({ projectId }: { projectId: string }) {
           projectId={project.id}
           data={grantReviews}
           run={run}
-          onChange={(next) => update({ grantReviews: next })}
+          onChange={(next) => {
+            update({ grantReviews: next });
+            // A Revoke ended a reviewer, issuer or delegate grant: reload every list that shows it.
+            reload();
+          }}
         />
       ) : null}
 
