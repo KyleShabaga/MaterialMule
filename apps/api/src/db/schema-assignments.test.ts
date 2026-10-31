@@ -312,7 +312,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
         decided_by_name_snapshot: 'Test AD',
         decision_reason: null,
       };
-      // MISC-03: rejecting or withdrawing needs a reason; confirming doesn't (0011).
+      // MISC-03: rejecting or withdrawing needs a reason; confirming doesn't (0010).
       for (const status of ['rejected', 'withdrawn']) {
         await expect(
           revoke('project_lead_nomination', id, { ...decision, status }),
@@ -575,7 +575,7 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants (MM-AO02)
     });
   });
 
-  describe('team join requests (MISC-07, 0012)', () => {
+  describe('team join requests (MISC-07, 0011)', () => {
     const member = async (userId: string, addedBy = userId, project = projectId) =>
       insert('project_team_member', {
         project_id: project,

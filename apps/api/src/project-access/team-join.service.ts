@@ -29,7 +29,7 @@ import {
 // authority, D04), marked "Pending LPE acceptance". The lead is told through an action request
 // (admins while the project has no lead); the lead or an admin accepts, or declines with a reason,
 // which removes the person, who may then ask again. The shared LAB account never asks. Every
-// request, acceptance and decline is audited. Migration 0012 keeps one pending request per person
+// request, acceptance and decline is audited. Migration 0011 keeps one pending request per person
 // and project, and declines a pending request whenever its membership ends by any route.
 
 type Db = Pool | PoolClient;
@@ -250,7 +250,7 @@ export class TeamJoinService {
       } else {
         const member = await lockGrant(client, TEAM_MEMBER, found.team_member_id);
         if (!member) throw new NotFoundException({ code: 'team_join_request_not_found' });
-        // Removing them declines the request and resolves its action request (0012 trigger).
+        // Removing them declines the request and resolves its action request (0011 trigger).
         await endGrant(client, TEAM_MEMBER, member, {
           by,
           reason: reason!,
