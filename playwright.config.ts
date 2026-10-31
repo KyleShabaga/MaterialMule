@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { assertPrebuilt } from './e2e/support/prebuilt';
 
 // E2E runs production-shaped: the built API serves the built web app from one origin (as on the
 // Windows host, MM-T20), so no dev proxy sits between the browser and the API. The API reads
@@ -9,6 +10,14 @@ const isCI = Boolean(process.env.CI);
 // Never silently reuse a server already on the port: it could be another worktree's build.
 // Set E2E_REUSE_SERVER=1 only when you started this checkout's server yourself.
 const reuseServer = !isCI && process.env.E2E_REUSE_SERVER === '1';
+// CI's browser jobs build once, check the bundle, then run E2E against that same build
+// (E2E_PREBUILT=1). Missing or stale builds are refused. Otherwise E2E builds both apps itself.
+const prebuilt = process.env.E2E_PREBUILT === '1';
+// Playwright runs from the repository root (as e2e/support/db.ts assumes).
+if (prebuilt) assertPrebuilt(process.cwd());
+const buildApps = prebuilt
+  ? ''
+  : ' && npm run build -w @materialmule/web && npm run build -w @materialmule/api';
 // A fake Zebra printer (raw TCP, like port 9100) that the API prints to during E2E (MM-T15).
 // Started by e2e/support/global-setup.ts; 1000 above the app port so worktrees don't collide.
 const FAKE_PRINTER_PORT = PORT + 1000;
@@ -53,10 +62,11 @@ export default defineConfig({
     },
     {
       name: 'app',
-      // Fresh test database with fictional fixtures, both builds, then the API with test sign-in on.
+      // Fresh test database with fictional fixtures, both builds (unless prebuilt), then the API
+      // with test sign-in on.
       command:
         'npm run db:reset:test -w @materialmule/api && npm run db:seed:dev -w @materialmule/api' +
-        ' && npm run build -w @materialmule/web && npm run build -w @materialmule/api' +
+        buildApps +
         ' && npm run start -w @materialmule/api',
       // Wait on the port, not /api/health: a 503 (database down) would never count as ready,
       // and the smoke test reports the database state more clearly than a startup timeout.

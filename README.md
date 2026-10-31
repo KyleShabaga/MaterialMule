@@ -239,13 +239,17 @@ has the API serve the web build on `E2E_PORT` (default 3100). It also starts a f
 `E2E_PORT + 1000` and the mock Microsoft tenant on `E2E_PORT + 2000`, so all three ports must be
 free. To run E2E in two checkouts at once, give each its own test database and port, e.g.
 `E2E_PORT=3107 npm run test:e2e`. Playwright won't reuse a server already on the port unless
-`E2E_REUSE_SERVER=1` is set.
+`E2E_REUSE_SERVER=1` is set. `E2E_PREBUILT=1` (used by CI after `npm run build` and
+`npm run check:bundle`) skips the two builds and starts the existing ones; it refuses builds that
+are missing or older than their sources.
 
 ## Pull requests and CI
 
 `main` is protected: every change goes through a pull request, and GitHub's `verify` check
-(`.github/workflows/ci.yml`: verify and E2E on Windows) must pass on a branch that is up to date
-with `main` before it can merge. Draft PRs don't run CI until they're marked ready; merged branches
+must pass on a branch that is up to date with `main` before it can merge. CI
+(`.github/workflows/ci.yml`) runs the checks of `npm run verify` and `npm run test:e2e` as parallel
+Windows jobs (quality, API, web, deploy, and E2E in two Playwright shards); `verify` passes only
+when every one of them succeeded. Draft PRs don't run CI until they're marked ready; merged branches
 are deleted automatically. CI doesn't replace the local gate: run `npm run verify` and
 `npm run test:e2e` on Windows before opening a PR.
 
