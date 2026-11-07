@@ -66,7 +66,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | project_review.approve (MISC-08)                                         |     |                   |             |       |           ✓           |                     |
 | report_issuer.manage (AO03, D06)                                         |     |                   |             |       |           ✓           |                     |
 | report.issue (AO03, D07)                                                 |     |                   |             |       |           ✓           |                     |
-| concrete_mix.manage / concrete_mix.approve (AO08, planned)               |     |                   |             |       |           ✓           |                     |
+| concrete_mix.manage / concrete_mix.approve (AO08, C03)                   |     |                   |             |       |           ✓           |                     |
 | concrete.review (AO08, planned; + designated reviewer)                   |     |                   |             |       |           ✓           |                     |
 | concrete_failure_schedule.approve (AO08, planned; + designated reviewer) |     |                   |             |       |           ✓           |                     |
 | concrete_hold.manage (AO08, planned; + concrete LM grant)                |     |                   |             |       |           ✓           |                     |
@@ -411,10 +411,10 @@ authority and are unchanged; open-task rerouting (D10) is MM-AO07.
 ## Concrete permission contract (MM-AO08)
 
 The shared authorization contract for concrete work, in `apps/api/src/auth/policy.ts` with its
-matrix in `policy.test.ts`. **Mostly planned:** C01 added the record tables and C02 the settings,
-the concrete Lab Manager grant and the loaders ([concrete.md](concrete.md)); no concrete
-workflow route exists yet (C03–C08), so mix, review, schedule and HOLD actions are enforced by no
-endpoint yet, and none of them
+matrix in `policy.test.ts`. **Partly implemented:** C01 added the record tables, C02 the settings,
+the concrete Lab Manager grant and the loaders, and C03 the mix routes (`concrete_mix.manage` /
+`concrete_mix.approve`, below; [concrete.md](concrete.md)). No review, schedule or HOLD route
+exists yet (C04–C08), so those actions are enforced by no endpoint yet, and none of them
 appears in a project's capability list (`GET …/capabilities`, Team & Permissions) until its
 owning card adds the route (owner decision 2026-10-29, AO08 Q2). Each owning card loads the
 project facts below from the database, checks `can()` under the D09 lock order, and adds its row
@@ -422,8 +422,8 @@ to the capability list in the same change.
 
 | Permission                                  | Granted by                                                                                    | Owner card                                         |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `concrete_mix.manage`                       | the destination project's Lead Project Engineer only                                          | C03 (create, edit, copy)                           |
-| `concrete_mix.approve`                      | the destination project's Lead Project Engineer only                                          | C03 (approve; D14 revisions)                       |
+| `concrete_mix.manage`                       | the destination project's Lead Project Engineer only                                          | C03 (implemented: create, edit, copy)              |
+| `concrete_mix.approve`                      | the destination project's Lead Project Engineer only                                          | C03 (implemented: approve; D14 revisions)          |
 | `concrete.review`                           | the project's Lead Project Engineer, or a designated reviewer for the scope                   | C02 adapter, then C04/C07 review routes            |
 | `concrete_failure_schedule.approve`         | the project's Lead Project Engineer, or a designated reviewer (strength scope); one is enough | the failure-workflow card after C07                |
 | `concrete_hold.manage`                      | the project's Lead Project Engineer, or a Lab Manager holding the project's concrete grant    | C02 (grant storage), then the failed-specimen HOLD |
@@ -435,6 +435,27 @@ to the capability list in the same change.
   copies and approves mixes: no admin, Lab Manager, reviewer, delegate or issuer fallback, and a
   project waiting for a lead (D02) has no one who can. D14 (adopted): editing an approved mix makes
   a new draft revision; the approved version stays effective until the lead approves the revision.
+  Routes (MM-V2-C03):
+
+  | Route                                                                                   | Policy                                                |
+  | --------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+  | `GET /api/projects/:projectId/concrete-mixes?supplier=&search=&status=&page=&pageSize=` | `inventory.read` (every active session, LAB included) |
+  | `GET /api/projects/:projectId/concrete-mix-suppliers`                                   | `inventory.read`                                      |
+  | `GET /api/concrete-mixes/:id`                                                           | `inventory.read`                                      |
+  | `POST /api/projects/:projectId/concrete-mixes {spec, idempotencyKey, note?}`            | active user; handler checks `concrete_mix.manage`     |
+  | `POST /api/projects/:projectId/concrete-mixes/copy {sourceMixId, sourceRevisionId?, …}` | active user; `concrete_mix.manage` on the destination |
+  | `PATCH /api/concrete-mixes/:id {version, spec, idempotencyKey, note?}`                  | active user; handler checks `concrete_mix.manage`     |
+  | `POST /api/concrete-mixes/:id/approve {version, revisionId, idempotencyKey, note?}`     | active user; handler checks `concrete_mix.approve`    |
+
+  Reads follow the project (mixes are project data; field preparation caches them, CD-15). Order
+  of checks as AO03: 401/403 from the guard; 403 when the caller isn't the project's lead (an
+  unknown project or mix is 404 only for someone who leads some project); 400 body; 409
+  `idempotency_key_reused`, `version_conflict` (with the current mix) or `mix_number_taken`; 422
+  `incomplete_for_approval`, `revision_not_draft`, `source_mix_not_found`,
+  `invalid_source_revision`. The final check runs under the D09 locks (mix row, then project and
+  account: `canUnderLock`). Both actions are in the capability list (blocked code
+  `no_lead_project_engineer` on a project waiting for a lead, otherwise `not_permitted`).
+
 - **Concrete review (D05, D11).** The project's Lead Project Engineer always holds it on their own
   project (owner decision 2026-10-29, AO08 Q3), as does a designated reviewer: assigned to the
   project for that scope, active, and still eligible (`designated_reviewer` source; the loader

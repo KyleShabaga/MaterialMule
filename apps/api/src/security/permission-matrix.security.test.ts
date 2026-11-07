@@ -124,6 +124,11 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'PATCH /api/projects/:projectId/concrete-settings': 'project.edit',
   'POST /api/projects/:projectId/concrete-lab-managers': 'project.edit',
   'DELETE /api/projects/:projectId/concrete-lab-managers/:id': 'project.edit',
+  // MM-V2-C03: concrete mixes by the project's Lead Project Engineer only (AO08, CD-52).
+  'POST /api/projects/:projectId/concrete-mixes': 'concrete_mix.manage',
+  'POST /api/projects/:projectId/concrete-mixes/copy': 'concrete_mix.manage',
+  'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
+  'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
   'GET /api/me/grants': null,
 };
 

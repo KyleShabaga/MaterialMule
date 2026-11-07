@@ -98,6 +98,8 @@ import { ReceiptsService } from './receiving/receipts.service.js';
 import { ReceivingLogController } from './receiving/receiving-log.controller.js';
 import { ReceivingLogService } from './receiving/receiving-log.service.js';
 import { SettingsController } from './settings/settings.controller.js';
+import { ConcreteMixesController } from './concrete/concrete-mixes.controller.js';
+import { ConcreteMixesService } from './concrete/concrete-mixes.service.js';
 import { ConcreteSettingsController } from './concrete/concrete-settings.controller.js';
 import { ConcreteSettingsService } from './concrete/concrete-settings.service.js';
 import { UsersService } from './users/users.service.js';
@@ -150,6 +152,7 @@ export class AppModule {
         LabelsController,
         SettingsController,
         ConcreteSettingsController,
+        ConcreteMixesController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (MM-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
@@ -173,6 +176,7 @@ export class AppModule {
         ProjectsService,
         ProjectAccessService,
         ConcreteSettingsService,
+        ConcreteMixesService,
         LeadNominationsService,
         GrantReviewsService,
         TeamJoinService,

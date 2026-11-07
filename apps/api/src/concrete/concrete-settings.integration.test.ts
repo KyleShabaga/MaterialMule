@@ -554,7 +554,7 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
       expect(await canOnA(people.lm2!, 'concrete_hold.manage')).toBe(false);
     });
 
-    it('the capability list adds no concrete action: grant authority is project.edit', async () => {
+    it('the capability list adds no settings or grant action: grant authority is project.edit', async () => {
       for (const [caller, allowed] of [
         ['pe', true],
         ['admin', true],
@@ -567,11 +567,11 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
         );
         const entry = caps.capabilities.find((c) => c.action === 'project.edit');
         expect(entry?.allowed, caller).toBe(allowed);
-        // No concrete action is listed: planned ones have no route yet (AO08 Q2), and
-        // new concrete permission rows belong to C10.
+        // Only actions with a route are listed (AO08 Q2): C03 added the mix actions; the
+        // review and HOLD actions wait for their cards.
         expect(
           caps.capabilities.map((c) => c.action).filter((a) => a.startsWith('concrete')),
-        ).toEqual([]);
+        ).toEqual(['concrete_mix.manage', 'concrete_mix.approve']);
         expect(caps.capabilities.map((c) => c.action)).not.toContain('concrete_hold.manage');
         expect(caps.capabilities.map((c) => c.action)).not.toContain('concrete.review');
       }
