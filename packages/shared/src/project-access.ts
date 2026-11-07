@@ -213,6 +213,39 @@ export const projectReportIssuersSchema = z.object({
 export type ProjectReportIssuers = z.infer<typeof projectReportIssuersSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// Concrete Lab Manager grant (D13, MM-V2-C02)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * `POST /api/projects/:projectId/concrete-lab-managers` (the project's Lead Project Engineer or an
+ * admin). The recipient must hold the Lab Manager role; the grant counts only with that role.
+ */
+export const grantConcreteLabManagerRequestSchema = z.strictObject({
+  labManagerUserId: idSchema,
+  reason: grantReasonSchema,
+  idempotencyKey: idSchema,
+});
+export type GrantConcreteLabManagerRequest = z.output<typeof grantConcreteLabManagerRequestSchema>;
+
+export const concreteLabManagerGrantSchema = z.object({
+  ...historyFields,
+  labManager: personSnapshotSchema,
+  /** Usable now: not revoked, the holder's account is active and still has the Lab Manager role. */
+  effective: z.boolean(),
+  blockedReason: z.enum(['account_not_active', 'not_lab_manager']).nullable(),
+});
+export type ConcreteLabManagerGrant = z.infer<typeof concreteLabManagerGrantSchema>;
+
+export const projectConcreteLabManagersSchema = z.object({
+  projectId: z.string(),
+  canManage: z.boolean(),
+  active: z.array(concreteLabManagerGrantSchema),
+  history: z.array(concreteLabManagerGrantSchema),
+  historyTotal: z.number(),
+});
+export type ProjectConcreteLabManagers = z.infer<typeof projectConcreteLabManagersSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // Reviewer eligibility (D05) and staff capabilities (D01), per person
 // ---------------------------------------------------------------------------------------------
 
@@ -361,6 +394,8 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   'project_team.manage',
   'project_reviewer.manage',
   'report_issuer.manage',
+  // MM-V2-C02: the route that grants and revokes it exists (AO08 Q2).
+  'concrete_lab_manager.manage',
   'acceptance_delegation.manage',
   'test.accept',
   'program.close',
@@ -379,6 +414,7 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'project_team.manage': 'Add or remove team members',
   'project_reviewer.manage': 'Assign or remove reviewers',
   'report_issuer.manage': 'Authorize report issuers',
+  'concrete_lab_manager.manage': 'Grant or revoke concrete Lab Manager authority',
   'acceptance_delegation.manage': 'Add or revoke acceptance delegates',
   'test.accept': 'Accept reviewed tests',
   'program.close': 'Close lab programs',

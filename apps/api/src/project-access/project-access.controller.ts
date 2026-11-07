@@ -3,6 +3,7 @@ import type {
   PositionRules,
   ProjectLeadNominations,
   ProjectCapabilities,
+  ProjectConcreteLabManagers,
   ProjectPeople,
   ProjectGrantReviews,
   ProjectTeamJoinRequests,
@@ -31,7 +32,9 @@ import { StaffGrantsService } from './staff-grants.service.js';
  * - reviewer assignments: `project_reviewer.manage` (Lead Project Engineer or admin, D04/D05), to
  *   a person with active eligibility for the scope;
  * - report issuers: `report_issuer.manage` (the project's Lead Project Engineer only; admin never,
- *   D06/D07).
+ *   D06/D07);
+ * - concrete Lab Manager grants: `concrete_lab_manager.manage` (Lead Project Engineer or admin,
+ *   D13), to a person holding the Lab Manager role.
  *
  * Removals and revocations are `DELETE …/:id` with a JSON body holding the reason (D15).
  */
@@ -330,6 +333,40 @@ export class ProjectAccessController {
     @CurrentUser() user: AuthUser,
   ): Promise<ProjectReportIssuers> {
     return this.access.revokeReportIssuer(projectId, id, body, user);
+  }
+
+  // MM-V2-C02 (D13): the project's concrete Lab Manager grant. Personal accounts read it; the
+  // project's Lead Project Engineer or an admin grants and revokes it (`concrete_lab_manager.manage`),
+  // with a reason.
+
+  @Get('projects/:projectId/concrete-lab-managers')
+  @RequirePermission('project_access.read')
+  concreteLabManagers(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectConcreteLabManagers> {
+    return this.access.concreteLabManagerGrants(projectId, user);
+  }
+
+  @Post('projects/:projectId/concrete-lab-managers')
+  @ActiveUser()
+  grantConcreteLabManager(
+    @Param('projectId') projectId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectConcreteLabManagers> {
+    return this.access.grantConcreteLabManager(projectId, body, user);
+  }
+
+  @Delete('projects/:projectId/concrete-lab-managers/:id')
+  @ActiveUser()
+  revokeConcreteLabManager(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ProjectConcreteLabManagers> {
+    return this.access.revokeConcreteLabManager(projectId, id, body, user);
   }
 }
 

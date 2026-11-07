@@ -377,4 +377,49 @@ describe('MM-AO08 concrete permission contract (planned; no route checks these y
     expect(permissionSources(lead, 'project.edit', everyone)).toEqual(['lead_project_engineer']);
     expect(can(admin, 'concrete_mix.manage', everyone)).toBe(false);
   });
+
+  it('MM-V2-C02 (D13): the lead or an admin grant the concrete Lab Manager grant; nobody else', () => {
+    expect(permissionSources(lead, 'concrete_lab_manager.manage', everyone)).toEqual([
+      'lead_project_engineer',
+    ]);
+    expect(permissionSources(admin, 'concrete_lab_manager.manage', everyone)).toEqual(['admin']);
+    // An admin may grant on any project; a lead only on their own.
+    expect(can(admin, 'concrete_lab_manager.manage')).toBe(true);
+    expect(can(lead, 'concrete_lab_manager.manage', otherLead)).toBe(false);
+    expect(can(lead, 'concrete_lab_manager.manage')).toBe(false);
+    for (const other of [lm, reviewer, delegate, issuer, lab, user()]) {
+      expect(can(other, 'concrete_lab_manager.manage', everyone)).toBe(false);
+    }
+    // Granting is not holding: an admin who may grant still can't manage a HOLD.
+    expect(can(admin, 'concrete_hold.manage', everyone)).toBe(false);
+    expect(possibleSources('concrete_lab_manager.manage')).toEqual([
+      'admin',
+      'lead_project_engineer',
+    ]);
+  });
+
+  it('T1 matrix: every concrete action for every kind of caller', () => {
+    const callers = { lead, admin, lm, reviewer, delegate, issuer, lab, tech: user() };
+    const expected: Record<string, (keyof typeof callers)[]> = {
+      'concrete_mix.manage': ['lead'],
+      'concrete_mix.approve': ['lead'],
+      'concrete.review': ['lead', 'reviewer'],
+      'concrete_failure_schedule.approve': ['lead', 'reviewer'],
+      'concrete_hold.manage': ['lead', 'lm'],
+      'concrete_lab_manager.manage': ['lead', 'admin'],
+      'project.edit': ['lead', 'admin'],
+    };
+    for (const [permission, allowed] of Object.entries(expected)) {
+      const actual = Object.entries(callers)
+        .filter(([, caller]) => can(caller, permission as Permission, everyone))
+        .map(([name]) => name);
+      expect(actual, permission).toEqual(allowed);
+    }
+    // Inactive accounts hold none of it, whatever the project says.
+    for (const status of ['pending', 'disabled'] as const) {
+      for (const permission of Object.keys(expected)) {
+        expect(can({ ...lead, status }, permission as Permission, everyone)).toBe(false);
+      }
+    }
+  });
 });

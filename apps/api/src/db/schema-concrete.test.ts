@@ -543,7 +543,14 @@ describe.runIf(testDatabaseUrl)(
       expect(before.storage_unit!.length).toBeGreaterThan(0);
       expect(before.receipt!.length).toBeGreaterThan(0);
 
-      expect((await migrate(db.pool, all)).applied).toEqual(['0015_concrete_domain']);
+      expect(
+        (
+          await migrate(
+            db.pool,
+            all.filter((m) => m.version < '0016'),
+          )
+        ).applied,
+      ).toEqual(['0015_concrete_domain']);
 
       const after = await snapshot(db.pool);
       for (const table of ['concrete_field_report', 'concrete_specimen_set', 'concrete_specimen']) {
