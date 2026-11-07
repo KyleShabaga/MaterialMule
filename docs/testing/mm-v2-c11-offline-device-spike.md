@@ -34,7 +34,14 @@ Nothing here is production UI. The checklist uses its own IndexedDB database
    same version or bump it by hand).
 3. **Phones.** At least one current iPhone and one Android phone of the kind field staff use, in
    both setups (decided 2026-10-30): one company-managed (MDM) phone and one personal phone.
-4. Have the phones on office Wi-Fi for setup. "Offline" below means **Airplane mode on, Wi-Fi
+4. **Reaching the host from a phone.** There is no off-site access (D25), so the phone must be on
+   the **office Wi-Fi** whose DNS resolves the host name. Open `https://<host>/api/health` in the
+   phone browser first: it must return `{"status":"ok",…}` with no certificate warning, which
+   means the CA is trusted (setup below). Use the host name in the certificate, never the IP
+   address, or the certificate won't match. If the phone can't resolve the name, check it's on the
+   office SSID and not mobile data, and ask IT whether the guest network can reach the host.
+   The checklist is at **`https://<host>/offline-spike`**.
+5. Have the phones on office Wi-Fi for setup. "Offline" below means **Airplane mode on, Wi-Fi
    and mobile data off**.
 
 ## Device setup — draft steps for the runbook (AC3)
