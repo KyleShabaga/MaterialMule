@@ -109,7 +109,9 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
     scope?: string,
   ) {
     const project = (await findProject(h.db.pool, h.projects.a))!;
-    const context = await projectContext(h.db.pool, project, undefined, scope);
+    const context = await projectContext(h.db.pool, project, undefined, scope, {
+      concreteLabManagers: permission === 'concrete_hold.manage',
+    });
     return can(await principal(userId), permission, context);
   }
 
@@ -440,7 +442,7 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
         can(
           await principal(people.lm!),
           'concrete_hold.manage',
-          await projectContext(h.db.pool, b),
+          await projectContext(h.db.pool, b, undefined, undefined, { concreteLabManagers: true }),
         ),
       ).toBe(false);
 

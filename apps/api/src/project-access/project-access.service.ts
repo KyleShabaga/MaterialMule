@@ -123,6 +123,8 @@ export async function projectContext(
   project: ProjectFacts,
   reportScope?: string,
   reviewScope?: string,
+  /** MM-V2-C02: load the concrete Lab Manager grant holders (D13) for `concrete_hold.manage`. */
+  options: { concreteLabManagers?: boolean } = {},
 ): Promise<ProjectContext> {
   const { rows: delegates } = await db.query<{ delegate_user_id: string }>(
     `SELECT delegate_user_id FROM acceptance_delegation
@@ -132,8 +134,10 @@ export async function projectContext(
   const context: ProjectContext = {
     leadProjectEngineerUserId: project.lead_project_engineer_user_id,
     acceptanceDelegateUserIds: delegates.map((row) => row.delegate_user_id),
-    concreteLabManagerUserIds: await concreteLabManagers(db, project.id),
   };
+  if (options.concreteLabManagers) {
+    context.concreteLabManagerUserIds = await concreteLabManagers(db, project.id);
+  }
   if (reportScope) {
     const { rows: issuers } = await db.query<{ issuer_user_id: string }>(
       `SELECT issuer_user_id FROM project_report_issuer_grant
