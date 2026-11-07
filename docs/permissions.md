@@ -411,8 +411,9 @@ authority and are unchanged; open-task rerouting (D10) is MM-AO07.
 ## Concrete permission contract (MM-AO08)
 
 The shared authorization contract for concrete work, in `apps/api/src/auth/policy.ts` with its
-matrix in `policy.test.ts`. **Planned, not implemented:** no concrete route, screen or table exists
-yet (C01–C08 are not started), so nothing here is enforced by an endpoint, and none of these actions
+matrix in `policy.test.ts`. **Planned, not implemented:** no concrete route or screen exists yet
+(C01 added only the record tables, [concrete.md](concrete.md); C02–C08 are not started), so
+nothing here is enforced by an endpoint, and none of these actions
 appears in a project's capability list (`GET …/capabilities`, Team & Permissions) until its
 owning card adds the route (owner decision 2026-10-29, AO08 Q2). Each owning card loads the
 project facts below from the database, checks `can()` under the D09 lock order, and adds its row

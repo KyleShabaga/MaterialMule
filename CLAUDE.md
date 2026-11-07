@@ -104,6 +104,8 @@ alone before treating them as failures.
 
 - Never require or create an individual sample inventory at receiving. Receiving is per storage
   unit with one SAMPLE#/DEPTH summary per test hole; individual samples appear only in lab requests.
+  Concrete specimens (V2, docs/concrete.md) are a deliberate separate domain with individual
+  records; that never relaxes this rule for storage units.
 - Never implement a deferred decision as a default: billing D16–D18, sign-in timing D38, IT/pilot
   choices D39. Cards mark proposals that need owner confirmation; stop and ask.
 - Never change a storage unit ID after issue, recycle one, or issue one for a draft. IDs are

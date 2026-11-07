@@ -191,7 +191,8 @@ Key rules enforced by the database:
   `receipt_line` (1 = first submitted, unique per receipt) so a retried
   confirmation returns the same row-to-ID mapping.
 - **Receiving lab** is a system location and can't be deactivated.
-- No individual sample table: receiving is per storage unit.
+- No individual sample table: receiving is per storage unit. (Concrete specimens are a separate
+  domain with their own records, [concrete.md](concrete.md); this rule is unchanged.)
 - **LAB credentials (MM-T06).** `local_credential` holds one Argon2id PHC string
   per account (the string records its own cost); a trigger allows it only for `shared_lab`
   accounts. `sign_in_throttle` counts failed local sign-ins per account and per client address.
@@ -703,6 +704,16 @@ item, its routing or `audit_event`.
   dev or test database that applied either branch's old `0013` refuses to start (version clash
   or checksum): rebuild it with `npm run db:rebuild:dev -- --disposable <db>` or
   `npm run db:reset:test`.
+
+## Concrete domain roots (MM-V2-C01, `0015_concrete_domain.sql`)
+
+`concrete_field_report` → `concrete_specimen_set` → `concrete_specimen`, plus the
+`concrete_specimen_identity` view. A separate domain from storage units: it never uses their IDs,
+counters, receipts or labels, and 0015 changes no existing table. Children reference their parent
+by `(project_id, id)`, so they can't cross projects; internal UUIDs never change; a set's
+temporary and permanent IDs are nullable, attached once and never changed; a permanent number is
+unique per project and its set can't be deleted. Rules, status dimensions and which later card
+owns which fields: [concrete.md](concrete.md).
 
 ## Retention dates, holds, extensions and requests (MM-T29)
 

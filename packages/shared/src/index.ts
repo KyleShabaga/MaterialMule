@@ -30,3 +30,5 @@ export * from './notifications';
 export * from './retention';
 export * from './disposal';
 export * from './project-access';
+export * from './concrete';
+export * from './concrete-fixtures';
