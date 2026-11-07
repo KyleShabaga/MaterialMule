@@ -146,9 +146,6 @@ export type Permission =
   // Failed-specimen HOLD release/test/dispose: Lead Project Engineer, or a Lab Manager holding
   // the project's concrete grant (D13). Separate from retention.manage and tested-unit removal.
   | 'concrete_hold.manage'
-  // MM-V2-C02: grant or revoke a project's concrete Lab Manager grant (D13, AO08 Q1): the
-  // project's Lead Project Engineer or an admin, with a reason.
-  | 'concrete_lab_manager.manage'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
@@ -250,8 +247,6 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'project_reviewer.manage',
   'reviewer_eligibility.manage',
   'staff_capability.manage',
-  // MM-V2-C02 (D13, AO08 Q1): granting concrete Lab Manager authority; never the HOLD itself.
-  'concrete_lab_manager.manage',
 ]);
 
 /** Granted to the project's Lead Project Engineer (project-scoped). */
@@ -277,7 +272,6 @@ const LEAD_PROJECT_ENGINEER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permi
   'concrete.review',
   'concrete_failure_schedule.approve',
   'concrete_hold.manage',
-  'concrete_lab_manager.manage',
 ]);
 
 /** Granted to a project acceptance delegate (D04): acceptance only, never closure. */

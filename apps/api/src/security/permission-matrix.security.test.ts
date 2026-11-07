@@ -122,8 +122,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-V2-C02: concrete settings by the project's lead or an admin (project.edit, AO08 Q4); the
   // concrete Lab Manager grant by the lead or an admin (D13).
   'PATCH /api/projects/:projectId/concrete-settings': 'project.edit',
-  'POST /api/projects/:projectId/concrete-lab-managers': 'concrete_lab_manager.manage',
-  'DELETE /api/projects/:projectId/concrete-lab-managers/:id': 'concrete_lab_manager.manage',
+  'POST /api/projects/:projectId/concrete-lab-managers': 'project.edit',
+  'DELETE /api/projects/:projectId/concrete-lab-managers/:id': 'project.edit',
   'GET /api/me/grants': null,
 };
 

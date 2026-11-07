@@ -670,43 +670,37 @@ export class ProjectAccessService {
    * as it stands under the account lock (422 `not_lab_manager`; the database refuses it too).
    */
   grantConcreteLabManager(projectId: string, body: unknown, user: AuthUser) {
-    return this.start(
-      projectId,
-      user,
-      'concrete_lab_manager.manage',
-      CONCRETE_LAB_MANAGER_GRANT,
-      async (ctx) => {
-        const request = parseBody(grantConcreteLabManagerRequestSchema, body);
-        return {
-          subjectId: request.labManagerUserId,
-          subjectField: 'labManagerUserId',
-          scope: null,
+    return this.start(projectId, user, 'project.edit', CONCRETE_LAB_MANAGER_GRANT, async (ctx) => {
+      const request = parseBody(grantConcreteLabManagerRequestSchema, body);
+      return {
+        subjectId: request.labManagerUserId,
+        subjectField: 'labManagerUserId',
+        scope: null,
+        reason: request.reason,
+        key: request.idempotencyKey,
+        hash: intentHash({
+          projectId,
+          labManagerUserId: request.labManagerUserId,
           reason: request.reason,
-          key: request.idempotencyKey,
-          hash: intentHash({
-            projectId,
-            labManagerUserId: request.labManagerUserId,
-            reason: request.reason,
-          }),
-          check: async (client) => {
-            // `start` holds the recipient's account FOR SHARE, so a role change (which locks it
-            // FOR UPDATE) commits wholly before or after this grant.
-            const { rows } = await client.query(
-              `SELECT 1 FROM role_assignment WHERE user_id = $1 AND role = 'lab_manager'`,
-              [request.labManagerUserId],
+        }),
+        check: async (client) => {
+          // `start` holds the recipient's account FOR SHARE, so a role change (which locks it
+          // FOR UPDATE) commits wholly before or after this grant.
+          const { rows } = await client.query(
+            `SELECT 1 FROM role_assignment WHERE user_id = $1 AND role = 'lab_manager'`,
+            [request.labManagerUserId],
+          );
+          if (rows.length === 0) {
+            unprocessable(
+              'not_lab_manager',
+              'labManagerUserId',
+              'Only a Lab Manager can hold this project’s concrete grant',
             );
-            if (rows.length === 0) {
-              unprocessable(
-                'not_lab_manager',
-                'labManagerUserId',
-                'Only a Lab Manager can hold this project’s concrete grant',
-              );
-            }
-          },
-          view: (client) => this.concreteLabManagersView(client, ctx.project, ctx.user),
-        };
-      },
-    );
+          }
+        },
+        view: (client) => this.concreteLabManagersView(client, ctx.project, ctx.user),
+      };
+    });
   }
 
   revokeConcreteLabManager(projectId: string, id: string, body: unknown, user: AuthUser) {
@@ -715,7 +709,7 @@ export class ProjectAccessService {
       id,
       body,
       user,
-      'concrete_lab_manager.manage',
+      'project.edit',
       CONCRETE_LAB_MANAGER_GRANT,
       (c, p, u) => this.concreteLabManagersView(c, p, u),
     );
@@ -1041,7 +1035,7 @@ export class ProjectAccessService {
     };
     return {
       projectId: project.id,
-      canManage: can(user, 'concrete_lab_manager.manage', await projectContext(db, project)),
+      canManage: can(user, 'project.edit', await projectContext(db, project)),
       active: rows.active.map(toView),
       history: rows.history.map(toView),
       historyTotal: rows.historyTotal,

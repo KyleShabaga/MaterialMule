@@ -111,7 +111,7 @@ the shared contracts; none may repurpose a C01 column.
   approval. A route checking `concrete.review` loads them with
   `projectContext(db, project, undefined, scope)` (fills `designatedReviewerUserIds`).
 - **Concrete Lab Manager grant** (D13): `GET/POST /api/projects/:projectId/concrete-lab-managers`,
-  `DELETE …/:id {reason}`. `projectContext()` always fills `concreteLabManagerUserIds`; the policy
+  `DELETE …/:id {reason}`, under `project.edit` (lead or admin). `projectContext()` always fills `concreteLabManagerUserIds`; the policy
   counts it only with the lab_manager role (`concrete_hold.manage`).
 - **For each concrete route:** load the project facts with `projectContext()`, check `can()` with
   the request's user before the body, then again under the D09 lock order (domain rows, project,

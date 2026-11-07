@@ -552,7 +552,7 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
       expect(await canOnA(people.lm2!, 'concrete_hold.manage')).toBe(false);
     });
 
-    it('the capability list reports concrete_lab_manager.manage now that its route exists', async () => {
+    it('the capability list adds no concrete action: grant authority is project.edit', async () => {
       for (const [caller, allowed] of [
         ['pe', true],
         ['admin', true],
@@ -563,9 +563,13 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
         const caps = projectCapabilitiesSchema.parse(
           (await get(path('a', 'capabilities'), caller)).body,
         );
-        const entry = caps.capabilities.find((c) => c.action === 'concrete_lab_manager.manage');
+        const entry = caps.capabilities.find((c) => c.action === 'project.edit');
         expect(entry?.allowed, caller).toBe(allowed);
-        // Planned concrete actions without a route stay out of the list (AO08 Q2).
+        // No concrete action is listed: planned ones have no route yet (AO08 Q2), and
+        // new concrete permission rows belong to C10.
+        expect(
+          caps.capabilities.map((c) => c.action).filter((a) => a.startsWith('concrete')),
+        ).toEqual([]);
         expect(caps.capabilities.map((c) => c.action)).not.toContain('concrete_hold.manage');
         expect(caps.capabilities.map((c) => c.action)).not.toContain('concrete.review');
       }

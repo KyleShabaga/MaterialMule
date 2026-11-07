@@ -217,8 +217,8 @@ export type ProjectReportIssuers = z.infer<typeof projectReportIssuersSchema>;
 // ---------------------------------------------------------------------------------------------
 
 /**
- * `POST /api/projects/:projectId/concrete-lab-managers` (the project's Lead Project Engineer or an
- * admin). The recipient must hold the Lab Manager role; the grant counts only with that role.
+ * `POST /api/projects/:projectId/concrete-lab-managers` (`project.edit`: the project's Lead
+ * Project Engineer or an admin). The recipient must hold the Lab Manager role; the grant counts only with that role.
  */
 export const grantConcreteLabManagerRequestSchema = z.strictObject({
   labManagerUserId: idSchema,
@@ -394,8 +394,6 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   'project_team.manage',
   'project_reviewer.manage',
   'report_issuer.manage',
-  // MM-V2-C02: the route that grants and revokes it exists (AO08 Q2).
-  'concrete_lab_manager.manage',
   'acceptance_delegation.manage',
   'test.accept',
   'program.close',
@@ -414,7 +412,6 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'project_team.manage': 'Add or remove team members',
   'project_reviewer.manage': 'Assign or remove reviewers',
   'report_issuer.manage': 'Authorize report issuers',
-  'concrete_lab_manager.manage': 'Grant or revoke concrete Lab Manager authority',
   'acceptance_delegation.manage': 'Add or revoke acceptance delegates',
   'test.accept': 'Accept reviewed tests',
   'program.close': 'Close lab programs',

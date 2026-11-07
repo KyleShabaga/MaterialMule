@@ -378,26 +378,6 @@ describe('MM-AO08 concrete permission contract (planned; no route checks these y
     expect(can(admin, 'concrete_mix.manage', everyone)).toBe(false);
   });
 
-  it('MM-V2-C02 (D13): the lead or an admin grant the concrete Lab Manager grant; nobody else', () => {
-    expect(permissionSources(lead, 'concrete_lab_manager.manage', everyone)).toEqual([
-      'lead_project_engineer',
-    ]);
-    expect(permissionSources(admin, 'concrete_lab_manager.manage', everyone)).toEqual(['admin']);
-    // An admin may grant on any project; a lead only on their own.
-    expect(can(admin, 'concrete_lab_manager.manage')).toBe(true);
-    expect(can(lead, 'concrete_lab_manager.manage', otherLead)).toBe(false);
-    expect(can(lead, 'concrete_lab_manager.manage')).toBe(false);
-    for (const other of [lm, reviewer, delegate, issuer, lab, user()]) {
-      expect(can(other, 'concrete_lab_manager.manage', everyone)).toBe(false);
-    }
-    // Granting is not holding: an admin who may grant still can't manage a HOLD.
-    expect(can(admin, 'concrete_hold.manage', everyone)).toBe(false);
-    expect(possibleSources('concrete_lab_manager.manage')).toEqual([
-      'admin',
-      'lead_project_engineer',
-    ]);
-  });
-
   it('T1 matrix: every concrete action for every kind of caller', () => {
     const callers = { lead, admin, lm, reviewer, delegate, issuer, lab, tech: user() };
     const expected: Record<string, (keyof typeof callers)[]> = {
@@ -406,7 +386,7 @@ describe('MM-AO08 concrete permission contract (planned; no route checks these y
       'concrete.review': ['lead', 'reviewer'],
       'concrete_failure_schedule.approve': ['lead', 'reviewer'],
       'concrete_hold.manage': ['lead', 'lm'],
-      'concrete_lab_manager.manage': ['lead', 'admin'],
+      // Settings and the concrete Lab Manager grant (C02) reuse project.edit.
       'project.edit': ['lead', 'admin'],
     };
     for (const [permission, allowed] of Object.entries(expected)) {
