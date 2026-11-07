@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { applyPageTitle } from './layout/page-title';
+import { registerServiceWorker } from './offline/service-worker';
 import { routes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
 import { applyStoredTheme } from './theme/theme';
@@ -38,3 +39,6 @@ createRoot(root).render(
     </SessionProvider>
   </StrictMode>,
 );
+
+// MM-V2-C11 spike: app-shell worker so the app can start with no connection.
+registerServiceWorker();

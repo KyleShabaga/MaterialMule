@@ -43,6 +43,7 @@ import { MyAccessPage } from './settings/access/MyAccessPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
+import { OfflineSpikePage } from './offline/OfflineSpikePage';
 
 const featureRoutes: RouteObject[] = [
   ...(FEATURES.labTesting
@@ -89,6 +90,8 @@ export const routes: RouteObject[] = [
       { path: '/sign-in/test', element: <TestSignInPage /> },
       { path: '/sign-in/microsoft/callback', element: <MicrosoftCallbackPage /> },
       { path: '/access-pending', element: <AccessPendingPage /> },
+      // MM-V2-C11 throwaway scenario checklist: no sign-in and no server data, so it opens offline.
+      { path: '/offline-spike', element: <OfflineSpikePage /> },
       {
         element: <RequireActiveSession />,
         children: [

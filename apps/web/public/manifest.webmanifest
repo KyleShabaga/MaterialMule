@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "Material Mule",
+  "short_name": "Material Mule",
+  "description": "Sample storage and field reports (MM-V2-C11 offline spike build).",
+  "start_url": "/offline-spike?launch=home-screen",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0369a1",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

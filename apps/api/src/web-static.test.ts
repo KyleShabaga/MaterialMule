@@ -19,6 +19,8 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
     mkdirSync(join(dist, 'assets'), { recursive: true });
     writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Material Mule</title>');
     writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("app")');
+    writeFileSync(join(dist, 'sw.js'), 'self.addEventListener("fetch", () => {});');
+    writeFileSync(join(dist, 'manifest.webmanifest'), '{"name":"Material Mule"}');
     app = await createApp(
       loadConfig({
         APP_ENV: 'test',
@@ -40,6 +42,32 @@ describe('serving the built web app (WEB_DIST_DIR)', () => {
     const response = await request(app.getHttpServer()).get('/assets/app.js');
     expect(response.status).toBe(200);
     expect(response.text).toContain('console.log');
+  });
+
+  it('serves the service worker at the root scope, always revalidated (MM-V2-C11)', async () => {
+    const response = await request(app.getHttpServer()).get('/sw.js');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/^(application|text)\/javascript/);
+    expect(response.headers['cache-control']).toBe('no-cache');
+    expect(response.headers['service-worker-allowed']).toBeUndefined();
+  });
+
+  it('serves the web app manifest with its media type (MM-V2-C11)', async () => {
+    const response = await request(app.getHttpServer()).get('/manifest.webmanifest');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/^application\/manifest\+json/);
+    expect(response.headers['cache-control']).toBe('no-cache');
+  });
+
+  it('answers /sw.js with 404, not index.html, when a build has no worker', async () => {
+    rmSync(join(dist, 'sw.js'));
+    try {
+      const response = await request(app.getHttpServer()).get('/sw.js');
+      expect(response.status).toBe(404);
+      expect(response.text).not.toContain('<title>Material Mule</title>');
+    } finally {
+      writeFileSync(join(dist, 'sw.js'), 'self.addEventListener("fetch", () => {});');
+    }
   });
 
   it('returns index.html for client-side routes', async () => {
