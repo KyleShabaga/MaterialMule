@@ -41,6 +41,14 @@ export interface ProjectContext {
    * Counts only together with the global lab_manager role.
    */
   concreteLabManagerUserIds?: string[];
+  /**
+   * MM-V2-C10: the technician of the one concrete record being checked, loaded per record by the
+   * owning card (like the reviewer list per scope): the report's technician (recall, unsubmitted
+   * field-data conflicts), the casting technician of the specimen's report (receiving
+   * exceptions), or the original technician of a recovery file. Always a personal or test
+   * account (C01 trigger); LAB never holds it, whoever a station selects.
+   */
+  recordTechnicianUserId?: string | null;
 }
 
 /**
@@ -58,7 +66,9 @@ export type PermissionSource =
   // MM-AO08 concrete contract: a designated reviewer for the scope being checked (D05), and the
   // per-project concrete Lab Manager grant together with the lab_manager role (D13).
   | 'designated_reviewer'
-  | 'concrete_lab_manager';
+  | 'concrete_lab_manager'
+  // MM-V2-C10: the technician of the one concrete record being checked.
+  | 'record_technician';
 
 export type Permission =
   // Receiving and inventory (LAB may do these)
@@ -146,6 +156,45 @@ export type Permission =
   // Failed-specimen HOLD release/test/dispose: Lead Project Engineer, or a Lab Manager holding
   // the project's concrete grant (D13). Separate from retention.manage and tested-unit removal.
   | 'concrete_hold.manage'
+  // Concrete contract extension (MM-V2-C10, owner decisions 2026-10-30, gap review §3). Planned:
+  // no route checks these yet; each owning card (docs/permissions.md) adds its route, loads the
+  // facts and adds its capability row.
+  // Field report draft: create, edit own, Ready to submit. Any internal user on any project, and
+  // LAB with the performing staff member selected (attribution only). The handler edits only
+  // drafts whose technician is the acting person (C04, C19).
+  | 'concrete_report.draft'
+  // Recall a submitted, not yet reviewed report: that report's technician (C09).
+  | 'concrete_report.recall'
+  // Missing, extra or unreadable specimens: lead, designated reviewer, concrete-grant Lab Manager,
+  // or the casting technician for specimens they cast; personal account, reason (C21).
+  | 'concrete_receiving_exception.resolve'
+  // Sync conflicts (C17): unsubmitted field data by the record's technician; receiving, test or
+  // submitted data by the lead or a designated reviewer. TODO(owner): the plan also names "Lab
+  // Manager" for the latter without saying role alone or role plus the project's concrete grant;
+  // neither is granted until the owner answers.
+  | 'concrete_sync_conflict.resolve_field'
+  | 'concrete_sync_conflict.resolve_lab'
+  // Import a recovery file: the original technician or any Lab Manager (role alone) (C16).
+  | 'concrete_recovery.import'
+  // Ordinary HOLD release and disposal authorization: lead and every Lab Manager (role alone, no
+  // grant). Failed-specimen holds keep concrete_hold.manage (C26).
+  | 'concrete_ordinary_hold.manage'
+  // Void a numbered set; reschedule outside the failure rule: lead, designated reviewer, or
+  // concrete-grant Lab Manager; personal account, reason (C18, C22).
+  | 'concrete_set.void'
+  | 'concrete_specimen.reschedule'
+  // Global concrete settings: curing-standard ranges (Lab Manager or admin), testing-machine
+  // settings (Lab Manager, C27), attachment size limit (admin, C15).
+  | 'concrete_settings.curing_standard.manage'
+  | 'concrete_settings.testing_machine.manage'
+  | 'concrete_settings.attachment_limit.manage'
+  // TODO(owner): "any active lab staff" has no server definition (roles are admin and
+  // lab_manager only; MISC-06: position grants nothing). Granted to nobody until the owner
+  // defines it; see PENDING_OWNER_DECISION.
+  | 'concrete_specimen.receive'
+  | 'concrete_specimen.mass_correct'
+  | 'concrete_test.enter'
+  | 'concrete_specimen.dispose_record'
   // Administration
   | 'staff.manage'
   | 'session.revoke'
@@ -177,6 +226,8 @@ export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   // the person doing it. Priority, review/acceptance, closure and removal stay personal-only.
   'test.progress',
   'lab_comment.write',
+  // MM-V2-C10: concrete field report drafts, attributed to the performing staff member.
+  'concrete_report.draft',
 ]);
 
 /** Any active personal (or test) account. */
@@ -223,6 +274,11 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'location.manage',
   // Action request reassignment (MM-T27, Kyle 2026-10-26).
   'action_item.reassign',
+  // MM-V2-C10 (role alone, no project grant).
+  'concrete_recovery.import',
+  'concrete_ordinary_hold.manage',
+  'concrete_settings.curing_standard.manage',
+  'concrete_settings.testing_machine.manage',
 ]);
 
 /** Granted by the admin role. Admin never implies project authority or Lab Manager rights. */
@@ -247,6 +303,9 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'project_reviewer.manage',
   'reviewer_eligibility.manage',
   'staff_capability.manage',
+  // MM-V2-C10 global concrete settings. Never any concrete workflow authority.
+  'concrete_settings.curing_standard.manage',
+  'concrete_settings.attachment_limit.manage',
 ]);
 
 /** Granted to the project's Lead Project Engineer (project-scoped). */
@@ -272,6 +331,12 @@ const LEAD_PROJECT_ENGINEER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permi
   'concrete.review',
   'concrete_failure_schedule.approve',
   'concrete_hold.manage',
+  // MM-V2-C10 (planned).
+  'concrete_receiving_exception.resolve',
+  'concrete_sync_conflict.resolve_lab',
+  'concrete_ordinary_hold.manage',
+  'concrete_set.void',
+  'concrete_specimen.reschedule',
 ]);
 
 /** Granted to a project acceptance delegate (D04): acceptance only, never closure. */
@@ -284,16 +349,53 @@ const REPORT_ISSUER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
 const DESIGNATED_REVIEWER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'concrete.review',
   'concrete_failure_schedule.approve',
+  // MM-V2-C10 (planned).
+  'concrete_receiving_exception.resolve',
+  'concrete_sync_conflict.resolve_lab',
+  'concrete_set.void',
+  'concrete_specimen.reschedule',
 ]);
 
 /** Granted by the project's concrete Lab Manager grant, with the lab_manager role (D13). */
 const CONCRETE_LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'concrete_hold.manage',
+  // MM-V2-C10 (planned).
+  'concrete_receiving_exception.resolve',
+  'concrete_set.void',
+  'concrete_specimen.reschedule',
+]);
+
+/**
+ * Granted to the technician of the one concrete record being checked (MM-V2-C10), personal
+ * accounts only: never through a LAB station's selected person.
+ */
+const RECORD_TECHNICIAN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  'concrete_report.recall',
+  'concrete_receiving_exception.resolve',
+  'concrete_sync_conflict.resolve_field',
+  'concrete_recovery.import',
+]);
+
+/**
+ * TODO(owner): concrete actions the owner assigned to "any active lab staff" (pickup, receipt and
+ * mass entry; mass correction; test entry and correction; recording actual disposal). There is
+ * no server definition of lab staff (roles are admin and lab_manager; position grants nothing,
+ * MISC-06), so these are granted by no source and every caller is denied until the owner decides
+ * (every internal user, a position-based rule like MISC-08, or a new role). Blocks C06/C07,
+ * C20, C23 and C26's disposal recording.
+ */
+export const PENDING_OWNER_DECISION: ReadonlySet<Permission> = new Set<Permission>([
+  'concrete_specimen.receive',
+  'concrete_specimen.mass_correct',
+  'concrete_test.enter',
+  'concrete_specimen.dispose_record',
 ]);
 
 /** Permissions that need a ProjectContext to be granted through project authority. */
 export const PROJECT_SCOPED: ReadonlySet<Permission> = new Set<Permission>([
   ...LEAD_PROJECT_ENGINEER_PERMISSIONS,
+  // MM-V2-C10: the record technician's rows need the record's facts too.
+  ...RECORD_TECHNICIAN_PERMISSIONS,
 ]);
 
 /** Every source that could ever grant `permission`, for a blocked reason (MM-AO03). */
@@ -308,6 +410,7 @@ export function possibleSources(permission: Permission): PermissionSource[] {
   if (REPORT_ISSUER_PERMISSIONS.has(permission)) sources.push('report_issuer');
   if (DESIGNATED_REVIEWER_PERMISSIONS.has(permission)) sources.push('designated_reviewer');
   if (CONCRETE_LAB_MANAGER_PERMISSIONS.has(permission)) sources.push('concrete_lab_manager');
+  if (RECORD_TECHNICIAN_PERMISSIONS.has(permission)) sources.push('record_technician');
   return sources;
 }
 
@@ -368,6 +471,13 @@ export function permissionSources(
       CONCRETE_LAB_MANAGER_PERMISSIONS.has(permission)
     ) {
       sources.push('concrete_lab_manager');
+    }
+    if (
+      project.recordTechnicianUserId != null &&
+      project.recordTechnicianUserId === user.userId &&
+      RECORD_TECHNICIAN_PERMISSIONS.has(permission)
+    ) {
+      sources.push('record_technician');
     }
   }
   return sources;

@@ -80,6 +80,9 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'project_lead.nominate',
   'reviewer_eligibility.manage',
   'staff_capability.manage',
+  // MM-V2-C10: on LAB's allow-list, so /api/me must report it (LAB's list equals LAB_PERMISSIONS).
+  // No route checks it yet (C04 adds the draft routes).
+  'concrete_report.draft',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */
