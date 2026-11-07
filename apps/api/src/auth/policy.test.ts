@@ -3,6 +3,7 @@ import {
   can,
   permissionSources,
   possibleSources,
+  PENDING_OWNER_DECISION,
   type AuthUser,
   type Permission,
   type ProjectContext,
@@ -401,5 +402,249 @@ describe('MM-AO08 concrete permission contract (planned; no route checks these y
         expect(can({ ...lead, status }, permission as Permission, everyone)).toBe(false);
       }
     }
+  });
+});
+
+describe('MM-V2-C10 concrete contract extension (planned; no route checks these yet)', () => {
+  const lead = user({ userId: 'u-pe' });
+  const admin = user({ userId: 'u-admin', roles: ['admin'] });
+  const lm = user({ userId: 'u-lm2', roles: ['lab_manager'] });
+  const grantLm = user({ userId: 'u-lm', roles: ['lab_manager'] });
+  const grantOnly = user({ userId: 'u-lm' });
+  const reviewer = user({ userId: 'u-rv' });
+  const delegate = user({ userId: 'u-de' });
+  const issuer = user({ userId: 'u-is' });
+  const technician = user({ userId: 'u-tc' });
+  const internal = user({ userId: 'u-other' });
+  // LAB with a selected staff member: its id may even equal the technician's, and a role may be
+  // assigned by mistake. Selection is attribution only.
+  const lab = user({ userId: 'u-tc', accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
+  const ctx: ProjectContext = {
+    leadProjectEngineerUserId: 'u-pe',
+    acceptanceDelegateUserIds: ['u-de'],
+    reportIssuerUserIds: ['u-is'],
+    designatedReviewerUserIds: ['u-rv'],
+    concreteLabManagerUserIds: ['u-lm'],
+    recordTechnicianUserId: 'u-tc',
+  };
+  const callers = {
+    lead,
+    admin,
+    lm,
+    grantLm,
+    grantOnly,
+    reviewer,
+    delegate,
+    issuer,
+    technician,
+    internal,
+    lab,
+  };
+  type Caller = keyof typeof callers;
+
+  // The documented rule per row (docs/permissions.md "Concrete contract extension (MM-V2-C10)").
+  const rows: Record<string, { allowed: Caller[]; sources: string[] }> = {
+    'concrete_report.draft': {
+      allowed: Object.keys(callers) as Caller[],
+      sources: ['lab', 'internal'],
+    },
+    'concrete_report.recall': { allowed: ['technician'], sources: ['record_technician'] },
+    'concrete_receiving_exception.resolve': {
+      allowed: ['lead', 'grantLm', 'reviewer', 'technician'],
+      sources: [
+        'lead_project_engineer',
+        'designated_reviewer',
+        'concrete_lab_manager',
+        'record_technician',
+      ],
+    },
+    'concrete_sync_conflict.resolve_field': {
+      allowed: ['technician'],
+      sources: ['record_technician'],
+    },
+    'concrete_sync_conflict.resolve_lab': {
+      allowed: ['lead', 'reviewer'],
+      sources: ['lead_project_engineer', 'designated_reviewer'],
+    },
+    'concrete_recovery.import': {
+      allowed: ['lm', 'grantLm', 'technician'],
+      sources: ['lab_manager', 'record_technician'],
+    },
+    'concrete_ordinary_hold.manage': {
+      allowed: ['lead', 'lm', 'grantLm'],
+      sources: ['lab_manager', 'lead_project_engineer'],
+    },
+    'concrete_set.void': {
+      allowed: ['lead', 'grantLm', 'reviewer'],
+      sources: ['lead_project_engineer', 'designated_reviewer', 'concrete_lab_manager'],
+    },
+    'concrete_specimen.reschedule': {
+      allowed: ['lead', 'grantLm', 'reviewer'],
+      sources: ['lead_project_engineer', 'designated_reviewer', 'concrete_lab_manager'],
+    },
+    'concrete_settings.curing_standard.manage': {
+      allowed: ['admin', 'lm', 'grantLm'],
+      sources: ['lab_manager', 'admin'],
+    },
+    'concrete_settings.testing_machine.manage': {
+      allowed: ['lm', 'grantLm'],
+      sources: ['lab_manager'],
+    },
+    'concrete_settings.attachment_limit.manage': { allowed: ['admin'], sources: ['admin'] },
+  };
+
+  it('T1/AC1: every new row matches the documented rule for every kind of caller', () => {
+    for (const [permission, { allowed, sources }] of Object.entries(rows)) {
+      const actual = (Object.entries(callers) as [Caller, AuthUser][])
+        .filter(([, caller]) => can(caller, permission as Permission, ctx))
+        .map(([name]) => name);
+      expect(actual.sort(), permission).toEqual([...allowed].sort());
+      expect(possibleSources(permission as Permission), permission).toEqual(sources);
+      // Inactive accounts hold none of it.
+      for (const status of ['pending', 'disabled'] as const) {
+        for (const caller of Object.values(callers)) {
+          expect(can({ ...caller, status }, permission as Permission, ctx)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('reports the exact source for each caller', () => {
+    expect(permissionSources(technician, 'concrete_receiving_exception.resolve', ctx)).toEqual([
+      'record_technician',
+    ]);
+    expect(permissionSources(grantLm, 'concrete_set.void', ctx)).toEqual(['concrete_lab_manager']);
+    expect(permissionSources(grantLm, 'concrete_recovery.import', ctx)).toEqual(['lab_manager']);
+    expect(permissionSources(lm, 'concrete_ordinary_hold.manage', ctx)).toEqual(['lab_manager']);
+    expect(permissionSources(lab, 'concrete_report.draft', ctx)).toEqual(['lab']);
+    const both = user({ userId: 'u-pe', roles: ['lab_manager'] });
+    expect(permissionSources(both, 'concrete_ordinary_hold.manage', ctx)).toEqual([
+      'lab_manager',
+      'lead_project_engineer',
+    ]);
+  });
+
+  it('AC2: a casting technician resolves only specimens they cast', () => {
+    const otherSpecimen: ProjectContext = { ...ctx, recordTechnicianUserId: 'u-someone' };
+    expect(can(technician, 'concrete_receiving_exception.resolve', ctx)).toBe(true);
+    expect(can(technician, 'concrete_receiving_exception.resolve', otherSpecimen)).toBe(false);
+    expect(
+      can(technician, 'concrete_receiving_exception.resolve', {
+        ...ctx,
+        recordTechnicianUserId: null,
+      }),
+    ).toBe(false);
+    // Without the record's facts, nothing record-scoped.
+    for (const permission of [
+      'concrete_report.recall',
+      'concrete_receiving_exception.resolve',
+      'concrete_sync_conflict.resolve_field',
+      'concrete_recovery.import',
+    ] as const) {
+      expect(can(technician, permission), permission).toBe(false);
+      expect(can(technician, permission, otherSpecimen), permission).toBe(false);
+    }
+  });
+
+  it('AC2: being a record’s technician confers nothing else', () => {
+    for (const permission of [
+      'concrete_set.void',
+      'concrete_specimen.reschedule',
+      'concrete_sync_conflict.resolve_lab',
+      'concrete_ordinary_hold.manage',
+      'concrete_hold.manage',
+      'concrete.review',
+      'project.edit',
+      'test.accept',
+    ] as const) {
+      expect(can(technician, permission, ctx), permission).toBe(false);
+    }
+  });
+
+  it('AC3: LAB with a selected staff member is denied every personal-account action', () => {
+    // LAB's id equals the record technician's here; a lead, reviewer or grant id must not help.
+    const stations = [
+      lab,
+      user({ userId: 'u-pe', accountType: 'shared_lab', roles: ['admin', 'lab_manager'] }),
+      user({ userId: 'u-rv', accountType: 'shared_lab' }),
+      user({ userId: 'u-lm', accountType: 'shared_lab', roles: ['lab_manager'] }),
+    ];
+    for (const station of stations) {
+      for (const permission of Object.keys(rows) as Permission[]) {
+        expect(can(station, permission, ctx), `${station.userId} ${permission}`).toBe(
+          permission === 'concrete_report.draft',
+        );
+      }
+    }
+  });
+
+  it('project-scoped rows need that project: another lead, reviewer list or grant gives nothing', () => {
+    const elsewhere: ProjectContext = { leadProjectEngineerUserId: 'u-other-lead' };
+    for (const permission of [
+      'concrete_receiving_exception.resolve',
+      'concrete_sync_conflict.resolve_lab',
+      'concrete_set.void',
+      'concrete_specimen.reschedule',
+    ] as const) {
+      for (const caller of [lead, reviewer, grantLm]) {
+        expect(can(caller, permission, elsewhere), permission).toBe(false);
+        expect(can(caller, permission), permission).toBe(false);
+      }
+    }
+    // Ordinary HOLD: Lab Managers by role anywhere; the lead only on their project.
+    expect(can(lm, 'concrete_ordinary_hold.manage')).toBe(true);
+    expect(can(lead, 'concrete_ordinary_hold.manage', elsewhere)).toBe(false);
+  });
+
+  it('ordinary HOLD (role alone) stays separate from the failed-specimen HOLD (role + grant)', () => {
+    expect(can(lm, 'concrete_ordinary_hold.manage', ctx)).toBe(true);
+    expect(can(lm, 'concrete_hold.manage', ctx)).toBe(false);
+    expect(can(grantLm, 'concrete_hold.manage', ctx)).toBe(true);
+    // The grant without the role still gives nothing.
+    expect(can(grantOnly, 'concrete_ordinary_hold.manage', ctx)).toBe(false);
+    expect(can(grantOnly, 'concrete_set.void', ctx)).toBe(false);
+    // Admin never holds concrete workflow authority.
+    for (const permission of [
+      'concrete_ordinary_hold.manage',
+      'concrete_set.void',
+      'concrete_recovery.import',
+    ] as const) {
+      expect(can(admin, permission, ctx), permission).toBe(false);
+    }
+  });
+
+  it('TODO(owner): "any active lab staff" rows are granted to nobody until the owner decides', () => {
+    expect([...PENDING_OWNER_DECISION].sort()).toEqual([
+      'concrete_specimen.dispose_record',
+      'concrete_specimen.mass_correct',
+      'concrete_specimen.receive',
+      'concrete_test.enter',
+    ]);
+    const everyone = [
+      ...Object.values(callers),
+      user({ userId: 'u-all', roles: ['admin', 'lab_manager'] }),
+      user({ userId: 'u-pe', roles: ['admin', 'lab_manager'] }),
+    ];
+    for (const permission of PENDING_OWNER_DECISION) {
+      expect(possibleSources(permission), permission).toEqual([]);
+      for (const caller of everyone) {
+        expect(can(caller, permission, ctx), `${caller.userId} ${permission}`).toBe(false);
+        expect(can(caller, permission), `${caller.userId} ${permission}`).toBe(false);
+      }
+    }
+  });
+
+  it('T2/AC4: AO08 rows are unchanged by the extension', () => {
+    expect(possibleSources('concrete_hold.manage')).toEqual([
+      'lead_project_engineer',
+      'concrete_lab_manager',
+    ]);
+    expect(possibleSources('concrete.review')).toEqual([
+      'lead_project_engineer',
+      'designated_reviewer',
+    ]);
+    expect(possibleSources('concrete_mix.manage')).toEqual(['lead_project_engineer']);
+    expect(possibleSources('project.create')).toEqual(['lab', 'internal']);
+    expect(can(technician, 'concrete.review', ctx)).toBe(false);
   });
 });
