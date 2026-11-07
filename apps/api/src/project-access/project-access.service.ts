@@ -14,9 +14,12 @@ import {
   effectiveJobTitle,
   assignReviewerRequestSchema,
   endGrantRequestSchema,
+  grantConcreteLabManagerRequestSchema,
   grantReportIssuerRequestSchema,
   revokeReportIssuerRequestSchema,
   type Capability,
+  type ConcreteLabManagerGrant,
+  type ProjectConcreteLabManagers,
   type ProjectCapabilities,
   type ProjectPeople,
   type ProjectReportIssuers,
@@ -44,6 +47,7 @@ import { likePattern } from '../staff/staff.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { lockReviewEligibility } from './review-eligibility.js';
 import {
+  CONCRETE_LAB_MANAGER_GRANT,
   REPORT_ISSUER_GRANT,
   REVIEWABLE_GRANTS,
   REVIEWER_ASSIGNMENT,
@@ -119,6 +123,8 @@ export async function projectContext(
   project: ProjectFacts,
   reportScope?: string,
   reviewScope?: string,
+  /** MM-V2-C02: load the concrete Lab Manager grant holders (D13) for `concrete_hold.manage`. */
+  options: { concreteLabManagers?: boolean } = {},
 ): Promise<ProjectContext> {
   const { rows: delegates } = await db.query<{ delegate_user_id: string }>(
     `SELECT delegate_user_id FROM acceptance_delegation
@@ -129,6 +135,9 @@ export async function projectContext(
     leadProjectEngineerUserId: project.lead_project_engineer_user_id,
     acceptanceDelegateUserIds: delegates.map((row) => row.delegate_user_id),
   };
+  if (options.concreteLabManagers) {
+    context.concreteLabManagerUserIds = await concreteLabManagers(db, project.id);
+  }
   if (reportScope) {
     const { rows: issuers } = await db.query<{ issuer_user_id: string }>(
       `SELECT issuer_user_id FROM project_report_issuer_grant
@@ -164,6 +173,20 @@ export async function designatedReviewers(
     [projectId, scope],
   );
   return rows.map((row) => row.reviewer_user_id);
+}
+
+/**
+ * MM-V2-C02 (D13): holders of the project's active concrete Lab Manager grant, read live on every
+ * check. The policy adds the lab_manager role and account state on top (the grant alone is never
+ * enough), so a role removal or disable ends its effect at once.
+ */
+export async function concreteLabManagers(db: Db, projectId: string): Promise<string[]> {
+  const { rows } = await db.query<{ lab_manager_user_id: string }>(
+    `SELECT lab_manager_user_id FROM project_concrete_lab_manager_grant
+     WHERE project_id = $1 AND revoked_at IS NULL`,
+    [projectId],
+  );
+  return rows.map((row) => row.lab_manager_user_id);
 }
 
 /** One effective capability, with its sources or the reason it is blocked (MM-AO03). */
@@ -237,6 +260,14 @@ export class ProjectAccessService {
   async reportIssuers(projectId: string, user: AuthUser): Promise<ProjectReportIssuers> {
     const project = await this.mustFind(projectId);
     return this.issuersView(this.database.pool, project, user);
+  }
+
+  async concreteLabManagerGrants(
+    projectId: string,
+    user: AuthUser,
+  ): Promise<ProjectConcreteLabManagers> {
+    const project = await this.mustFind(projectId);
+    return this.concreteLabManagersView(this.database.pool, project, user);
   }
 
   /**
@@ -634,6 +665,61 @@ export class ProjectAccessService {
   }
 
   // -------------------------------------------------------------------------------------------
+  // Concrete Lab Manager grant (D13, MM-V2-C02)
+  // -------------------------------------------------------------------------------------------
+
+  /**
+   * The project's Lead Project Engineer or an admin grants a Lab Manager the project's concrete
+   * authority (failed-specimen HOLD), with a reason. The recipient must hold the lab_manager role
+   * as it stands under the account lock (422 `not_lab_manager`; the database refuses it too).
+   */
+  grantConcreteLabManager(projectId: string, body: unknown, user: AuthUser) {
+    return this.start(projectId, user, 'project.edit', CONCRETE_LAB_MANAGER_GRANT, async (ctx) => {
+      const request = parseBody(grantConcreteLabManagerRequestSchema, body);
+      return {
+        subjectId: request.labManagerUserId,
+        subjectField: 'labManagerUserId',
+        scope: null,
+        reason: request.reason,
+        key: request.idempotencyKey,
+        hash: intentHash({
+          projectId,
+          labManagerUserId: request.labManagerUserId,
+          reason: request.reason,
+        }),
+        check: async (client) => {
+          // `start` holds the recipient's account FOR SHARE, so a role change (which locks it
+          // FOR UPDATE) commits wholly before or after this grant.
+          const { rows } = await client.query(
+            `SELECT 1 FROM role_assignment WHERE user_id = $1 AND role = 'lab_manager'`,
+            [request.labManagerUserId],
+          );
+          if (rows.length === 0) {
+            unprocessable(
+              'not_lab_manager',
+              'labManagerUserId',
+              'Only a Lab Manager can hold this project’s concrete grant',
+            );
+          }
+        },
+        view: (client) => this.concreteLabManagersView(client, ctx.project, ctx.user),
+      };
+    });
+  }
+
+  revokeConcreteLabManager(projectId: string, id: string, body: unknown, user: AuthUser) {
+    return this.end(
+      projectId,
+      id,
+      body,
+      user,
+      'project.edit',
+      CONCRETE_LAB_MANAGER_GRANT,
+      (c, p, u) => this.concreteLabManagersView(c, p, u),
+    );
+  }
+
+  // -------------------------------------------------------------------------------------------
   // The one write path
   // -------------------------------------------------------------------------------------------
 
@@ -912,6 +998,48 @@ export class ProjectAccessService {
     return {
       projectId: project.id,
       canManage: can(user, 'report_issuer.manage', await projectContext(db, project)),
+      active: rows.active.map(toView),
+      history: rows.history.map(toView),
+      historyTotal: rows.historyTotal,
+    };
+  }
+
+  private async concreteLabManagersView(
+    db: Db,
+    project: ProjectFacts,
+    user: AuthUser,
+  ): Promise<ProjectConcreteLabManagers> {
+    const rows = await listGrants(
+      db,
+      CONCRETE_LAB_MANAGER_GRANT,
+      { column: 'project_id', value: project.id },
+      {
+        historyLimit: PROJECT_ACCESS_HISTORY_LIMIT,
+        extra: `(SELECT u.status = 'active' FROM app_user u WHERE u.id = lab_manager_user_id)
+                  AS account_active,
+                EXISTS (SELECT 1 FROM role_assignment r
+                        WHERE r.user_id = lab_manager_user_id AND r.role = 'lab_manager')
+                  AS lab_manager`,
+      },
+    );
+    const toView = (row: GrantRow): ConcreteLabManagerGrant => {
+      const blockedReason = row.endedAt
+        ? null
+        : !row.raw.account_active
+          ? 'account_not_active'
+          : !row.raw.lab_manager
+            ? 'not_lab_manager'
+            : null;
+      return {
+        ...historyView(row),
+        labManager: row.subject,
+        effective: !row.endedAt && blockedReason === null,
+        blockedReason,
+      };
+    };
+    return {
+      projectId: project.id,
+      canManage: can(user, 'project.edit', await projectContext(db, project)),
       active: rows.active.map(toView),
       history: rows.history.map(toView),
       historyTotal: rows.historyTotal,

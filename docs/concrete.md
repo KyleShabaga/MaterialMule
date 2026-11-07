@@ -96,6 +96,27 @@ the shared contracts; none may repurpose a C01 column.
 | C19  | Ready to submit and server submission (writes the workflow columns)                                                                                            |
 | C24+ | Strength calculation, failed-test workflow, HOLD and disposal                                                                                                  |
 
+## Project settings and authority (C02)
+
+- **Settings** (`GET`/`PATCH /api/projects/:projectId/concrete-settings`, contracts in
+  `packages/shared/src/concrete-settings.ts`): default specimen ages (7 / 28 / 28 / HOLD), HOLD
+  duration (56 days from casting) and whether issued reports include the testing machine's
+  make/model and calibration dates (unset until chosen). They are defaults for sets created later:
+  the set/specimen card (C05) copies them onto a new set when it assigns ages, and nothing rewrites
+  an existing set, schedule or issued report when they change. The 56 days is a duration; later
+  cards compute the date from casting. Kyle will review the full settings list later; this list is
+  not exhaustive.
+- **Reviewers** are not a setting: they are MISC-08 reviewer assignments for `concrete_field` /
+  `concrete_strength`, effective only with eligibility, accepted team membership and the lead's
+  approval. A route checking `concrete.review` loads them with
+  `projectContext(db, project, undefined, scope)` (fills `designatedReviewerUserIds`).
+- **Concrete Lab Manager grant** (D13): `GET/POST /api/projects/:projectId/concrete-lab-managers`,
+  `DELETE …/:id {reason}`, under `project.edit` (lead or admin). `projectContext(db, project, reportScope, reviewScope, { concreteLabManagers: true })` fills `concreteLabManagerUserIds`; the policy
+  counts it only with the lab_manager role (`concrete_hold.manage`).
+- **For each concrete route:** load the project facts with `projectContext()`, check `can()` with
+  the request's user before the body, then again under the D09 lock order (domain rows, project,
+  accounts: `canUnderLock`), and add the action to `PROJECT_CAPABILITY_ACTIONS` in the same change.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before
@@ -105,7 +126,8 @@ the shared contracts; none may repurpose a C01 column.
   C18 allocates from them.
 - **Sets per report:** the field form shows one specimen set per report (spec page 2); the schema
   doesn't cap it, and sets without a field report (workbook import, C34) would need a later change.
-- **Audit:** no concrete audit actions exist yet; each writing card records its own with
+- **Audit:** C02 added `concrete_project_settings.updated` and
+  `project_concrete_lab_manager_grant.granted`/`.revoked`; each writing card records its own with
   `recordAudit` in the same transaction.
 - **Open owner inputs, deliberately not defaulted:** testing-machine / worksheet units and reading
   count, calculation and rounding methods, final and summary report templates, CSA/ASTM curing and

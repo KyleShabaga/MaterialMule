@@ -377,4 +377,29 @@ describe('MM-AO08 concrete permission contract (planned; no route checks these y
     expect(permissionSources(lead, 'project.edit', everyone)).toEqual(['lead_project_engineer']);
     expect(can(admin, 'concrete_mix.manage', everyone)).toBe(false);
   });
+
+  it('T1 matrix: every concrete action for every kind of caller', () => {
+    const callers = { lead, admin, lm, reviewer, delegate, issuer, lab, tech: user() };
+    const expected: Record<string, (keyof typeof callers)[]> = {
+      'concrete_mix.manage': ['lead'],
+      'concrete_mix.approve': ['lead'],
+      'concrete.review': ['lead', 'reviewer'],
+      'concrete_failure_schedule.approve': ['lead', 'reviewer'],
+      'concrete_hold.manage': ['lead', 'lm'],
+      // Settings and the concrete Lab Manager grant (C02) reuse project.edit.
+      'project.edit': ['lead', 'admin'],
+    };
+    for (const [permission, allowed] of Object.entries(expected)) {
+      const actual = Object.entries(callers)
+        .filter(([, caller]) => can(caller, permission as Permission, everyone))
+        .map(([name]) => name);
+      expect(actual, permission).toEqual(allowed);
+    }
+    // Inactive accounts hold none of it, whatever the project says.
+    for (const status of ['pending', 'disabled'] as const) {
+      for (const permission of Object.keys(expected)) {
+        expect(can({ ...lead, status }, permission as Permission, everyone)).toBe(false);
+      }
+    }
+  });
 });

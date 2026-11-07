@@ -709,11 +709,32 @@ item, its routing or `audit_event`.
 
 `concrete_field_report` → `concrete_specimen_set` → `concrete_specimen`, plus the
 `concrete_specimen_identity` view. A separate domain from storage units: it never uses their IDs,
-counters, receipts or labels, and 0015 changes no existing table. Children reference their parent
+counters, receipts or labels, and 0015 changes no existing table. Settings and the concrete Lab
+Manager grant: the next section (0016). Children reference their parent
 by `(project_id, id)`, so they can't cross projects; internal UUIDs never change; a set's
 temporary and permanent IDs are nullable, attached once and never changed; a permanent number is
 unique per project and its set can't be deleted. Rules, status dimensions and which later card
 owns which fields: [concrete.md](concrete.md).
+
+## Concrete project settings and Lab Manager grant (MM-V2-C02, `0016_concrete_project_settings.sql`)
+
+- **`concrete_project_settings`**: one row per project, created on the first save (until then the
+  API returns the column defaults, which equal `CONCRETE_SETTINGS_DEFAULTS` in
+  `packages/shared/src/concrete-settings.ts`). `default_specimen_ages text[]` (each `1`–`999` days
+  or `HOLD`, 1–26 entries; `concrete_specimen_ages_valid`), default `{7,28,28,HOLD}`;
+  `hold_duration_days` 1–999, default 56; `include_machine_info boolean` NULL = not chosen (the
+  default awaits report-template mapping); updater snapshots; `version`. A trigger refuses
+  deletes, a changed project or creation time, and any version step other than +1. Changes are
+  audited as `concrete_project_settings.updated` (entity id = project id) with only the changed
+  fields. No trigger or job touches existing concrete reports, sets or specimens (AC3).
+- **`project_concrete_lab_manager_grant`** (D13): append-only like the AO02 grant tables
+  (`assignment_history_guard`, `assignment_subject_is_personal`), one active row per project and
+  person, reason required on grant and revoke. A trigger refuses a recipient without the
+  `lab_manager` role at grant time; the policy also requires the role at use time. Included in the
+  D08 re-enable revocation (`TECHNICAL_GRANTS`). Not yet part of the MTR-25 new-lead review flags
+  (`project_grant_review` has no column for it; follow-up).
+- Proofs: `apps/api/src/db/schema-concrete-settings.test.ts` (including "0016 on a populated
+  database changes no row").
 
 ## Retention dates, holds, extensions and requests (MM-T29)
 

@@ -143,6 +143,22 @@ export const REVIEW_APPROVAL: GrantTable = {
   audit: { started: 'project_review_approval.approved', ended: 'project_review_approval.ended' },
 };
 
+/**
+ * MM-V2-C02 (D13): a project's explicit concrete Lab Manager grant, by the Lead Project Engineer or
+ * an admin. It counts only together with the lab_manager role (policy.ts).
+ */
+export const CONCRETE_LAB_MANAGER_GRANT: GrantTable = {
+  table: 'project_concrete_lab_manager_grant',
+  subject: 'lab_manager',
+  parent: 'project_id',
+  start: GRANTED,
+  end: REVOKED,
+  audit: {
+    started: 'project_concrete_lab_manager_grant.granted',
+    ended: 'project_concrete_lab_manager_grant.revoked',
+  },
+};
+
 /** The technical grants D08 revokes when a disabled account is re-enabled (not team membership). */
 export const TECHNICAL_GRANTS: readonly GrantTable[] = [
   REVIEWER_ELIGIBILITY,
@@ -150,6 +166,7 @@ export const TECHNICAL_GRANTS: readonly GrantTable[] = [
   REPORT_ISSUER_GRANT,
   ACCEPTANCE_DELEGATION,
   STAFF_CAPABILITY_GRANT,
+  CONCRETE_LAB_MANAGER_GRANT,
 ];
 
 /** One row as read back, before the caller adds its own fields. */
@@ -446,7 +463,7 @@ export const REENABLE_REVOKE_REASON =
 /**
  * D08 (Kyle, 2026-10-29): re-enabling a disabled account revokes every technical grant the person
  * still holds (reviewer eligibility and assignments, report issuer grants, acceptance delegations,
- * the create-and-lead capability), each with its own audit event, in the re-enable transaction.
+ * the create-and-lead capability, concrete Lab Manager grants), each with its own audit event, in the re-enable transaction.
  * A lead or admin re-grants what still applies. Team membership carries no authority and stays.
  */
 export async function revokeTechnicalGrants(

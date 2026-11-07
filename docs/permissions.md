@@ -362,8 +362,8 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
   current list without a second row.
 - **D08.** Grants survive a lead change; the new lead reviews and revokes selectively (historical
   grantors never change). Re-enabling a disabled account revokes its technical grants (reviewer
-  eligibility and assignments, issuer grants, acceptance delegations, create-and-lead) in the
-  re-enable transaction, each audited with the reason "Account re-enabled: technical grants need
+  eligibility and assignments, issuer grants, acceptance delegations, create-and-lead, concrete Lab
+  Manager grants) in the re-enable transaction, each audited with the reason "Account re-enabled: technical grants need
   revalidation (D08)". Team membership stays.
 
 ### Team & Permissions screen (MM-AO05)
@@ -411,23 +411,25 @@ authority and are unchanged; open-task rerouting (D10) is MM-AO07.
 ## Concrete permission contract (MM-AO08)
 
 The shared authorization contract for concrete work, in `apps/api/src/auth/policy.ts` with its
-matrix in `policy.test.ts`. **Planned, not implemented:** no concrete route or screen exists yet
-(C01 added only the record tables, [concrete.md](concrete.md); C02–C08 are not started), so
-nothing here is enforced by an endpoint, and none of these actions
+matrix in `policy.test.ts`. **Mostly planned:** C01 added the record tables and C02 the settings,
+the concrete Lab Manager grant and the loaders ([concrete.md](concrete.md)); no concrete
+workflow route exists yet (C03–C08), so mix, review, schedule and HOLD actions are enforced by no
+endpoint yet, and none of them
 appears in a project's capability list (`GET …/capabilities`, Team & Permissions) until its
 owning card adds the route (owner decision 2026-10-29, AO08 Q2). Each owning card loads the
 project facts below from the database, checks `can()` under the D09 lock order, and adds its row
 to the capability list in the same change.
 
-| Permission                          | Granted by                                                                                    | Owner card                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `concrete_mix.manage`               | the destination project's Lead Project Engineer only                                          | C03 (create, edit, copy)                           |
-| `concrete_mix.approve`              | the destination project's Lead Project Engineer only                                          | C03 (approve; D14 revisions)                       |
-| `concrete.review`                   | the project's Lead Project Engineer, or a designated reviewer for the scope                   | C02 adapter, then C04/C07 review routes            |
-| `concrete_failure_schedule.approve` | the project's Lead Project Engineer, or a designated reviewer (strength scope); one is enough | the failure-workflow card after C07                |
-| `concrete_hold.manage`              | the project's Lead Project Engineer, or a Lab Manager holding the project's concrete grant    | C02 (grant storage), then the failed-specimen HOLD |
-| `report.issue` (existing, AO03)     | the Lead Project Engineer, or an Authorized report issuer for the scope                       | the report-lifecycle card (not in C01–C08)         |
-| concrete settings → `project.edit`  | the Lead Project Engineer or an admin (settings only)                                         | C02                                                |
+| Permission                                  | Granted by                                                                                    | Owner card                                         |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `concrete_mix.manage`                       | the destination project's Lead Project Engineer only                                          | C03 (create, edit, copy)                           |
+| `concrete_mix.approve`                      | the destination project's Lead Project Engineer only                                          | C03 (approve; D14 revisions)                       |
+| `concrete.review`                           | the project's Lead Project Engineer, or a designated reviewer for the scope                   | C02 adapter, then C04/C07 review routes            |
+| `concrete_failure_schedule.approve`         | the project's Lead Project Engineer, or a designated reviewer (strength scope); one is enough | the failure-workflow card after C07                |
+| `concrete_hold.manage`                      | the project's Lead Project Engineer, or a Lab Manager holding the project's concrete grant    | C02 (grant storage), then the failed-specimen HOLD |
+| `report.issue` (existing, AO03)             | the Lead Project Engineer, or an Authorized report issuer for the scope                       | the report-lifecycle card (not in C01–C08)         |
+| concrete settings → `project.edit`          | the Lead Project Engineer or an admin (settings only)                                         | C02 (implemented)                                  |
+| concrete Lab Manager grant → `project.edit` | the Lead Project Engineer or an admin; grants/revokes the D13 grant                           | C02 (implemented)                                  |
 
 - **Mixes (C03, D14).** Only the destination project's Lead Project Engineer creates, edits,
   copies and approves mixes: no admin, Lab Manager, reviewer, delegate or issuer fallback, and a
@@ -449,9 +451,35 @@ to the capability list in the same change.
   geotechnical tested-unit removal (`storage_unit.tested_removal`).
 - **Failure photos** are optional and never block a result; no permission beyond recording the
   result.
-- **Concrete settings** (tests used, reviewer list) reuse `project.edit`: the lead or an admin
-  (AO08 Q4). Admin authority covers settings only, never mixes. Reviewer assignments stay
-  `project_reviewer.manage` (AO03).
+- **Concrete settings** reuse `project.edit`: the lead or an admin (AO08 Q4). Admin authority
+  covers settings only, never mixes. Reviewer assignments stay `project_reviewer.manage` (AO03);
+  there is no second reviewer list.
+
+### Concrete settings and Lab Manager grant routes (MM-V2-C02)
+
+| Route                                                                                            | Policy                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `GET /api/projects/:projectId/concrete-settings`                                                 | `inventory.read` (every active session, LAB included) |
+| `PATCH /api/projects/:projectId/concrete-settings {version, …fields, reason?}`                   | active user; handler checks `project.edit`            |
+| `GET /api/projects/:projectId/concrete-lab-managers`                                             | `project_access.read` (personal accounts)             |
+| `POST /api/projects/:projectId/concrete-lab-managers {labManagerUserId, reason, idempotencyKey}` | active user; handler checks `project.edit`            |
+| `DELETE /api/projects/:projectId/concrete-lab-managers/:id {reason}`                             | active user; handler checks `project.edit`            |
+
+- **Settings save:** 403 (checked against the project as it stands, before the body; 403 for an
+  unknown project unless the caller could edit projects, then 404), 400 body, then under the D09
+  lock order (settings row FOR UPDATE, project and account FOR SHARE) the final `project.edit`
+  check; a stale `version` (0 = never saved) is 409 `version_conflict` with the current settings,
+  nothing written. Only changed fields are written and audited; an unchanged save keeps the
+  version. An admin may save on a project waiting for a lead.
+- **Grant:** the recipient must be active personal staff (422 `invalid_recipient`) holding the
+  Lab Manager role (422 `not_lab_manager`, also a database trigger); one active grant per project
+  and person (422 `already_assigned`); reasons required (D15); retries and key reuse as for the
+  AO03 grants. Each list row is `effective` or blocked (`account_not_active`, `not_lab_manager`).
+  The grant counts only with the role, on that project only. Re-enabling a disabled account
+  revokes it (D08). No new permission: granting reuses `project.edit` (owner direction 2026-11-07; new concrete
+  permission rows, including technician/LAB preparation and submission, belong to C10).
+  `concrete_hold.manage` and `concrete.review` stay out of the capability list until their routes
+  exist.
 - **Denied wording** for the owning screens: the existing blocked codes apply —
   `no_lead_project_engineer` when only the lead could act and there is none, `not_permitted`
   otherwise, with the sources that could (`CAPABILITY_SOURCE_LABEL`: "Designated reviewer", "Lab
