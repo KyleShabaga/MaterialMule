@@ -49,13 +49,16 @@ export interface VersionRow {
   issued_by_user_id: string | null;
   issued_at: Date | null;
   issue_source: 'lead_project_engineer' | 'report_issuer' | null;
+  /** MM-V2-C28: the issuer's choices (null before issue). */
+  issue_include_photos: boolean | null;
+  issue_include_machine_info: boolean | null;
 }
 
 const VERSION_COLUMNS = `id, field_report_id, version_no, revision_of_version_id, snapshot_sha256,
   report_row_version, state, submitted_by_user_id, submitted_staff_user_id, submitted_at,
   route_kind, routed_to_user_id, route_reason, reviewed_by_user_id, reviewed_at, review_source,
   review_cleared_at, closed_by_user_id, closed_at, close_comment, issued_by_user_id, issued_at,
-  issue_source`;
+  issue_source, issue_include_photos, issue_include_machine_info`;
 
 export async function versionsOf(db: Db, reportId: string): Promise<VersionRow[]> {
   const { rows } = await db.query<VersionRow>(
@@ -161,6 +164,8 @@ export function versionSummary(
             by: person(row.issued_by_user_id),
             at: row.issued_at.toISOString(),
             source: row.issue_source,
+            includePhotos: row.issue_include_photos,
+            includeMachineInfo: row.issue_include_machine_info,
           }
         : null,
   };

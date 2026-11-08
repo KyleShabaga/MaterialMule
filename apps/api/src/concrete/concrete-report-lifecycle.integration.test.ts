@@ -172,8 +172,31 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     send(
       'post',
       reportPath(report.id, `/${action}`),
-      { idempotencyKey: key, version: report.version, ...extra },
+      {
+        idempotencyKey: key,
+        version: report.version,
+        // MM-V2-C28: the issuer chooses whether machine information is included.
+        ...(action === 'issue' ? { includeMachineInfo: false } : {}),
+        ...extra,
+      },
       as,
+    );
+
+  /**
+   * MM-V2-C28: Mark reviewed needs every exception on the version resolved or documented. These
+   * C09 tests are about the lifecycle, so the setup records the notes directly (no audit event).
+   */
+  const documentExceptions = (reportId: string) =>
+    h.db.pool.query(
+      `INSERT INTO concrete_report_exception_note
+         (project_id, field_report_id, version_id, code, field, note, documented_by_user_id)
+       SELECT v.project_id, v.field_report_id, v.id, w->>'code', w->>'field',
+              'Documented in test setup', $2
+       FROM concrete_report_version v
+       CROSS JOIN LATERAL jsonb_array_elements(coalesce(v.snapshot->'warnings', '[]')) w
+       WHERE v.field_report_id = $1 AND v.state = 'submitted'
+       ON CONFLICT DO NOTHING`,
+      [reportId, h.users.pe],
     );
 
   async function ok(
@@ -182,6 +205,7 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     as: string,
     extra: Record<string, unknown> = {},
   ) {
+    if (action === 'review') await documentExceptions(report.id);
     const response = await command(action, report, as, extra);
     expect(response.status, `${action}: ${JSON.stringify(response.body)}`).toBe(201);
     return concreteFieldReportDetailSchema.parse(response.body);

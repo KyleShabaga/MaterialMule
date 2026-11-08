@@ -66,6 +66,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'concrete_mix_command',
       'concrete_mix_revision',
       'concrete_project_settings',
+      'concrete_report_exception_note',
       'concrete_report_transition',
       'concrete_report_version',
       'concrete_specimen',

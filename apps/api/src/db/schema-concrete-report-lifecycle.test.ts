@@ -87,7 +87,8 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09, migration
   const issue = (id: string) =>
     db.pool.query(
       `UPDATE concrete_report_version SET state = 'issued', issued_by_user_id = $2,
-         issued_at = now(), issue_source = 'lead_project_engineer' WHERE id = $1`,
+         issued_at = now(), issue_source = 'lead_project_engineer',
+         issue_include_photos = false, issue_include_machine_info = false WHERE id = $1`,
       [id, tech],
     );
 
