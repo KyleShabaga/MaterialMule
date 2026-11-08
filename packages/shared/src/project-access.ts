@@ -415,6 +415,8 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   // record's technician, so it is listed per report (`lifecycle.allowedActions`), not here.
   'concrete.review',
   'report.issue',
+  // MM-V2-C22: lead, designated concrete_field reviewer or concrete-grant Lab Manager (C10).
+  'concrete_specimen.reschedule',
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
@@ -437,6 +439,7 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'concrete_mix.approve': 'Approve concrete mixes',
   'concrete.review': 'Review or return concrete field reports',
   'report.issue': 'Issue concrete field reports',
+  'concrete_specimen.reschedule': 'Reschedule concrete specimen tests',
 };
 
 export const BLOCKED_REASONS = [

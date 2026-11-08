@@ -2,6 +2,7 @@ import {
   ACTION_REQUEST_RESOLUTION_LABEL,
   type Notification,
   type NotificationFilter,
+  type NotificationLinkedReport,
   type NotificationLinkedRequest,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -50,9 +51,31 @@ const REFUSED = 'Notifications are for personal accounts. Sign in with your own 
 
 /** What happened, as of when it happened. The live status of the request is shown separately. */
 function eventText(item: Notification): string {
-  return item.kind === 'action_request.opened'
-    ? 'Sent to you for action'
-    : 'Your request was decided';
+  switch (item.kind) {
+    case 'action_request.opened':
+      return 'Sent to you for action';
+    case 'action_request.decided':
+      return 'Your request was decided';
+    default:
+      return 'Concrete';
+  }
+}
+
+const REPORT_STATE_LABEL: Record<NotificationLinkedReport['state'], string> = {
+  draft: 'Draft',
+  ready_to_submit: 'Ready to submit',
+  submitted: 'Submitted',
+  returned: 'Returned for correction',
+  reviewed: 'Reviewed',
+  issued: 'Issued',
+  void: 'Void',
+};
+
+/** The linked report's state now (C29): a corrected and resubmitted report no longer reads as returned. */
+function reportStatus(report: NotificationLinkedReport): { text: string; tone: BadgeTone } {
+  const tone: BadgeTone =
+    report.state === 'returned' ? 'warning' : report.state === 'void' ? 'neutral' : 'info';
+  return { text: REPORT_STATE_LABEL[report.state], tone };
 }
 
 /** The linked request's state now: never a stale "needs action". */
@@ -368,7 +391,12 @@ function NotificationRow({
 }) {
   const [busy, setBusy] = useState(false);
   const unread = !item.readAt;
-  const status = item.linkedRequest ? linkedStatus(item.linkedRequest) : null;
+  const status = item.linkedRequest
+    ? linkedStatus(item.linkedRequest)
+    : item.linkedReport
+      ? reportStatus(item.linkedReport)
+      : null;
+  const report = item.linkedReport;
 
   async function act(action: NotificationAction) {
     setBusy(true);
@@ -402,17 +430,32 @@ function NotificationRow({
           {status ? (
             <>
               {' · '}
-              <span className="visually-hidden">Request status: </span>
+              <span className="visually-hidden">
+                {item.linkedReport ? 'Report status: ' : 'Request status: '}
+              </span>
               <StatusBadge tone={status.tone}>{status.text}</StatusBadge>
             </>
           ) : null}
         </p>
+        {report?.by || report?.comment ? (
+          <p className="action-request-meta notification-detail">
+            {report.by ? (
+              <>
+                {report.versionNo ? `Version ${report.versionNo} · ` : null}
+                Returned by {report.by.name}
+              </>
+            ) : null}
+            {report.by && report.comment ? ': ' : null}
+            {report.comment ? <q className="notification-comment">{report.comment}</q> : null}
+          </p>
+        ) : null}
       </div>
       <div className="action-request-actions">
         <Link
           className="button"
           to={item.href}
           // Opening reads the notification; it never resolves the request it points to.
+          aria-label={item.linkedReport ? 'Open report' : undefined}
           onClick={() => {
             if (unread) void updateNotification(item.id, 'read');
           }}

@@ -195,6 +195,15 @@ export function concreteIsWeekend(date: string): boolean {
 export const CONCRETE_SPECIMEN_FLAGS = ['weekend_target'] as const;
 export type ConcreteSpecimenFlag = (typeof CONCRETE_SPECIMEN_FLAGS)[number];
 
+/**
+ * The one place a target date's attention flags are decided (MM-V2-C22). A flagged target is
+ * kept, never moved. Weekends only for now: the owner decided (2026-11-08) on an admin-managed
+ * holiday list seeded with Alberta statutory holidays, which C37 adds here as a holiday flag.
+ */
+export function concreteTargetDateFlags(date: string): ConcreteSpecimenFlag[] {
+  return concreteIsWeekend(date) ? ['weekend_target'] : [];
+}
+
 export interface ConcreteSpecimenDates {
   targetDate: string | null;
   holdExpiresOn: string | null;
@@ -224,13 +233,13 @@ export function concreteSpecimenDates(input: {
   return {
     targetDate,
     holdExpiresOn: null,
-    flags: concreteIsWeekend(targetDate) ? ['weekend_target'] : [],
+    flags: concreteTargetDateFlags(targetDate),
   };
 }
 
 /** Flags for a stored target date (the database computed it). */
 export function concreteSpecimenFlags(targetDate: string | null): ConcreteSpecimenFlag[] {
-  return targetDate !== null && concreteIsWeekend(targetDate) ? ['weekend_target'] : [];
+  return targetDate === null ? [] : concreteTargetDateFlags(targetDate);
 }
 
 // ---------------------------------------------------------------------------------------------

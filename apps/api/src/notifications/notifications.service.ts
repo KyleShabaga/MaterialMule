@@ -1,6 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  concreteReportLifecycleState,
+  isConcreteNotificationKind,
   NOTIFICATION_LIST_DAYS,
+  type ConcreteNotificationKind,
+  type ConcreteReportVersionState,
+  type ConcreteWorkflowState,
   NOTIFICATION_PAGE_SIZE,
   type Notification,
   type NotificationCount,
@@ -10,6 +15,7 @@ import {
 } from '@materialmule/shared';
 import { z } from 'zod';
 import type { AuthUser } from '../auth/policy.js';
+import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { hrefOf, loadItemRows, titleOf } from './action-items.js';
 
@@ -19,6 +25,8 @@ interface NotificationRow {
   id: string;
   kind: NotificationKind;
   action_item_id: string | null;
+  concrete_field_report_id: string | null;
+  concrete_report_transition_id: string | null;
   created_at: Date;
   read_at: Date | null;
   dismissed_at: Date | null;
@@ -78,7 +86,8 @@ export class NotificationsService {
     const size = query.limit ?? NOTIFICATION_PAGE_SIZE;
     const after = query.cursor ? decodeCursor(query.cursor) : null;
     const { rows: fetched } = await this.database.pool.query<NotificationRow>(
-      `SELECT n.id, n.kind, n.action_item_id, n.created_at, n.read_at, n.dismissed_at,
+      `SELECT n.id, n.kind, n.action_item_id, n.concrete_field_report_id,
+              n.concrete_report_transition_id, n.created_at, n.read_at, n.dismissed_at,
               (a.status = 'open' AND action_item_routed_to(a.id, $1)) AS still_yours,
               to_char(n.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
                 AS cursor_at
@@ -103,10 +112,28 @@ export class NotificationsService {
         : []
       ).map((item) => [item.id, item]),
     );
+    const reportIds = [...new Set(rows.flatMap((row) => row.concrete_field_report_id ?? []))];
+    const transitionIds = [
+      ...new Set(rows.flatMap((row) => row.concrete_report_transition_id ?? [])),
+    ];
+    const reports = await loadConcreteReports(this.database.pool, reportIds);
+    const transitions = await loadConcreteTransitions(this.database.pool, transitionIds);
     const list: Notification[] = [];
     for (const row of rows) {
+      if (isConcreteNotificationKind(row.kind)) {
+        const report = row.concrete_field_report_id
+          ? reports.get(row.concrete_field_report_id)
+          : undefined;
+        // Specimen-only kinds get their rendering with their producer card (C23/C25).
+        if (!report) continue;
+        const event = row.concrete_report_transition_id
+          ? transitions.get(row.concrete_report_transition_id)
+          : undefined;
+        list.push(concreteNotificationOf(row, report, event));
+        continue;
+      }
       const item = row.action_item_id ? items.get(row.action_item_id) : undefined;
-      // Both current kinds link an action item (the database requires it).
+      // Action-request kinds link an action item (the database requires it).
       if (!item) continue;
       list.push({
         id: row.id,
@@ -133,6 +160,7 @@ export class NotificationsService {
           resolvedAt: item.resolved_at?.toISOString() ?? null,
           stillYours: row.still_yours === true,
         },
+        linkedReport: null,
       });
     }
     return { items: list, nextCursor };
@@ -199,4 +227,95 @@ export class NotificationsService {
     );
     if (rows.length === 0) throw new NotFoundException({ code: 'notification_not_found' });
   }
+}
+
+interface ConcreteReportRow {
+  id: string;
+  project_id: string;
+  project_number: string;
+  report_date: string | null;
+  workflow_state: ConcreteWorkflowState;
+  latest_version_state: ConcreteReportVersionState | null;
+}
+
+interface ConcreteTransitionRow {
+  id: string;
+  version_no: number;
+  comment: string | null;
+  actor_user_id: string;
+  actor_initials: string | null;
+  actor_name: string | null;
+}
+
+/** The linked reports as they stand now (state is read live, never stored on the notice). */
+async function loadConcreteReports(pool: Pool, ids: string[]) {
+  if (ids.length === 0) return new Map<string, ConcreteReportRow>();
+  const { rows } = await pool.query<ConcreteReportRow>(
+    `SELECT r.id, r.project_id, p.project_number, to_char(r.report_date, 'YYYY-MM-DD') AS report_date,
+            r.workflow_state,
+            (SELECT v.state FROM concrete_report_version v WHERE v.field_report_id = r.id
+             ORDER BY v.version_no DESC LIMIT 1) AS latest_version_state
+     FROM concrete_field_report r JOIN project p ON p.id = r.project_id
+     WHERE r.id = ANY($1::uuid[])`,
+    [ids],
+  );
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** The C09 events the notices name: who acted, on which version, and the comment. */
+async function loadConcreteTransitions(pool: Pool, ids: string[]) {
+  if (ids.length === 0) return new Map<string, ConcreteTransitionRow>();
+  const { rows } = await pool.query<ConcreteTransitionRow>(
+    `SELECT t.id, v.version_no, t.comment, t.actor_user_id,
+            u.official_initials AS actor_initials, u.display_name AS actor_name
+     FROM concrete_report_transition t
+     JOIN concrete_report_version v ON v.id = t.version_id
+     JOIN app_user u ON u.id = t.actor_user_id
+     WHERE t.id = ANY($1::uuid[])`,
+    [ids],
+  );
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+const CONCRETE_TITLES: Record<ConcreteNotificationKind, string> = {
+  'concrete_report.returned': 'Field report returned for correction',
+  'concrete_curing.out_of_range': 'Curing temperature out of range',
+  'concrete_equipment.flagged': 'Equipment flag needs review',
+  'concrete_test.failed': 'Failed concrete test',
+  'concrete_report.auto_submitted': 'Field report submitted automatically',
+};
+
+function concreteNotificationOf(
+  row: NotificationRow,
+  report: ConcreteReportRow,
+  event: ConcreteTransitionRow | undefined,
+): Notification {
+  return {
+    id: row.id,
+    kind: row.kind,
+    title: CONCRETE_TITLES[row.kind as ConcreteNotificationKind],
+    projectId: report.project_id,
+    projectNumber: report.project_number,
+    // C28 review view (preview, checklist, history); ?version= opens the version the event was about.
+    href: `/concrete/review/${report.id}${event ? `?version=${event.version_no}` : ''}`,
+    createdAt: row.created_at.toISOString(),
+    readAt: row.read_at?.toISOString() ?? null,
+    dismissedAt: row.dismissed_at?.toISOString() ?? null,
+    linkedRequest: null,
+    linkedReport: {
+      id: report.id,
+      kind: 'field',
+      state: concreteReportLifecycleState(report.workflow_state, report.latest_version_state),
+      reportDate: report.report_date,
+      versionNo: event?.version_no ?? null,
+      by: event
+        ? {
+            userId: event.actor_user_id,
+            initials: event.actor_initials,
+            name: event.actor_name ?? '',
+          }
+        : null,
+      comment: event?.comment ?? null,
+    },
+  };
 }

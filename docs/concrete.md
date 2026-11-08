@@ -9,9 +9,10 @@ Development Board (cards MM-V2-Cxx). Permissions: [permissions.md](permissions.m
 `concrete-fixtures.ts`); project settings and the concrete Lab Manager grant (C02, `0016`); project
 mixes with approval and specification history (C03, `0017`); the equipment register (C27, `0018`);
 field-report detail, readings and the draft APIs (C04, `0019`, below); specimen sets, age
-assignments, schedule snapshots and casting corrections (C05, `0020`, below). No screen, offline
-store, allocator, submission, review, issuance or calculation reads or writes reports, sets or
-specimens yet.
+assignments, schedule snapshots and casting corrections (C05, `0020`, below); the daily lab
+worklist and authorized rescheduling (C22, `0022`, below; Lab Testing → Concrete breaks). No other
+screen, offline store, allocator, submission, review, issuance or calculation reads or writes
+reports, sets or specimens yet.
 
 ## A deliberate new domain
 
@@ -96,6 +97,7 @@ the shared contracts; none may repurpose a C01 column.
 | C12  | Device registration and the temporary-ID counter (device codes)                                                                                                |
 | C15  | Attachments and their acknowledgment                                                                                                                           |
 | C17  | Sync protocol, acknowledgment and conflicts; project placeholder matching (CD-24)                                                                              |
+| C22  | Daily lab worklist (derived, stores nothing) and specimen reschedules with reason and history                                                                  |
 | C18  | Permanent set-number allocator (project counter row, locked in the accepting transaction; never a sequence) and Void                                           |
 | C19  | Ready to submit and server submission (writes the workflow columns)                                                                                            |
 | C24+ | Strength calculation, failed-test workflow, HOLD and disposal                                                                                                  |
@@ -322,8 +324,61 @@ Migration `0020_concrete_specimen_sets.sql`; contracts and helpers in
 - **Review.** The field report's completeness now needs, when specimens were cast, at least one set
   with specimens and each such set's mould size; "Specimens cast: No" with specimens still recorded
   is a warning (`specimens_recorded_but_not_cast`), never a deletion.
-- **Owner to confirm:** the casting correction reuses `concrete_specimen.reschedule`; the
-  designated reviewers for it are the `concrete_field` scope's.
+- **Confirmed by the owner (2026-11-08):** the casting correction uses
+  `concrete_specimen.reschedule` (the lead, a designated reviewer or a concrete-grant Lab Manager).
+  The designated reviewers for it are the `concrete_field` scope's.
+
+## Daily lab worklist and rescheduling (C22)
+
+Migration `0022_concrete_specimen_reschedule.sql`; contracts and the date rules in
+`packages/shared/src/concrete-worklist.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-lab-worklist-and-rescheduling-mm-v2-c22). Screen: Lab
+Testing → **Concrete breaks** (`/lab-testing/concrete`). Source: combined plan "Daily lab
+briefing" (worklist structure confirmed by Kyle) and §7 "Scheduling and HOLD".
+
+- **Views** (`GET /api/concrete/lab-worklist?view=&projectId=&page=`), computed from C05's stored
+  dates on the America/Edmonton business date (`concreteLabToday()`), lab-wide, grouped by project
+  with a specimen count per project and a count per view:
+  - **Today** (the default): the target date is today.
+  - **Overdue**: untested and the target has passed (`daysOverdue`). Reading or listing a
+    specimen as overdue never changes its target (AC2).
+  - **Upcoming (7 days)**: tomorrow through today + 7.
+  - **HOLD**: specimens assigned HOLD with their hold-until date (casting + the set's saved
+    duration), flagged `hold_review_due` on and after that date. Nothing tests, releases or
+    disposes of a HOLD automatically (AC3); HOLD actions are C26. Every HOLD is
+    `holdKind: 'ordinary'`; the failed-specimen hold (C25) will be a distinct kind.
+  - **Exceptions** (shell): only the testing machine's C27 flags for today are wired
+    (`testing_machine`). Identity (C20/C21), curing temperature (C06) and failed tests (C25) are
+    listed as not checked yet (`CONCRETE_WORKLIST_PENDING_EXCEPTION_SOURCES`) and wire in with
+    their cards; C31 owns the full exceptions worklist.
+- **Which specimens:** set not Void, report not Void, casting time known, an age assigned. Draft
+  reports are included and flagged `report_draft` (submission is C19). **Untested:** no concrete
+  result exists yet (C07/C23), so every scheduled specimen counts as untested; C23 adds its tested
+  condition to `SCHEDULED` in `concrete-worklist.service.ts`. Until then a specimen stays Overdue
+  after its date.
+- **Flags** (display only): `weekend_target` (kept on the weekend, AC1), `overdue`,
+  `hold_review_due`, `rescheduled`, `report_draft`. Every date flag comes from one function,
+  `concreteTargetDateFlags(date)`. **Holidays are not flagged yet.** The owner decided on
+  2026-11-08 that an admin-managed holiday list, seeded with Alberta statutory holidays, will flag
+  a holiday target like a weekend and never move it. C37 builds that list and adds its flag in
+  that one function (`CONCRETE_HOLIDAY_CALENDAR = null` until then).
+- **Sort:** project number, then target (HOLD: hold-until), then set number (numeric), temporary
+  ID, letter. 200 rows a page; groups and counts cover the whole view.
+- **Reschedule** (`POST /api/concrete/specimens/:specimenId/reschedule`,
+  `{ idempotencyKey, version, newAge, reason }`): changes the assigned age in days; the database
+  recomputes the target from the casting date (C05 trigger), so a target is always casting + age,
+  never a free date (owner to confirm that an age, not a free date, is what gets chosen). Allowed
+  for a numbered set, or any set once its report is past draft; an unnumbered set on a draft report
+  is 409 `edit_on_draft` (its technician edits the draft, C05). HOLD specimens are 409
+  `hold_specimen` (C26); Void sets and reports are 409. Each change writes an append-only
+  `concrete_specimen_reschedule` row (age and target before and after, who, when, why) and the
+  audit event `concrete_specimen.rescheduled`; exact retries are idempotent. C05's
+  `concrete_specimen_age_fixed` guard now lets a numbered set's age change only together with a
+  reschedule row for exactly that change in the same transaction.
+- **History:** `GET /api/concrete/specimens/:specimenId/schedule-history`.
+- **Not here:** result entry and the testing table (C23), HOLD release and disposal (C26),
+  failure-triggered recommendations and their approval (C25, `concrete_failure_schedule.approve`),
+  the Daily lab briefing dashboard counts, testing-age tolerance windows (open input).
 
 - **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
   project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
@@ -370,12 +425,55 @@ format) is made.
   before and now either a correction is in progress or a revision was issued.
 - **Routing (D11).** First submission → the designated reviewers and the lead; resubmission → the
   reviewer who returned it; a correction saved by a Lab Manager (`lab_manager_corrected_by_user_id`,
-  set on save while returned) → the project's lead. Proposal: an original reviewer who can no
-  longer review hands it to the lead.
+  set on save while returned; only the technician edits a returned report, so this is a Lab
+  Manager correcting their own report) → the project's lead. An original reviewer who can no
+  longer review hands it to the lead. Routing never targets the report's technician.
+- **Owner decisions 2026-11-08.** No self-review: the technician never reviews or issues their own
+  report, even as reviewer or lead (403 `own_report`). Revision after issue: the lead, a designated
+  `concrete_field` reviewer, or the person who issued the version, with a reason.
 - **Not here:** review queue and preview (C28), auto-submission from Ready to submit (C19),
-  notifications (C29), PDFs (C32). Submission checks only C04's final-review field list; the
+  notifications (C29, below), PDFs (C32). Submission checks only C04's final-review field list; the
   `review.deferredChecks` blockers (C15, C05, C06, C17, C18, C20) are added by their cards. A report
   with versions keeps its project (the version foreign key has no cascade).
+
+## Notifications (C29)
+
+Migration `0023_concrete_notifications.sql`; contracts in `packages/shared/src/notifications.ts`;
+producers in `apps/api/src/notifications/concrete-notifications.ts`. Concrete events use the
+MM-T91 `notification` table, bell and notification center: unread / read, Mark all read,
+dismiss / restore and one row per (recipient, `event_key`) are reused unchanged. **In-app only**
+(owner decision 2026-10-30): no email outbox rows, no push. Action requests and AO07 rerouting
+are untouched.
+
+- **Targets.** A concrete notification points at `concrete_field_report_id` or
+  `concrete_specimen_id` (exactly one), never an action item; `notification_shape_check` and
+  `notification_guard` cover the new columns. Links open C28's review view `/concrete/review/:id?version=N` (the version the event was about); the page
+  checks access, the link grants nothing. The list reads the report's state live (a corrected and
+  resubmitted report no longer reads as returned) plus, for a return, the reviewer, version and
+  comment from the C09 transition (never copied).
+- **Kinds and recipients** (`concreteNotificationRecipients`; every person once, the actor never):
+
+  | Kind                             | Producer                   | Recipients                                     |
+  | -------------------------------- | -------------------------- | ---------------------------------------------- |
+  | `concrete_report.returned`       | **C29**, C09 `return`      | technician + Lab Manager(s), not the reviewer  |
+  | `concrete_curing.out_of_range`   | C06/C20 (pickup curing)    | designated reviewer(s) + Lead Project Engineer |
+  | `concrete_equipment.flagged`     | C23 results / C14 readings | designated reviewer(s)                         |
+  | `concrete_test.failed`           | C23/C25                    | designated reviewer(s) + Lead Project Engineer |
+  | `concrete_report.auto_submitted` | C19                        | technician                                     |
+
+- **Report returned.** Written in the return command's transaction, keyed by the return
+  transition (`concrete_report_transition:<id>:returned`, checked by
+  `notification_concrete_return_check`): a retried return adds nothing; a later return of a newer
+  version is a new notice. A Lab Manager who returns a report they reviewed gets no separate Lab
+  Manager notice (AC1); a technician who is also a Lab Manager gets one (AC2). **Which Lab
+  Managers (proposal, owner to confirm):** those holding the project's active concrete Lab Manager
+  grant (C02), or every active Lab Manager when the project has none (`concreteLabManagersFor`).
+- **For the later producers.** Call `notifyConcreteEvent(client, kind, target, '<kind>:<source
+id>', facts)` inside the transaction that records the event, and narrow the kind's key rule to
+  the source row in your migration if you want the database to check it. C27 computes equipment
+  flags on read and stores no event, so nothing produces `concrete_equipment.flagged` until C23/C14
+  store flags with a result or reading. Specimen-targeted rows are not listed until their producer
+  card adds a `linkedSpecimen` rendering.
 
 ## Notes for later cards
 
