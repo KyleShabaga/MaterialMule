@@ -44,6 +44,7 @@ const note = (overrides: Partial<Notification> = {}): Notification => ({
     resolvedAt: null,
     stillYours: true,
   },
+  linkedReport: null,
   ...overrides,
 });
 
@@ -602,5 +603,73 @@ describe('Notification center paging (MM-T91 review)', () => {
     expect(posts(fetchMock)).toEqual(['/api/notifications/n-old/restore']);
     expect(within(old).getByRole('button', { name: 'Dismiss' })).toBeVisible();
     expect(old).not.toHaveTextContent('Dismissed long ago Dismissed');
+  });
+});
+
+describe('Concrete notifications (MM-V2-C29)', () => {
+  const returned = note({
+    id: 'n-concrete',
+    kind: 'concrete_report.returned',
+    title: 'Field report returned for correction',
+    href: '/concrete/field-reports/r-1',
+    linkedRequest: null,
+    linkedReport: {
+      id: 'r-1',
+      kind: 'field',
+      state: 'returned',
+      reportDate: '2026-11-08',
+      versionNo: 1,
+      by: { userId: 'u-rev', initials: 'RV', name: 'Riley Reviewer' },
+      comment: 'Slump time is missing',
+    },
+  });
+
+  it('shows the returned report with its live state, reviewer and comment, and opens the report', async () => {
+    const fetchMock = renderAt('/notifications', me(), (url) => {
+      if (url.startsWith('/api/notifications/count')) return json(200, { unread: 1 });
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      if (url.startsWith('/api/notifications?filter=active')) {
+        return json(200, { nextCursor: null, items: [returned] });
+      }
+      if (url.startsWith('/api/notifications/n-concrete/read')) return json(200, { unread: 0 });
+      return json(404, {});
+    });
+    const row = await screen.findByRole('listitem', {
+      name: 'Field report returned for correction',
+    });
+    expect(row).toHaveTextContent('Unread');
+    expect(row).toHaveTextContent('Returned for correction');
+    expect(row).toHaveTextContent('Version 1 · Returned by Riley Reviewer');
+    expect(row).toHaveTextContent('Slump time is missing');
+    expect(row).toHaveTextContent('DEMO-2601');
+    const open = screen.getByRole('link', { name: 'Open report' });
+    expect(open).toHaveAttribute('href', '/concrete/field-reports/r-1');
+    act(() => open.click());
+    expect(posts(fetchMock)).toContain('/api/notifications/n-concrete/read');
+  });
+
+  it('a resubmitted report no longer reads as returned', async () => {
+    renderAt('/notifications', me(), (url) => {
+      if (url.startsWith('/api/notifications/count')) return json(200, { unread: 0 });
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      if (url.startsWith('/api/notifications?filter=active')) {
+        return json(200, {
+          nextCursor: null,
+          items: [
+            {
+              ...returned,
+              readAt: '2026-11-08T12:00:00.000Z',
+              linkedReport: { ...returned.linkedReport!, state: 'submitted' },
+            },
+          ],
+        });
+      }
+      return json(404, {});
+    });
+    const row = await screen.findByRole('listitem', {
+      name: 'Field report returned for correction',
+    });
+    expect(row).toHaveTextContent('Submitted');
+    expect(row).not.toHaveTextContent('Returned for correction');
   });
 });

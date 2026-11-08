@@ -675,6 +675,11 @@ item, its routing or `audit_event`.
   "decided" row per item per person, however often the item is announced, reassigned or
   rerouted back to them. Indexed by (recipient, created_at) for the list and by recipient for
   unread rows.
+  MM-V2-C29 (`0023`) adds five concrete kinds (`concrete_report.returned`,
+  `concrete_curing.out_of_range`, `concrete_equipment.flagged`, `concrete_test.failed`,
+  `concrete_report.auto_submitted`) with `concrete_field_report_id` / `concrete_specimen_id`
+  (exactly one) and, for returned, `concrete_report_transition_id`; action-request rows keep
+  their rule and carry no concrete target. See [concrete.md](concrete.md#notifications-c29).
 - Recipients (`notification_recipient_check`, insert trigger): active personal or test accounts
   only, never LAB or a disabled account (the rule `action_item_person_eligible` and the email
   outbox use).

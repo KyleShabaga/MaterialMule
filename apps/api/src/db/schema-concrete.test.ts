@@ -387,7 +387,12 @@ describe.runIf(testDatabaseUrl)('concrete domain roots (MM-V2-C01, migration 001
     });
 
     it('refuses TRUNCATE of sets and specimens', async () => {
-      await expect(db.pool.query('TRUNCATE concrete_specimen')).rejects.toMatchObject(RESTRICT);
+      // CASCADE: since C29 (0023) notifications reference specimens, so a plain TRUNCATE stops at
+      // the foreign key first. The named table's own guard still fires first and refuses it.
+      await expect(db.pool.query('TRUNCATE concrete_specimen CASCADE')).rejects.toMatchObject({
+        ...RESTRICT,
+        message: "concrete specimens can't be truncated",
+      });
       await expect(db.pool.query('TRUNCATE concrete_specimen_set CASCADE')).rejects.toMatchObject(
         RESTRICT,
       );
