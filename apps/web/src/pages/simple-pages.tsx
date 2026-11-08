@@ -69,6 +69,8 @@ export function SettingsLayout() {
         {/* MISC-04 (Kyle 2026-10-30): everyone keeps a print-only Locations view; only Lab
             Managers and admins (location.manage) see its add, edit and retire controls. */}
         <NavLink to="/settings/locations">Locations</NavLink>
+        {/* MM-V2-C27: everyone reads the equipment register; Lab Managers change it. */}
+        <NavLink to="/settings/equipment">Equipment</NavLink>
         {/* MISC-04: Tests and Templates are for Lab Managers and admins only. */}
         {me.permissions.includes('test_catalog.manage') ? (
           <>

@@ -491,6 +491,8 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
       sources: ['lab_manager'],
     },
     'concrete_settings.attachment_limit.manage': { allowed: ['admin'], sources: ['admin'] },
+    // MM-V2-C27 (proposal, owner to confirm): the air-meter register, Lab Manager role alone.
+    'concrete_settings.air_meter.manage': { allowed: ['lm', 'grantLm'], sources: ['lab_manager'] },
   };
 
   it('T1/AC1: every new row matches the documented rule for every kind of caller', () => {

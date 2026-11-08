@@ -34,3 +34,4 @@ export * from './concrete';
 export * from './concrete-fixtures';
 export * from './concrete-settings';
 export * from './concrete-mixes';
+export * from './concrete-equipment';
