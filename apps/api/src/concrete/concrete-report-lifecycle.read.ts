@@ -236,7 +236,11 @@ export async function lifecycleContext(db: Db, report: LifecycleFacts): Promise<
   return { ...context, recordTechnicianUserId: report.technician_user_id };
 }
 
-/** The permission each lifecycle command needs (revise: either one, proposal Q2). */
+/**
+ * The permission each lifecycle command needs. Revise (owner decision 2026-11-08): the lead or a
+ * designated concrete_field reviewer (`concrete.review`), or the person who issued the version
+ * being corrected (`issuedByUserId`, below); an issuer grant alone is not enough.
+ */
 export const ACTION_PERMISSIONS: Record<ConcreteReportAction, Permission[]> = {
   submit: ['concrete_report.draft'],
   resubmit: ['concrete_report.draft'],
@@ -244,15 +248,44 @@ export const ACTION_PERMISSIONS: Record<ConcreteReportAction, Permission[]> = {
   return: ['concrete.review'],
   review: ['concrete.review'],
   issue: ['report.issue'],
-  revise: ['concrete.review', 'report.issue'],
+  revise: ['concrete.review'],
 };
+
+/** Who issued the latest issued version (revise: the issuer of record may correct it). */
+export function issuedByOf(latest: VersionRow | null): string | null {
+  return latest?.state === 'issued' ? latest.issued_by_user_id : null;
+}
 
 export function holdsActionPermission(
   user: AuthUser,
   action: ConcreteReportAction,
   context: ProjectContext,
+  issuedByUserId: string | null = null,
 ): boolean {
-  return ACTION_PERMISSIONS[action].some((permission) => can(user, permission, context));
+  if (ACTION_PERMISSIONS[action].some((permission) => can(user, permission, context))) return true;
+  return (
+    action === 'revise' &&
+    issuedByUserId !== null &&
+    issuedByUserId === user.userId &&
+    user.status === 'active' &&
+    user.accountType !== 'shared_lab'
+  );
+}
+
+/**
+ * Owner decision 2026-11-08: nobody reviews or issues a report they are the technician of, even
+ * as a designated reviewer or the project's lead.
+ */
+export function isSelfReview(
+  user: AuthUser,
+  action: ConcreteReportAction,
+  report: Pick<LifecycleFacts, 'technician_user_id'>,
+): boolean {
+  return (
+    (action === 'review' || action === 'issue') &&
+    report.technician_user_id !== null &&
+    report.technician_user_id === user.userId
+  );
 }
 
 /**
@@ -268,7 +301,8 @@ export function actionAllowed(
 ): boolean {
   const state = concreteReportLifecycleState(report.workflow_state, latest?.state ?? null);
   if (concreteReportNextState(state, action) === null) return false;
-  if (!holdsActionPermission(user, action, context)) return false;
+  if (!holdsActionPermission(user, action, context, issuedByOf(latest))) return false;
+  if (isSelfReview(user, action, report)) return false;
   if (action === 'submit' || action === 'resubmit') {
     // A personal account submits only its own report; LAB for the report's technician.
     return (

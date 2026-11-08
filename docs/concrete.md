@@ -426,8 +426,12 @@ format) is made.
   before and now either a correction is in progress or a revision was issued.
 - **Routing (D11).** First submission → the designated reviewers and the lead; resubmission → the
   reviewer who returned it; a correction saved by a Lab Manager (`lab_manager_corrected_by_user_id`,
-  set on save while returned) → the project's lead. Proposal: an original reviewer who can no
-  longer review hands it to the lead.
+  set on save while returned; only the technician edits a returned report, so this is a Lab
+  Manager correcting their own report) → the project's lead. An original reviewer who can no
+  longer review hands it to the lead. Routing never targets the report's technician.
+- **Owner decisions 2026-11-08.** No self-review: the technician never reviews or issues their own
+  report, even as reviewer or lead (403 `own_report`). Revision after issue: the lead, a designated
+  `concrete_field` reviewer, or the person who issued the version, with a reason.
 - **Not here:** review queue and preview (C28), auto-submission from Ready to submit (C19),
   notifications (C29), PDFs (C32). Submission checks only C04's final-review field list; the
   `review.deferredChecks` blockers (C15, C05, C06, C17, C18, C20) are added by their cards. A report

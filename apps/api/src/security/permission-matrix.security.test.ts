@@ -130,7 +130,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
   'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
   // MM-V2-C09: field-report lifecycle. Recall: the report's technician; return and review: the
-  // lead or a designated reviewer; issue: the lead or an issuer grant; revise: either (proposal).
+  // lead or a designated reviewer; issue: the lead or an issuer grant; revise: the lead, a
+  // designated reviewer or the version's issuer (owner decision 2026-11-08).
   // An unknown report is 403 for a caller with no such authority anywhere, before the body.
   'POST /api/concrete/field-reports/:id/recall': 'concrete_report.recall',
   'POST /api/concrete/field-reports/:id/return': 'concrete.review',

@@ -120,15 +120,19 @@ export interface ConcreteReportRouteInput {
   /** Whether that person can still review on this project and scope right now. */
   originalReviewerCanReview: boolean;
   leadProjectEngineerUserId: string | null;
+  /** The report's technician, who never reviews it (owner decision 2026-11-08). */
+  technicianUserId?: string | null;
 }
 
 /**
  * Who reviews a submission (D11, Combined Plan review routing). A first submission (or one after
  * a recall or a revision) goes to the project's designated reviewers and its lead. A resubmission
  * goes back to the reviewer who returned it; a Lab Manager's correction goes to the project's Lead
- * Project Engineer instead. Proposal (owner to confirm): when the original reviewer can no longer
- * review, the lead takes it. Error `no_lead_project_engineer` when only a lead could take it and
- * the project has none (D02).
+ * Project Engineer instead. When the original reviewer can no longer review, the lead takes it
+ * (owner decision 2026-11-08). Nobody reviews their own report: a target who is the report's
+ * technician is skipped, and if that leaves only the lead who is the technician, the designated
+ * reviewers take it. Error `no_lead_project_engineer` when only a lead could take it and the
+ * project has none (D02).
  */
 export function concreteReportRoute(
   input: ConcreteReportRouteInput,
@@ -136,16 +140,26 @@ export function concreteReportRoute(
   if (input.action === 'submit') {
     return { kind: 'designated_reviewers', routedToUserId: null, reason: null };
   }
-  const toLead = (reason: ConcreteReportRouteReason) =>
-    input.leadProjectEngineerUserId === null
-      ? ({ error: 'no_lead_project_engineer' } as const)
-      : {
-          kind: 'lead_project_engineer' as const,
-          routedToUserId: input.leadProjectEngineerUserId,
-          reason,
-        };
+  const technician = input.technicianUserId ?? null;
+  const toLead = (
+    reason: ConcreteReportRouteReason,
+  ): ConcreteReportRoute | { error: 'no_lead_project_engineer' } => {
+    if (input.leadProjectEngineerUserId === null) return { error: 'no_lead_project_engineer' };
+    if (input.leadProjectEngineerUserId === technician) {
+      return { kind: 'designated_reviewers', routedToUserId: null, reason: null };
+    }
+    return {
+      kind: 'lead_project_engineer',
+      routedToUserId: input.leadProjectEngineerUserId,
+      reason,
+    };
+  };
   if (input.labManagerCorrection) return toLead('lab_manager_correction');
-  if (input.originalReviewerUserId !== null && input.originalReviewerCanReview) {
+  if (
+    input.originalReviewerUserId !== null &&
+    input.originalReviewerCanReview &&
+    input.originalReviewerUserId !== technician
+  ) {
     return {
       kind: 'original_reviewer',
       routedToUserId: input.originalReviewerUserId,
