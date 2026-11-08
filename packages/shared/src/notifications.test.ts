@@ -120,7 +120,7 @@ describe('notification kinds', () => {
       title: 'Field report returned for correction',
       projectId: 'p-1',
       projectNumber: 'DEMO-2601',
-      href: '/concrete/field-reports/r-1',
+      href: '/concrete/review/r-1?version=1',
       createdAt: '2026-11-08T12:00:00.000Z',
       readAt: null,
       dismissedAt: null,

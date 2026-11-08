@@ -132,9 +132,11 @@ test('MM-V2-C29: a returned field report reaches the technician’s bell and ope
   await expect(row).toContainText('Returned by Pat Example');
 
   const open = row.getByRole('link', { name: 'Open report' });
-  await expect(open).toHaveAttribute('href', `/concrete/field-reports/${reportId}`);
+  await expect(open).toHaveAttribute('href', `/concrete/review/${reportId}?version=1`);
   await open.click();
-  await expect(page).toHaveURL(new RegExp(`/concrete/field-reports/${reportId}$`));
+  await expect(page).toHaveURL(
+    (url) => url.pathname === `/concrete/review/${reportId}` && url.search === '?version=1',
+  );
 
   // Opening read it; the bell follows the server.
   await page.goto('/notifications');

@@ -611,7 +611,7 @@ describe('Concrete notifications (MM-V2-C29)', () => {
     id: 'n-concrete',
     kind: 'concrete_report.returned',
     title: 'Field report returned for correction',
-    href: '/concrete/field-reports/r-1',
+    href: '/concrete/review/r-1?version=1',
     linkedRequest: null,
     linkedReport: {
       id: 'r-1',
@@ -643,7 +643,7 @@ describe('Concrete notifications (MM-V2-C29)', () => {
     expect(row).toHaveTextContent('Slump time is missing');
     expect(row).toHaveTextContent('DEMO-2601');
     const open = screen.getByRole('link', { name: 'Open report' });
-    expect(open).toHaveAttribute('href', '/concrete/field-reports/r-1');
+    expect(open).toHaveAttribute('href', '/concrete/review/r-1?version=1');
     act(() => open.click());
     expect(posts(fetchMock)).toContain('/api/notifications/n-concrete/read');
   });

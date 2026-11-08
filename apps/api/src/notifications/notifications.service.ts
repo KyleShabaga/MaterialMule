@@ -296,7 +296,8 @@ function concreteNotificationOf(
     title: CONCRETE_TITLES[row.kind as ConcreteNotificationKind],
     projectId: report.project_id,
     projectNumber: report.project_number,
-    href: `/concrete/field-reports/${report.id}`,
+    // C28 review view (preview, checklist, history); ?version= opens the version the event was about.
+    href: `/concrete/review/${report.id}${event ? `?version=${event.version_no}` : ''}`,
     createdAt: row.created_at.toISOString(),
     readAt: row.read_at?.toISOString() ?? null,
     dismissedAt: row.dismissed_at?.toISOString() ?? null,

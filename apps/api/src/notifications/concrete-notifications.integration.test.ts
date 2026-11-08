@@ -253,7 +253,7 @@ describe.runIf(testDatabaseUrl)('concrete notifications (MM-V2-C29)', () => {
       title: 'Field report returned for correction',
       projectId: h.projects.a,
       projectNumber: 'DEMO-2601',
-      href: `/concrete/field-reports/${report.id}`,
+      href: `/concrete/review/${report.id}?version=1`,
       readAt: null,
       linkedRequest: null,
       linkedReport: {

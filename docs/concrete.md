@@ -389,7 +389,7 @@ are untouched.
 
 - **Targets.** A concrete notification points at `concrete_field_report_id` or
   `concrete_specimen_id` (exactly one), never an action item; `notification_shape_check` and
-  `notification_guard` cover the new columns. Links open `/concrete/field-reports/:id`; the page
+  `notification_guard` cover the new columns. Links open C28's review view `/concrete/review/:id?version=N` (the version the event was about); the page
   checks access, the link grants nothing. The list reads the report's state live (a corrected and
   resubmitted report no longer reads as returned) plus, for a return, the reviewer, version and
   comment from the C09 transition (never copied).
