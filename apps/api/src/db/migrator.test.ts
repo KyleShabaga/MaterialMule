@@ -57,6 +57,7 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0016_concrete_project_settings',
       '0017_concrete_mixes',
       '0018_concrete_equipment',
+      '0019_concrete_field_report_detail',
     ]);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);

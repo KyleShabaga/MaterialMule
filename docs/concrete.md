@@ -7,9 +7,10 @@ Development Board (cards MM-V2-Cxx). Permissions: [permissions.md](permissions.m
 **Status:** the aggregate roots exist in the database (MM-V2-C01, migration
 `0015_concrete_domain.sql`) and as shared contracts (`packages/shared/src/concrete.ts`, fixtures in
 `concrete-fixtures.ts`); project settings and the concrete Lab Manager grant (C02, `0016`); project
-mixes with approval and specification history (C03, `0017`, below). No route, screen, offline
-store, allocator, submission, review, issuance or calculation reads or writes the report, set or
-specimen tables yet.
+mixes with approval and specification history (C03, `0017`); the equipment register (C27, `0018`);
+field-report detail, readings and the draft APIs (C04, `0019`, below). No screen, offline store,
+allocator, submission, review, issuance or calculation reads or writes reports, sets or specimens
+yet, and no route writes sets or specimens.
 
 ## A deliberate new domain
 
@@ -219,12 +220,73 @@ Migration `0018_concrete_equipment.sql`; contracts and the flag rule in
   manages air meters (proposal: Lab Manager), scale integration and machine data import (out of
   scope).
 
+## Field reports (C04)
+
+Migration `0019_concrete_field_report_detail.sql`; contracts and the final-review rules in
+`packages/shared/src/concrete-field-reports.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-field-report-drafts-mm-v2-c04). Source: spec page 2 (field
+map) and page 1 (blockers vs warnings).
+
+- **Draft contract.** `POST /api/concrete/projects/:projectId/field-reports` and
+  `PATCH /api/concrete/field-reports/:id` take any subset of the field map's fields, flat
+  (`reportDate`, `supplierName`, `ticketNumber`, `arrivedAt`, `timeLimitExceeded`, `material`,
+  `concreteTempC`, …). Absent = unchanged (null on create); null or blank text clears. Missing is
+  null, never 0, false or "No" (AC1); the server never defaults an answer (the form, C14, preselects
+  Concrete and Specimens cast = Yes, `CONCRETE_FIELD_FORM_PRESELECTED`). Identifiers are text
+  (leading zeros kept). Cumulative volume is manual. Report Date is the field-test date; casting,
+  pickup and receiving times are separate fields.
+- **Three sources kept apart.** `projectSpec` and `ticketSpec` are the report's two spec columns
+  (strength, strength age, slump target ± tolerance, air min–max, aggregate, cement, admixtures;
+  each a partial patch on save). `mixId` names a registry mix of the same project; choosing it
+  stores `mixSnapshot` (`concreteMixSnapshotSchema`: the revision in effect — approved, else the
+  Unapproved draft — plus its values), re-taken only when the mix changes and never re-read from
+  the live mix. `applyMixDefaults: true` fills both columns (and blank supplier, mix number and a
+  single plant) from the snapshot; values in the same request win; measured results and times never
+  change. `manualSpecChanges` lists column members that differ from the snapshot. Nothing writes
+  the registry (C03 AC4, proven).
+- **Readings (AC3).** `readings` is the full ordered list of slump and air readings with
+  client-generated ids: one `initial` per test, then `retest`, `after_superplasticizer` or
+  `after_water` rows, each with value, time and note. Positions follow the order sent. A saved
+  reading keeps its test and context (422 `reading_identity_fixed`; the database refuses it too),
+  so a retest never overwrites the initial or a post-addition reading; a draft may drop a row.
+- **Computed, never stored.** `completeness` (`missingRequired` field paths, spec page 2
+  "Required", with its conditional rows), `review.warnings` (unknown mix, unapproved mix, slump /
+  air out of the project spec, ticket differs from spec, duplicate supplier + ticket, air-meter
+  calibration flags) and `review.deferredChecks` (the blockers later cards own: project matched
+  C17, ticket attachment acknowledged C15, set detail C05, pickup / curing and receiving C06,
+  identity C18, permanent IDs confirmed C20). Warnings never block a save (AC5).
+- **Duplicates (CD-18).** Same supplier and ticket (ignoring case and blanks) on another report in
+  any project, not void: listed in `duplicateTickets` (up to 10) with a warning; both save.
+- **Air meter (CD-45).** Optional `airMeterEquipmentId` (an air meter); evaluated with C27's
+  `evaluateEquipmentUse` on the report date and stored as `airMeterUse`, re-taken when the meter
+  or date changes. The autofill (`/api/concrete/air-meters/assigned`) is the form's.
+- **Attachments** are metadata only (`attachmentRefs`: id, ticket photo or file, file name, time);
+  C15 owns files and acknowledgment.
+- **Review routing** (MISC-08, scope `concrete_field`): `reviewRouting` lists the effective
+  designated reviewers (read live, so an eligibility loss removes a person at once) and the lead;
+  `blocked: no_reviewer` when nobody could review. Unfinished review work therefore waits rather
+  than going to an ineligible person; the review actions themselves are C28's.
+- **Open, deliberately not modelled:** the paper Field ID vs Set ID meaning (CD-65: `paperFieldId`
+  is uninterpreted text, never a set ID or unique), the 32 printed element choices (elements are
+  labels; `Other` takes `locationElementOther`), SCC / flow tests, project-required unit weight,
+  admixture dosage rules, air requirements for non-concrete materials.
+
+### For C05 / C09 / C19
+
+- **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
+  project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
+  prefix (C18). Add set detail in your own migration and extend `review.deferredChecks`'s
+  `specimen_set_detail` into real rules.
+- **C09 / C19:** saves are refused once `workflow_state` leaves `draft`. Ready to submit should
+  require `completeness.complete` plus the deferred checks; warnings stay warnings. Reuse
+  `concreteFieldReportMissing` / `concreteFieldReportWarnings`, never store their result.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before
   its project is matched, it adds that in its own migration; numbering and submission still wait.
 - **G prefix and casting year:** the database checks the permanent ID's shape and number, not that
-  `G` matches a grout material or `YY` the casting year; C04 adds material and casting date, and
+  `G` matches a grout material or `YY` the casting year; C04 added `material` and `cast_at`, and
   C18 allocates from them.
 - **Sets per report:** the field form shows one specimen set per report (spec page 2); the schema
   doesn't cap it, and sets without a field report (workbook import, C34) would need a later change.
