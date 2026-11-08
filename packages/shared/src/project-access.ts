@@ -365,6 +365,8 @@ export const PERMISSION_SOURCES = [
   'lab',
   'internal',
   'lab_manager',
+  // MM-V2-C36: the Lab Technician role.
+  'lab_technician',
   'admin',
   'lead_project_engineer',
   'acceptance_delegate',
@@ -381,6 +383,7 @@ export const CAPABILITY_SOURCE_LABEL: Record<CapabilitySource, string> = {
   lab: 'Shared LAB account',
   internal: 'Any staff member',
   lab_manager: 'Lab Manager',
+  lab_technician: 'Lab Technician',
   admin: 'Administrator',
   lead_project_engineer: 'Lead Project Engineer',
   acceptance_delegate: 'Acceptance delegate',
@@ -412,6 +415,8 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   // record's technician, so it is listed per report (`lifecycle.allowedActions`), not here.
   'concrete.review',
   'report.issue',
+  // MM-V2-C22: lead, designated concrete_field reviewer or concrete-grant Lab Manager (C10).
+  'concrete_specimen.reschedule',
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
@@ -434,6 +439,7 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'concrete_mix.approve': 'Approve concrete mixes',
   'concrete.review': 'Review or return concrete field reports',
   'report.issue': 'Issue concrete field reports',
+  'concrete_specimen.reschedule': 'Reschedule concrete specimen tests',
 };
 
 export const BLOCKED_REASONS = [
@@ -639,7 +645,7 @@ export const accessSummarySchema = z.object({
   accountType: z.string(),
   status: z.string(),
   effectiveJobTitle: effectiveJobTitleSchema,
-  roles: z.array(z.enum(['admin', 'lab_manager'])),
+  roles: z.array(z.enum(['admin', 'lab_manager', 'lab_technician'])),
   reviewerEligibility: z.array(reviewerEligibilitySchema),
   capabilities: z.array(staffCapabilityGrantSchema),
   projects: z.array(accessProjectSchema),

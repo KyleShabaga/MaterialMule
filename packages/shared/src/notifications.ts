@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { ACTION_REQUEST_KINDS, ACTION_REQUEST_RESOLUTIONS } from './action-requests';
+import { CONCRETE_REPORT_LIFECYCLE_STATES } from './concrete-report-lifecycle';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-T91: in-app notifications, kept separate from action requests (MM-T27).
 //
 // A notification tells a person something happened. An action request is work they must do in the
 // underlying workflow. Reading, dismissing or opening a notification never resolves, approves or
-// changes an action request. Owner decisions (2026-10-31): no routine-event kinds yet; unread/read,
+// changes an action request. Owner decisions (2026-10-31): no routine-event kinds for V1; unread/read,
 // "Mark all read", and a dismiss that only hides a row and can be undone; nothing is deleted; the
 // list covers the last 90 days; reassignment adds a row for the new recipient and never retargets
 // the old one.
@@ -16,8 +17,76 @@ export const NOTIFICATION_KINDS = [
   'action_request.opened',
   /** Someone else resolved a request you raised (or a correction you returned was marked done). */
   'action_request.decided',
+  // MM-V2-C29: concrete events. Each one links a concrete report or specimen, never an action
+  // item. In-app only (owner decision 2026-10-30).
+  /** A reviewer returned a field report for correction (producer: C09 return command). */
+  'concrete_report.returned',
+  /** Recorded curing temperatures fell outside the applicable range (producer: C06/C20). */
+  'concrete_curing.out_of_range',
+  /** A reading or test used flagged equipment (producer: C23 results / C14 field tests). */
+  'concrete_equipment.flagged',
+  /** A specimen failed its test (producer: C23/C25). */
+  'concrete_test.failed',
+  /** A report ready to submit was submitted automatically (producer: C19). */
+  'concrete_report.auto_submitted',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+export const CONCRETE_NOTIFICATION_KINDS = [
+  'concrete_report.returned',
+  'concrete_curing.out_of_range',
+  'concrete_equipment.flagged',
+  'concrete_test.failed',
+  'concrete_report.auto_submitted',
+] as const satisfies readonly NotificationKind[];
+export type ConcreteNotificationKind = (typeof CONCRETE_NOTIFICATION_KINDS)[number];
+
+export function isConcreteNotificationKind(
+  kind: NotificationKind,
+): kind is ConcreteNotificationKind {
+  return (CONCRETE_NOTIFICATION_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * Who a concrete event notifies, before account eligibility (the API and the database also drop
+ * LAB, disabled and non-personal accounts). Combined Plan:
+ *   returned        the report's technician and the Lab Manager(s); the reviewer who returned it
+ *                   is never notified, so a Lab Manager returning a report they reviewed gets no
+ *                   separate Lab Manager notice (C29 AC1).
+ *   curing / failed the designated reviewer(s) and the project's Lead Project Engineer (PM/PE).
+ *   equipment       the designated reviewer(s).
+ *   auto-submitted  the report's technician.
+ * The person who caused the event is never notified of it. Every person appears once, however
+ * many ways they qualify (AC2); the (recipient, event_key) key guards the same in the database.
+ */
+export interface ConcreteNotificationFacts {
+  /** The person whose action caused the event (the returning reviewer, the tester…), if any. */
+  actorUserId: string | null;
+  technicianUserId?: string | null;
+  labManagerUserIds?: readonly string[];
+  designatedReviewerUserIds?: readonly string[];
+  leadProjectEngineerUserId?: string | null;
+}
+
+export function concreteNotificationRecipients(
+  kind: ConcreteNotificationKind,
+  facts: ConcreteNotificationFacts,
+): string[] {
+  const reviewers = facts.designatedReviewerUserIds ?? [];
+  const candidates: (string | null | undefined)[] =
+    kind === 'concrete_report.returned'
+      ? [facts.technicianUserId, ...(facts.labManagerUserIds ?? [])]
+      : kind === 'concrete_report.auto_submitted'
+        ? [facts.technicianUserId]
+        : kind === 'concrete_equipment.flagged'
+          ? [...reviewers]
+          : [...reviewers, facts.leadProjectEngineerUserId];
+  const out: string[] = [];
+  for (const id of candidates) {
+    if (id && id !== facts.actorUserId && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
 
 /** How far back the notification list reaches. */
 export const NOTIFICATION_LIST_DAYS = 90;
@@ -49,6 +118,22 @@ export const notificationLinkedRequestSchema = z.object({
 });
 export type NotificationLinkedRequest = z.infer<typeof notificationLinkedRequestSchema>;
 
+/**
+ * The linked concrete report's state now, read live (C29). For a returned notice, the return
+ * event's comment and reviewer, read from the C09 transition (never copied).
+ */
+export const notificationLinkedReportSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['field']),
+  state: z.enum(CONCRETE_REPORT_LIFECYCLE_STATES),
+  reportDate: z.string().nullable(),
+  /** The submitted version the event was about, when there is one. */
+  versionNo: z.number().int().nullable(),
+  by: personSnapshotSchema.nullable(),
+  comment: z.string().nullable(),
+});
+export type NotificationLinkedReport = z.infer<typeof notificationLinkedReportSchema>;
+
 export const notificationSchema = z.object({
   id: z.string(),
   kind: z.enum(NOTIFICATION_KINDS),
@@ -62,6 +147,8 @@ export const notificationSchema = z.object({
   readAt: z.string().nullable(),
   dismissedAt: z.string().nullable(),
   linkedRequest: notificationLinkedRequestSchema.nullable(),
+  /** Concrete kinds: the report the notice is about (null for action-request kinds). */
+  linkedReport: notificationLinkedReportSchema.nullable(),
 });
 export type Notification = z.infer<typeof notificationSchema>;
 

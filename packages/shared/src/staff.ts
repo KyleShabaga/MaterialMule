@@ -7,7 +7,7 @@ import { positionSchema } from './profile';
 export const staffStatusSchema = z.enum(['pending', 'active', 'disabled']);
 export type StaffStatus = z.infer<typeof staffStatusSchema>;
 
-export const staffRoleSchema = z.enum(['admin', 'lab_manager']);
+export const staffRoleSchema = z.enum(['admin', 'lab_manager', 'lab_technician']);
 export type StaffRole = z.infer<typeof staffRoleSchema>;
 
 export const staffPositionSchema = positionSchema;
@@ -18,6 +18,7 @@ export const staffAccountTypeSchema = z.enum(['personal', 'shared_lab', 'test'])
 export const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Admin',
   lab_manager: 'Lab Manager',
+  lab_technician: 'Lab Technician',
 };
 
 /** Official initials: 1–5 capital letters (e.g. KCS). Not unique. Lower case is upper-cased. */
@@ -107,7 +108,7 @@ export type DisableStaffRequest = z.input<typeof disableStaffRequestSchema>;
 
 /** Body of `PUT /api/staff/:id/roles`: the complete role set and the reason (D15, MM-AO03). */
 export const setStaffRolesRequestSchema = z.object({
-  roles: z.array(staffRoleSchema).max(2),
+  roles: z.array(staffRoleSchema).max(3),
   reason: reasonSchema,
 });
 export type SetStaffRolesRequest = z.input<typeof setStaffRolesRequestSchema>;

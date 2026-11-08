@@ -26,6 +26,7 @@ import {
 } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
+import { notifyConcreteReportReturned } from '../notifications/concrete-notifications.js';
 import { permissionSources, type AuthUser, type ProjectContext } from '../auth/policy.js';
 import { asLocked, canUnderLock, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
@@ -348,11 +349,12 @@ export class ConcreteReportLifecycleService {
       await this.updateReport(client, action, found, current, user, to);
     }
 
-    await client.query(
+    const transition = await client.query<{ id: string }>(
       `INSERT INTO concrete_report_transition
          (project_id, field_report_id, version_id, action, from_state, to_state, actor_user_id,
           staff_user_id, comment, route_kind, routed_to_user_id, idempotency_key, request_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id`,
       [
         found.project_id,
         found.id,
@@ -397,6 +399,8 @@ export class ConcreteReportLifecycleService {
       },
       requestId,
     });
+    // C29: a return tells the technician and the Lab Manager(s), in the same transaction.
+    if (action === 'return') await notifyConcreteReportReturned(client, transition.rows[0]!.id);
     return this.reports.detailOf(client, (await findReport(client, found.id))!, user);
   }
 

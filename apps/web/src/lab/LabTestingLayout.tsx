@@ -33,6 +33,7 @@ export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
           </NavLink>
         ) : null}
         <NavLink to="/lab-testing/programs">Programs</NavLink>
+        <NavLink to="/lab-testing/concrete">Concrete breaks</NavLink>
       </nav>
       <Outlet />
     </>

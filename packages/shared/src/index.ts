@@ -39,3 +39,4 @@ export * from './concrete-field-reports';
 export * from './concrete-specimen-sets';
 export * from './concrete-report-lifecycle';
 export * from './concrete-review';
+export * from './concrete-worklist';

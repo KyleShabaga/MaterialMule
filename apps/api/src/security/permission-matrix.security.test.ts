@@ -29,9 +29,9 @@ import {
   receivingLabId,
 } from '../test-support/fixtures.js';
 
-// MM-T18 security sweep (card test T2, AC4). Every route the API serves is called as five kinds
-// of caller — nobody, a pending account, a disabled account, the shared LAB account and an
-// ordinary Technician — and the outcome is compared with the permission matrix in
+// MM-T18 security sweep (card test T2, AC4). Every route the API serves is called as six kinds
+// of caller — nobody, a pending account, a disabled account, the shared LAB account, an
+// ordinary Technician and a Lab Technician (role only, MM-V2-C36) — and the outcome is compared with the permission matrix in
 // docs/permissions.md (MM-T04), not with policy.ts, so the code and the agreed matrix can't
 // drift apart unnoticed. Every refused call must leave every table exactly as it was.
 // Run on its own with `npm run test:security`. Fictional data only.
@@ -39,11 +39,18 @@ import {
 const LAB_ID = '00000000-0000-4000-8000-000000000001';
 
 type MatrixColumn =
-  'lab' | 'internal' | 'labManager' | 'admin' | 'leadProjectEngineer' | 'delegate';
+  | 'lab'
+  | 'internal'
+  | 'labManager'
+  | 'labTechnician'
+  | 'admin'
+  | 'leadProjectEngineer'
+  | 'delegate';
 const COLUMNS: MatrixColumn[] = [
   'lab',
   'internal',
   'labManager',
+  'labTechnician',
   'admin',
   'leadProjectEngineer',
   'delegate',
@@ -144,13 +151,23 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
   'POST /api/concrete/field-reports/:reportId/casting-correction': 'concrete_specimen.reschedule',
+  // MM-V2-C22: rescheduling a specimen's test (the lead, a designated reviewer or a
+  // concrete-grant Lab Manager; personal accounts only, reason required).
+  'POST /api/concrete/specimens/:specimenId/reschedule': 'concrete_specimen.reschedule',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
 const NOT_SWEPT = new Set(['POST /api/auth/sign-out']);
 
-type Caller = 'anonymous' | 'pending' | 'disabled' | 'lab' | 'technician';
-const CALLERS: Caller[] = ['anonymous', 'pending', 'disabled', 'lab', 'technician'];
+type Caller = 'anonymous' | 'pending' | 'disabled' | 'lab' | 'technician' | 'labTechnician';
+const CALLERS: Caller[] = [
+  'anonymous',
+  'pending',
+  'disabled',
+  'lab',
+  'technician',
+  'labTechnician',
+];
 
 interface Route {
   method: string;
@@ -290,7 +307,10 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
     const columns = matrix.get(permission);
     if (!columns) throw new Error(`${permission} is missing from docs/permissions.md`);
     // The Technician is an ordinary internal user: not the project's Lead Project Engineer, no roles.
-    const allowed = columns.has(caller === 'lab' ? 'lab' : 'internal');
+    // The Lab Technician holds that role alone (MM-V2-C36), no project authority.
+    const allowed = columns.has(
+      caller === 'lab' ? 'lab' : caller === 'labTechnician' ? 'labTechnician' : 'internal',
+    );
     return allowed ? { allowed } : { allowed: false, status: 403, code: 'forbidden' };
   }
 
@@ -309,6 +329,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
     const admin = await addUser('Admin Example', 'ADM', 'active', ['admin']);
     const pe = await addUser('Pat Example', 'PE', 'active');
     const technician = await addUser('Alex Tester', 'AT', 'active');
+    const labTechnician = await addUser('Taylor Bench', 'TB', 'active', ['lab_technician']);
     const pending = await addUser('New Starter', 'NS', 'pending');
     const disabled = await addUser('Former Staff', 'FS', 'active');
     ids.victim = await addUser('Victim Example', 'VE', 'active');
@@ -374,6 +395,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
 
     cookies.pending = await cookieFor(pending, 'personal');
     cookies.technician = await cookieFor(technician, 'personal');
+    cookies.labTechnician = await cookieFor(labTechnician, 'personal');
     cookies.lab = await cookieFor(LAB_ID, 'shared_lab');
     // Signed in while active, then disabled behind the session's back (no revocation): the
     // session must still stop working.
@@ -402,6 +424,10 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       internal: [{ ...base, userId: 'tech', accountType: 'personal', roles: [] }, false],
       labManager: [
         { ...base, userId: 'lm', accountType: 'personal', roles: ['lab_manager'] },
+        false,
+      ],
+      labTechnician: [
+        { ...base, userId: 'lt', accountType: 'personal', roles: ['lab_technician'] },
         false,
       ],
       admin: [{ ...base, userId: 'admin', accountType: 'personal', roles: ['admin'] }, false],
