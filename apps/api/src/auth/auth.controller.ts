@@ -83,6 +83,9 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   // MM-V2-C10: on LAB's allow-list, so /api/me must report it (LAB's list equals LAB_PERMISSIONS).
   // No route checks it yet (C04 adds the draft routes).
   'concrete_report.draft',
+  // MM-V2-C27: Settings → Equipment shows its manage controls from these.
+  'concrete_settings.testing_machine.manage',
+  'concrete_settings.air_meter.manage',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */

@@ -97,6 +97,7 @@ the shared contracts; none may repurpose a C01 column.
 | C18  | Permanent set-number allocator (project counter row, locked in the accepting transaction; never a sequence) and Void                                           |
 | C19  | Ready to submit and server submission (writes the workflow columns)                                                                                            |
 | C24+ | Strength calculation, failed-test workflow, HOLD and disposal                                                                                                  |
+| C27  | Equipment register: the testing machine and air meters, calibration history and the equipment flag rule                                                        |
 
 ## Project settings and authority (C02)
 
@@ -176,6 +177,47 @@ erDiagram
   entries, flag it, and never create or edit a registry mix from field data (AC4).
 - Sets copy `testAges` from the snapshot (mix, else project, else lab default) when created; later
   mix edits never re-schedule existing specimens.
+
+## Equipment (C27)
+
+Migration `0018_concrete_equipment.sql`; contracts and the flag rule in
+`packages/shared/src/concrete-equipment.ts`; routes and permissions in
+[permissions.md](permissions.md#concrete-equipment-mm-v2-c27). Screen: Settings → Equipment.
+
+- **Register** (`concrete_equipment`): kind `testing_machine` or `air_meter`, equipment ID (required
+  for air meters, unique ignoring case among equipment not retired), description, make, model,
+  status (`in_service`, `out_of_service` = an unresolved equipment issue, `retired` = final, each
+  with a note saying why) and, for air meters only, the assigned technician (active personal staff
+  when assigned). One testing machine at a time (CD-44, no per-test selector): a replaced machine
+  is retired, keeping its history, before the next is registered. Never deleted.
+- **Calibration history** (`concrete_equipment_calibration`, AC2): entries numbered 1, 2, 3… per
+  equipment with calibration date, next-due date, who performed it and the result (free text).
+  Never overwritten or deleted; a mistaken entry is voided with a reason and stays listed. The
+  machine's "last calibration / next due" is the entry in effect: the latest one not voided whose
+  calibration date is on or before the date in question.
+- **Flag rule** (`concreteEquipmentFlags`, CD-45): using equipment on a date flags
+  `calibration_overdue` when that date is after the next-due date of the entry in effect,
+  `calibration_due_on_use_date` on the due date itself (the boundary procedure is an open owner
+  input; both only warn), `no_calibration_recorded` when no entry applies, and
+  `equipment_out_of_service` / `equipment_retired` from the status. **Only the recorded next-due
+  date counts: no calibration interval exists anywhere.** Flags never block saving.
+- **For the cards that use equipment.** The result-level flag records belong to the records that
+  use equipment; C27 gives them the evaluation:
+  - C04/C14 (field report air meter, optional): `GET /api/concrete/air-meters/assigned` autofills
+    the performing technician's meter when exactly one is assigned (none or several: left blank,
+    editable). Store the chosen equipment id and the `use` evaluation (calibration id, next due,
+    flags) with the field test, and recheck on sync.
+  - C23 (testing table): `testingMachineSnapshot(db, testDate)` /
+    `evaluateEquipmentUse(db, id, testDate)` in `concrete-equipment.service.ts`; store the
+    evaluation with each result.
+  - C28 (review checklist) and the Exceptions worklist (C31): read those stored flags; an equipment
+    flag needs review before issuance (CD-45). C29 sends the equipment-flag notification.
+  - C32 (issued reports): copy `testingMachineSnapshot()` into the issued version when the project
+    setting includes machine info; later register changes never alter an issued file.
+- **Gated (owner inputs, not built):** the air-meter calibration form (procedure readings; out of
+  scope until mapped), calibration attachments (C15), the due-date boundary procedure, who
+  manages air meters (proposal: Lab Manager), scale integration and machine data import (out of
+  scope).
 
 ## Notes for later cards
 

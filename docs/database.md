@@ -757,6 +757,26 @@ owns which fields: [concrete.md](concrete.md).
   `apps/api/src/db/schema-concrete-mixes.test.ts` (including "0017 on a populated database changes
   no row").
 
+## Concrete equipment register (MM-V2-C27, `0018_concrete_equipment.sql`)
+
+- **`concrete_equipment`**: `kind` (`testing_machine`, `air_meter`), `identifier` (required for air
+  meters; unique on `lower(btrim())` among rows not retired), description, make, model,
+  `assigned_user_id` + snapshots (air meters only; an active non-LAB account when set, trigger
+  `concrete_equipment_assignee_active`), `status` (`in_service`, `out_of_service`, `retired`, a
+  `status_note` unless in service; retired rows are unassigned), creator/updater snapshots,
+  `create_idempotency_key` (unique) + request hash, `version`. Partial unique index: one testing
+  machine not retired. A trigger refuses delete, a changed id/kind/creation, any change once
+  retired, and any version step other than +1; truncate is refused.
+- **`concrete_equipment_calibration`**: `entry_number` contiguous per equipment (trigger),
+  `calibrated_on`, `next_due_on` (> calibrated_on; required: the overdue rule reads only it),
+  `performed_by`, `result` (free text), recorder snapshots, `idempotency_key` (unique) + request
+  hash, and void columns (all or none, reason required). Insert refused for retired equipment;
+  delete and truncate refused; the only update is a one-time void (trigger
+  `concrete_equipment_calibration_history`).
+- Audit: `concrete_equipment.*` events (entity type `concrete_equipment`, entity id = equipment).
+- Proofs: `apps/api/src/db/schema-concrete-equipment.test.ts` (including "0018 on a populated
+  database changes no row").
+
 ## Retention dates, holds, extensions and requests (MM-T29)
 
 - `unit_retention` (view) is the one calculation: `minimum_retain_until` =

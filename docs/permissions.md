@@ -79,7 +79,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_ordinary_hold.manage (C10, planned)                                                                           |     |                   |      ✓      |       |           ✓           |                     |
 | concrete_set.void / concrete_specimen.reschedule (C10, planned; + reviewer, concrete LM grant)                         |     |                   |             |       |           ✓           |                     |
 | concrete_settings.curing_standard.manage (C10, planned)                                                                |     |                   |      ✓      |   ✓   |                       |                     |
-| concrete_settings.testing_machine.manage (C10, planned)                                                                |     |                   |      ✓      |       |                       |                     |
+| concrete_settings.testing_machine.manage (C10, C27)                                                                    |     |                   |      ✓      |       |                       |                     |
+| concrete_settings.air_meter.manage (C27, proposal: owner to confirm)                                                   |     |                   |      ✓      |       |                       |                     |
 | concrete_settings.attachment_limit.manage (C10, planned)                                                               |     |                   |             |   ✓   |                       |                     |
 | concrete_specimen.receive / .mass_correct / .dispose_record, concrete_test.enter (C10; owner decision pending: nobody) |     |                   |             |       |                       |                     |
 | reviewer_eligibility.manage (AO03, D05)                                                                                |     |                   |             |   ✓   |                       |                     |
@@ -546,7 +547,7 @@ together with the `lab_manager` role (`concrete_lab_manager`); "Lab Manager (rol
 | `concrete_set.void`                            | the lead, a designated reviewer, or a concrete-grant Lab Manager                                                 | reason required                                                                                             | C18                       |
 | `concrete_specimen.reschedule`                 | the lead, a designated reviewer, or a concrete-grant Lab Manager (outside the failure rule)                      | reason required                                                                                             | C22                       |
 | `concrete_settings.curing_standard.manage`     | Lab Manager or admin                                                                                             |                                                                                                             | no card yet (Package 4)   |
-| `concrete_settings.testing_machine.manage`     | Lab Manager                                                                                                      |                                                                                                             | C27                       |
+| `concrete_settings.testing_machine.manage`     | Lab Manager                                                                                                      |                                                                                                             | C27 (implemented)         |
 | `concrete_settings.attachment_limit.manage`    | admin                                                                                                            |                                                                                                             | C15                       |
 | project created during sync → `project.create` | existing rule (any internal user; LAB)                                                                           | the syncing technician, from job number and name; duplicate job number refused; lead nominated later (AO04) | C17                       |
 
@@ -577,6 +578,43 @@ together with the `lab_manager` role (`concrete_lab_manager`); "Lab Manager (rol
   Also pending: whether the "Lab Manager" in sync-conflict resolution for receiving, test or
   submitted data is the role alone or the role plus the project's concrete grant; until then only
   the lead and designated reviewers hold `concrete_sync_conflict.resolve_lab`.
+
+## Concrete equipment (MM-V2-C27)
+
+The one testing machine and the air meters, with calibration history (CD-44, CD-45). Contracts:
+`packages/shared/src/concrete-equipment.ts`; tables: migration 0018 ([concrete.md](concrete.md#equipment-c27)).
+
+| Route                                                                | Policy                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `GET /api/concrete/equipment?kind=&includeRetired=`                  | `inventory.read` (every active session, LAB included)        |
+| `GET /api/concrete/equipment/:id`                                    | `inventory.read`                                             |
+| `GET /api/concrete/equipment/:id/use-check?on=`                      | `inventory.read`                                             |
+| `GET /api/concrete/air-meters/assigned?technicianUserId=&on=`        | `inventory.read` (field-report autofill)                     |
+| `POST /api/concrete/testing-machine`, `PATCH …/:id`                  | `concrete_settings.testing_machine.manage` (Lab Manager)     |
+| `POST /api/concrete/testing-machine/:id/calibrations`, `…/:cid/void` | `concrete_settings.testing_machine.manage`                   |
+| `POST /api/concrete/air-meters`, `PATCH …/:id`                       | `concrete_settings.air_meter.manage` (Lab Manager, proposal) |
+| `POST /api/concrete/air-meters/:id/calibrations`, `…/:cid/void`      | `concrete_settings.air_meter.manage`                         |
+
+- **Testing machine (AC3):** Lab Manager role alone (C10). Admin, the lead, any other staff and LAB
+  get 403 before the body, and nothing is written.
+- **Air meters: proposal awaiting owner confirmation.** The card and CD-45 say air meters are
+  registered and assigned to technicians but not by whom; `concrete_settings.air_meter.manage` is
+  granted to the Lab Manager role alone, like the testing machine, until the owner confirms or
+  changes it.
+- **Order of checks:** 401/403 (route permission, the request's user), 404 for an unknown id or an
+  id of the other kind, 400 body, then under the lock (equipment row FOR UPDATE, then the editor's
+  and an assignee's accounts FOR SHARE, D09) the final permission check. A stale `version` is 409
+  `version_conflict` with the current detail; retired equipment is 409 `equipment_retired`; a
+  second testing machine 409 `testing_machine_exists`; a duplicate equipment ID 409
+  `equipment_identifier_exists`; an assignee who isn't active personal staff 422
+  `invalid_recipient`. Creates and calibration entries are idempotent by key (a reused key for
+  another intent is 409 `idempotency_key_reused`); voiding an entry twice is 409
+  `calibration_already_voided`.
+- **Audit** (entity `concrete_equipment`, in the same transaction): `concrete_equipment.registered`,
+  `.updated` (changed fields only, before/after, optional reason), `.calibration_recorded`,
+  `.calibration_voided` (reason required).
+- **Flags never block.** The use-check, the autofill and the equipment list only report what using
+  the equipment flags; no route refuses work because of a flag.
 
 ## Receiving Log (MM-T51)
 

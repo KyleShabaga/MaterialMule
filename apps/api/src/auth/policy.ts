@@ -188,6 +188,10 @@ export type Permission =
   | 'concrete_settings.curing_standard.manage'
   | 'concrete_settings.testing_machine.manage'
   | 'concrete_settings.attachment_limit.manage'
+  // MM-V2-C27: the air-meter register (register, assign to technicians, status, calibration
+  // history). Proposal pending owner confirmation: Lab Manager role alone, as for the testing
+  // machine (the card names Lab Manager for machine settings only).
+  | 'concrete_settings.air_meter.manage'
   // TODO(owner): "any active lab staff" has no server definition (roles are admin and
   // lab_manager only; MISC-06: position grants nothing). Granted to nobody until the owner
   // defines it; see PENDING_OWNER_DECISION.
@@ -279,6 +283,8 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'concrete_ordinary_hold.manage',
   'concrete_settings.curing_standard.manage',
   'concrete_settings.testing_machine.manage',
+  // MM-V2-C27 (proposal, owner to confirm): the air-meter register.
+  'concrete_settings.air_meter.manage',
 ]);
 
 /** Granted by the admin role. Admin never implies project authority or Lab Manager rights. */

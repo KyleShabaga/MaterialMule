@@ -38,6 +38,7 @@ import { MovePage } from './moves/MovePage';
 import { ScanPage } from './scanning/ScanPage';
 import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCatalogueSettings';
 import { LocationsPage } from './settings/locations/LocationsPage';
+import { EquipmentSettingsPage } from './settings/equipment/EquipmentSettingsPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { MyAccessPage } from './settings/access/MyAccessPage';
 import { StaffPage } from './settings/staff/StaffPage';
@@ -141,6 +142,8 @@ export const routes: RouteObject[] = [
                   { path: 'staff', element: <StaffPage /> },
                   // Storage locations and location labels (MM-T37).
                   { path: 'locations', element: <LocationsPage /> },
+                  // Concrete equipment: testing machine and air meters (MM-V2-C27).
+                  { path: 'equipment', element: <EquipmentSettingsPage /> },
                   // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
                   { path: 'tests', element: <TestsSettingsPage /> },
                   { path: 'templates', element: <TemplatesSettingsPage /> },

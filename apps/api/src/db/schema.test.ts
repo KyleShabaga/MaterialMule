@@ -56,6 +56,8 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'app_user',
       'audit_event',
       'bulk_group',
+      'concrete_equipment',
+      'concrete_equipment_calibration',
       'concrete_field_report',
       'concrete_mix',
       'concrete_mix_command',
