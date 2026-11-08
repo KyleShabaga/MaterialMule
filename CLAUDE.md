@@ -42,7 +42,7 @@ scripts          Repo tooling (check-bundle-secrets.mjs, pack-release.mjs)
 | `npm run verify`                              | lint → typecheck → test → build → check:bundle (the gate for every card)                                                                                       |
 | `npm run test:e2e`                            | Playwright: resets + seeds the test DB, builds both apps, API serves the web build on `E2E_PORT` (3100); fake printer on +1000, mock Microsoft tenant on +2000 |
 | `npm run db:migrate`                          | Apply pending migrations, then reference data (Receiving lab)                                                                                                  |
-| `npm run db:seed:dev`                         | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants); refused in production                                            |
+| `npm run db:seed:dev`                         | Load fictional dev fixtures (DEMO-2601, TH26-01/02, 8 test identities, 2 pending applicants); refused in production                                            |
 | `npm run db:reset:dev`                        | Re-apply the dev fixtures (names, roles, pending applicants) without changing IDs or audit                                                                     |
 | `npm run db:seed:demo`                        | Richer demo data (DEMO-2610–2615: receipts, moves, lab programs in every stage, retention, disposal) via the running dev API                                   |
 | `npm run db:rebuild:dev -- --disposable <db>` | Drop and rebuild a designated disposable dev database from the baseline, with reference data and fixtures (development only)                                   |

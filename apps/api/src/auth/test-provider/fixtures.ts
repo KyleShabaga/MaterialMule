@@ -39,4 +39,9 @@ export const TEST_FIXTURES: readonly TestFixture[] = [
     userId: '00000000-0000-4000-8000-000000000107',
     summary: 'Engineer sharing the initials JS',
   },
+  {
+    key: 'lt',
+    userId: '00000000-0000-4000-8000-000000000110',
+    summary: 'Lab Technician role (MM-V2-C36); no Lab Manager or project authority',
+  },
 ];

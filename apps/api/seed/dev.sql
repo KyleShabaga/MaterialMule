@@ -17,7 +17,9 @@ VALUES
   -- Pending applicants with no sign-in identity, for the staff approval flow (MM-T07): one per
   -- E2E viewport so parallel runs never approve the same person. Re-seeding makes them pending.
   ('00000000-0000-4000-8000-000000000108', 'Riley Pending', 'Riley', 'Pending', NULL,  NULL,         'test', 'pending'),
-  ('00000000-0000-4000-8000-000000000109', 'Casey Pending', 'Casey', 'Pending', NULL,  NULL,         'test', 'pending')
+  ('00000000-0000-4000-8000-000000000109', 'Casey Pending', 'Casey', 'Pending', NULL,  NULL,         'test', 'pending'),
+  -- The fixtures' Lab Technician (MM-V2-C36): lab staff by role, no Lab Manager authority.
+  ('00000000-0000-4000-8000-000000000110', 'Taylor Bench', 'Taylor', 'Bench',   'TB',  'technician',  'test', 'active')
 ON CONFLICT (id) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   given_name = EXCLUDED.given_name,
@@ -40,16 +42,26 @@ VALUES
   ('00000000-0000-4000-8000-000000000101', 'test', '', 'pe'),
   ('00000000-0000-4000-8000-000000000105', 'test', '', 'de'),
   ('00000000-0000-4000-8000-000000000106', 'test', '', 'js-tech'),
-  ('00000000-0000-4000-8000-000000000107', 'test', '', 'js-eng')
+  ('00000000-0000-4000-8000-000000000107', 'test', '', 'js-eng'),
+  ('00000000-0000-4000-8000-000000000110', 'test', '', 'lt')
 ON CONFLICT (provider, tenant_id, subject) DO UPDATE SET user_id = EXCLUDED.user_id;
 
--- Roles: Admin (test) is admin only; Lab (test) is Lab Manager only. Neither has project authority.
+-- Roles: Admin (test) is admin only; Lab (test) is Lab Manager only; Taylor Bench is Lab
+-- Technician only (MM-V2-C36). None has project authority.
 DELETE FROM role_assignment
-WHERE user_id IN ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000104');
+WHERE user_id IN ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000104',
+                  '00000000-0000-4000-8000-000000000110');
 INSERT INTO role_assignment (user_id, role)
 VALUES
   ('00000000-0000-4000-8000-000000000103', 'admin'),
   ('00000000-0000-4000-8000-000000000104', 'lab_manager');
+-- Only where the role exists (migration 0024): upgrade tests load this file on older schemas.
+INSERT INTO role_assignment (user_id, role)
+SELECT '00000000-0000-4000-8000-000000000110', 'lab_technician'
+WHERE EXISTS (SELECT 1 FROM pg_constraint c
+              WHERE c.conrelid = 'role_assignment'::regclass
+                AND c.conname = 'role_assignment_role_check'
+                AND pg_get_constraintdef(c.oid) LIKE '%lab_technician%');
 
 INSERT INTO project (id, project_number, name, client, lead_project_engineer_user_id)
 VALUES (

@@ -295,8 +295,8 @@ export async function testingMachineSnapshot(
  * Concrete equipment register (MM-V2-C27). Every active session reads it (`inventory.read`, LAB
  * included: field and testing work use it). The testing machine is managed under
  * `concrete_settings.testing_machine.manage` and air meters under
- * `concrete_settings.air_meter.manage` (both Lab Manager role; the second is a proposal awaiting
- * owner confirmation).
+ * `concrete_settings.air_meter.manage` (the Lab Manager role; air meters also the Lab Technician
+ * role, MM-V2-C36).
  *
  * Each write is one transaction: the equipment row FOR UPDATE (the domain row), then the editor's
  * account (and an assignee's) FOR SHARE for the final authority check (D09). Every change is

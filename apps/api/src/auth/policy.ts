@@ -4,7 +4,12 @@
 
 export type AccountType = 'personal' | 'shared_lab' | 'test';
 export type AccountStatus = 'pending' | 'active' | 'disabled';
-export type Role = 'admin' | 'lab_manager';
+/**
+ * Global app roles, assigned by an admin on the Accounts screen. `lab_technician` (MM-V2-C36,
+ * Kyle 2026-11-08) is lab staff without any Lab Manager authority: SQL helpers and action-item
+ * routing that look for a Lab Manager compare with `'lab_manager'` exactly.
+ */
+export type Role = 'admin' | 'lab_manager' | 'lab_technician';
 
 /** The signed-in principal attached to each authenticated request. */
 export interface AuthUser {
@@ -59,6 +64,8 @@ export type PermissionSource =
   | 'lab'
   | 'internal'
   | 'lab_manager'
+  // MM-V2-C36: the Lab Technician role.
+  | 'lab_technician'
   | 'admin'
   | 'lead_project_engineer'
   | 'acceptance_delegate'
@@ -170,9 +177,8 @@ export type Permission =
   // or the casting technician for specimens they cast; personal account, reason (C21).
   | 'concrete_receiving_exception.resolve'
   // Sync conflicts (C17): unsubmitted field data by the record's technician; receiving, test or
-  // submitted data by the lead or a designated reviewer. TODO(owner): the plan also names "Lab
-  // Manager" for the latter without saying role alone or role plus the project's concrete grant;
-  // neither is granted until the owner answers.
+  // submitted data by the lead, a designated reviewer, or any Lab Manager by role alone, with no
+  // project concrete grant (MM-V2-C36, Kyle 2026-11-08).
   | 'concrete_sync_conflict.resolve_field'
   | 'concrete_sync_conflict.resolve_lab'
   // Import a recovery file: the original technician or any Lab Manager (role alone) (C16).
@@ -190,12 +196,13 @@ export type Permission =
   | 'concrete_settings.testing_machine.manage'
   | 'concrete_settings.attachment_limit.manage'
   // MM-V2-C27: the air-meter register (register, assign to technicians, status, calibration
-  // history). Proposal pending owner confirmation: Lab Manager role alone, as for the testing
-  // machine (the card names Lab Manager for machine settings only).
+  // history). Lab Managers and Lab Technicians by role (MM-V2-C36, Kyle 2026-11-08).
   | 'concrete_settings.air_meter.manage'
-  // TODO(owner): "any active lab staff" has no server definition (roles are admin and
-  // lab_manager only; MISC-06: position grants nothing). Granted to nobody until the owner
-  // defines it; see PENDING_OWNER_DECISION.
+  // Lab staff (MM-V2-C36, Kyle 2026-11-08): the Lab Technician role, the Lab Manager role, and
+  // the shared LAB account naming the performing staff member (attribution only). Pickup,
+  // receipt and mass entry; mass correction; test entry and correction; recording actual
+  // disposal (C06/C07, C20, C23, C26). Never a plain internal user (MISC-06: position grants
+  // nothing). See LAB_STAFF_PERMISSIONS.
   | 'concrete_specimen.receive'
   | 'concrete_specimen.mass_correct'
   | 'concrete_test.enter'
@@ -212,12 +219,25 @@ export type Permission =
   | 'system.status.read';
 
 /**
- * What the shared LAB account may do (App Idea §8, owner decision #21 for moves). Lab programs
- * (MM-T23 wireframe decision, Kyle 2026-10-27): LAB creates, edits and submits programs, but the
- * handler requires a valid Requested by person on every such action. That person is attribution
- * only: LAB never gains their roles.
+ * Lab-staff actions (MM-V2-C36, Kyle 2026-11-08): granted by the lab_technician and lab_manager
+ * roles and to the shared LAB account, never to every internal user. On LAB the owning handler
+ * (C06/C07, C20, C23, C26) must require the performing staff member, as it does for lab
+ * programs; that person is recorded as the actor and LAB never gains their roles.
  */
-export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+export const LAB_STAFF_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  'concrete_specimen.receive',
+  'concrete_specimen.mass_correct',
+  'concrete_test.enter',
+  'concrete_specimen.dispose_record',
+]);
+
+/**
+ * What the shared LAB account and every internal user may do (App Idea §8, owner decision #21
+ * for moves). Lab programs (MM-T23 wireframe decision, Kyle 2026-10-27): LAB creates, edits and
+ * submits programs, but the handler requires a valid Requested by person on every such action.
+ * That person is attribution only: LAB never gains their roles.
+ */
+const LAB_AND_INTERNAL: ReadonlySet<Permission> = new Set<Permission>([
   'receipt.confirm',
   'receipt.draft',
   'project.create',
@@ -235,9 +255,15 @@ export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'concrete_report.draft',
 ]);
 
+/** What the shared LAB account may do: the shared allow-list plus the lab-staff actions. */
+export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  ...LAB_AND_INTERNAL,
+  ...LAB_STAFF_PERMISSIONS,
+]);
+
 /** Any active personal (or test) account. */
 const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
-  ...LAB_PERMISSIONS,
+  ...LAB_AND_INTERNAL,
   'storage_unit.correct',
   'test.review',
   'acceptance_delegation.read',
@@ -284,7 +310,21 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'concrete_ordinary_hold.manage',
   'concrete_settings.curing_standard.manage',
   'concrete_settings.testing_machine.manage',
-  // MM-V2-C27 (proposal, owner to confirm): the air-meter register.
+  // MM-V2-C27, confirmed by MM-V2-C36: the air-meter register.
+  'concrete_settings.air_meter.manage',
+  // MM-V2-C36 (Kyle 2026-11-08): sync conflicts on receiving, test or submitted data, by role
+  // alone (no project concrete grant), and the lab-staff actions.
+  'concrete_sync_conflict.resolve_lab',
+  ...LAB_STAFF_PERMISSIONS,
+]);
+
+/**
+ * Granted by the lab_technician role regardless of project (MM-V2-C36, Kyle 2026-11-08). Lab
+ * staff work and the air-meter register only: never review, issue, approval, HOLD or anything
+ * else a Lab Manager decides.
+ */
+const LAB_TECHNICIAN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  ...LAB_STAFF_PERMISSIONS,
   'concrete_settings.air_meter.manage',
 ]);
 
@@ -384,19 +424,10 @@ const RECORD_TECHNICIAN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permissio
 ]);
 
 /**
- * TODO(owner): concrete actions the owner assigned to "any active lab staff" (pickup, receipt and
- * mass entry; mass correction; test entry and correction; recording actual disposal). There is
- * no server definition of lab staff (roles are admin and lab_manager; position grants nothing,
- * MISC-06), so these are granted by no source and every caller is denied until the owner decides
- * (every internal user, a position-based rule like MISC-08, or a new role). Blocks C06/C07,
- * C20, C23 and C26's disposal recording.
+ * Permissions that no source grants until the owner decides who holds them; a test keeps every
+ * member ungranted. Empty since MM-V2-C36 (Kyle 2026-11-08 defined lab staff).
  */
-export const PENDING_OWNER_DECISION: ReadonlySet<Permission> = new Set<Permission>([
-  'concrete_specimen.receive',
-  'concrete_specimen.mass_correct',
-  'concrete_test.enter',
-  'concrete_specimen.dispose_record',
-]);
+export const PENDING_OWNER_DECISION: ReadonlySet<Permission> = new Set<Permission>([]);
 
 /** Permissions that need a ProjectContext to be granted through project authority. */
 export const PROJECT_SCOPED: ReadonlySet<Permission> = new Set<Permission>([
@@ -411,6 +442,7 @@ export function possibleSources(permission: Permission): PermissionSource[] {
   if (LAB_PERMISSIONS.has(permission)) sources.push('lab');
   if (ANY_INTERNAL_USER.has(permission)) sources.push('internal');
   if (LAB_MANAGER_PERMISSIONS.has(permission)) sources.push('lab_manager');
+  if (LAB_TECHNICIAN_PERMISSIONS.has(permission)) sources.push('lab_technician');
   if (ADMIN_PERMISSIONS.has(permission)) sources.push('admin');
   if (LEAD_PROJECT_ENGINEER_PERMISSIONS.has(permission)) sources.push('lead_project_engineer');
   if (DELEGATE_PERMISSIONS.has(permission)) sources.push('acceptance_delegate');
@@ -441,6 +473,9 @@ export function permissionSources(
   if (ANY_INTERNAL_USER.has(permission)) sources.push('internal');
   if (user.roles.includes('lab_manager') && LAB_MANAGER_PERMISSIONS.has(permission)) {
     sources.push('lab_manager');
+  }
+  if (user.roles.includes('lab_technician') && LAB_TECHNICIAN_PERMISSIONS.has(permission)) {
+    sources.push('lab_technician');
   }
   if (user.roles.includes('admin') && ADMIN_PERMISSIONS.has(permission)) {
     sources.push('admin');

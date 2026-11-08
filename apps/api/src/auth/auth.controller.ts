@@ -86,6 +86,13 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   // MM-V2-C27: Settings → Equipment shows its manage controls from these.
   'concrete_settings.testing_machine.manage',
   'concrete_settings.air_meter.manage',
+  // MM-V2-C36: lab-staff actions (Lab Technician, Lab Manager, LAB) and the Lab Manager's
+  // role-alone sync-conflict row. No route checks them yet (C06/C07, C17, C20, C23, C26).
+  'concrete_specimen.receive',
+  'concrete_specimen.mass_correct',
+  'concrete_test.enter',
+  'concrete_specimen.dispose_record',
+  'concrete_sync_conflict.resolve_lab',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */

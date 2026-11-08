@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 /** Fixture keys seeded by apps/api/seed/dev.sql (MM-T33). */
-export type FixtureKey = 'admin' | 'lab' | 'at' | 'pe' | 'de' | 'js-tech' | 'js-eng';
+export type FixtureKey = 'admin' | 'lab' | 'at' | 'pe' | 'de' | 'js-tech' | 'js-eng' | 'lt';
 
 /**
  * Signs the page's browser context in as a test fixture through the API (no UI clicks), signing

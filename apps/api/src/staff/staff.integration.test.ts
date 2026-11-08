@@ -368,6 +368,52 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       .send({ roles: ['admin'], reason: 'Testing the LAB guard' });
     expect(response.status).toBe(422);
     expect(response.body).toMatchObject({ code: 'roles_not_allowed' });
+    const labTechnician = await http()
+      .put(`/api/staff/${ids.lab}/roles`)
+      .set('Cookie', await cookieFor('admin'))
+      .set(CSRF_HEADER, '1')
+      .send({ roles: ['lab_technician'], reason: 'Testing the LAB guard' });
+    expect(labTechnician.status).toBe(422);
+    expect(labTechnician.body).toMatchObject({ code: 'roles_not_allowed' });
+  });
+
+  it('MM-V2-C36: an admin assigns and removes the Lab Technician role, audited with a reason', async () => {
+    const admin = await cookieFor('admin');
+    const { id } = (
+      await db.pool.query<{ id: string }>(
+        `INSERT INTO app_user (display_name, official_initials, account_type, status)
+         VALUES ('Taylor Bench', 'TB', 'personal', 'active') RETURNING id`,
+      )
+    ).rows[0]!;
+    const put = (roles: string[], reason: string) =>
+      http()
+        .put(`/api/staff/${id}/roles`)
+        .set('Cookie', admin)
+        .set(CSRF_HEADER, '1')
+        .send({ roles, reason });
+    const granted = await put(['lab_technician'], 'Fictional lab staff');
+    expect(granted.status, JSON.stringify(granted.body)).toBe(200);
+    expect(granted.body.roles).toEqual(['lab_technician']);
+    // All three roles at once fit the request schema.
+    const all = await put(['admin', 'lab_manager', 'lab_technician'], 'Fictional cover');
+    expect(all.status).toBe(200);
+    expect(all.body.roles).toEqual(['admin', 'lab_manager', 'lab_technician']);
+    const removed = await put([], 'Fictional handover');
+    expect(removed.status).toBe(200);
+    expect(removed.body.roles).toEqual([]);
+    const audit = await listAuditForEntity(db.pool, 'app_user', id);
+    expect(audit.map((event) => [event.action, event.reason])).toEqual([
+      ['staff.roles_changed', 'Fictional handover'],
+      ['staff.roles_changed', 'Fictional cover'],
+      ['staff.roles_changed', 'Fictional lab staff'],
+    ]);
+    expect(audit[2]).toMatchObject({
+      before: { roles: [] },
+      after: { roles: ['lab_technician'] },
+    });
+    // An unknown role is a bad request, and nothing changes.
+    const bogus = await put(['lab_tech'], 'Fictional typo');
+    expect(bogus.status).toBe(400);
   });
 
   describe('pre-provisioned staff and first sign-in (AC6)', () => {

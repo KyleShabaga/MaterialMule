@@ -219,8 +219,7 @@ Migration `0018_concrete_equipment.sql`; contracts and the flag rule in
   - C32 (issued reports): copy `testingMachineSnapshot()` into the issued version when the project
     setting includes machine info; later register changes never alter an issued file.
 - **Gated (owner inputs, not built):** the air-meter calibration form (procedure readings; out of
-  scope until mapped), calibration attachments (C15), the due-date boundary procedure, who
-  manages air meters (proposal: Lab Manager), scale integration and machine data import (out of
+  scope until mapped), calibration attachments (C15), the due-date boundary procedure, scale integration and machine data import (out of
   scope).
 
 ## Field reports (C04)

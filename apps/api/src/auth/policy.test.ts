@@ -416,6 +416,8 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
   const issuer = user({ userId: 'u-is' });
   const technician = user({ userId: 'u-tc' });
   const internal = user({ userId: 'u-other' });
+  // MM-V2-C36: the Lab Technician role alone.
+  const labTech = user({ userId: 'u-lt', roles: ['lab_technician'] });
   // LAB with a selected staff member: its id may even equal the technician's, and a role may be
   // assigned by mistake. Selection is attribution only.
   const lab = user({ userId: 'u-tc', accountType: 'shared_lab', roles: ['admin', 'lab_manager'] });
@@ -438,6 +440,7 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
     issuer,
     technician,
     internal,
+    labTech,
     lab,
   };
   type Caller = keyof typeof callers;
@@ -462,9 +465,10 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
       allowed: ['technician'],
       sources: ['record_technician'],
     },
+    // MM-V2-C36 (Kyle 2026-11-08): also any Lab Manager by role alone, no project grant.
     'concrete_sync_conflict.resolve_lab': {
-      allowed: ['lead', 'reviewer'],
-      sources: ['lead_project_engineer', 'designated_reviewer'],
+      allowed: ['lead', 'reviewer', 'lm', 'grantLm'],
+      sources: ['lab_manager', 'lead_project_engineer', 'designated_reviewer'],
     },
     'concrete_recovery.import': {
       allowed: ['lm', 'grantLm', 'technician'],
@@ -491,8 +495,11 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
       sources: ['lab_manager'],
     },
     'concrete_settings.attachment_limit.manage': { allowed: ['admin'], sources: ['admin'] },
-    // MM-V2-C27 (proposal, owner to confirm): the air-meter register, Lab Manager role alone.
-    'concrete_settings.air_meter.manage': { allowed: ['lm', 'grantLm'], sources: ['lab_manager'] },
+    // MM-V2-C27, confirmed by MM-V2-C36: Lab Managers and Lab Technicians by role.
+    'concrete_settings.air_meter.manage': {
+      allowed: ['lm', 'grantLm', 'labTech'],
+      sources: ['lab_manager', 'lab_technician'],
+    },
   };
 
   it('T1/AC1: every new row matches the documented rule for every kind of caller', () => {
@@ -584,7 +591,6 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
     const elsewhere: ProjectContext = { leadProjectEngineerUserId: 'u-other-lead' };
     for (const permission of [
       'concrete_receiving_exception.resolve',
-      'concrete_sync_conflict.resolve_lab',
       'concrete_set.void',
       'concrete_specimen.reschedule',
     ] as const) {
@@ -593,6 +599,14 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
         expect(can(caller, permission), permission).toBe(false);
       }
     }
+    // Lab-data sync conflicts: the lead and reviewer only on their project; a Lab Manager by role
+    // anywhere (MM-V2-C36).
+    for (const caller of [lead, reviewer]) {
+      expect(can(caller, 'concrete_sync_conflict.resolve_lab', elsewhere)).toBe(false);
+      expect(can(caller, 'concrete_sync_conflict.resolve_lab')).toBe(false);
+    }
+    expect(can(lm, 'concrete_sync_conflict.resolve_lab', elsewhere)).toBe(true);
+    expect(can(lm, 'concrete_sync_conflict.resolve_lab')).toBe(true);
     // Ordinary HOLD: Lab Managers by role anywhere; the lead only on their project.
     expect(can(lm, 'concrete_ordinary_hold.manage')).toBe(true);
     expect(can(lead, 'concrete_ordinary_hold.manage', elsewhere)).toBe(false);
@@ -615,24 +629,10 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
     }
   });
 
-  it('TODO(owner): "any active lab staff" rows are granted to nobody until the owner decides', () => {
-    expect([...PENDING_OWNER_DECISION].sort()).toEqual([
-      'concrete_specimen.dispose_record',
-      'concrete_specimen.mass_correct',
-      'concrete_specimen.receive',
-      'concrete_test.enter',
-    ]);
-    const everyone = [
-      ...Object.values(callers),
-      user({ userId: 'u-all', roles: ['admin', 'lab_manager'] }),
-      user({ userId: 'u-pe', roles: ['admin', 'lab_manager'] }),
-    ];
+  it('no permission is still waiting for an owner decision (MM-V2-C36)', () => {
+    expect([...PENDING_OWNER_DECISION]).toEqual([]);
     for (const permission of PENDING_OWNER_DECISION) {
       expect(possibleSources(permission), permission).toEqual([]);
-      for (const caller of everyone) {
-        expect(can(caller, permission, ctx), `${caller.userId} ${permission}`).toBe(false);
-        expect(can(caller, permission), `${caller.userId} ${permission}`).toBe(false);
-      }
     }
   });
 
@@ -648,5 +648,131 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
     expect(possibleSources('concrete_mix.manage')).toEqual(['lead_project_engineer']);
     expect(possibleSources('project.create')).toEqual(['lab', 'internal']);
     expect(can(technician, 'concrete.review', ctx)).toBe(false);
+  });
+});
+
+describe('MM-V2-C36 Lab Technician role and lab-staff permissions', () => {
+  const LAB_STAFF: Permission[] = [
+    'concrete_specimen.receive',
+    'concrete_specimen.mass_correct',
+    'concrete_test.enter',
+    'concrete_specimen.dispose_record',
+  ];
+  const ctx: ProjectContext = {
+    leadProjectEngineerUserId: 'u-pe',
+    acceptanceDelegateUserIds: ['u-de'],
+    reportIssuerUserIds: ['u-is'],
+    designatedReviewerUserIds: ['u-rv'],
+    concreteLabManagerUserIds: ['u-lm', 'u-lt'],
+    recordTechnicianUserId: 'u-tc',
+  };
+  const labTech = user({ userId: 'u-lt', roles: ['lab_technician'] });
+  const lm = user({ userId: 'u-lm2', roles: ['lab_manager'] });
+  const internal = user({ userId: 'u-other' });
+  const lab = user({ userId: 'u-lab', accountType: 'shared_lab' });
+
+  it('every lab-staff row comes from LAB, the Lab Manager role and the Lab Technician role only', () => {
+    for (const permission of LAB_STAFF) {
+      expect(possibleSources(permission), permission).toEqual([
+        'lab',
+        'lab_manager',
+        'lab_technician',
+      ]);
+    }
+  });
+
+  it('AC1: a Lab Technician holds the four lab actions; review and issue are refused', () => {
+    for (const permission of LAB_STAFF) {
+      expect(permissionSources(labTech, permission), permission).toEqual(['lab_technician']);
+      expect(can(labTech, permission, ctx), permission).toBe(true);
+    }
+    for (const permission of [
+      'concrete.review',
+      'report.issue',
+      'test.accept',
+      'test.correction_done',
+      'concrete_failure_schedule.approve',
+      'concrete_hold.manage',
+    ] as const) {
+      expect(can(labTech, permission, ctx), permission).toBe(false);
+    }
+  });
+
+  it('a Lab Technician is never treated as a Lab Manager, even if named in a concrete grant', () => {
+    const lmOnly: Permission[] = [
+      'test_catalog.manage',
+      'program.priority.set',
+      'program.reopen',
+      'test.cancel',
+      'retention.manage',
+      'disposal.approve',
+      'settings.drafts.manage',
+      'location.manage',
+      'action_item.reassign',
+      'concrete_recovery.import',
+      'concrete_ordinary_hold.manage',
+      'concrete_settings.curing_standard.manage',
+      'concrete_settings.testing_machine.manage',
+      'concrete_sync_conflict.resolve_lab',
+      'concrete_receiving_exception.resolve',
+      'concrete_set.void',
+      'concrete_specimen.reschedule',
+      'staff.manage',
+    ];
+    for (const permission of lmOnly) {
+      expect(can(labTech, permission, ctx), permission).toBe(false);
+    }
+    // The one Lab Manager-style setting the owner gave Lab Technicians.
+    expect(permissionSources(labTech, 'concrete_settings.air_meter.manage')).toEqual([
+      'lab_technician',
+    ]);
+    // Everything an ordinary internal user holds, the Lab Technician holds too.
+    expect(can(labTech, 'test.review')).toBe(true);
+    expect(can(labTech, 'concrete_report.draft')).toBe(true);
+  });
+
+  it('AC2: LAB holds the lab actions; attributing the selected person is the handler job', () => {
+    for (const permission of LAB_STAFF) {
+      expect(permissionSources(lab, permission), permission).toEqual(['lab']);
+    }
+    // A role assigned to LAB by mistake still adds nothing.
+    const labWithRole = user({
+      userId: 'u-lt',
+      accountType: 'shared_lab',
+      roles: ['lab_technician', 'lab_manager'],
+    });
+    expect(can(labWithRole, 'concrete_settings.air_meter.manage')).toBe(false);
+    expect(can(labWithRole, 'concrete_sync_conflict.resolve_lab', ctx)).toBe(false);
+  });
+
+  it('AC3: a Lab Manager without the project concrete grant resolves lab-data sync conflicts', () => {
+    expect(permissionSources(lm, 'concrete_sync_conflict.resolve_lab', ctx)).toEqual([
+      'lab_manager',
+    ]);
+    expect(can(lm, 'concrete_sync_conflict.resolve_lab')).toBe(true);
+    for (const permission of LAB_STAFF) {
+      expect(permissionSources(lm, permission), permission).toEqual(['lab_manager']);
+    }
+  });
+
+  it('AC4: a plain internal user (any position) is refused the lab actions', () => {
+    for (const permission of [...LAB_STAFF, 'concrete_settings.air_meter.manage'] as const) {
+      expect(can(internal, permission, ctx), permission).toBe(false);
+      expect(can(internal, permission), permission).toBe(false);
+    }
+    // The project's lead and an admin get nothing from their authority either.
+    for (const caller of [user({ userId: 'u-pe' }), user({ userId: 'u-a', roles: ['admin'] })]) {
+      for (const permission of LAB_STAFF) {
+        expect(can(caller, permission, ctx), permission).toBe(false);
+      }
+    }
+  });
+
+  it('inactive Lab Technicians hold nothing', () => {
+    for (const status of ['pending', 'disabled'] as const) {
+      for (const permission of LAB_STAFF) {
+        expect(can({ ...labTech, status }, permission)).toBe(false);
+      }
+    }
   });
 });
