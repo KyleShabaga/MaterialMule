@@ -114,8 +114,21 @@ describe('review routing (D11)', () => {
     ).toEqual({ error: 'no_lead_project_engineer' });
   });
 
-  it('an original reviewer who can no longer review hands it to the lead (proposal)', () => {
+  it('an original reviewer who can no longer review hands it to the lead (owner decision)', () => {
     expect(concreteReportRoute({ ...resubmit, originalReviewerCanReview: false })).toEqual({
+      kind: 'lead_project_engineer',
+      routedToUserId: LEAD,
+      reason: 'original_reviewer_unavailable',
+    });
+  });
+
+  it('never routes to the report technician (self-review is not allowed)', () => {
+    // The lead is the technician: the designated reviewers take it.
+    expect(
+      concreteReportRoute({ ...resubmit, labManagerCorrection: true, technicianUserId: LEAD }),
+    ).toEqual({ kind: 'designated_reviewers', routedToUserId: null, reason: null });
+    // The original reviewer is the technician: the lead takes it.
+    expect(concreteReportRoute({ ...resubmit, technicianUserId: REVIEWER })).toEqual({
       kind: 'lead_project_engineer',
       routedToUserId: LEAD,
       reason: 'original_reviewer_unavailable',
