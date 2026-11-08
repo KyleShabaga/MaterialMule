@@ -442,12 +442,16 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       };
       const problems: string[] = [];
       let refusals = 0;
+      // The state after one refusal is the state before the next, so each refused route costs
+      // one fingerprint, not two. An allowed call may change rows, so it forces a fresh one.
+      let before: Record<string, string> | null = null;
       for (const route of routes) {
         const expected = expectedFor(route, caller);
         const label = `${route.method} ${route.template}`;
         if (expected.allowed) {
           // Allowed callers get past the guard (any other answer, e.g. 400 for an empty body).
           const response = await call(route, caller, {});
+          before = null;
           const code = (response.body as { code?: string } | undefined)?.code;
           if (
             response.status === 401 ||
@@ -458,7 +462,7 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
           continue;
         }
         refusals += 1;
-        const before = await fingerprint();
+        before ??= await fingerprint();
         const response = await call(route, caller, hostileBody);
         const after = await fingerprint();
         if (response.status !== expected.status) {
@@ -468,8 +472,10 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
             `${label}: expected code ${expected.code}, got ${JSON.stringify(response.body)}`,
           );
         }
-        const changed = Object.keys(before).filter((table) => before[table] !== after[table]);
+        const previous = before;
+        const changed = Object.keys(previous).filter((table) => previous[table] !== after[table]);
         if (changed.length > 0) problems.push(`${label}: changed ${changed.join(', ')}`);
+        before = after;
         // A refusal never carries data back.
         const keys = Object.keys((response.body as object | undefined) ?? {});
         if (keys.some((k) => !['code', 'message', 'statusCode', 'error'].includes(k))) {
@@ -479,8 +485,8 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       expect(problems).toEqual([]);
       expect(refusals).toBeGreaterThan(0);
     },
-    // Two table fingerprints per refused route: with the T23/T24 and T28 routes and tables, a
-    // caller refused everywhere takes ~7 s locally, past the 5 s default.
+    // One table fingerprint per refused route (plus one after each allowed call): a caller refused
+    // everywhere takes ~8 s locally with the MM-V2-C03 routes, past the 5 s default.
     30_000,
   );
 });
