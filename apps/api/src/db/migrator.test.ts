@@ -58,6 +58,7 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0017_concrete_mixes',
       '0018_concrete_equipment',
       '0019_concrete_field_report_detail',
+      '0020_concrete_specimen_sets',
       '0021_concrete_report_lifecycle',
     ]);
     const second = await migrate(db.pool);

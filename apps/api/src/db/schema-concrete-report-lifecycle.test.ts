@@ -263,7 +263,11 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09, migration
     await expect(
       db.pool.query('DELETE FROM concrete_field_reading WHERE field_report_id = $1', [reportId]),
     ).rejects.toMatchObject(locked);
-    // Lifecycle columns still move.
+    // Lifecycle columns still move, and the casting time (only C05's recorded correction
+    // changes it after numbering).
+    await db.pool.query(`UPDATE concrete_field_report SET cast_at = now() WHERE id = $1`, [
+      reportId,
+    ]);
     await db.pool.query(
       `UPDATE concrete_field_report SET version = version + 1, updated_at = now() WHERE id = $1`,
       [reportId],

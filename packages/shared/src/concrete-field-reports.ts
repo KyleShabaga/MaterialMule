@@ -448,6 +448,8 @@ export const CONCRETE_FIELD_REPORT_WARNINGS = [
   'ticket_differs_from_spec',
   'duplicate_ticket',
   'air_meter_flag',
+  // MM-V2-C05
+  'specimens_recorded_but_not_cast',
 ] as const;
 export type ConcreteFieldReportWarningCode = (typeof CONCRETE_FIELD_REPORT_WARNINGS)[number];
 
@@ -466,7 +468,6 @@ export type ConcreteFieldReportWarning = z.infer<typeof concreteFieldReportWarni
 export const CONCRETE_FIELD_REPORT_DEFERRED_CHECKS = [
   { code: 'project_matched', owner: 'C17' },
   { code: 'ticket_attachment_acknowledged', owner: 'C15' },
-  { code: 'specimen_set_detail', owner: 'C05' },
   { code: 'pickup_and_curing_recorded', owner: 'C06' },
   { code: 'specimens_received_with_mass', owner: 'C06' },
   { code: 'specimen_identity_resolved', owner: 'C18' },
@@ -581,6 +582,11 @@ export interface ConcreteFieldReportReviewInput {
   technicianUserId: string | null;
   fields: ConcreteFieldReportFields;
   mixSnapshot: ConcreteMixSnapshot | null;
+  /**
+   * MM-V2-C05: the report's specimen sets (derived specimen count and mould size). When cast,
+   * review needs at least one set with specimens, each with its mould size. Omitted: not checked.
+   */
+  specimenSets?: readonly { id: string; specimenCount: number; mouldSize: string | null }[];
 }
 
 /**
@@ -658,6 +664,11 @@ export function concreteFieldReportMissing(input: ConcreteFieldReportReviewInput
   if (f.waterAdded === true) need('waterAddedAuthorizedBy', has(f.waterAddedAuthorizedBy));
   need('specimensCast', has(f.specimensCast));
   if (f.specimensCast === true) need('castAt', has(f.castAt));
+  if (f.specimensCast === true && input.specimenSets) {
+    const cast = input.specimenSets.filter((set) => set.specimenCount > 0);
+    need('specimenSets', cast.length > 0);
+    for (const set of cast) need(`specimenSets.${set.id}.mouldSize`, has(set.mouldSize));
+  }
   need('resultsReportedToName', has(f.resultsReportedToName));
   need('resultsReportedToCompany', has(f.resultsReportedToCompany));
   // CD-14: at least one ticket attachment (its acknowledgment is C15's).
@@ -736,6 +747,14 @@ export function concreteFieldReportWarnings(
         message: 'The ticket differs from the project specification',
       });
     }
+  }
+  // MM-V2-C05: "No" never silently deletes specimens already recorded (combined plan, Specimens).
+  if (f.specimensCast === false && input.specimenSets?.some((set) => set.specimenCount > 0)) {
+    warnings.push({
+      code: 'specimens_recorded_but_not_cast',
+      field: 'specimensCast',
+      message: 'Specimens cast is No, but this report still has specimens recorded',
+    });
   }
   return warnings;
 }

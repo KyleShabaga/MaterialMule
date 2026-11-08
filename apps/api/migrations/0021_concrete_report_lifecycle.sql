@@ -285,13 +285,17 @@ CREATE TRIGGER concrete_report_transition_no_truncate
   FOR EACH STATEMENT EXECUTE FUNCTION concrete_report_transition_guard();
 
 -- AC1: while a report is submitted or reviewed (awaiting review or issue, or issued) its content
--- is locked. Only the lifecycle columns move; recall, return or a revision reopens it.
+-- is locked. Only the lifecycle columns move; recall, return or a revision reopens it. cast_at is
+-- also exempt: after a set is numbered it changes only through C05's recorded casting correction
+-- (reason, old and new value, dependent dates), which applies to submitted reports too; the
+-- submitted versions keep the casting time as submitted.
 CREATE FUNCTION concrete_field_report_locked_guard() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
   lifecycle text[] := ARRAY['workflow_state', 'ready_to_submit_at', 'submitted_at', 'issue_count',
                             'last_issued_version', 'last_issued_at', 'last_issued_by_user_id',
-                            'updated_at', 'version', 'lab_manager_corrected_by_user_id'];
+                            'updated_at', 'version', 'lab_manager_corrected_by_user_id',
+                            'cast_at'];
 BEGIN
   IF OLD.workflow_state IN ('submitted', 'reviewed')
      AND (to_jsonb(NEW) - lifecycle) IS DISTINCT FROM (to_jsonb(OLD) - lifecycle) THEN

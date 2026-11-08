@@ -52,7 +52,7 @@ async function set(
 
 async function specimen(pool: Pool, projectId: string, setId: string, letter: string) {
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO concrete_specimen (project_id, set_id, letter) VALUES ($1, $2, $3) RETURNING id`,
+    `INSERT INTO concrete_specimen (project_id, set_id, letter, assigned_age) VALUES ($1, $2, $3, '28') RETURNING id`,
     [projectId, setId, letter],
   );
   return rows[0]!.id;

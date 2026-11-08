@@ -30,6 +30,7 @@ import { withTransaction } from '../db/transaction.js';
 import { receiverOf, resolveActingPerson } from '../lab/attribution.js';
 import { intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
+import { ConcreteSpecimenSetsService } from './concrete-specimen-sets.service.js';
 import {
   ConcreteFieldReportsService,
   findReport,
@@ -110,6 +111,7 @@ export class ConcreteReportLifecycleService {
   constructor(
     private readonly database: DatabaseService,
     private readonly reports: ConcreteFieldReportsService,
+    private readonly sets: ConcreteSpecimenSetsService,
   ) {}
 
   // -------------------------------------------------------------------------------------------
@@ -406,7 +408,15 @@ export class ConcreteReportLifecycleService {
         report.id,
         versionNo,
         issued[0]?.id ?? null,
-        JSON.stringify(snapshotOf(detail, versionNo)),
+        JSON.stringify({
+          ...snapshotOf(detail, versionNo),
+          // MM-V2-C05: the sets and specimens as submitted (caller-specific edit flags left out).
+          specimenSets: (await this.sets.list(report.id, user)).items.map((set) => {
+            const { canEdit: _canEdit, ...frozen } = set;
+            void _canEdit;
+            return frozen;
+          }),
+        }),
         report.version,
         user.userId,
         person.userId,

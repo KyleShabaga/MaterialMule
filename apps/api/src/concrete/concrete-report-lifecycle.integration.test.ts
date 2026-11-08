@@ -145,7 +145,11 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     attachmentRefs: [{ id: randomUUID(), kind: 'ticket_photo', fileName: 'ticket-0042.jpg' }],
   });
 
-  async function completeReport(as = 'tech', fields = completeFields()) {
+  async function completeReport(
+    as = 'tech',
+    fields: Record<string, unknown> = completeFields(),
+    requireComplete = true,
+  ) {
     const created = await send(
       'post',
       `/api/concrete/projects/${h.projects.a}/field-reports`,
@@ -154,7 +158,7 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     );
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const report = concreteFieldReportDetailSchema.parse(created.body);
-    expect(report.completeness.missingRequired).toEqual([]);
+    if (requireComplete) expect(report.completeness.missingRequired).toEqual([]);
     return report;
   }
 
@@ -617,7 +621,7 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     const draft = await completeReport('lab', {
       ...completeFields(),
       technicianUserId: h.users.tech,
-    } as never);
+    });
     const missing = await command('submit', draft, 'lab');
     expect(missing.status).toBe(400);
     const wrong = await command('submit', draft, 'lab', { technicianUserId: h.users.jo });
@@ -646,6 +650,80 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     expect((await command('review', ghost, 'pe')).status).toBe(404);
     expect((await command('review', ghost, rv)).status).toBe(404);
     expect((await command('submit', ghost, 'tech')).status).toBe(404);
+  });
+
+  it('C05: sets are frozen in the snapshot; a recorded casting correction still applies after submit; returned sets edit', async () => {
+    const castAt = '2026-11-08T15:40:00.000Z';
+    // Specimens cast: incomplete until it has a set.
+    const draft = await completeReport(
+      'tech',
+      { ...completeFields(), specimensCast: true, castAt },
+      false,
+    );
+    const created = await send(
+      'post',
+      reportPath(draft.id, '/specimen-sets'),
+      { idempotencyKey: newKey() },
+      'tech',
+    );
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const setId = (created.body as { id: string }).id;
+    const ready = concreteFieldReportDetailSchema.parse(
+      (await get(reportPath(draft.id), 'tech')).body,
+    );
+    expect(ready.completeness.missingRequired).toEqual([]);
+    const submitted = await ok('submit', ready, 'tech');
+    const v1 = concreteReportVersionDetailSchema.parse(
+      (await get(reportPath(draft.id, '/versions/1'), 'tech')).body,
+    );
+    const frozenSets = v1.snapshot.specimenSets as { id: string; canEdit?: boolean }[];
+    expect(frozenSets.map((set) => set.id)).toEqual([setId]);
+    expect(frozenSets[0]).not.toHaveProperty('canEdit');
+
+    // Stand-in for C18: number the set, then the lead records a casting correction (C05 AC5).
+    await h.db.pool.query(
+      `UPDATE concrete_specimen_set SET permanent_number = 901, permanent_id = '26-901',
+         temporary_id = 'TMP-D09-901' WHERE id = $1`,
+      [setId],
+    );
+    const corrected = await send(
+      'post',
+      reportPath(draft.id, '/casting-correction'),
+      {
+        idempotencyKey: newKey(),
+        version: submitted.version,
+        castAt: '2026-11-08T16:10:00.000Z',
+        reason: 'Casting time misread from the field sheet',
+        confirm: true,
+      },
+      'pe',
+    );
+    expect(corrected.status, JSON.stringify(corrected.body)).toBe(201);
+    // The submitted version keeps the casting time as submitted.
+    const after = concreteReportVersionDetailSchema.parse(
+      (await get(reportPath(draft.id, '/versions/1'), 'tech')).body,
+    );
+    expect((after.snapshot.fields as { castAt: string }).castAt).toBe(castAt);
+    expect(after.snapshotSha256).toBe(v1.snapshotSha256);
+
+    // Set edits are refused while submitted and allowed once returned for correction.
+    const current = concreteFieldReportDetailSchema.parse(
+      (await get(reportPath(draft.id), 'tech')).body,
+    );
+    const setVersion = async () =>
+      ((await get(`/api/concrete/specimen-sets/${setId}`, 'tech')).body as { version: number })
+        .version;
+    const editSet = async () =>
+      send(
+        'patch',
+        `/api/concrete/specimen-sets/${setId}`,
+        { idempotencyKey: newKey(), version: await setVersion(), mouldSize: '100x200' },
+        'tech',
+      );
+    expect((await editSet()).body).toMatchObject({ code: 'not_a_draft' });
+    await ok('return', current, rv, { comment: 'Mould size is wrong' });
+    const edited = await editSet();
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
   });
 
   it('capabilities list field review and issue as the commands check them', async () => {

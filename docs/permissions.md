@@ -657,6 +657,44 @@ Contracts: `packages/shared/src/concrete-field-reports.ts`; tables: migration 00
 - **Review routing** (read only): MISC-08's `designatedReviewers()` for scope `concrete_field` plus
   the project's lead, read live; `blocked: no_reviewer` when neither exists. Review itself is C28.
 
+## Concrete specimen sets (MM-V2-C05)
+
+Contracts: `packages/shared/src/concrete-specimen-sets.ts`; tables: migration 0020
+([concrete.md](concrete.md#specimen-sets-c05)). No allocation, Void, reschedule or device-code
+route here.
+
+| Route                                                             | Policy                                                                    |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `GET /api/concrete/field-reports/:reportId/specimen-set-defaults` | `inventory.read`                                                          |
+| `GET /api/concrete/field-reports/:reportId/specimen-sets`         | `inventory.read`                                                          |
+| `GET /api/concrete/specimen-sets/:id`                             | `inventory.read`                                                          |
+| `POST /api/concrete/field-reports/:reportId/specimen-sets`        | `concrete_report.draft`, own draft report only                            |
+| `PATCH /api/concrete/specimen-sets/:id`                           | `concrete_report.draft`, own draft report only                            |
+| `DELETE /api/concrete/specimen-sets/:id`                          | `concrete_report.draft`, own draft report, unnumbered set only            |
+| `POST /api/concrete/field-reports/:reportId/casting-correction`   | `concrete_specimen.reschedule` on the report's project (owner to confirm) |
+
+- **Draft writes** follow C04 exactly: the route guard and the service check
+  `concrete_report.draft` before the body; then in one transaction (D09) the report FOR UPDATE, the
+  set FOR UPDATE, the project and actor FOR SHARE (`canUnderLock`), the performing person. The
+  person credited (LAB: `technicianUserId`, attribution only) must be the report's technician
+  (403 `not_own_draft`), the report a draft (409 `not_a_draft`), and "Specimens cast" not No (409
+  `specimens_not_cast`). Retries: `idempotencyKey` (409 `idempotency_key_reused`), client `id`
+  (409 `set_id_taken`), `version` (409 `version_conflict` with the current set). A numbered set's
+  letters and ages and its existence are fixed (409 `set_numbered`).
+- **Casting correction (AC5).** Proposal, owner to confirm: reuse C10's
+  `concrete_specimen.reschedule` (the lead, a designated reviewer for `concrete_field`, or a
+  Lab Manager with the project's concrete grant; personal accounts only, reason required), since
+  correcting the casting time moves every dependent test date. Checked on the report's project
+  before the body (an unknown report is 403 unless the caller could hold the permission somewhere,
+  then 404) and again under the lock. Only for a report with a numbered set (409
+  `no_numbered_set` otherwise: correct the draft instead). `confirm: false` returns the effects;
+  `confirm: true` records the correction and applies it. C04's draft save of `castAt` on such a
+  report is 409 `casting_correction_required`.
+- **Capabilities.** `concrete_report.draft` is global (`GET /api/me`). `concrete_specimen.reschedule`
+  is not added to `PROJECT_CAPABILITY_ACTIONS`: the capability list doesn't load the reviewer and
+  concrete-grant facts it needs, so it would misreport; C22, which owns rescheduling, adds it with
+  those facts. Each set's `canEdit` says whether the caller may edit its specimens.
+
 ## Concrete report lifecycle (MM-V2-C09)
 
 Field-report versions and the submit / recall / return / resubmit / review / issue / revise

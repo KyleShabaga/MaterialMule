@@ -322,8 +322,8 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
         [h.projects.a, report[0]!.id],
       );
       await h.db.pool.query(
-        `INSERT INTO concrete_specimen (project_id, set_id, letter)
-         VALUES ($1, $2, 'A'), ($1, $2, 'B'), ($1, $2, 'C'), ($1, $2, 'D')`,
+        `INSERT INTO concrete_specimen (project_id, set_id, letter, assigned_age)
+         VALUES ($1, $2, 'A', '7'), ($1, $2, 'B', '28'), ($1, $2, 'C', '28'), ($1, $2, 'D', 'HOLD')`,
         [h.projects.a, set[0]!.id],
       );
       const snapshot = async () =>

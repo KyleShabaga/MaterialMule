@@ -52,6 +52,7 @@ import { parseBody } from '../validation/parse-body.js';
 import { evaluateEquipmentUse } from './concrete-equipment.service.js';
 import { reportLifecycle } from './concrete-report-lifecycle.read.js';
 import { captureMixSnapshot } from './concrete-mixes.service.js';
+import { specimenSetSummaries } from './concrete-specimen-sets.service.js';
 
 type Db = Pool | PoolClient;
 type Kind = 'create' | 'save';
@@ -305,6 +306,10 @@ export class ConcreteFieldReportsService {
       this.database.pool,
       rows.map((r) => r.technician_user_id).filter((id): id is string => id !== null),
     );
+    const sets = await specimenSetSummaries(
+      this.database.pool,
+      rows.map((r) => r.id),
+    );
     return {
       projectId: project.id,
       items: rows.map((row) => {
@@ -322,6 +327,7 @@ export class ConcreteFieldReportsService {
             technicianUserId: row.technician_user_id,
             fields,
             mixSnapshot: snapshotOf(row),
+            specimenSets: sets.get(row.id) ?? [],
           }),
           version: row.version,
           createdAt: row.created_at.toISOString(),
@@ -551,6 +557,11 @@ export class ConcreteFieldReportsService {
       if (isConstraint(error, 'concrete_field_report_command_pkey')) {
         throw new ConflictException({ code: 'idempotency_key_reused' });
       }
+      // MM-V2-C05: once a set is numbered, casting time changes only through the recorded
+      // correction (POST /api/concrete/field-reports/:id/casting-correction, AC5).
+      if (isConstraint(error, 'concrete_casting_correction_required')) {
+        throw new ConflictException({ code: 'casting_correction_required' });
+      }
       throw error;
     }
   }
@@ -778,7 +789,13 @@ export class ConcreteFieldReportsService {
     const fields = fieldsOf(row, readings);
     const mixSnapshot = snapshotOf(row);
     const airMeterUse = useOf(row);
-    const reviewInput = { technicianUserId: row.technician_user_id, fields, mixSnapshot };
+    const reviewInput = {
+      technicianUserId: row.technician_user_id,
+      fields,
+      mixSnapshot,
+      // MM-V2-C05: set detail is now a real review rule (no longer a deferred check).
+      specimenSets: (await specimenSetSummaries(db, [row.id])).get(row.id) ?? [],
+    };
     const duplicates = await duplicateTickets(db, row.id, fields);
     const warnings: ConcreteFieldReportWarning[] = concreteFieldReportWarnings(reviewInput);
     if (duplicates.length > 0) {

@@ -166,7 +166,7 @@ describe.runIf(testDatabaseUrl)('concrete project settings (MM-V2-C02, migration
       [project, report[0]!.id],
     );
     await db.pool.query(
-      `INSERT INTO concrete_specimen (project_id, set_id, letter) VALUES ($1, $2, 'A'), ($1, $2, 'B')`,
+      `INSERT INTO concrete_specimen (project_id, set_id, letter, assigned_age) VALUES ($1, $2, 'A', '7'), ($1, $2, 'B', '28')`,
       [project, setRow[0]!.id],
     );
     const snapshot = async () =>
