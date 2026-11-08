@@ -45,6 +45,9 @@ import { MyAccessPage } from './settings/access/MyAccessPage';
 import { StaffPage } from './settings/staff/StaffPage';
 import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
+import { IssueReportPage } from './concrete-review/IssueReportPage';
+import { ReviewQueuePage } from './concrete-review/ReviewQueuePage';
+import { ReviewReportPage } from './concrete-review/ReviewReportPage';
 
 const featureRoutes: RouteObject[] = [
   ...(FEATURES.labTesting
@@ -81,6 +84,14 @@ const featureRoutes: RouteObject[] = [
         },
         // Distinct, online-only disposal scan mode (MM-T30); not Move mode.
         { path: 'disposal-retention/scan', element: <DisposalScanPage /> },
+      ]
+    : []),
+  ...(FEATURES.concreteReview
+    ? [
+        // MM-V2-C28: review queue, review view and issue view (field reports).
+        { path: 'concrete/review', element: <ReviewQueuePage /> },
+        { path: 'concrete/review/:reportId', element: <ReviewReportPage /> },
+        { path: 'concrete/review/:reportId/issue', element: <IssueReportPage /> },
       ]
     : []),
 ];

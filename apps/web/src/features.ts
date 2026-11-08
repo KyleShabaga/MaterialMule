@@ -10,6 +10,8 @@ export const FEATURES = {
   labTesting: true,
   /** MM-T29 / MM-T30 */
   disposalRetention: true,
+  /** MM-V2-C28: Concrete review (queue, review and issue of field reports). */
+  concreteReview: true,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURES;

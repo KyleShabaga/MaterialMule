@@ -145,6 +145,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/concrete/field-reports/:id/review': 'concrete.review',
   'POST /api/concrete/field-reports/:id/issue': 'report.issue',
   'POST /api/concrete/field-reports/:id/revise': 'concrete.review',
+  // MM-V2-C28: documenting an exception is review work (concrete.review + routing).
+  'POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes': 'concrete.review',
   'GET /api/me/grants': null,
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).

@@ -260,6 +260,9 @@ export const concreteReportVersionSummarySchema = z.object({
       by: personSnapshotSchema,
       at: z.string(),
       source: z.enum(['lead_project_engineer', 'report_issuer']),
+      /** The issuer's choices (MM-V2-C28); null on a version issued before they were stored. */
+      includePhotos: z.boolean().nullable(),
+      includeMachineInfo: z.boolean().nullable(),
     })
     .nullable(),
 });

@@ -475,6 +475,38 @@ id>', facts)` inside the transaction that records the event, and narrow the kind
   store flags with a result or reading. Specimen-targeted rows are not listed until their producer
   card adds a `linkedSpecimen` rendering.
 
+## Review queue and issuance (C28)
+
+Migration `0025_concrete_review_exceptions.sql`; contracts in `packages/shared/src/concrete-review.ts`;
+routes in [permissions.md](permissions.md#concrete-review-queue-and-exceptions-mm-v2-c28); screens
+under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review queue structure",
+"Review interaction", "Issuance workflow" and "Reviewer change comparison". Field reports only (G2).
+
+- **Queue** (`GET /api/concrete/review-queue`): one table with Awaiting review, Returned for
+  correction, Reviewed awaiting issuance and Issued; filters for project, technician, submitted
+  dates (America/Edmonton), with/without exceptions and "needs my action". Rows show project
+  number, report type, report date, technician, submitted date and the latest version's exception
+  flags (from its frozen snapshot).
+- **Review view.** An interim HTML preview of the selected version's snapshot, labelled as a review
+  preview and never as the issued format (C32 owns the final layout); changes since the previous
+  submitted version highlighted (`diffConcreteReportSnapshots`: leaf paths, list items matched by
+  id), with the full record always shown (AC3); the exception checklist beside it.
+- **Exceptions** come from the version's frozen warnings: C03/C04 mix (unknown, unapproved), C04
+  slump / air out of range and ticket vs spec, duplicate ticket, C27 air-meter flags, C05 specimens
+  recorded but not cast. Each is resolved (no longer raised by the live report while the version
+  awaits review), documented (`concrete_report_exception_note`, append-only, one per code and field
+  per version; a resubmission starts with none) or open. Mark reviewed waits for none open (AC1),
+  on the screen and in C09's review command. C04's deferred checks (C06, C15, C17, C18, C20) show
+  as not yet checked; curing temperature arrives with C06.
+- **Return** needs a comment (AC2; C09 400). **Issue view:** the exact version and its snapshot
+  hash, reviewer and date, documented exceptions, "Include photos" (unavailable until C15) and
+  "Include testing machine information" (project setting as the starting value; the issuer chooses
+  when it is unset). Both choices are stored on the issued version (`issue_include_photos`,
+  `issue_include_machine_info`) for C32.
+- **Who can act** is shown on every action: the routed reviewer or the designated reviewers and the
+  lead for review; the lead and Authorized report issuers for issue; never the report's technician
+  (owner decision 2026-11-08); personal accounts only.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before

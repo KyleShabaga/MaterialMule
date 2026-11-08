@@ -184,6 +184,21 @@ describe.runIf(testDatabaseUrl)('concrete notifications (MM-V2-C29)', () => {
     as: string,
     extra: Record<string, unknown> = {},
   ) {
+    // MM-V2-C28: Mark reviewed needs every exception on the version resolved or documented.
+    // These tests are about notifications, so the setup records the notes directly.
+    if (action === 'review') {
+      await h.db.pool.query(
+        `INSERT INTO concrete_report_exception_note
+           (project_id, field_report_id, version_id, code, field, note, documented_by_user_id)
+         SELECT v.project_id, v.field_report_id, v.id, w->>'code', w->>'field',
+                'Documented in test setup', $2
+         FROM concrete_report_version v
+         CROSS JOIN LATERAL jsonb_array_elements(coalesce(v.snapshot->'warnings', '[]')) w
+         WHERE v.field_report_id = $1 AND v.state = 'submitted'
+         ON CONFLICT DO NOTHING`,
+        [report.id, h.users.pe],
+      );
+    }
     const response = await command(action, report, as, extra);
     expect(response.status, `${action}: ${JSON.stringify(response.body)}`).toBe(201);
     return concreteFieldReportDetailSchema.parse(response.body);

@@ -8,6 +8,9 @@ import {
 import {
   concreteReportCommandRequestSchema,
   concreteReportCommentRequiredSchema,
+  concreteReportIssueRequestSchema,
+  concreteReviewOpenExceptions,
+  CONCRETE_EXCEPTION_LABEL,
   concreteReportLifecycleState,
   concreteReportMayReviewRouted,
   concreteReportNextState,
@@ -52,6 +55,7 @@ import {
   versionSummary,
   type VersionRow,
 } from './concrete-report-lifecycle.read.js';
+import { checklistOf } from './concrete-review.read.js';
 
 const ENTITY_TYPE = 'concrete_field_report';
 
@@ -83,6 +87,9 @@ type Input = {
   version: number;
   comment?: string;
   technicianUserId?: string;
+  /** Issue only (MM-V2-C28). */
+  includePhotos?: boolean;
+  includeMachineInfo?: boolean;
 };
 
 function parseInput(action: ConcreteReportAction, body: unknown): Input {
@@ -92,6 +99,7 @@ function parseInput(action: ConcreteReportAction, body: unknown): Input {
   if (action === 'return' || action === 'revise') {
     return parseBody(concreteReportCommentRequiredSchema, body);
   }
+  if (action === 'issue') return parseBody(concreteReportIssueRequestSchema, body);
   return parseBody(concreteReportCommandRequestSchema, body);
 }
 
@@ -284,6 +292,20 @@ export class ConcreteReportLifecycleService {
         throw forbidden('routed_to_another_reviewer');
       }
     }
+    // MM-V2-C28: Mark reviewed once every required exception is resolved or documented.
+    if (action === 'review' && latest) {
+      const live = (await this.reports.detailOf(client, found, user)).review.warnings;
+      const open = concreteReviewOpenExceptions(await checklistOf(client, latest, live));
+      if (open.length > 0) {
+        unprocessable(
+          'exceptions_unresolved',
+          open.map((item) => ({
+            field: item.field ?? item.code,
+            message: `${CONCRETE_EXCEPTION_LABEL[item.code]}: resolve it or document how it was addressed`,
+          })),
+        );
+      }
+    }
 
     let versionId: string;
     let route: ConcreteReportRoute | null = null;
@@ -323,7 +345,7 @@ export class ConcreteReportLifecycleService {
       const current = latest!;
       versionId = current.id;
       versionNo = current.version_no;
-      await this.transitionVersion(client, action, current, user, context, input.comment ?? null);
+      await this.transitionVersion(client, action, current, user, context, input);
       await this.updateReport(client, action, found, current, user, to);
     }
 
@@ -361,6 +383,12 @@ export class ConcreteReportLifecycleService {
         state: to,
         reportVersionNo: versionNo,
         ...(input.comment ? { comment: input.comment } : {}),
+        ...(action === 'issue'
+          ? {
+              includePhotos: input.includePhotos ?? false,
+              includeMachineInfo: input.includeMachineInfo,
+            }
+          : {}),
         ...(route
           ? {
               routeKind: route.kind,
@@ -458,8 +486,9 @@ export class ConcreteReportLifecycleService {
     version: VersionRow,
     user: AuthUser,
     context: ProjectContext,
-    comment: string | null,
+    input: Input,
   ) {
+    const comment = input.comment ?? null;
     const sources = (permission: 'concrete.review' | 'report.issue') =>
       permissionSources(user, permission, context);
     switch (action) {
@@ -498,7 +527,8 @@ export class ConcreteReportLifecycleService {
       case 'issue':
         await client.query(
           `UPDATE concrete_report_version
-           SET state = 'issued', issued_by_user_id = $2, issued_at = now(), issue_source = $3
+           SET state = 'issued', issued_by_user_id = $2, issued_at = now(), issue_source = $3,
+               issue_include_photos = $4, issue_include_machine_info = $5
            WHERE id = $1`,
           [
             version.id,
@@ -506,6 +536,8 @@ export class ConcreteReportLifecycleService {
             sources('report.issue').includes('lead_project_engineer')
               ? 'lead_project_engineer'
               : 'report_issuer',
+            input.includePhotos ?? false,
+            input.includeMachineInfo,
           ],
         );
         return;
