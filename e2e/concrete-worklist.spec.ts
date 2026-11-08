@@ -83,7 +83,7 @@ test('T3: Today, Overdue and HOLD for one project; a technician reads but cannot
   await expect(tabs.getByRole('tab', { name: /Today/ })).toHaveAttribute('aria-selected', 'true');
   await expect(tabs.getByRole('tab', { name: /Today/ })).toContainText('2');
   const group = page.getByRole('region', { name: new RegExp(`${projectNumber} ·`) });
-  await expect(group.getByText('2 specimens')).toBeVisible();
+  await expect(group.getByText('2 specimens', { exact: true })).toBeVisible();
   const today = labDate();
   for (const id of ['26-01B', '26-01C']) await expect(group.getByText(id)).toBeVisible();
   await expect(group.getByText(today).first()).toBeVisible();
@@ -119,7 +119,7 @@ test('T3: the Lead Project Engineer reschedules a test with a reason; history is
   await signInAs(page, 'pe');
   await openFor(page, projectNumber);
   const group = page.getByRole('region', { name: new RegExp(`${projectNumber} ·`) });
-  await expect(group.getByText('2 specimens')).toBeVisible();
+  await expect(group.getByText('2 specimens', { exact: true })).toBeVisible();
   await group.getByRole('button', { name: 'Reschedule 26-01B' }).click();
   const dialog = page.getByRole('dialog', { name: 'Reschedule 26-01B' });
   await dialog.getByLabel('New test age (days)').fill('56');
