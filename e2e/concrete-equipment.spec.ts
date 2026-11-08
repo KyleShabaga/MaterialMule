@@ -32,7 +32,9 @@ test('T3: the Lab Manager registers the testing machine, records calibrations an
   await calibrate.getByLabel(/Next calibration due/).fill('2025-01-10');
   await calibrate.getByLabel(/Performed by/).fill('Example Calibration Co.');
   await calibrate.getByRole('button', { name: 'Record calibration' }).click();
-  await expect(page.getByText('Calibration recorded. Earlier entries stay in the history.')).toBeVisible();
+  await expect(
+    page.getByText('Calibration recorded. Earlier entries stay in the history.'),
+  ).toBeVisible();
   await expect(machine.getByText('Calibration overdue')).toBeVisible();
 
   // AC2: a newer calibration keeps the earlier entry in the history.
