@@ -34,6 +34,8 @@ test('AC1/AC4: header identity, menu and Receive samples', async ({ page }) => {
     'Lab Testing',
     // MM-T29/T30 shipped the Disposal & Retention area.
     'Disposal & Retention',
+    // MM-V2-C28: Concrete Review.
+    'Concrete Review',
     'Projects',
     'Settings',
   ]) {

@@ -37,6 +37,14 @@ const ICONS: Record<
     fillRule: 'evenodd',
     d: 'M7 0H13V1H18V3H2V1H7V0M4 4H16V17C16 18.7 14.7 20 13 20H7C5.3 20 4 18.7 4 17V4M6 6V17C6 17.6 6.4 18 7 18H13C13.6 18 14 17.6 14 17V6H6M8 8H9.5V16H8V8M10.5 8H12V16H10.5V8',
   },
+  // MM-V2-C28: Concrete Review (a clipboard with a tick), drawn to match, even-odd fill.
+  '/concrete/review': {
+    viewBox: '0 0 18 20',
+    width: 18,
+    height: 20,
+    fillRule: 'evenodd',
+    d: 'M6 0H12V2H16C17.1 2 18 2.9 18 4V18C18 19.1 17.1 20 16 20H2C0.9 20 0 19.1 0 18V4C0 2.9 0.9 2 2 2H6V0M2 4V18H16V4H12V6H6V4H2M8 2V4H10V2H8M7.6 15.4L4 11.8L5.4 10.4L7.6 12.6L12.6 7.6L14 9L7.6 15.4',
+  },
   '/projects': {
     viewBox: '0 0 21.5 16',
     width: 21.5,

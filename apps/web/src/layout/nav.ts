@@ -14,6 +14,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/sample-storage', label: 'Sample Storage' },
   { to: '/lab-testing', label: 'Lab Testing', feature: 'labTesting' },
   { to: '/disposal-retention', label: 'Disposal & Retention', feature: 'disposalRetention' },
+  { to: '/concrete/review', label: 'Concrete Review', feature: 'concreteReview' },
   { to: '/projects', label: 'Projects' },
   { to: '/settings', label: 'Settings' },
 ];

@@ -71,6 +71,7 @@ describe('navigation', () => {
       'Sample Storage',
       'Lab Testing',
       'Disposal & Retention',
+      'Concrete Review',
       'Projects',
       'Settings',
     ]);
@@ -80,6 +81,7 @@ describe('navigation', () => {
     const labels = visibleNavItems({
       labTesting: false,
       disposalRetention: false,
+      concreteReview: false,
     }).map((i) => i.label);
     expect(labels).toEqual([
       'Dashboard',
@@ -92,6 +94,7 @@ describe('navigation', () => {
       visibleNavItems({
         labTesting: true,
         disposalRetention: false,
+        concreteReview: false,
       }).map((i) => i.label),
     ).toContain('Lab Testing');
   });
