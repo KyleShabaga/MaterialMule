@@ -566,7 +566,11 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
     expect(allowed(await capabilities('a', 'rev'))).toEqual([]);
     // A delegate accepts and nothing else; the issuer only issues.
     expect(allowed(await capabilities('a', 'del'))).toEqual(['test.accept']);
-    expect(allowed(await capabilities('a', 'iss'))).toEqual([]);
+    // MM-V2-C09: issuing field reports is a listed project action, held through the grant.
+    expect(allowed(await capabilities('a', 'iss'))).toEqual(['report.issue']);
+    expect(
+      (await capabilities('a', 'iss')).capabilities.find((c) => c.action === 'report.issue'),
+    ).toMatchObject({ sources: ['report_issuer'] });
     expect(
       (await capabilities('a', 'del')).capabilities.find((c) => c.action === 'test.accept'),
     ).toMatchObject({ sources: ['acceptance_delegate'] });

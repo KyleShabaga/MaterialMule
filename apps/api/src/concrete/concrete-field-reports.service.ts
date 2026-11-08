@@ -50,6 +50,7 @@ import {
 } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { evaluateEquipmentUse } from './concrete-equipment.service.js';
+import { reportLifecycle } from './concrete-report-lifecycle.read.js';
 import { captureMixSnapshot } from './concrete-mixes.service.js';
 import { specimenSetSummaries } from './concrete-specimen-sets.service.js';
 
@@ -60,6 +61,8 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const ENTITY_TYPE = 'concrete_field_report';
 const REVIEW_SCOPE = 'concrete_field';
 const PERMISSION = 'concrete_report.draft' as const;
+/** MM-V2-C09: states a technician edits in (a returned report is corrected like a draft). */
+const EDITABLE_STATES: readonly string[] = ['draft', 'returned'];
 
 type ColumnKind = 'text' | 'number' | 'date' | 'timestamp' | 'boolean' | 'array' | 'uuid';
 
@@ -116,11 +119,11 @@ const SELECT_REPORT = `SELECT r.id, r.project_id, p.project_number, p.name AS pr
          r.workflow_state, r.ready_to_submit_at, r.submitted_at, r.issue_count,
          r.last_issued_version, r.last_issued_at, r.last_issued_by_user_id, r.created_at,
          r.updated_at, r.version, r.mix_id, r.mix_snapshot, r.project_spec, r.ticket_spec,
-         r.air_meter_use, r.attachment_refs,
+         r.air_meter_use, r.attachment_refs, r.lab_manager_corrected_by_user_id,
          ${Object.values(COLUMNS).map(selectColumn).join(', ')}
   FROM concrete_field_report r JOIN project p ON p.id = r.project_id`;
 
-type ReportRow = Record<string, unknown> & {
+export type ReportRow = Record<string, unknown> & {
   id: string;
   project_id: string;
   project_number: string;
@@ -145,6 +148,7 @@ type ReportRow = Record<string, unknown> & {
   ticket_spec: unknown;
   air_meter_use: unknown;
   attachment_refs: unknown;
+  lab_manager_corrected_by_user_id: string | null;
 };
 
 interface ReadingRow {
@@ -480,9 +484,16 @@ export class ConcreteFieldReportsService {
             current: await this.detail(client, found, user),
           });
         }
-        if (found.workflow_state !== 'draft') {
+        // MM-V2-C09: a report returned for correction is edited like a draft; a submitted or
+        // reviewed one is locked (the database refuses it too).
+        if (!EDITABLE_STATES.includes(found.workflow_state)) {
           throw new ConflictException({ code: 'not_a_draft' });
         }
+        // D11: a correction saved by a Lab Manager is reviewed by the project's lead.
+        const labManagerCorrection =
+          found.workflow_state === 'returned' &&
+          found.lab_manager_corrected_by_user_id === null &&
+          (await holdsLabManagerRole(client, person.userId));
 
         const after = resolved.values;
         const changed = changedOnly(beforeValues, after);
@@ -501,6 +512,7 @@ export class ConcreteFieldReportsService {
         for (const field of DRAFT_FIELDS) {
           if (field in changed) set(COLUMNS[field][0], toParam(field, after));
         }
+        if (labManagerCorrection) set('lab_manager_corrected_by_user_id', person.userId);
         if ('mixId' in changed || snapshotChanged) {
           set('mix_id', after.mixId);
           set('mix_snapshot', resolved.snapshot ? JSON.stringify(resolved.snapshot) : null);
@@ -767,6 +779,11 @@ export class ConcreteFieldReportsService {
   // Views
   // -------------------------------------------------------------------------------------------
 
+  /** The report's detail as the caller sees it (also the lifecycle commands' response). */
+  async detailOf(db: Db, row: ReportRow, user: AuthUser): Promise<ConcreteFieldReportDetail> {
+    return this.detail(db, row, user);
+  }
+
   private async detail(db: Db, row: ReportRow, user: AuthUser): Promise<ConcreteFieldReportDetail> {
     const readings = await readingsFor(db, [row.id]);
     const fields = fieldsOf(row, readings);
@@ -845,9 +862,10 @@ export class ConcreteFieldReportsService {
       reviewRouting,
       canEdit:
         can(user, PERMISSION) &&
-        row.workflow_state === 'draft' &&
+        EDITABLE_STATES.includes(row.workflow_state) &&
         row.technician_user_id !== null &&
         (user.accountType === 'shared_lab' || row.technician_user_id === user.userId),
+      lifecycle: await reportLifecycle(db, row, user),
     };
   }
 }
@@ -908,7 +926,7 @@ function toParam(field: ConcreteFieldReportDraftField, values: DraftValues): unk
   return (values as Record<string, unknown>)[field];
 }
 
-async function findReport(
+export async function findReport(
   db: Db,
   id: string,
   lock: '' | 'FOR UPDATE' = '',
@@ -1045,4 +1063,13 @@ async function duplicateTickets(
     reportDate: row.report_date,
     technicianName: row.technician_name,
   }));
+}
+
+/** Whether the person holds the Lab Manager role now (D11 correction routing, MM-V2-C09). */
+async function holdsLabManagerRole(db: Db, userId: string): Promise<boolean> {
+  const { rows } = await db.query(
+    `SELECT 1 FROM role_assignment WHERE user_id = $1 AND role = 'lab_manager'`,
+    [userId],
+  );
+  return rows.length > 0;
 }

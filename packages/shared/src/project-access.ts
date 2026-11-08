@@ -408,6 +408,10 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   // MM-V2-C03: concrete mixes, the project's Lead Project Engineer only (AO08, CD-52).
   'concrete_mix.manage',
   'concrete_mix.approve',
+  // MM-V2-C09: field-report review and issue (scope concrete_field). Recall depends on the
+  // record's technician, so it is listed per report (`lifecycle.allowedActions`), not here.
+  'concrete.review',
+  'report.issue',
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
@@ -428,6 +432,8 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'disposal.approve': 'Approve disposal',
   'concrete_mix.manage': 'Create, edit and copy concrete mixes',
   'concrete_mix.approve': 'Approve concrete mixes',
+  'concrete.review': 'Review or return concrete field reports',
+  'report.issue': 'Issue concrete field reports',
 };
 
 export const BLOCKED_REASONS = [

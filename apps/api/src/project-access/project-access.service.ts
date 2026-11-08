@@ -117,6 +117,9 @@ async function allScopes(db: Db): Promise<Map<string, ReviewScope>> {
   return new Map(rows.map((row) => [row.code, row]));
 }
 
+/** MM-V2-C09: capability rows checked against the concrete_field review and issue scope. */
+const FIELD_SCOPED: ReadonlySet<string> = new Set(['concrete.review', 'report.issue']);
+
 /** What a project-scoped check needs, read from the project as it stands (never the browser). */
 export async function projectContext(
   db: Db,
@@ -393,6 +396,15 @@ export class ProjectAccessService {
           : [],
       }),
     );
+    // MM-V2-C09: field-report review and issue are checked with the concrete_field reviewers and
+    // issuers, as the lifecycle commands check them.
+    const fieldContext: ProjectContext = {
+      ...context,
+      designatedReviewerUserIds: await designatedReviewers(db, project.id, 'concrete_field'),
+      reportIssuerUserIds: issuing.some((row) => row.report_scope_code === 'concrete_field')
+        ? [user.userId]
+        : [],
+    };
     // MISC-08: the same live check the server applies to a review action, never assignment alone.
     const reviewerScopes: ReviewScope[] = [];
     for (const scope of scopes.values()) {
@@ -409,7 +421,9 @@ export class ProjectAccessService {
       involvement: await involvementOf(db, project.id, user.userId),
       issuerScopes,
       reviewerScopes,
-      capabilities: PROJECT_CAPABILITY_ACTIONS.map((action) => capability(user, action, context)),
+      capabilities: PROJECT_CAPABILITY_ACTIONS.map((action) =>
+        capability(user, action, FIELD_SCOPED.has(action) ? fieldContext : context),
+      ),
     };
   }
 

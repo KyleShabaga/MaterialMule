@@ -625,7 +625,10 @@ export class ConcreteSpecimenSetsService {
       invalidCode: 'invalid_technician',
     });
     if (report.technician_user_id !== person.userId) throw forbidden('not_own_draft');
-    if (report.workflow_state !== 'draft') throw new ConflictException({ code: 'not_a_draft' });
+    // MM-V2-C09: a report returned for correction is edited like a draft.
+    if (!['draft', 'returned'].includes(report.workflow_state)) {
+      throw new ConflictException({ code: 'not_a_draft' });
+    }
     return person;
   }
 
@@ -811,7 +814,7 @@ export class ConcreteSpecimenSetsService {
     const castAt = report.cast_at?.toISOString() ?? null;
     const editable =
       can(user, DRAFT) &&
-      report.workflow_state === 'draft' &&
+      ['draft', 'returned'].includes(report.workflow_state) &&
       report.technician_user_id !== null &&
       (user.accountType === 'shared_lab' || report.technician_user_id === user.userId);
     return sets.map((set) => {

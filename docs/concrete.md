@@ -326,6 +326,58 @@ Migration `0020_concrete_specimen_sets.sql`; contracts and helpers in
 - **Owner to confirm:** the casting correction reuses `concrete_specimen.reschedule`; the
   designated reviewers for it are the `concrete_field` scope's.
 
+- **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
+  project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
+  prefix (C18). Add set detail in your own migration and extend `review.deferredChecks`'s
+  `specimen_set_detail` into real rules.
+- **C09 / C19:** saves are refused once `workflow_state` leaves `draft` (C09: `returned` is
+  editable too; see "Report versions and lifecycle"). Ready to submit should
+  require `completeness.complete` plus the deferred checks; warnings stay warnings. Reuse
+  `concreteFieldReportMissing` / `concreteFieldReportWarnings`, never store their result.
+
+## Report versions and lifecycle (C09)
+
+Migration `0021_concrete_report_lifecycle.sql`; contracts in
+`packages/shared/src/concrete-report-lifecycle.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-report-lifecycle-mm-v2-c09). Source: Combined Plan
+"Corrections and revisions" and section 9 (issue and correction table). **Field reports only:**
+`report_kind` takes `field`; strength reports join in their own migration once owner decision
+**G2** (what a strength report contains, per age / per set / per field report, and its number
+format) is made.
+
+- **Model.** The report row stays the draft and current state. Each submission inserts
+  `concrete_report_version` vN (1, 2, 3 … without gaps) with a frozen `snapshot` (the report's
+  content, mix snapshot, spec columns, readings, warnings and completeness at that moment) and its
+  database-computed `snapshot_sha256`. Each command appends one `concrete_report_transition` row
+  (also the exactly-once ledger) and one audit event (`concrete_field_report.submitted`,
+  `.recalled`, `.returned`, `.resubmitted`, `.reviewed`, `.issued`, `.revised`).
+- **Transitions** (`CONCRETE_REPORT_TRANSITIONS`): draft / ready to submit → submit → submitted;
+  submitted → recall → draft, → return → returned, → review → reviewed; returned → resubmit →
+  submitted (explicit: a save never resubmits); reviewed → return → returned, → issue → issued;
+  issued → revise → draft. Anything else is 422 `invalid_transition`. `issued` is stored as
+  workflow `reviewed` plus the issuance columns (`issue_count`, `last_issued_*`, which C09 now
+  writes).
+- **Locks (AC1).** While submitted or reviewed (including issued), the report's content and its
+  readings are refused by the database (`concrete_field_report_locked`); only lifecycle columns
+  move, and `cast_at`, which after numbering changes only through C05's recorded casting correction
+  (the versions keep the casting time as submitted). Saves, and C05's set edits, are allowed in
+  `draft` and `returned`. Each version's snapshot also freezes the report's specimen sets.
+- **Fresh review (AC3).** Returning a reviewed version sets `review_cleared_at`: its review no
+  longer counts (`lifecycle.reviewCounted` false, `review.counted` false) and the resubmission
+  needs a new review before issue.
+- **Issued originals (AC4).** An issued version never changes (`concrete_report_version_issued_frozen`)
+  and no version is deleted. Revise reopens the report; its next submission is a new version with
+  `revision_of_version_id` naming the latest issued one. "Revised" (`lifecycle.revised`) = issued
+  before and now either a correction is in progress or a revision was issued.
+- **Routing (D11).** First submission → the designated reviewers and the lead; resubmission → the
+  reviewer who returned it; a correction saved by a Lab Manager (`lab_manager_corrected_by_user_id`,
+  set on save while returned) → the project's lead. Proposal: an original reviewer who can no
+  longer review hands it to the lead.
+- **Not here:** review queue and preview (C28), auto-submission from Ready to submit (C19),
+  notifications (C29), PDFs (C32). Submission checks only C04's final-review field list; the
+  `review.deferredChecks` blockers (C15, C05, C06, C17, C18, C20) are added by their cards. A report
+  with versions keeps its project (the version foreign key has no cascade).
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before
