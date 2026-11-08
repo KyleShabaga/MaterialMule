@@ -690,10 +690,38 @@ route here.
   `no_numbered_set` otherwise: correct the draft instead). `confirm: false` returns the effects;
   `confirm: true` records the correction and applies it. C04's draft save of `castAt` on such a
   report is 409 `casting_correction_required`.
-- **Capabilities.** `concrete_report.draft` is global (`GET /api/me`). `concrete_specimen.reschedule`
-  is not added to `PROJECT_CAPABILITY_ACTIONS`: the capability list doesn't load the reviewer and
-  concrete-grant facts it needs, so it would misreport; C22, which owns rescheduling, adds it with
-  those facts. Each set's `canEdit` says whether the caller may edit its specimens.
+- **Capabilities.** `concrete_report.draft` is global (`GET /api/me`). C22 added
+  `concrete_specimen.reschedule` to `PROJECT_CAPABILITY_ACTIONS` with the facts it needs (below).
+  Each set's `canEdit` says whether the caller may edit its specimens.
+
+## Concrete lab worklist and rescheduling (MM-V2-C22)
+
+Contracts: `packages/shared/src/concrete-worklist.ts`; table: migration 0022
+([concrete.md](concrete.md#daily-lab-worklist-and-rescheduling-c22)).
+
+| Route                                                      | Policy                                                   |
+| ---------------------------------------------------------- | -------------------------------------------------------- |
+| `GET /api/concrete/lab-worklist`                           | `inventory.read`                                         |
+| `GET /api/concrete/specimens/:specimenId/schedule-history` | `inventory.read`                                         |
+| `POST /api/concrete/specimens/:specimenId/reschedule`      | `concrete_specimen.reschedule` on the specimen's project |
+
+- **Read.** The worklist uses the internal read every concrete read uses (`inventory.read`:
+  every active internal user, LAB included). No new role or permission. The owner defined "lab
+  staff" on 2026-11-08 as the Lab Technician role, the Lab Manager role, or the LAB account naming
+  a person. C36 builds that definition. The worklist read stays on `inventory.read`.
+- **Reschedule.** C10's `concrete_specimen.reschedule`: the project's Lead Project Engineer, a
+  designated reviewer for `concrete_field` (the scope C05's casting correction uses) or a Lab
+  Manager with the project's concrete grant (confirmed by the owner, 2026-11-08); personal accounts only (LAB is refused whoever is selected); reason
+  required. Checked on the specimen's project before the body and before any lock (an unknown
+  specimen is 403 unless the caller could hold the permission somewhere, then 404), then again
+  under the D09 locks: the report FOR UPDATE, the set FOR UPDATE, the specimen FOR UPDATE, then
+  the project and the actor's account FOR SHARE (`canUnderLock`). Retries: `idempotencyKey` (409
+  `idempotency_key_reused`) and `version` (409 `version_conflict` with the current schedule).
+- **Capabilities.** `concrete_specimen.reschedule` is in `PROJECT_CAPABILITY_ACTIONS` ("Reschedule
+  concrete specimen tests"). `concreteRescheduleContext()` loads the lead, the live
+  `concrete_field` reviewers and the concrete-grant holders for it, so Team & Permissions and
+  `GET /api/projects/:id/capabilities` report it correctly; each worklist group's `canReschedule`
+  uses the same check.
 
 ## Concrete report lifecycle (MM-V2-C09)
 

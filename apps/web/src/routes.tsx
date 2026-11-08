@@ -12,6 +12,7 @@ import { ProgramsPage } from './lab/ProgramsPage';
 import { SampleTagsPage } from './lab/SampleTagsPage';
 import { WorkedProgram } from './lab/WorkedProgram';
 import { WorklistPage } from './lab/WorklistPage';
+import { ConcreteWorklistPage } from './concrete/worklist/ConcreteWorklistPage';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
 import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
@@ -55,6 +56,8 @@ const featureRoutes: RouteObject[] = [
           children: [
             { index: true, element: <WorklistPage /> },
             { path: 'programs', element: <ProgramsPage /> },
+            // Concrete breaks: the daily concrete lab worklist (MM-V2-C22).
+            { path: 'concrete', element: <ConcreteWorklistPage /> },
             { path: 'programs/new', element: <ProgramEditor draft={null} /> },
             {
               path: 'programs/:programId',

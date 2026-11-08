@@ -37,9 +37,9 @@ import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { receiverOf, resolveActingPerson } from '../lab/attribution.js';
 import {
+  concreteRescheduleContext,
   findProject,
   intentHash,
-  projectContext,
 } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 
@@ -50,13 +50,11 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const ENTITY_TYPE = 'concrete_specimen_set';
 const DRAFT = 'concrete_report.draft' as const;
 /**
- * Casting-time correction once a set is numbered (AC5). Owner to confirm: reuses C10's
+ * Casting-time correction once a set is numbered (AC5). Confirmed by the owner (2026-11-08): reuses C10's
  * `concrete_specimen.reschedule` (the lead, a designated reviewer, or a concrete-grant Lab
  * Manager; personal accounts only), since it moves every dependent test date.
  */
 const CORRECT = 'concrete_specimen.reschedule' as const;
-/** Casting is field data, so the field-report reviewers are the designated reviewers here. */
-const REVIEW_SCOPE = 'concrete_field';
 
 interface ReportRow {
   id: string;
@@ -1047,7 +1045,7 @@ async function correctionContext(
   db: Db,
   project: NonNullable<Awaited<ReturnType<typeof findProject>>>,
 ): Promise<ProjectContext> {
-  return projectContext(db, project, undefined, REVIEW_SCOPE, { concreteLabManagers: true });
+  return concreteRescheduleContext(db, project);
 }
 
 /**

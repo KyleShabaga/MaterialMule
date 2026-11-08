@@ -141,6 +141,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
   'POST /api/concrete/field-reports/:reportId/casting-correction': 'concrete_specimen.reschedule',
+  // MM-V2-C22: rescheduling a specimen's test (the lead, a designated reviewer or a
+  // concrete-grant Lab Manager; personal accounts only, reason required).
+  'POST /api/concrete/specimens/:specimenId/reschedule': 'concrete_specimen.reschedule',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
