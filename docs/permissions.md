@@ -70,7 +70,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete.review (AO08, planned; + designated reviewer)                                                                 |     |                   |             |       |           ✓           |                     |
 | concrete_failure_schedule.approve (AO08, planned; + designated reviewer)                                               |     |                   |             |       |           ✓           |                     |
 | concrete_hold.manage (AO08, planned; + concrete LM grant)                                                              |     |                   |             |       |           ✓           |                     |
-| concrete_report.draft (C10, planned)                                                                                   |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
+| concrete_report.draft (C10; routes C04)                                                                                |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
 | concrete_report.recall (C10, planned; record technician only)                                                          |     |                   |             |       |                       |                     |
 | concrete_receiving_exception.resolve (C10, planned; + reviewer, concrete LM grant, record technician)                  |     |                   |             |       |           ✓           |                     |
 | concrete_sync_conflict.resolve_field (C10, planned; record technician only)                                            |     |                   |             |       |                       |                     |
@@ -615,6 +615,44 @@ The one testing machine and the air meters, with calibration history (CD-44, CD-
   `.calibration_voided` (reason required).
 - **Flags never block.** The use-check, the autofill and the equipment list only report what using
   the equipment flags; no route refuses work because of a flag.
+
+## Concrete field-report drafts (MM-V2-C04)
+
+Contracts: `packages/shared/src/concrete-field-reports.ts`; tables: migration 0019
+([concrete.md](concrete.md#field-reports-c04)). No submission, review or issuance route here.
+
+| Route                                                  | Policy                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------- |
+| `GET /api/concrete/projects/:projectId/field-reports`  | `inventory.read` (every active session, LAB included)               |
+| `GET /api/concrete/field-reports/:id`                  | `inventory.read`                                                    |
+| `POST /api/concrete/projects/:projectId/field-reports` | `concrete_report.draft` (any active internal user; LAB with person) |
+| `PATCH /api/concrete/field-reports/:id`                | `concrete_report.draft`, own drafts only                            |
+
+- **Order of checks.** `concrete_report.draft` is checked by the route guard and again by the
+  service before the body and before any lock or transaction (403). Then, in one transaction in
+  the D09 order: the report FOR UPDATE (save), the chosen mix FOR SHARE (its snapshot is copied),
+  the project and the actor's account FOR SHARE (`canUnderLock`), then the performing person's
+  account FOR SHARE. Unknown project or report: 404 (the permission is global, so there is no
+  project role to hide).
+- **Attribution (C10).** The technician credited is the acting person. A personal account is its
+  own technician (naming anyone else is 400 `not_allowed`). LAB must name an active staff member
+  with confirmed initials in `technicianUserId` (400 `required`, 422 `invalid_technician`); LAB is
+  the audited actor and the person the audited receiver. LAB never becomes the technician (C01
+  trigger).
+- **Own drafts only (CD-58).** A save by anyone other than the draft's technician is 403
+  `not_own_draft` (a personal account: before the body; LAB: when the named person isn't the
+  technician). Project roles (lead, Lab Manager, admin) add nothing. Only `draft` reports are
+  saved here (409 `not_a_draft`); C19 owns Ready to submit and submission.
+- **Retries and conflicts.** `idempotencyKey` on every write: an exact retry returns the report as
+  it stands with no second version or event; the same key for anything else is 409
+  `idempotency_key_reused`. A client `id` already used is 409 `report_id_taken`. A stale `version`
+  is 409 `version_conflict` with the current report, nothing written. An unchanged save keeps the
+  version.
+- **Capabilities.** `concrete_report.draft` is global, already reported by `GET /api/me`; it is not
+  a project capability, so `PROJECT_CAPABILITY_ACTIONS` is unchanged. Each report's `canEdit` says
+  whether the caller may save it.
+- **Review routing** (read only): MISC-08's `designatedReviewers()` for scope `concrete_field` plus
+  the project's lead, read live; `blocked: no_reviewer` when neither exists. Review itself is C28.
 
 ## Receiving Log (MM-T51)
 

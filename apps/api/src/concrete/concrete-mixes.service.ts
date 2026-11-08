@@ -22,6 +22,7 @@ import {
   type ConcreteMixDetail,
   type ConcreteMixList,
   type ConcreteMixRevision,
+  type ConcreteMixSnapshot,
   type ConcreteMixSpec,
   type ConcreteMixSpecField,
   type ConcreteMixStatus,
@@ -930,6 +931,35 @@ async function findMix(db: Db, id: string, lock: '' | 'FOR SHARE' | 'FOR UPDATE'
     [id],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * MM-V2-C04/C05: what a field report or set records about the mix it uses (C03 handoff): the
+ * revision in effect (the approved one, else the open draft of an Unapproved mix) with a copy of
+ * its values. Read only: field data never edits the registry. Null for an unknown mix. `lock`
+ * lets the caller hold the mix FOR SHARE as a D09 domain row.
+ */
+export async function captureMixSnapshot(
+  db: Db,
+  mixId: string,
+  lock: '' | 'FOR SHARE' = '',
+): Promise<{ projectId: string; snapshot: ConcreteMixSnapshot } | null> {
+  const mix = await findMix(db, mixId, lock);
+  if (!mix) return null;
+  const revisionId = mix.effective_revision_id ?? mix.draft_revision_id;
+  if (!revisionId) return null;
+  const row = (await revisions(db, [revisionId]))[0]!;
+  return {
+    projectId: mix.project_id,
+    snapshot: {
+      mixId: mix.id,
+      revisionId: row.id,
+      revisionNumber: row.revision_number,
+      revisionState: row.state,
+      spec: specOf(row),
+      capturedAt: new Date().toISOString(),
+    },
+  };
 }
 
 async function revisions(db: Db, ids: string[]): Promise<RevisionRow[]> {

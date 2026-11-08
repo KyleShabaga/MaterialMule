@@ -777,6 +777,29 @@ owns which fields: [concrete.md](concrete.md).
 - Proofs: `apps/api/src/db/schema-concrete-equipment.test.ts` (including "0018 on a populated
   database changes no row").
 
+## Concrete field-report detail (MM-V2-C04, `0019_concrete_field_report_detail.sql`)
+
+- **`concrete_field_report`** gains the field map's columns, all nullable (lists default to
+  `'{}'`/`'[]'`): report date, contractor, `paper_field_id` (CD-65 open: uninterpreted text),
+  location elements (labels) / other / description, delivery (supplier, mix number, ticket, truck,
+  plant, batch time, load and cumulative volume), `mix_id` (FK `(project_id, mix_id)` to
+  `concrete_mix`) with `mix_snapshot` (present exactly with a mix, naming it), `project_spec` and
+  `ticket_spec` (jsonb objects), event times, time limit, load decision, sampling location,
+  placement methods (subset of the six), material, superplasticizer, unit weight, temperatures
+  (−60…100 °C), water added, specimens cast, the air meter (trigger: must be an air meter) with its
+  `air_meter_use` evaluation, comments, results reported to and `attachment_refs` (metadata).
+  No uniqueness on supplier + ticket (CD-18): an index serves the duplicate warning.
+- **`concrete_field_reading`**: slump / air readings (`initial`, `retest`, `after_superplasticizer`,
+  `after_water`), `position` unique per report and test (deferred), one initial per test, value
+  (NULL = not measured; air ≤ 100), time and note. Same project as the report (FK, cascades a
+  correction). A reading keeps its id, report, test and context (trigger); truncate refused.
+- **`concrete_field_report_command`**: append-only idempotency ledger (key, report, kind
+  `create`/`save`, request hash, user).
+- Audit: `concrete_field_report.draft_created` / `.draft_saved` (entity type
+  `concrete_field_report`), changed fields only, with the version.
+- Proofs: `apps/api/src/db/schema-concrete-field-reports.test.ts` (including "0019 on a populated
+  database": existing reports gain blank detail, nothing else changes).
+
 ## Retention dates, holds, extensions and requests (MM-T29)
 
 - `unit_retention` (view) is the one calculation: `minimum_retain_until` =
