@@ -556,4 +556,51 @@ describe.runIf(testDatabaseUrl)('concrete equipment register (MM-V2-C27)', () =>
       );
     }
   });
+
+  it('MM-V2-C36: a Lab Technician manages air meters but never the testing machine', async () => {
+    // Jordan Smith (`js`) holds the Lab Technician role for this test only.
+    await h.db.pool.query(
+      `INSERT INTO role_assignment (user_id, role) VALUES ($1, 'lab_technician')`,
+      [h.users.js],
+    );
+    try {
+      const list = concreteEquipmentListSchema.parse(
+        (await get('/api/concrete/equipment', 'js')).body,
+      );
+      expect(list.canManage).toEqual({ testing_machine: false, air_meter: true });
+      const before = await counts();
+      const machine = await send(
+        'patch',
+        `/api/concrete/testing-machine/${machineId}`,
+        { version: 2, description: 'Lab Technician edit' },
+        'js',
+      );
+      expect(machine.status).toBe(403);
+      expect(await counts()).toEqual(before);
+      const created = await send(
+        'post',
+        '/api/concrete/air-meters',
+        { kind: 'air_meter', identifier: 'AM-LT-01', idempotencyKey: newKey() },
+        'js',
+      );
+      expect(created.status, JSON.stringify(created.body)).toBe(201);
+      expect(created.body.history[0]).toMatchObject({
+        action: 'concrete_equipment.registered',
+        changedBy: { userId: h.users.js, name: 'Jordan Smith' },
+      });
+    } finally {
+      await h.db.pool.query(
+        `DELETE FROM role_assignment WHERE user_id = $1 AND role = 'lab_technician'`,
+        [h.users.js],
+      );
+    }
+    // Without the role, Jordan is an ordinary technician again.
+    const refused = await send(
+      'post',
+      '/api/concrete/air-meters',
+      { kind: 'air_meter', identifier: 'AM-LT-02', idempotencyKey: newKey() },
+      'js',
+    );
+    expect(refused.status).toBe(403);
+  });
 });

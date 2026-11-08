@@ -462,7 +462,7 @@ export class StaffService {
       if (rows[0]!.account_type === 'shared_lab' && wanted.length > 0) {
         throw new UnprocessableEntityException({
           code: 'roles_not_allowed',
-          message: 'The shared LAB account cannot hold admin or Lab Manager roles.',
+          message: 'The shared LAB account cannot hold roles.',
         });
       }
       const { rows: current } = await client.query<{ role: StaffRole }>(

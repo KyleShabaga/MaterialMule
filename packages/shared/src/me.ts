@@ -7,7 +7,7 @@ export const meResponseSchema = z.object({
   initials: z.string().nullable(),
   accountType: z.enum(['personal', 'shared_lab', 'test']),
   status: z.enum(['pending', 'active']),
-  roles: z.array(z.enum(['admin', 'lab_manager'])),
+  roles: z.array(z.enum(['admin', 'lab_manager', 'lab_technician'])),
   /** Global (not project-scoped) permissions, for showing or hiding UI. The server still checks. */
   permissions: z.array(z.string()),
   sessionExpiresAt: z.string(),
