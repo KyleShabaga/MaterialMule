@@ -6,14 +6,14 @@ import {
 } from '../test-support/database.js';
 import { PG, insertProject, insertUser } from '../test-support/fixtures.js';
 
-// MM-V2-C28 (migration 0022): exception notes on a submitted version and the issuer's choices on
+// MM-V2-C28 (migration 0025): exception notes on a submitted version and the issuer's choices on
 // an issued one, each rule proven in the database. Fictional data only (DEMO- projects).
 
 const REJECT = { code: PG.checkViolation };
 const RESTRICT = { code: PG.restrictViolation };
 const UNIQUE = { code: PG.uniqueViolation };
 
-describe.runIf(testDatabaseUrl)('concrete review exceptions (MM-V2-C28, migration 0022)', () => {
+describe.runIf(testDatabaseUrl)('concrete review exceptions (MM-V2-C28, migration 0025)', () => {
   let db: TestSchema;
   let tech: string;
   let reviewer: string;

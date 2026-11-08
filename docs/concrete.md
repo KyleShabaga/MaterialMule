@@ -380,7 +380,7 @@ format) is made.
 
 ## Review queue and issuance (C28)
 
-Migration `0022_concrete_review_exceptions.sql`; contracts in `packages/shared/src/concrete-review.ts`;
+Migration `0025_concrete_review_exceptions.sql`; contracts in `packages/shared/src/concrete-review.ts`;
 routes in [permissions.md](permissions.md#concrete-review-queue-and-exceptions-mm-v2-c28); screens
 under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review queue structure",
 "Review interaction", "Issuance workflow" and "Reviewer change comparison". Field reports only (G2).

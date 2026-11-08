@@ -749,7 +749,7 @@ reports wait for owner decision G2.
 ## Concrete review queue and exceptions (MM-V2-C28)
 
 The review queue, documenting a submitted version's exceptions, the Mark reviewed rule and the
-issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migration 0022
+issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migration 0025
 ([concrete.md](concrete.md#review-queue-and-issuance-c28)). Field reports only (G2).
 
 | Route                                                                                                                                           | Policy                                                                                   |
