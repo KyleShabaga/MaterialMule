@@ -27,7 +27,7 @@ import {
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { permissionSources, type AuthUser, type ProjectContext } from '../auth/policy.js';
-import { canUnderLock } from '../auth/standing.js';
+import { asLocked, canUnderLock, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { receiverOf, resolveActingPerson } from '../lab/attribution.js';
@@ -43,6 +43,8 @@ import {
   ACTION_PERMISSIONS,
   FIELD_REPORT_SCOPE,
   holdsActionPermission,
+  isSelfReview,
+  issuedByOf,
   latestVersion,
   lifecycleContext,
   peopleOf,
@@ -112,7 +114,8 @@ function parseInput(action: ConcreteReportAction, body: unknown): Input {
  * own technician (LAB names them); recall `concrete_report.recall` (the technician, personal
  * account); return and review `concrete.review` (the lead or a designated reviewer, and for a
  * routed version only its reviewer or the lead); issue `report.issue` (the lead or an issuer
- * grant for the field scope); revise either of the last two (proposal).
+ * grant for the field scope); revise the lead, a designated reviewer or the version's issuer.
+ * Nobody reviews or issues a report they are the technician of (owner decision 2026-11-08).
  */
 @Injectable()
 export class ConcreteReportLifecycleService {
@@ -181,7 +184,10 @@ export class ConcreteReportLifecycleService {
       throw forbidden();
     }
     const context = await lifecycleContext(this.database.pool, report);
-    if (!holdsActionPermission(user, action, context)) throw forbidden();
+    const issuedBy = issuedByOf(await latestVersion(this.database.pool, report.id));
+    if (!holdsActionPermission(user, action, context, issuedBy)) throw forbidden();
+    // Owner decision 2026-11-08: never one's own report, whatever else the person holds.
+    if (isSelfReview(user, action, report)) throw forbidden('own_report');
     if (
       (action === 'submit' || action === 'resubmit') &&
       user.accountType !== 'shared_lab' &&
@@ -238,7 +244,20 @@ export class ConcreteReportLifecycleService {
         break;
       }
     }
+    // Revise: the person who issued the version being corrected may also correct it, while
+    // their account is an active personal one (as it stands under the lock).
+    const issuer = action === 'revise' ? issuedByOf(latest) : null;
+    if (!permitted && issuer === user.userId) {
+      const standing = asLocked(user, await lockStanding(client, [user.userId]));
+      permitted = holdsActionPermission(
+        standing,
+        action,
+        { leadProjectEngineerUserId: null },
+        issuer,
+      );
+    }
     if (!permitted) throw forbidden();
+    if (isSelfReview(user, action, found)) throw forbidden('own_report');
     const lead = await this.leadOf(client, found.project_id);
 
     let person: PersonSnapshot | null = null;
@@ -407,6 +426,7 @@ export class ConcreteReportLifecycleService {
       originalReviewerUserId: original,
       originalReviewerCanReview: originalCanReview,
       leadProjectEngineerUserId: lead,
+      technicianUserId: report.technician_user_id,
     });
   }
 

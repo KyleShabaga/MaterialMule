@@ -712,11 +712,12 @@ reports wait for owner decision G2.
 | `POST …/:id/return {version, idempotencyKey, comment}`                                     | active user; handler checks `concrete.review` (lead or designated reviewer) + routing     |
 | `POST …/:id/review {version, idempotencyKey, comment?}`                                    | active user; handler checks `concrete.review` + routing                                   |
 | `POST …/:id/issue {version, idempotencyKey, comment?, includeMachineInfo, includePhotos?}` | active user; handler checks `report.issue` (lead or issuer grant, scope `concrete_field`) |
-| `POST …/:id/revise {version, idempotencyKey, comment}`                                     | active user; `concrete.review` or `report.issue` (**proposal**, owner to confirm)         |
+| `POST …/:id/revise {version, idempotencyKey, comment}`                                     | active user; `concrete.review` (lead or designated reviewer), or the version's issuer     |
 
 - **Order of checks (D09).** 401/403 from the guard; then, against the report as it stands and
   before the body or any lock, the action's permission (403 `forbidden`; a personal account
-  submitting someone else's report 403 `not_own_report`). An unknown report is 404 for submit and
+  submitting someone else's report 403 `not_own_report`; the report's own technician reviewing or
+  issuing it 403 `own_report`). An unknown report is 404 for submit and
   resubmit, and for anyone with review, issue or technician standing somewhere; otherwise 403 like
   a real report. Then 400 body, then one transaction: report FOR UPDATE, its latest version FOR
   UPDATE, project and account FOR SHARE (`canUnderLock`, the permission again), the performing
@@ -730,21 +731,30 @@ reports wait for owner decision G2.
   designated reviewers (MISC-08 `designatedReviewers()`, scope `concrete_field`) and its lead. A
   resubmission after a return goes to the reviewer who returned it. A correction saved by a person
   holding the Lab Manager role (recorded on save while the report is returned) goes to the
-  project's Lead Project Engineer instead (AC2). **Proposal:** if the original reviewer can no
-  longer review (inactive, no longer designated), the lead takes it. A routed version is reviewed or
-  returned only by the person it is routed to or the lead; anyone else 403
-  `routed_to_another_reviewer`.
+  project's Lead Project Engineer instead (AC2). If the original reviewer can no longer review
+  (inactive, no longer designated), the lead takes it (owner decision 2026-11-08). A routed version
+  is reviewed or returned only by the person it is routed to or the lead; anyone else 403
+  `routed_to_another_reviewer`. Routing never targets the report's technician: if the lead is the
+  technician, the designated reviewers take it.
+- **Owner decisions 2026-11-08.**
+  - **No self-review.** Nobody reviews or issues a report they are the technician of, even as a
+    designated reviewer or the project's lead (403 `own_report`, nothing written). Another
+    designated reviewer or the lead reviews it; the lead or another issuer issues it.
+  - **Revision after issue:** the project's lead, a designated `concrete_field` reviewer, or the
+    person who issued the version being corrected (while their personal account is active), with
+    a required reason. An issuer grant alone does not allow it.
+  - **Original reviewer unavailable at resubmit:** the lead takes it (above).
+  - **Returned reports are edited only by their technician** (as drafts, CD-58); a Lab Manager
+    can't edit someone else's. D11 Lab Manager routing applies when the Lab Manager is the
+    report's technician.
 - **Review source / issue source** are recorded from the policy source (`lead_project_engineer`
   vs `designated_reviewer`; `lead_project_engineer` vs `report_issuer`).
 - **Capabilities.** `concrete.review` and `report.issue` are in `PROJECT_CAPABILITY_ACTIONS`,
   checked with the `concrete_field` reviewers and issuers. Recall depends on the record's
   technician, so each report's `lifecycle.allowedActions` lists the commands the caller may send
   now (state, permission, own report and routing; the server checks again).
-- **Not decided here:** who may edit someone else's returned report (only its technician can, as
-  for drafts; a Lab Manager correction therefore happens when the Lab Manager is the technician);
-  self-review by a technician who is also a designated reviewer is not refused; submission checks
-  that later cards own (ticket attachment acknowledged C15, specimens received with masses C06 /
-  C20, project matched C17) are not yet applied.
+- **Not here:** submission checks that later cards own (ticket attachment acknowledged C15,
+  specimens received with masses C06 / C20, project matched C17) are not yet applied.
 
 ## Concrete review queue and exceptions (MM-V2-C28)
 
@@ -779,8 +789,8 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
 - **Issue** needs `includeMachineInfo` (the issuer's choice; the screen starts from the project
   setting and makes the issuer choose when the project left it unset) and accepts only
   `includePhotos: false` until photos exist (C15). Both are stored on the issued version.
-- **Not here (pending C09 follow-up):** the server refusal of review / return / issue by the
-  report's own technician; the screens already disable those actions with that reason.
+- **Self-review** is refused by C09 (403 `own_report`, #135); the screens disable those actions
+  with that reason, and the queue never marks one's own report as needing one's action.
 
 ## Receiving Log (MM-T51)
 

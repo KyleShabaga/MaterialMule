@@ -579,7 +579,7 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     expect(reviewed.lifecycle.latestVersion?.review?.source).toBe('lead_project_engineer');
   });
 
-  it('a resubmission whose original reviewer can no longer review goes to the lead (proposal)', async () => {
+  it('a resubmission whose original reviewer can no longer review goes to the lead (owner decision)', async () => {
     const leaving = await designatedReviewer('Lee Leaving', 'LL');
     const draft = await completeReport();
     const submitted = await ok('submit', draft, 'tech');
@@ -748,6 +748,115 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     await ok('return', current, rv, { comment: 'Mould size is wrong' });
     const edited = await editSet();
     expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+  });
+
+  // ---------------------------------------------------------------------------------------------
+  // Owner decisions 2026-11-08: self-review, revision authority, routing, returned edits
+  // ---------------------------------------------------------------------------------------------
+
+  it('self-review: the technician never reviews or issues their own report, even as reviewer or lead', async () => {
+    // A designated reviewer's own report.
+    const ownByReviewer = await ok('submit', await completeReport(rv), rv);
+    const before = await counts(ownByReviewer.id);
+    const refused = await command('review', ownByReviewer, rv);
+    expect(refused.status).toBe(403);
+    expect(refused.body).toEqual({ code: 'own_report' });
+    expect(ownByReviewer.lifecycle.allowedActions).not.toContain('review');
+    expect(await counts(ownByReviewer.id)).toEqual(before);
+    await ok('review', ownByReviewer, rv2);
+
+    // The lead's own report: neither review nor issue by the lead.
+    const ownByLead = await ok('submit', await completeReport('pe'), 'pe');
+    expect((await command('review', ownByLead, 'pe')).body).toEqual({ code: 'own_report' });
+    const reviewed = await ok('review', ownByLead, rv);
+    const beforeIssue = await counts(ownByLead.id);
+    const selfIssue = await command('issue', reviewed, 'pe');
+    expect(selfIssue.status).toBe(403);
+    expect(selfIssue.body).toEqual({ code: 'own_report' });
+    expect(await counts(ownByLead.id)).toEqual(beforeIssue);
+    const issued = await ok('issue', reviewed, 'js');
+    expect(issued.issuance.issueCount).toBe(1);
+  });
+
+  it('revision after issue: the lead, a designated reviewer or the issuer of record, with a reason', async () => {
+    // Issued by Jordan (an issuer grant): Jordan may revise it.
+    const byIssuer = await ok(
+      'issue',
+      await ok('review', await ok('submit', await completeReport(), 'tech'), rv),
+      'js',
+    );
+    expect(byIssuer.lifecycle.allowedActions).toContain('revise');
+    expect((await command('revise', byIssuer, 'js')).status).toBe(400);
+    const revisedByIssuer = await ok('revise', byIssuer, 'js', { comment: 'Plant name corrected' });
+    expect(revisedByIssuer.lifecycle.state).toBe('draft');
+
+    // Issued by the lead: an issuer grant alone is not enough; the lead or a reviewer may.
+    const byLead = await ok(
+      'issue',
+      await ok('review', await ok('submit', await completeReport(), 'tech'), rv),
+      'pe',
+    );
+    const before = await counts(byLead.id);
+    for (const who of ['js', 'tech', 'lm', 'admin', 'jo', 'lab']) {
+      const refused = await command('revise', byLead, who, { comment: 'Not mine to revise' });
+      expect(refused.status, who).toBe(403);
+    }
+    expect(await counts(byLead.id)).toEqual(before);
+    await ok('revise', byLead, rv2, { comment: 'Location corrected' });
+
+    const again = await ok(
+      'issue',
+      await ok('review', await ok('submit', await completeReport(), 'tech'), rv),
+      'js',
+    );
+    await ok('revise', again, 'pe', { comment: 'Ambient temperature corrected' });
+  });
+
+  it('a resubmission whose original reviewer is no longer designated goes to the lead', async () => {
+    const leaving = await designatedReviewer('Lou Removed', 'LR');
+    const draft = await completeReport();
+    const returned = await ok('return', await ok('submit', draft, 'tech'), leaving, {
+      comment: 'Ticket photo unreadable',
+    });
+    const { rows } = await h.db.pool.query<{ id: string }>(
+      `SELECT id FROM project_reviewer_assignment
+       WHERE reviewer_user_id = $1 AND removed_at IS NULL`,
+      [leaving],
+    );
+    const removed = await h
+      .http()
+      .delete(`/api/projects/${h.projects.a}/reviewer-assignments/${rows[0]!.id}`)
+      .set(CSRF_HEADER, '1')
+      .set('Cookie', cookies.admin!)
+      .send({ reason: 'Moved to another office' });
+    expect(removed.status, JSON.stringify(removed.body)).toBeLessThan(300);
+    const resubmitted = await ok('resubmit', returned, 'tech');
+    expect(resubmitted.lifecycle.latestVersion?.route).toMatchObject({
+      kind: 'lead_project_engineer',
+      routedTo: { userId: h.users.pe },
+      reason: 'original_reviewer_unavailable',
+    });
+    expect((await command('review', resubmitted, leaving)).status).toBe(403);
+    await ok('review', resubmitted, 'pe');
+  });
+
+  it('only the technician edits a returned report; a Lab Manager may not edit another person report', async () => {
+    const returned = await ok('return', await ok('submit', await completeReport(), 'tech'), rv, {
+      comment: 'Truck number missing a digit',
+    });
+    const refused = await send(
+      'patch',
+      reportPath(returned.id),
+      { idempotencyKey: newKey(), version: returned.version, truckNumber: 'T-77' },
+      'lm',
+    );
+    expect(refused.status).toBe(403);
+    expect(refused.body).toEqual({ code: 'not_own_draft' });
+    const current = concreteFieldReportDetailSchema.parse(
+      (await get(reportPath(returned.id), 'lm')).body,
+    );
+    expect(current.canEdit).toBe(false);
+    expect(current.lifecycle.labManagerCorrection).toBe(false);
   });
 
   it('capabilities list field review and issue as the commands check them', async () => {
