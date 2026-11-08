@@ -156,6 +156,32 @@ export async function projectContext(
   return context;
 }
 
+const RESCHEDULE = 'concrete_specimen.reschedule';
+/** Designated reviewers for `concrete_specimen.reschedule` (C05/C22; confirmed by the owner 2026-11-08). */
+export const CONCRETE_RESCHEDULE_REVIEW_SCOPE = 'concrete_field';
+
+/**
+ * The facts `concrete_specimen.reschedule` needs (MM-V2-C10/C22): the lead (already in `base`),
+ * the designated `concrete_field` reviewers and the concrete-grant Lab Managers, read live.
+ * `base` is a context from `projectContext()`; pass none to load it.
+ */
+export async function concreteRescheduleContext(
+  db: Db,
+  project: ProjectFacts,
+  base?: ProjectContext,
+): Promise<ProjectContext> {
+  const context = base ?? (await projectContext(db, project));
+  return {
+    ...context,
+    designatedReviewerUserIds: await designatedReviewers(
+      db,
+      project.id,
+      CONCRETE_RESCHEDULE_REVIEW_SCOPE,
+    ),
+    concreteLabManagerUserIds: await concreteLabManagers(db, project.id),
+  };
+}
+
 /**
  * MISC-08: who may review on `projectId` in `scope` right now, read live on every check (so an
  * open session loses it the moment eligibility does): an active reviewer assignment with the
@@ -416,13 +442,20 @@ export class ProjectAccessService {
         reviewerScopes.push(scope);
       }
     }
+    // MM-V2-C22: rescheduling needs facts the general context doesn't load (C05 left it out of
+    // the list for that reason): the concrete_field reviewers and the concrete Lab Manager grant.
+    const reschedule = await concreteRescheduleContext(db, project, context);
     return {
       projectId: project.id,
       involvement: await involvementOf(db, project.id, user.userId),
       issuerScopes,
       reviewerScopes,
       capabilities: PROJECT_CAPABILITY_ACTIONS.map((action) =>
-        capability(user, action, FIELD_SCOPED.has(action) ? fieldContext : context),
+        capability(
+          user,
+          action,
+          action === RESCHEDULE ? reschedule : FIELD_SCOPED.has(action) ? fieldContext : context,
+        ),
       ),
     };
   }

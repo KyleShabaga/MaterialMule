@@ -387,7 +387,14 @@ describe.runIf(testDatabaseUrl)('concrete domain roots (MM-V2-C01, migration 001
     });
 
     it('refuses TRUNCATE of sets and specimens', async () => {
-      await expect(db.pool.query('TRUNCATE concrete_specimen')).rejects.toMatchObject(RESTRICT);
+      // Since 0022 the reschedule history references specimens, so PostgreSQL refuses a plain
+      // TRUNCATE before the trigger runs; with CASCADE the restrict triggers still refuse it.
+      await expect(db.pool.query('TRUNCATE concrete_specimen')).rejects.toMatchObject({
+        code: '0A000',
+      });
+      await expect(db.pool.query('TRUNCATE concrete_specimen CASCADE')).rejects.toMatchObject(
+        RESTRICT,
+      );
       await expect(db.pool.query('TRUNCATE concrete_specimen_set CASCADE')).rejects.toMatchObject(
         RESTRICT,
       );
