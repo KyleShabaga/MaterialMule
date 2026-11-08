@@ -130,6 +130,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
   'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
   'GET /api/me/grants': null,
+  // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
+  // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
+  'POST /api/concrete/field-reports/:reportId/casting-correction': 'concrete_specimen.reschedule',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
