@@ -433,9 +433,48 @@ format) is made.
   report, even as reviewer or lead (403 `own_report`). Revision after issue: the lead, a designated
   `concrete_field` reviewer, or the person who issued the version, with a reason.
 - **Not here:** review queue and preview (C28), auto-submission from Ready to submit (C19),
-  notifications (C29), PDFs (C32). Submission checks only C04's final-review field list; the
+  notifications (C29, below), PDFs (C32). Submission checks only C04's final-review field list; the
   `review.deferredChecks` blockers (C15, C05, C06, C17, C18, C20) are added by their cards. A report
   with versions keeps its project (the version foreign key has no cascade).
+
+## Notifications (C29)
+
+Migration `0023_concrete_notifications.sql`; contracts in `packages/shared/src/notifications.ts`;
+producers in `apps/api/src/notifications/concrete-notifications.ts`. Concrete events use the
+MM-T91 `notification` table, bell and notification center: unread / read, Mark all read,
+dismiss / restore and one row per (recipient, `event_key`) are reused unchanged. **In-app only**
+(owner decision 2026-10-30): no email outbox rows, no push. Action requests and AO07 rerouting
+are untouched.
+
+- **Targets.** A concrete notification points at `concrete_field_report_id` or
+  `concrete_specimen_id` (exactly one), never an action item; `notification_shape_check` and
+  `notification_guard` cover the new columns. Links open C28's review view `/concrete/review/:id?version=N` (the version the event was about); the page
+  checks access, the link grants nothing. The list reads the report's state live (a corrected and
+  resubmitted report no longer reads as returned) plus, for a return, the reviewer, version and
+  comment from the C09 transition (never copied).
+- **Kinds and recipients** (`concreteNotificationRecipients`; every person once, the actor never):
+
+  | Kind                             | Producer                   | Recipients                                     |
+  | -------------------------------- | -------------------------- | ---------------------------------------------- |
+  | `concrete_report.returned`       | **C29**, C09 `return`      | technician + Lab Manager(s), not the reviewer  |
+  | `concrete_curing.out_of_range`   | C06/C20 (pickup curing)    | designated reviewer(s) + Lead Project Engineer |
+  | `concrete_equipment.flagged`     | C23 results / C14 readings | designated reviewer(s)                         |
+  | `concrete_test.failed`           | C23/C25                    | designated reviewer(s) + Lead Project Engineer |
+  | `concrete_report.auto_submitted` | C19                        | technician                                     |
+
+- **Report returned.** Written in the return command's transaction, keyed by the return
+  transition (`concrete_report_transition:<id>:returned`, checked by
+  `notification_concrete_return_check`): a retried return adds nothing; a later return of a newer
+  version is a new notice. A Lab Manager who returns a report they reviewed gets no separate Lab
+  Manager notice (AC1); a technician who is also a Lab Manager gets one (AC2). **Which Lab
+  Managers (proposal, owner to confirm):** those holding the project's active concrete Lab Manager
+  grant (C02), or every active Lab Manager when the project has none (`concreteLabManagersFor`).
+- **For the later producers.** Call `notifyConcreteEvent(client, kind, target, '<kind>:<source
+id>', facts)` inside the transaction that records the event, and narrow the kind's key rule to
+  the source row in your migration if you want the database to check it. C27 computes equipment
+  flags on read and stores no event, so nothing produces `concrete_equipment.flagged` until C23/C14
+  store flags with a result or reading. Specimen-targeted rows are not listed until their producer
+  card adds a `linkedSpecimen` rendering.
 
 ## Notes for later cards
 
