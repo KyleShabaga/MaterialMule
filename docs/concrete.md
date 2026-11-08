@@ -474,6 +474,7 @@ id>', facts)` inside the transaction that records the event, and narrow the kind
   flags on read and stores no event, so nothing produces `concrete_equipment.flagged` until C23/C14
   store flags with a result or reading. Specimen-targeted rows are not listed until their producer
   card adds a `linkedSpecimen` rendering.
+
 ## Review queue and issuance (C28)
 
 Migration `0025_concrete_review_exceptions.sql`; contracts in `packages/shared/src/concrete-review.ts`;
