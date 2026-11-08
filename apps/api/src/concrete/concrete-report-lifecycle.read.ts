@@ -1,0 +1,318 @@
+import {
+  concreteReportLifecycleState,
+  concreteReportMayReviewRouted,
+  concreteReportNextState,
+  CONCRETE_REPORT_ACTIONS,
+  type ConcreteReportAction,
+  type ConcreteReportLifecycle,
+  type ConcreteReportRouteKind,
+  type ConcreteReportRouteReason,
+  type ConcreteReportTransition,
+  type ConcreteReportVersionState,
+  type ConcreteReportVersionSummary,
+  type ConcreteWorkflowState,
+  type PersonSnapshot,
+} from '@materialmule/shared';
+import type { Pool, PoolClient } from 'pg';
+import { can, type AuthUser, type Permission, type ProjectContext } from '../auth/policy.js';
+import { projectContext } from '../project-access/project-access.service.js';
+
+// MM-V2-C09: reading report versions and the caller's allowed lifecycle commands. Shared by the
+// field-report detail (C04) and the lifecycle commands, so both show the same server state.
+
+type Db = Pool | PoolClient;
+
+/** The review and issue scope of a field report (MISC-08 / AO03 scope codes). */
+export const FIELD_REPORT_SCOPE = 'concrete_field';
+
+export interface VersionRow {
+  id: string;
+  field_report_id: string;
+  version_no: number;
+  revision_of_version_id: string | null;
+  snapshot_sha256: string;
+  report_row_version: number;
+  state: ConcreteReportVersionState;
+  submitted_by_user_id: string;
+  submitted_staff_user_id: string;
+  submitted_at: Date;
+  route_kind: ConcreteReportRouteKind;
+  routed_to_user_id: string | null;
+  route_reason: ConcreteReportRouteReason | null;
+  reviewed_by_user_id: string | null;
+  reviewed_at: Date | null;
+  review_source: 'lead_project_engineer' | 'designated_reviewer' | null;
+  review_cleared_at: Date | null;
+  closed_by_user_id: string | null;
+  closed_at: Date | null;
+  close_comment: string | null;
+  issued_by_user_id: string | null;
+  issued_at: Date | null;
+  issue_source: 'lead_project_engineer' | 'report_issuer' | null;
+}
+
+const VERSION_COLUMNS = `id, field_report_id, version_no, revision_of_version_id, snapshot_sha256,
+  report_row_version, state, submitted_by_user_id, submitted_staff_user_id, submitted_at,
+  route_kind, routed_to_user_id, route_reason, reviewed_by_user_id, reviewed_at, review_source,
+  review_cleared_at, closed_by_user_id, closed_at, close_comment, issued_by_user_id, issued_at,
+  issue_source`;
+
+export async function versionsOf(db: Db, reportId: string): Promise<VersionRow[]> {
+  const { rows } = await db.query<VersionRow>(
+    `SELECT ${VERSION_COLUMNS} FROM concrete_report_version
+     WHERE field_report_id = $1 ORDER BY version_no`,
+    [reportId],
+  );
+  return rows;
+}
+
+/** The latest version, locked FOR UPDATE inside a command (after the report row, D09). */
+export async function latestVersion(
+  db: Db,
+  reportId: string,
+  lock: '' | 'FOR UPDATE' = '',
+): Promise<VersionRow | null> {
+  const { rows } = await db.query<VersionRow>(
+    `SELECT ${VERSION_COLUMNS} FROM concrete_report_version
+     WHERE field_report_id = $1 ORDER BY version_no DESC LIMIT 1 ${lock}`,
+    [reportId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function peopleOf(
+  db: Db,
+  ids: (string | null)[],
+): Promise<Map<string, PersonSnapshot>> {
+  const unique = [...new Set(ids.filter((id): id is string => id !== null))];
+  if (unique.length === 0) return new Map();
+  const { rows } = await db.query<{
+    id: string;
+    display_name: string;
+    official_initials: string | null;
+  }>('SELECT id, display_name, official_initials FROM app_user WHERE id = ANY($1::uuid[])', [
+    unique,
+  ]);
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      { userId: row.id, initials: row.official_initials, name: row.display_name },
+    ]),
+  );
+}
+
+export function versionPeople(rows: VersionRow[]): (string | null)[] {
+  return rows.flatMap((v) => [
+    v.submitted_by_user_id,
+    v.submitted_staff_user_id,
+    v.routed_to_user_id,
+    v.reviewed_by_user_id,
+    v.closed_by_user_id,
+    v.issued_by_user_id,
+  ]);
+}
+
+export function versionSummary(
+  row: VersionRow,
+  all: VersionRow[],
+  people: Map<string, PersonSnapshot>,
+): ConcreteReportVersionSummary {
+  const person = (id: string) => people.get(id) ?? { userId: id, initials: null, name: 'Unknown' };
+  return {
+    id: row.id,
+    versionNo: row.version_no,
+    state: row.state,
+    revisionOfVersionNo: row.revision_of_version_id
+      ? (all.find((v) => v.id === row.revision_of_version_id)?.version_no ?? null)
+      : null,
+    snapshotSha256: row.snapshot_sha256,
+    submittedAt: row.submitted_at.toISOString(),
+    submittedBy: person(row.submitted_by_user_id),
+    submittedStaff: person(row.submitted_staff_user_id),
+    route: {
+      kind: row.route_kind,
+      routedTo: row.routed_to_user_id ? person(row.routed_to_user_id) : null,
+      reason: row.route_reason,
+    },
+    review:
+      row.reviewed_at && row.reviewed_by_user_id && row.review_source
+        ? {
+            reviewedBy: person(row.reviewed_by_user_id),
+            reviewedAt: row.reviewed_at.toISOString(),
+            source: row.review_source,
+            counted: row.review_cleared_at === null,
+            clearedAt: row.review_cleared_at?.toISOString() ?? null,
+          }
+        : null,
+    closed:
+      row.closed_at &&
+      row.closed_by_user_id &&
+      (row.state === 'recalled' || row.state === 'returned')
+        ? {
+            kind: row.state,
+            by: person(row.closed_by_user_id),
+            at: row.closed_at.toISOString(),
+            comment: row.close_comment,
+          }
+        : null,
+    issued:
+      row.issued_at && row.issued_by_user_id && row.issue_source
+        ? {
+            by: person(row.issued_by_user_id),
+            at: row.issued_at.toISOString(),
+            source: row.issue_source,
+          }
+        : null,
+  };
+}
+
+export async function transitionsOf(
+  db: Db,
+  reportId: string,
+  versions: VersionRow[],
+): Promise<ConcreteReportTransition[]> {
+  const { rows } = await db.query<{
+    id: string;
+    version_id: string;
+    action: ConcreteReportAction;
+    from_state: string;
+    to_state: string;
+    actor_user_id: string;
+    staff_user_id: string | null;
+    comment: string | null;
+    route_kind: ConcreteReportRouteKind | null;
+    routed_to_user_id: string | null;
+    created_at: Date;
+  }>(
+    `SELECT id, version_id, action, from_state, to_state, actor_user_id, staff_user_id, comment,
+            route_kind, routed_to_user_id, created_at
+     FROM concrete_report_transition WHERE field_report_id = $1 ORDER BY created_at, id`,
+    [reportId],
+  );
+  const people = await peopleOf(
+    db,
+    rows.flatMap((r) => [r.actor_user_id, r.staff_user_id, r.routed_to_user_id]),
+  );
+  const person = (id: string) => people.get(id) ?? { userId: id, initials: null, name: 'Unknown' };
+  return rows.map((r) => ({
+    id: r.id,
+    versionNo: versions.find((v) => v.id === r.version_id)?.version_no ?? 0,
+    action: r.action,
+    fromState: r.from_state,
+    toState: r.to_state,
+    actor: person(r.actor_user_id),
+    staff: r.staff_user_id ? person(r.staff_user_id) : null,
+    comment: r.comment,
+    routeKind: r.route_kind,
+    routedTo: r.routed_to_user_id ? person(r.routed_to_user_id) : null,
+    at: r.created_at.toISOString(),
+  }));
+}
+
+/** The report facts a lifecycle permission needs. */
+export interface LifecycleFacts {
+  id: string;
+  project_id: string;
+  lead_project_engineer_user_id: string | null;
+  technician_user_id: string | null;
+  workflow_state: ConcreteWorkflowState;
+}
+
+/**
+ * The project context for one field report's lifecycle checks: its lead, the designated
+ * reviewers and issuers for the field scope (read live), and the report's technician (C10).
+ */
+export async function lifecycleContext(db: Db, report: LifecycleFacts): Promise<ProjectContext> {
+  const context = await projectContext(
+    db,
+    {
+      id: report.project_id,
+      lead_project_engineer_user_id: report.lead_project_engineer_user_id,
+      project_number: '',
+    },
+    FIELD_REPORT_SCOPE,
+    FIELD_REPORT_SCOPE,
+  );
+  return { ...context, recordTechnicianUserId: report.technician_user_id };
+}
+
+/** The permission each lifecycle command needs (revise: either one, proposal Q2). */
+export const ACTION_PERMISSIONS: Record<ConcreteReportAction, Permission[]> = {
+  submit: ['concrete_report.draft'],
+  resubmit: ['concrete_report.draft'],
+  recall: ['concrete_report.recall'],
+  return: ['concrete.review'],
+  review: ['concrete.review'],
+  issue: ['report.issue'],
+  revise: ['concrete.review', 'report.issue'],
+};
+
+export function holdsActionPermission(
+  user: AuthUser,
+  action: ConcreteReportAction,
+  context: ProjectContext,
+): boolean {
+  return ACTION_PERMISSIONS[action].some((permission) => can(user, permission, context));
+}
+
+/**
+ * Whether `user` may send `action` now, judged on permission, state, own-report and routing. The
+ * command checks all of it again under the locks.
+ */
+export function actionAllowed(
+  user: AuthUser,
+  action: ConcreteReportAction,
+  report: LifecycleFacts,
+  latest: VersionRow | null,
+  context: ProjectContext,
+): boolean {
+  const state = concreteReportLifecycleState(report.workflow_state, latest?.state ?? null);
+  if (concreteReportNextState(state, action) === null) return false;
+  if (!holdsActionPermission(user, action, context)) return false;
+  if (action === 'submit' || action === 'resubmit') {
+    // A personal account submits only its own report; LAB for the report's technician.
+    return (
+      report.technician_user_id !== null &&
+      (user.accountType === 'shared_lab' || report.technician_user_id === user.userId)
+    );
+  }
+  if ((action === 'review' || action === 'return') && latest) {
+    return concreteReportMayReviewRouted(
+      { kind: latest.route_kind, routedToUserId: latest.routed_to_user_id },
+      user.userId,
+      report.lead_project_engineer_user_id,
+    );
+  }
+  return true;
+}
+
+export async function reportLifecycle(
+  db: Db,
+  report: LifecycleFacts & {
+    issue_count: number;
+    last_issued_version: number | null;
+    lab_manager_corrected_by_user_id: string | null;
+  },
+  user: AuthUser,
+): Promise<ConcreteReportLifecycle> {
+  const versions = await versionsOf(db, report.id);
+  const latest = versions.at(-1) ?? null;
+  const people = await peopleOf(db, versionPeople(latest ? [latest] : []));
+  const context = await lifecycleContext(db, report);
+  const state = concreteReportLifecycleState(report.workflow_state, latest?.state ?? null);
+  return {
+    state,
+    // "Revised": issued before, and now either a correction is under way or a revision was issued.
+    revised: report.issue_count > 1 || (report.issue_count > 0 && state !== 'issued'),
+    latestVersion: latest ? versionSummary(latest, versions, people) : null,
+    latestIssuedVersionNo: report.last_issued_version,
+    reviewCounted:
+      latest !== null &&
+      (latest.state === 'reviewed' || latest.state === 'issued') &&
+      latest.review_cleared_at === null,
+    labManagerCorrection: report.lab_manager_corrected_by_user_id !== null,
+    allowedActions: CONCRETE_REPORT_ACTIONS.filter((action) =>
+      actionAllowed(user, action, report, latest, context),
+    ),
+  };
+}

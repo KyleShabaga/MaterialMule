@@ -67,11 +67,11 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | report_issuer.manage (AO03, D06)                                                                                       |     |                   |             |       |           ✓           |                     |
 | report.issue (AO03, D07)                                                                                               |     |                   |             |       |           ✓           |                     |
 | concrete_mix.manage / concrete_mix.approve (AO08, C03)                                                                 |     |                   |             |       |           ✓           |                     |
-| concrete.review (AO08, planned; + designated reviewer)                                                                 |     |                   |             |       |           ✓           |                     |
+| concrete.review (AO08, C09; + designated reviewer)                                                                     |     |                   |             |       |           ✓           |                     |
 | concrete_failure_schedule.approve (AO08, planned; + designated reviewer)                                               |     |                   |             |       |           ✓           |                     |
 | concrete_hold.manage (AO08, planned; + concrete LM grant)                                                              |     |                   |             |       |           ✓           |                     |
 | concrete_report.draft (C10; routes C04)                                                                                |  ✓  |         ✓         |      ✓      |   ✓   |           ✓           |          ✓          |
-| concrete_report.recall (C10, planned; record technician only)                                                          |     |                   |             |       |                       |                     |
+| concrete_report.recall (C10, C09; record technician only)                                                              |     |                   |             |       |                       |                     |
 | concrete_receiving_exception.resolve (C10, planned; + reviewer, concrete LM grant, record technician)                  |     |                   |             |       |           ✓           |                     |
 | concrete_sync_conflict.resolve_field (C10, planned; record technician only)                                            |     |                   |             |       |                       |                     |
 | concrete_sync_conflict.resolve_lab (C10, planned; + reviewer)                                                          |     |                   |             |       |           ✓           |                     |
@@ -90,8 +90,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 
 "Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account. `report.issue` is also held
-by an active, unexpired Authorized report issuer grant for that project and report scope (D06); no
-report route uses it yet. Team membership, reviewer assignment, job title and position add no
+by an active, unexpired Authorized report issuer grant for that project and report scope (D06); the
+field-report issue route (MM-V2-C09) checks it. Team membership, reviewer assignment, job title and position add no
 permission to this table. The `concrete_*` rows are the MM-AO08 contract: no route checks them yet
 (see "Concrete permission contract" below for the designated-reviewer and concrete Lab Manager
 sources they also have).
@@ -426,8 +426,10 @@ authority and are unchanged; open-task rerouting (D10) is MM-AO07.
 The shared authorization contract for concrete work, in `apps/api/src/auth/policy.ts` with its
 matrix in `policy.test.ts`. **Partly implemented:** C01 added the record tables, C02 the settings,
 the concrete Lab Manager grant and the loaders, and C03 the mix routes (`concrete_mix.manage` /
-`concrete_mix.approve`, below; [concrete.md](concrete.md)). No review, schedule or HOLD route
-exists yet (C04–C08), so those actions are enforced by no endpoint yet, and none of them
+`concrete_mix.approve`, below; [concrete.md](concrete.md)). C09 added the field-report review and
+issue routes (`concrete.review`, `report.issue`, `concrete_report.recall`; "Concrete report
+lifecycle" below). No schedule or HOLD route exists yet, so those actions are enforced by no
+endpoint yet, and none of them
 appears in a project's capability list (`GET …/capabilities`, Team & Permissions) until its
 owning card adds the route (owner decision 2026-10-29, AO08 Q2). Each owning card loads the
 project facts below from the database, checks `can()` under the D09 lock order, and adds its row
@@ -440,7 +442,7 @@ to the capability list in the same change.
 | `concrete.review`                           | the project's Lead Project Engineer, or a designated reviewer for the scope                   | C02 adapter, then C04/C07 review routes            |
 | `concrete_failure_schedule.approve`         | the project's Lead Project Engineer, or a designated reviewer (strength scope); one is enough | the failure-workflow card after C07                |
 | `concrete_hold.manage`                      | the project's Lead Project Engineer, or a Lab Manager holding the project's concrete grant    | C02 (grant storage), then the failed-specimen HOLD |
-| `report.issue` (existing, AO03)             | the Lead Project Engineer, or an Authorized report issuer for the scope                       | the report-lifecycle card (not in C01–C08)         |
+| `report.issue` (existing, AO03)             | the Lead Project Engineer, or an Authorized report issuer for the scope                       | C09 (implemented: field reports)                   |
 | concrete settings → `project.edit`          | the Lead Project Engineer or an admin (settings only)                                         | C02 (implemented)                                  |
 | concrete Lab Manager grant → `project.edit` | the Lead Project Engineer or an admin; grants/revokes the D13 grant                           | C02 (implemented)                                  |
 
@@ -641,8 +643,9 @@ Contracts: `packages/shared/src/concrete-field-reports.ts`; tables: migration 00
   trigger).
 - **Own drafts only (CD-58).** A save by anyone other than the draft's technician is 403
   `not_own_draft` (a personal account: before the body; LAB: when the named person isn't the
-  technician). Project roles (lead, Lab Manager, admin) add nothing. Only `draft` reports are
-  saved here (409 `not_a_draft`); C19 owns Ready to submit and submission.
+  technician). Project roles (lead, Lab Manager, admin) add nothing. Only `draft` reports, and
+  reports `returned` for correction (MM-V2-C09), are saved here (409 `not_a_draft`); submission
+  is below, Ready to submit is C19's.
 - **Retries and conflicts.** `idempotencyKey` on every write: an exact retry returns the report as
   it stands with no second version or event; the same key for anything else is 409
   `idempotency_key_reused`. A client `id` already used is 409 `report_id_taken`. A stale `version`
@@ -653,6 +656,57 @@ Contracts: `packages/shared/src/concrete-field-reports.ts`; tables: migration 00
   whether the caller may save it.
 - **Review routing** (read only): MISC-08's `designatedReviewers()` for scope `concrete_field` plus
   the project's lead, read live; `blocked: no_reviewer` when neither exists. Review itself is C28.
+
+## Concrete report lifecycle (MM-V2-C09)
+
+Field-report versions and the submit / recall / return / resubmit / review / issue / revise
+commands. Contracts: `packages/shared/src/concrete-report-lifecycle.ts`; tables: migration 0021
+([concrete.md](concrete.md#report-versions-and-lifecycle-c09)). Field reports only: strength
+reports wait for owner decision G2.
+
+| Route                                                              | Policy                                                                                    |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `GET /api/concrete/field-reports/:id/versions`                     | `inventory.read` (every active session, LAB included)                                     |
+| `GET /api/concrete/field-reports/:id/versions/:versionNo`          | `inventory.read` (the version's frozen snapshot)                                          |
+| `POST …/:id/submit {version, idempotencyKey, technicianUserId?}`   | `concrete_report.draft`, the report's own technician (LAB names them)                     |
+| `POST …/:id/resubmit {version, idempotencyKey, technicianUserId?}` | `concrete_report.draft`, as submit; routed (below)                                        |
+| `POST …/:id/recall {version, idempotencyKey, comment?}`            | active user; handler checks `concrete_report.recall` (the report's technician)            |
+| `POST …/:id/return {version, idempotencyKey, comment}`             | active user; handler checks `concrete.review` (lead or designated reviewer) + routing     |
+| `POST …/:id/review {version, idempotencyKey, comment?}`            | active user; handler checks `concrete.review` + routing                                   |
+| `POST …/:id/issue {version, idempotencyKey, comment?}`             | active user; handler checks `report.issue` (lead or issuer grant, scope `concrete_field`) |
+| `POST …/:id/revise {version, idempotencyKey, comment}`             | active user; `concrete.review` or `report.issue` (**proposal**, owner to confirm)         |
+
+- **Order of checks (D09).** 401/403 from the guard; then, against the report as it stands and
+  before the body or any lock, the action's permission (403 `forbidden`; a personal account
+  submitting someone else's report 403 `not_own_report`). An unknown report is 404 for submit and
+  resubmit, and for anyone with review, issue or technician standing somewhere; otherwise 403 like
+  a real report. Then 400 body, then one transaction: report FOR UPDATE, its latest version FOR
+  UPDATE, project and account FOR SHARE (`canUnderLock`, the permission again), the performing
+  person (LAB) FOR SHARE; 409 `idempotency_key_reused`, 409 `version_conflict` (with the current
+  report), 422 `invalid_transition`, 403 `routed_to_another_reviewer`, 422 `incomplete_for_review`
+  (C04's final-review field list), 422 `no_lead_project_engineer`.
+- **LAB** may submit and resubmit, naming the performing staff member (the report's technician),
+  audited as receiver. LAB never recalls, returns, reviews, issues or revises, whoever a station
+  selects (AC5).
+- **Routing (D11).** A first submission, one after a recall and a revision go to the project's
+  designated reviewers (MISC-08 `designatedReviewers()`, scope `concrete_field`) and its lead. A
+  resubmission after a return goes to the reviewer who returned it. A correction saved by a person
+  holding the Lab Manager role (recorded on save while the report is returned) goes to the
+  project's Lead Project Engineer instead (AC2). **Proposal:** if the original reviewer can no
+  longer review (inactive, no longer designated), the lead takes it. A routed version is reviewed or
+  returned only by the person it is routed to or the lead; anyone else 403
+  `routed_to_another_reviewer`.
+- **Review source / issue source** are recorded from the policy source (`lead_project_engineer`
+  vs `designated_reviewer`; `lead_project_engineer` vs `report_issuer`).
+- **Capabilities.** `concrete.review` and `report.issue` are in `PROJECT_CAPABILITY_ACTIONS`,
+  checked with the `concrete_field` reviewers and issuers. Recall depends on the record's
+  technician, so each report's `lifecycle.allowedActions` lists the commands the caller may send
+  now (state, permission, own report and routing; the server checks again).
+- **Not decided here:** who may edit someone else's returned report (only its technician can, as
+  for drafts; a Lab Manager correction therefore happens when the Lab Manager is the technician);
+  self-review by a technician who is also a designated reviewer is not refused; submission checks
+  that later cards own (ticket attachment acknowledged C15, specimens received with masses C06 /
+  C20, project matched C17) are not yet applied.
 
 ## Receiving Log (MM-T51)
 

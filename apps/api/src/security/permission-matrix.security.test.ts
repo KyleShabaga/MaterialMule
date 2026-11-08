@@ -129,6 +129,14 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/projects/:projectId/concrete-mixes/copy': 'concrete_mix.manage',
   'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
   'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
+  // MM-V2-C09: field-report lifecycle. Recall: the report's technician; return and review: the
+  // lead or a designated reviewer; issue: the lead or an issuer grant; revise: either (proposal).
+  // An unknown report is 403 for a caller with no such authority anywhere, before the body.
+  'POST /api/concrete/field-reports/:id/recall': 'concrete_report.recall',
+  'POST /api/concrete/field-reports/:id/return': 'concrete.review',
+  'POST /api/concrete/field-reports/:id/review': 'concrete.review',
+  'POST /api/concrete/field-reports/:id/issue': 'report.issue',
+  'POST /api/concrete/field-reports/:id/revise': 'concrete.review',
   'GET /api/me/grants': null,
 };
 

@@ -36,3 +36,4 @@ export * from './concrete-settings';
 export * from './concrete-mixes';
 export * from './concrete-equipment';
 export * from './concrete-field-reports';
+export * from './concrete-report-lifecycle';

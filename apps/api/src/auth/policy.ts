@@ -138,7 +138,7 @@ export type Permission =
   // stands in for it.
   | 'project_review.approve'
   // Authorized report issuers (MM-AO03, D06/D07): granted by the project's Lead Project Engineer
-  // only; issuing is the lead's own or an active grant's. No report route uses it yet.
+  // only; issuing is the lead's own or an active grant's. MM-V2-C09: the field-report issue route.
   | 'report_issuer.manage'
   | 'report.issue'
   // Concrete permission contract (MM-AO08). Planned: no route checks these yet; each owning card
@@ -148,7 +148,8 @@ export type Permission =
   | 'concrete_mix.manage'
   | 'concrete_mix.approve'
   // Concrete review: the project's Lead Project Engineer (Kyle 2026-10-29, AO08 Q3) or a
-  // designated reviewer for the scope (D05); one eligible review is enough.
+  // designated reviewer for the scope (D05); one eligible review is enough. MM-V2-C09: the
+  // field-report review and return routes.
   | 'concrete.review'
   // A specified failed-specimen schedule change: Lead Project Engineer OR designated reviewer
   // (strength scope); one approval is enough.
@@ -163,7 +164,7 @@ export type Permission =
   // LAB with the performing staff member selected (attribution only). The handler edits only
   // drafts whose technician is the acting person (C04, C19).
   | 'concrete_report.draft'
-  // Recall a submitted, not yet reviewed report: that report's technician (C09).
+  // Recall a submitted, not yet reviewed report: that report's technician (C09, implemented).
   | 'concrete_report.recall'
   // Missing, extra or unreadable specimens: lead, designated reviewer, concrete-grant Lab Manager,
   // or the casting technician for specimens they cast; personal account, reason (C21).

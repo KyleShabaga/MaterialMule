@@ -18,6 +18,7 @@ import {
   concreteStrengthMpaSchema,
   type ConcreteMixSnapshot,
 } from './concrete-mixes';
+import { concreteReportLifecycleSchema } from './concrete-report-lifecycle';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-V2-C04: concrete field-report detail and the draft APIs (migration 0019). Source: spec page 2
@@ -532,8 +533,13 @@ export const concreteFieldReportDetailSchema = z.object({
   completeness: concreteDraftCompletenessSchema,
   review: concreteFieldReportReviewSchema,
   reviewRouting: concreteFieldReviewRoutingSchema,
-  /** Whether the caller may save this draft (their own draft; LAB for its technician). */
+  /**
+   * Whether the caller may save this report now: a draft, or a report returned for correction
+   * (MM-V2-C09), that is their own (LAB: for its technician).
+   */
   canEdit: z.boolean(),
+  /** Versions, review and issue (MM-V2-C09), as the server holds them. */
+  lifecycle: concreteReportLifecycleSchema,
 });
 export type ConcreteFieldReportDetail = z.infer<typeof concreteFieldReportDetailSchema>;
 
