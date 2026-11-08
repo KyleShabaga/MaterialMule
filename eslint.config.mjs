@@ -42,5 +42,10 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // MM-V2-C11 spike: the app-shell service worker (plain JS, copied into dist/sw.js).
+    files: ['apps/web/sw/**/*.js'],
+    languageOptions: { globals: globals.serviceworker },
+  },
   prettier,
 );

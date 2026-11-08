@@ -1,11 +1,13 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { offlineShell } from './offline-shell-plugin';
 
 // The API runs on 3000 by default; override with API_PROXY_TARGET when it doesn't.
 const apiTarget = process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:3000';
 
 export default defineConfig({
-  plugins: [react()],
+  // MM-V2-C11 spike: dist/sw.js (app-shell service worker) after each build.
+  plugins: [react(), offlineShell()],
   // Only VITE_-prefixed variables can reach the browser bundle; never put secrets in them.
   envPrefix: 'VITE_',
   // Bind IPv4 explicitly: on Windows "localhost" can resolve to ::1 only, and the API,
