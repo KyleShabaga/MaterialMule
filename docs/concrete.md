@@ -8,9 +8,10 @@ Development Board (cards MM-V2-Cxx). Permissions: [permissions.md](permissions.m
 `0015_concrete_domain.sql`) and as shared contracts (`packages/shared/src/concrete.ts`, fixtures in
 `concrete-fixtures.ts`); project settings and the concrete Lab Manager grant (C02, `0016`); project
 mixes with approval and specification history (C03, `0017`); the equipment register (C27, `0018`);
-field-report detail, readings and the draft APIs (C04, `0019`, below). No screen, offline store,
-allocator, submission, review, issuance or calculation reads or writes reports, sets or specimens
-yet, and no route writes sets or specimens.
+field-report detail, readings and the draft APIs (C04, `0019`, below); specimen sets, age
+assignments, schedule snapshots and casting corrections (C05, `0020`, below). No screen, offline
+store, allocator, submission, review, issuance or calculation reads or writes reports, sets or
+specimens yet.
 
 ## A deliberate new domain
 
@@ -88,7 +89,7 @@ the shared contracts; none may repurpose a C01 column.
 | C02  | Project concrete settings, the concrete Lab Manager grant, reusable concrete policy                                                                            |
 | C03  | Mixes, approval and specification history                                                                                                                      |
 | C04  | Field-report detail (project/load, location and times, field tests, material, notes, snapshots) and draft APIs; the completeness field list                    |
-| C05  | Set and specimen detail (mould, per-specimen age / HOLD assignment) and further identity records                                                               |
+| C05  | Set and specimen detail (mould, per-specimen age / HOLD assignment, dates), schedule snapshots, Void columns, casting corrections                              |
 | C06  | **Pickup, initial curing and receiving detail** (pickup time and collector, curing min/max, receiving time and person, mass per specimen, marker confirmation) |
 | C07  | **Numerical test results**, tester attribution and correction history                                                                                          |
 | C09  | Report versions and issuance lifecycle (writes the issuance columns; decides what "Revised" shows)                                                             |
@@ -273,13 +274,57 @@ map) and page 1 (blockers vs warnings).
 
 ### For C05 / C09 / C19
 
-- **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
-  project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
-  prefix (C18). Add set detail in your own migration and extend `review.deferredChecks`'s
-  `specimen_set_detail` into real rules.
+- **C05 (sets):** done (below). The report's review now checks set detail itself
+  (`specimenSets`, `specimenSets.<id>.mouldSize`) instead of the deferred `specimen_set_detail`.
 - **C09 / C19:** saves are refused once `workflow_state` leaves `draft`. Ready to submit should
   require `completeness.complete` plus the deferred checks; warnings stay warnings. Reuse
   `concreteFieldReportMissing` / `concreteFieldReportWarnings`, never store their result.
+
+## Specimen sets (C05)
+
+Migration `0020_concrete_specimen_sets.sql`; contracts and helpers in
+`packages/shared/src/concrete-specimen-sets.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-specimen-sets-mm-v2-c05).
+
+- **One specimen per populated age / HOLD row (AC1–AC3).** `specimens` is a list of rows
+  `{ id, age }` with client-generated stable ids; blank rows (`age: null`) are dropped, the rest
+  lettered A, B, C… in order. 7 / 28 / 28 / HOLD is four specimens; repeats are separate
+  specimens; extra rows are allowed; there is no count input and no count column
+  (`specimenCount` is derived). At most 26 (A–Z, never past Z): 27 populated rows are refused,
+  never trimmed. No rows → no specimens and nothing numbered. Omitting `specimens` on create gives
+  one row per resolved default age.
+- **Defaults and the saved snapshot (AC4).** On create the set copies the report's mix snapshot
+  `testAges` (C03/C04), else the project's saved settings ages (C02), else the lab default
+  7 / 28 / 28 / HOLD, and the HOLD duration (project, else 56 days), with where each came from
+  (`defaultSchedule`). The snapshot and the specimens' ages never change when settings or the mix
+  change later (database trigger). `GET …/specimen-set-defaults` previews what a new set would copy.
+- **Shape and mould.** By the report's material: concrete → 150 × 300 mm cylinders (`150x300`);
+  grouts → cubes, size blank; otherwise cylinders, size blank (never guessed). Beams are an allowed
+  shape with no workflow. No mass, condition or other specimen field (C06 owns receiving mass).
+- **Dates.** Casting time is the report's `castAt` (one load). The target date is the
+  America/Edmonton calendar day of casting plus the age; HOLD expiry is casting plus the saved
+  duration. The database computes and stores both (trigger) and keeps them in step with `castAt`;
+  `concreteSpecimenDates()` gives the same result for previews. Weekend targets are kept and
+  flagged `weekend_target`, never shifted. Holidays are not flagged: no holiday calendar exists
+  (open input). Nothing tests, disposes of or releases anything on HOLD expiry.
+- **Numbered sets.** Once C18 attaches a permanent number, the set's letters, ages and existence
+  are fixed (C01 + 0020 triggers; rescheduling is C22, Void is C18 and writes the Void columns
+  0020 adds). Mould detail still edits while the report is a draft.
+- **Casting corrections (AC5).** For a report with a numbered set, the casting time changes only
+  through `POST …/casting-correction`: `confirm: false` lists every specimen whose target date or
+  HOLD expiry moves (before/after, with its permanent and temporary ID) and the numbered sets whose
+  ID year differs from the corrected casting year; `confirm: true` records it with the reason and
+  applies it. Issued IDs never change (combined plan §6). C04's draft save of `castAt` on such a
+  report is refused (`casting_correction_required`), and the database enforces the same rule.
+- **Identity.** Set and specimen UUIDs may be client-generated and never change; temporary and
+  permanent aliases come from C12/C18 and are read as set ID + letter. The allocator boundary is a
+  contract only (`concreteSetNumberAllocationRequestSchema` / `…ResultSchema`): C05 issues and
+  reserves nothing.
+- **Review.** The field report's completeness now needs, when specimens were cast, at least one set
+  with specimens and each such set's mould size; "Specimens cast: No" with specimens still recorded
+  is a warning (`specimens_recorded_but_not_cast`), never a deletion.
+- **Owner to confirm:** the casting correction reuses `concrete_specimen.reschedule`; the
+  designated reviewers for it are the `concrete_field` scope's.
 
 ## Notes for later cards
 

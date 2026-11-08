@@ -800,6 +800,34 @@ owns which fields: [concrete.md](concrete.md).
 - Proofs: `apps/api/src/db/schema-concrete-field-reports.test.ts` (including "0019 on a populated
   database": existing reports gain blank detail, nothing else changes).
 
+## Concrete specimen sets (MM-V2-C05, `0020_concrete_specimen_sets.sql`)
+
+- **`concrete_specimen_set`** gains `specimen_type` (`cylinder` default, `cube`, `beam`),
+  `mould_size` (`NNNxNNN` mm, NULL = not entered), `created_by_user_id` (account) and
+  `technician_user_id` (person; trigger: active personal/test account), the **saved schedule
+  snapshot** (`default_ages`, `default_ages_source` lab_default/project/mix,
+  `default_ages_mix_revision_id`, `hold_duration_days`, `hold_duration_source`; all or none, a mix
+  source names its revision; never changes once saved, trigger) and **Void metadata**
+  (`voided_at`, `voided_by_user_id`, `void_reason`; all or none, needs a permanent number, final).
+  No count column: the specimen rows are the count.
+- **`concrete_specimen`** gains `assigned_age` (days 1–999 or `HOLD`; required for every new or
+  changed row by a `NOT VALID` check, so a pre-C05 row keeps NULL rather than a guessed age),
+  `target_date` and `hold_expires_on`. The dates are **computed by trigger** from the report's
+  `cast_at` (`concrete_casting_date()`: the America/Edmonton calendar day) plus the age, or plus
+  the set's saved HOLD duration; a client can't store a disagreeing date, and a casting-time
+  change recomputes them. A numbered set's specimens keep their ages (trigger; rescheduling is C22).
+- **`concrete_casting_correction`**: append-only history of casting-time corrections (previous and
+  new time, reason, confirmed effects, who, idempotency key, transaction id). Once a report has a
+  numbered set, its `cast_at` changes only with a matching correction row in the same transaction
+  (trigger `concrete_casting_correction_required`); issued IDs never change.
+- **`concrete_specimen_set_command`**: append-only idempotency ledger (`create`/`save`/`discard`;
+  no FK to the set, since a discarded draft set is deleted).
+- Audit: `concrete_specimen_set.created` / `.saved` / `.discarded` (entity type
+  `concrete_specimen_set`) and `concrete_field_report.casting_corrected` (with the reason).
+- Proofs: `apps/api/src/db/schema-concrete-specimen-sets.test.ts` (including "0020 on a populated
+  database": existing sets and specimens gain blank detail, storage-unit counters and every other
+  table unchanged).
+
 ## Retention dates, holds, extensions and requests (MM-T29)
 
 - `unit_retention` (view) is the one calculation: `minimum_retain_until` =

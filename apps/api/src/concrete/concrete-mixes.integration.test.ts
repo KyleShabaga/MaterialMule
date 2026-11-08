@@ -161,7 +161,7 @@ describe.runIf(testDatabaseUrl)('concrete mixes (MM-V2-C03)', () => {
     ).rows[0]!.id;
     for (const letter of ['A', 'B', 'C', 'D']) {
       await h.db.pool.query(
-        'INSERT INTO concrete_specimen (project_id, set_id, letter) VALUES ($1, $2, $3)',
+        `INSERT INTO concrete_specimen (project_id, set_id, letter, assigned_age) VALUES ($1, $2, $3, '28')`,
         [h.projects.a, set, letter],
       );
     }
