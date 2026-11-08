@@ -405,6 +405,9 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   'test.cancel',
   'retention.manage',
   'disposal.approve',
+  // MM-V2-C03: concrete mixes, the project's Lead Project Engineer only (AO08, CD-52).
+  'concrete_mix.manage',
+  'concrete_mix.approve',
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
@@ -423,6 +426,8 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'test.cancel': 'Cancel tests',
   'retention.manage': 'Manage retention and holds',
   'disposal.approve': 'Approve disposal',
+  'concrete_mix.manage': 'Create, edit and copy concrete mixes',
+  'concrete_mix.approve': 'Approve concrete mixes',
 };
 
 export const BLOCKED_REASONS = [

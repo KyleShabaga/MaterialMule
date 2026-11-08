@@ -736,6 +736,27 @@ owns which fields: [concrete.md](concrete.md).
 - Proofs: `apps/api/src/db/schema-concrete-settings.test.ts` (including "0016 on a populated
   database changes no row").
 
+## Concrete mixes (MM-V2-C03, `0017_concrete_mixes.sql`)
+
+- **`concrete_mix`**: project, supplier and mix number (unique per project, case-insensitive;
+  equal to the latest revision's, checked at commit), `effective_revision_id` (the one approved
+  revision; NULL = Unapproved), `draft_revision_id` (the one open draft), `copied_from_revision_id`
+  (fixed provenance), creator snapshots, `version` (+1 per change). Never deleted or truncated;
+  project, creator and copy source fixed. The pointers are deferred composite FKs to its own
+  revisions plus a deferred constraint trigger (`concrete_mix_pointers`).
+- **`concrete_mix_revision`**: numbered 1, 2, 3 per mix without gaps, inserted as `draft`;
+  `draft → approved → superseded` only. At most one draft and one approved revision per mix
+  (partial unique indexes). Approved and superseded revisions never change (trigger
+  `concrete_mix_revision_immutable`), so downstream snapshots can reference them by id. Approval
+  needs approver, time and a complete specification (check). Value checks: strength > 0, strength
+  age 1–999, slump and tolerance ≥ 0, air 0–100 with min ≤ max, aggregate > 0, test ages via
+  `concrete_specimen_ages_valid` (C02). Same-project FK `(project_id, mix_id)`. Never deleted or
+  truncated.
+- **`concrete_mix_command`**: append-only idempotency ledger (key, mix, kind, request hash, user).
+- Nothing touches concrete reports, sets, specimens or settings. Proofs:
+  `apps/api/src/db/schema-concrete-mixes.test.ts` (including "0017 on a populated database changes
+  no row").
+
 ## Retention dates, holds, extensions and requests (MM-T29)
 
 - `unit_retention` (view) is the one calculation: `minimum_retain_until` =

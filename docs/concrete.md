@@ -4,10 +4,12 @@ Concrete field reports, specimen sets and specimens: a domain separate from geot
 units. Requirements: Notion "V2 Concrete — Specification" (decisions CD-xx) and the Concrete
 Development Board (cards MM-V2-Cxx). Permissions: [permissions.md](permissions.md#concrete-permission-contract-mm-ao08).
 
-**Status (MM-V2-C01):** the aggregate roots exist in the database (migration
+**Status:** the aggregate roots exist in the database (MM-V2-C01, migration
 `0015_concrete_domain.sql`) and as shared contracts (`packages/shared/src/concrete.ts`, fixtures in
-`concrete-fixtures.ts`). Nothing else is implemented: no route, screen, offline store, allocator,
-submission, review, issuance or calculation reads or writes these tables yet.
+`concrete-fixtures.ts`); project settings and the concrete Lab Manager grant (C02, `0016`); project
+mixes with approval and specification history (C03, `0017`, below). No route, screen, offline
+store, allocator, submission, review, issuance or calculation reads or writes the report, set or
+specimen tables yet.
 
 ## A deliberate new domain
 
@@ -117,6 +119,64 @@ the shared contracts; none may repurpose a C01 column.
   the request's user before the body, then again under the D09 lock order (domain rows, project,
   accounts: `canUnderLock`), and add the action to `PROJECT_CAPABILITY_ACTIONS` in the same change.
 
+## Project mixes (C03)
+
+Decisions: CD-52 (project-specific; the project's Lead Project Engineer alone creates, edits,
+copies and approves; copies start Unapproved; new mixes default to 7 / 28 / 28 / HOLD), D14
+(editing an approved mix makes a draft revision; the approved one stays in effect until the lead
+approves), CD-17 (slump target ± tolerance, air min–max), CD-15 (an unknown or unapproved mix on a
+report is flagged, never a registry edit). Routes and checks:
+[permissions.md](permissions.md#concrete-permission-contract-mm-ao08). Contracts:
+`packages/shared/src/concrete-mixes.ts`.
+
+```mermaid
+erDiagram
+  project ||--o{ concrete_mix : "owns"
+  concrete_mix ||--|{ concrete_mix_revision : "revisions 1, 2, 3"
+  concrete_mix |o--o| concrete_mix_revision : "effective (approved)"
+  concrete_mix |o--o| concrete_mix_revision : "open draft"
+  concrete_mix_revision |o--o{ concrete_mix : "copied from"
+```
+
+- **`concrete_mix`** is the stable identity (its id never changes; supplier and mix number as its
+  latest revision states them, unique per project ignoring case). Status is derived, never stored:
+  `unapproved` (no approved revision), `approved`, `revision_pending` (approved plus a draft).
+- **`concrete_mix_revision`** holds the specification: supplier, mix number (text, leading zeros
+  kept), plants (0–20; the field form autofills when there is one), strength MPa, optional
+  specified strength age (separate from the test ages), slump target and tolerance mm, air min/max
+  %, max aggregate size mm, cement type, project-spec admixtures, supplier-ticket defaults (a
+  separate column: defaults only, never evidence a ticket was checked) and test ages (days or
+  HOLD, repeats distinct). A draft may leave values null (never 0); approval needs strength, slump,
+  air, aggregate and cement (`CONCRETE_MIX_APPROVAL_REQUIRED_FIELDS`, also checked by the database).
+- **Admixtures**: `declaration` null (not answered), `none`, `unknown` or `listed` with items
+  (superplasticizer L/m³, fibres kg/m³, accelerator, ice, winter heat, air, retarder, corrosion
+  inhibitor, pigment, other with a description). Dosage-required rules are open, so none are
+  enforced.
+- **Test ages for a new mix** come from the project's concrete settings (C02 default
+  7 / 28 / 28 / HOLD); ages given on create win. Later setting changes never touch existing mixes.
+- **History**: every revision is kept (approved and superseded ones never change, enforced by a
+  trigger) and every change is audited on the mix (`concrete_mix.created`, `.copied`,
+  `.draft_edited`, `.revision_drafted`, `.approved`) with only the changed fields, the revision
+  number, who, when and an optional note. Retries are exactly-once through `concrete_mix_command`.
+- **Copy** makes a new Unapproved mix in the destination from the source's approved revision (or a
+  named one; else its draft), recording `copied_from_revision_id`; the source and its approval
+  never change.
+- **Not in C03:** no Mixes tab or other UI, no draft discard or retirement, no file attachments,
+  no propagation. Propagation is a contract only (`concreteMixPropagationRequestSchema`,
+  `concreteMixPropagationPreviewSchema`, `concreteMixPropagationDecisionSchema`: per item or
+  Approve all of the displayed list; measured data, tested specimens and issued reports never
+  change).
+
+### For C04 / C05
+
+- Store a field report's or set's mix as a `concreteMixSnapshotSchema` value: the revision id (an
+  approved revision never changes, so the id stays faithful) plus the copied values. Never read the
+  live mix to display what a saved report used (AC5).
+- A report may name a mix that isn't in the registry or isn't approved (CD-15): keep the manual
+  entries, flag it, and never create or edit a registry mix from field data (AC4).
+- Sets copy `testAges` from the snapshot (mix, else project, else lab default) when created; later
+  mix edits never re-schedule existing specimens.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before
@@ -127,7 +187,7 @@ the shared contracts; none may repurpose a C01 column.
 - **Sets per report:** the field form shows one specimen set per report (spec page 2); the schema
   doesn't cap it, and sets without a field report (workbook import, C34) would need a later change.
 - **Audit:** C02 added `concrete_project_settings.updated` and
-  `project_concrete_lab_manager_grant.granted`/`.revoked`; each writing card records its own with
+  `project_concrete_lab_manager_grant.granted`/`.revoked`, C03 the `concrete_mix.*` events; each writing card records its own with
   `recordAudit` in the same transaction.
 - **Open owner inputs, deliberately not defaulted:** testing-machine / worksheet units and reading
   count, calculation and rounding methods, final and summary report templates, CSA/ASTM curing and
