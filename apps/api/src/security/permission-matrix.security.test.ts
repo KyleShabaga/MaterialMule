@@ -130,7 +130,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
   'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
   // MM-V2-C09: field-report lifecycle. Recall: the report's technician; return and review: the
-  // lead or a designated reviewer; issue: the lead or an issuer grant; revise: either (proposal).
+  // lead or a designated reviewer; issue: the lead or an issuer grant; revise: the lead, a
+  // designated reviewer or the version's issuer (owner decision 2026-11-08).
   // An unknown report is 403 for a caller with no such authority anywhere, before the body.
   'POST /api/concrete/field-reports/:id/recall': 'concrete_report.recall',
   'POST /api/concrete/field-reports/:id/return': 'concrete.review',
@@ -141,6 +142,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
   'POST /api/concrete/field-reports/:reportId/casting-correction': 'concrete_specimen.reschedule',
+  // MM-V2-C22: rescheduling a specimen's test (the lead, a designated reviewer or a
+  // concrete-grant Lab Manager; personal accounts only, reason required).
+  'POST /api/concrete/specimens/:specimenId/reschedule': 'concrete_specimen.reschedule',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
