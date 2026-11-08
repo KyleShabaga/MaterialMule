@@ -385,7 +385,8 @@ describe.runIf(testDatabaseUrl)('concrete field reports (MM-V2-C04, migration 00
     ).resolves.toBeTruthy();
   });
 
-  describe('migration on a populated database', () => {
+  // A full migrate from the baseline: allow for a loaded PC (as C03/C27 do).
+  describe('migration on a populated database', { timeout: 60_000 }, () => {
     let fresh: TestSchema;
 
     afterAll(async () => {
