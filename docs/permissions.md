@@ -1002,8 +1002,27 @@ retention and disposal (MM-T29/T30, MISC-13) are unchanged.
   `disposedAt` in the future), the same locks, the caller's lab-staff standing under lock, the
   performer (`resolveActingPerson`), eligibility, writes.
 - **Expiry flags only.** No route, job or read changes anything on a HOLD date (AC3).
-- `concrete_ordinary_hold.manage` and `concrete_hold.manage` are not in the project capability
-  list yet; the HOLD table reports each row's actions instead.
+- `concrete_ordinary_hold.manage` and `concrete_hold.manage` are in the project capability list
+  since MM-V2-C08 (with the concrete grant loaded); the HOLD table also reports each row's actions.
+
+## Concrete foundation integration (MM-V2-C08)
+
+No new route or permission. C08 proves the package 1 rules end to end and closes one gap:
+
+- **Capability list.** `PROJECT_CAPABILITY_ACTIONS` now also lists
+  `concrete_receiving_exception.resolve` (C06), `concrete_ordinary_hold.manage` and
+  `concrete_hold.manage` (C26), evaluated with the same facts as `concrete_specimen.reschedule`
+  (the lead, live `concrete_field` reviewers, concrete-grant Lab Managers). The casting
+  technician's own-specimen right to resolve an exception is per record and isn't in the list,
+  like recall.
+- **Sweep check.** `permission-matrix.security.test.ts` fails if a concrete route is public or
+  unswept, if a project-scoped permission a concrete route checks is missing from the capability
+  list, or if a listed concrete capability has no route.
+- **Scenario.** `concrete-foundation.integration.test.ts` checks every actor type on two projects
+  through the capability list and the routes: admin, acceptance delegates and report issuers gain
+  no concrete workflow authority (an issuer issues only); A's lead, reviewer and grant Lab Manager
+  have none on another project; LAB always names the person and never gains their authority.
+  Handoff and open gates: [concrete-package-2-handoff.md](concrete-package-2-handoff.md).
 
 ## Receiving Log (MM-T51)
 

@@ -417,6 +417,14 @@ export const PROJECT_CAPABILITY_ACTIONS = [
   'report.issue',
   // MM-V2-C22: lead, designated concrete_field reviewer or concrete-grant Lab Manager (C10).
   'concrete_specimen.reschedule',
+  // MM-V2-C08: the other project-scoped concrete actions the delivered routes check. Receiving
+  // exceptions (C06): lead, concrete_field reviewer or concrete-grant Lab Manager here; the casting
+  // technician's own-specimen right is per record and shows on the exception, not in this list.
+  // HOLD release and disposal authorization (C26): ordinary by the lead or any Lab Manager,
+  // failed-specimen by the lead or a concrete-grant Lab Manager.
+  'concrete_receiving_exception.resolve',
+  'concrete_ordinary_hold.manage',
+  'concrete_hold.manage',
 ] as const;
 export type ProjectCapabilityAction = (typeof PROJECT_CAPABILITY_ACTIONS)[number];
 
@@ -440,6 +448,9 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'concrete.review': 'Review or return concrete field reports',
   'report.issue': 'Issue concrete field reports',
   'concrete_specimen.reschedule': 'Reschedule concrete specimen tests',
+  'concrete_receiving_exception.resolve': 'Resolve missing, extra or unmatched concrete specimens',
+  'concrete_ordinary_hold.manage': 'Release ordinary concrete HOLD specimens',
+  'concrete_hold.manage': 'Release failed concrete specimen holds',
 };
 
 export const BLOCKED_REASONS = [

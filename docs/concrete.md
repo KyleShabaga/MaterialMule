@@ -756,6 +756,14 @@ Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concre
   draft and supplier link now sit on C30's mix detail page; the old address redirects to the
   Mixes tab, and the project page no longer has a separate "Concrete mixes" button.
 
+## Foundation integration (C08)
+
+`apps/api/src/concrete/concrete-foundation.integration.test.ts` runs one fictional scenario through
+every merged package 1 card on two projects and checks the database and audit rows, replays and
+stale versions, and that storage-unit tables and IDs are untouched. What package 2 can rely on, and
+the open gates (G2, G8, workbook and standards, report templates, offline device runs, numbering):
+[concrete-package-2-handoff.md](concrete-package-2-handoff.md).
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before

@@ -89,6 +89,27 @@ alone before treating them as failures.
 - Tests that need PostgreSQL read `TEST_DATABASE_URL`; CI sets `REQUIRE_DATABASE_TESTS=1` so they
   can't be silently skipped there.
 
+## Concrete domain (V2)
+
+Concrete field reports, specimen sets, pickup/receiving, test results, review and HOLD are a
+separate domain from storage units: see [docs/concrete.md](docs/concrete.md) (records and rules),
+[docs/permissions.md](docs/permissions.md) (routes and authority) and
+[docs/concrete-package-2-handoff.md](docs/concrete-package-2-handoff.md) (what package 1 provides
+and the open gates). Work items are on the Notion "Material Mule V2 — Concrete Development Board"
+(MM-V2-Cxx cards); owner decisions are at the top of the "V2 - Concrete" page.
+
+- Specimens have individual records by design; that never changes the storage-unit receiving
+  rule below, storage-unit IDs, labels or generic lab programs.
+- Concrete authority is project-scoped and never implicit: mixes are the project's Lead only;
+  review is the Lead or a designated `concrete_field` reviewer, never one's own report; admin,
+  acceptance delegates and report issuers (beyond issuing) hold none. Lab staff = the Lab
+  Technician role, the Lab Manager role, or LAB naming the performing person (attribution only).
+- Every concrete route must be in the security sweep, and every project-scoped permission it
+  checks in `PROJECT_CAPABILITY_ACTIONS` (enforced by `permission-matrix.security.test.ts`).
+- Open inputs are gates, not defaults: G2 strength report, G8 units/readings/methods, the
+  workbook and CSA/ASTM limits, report templates, offline device runs, set numbering (package 3).
+  Offline field entry and final reports are not built; don't describe them as built.
+
 ## Conventions
 
 - TypeScript strict everywhere. In `apps/api`, relative imports end in `.js` (NodeNext ESM).
