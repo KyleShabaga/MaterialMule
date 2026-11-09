@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ConcreteWorkflowState } from './concrete';
+import { concreteReportFileSchema } from './concrete-reports';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-V2-C09: report versions and the review / issue lifecycle (field-report path). Combined Plan
@@ -264,6 +265,12 @@ export const concreteReportVersionSummarySchema = z.object({
       /** The issuer's choices (MM-V2-C28); null on a version issued before they were stored. */
       includePhotos: z.boolean().nullable(),
       includeMachineInfo: z.boolean().nullable(),
+      /**
+       * MM-V2-C32: the report number (kept by every revision) and the stored file rendered at
+       * issue; null on a version issued before C32 stored files.
+       */
+      reportNumber: z.string().nullable(),
+      file: concreteReportFileSchema.nullable(),
     })
     .nullable(),
 });

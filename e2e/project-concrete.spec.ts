@@ -81,7 +81,8 @@ test('T2: five tabs, add / copy / approve a mix, and approve only some affected 
 
   await tabs.getByRole('link', { name: 'Summary' }).click();
   await expect(page.getByRole('radio', { name: 'All dates' })).toBeChecked();
-  await expect(page.getByRole('button', { name: 'Generate summary report' })).toBeDisabled();
+  // MM-V2-C32: the lead may issue a summary report (concrete-report-output.spec.ts issues one).
+  await expect(page.getByRole('button', { name: 'Generate summary report' })).toBeEnabled();
 
   await tabs.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Concrete settings' })).toBeVisible();

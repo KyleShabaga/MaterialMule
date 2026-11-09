@@ -84,6 +84,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_settings.air_meter.manage (C27, C36)                                                                                                            |     |                   |      ✓      |       ✓        |       |                       |                     |
 | concrete_settings.supplier.manage (C37)                                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
 | concrete_settings.holiday.manage (C37)                                                                                                                   |     |                   |             |                |   ✓   |                       |                     |
+| concrete_settings.report_header.manage (C32)                                                                                                             |     |                   |             |                |   ✓   |                       |                     |
 | concrete_settings.attachment_limit.manage (C10, planned)                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
 | concrete_specimen.receive / concrete_specimen.mass_correct / concrete_specimen.dispose_record / concrete_test.enter (C36; routes C06/C07, C20, C23, C26) |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
 | reviewer_eligibility.manage (AO03, D05)                                                                                                                  |     |                   |             |                |   ✓   |                       |                     |
@@ -1004,6 +1005,32 @@ Test-result drafts with tester attribution and correction history. Contracts:
   `PROJECT_CAPABILITY_ACTIONS` is unchanged (per-report rights show in `allowedActions`).
 - C07's test-result save answers 409 `result_on_strength_report` for a result on a submitted,
   reviewed or issued strength report version.
+
+## Concrete report output (MM-V2-C32)
+
+Issued report files, the project summary report and the report header. Contracts:
+`packages/shared/src/concrete-reports.ts`; tables: migration 0031
+([concrete.md](concrete.md#report-templates-numbers-and-issued-files-c32)).
+
+| Route                                                                                     | Policy                                                                                                        |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET /api/concrete/report-files/:fileId`                                                  | `inventory.read` (every active session, LAB included): the stored bytes, exactly as issued                    |
+| `GET /api/concrete/projects/:projectId/summary-reports`                                   | `inventory.read`; `canIssue` is `report.issue` for the caller                                                 |
+| `GET /api/concrete/projects/:projectId/summary-reports/preview?from=&to=&element=&mixId=` | `inventory.read`: the unnumbered preview PDF, never stored                                                    |
+| `POST /api/concrete/projects/:projectId/summary-reports {idempotencyKey, filters}`        | active user; handler checks `report.issue` on the project (the lead, or an issuer grant for `concrete_field`) |
+| `GET /api/concrete/report-header`                                                         | `inventory.read`                                                                                              |
+| `PUT /api/concrete/report-header {version, companyName, address, phone}`                  | `concrete_settings.report_header.manage` (admin; proposal, owner to confirm)                                  |
+
+- **Issue a field report (C09 `issue`).** Same checks as before; inside the same transaction it
+  takes the template in force (422 `report_template_missing` / `report_template_unsupported` when
+  none can be rendered), the report's number (first issue only), then renders and stores the PDF.
+- **Summary issue.** Order of checks: 404 unknown project; 403 `forbidden` without `report.issue`
+  (before the body); 400 body; then one transaction: replay by key (another body or caller with
+  the same key: 409 `idempotency_key_reused`), `canUnderLock` (project FOR SHARE), the number, the
+  snapshot, the file. Audit `concrete_summary_report.issued`. No review step: it only restates
+  issued results (design section 5).
+- **Report header.** 409 `version_conflict` with the current value on a stale `version`. Audit
+  `concrete_report_header.changed`.
 
 ## Concrete HOLD management and disposal (MM-V2-C26)
 

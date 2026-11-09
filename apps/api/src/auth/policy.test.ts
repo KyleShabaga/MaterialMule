@@ -506,6 +506,8 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
       sources: ['lab_manager', 'admin'],
     },
     'concrete_settings.holiday.manage': { allowed: ['admin'], sources: ['admin'] },
+    // MM-V2-C32 (proposal): the report header by admins.
+    'concrete_settings.report_header.manage': { allowed: ['admin'], sources: ['admin'] },
   };
 
   it('T1/AC1: every new row matches the documented rule for every kind of caller', () => {

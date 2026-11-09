@@ -1,5 +1,6 @@
 import {
   CONCRETE_EXCEPTION_LABEL,
+  concreteReportFileUrl,
   type ConcreteProjectSettings,
   type ProjectReportIssuers,
 } from '@materialmule/shared';
@@ -122,7 +123,29 @@ export function IssueReportPage() {
                   {issuedVersion.by.name}, {shortDateTime(issuedVersion.at)}
                 </Labelled>
               ) : null}
+              {issuedVersion?.reportNumber ? (
+                <Labelled label="Report number">{issuedVersion.reportNumber}</Labelled>
+              ) : null}
             </dl>
+            {issuedVersion?.file ? (
+              <p className="review-issued-file">
+                {/* MM-V2-C32: the stored file, exactly as issued (never re-rendered). */}
+                <a
+                  className="button"
+                  href={concreteReportFileUrl(issuedVersion.file.id)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Open issued PDF (Rev {issuedVersion.file.revisionNo})
+                </a>
+                <br />
+                <span className="mono review-muted">
+                  {issuedVersion.file.template.name} {issuedVersion.file.template.revision}
+                  {issuedVersion.file.template.provisional ? ' (provisional)' : ''} · SHA-256{' '}
+                  {issuedVersion.file.sha256.slice(0, 12)}
+                </span>
+              </p>
+            ) : null}
           </BandedCard>
 
           <BandedCard title="Documented exceptions">

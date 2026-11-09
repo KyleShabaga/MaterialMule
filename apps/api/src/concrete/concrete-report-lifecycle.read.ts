@@ -4,6 +4,7 @@ import {
   concreteReportNextState,
   CONCRETE_REPORT_ACTIONS,
   type ConcreteReportAction,
+  type ConcreteReportFile,
   type ConcreteReportLifecycle,
   type ConcreteReportRouteKind,
   type ConcreteReportRouteReason,
@@ -16,6 +17,7 @@ import {
 import type { Pool, PoolClient } from 'pg';
 import { can, type AuthUser, type Permission, type ProjectContext } from '../auth/policy.js';
 import { projectContext } from '../project-access/project-access.service.js';
+import { reportFileStore } from './reports/report-file-store.js';
 
 // MM-V2-C09: reading report versions and the caller's allowed lifecycle commands. Shared by the
 // field-report detail (C04) and the lifecycle commands, so both show the same server state.
@@ -59,13 +61,18 @@ export interface VersionRow {
   /** MM-V2-C28: the issuer's choices (null before issue). */
   issue_include_photos: boolean | null;
   issue_include_machine_info: boolean | null;
+  /** MM-V2-C32: set at issue (null before, and on versions issued before C32). */
+  report_number_id: string | null;
+  /** MM-V2-C32: attached by versionsOf (the number's text and the stored file). */
+  report_number?: string | null;
+  file?: ConcreteReportFile | null;
 }
 
 const VERSION_COLUMNS = `id, field_report_id, strength_report_id, version_no, revision_of_version_id, snapshot_sha256,
   report_row_version, state, submitted_by_user_id, submitted_staff_user_id, submitted_at,
   route_kind, routed_to_user_id, route_reason, reviewed_by_user_id, reviewed_at, review_source,
   review_cleared_at, closed_by_user_id, closed_at, close_comment, issued_by_user_id, issued_at,
-  issue_source, issue_include_photos, issue_include_machine_info`;
+  issue_source, issue_include_photos, issue_include_machine_info, report_number_id`;
 
 export async function versionsOf(
   db: Db,
@@ -77,6 +84,24 @@ export async function versionsOf(
      WHERE ${column} = $1 ORDER BY version_no`,
     [reportId],
   );
+  // MM-V2-C32: the report number and the file stored at issue, for the issued versions.
+  const issued = rows.filter((row) => row.report_number_id !== null);
+  if (issued.length > 0) {
+    const { rows: files } = await db.query<{ id: string; report_version_id: string }>(
+      `SELECT id, report_version_id FROM concrete_report_file
+       WHERE report_version_id = ANY($1::uuid[])`,
+      [issued.map((row) => row.id)],
+    );
+    const records = await reportFileStore.records(
+      db,
+      files.map((f) => f.id),
+    );
+    for (const row of issued) {
+      const fileId = files.find((f) => f.report_version_id === row.id)?.id;
+      row.file = fileId ? (records.get(fileId) ?? null) : null;
+      row.report_number = row.file?.reportNumber ?? null;
+    }
+  }
   return rows;
 }
 
@@ -178,6 +203,8 @@ export function versionSummary(
             source: row.issue_source,
             includePhotos: row.issue_include_photos,
             includeMachineInfo: row.issue_include_machine_info,
+            reportNumber: row.report_number ?? null,
+            file: row.file ?? null,
           }
         : null,
   };
