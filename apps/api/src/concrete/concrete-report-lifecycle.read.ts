@@ -25,9 +25,16 @@ type Db = Pool | PoolClient;
 /** The review and issue scope of a field report (MISC-08 / AO03 scope codes). */
 export const FIELD_REPORT_SCOPE = 'concrete_field';
 
+/**
+ * The column a version, transition or exception note names its report by (MM-V2-C39: field or
+ * strength report, exactly one per row).
+ */
+export type ReportColumn = 'field_report_id' | 'strength_report_id';
+
 export interface VersionRow {
   id: string;
-  field_report_id: string;
+  field_report_id: string | null;
+  strength_report_id: string | null;
   version_no: number;
   revision_of_version_id: string | null;
   snapshot_sha256: string;
@@ -54,16 +61,20 @@ export interface VersionRow {
   issue_include_machine_info: boolean | null;
 }
 
-const VERSION_COLUMNS = `id, field_report_id, version_no, revision_of_version_id, snapshot_sha256,
+const VERSION_COLUMNS = `id, field_report_id, strength_report_id, version_no, revision_of_version_id, snapshot_sha256,
   report_row_version, state, submitted_by_user_id, submitted_staff_user_id, submitted_at,
   route_kind, routed_to_user_id, route_reason, reviewed_by_user_id, reviewed_at, review_source,
   review_cleared_at, closed_by_user_id, closed_at, close_comment, issued_by_user_id, issued_at,
   issue_source, issue_include_photos, issue_include_machine_info`;
 
-export async function versionsOf(db: Db, reportId: string): Promise<VersionRow[]> {
+export async function versionsOf(
+  db: Db,
+  reportId: string,
+  column: ReportColumn = 'field_report_id',
+): Promise<VersionRow[]> {
   const { rows } = await db.query<VersionRow>(
     `SELECT ${VERSION_COLUMNS} FROM concrete_report_version
-     WHERE field_report_id = $1 ORDER BY version_no`,
+     WHERE ${column} = $1 ORDER BY version_no`,
     [reportId],
   );
   return rows;
@@ -74,10 +85,11 @@ export async function latestVersion(
   db: Db,
   reportId: string,
   lock: '' | 'FOR UPDATE' = '',
+  column: ReportColumn = 'field_report_id',
 ): Promise<VersionRow | null> {
   const { rows } = await db.query<VersionRow>(
     `SELECT ${VERSION_COLUMNS} FROM concrete_report_version
-     WHERE field_report_id = $1 ORDER BY version_no DESC LIMIT 1 ${lock}`,
+     WHERE ${column} = $1 ORDER BY version_no DESC LIMIT 1 ${lock}`,
     [reportId],
   );
   return rows[0] ?? null;
@@ -175,6 +187,7 @@ export async function transitionsOf(
   db: Db,
   reportId: string,
   versions: VersionRow[],
+  column: ReportColumn = 'field_report_id',
 ): Promise<ConcreteReportTransition[]> {
   const { rows } = await db.query<{
     id: string;
@@ -191,7 +204,7 @@ export async function transitionsOf(
   }>(
     `SELECT id, version_id, action, from_state, to_state, actor_user_id, staff_user_id, comment,
             route_kind, routed_to_user_id, created_at
-     FROM concrete_report_transition WHERE field_report_id = $1 ORDER BY created_at, id`,
+     FROM concrete_report_transition WHERE ${column} = $1 ORDER BY created_at, id`,
     [reportId],
   );
   const people = await peopleOf(

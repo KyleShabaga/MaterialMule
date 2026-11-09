@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import {
-  CONCRETE_FIELD_REPORT_WARNINGS,
-  type ConcreteFieldReportWarning,
-} from './concrete-field-reports';
+import { CONCRETE_FIELD_REPORT_WARNINGS } from './concrete-field-reports';
 import { CONCRETE_REPORT_ROUTE_KINDS, CONCRETE_REPORT_KINDS } from './concrete-report-lifecycle';
+import {
+  CONCRETE_STRENGTH_REPORT_WARNINGS,
+  CONCRETE_STRENGTH_WARNING_MESSAGE,
+} from './concrete-strength-reports';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-V2-C28: the review queue, the review checklist and issuance (field reports; strength reports
@@ -36,7 +37,15 @@ export const CONCRETE_REVIEW_QUEUE_STATUS_LABEL: Record<ConcreteReviewQueueStatu
 
 export const CONCRETE_REPORT_KIND_LABEL: Record<(typeof CONCRETE_REPORT_KINDS)[number], string> = {
   field: 'Field report',
+  strength: 'Strength report',
 };
+
+/** Exception codes of either report kind (field: C04/C05/C27; strength: MM-V2-C39). */
+export const CONCRETE_REPORT_EXCEPTION_CODES = [
+  ...CONCRETE_FIELD_REPORT_WARNINGS,
+  ...CONCRETE_STRENGTH_REPORT_WARNINGS,
+] as const;
+export type ConcreteReportExceptionCode = (typeof CONCRETE_REPORT_EXCEPTION_CODES)[number];
 
 export const CONCRETE_REVIEW_QUEUE_PAGE_SIZE = 25;
 export const CONCRETE_REVIEW_QUEUE_PAGE_SIZE_MAX = 100;
@@ -80,6 +89,9 @@ export type ConcreteReviewQueueQueryInput = z.input<typeof concreteReviewQueueQu
 export const concreteReviewQueueRowSchema = z.object({
   reportId: z.string(),
   reportType: z.enum(CONCRETE_REPORT_KINDS),
+  /** Strength reports (MM-V2-C39): the specimen set, which opens the report. Null for field. */
+  setId: z.string().nullable(),
+  setLabel: z.string().nullable(),
   projectId: z.string(),
   projectNumber: z.string(),
   projectName: z.string(),
@@ -103,7 +115,7 @@ export const concreteReviewQueueRowSchema = z.object({
   issuedAt: z.string().nullable(),
   /** The latest version's exceptions as submitted, one entry per code. */
   exceptions: z.array(
-    z.object({ code: z.enum(CONCRETE_FIELD_REPORT_WARNINGS), count: z.number() }),
+    z.object({ code: z.enum(CONCRETE_REPORT_EXCEPTION_CODES), count: z.number() }),
   ),
   /** How many of those (code + field) were documented by the reviewer. */
   documentedCount: z.number(),
@@ -124,10 +136,8 @@ export type ConcreteReviewQueue = z.infer<typeof concreteReviewQueueSchema>;
 
 // ---- Exceptions on a submitted version ------------------------------------------------------------
 
-export const CONCRETE_EXCEPTION_LABEL: Record<
-  (typeof CONCRETE_FIELD_REPORT_WARNINGS)[number],
-  string
-> = {
+export const CONCRETE_EXCEPTION_LABEL: Record<ConcreteReportExceptionCode, string> = {
+  ...CONCRETE_STRENGTH_WARNING_MESSAGE,
   unknown_mix: 'Mix not in the project registry',
   unapproved_mix: 'Mix not approved',
   slump_out_of_range: 'Slump out of range',
@@ -140,7 +150,7 @@ export const CONCRETE_EXCEPTION_LABEL: Record<
 
 /** `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`. */
 export const concreteExceptionNoteRequestSchema = z.strictObject({
-  code: z.enum(CONCRETE_FIELD_REPORT_WARNINGS, { error: 'Choose an exception' }),
+  code: z.enum(CONCRETE_REPORT_EXCEPTION_CODES, { error: 'Choose an exception' }),
   /** The exception's field path, as on the version (null when it has none). */
   field: z.string().trim().min(1).max(200).nullable(),
   note: z
@@ -154,7 +164,7 @@ export type ConcreteExceptionNoteRequest = z.input<typeof concreteExceptionNoteR
 export const concreteExceptionNoteSchema = z.object({
   id: z.string(),
   versionNo: z.number(),
-  code: z.enum(CONCRETE_FIELD_REPORT_WARNINGS),
+  code: z.enum(CONCRETE_REPORT_EXCEPTION_CODES),
   field: z.string().nullable(),
   note: z.string(),
   documentedBy: personSnapshotSchema,
@@ -169,11 +179,14 @@ export const concreteExceptionNoteListSchema = z.object({
 });
 export type ConcreteExceptionNoteList = z.infer<typeof concreteExceptionNoteListSchema>;
 
+/** A warning of either report kind, as frozen on a version. */
+type ReportWarning = { code: ConcreteReportExceptionCode; field: string | null; message: string };
+
 export type ConcreteChecklistStatus = 'open' | 'resolved' | 'documented';
 
 export interface ConcreteChecklistItem {
   key: string;
-  code: ConcreteFieldReportWarning['code'];
+  code: ConcreteReportExceptionCode;
   field: string | null;
   /** The messages as submitted (one exception code and field can carry several). */
   messages: string[];
@@ -193,8 +206,8 @@ const exceptionKey = (code: string, field: string | null) => `${code}|${field ??
  * server's Mark reviewed rule, so both agree.
  */
 export function concreteReviewChecklist(input: {
-  submitted: readonly Pick<ConcreteFieldReportWarning, 'code' | 'field' | 'message'>[];
-  live: readonly Pick<ConcreteFieldReportWarning, 'code' | 'field'>[] | null;
+  submitted: readonly ReportWarning[];
+  live: readonly Pick<ReportWarning, 'code' | 'field'>[] | null;
   notes: readonly ConcreteExceptionNote[];
 }): ConcreteChecklistItem[] {
   const items = new Map<string, ConcreteChecklistItem>();

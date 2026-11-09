@@ -361,6 +361,11 @@ export class ConcreteTestResultsService {
         );
         if (replay) return replay;
       }
+      // MM-V2-C39: the result is on a submitted, reviewed or issued strength report version; a
+      // correction needs a recall, a return or (after issue) a revision first.
+      if (isConstraint(error, 'concrete_test_result_reported')) {
+        throw new ConflictException({ code: 'result_on_strength_report' });
+      }
       // Two different first saves of one attempt raced: the loser sees a version conflict.
       if (isConstraint(error, 'concrete_test_result_pkey')) {
         throw new ConflictException({

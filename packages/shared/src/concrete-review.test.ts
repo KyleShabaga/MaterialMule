@@ -48,7 +48,7 @@ describe('concreteReviewQueueQuerySchema', () => {
 
   it('refuses unknown statuses, report types and reversed date ranges', () => {
     expect(concreteReviewQueueQuerySchema.safeParse({ status: 'draft' }).success).toBe(false);
-    expect(concreteReviewQueueQuerySchema.safeParse({ reportType: 'strength' }).success).toBe(
+    expect(concreteReviewQueueQuerySchema.safeParse({ reportType: 'summary' }).success).toBe(
       false,
     );
     expect(concreteReviewQueueQuerySchema.safeParse({ mine: 'yes' }).success).toBe(false);

@@ -1,11 +1,12 @@
 import {
-  concreteFieldReportWarningSchema,
+  CONCRETE_REPORT_EXCEPTION_CODES,
   concreteReviewChecklist,
   type ConcreteChecklistItem,
   type ConcreteExceptionNote,
-  type ConcreteFieldReportWarning,
+  type ConcreteReportExceptionCode,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
+import { z } from 'zod';
 import { peopleOf, type VersionRow } from './concrete-report-lifecycle.read.js';
 
 // MM-V2-C28: exception notes and the review checklist of a submitted version, shared by the
@@ -13,17 +14,27 @@ import { peopleOf, type VersionRow } from './concrete-report-lifecycle.read.js';
 
 type Db = Pool | PoolClient;
 
+/** A frozen warning of either report kind (field: C04/C05/C27; strength: MM-V2-C39). */
+export interface SubmittedWarning {
+  code: ConcreteReportExceptionCode;
+  field: string | null;
+  message: string;
+}
+
+const submittedWarningSchema = z.object({
+  code: z.enum(CONCRETE_REPORT_EXCEPTION_CODES),
+  field: z.string().nullable(),
+  message: z.string(),
+});
+
 /** The version's exceptions exactly as submitted (frozen in its snapshot by C09). */
-export async function submittedWarnings(
-  db: Db,
-  versionId: string,
-): Promise<ConcreteFieldReportWarning[]> {
+export async function submittedWarnings(db: Db, versionId: string): Promise<SubmittedWarning[]> {
   const { rows } = await db.query<{ warnings: unknown }>(
     `SELECT coalesce(snapshot->'warnings', '[]'::jsonb) AS warnings
      FROM concrete_report_version WHERE id = $1`,
     [versionId],
   );
-  return concreteFieldReportWarningSchema.array().parse(rows[0]?.warnings ?? []);
+  return submittedWarningSchema.array().parse(rows[0]?.warnings ?? []);
 }
 
 export async function exceptionNotesOf(
@@ -69,7 +80,7 @@ export async function exceptionNotesOf(
 export async function checklistOf(
   db: Db,
   version: Pick<VersionRow, 'id' | 'version_no' | 'state'>,
-  liveWarnings: readonly ConcreteFieldReportWarning[] | null,
+  liveWarnings: readonly Pick<SubmittedWarning, 'code' | 'field'>[] | null,
 ): Promise<ConcreteChecklistItem[]> {
   return concreteReviewChecklist({
     submitted: await submittedWarnings(db, version.id),
