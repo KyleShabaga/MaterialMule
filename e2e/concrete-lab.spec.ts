@@ -93,6 +93,7 @@ test('AC1 and AC2: Specimen lookup lists a repeated set number with both project
     'Concrete home',
     'Specimen receiving',
     'Break worklist',
+    'Testing table',
     'Specimen lookup',
     'Concrete equipment',
   ]) {
@@ -137,7 +138,7 @@ test('AC3: dashboard counts match the lists they open, and My reports come first
   await expect(page.getByRole('button', { name: 'New field report' })).toBeDisabled();
   await expect(page.getByRole('link', { name: 'Open testing table' })).toHaveAttribute(
     'href',
-    '/lab-testing/concrete',
+    '/concrete/testing',
   );
 
   // Other lanes' tests may add sets meanwhile: compare the two numbers until they agree.

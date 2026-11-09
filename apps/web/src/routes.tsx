@@ -63,6 +63,7 @@ import { ConcreteReceivingPage } from './concrete/lab/ConcreteReceivingPage';
 import { ConcreteSearchPage, SpecimenLookupPage } from './concrete/lab/ConcreteSearchPage';
 import { LabSearchPage } from './concrete/lab/LabSearchPage';
 import { SetLookupPage } from './concrete/lab/SetLookupPage';
+import { TestingTablePage } from './concrete/testing/TestingTablePage';
 
 const featureRoutes: RouteObject[] = [
   ...(FEATURES.labTesting
@@ -119,6 +120,8 @@ const featureRoutes: RouteObject[] = [
         { path: 'concrete/search', element: <ConcreteSearchPage /> },
         { path: 'concrete/specimens', element: <SpecimenLookupPage /> },
         { path: 'concrete/specimens/:setId', element: <SetLookupPage /> },
+        // MM-V2-C23: the daily testing table (direct entry of today's breaks).
+        { path: 'concrete/testing', element: <TestingTablePage /> },
         { path: 'search', element: <LabSearchPage /> },
       ]
     : []),

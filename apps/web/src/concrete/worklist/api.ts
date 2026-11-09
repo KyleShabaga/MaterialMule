@@ -61,6 +61,7 @@ const REFUSAL: Record<string, string> = {
   no_casting_time: 'This specimen has no casting time, so it has no target to move.',
   report_void: 'The field report is Void.',
   set_void: 'The set is Void.',
+  tested_specimen: 'This specimen already has a complete test entry, so its age stays.',
   idempotency_key_reused: 'This change was already sent differently. Reload and try again.',
 };
 

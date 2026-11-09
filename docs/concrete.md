@@ -723,11 +723,45 @@ owner decisions of 2026-11-08 (C36 lab staff).
 - **Refused:** Void set or report (409 `set_void` / `report_void`); an attempt ID already used on
   another specimen (409 `result_id_taken`). Receipt (C06) is not required yet; C23 decides when a
   specimen is ready to test.
-- **Worklist:** drafts don't make a specimen tested; C22's worklist is unchanged until C23 defines
-  a completed test.
+- **Worklist:** a draft with a complete entry (C23 below) counts as tested for C22's Overdue view;
+  nothing else in C22 changes.
 - **Photos:** optional and never blocking; there is no photo column (attachments are C15).
 - **Not here:** the testing grid and table (C08/C23), formulas and rounding, pass/fail and failure
   notifications (C25), schedules after failure, report output, machine integration.
+
+## Daily testing table (C23)
+
+Concrete Lab → Testing table (`/concrete/testing`, also the dashboard's "Open testing table"):
+today's breaks for direct entry on the lab computers. No migration; it reads and writes C07's
+drafts. Contracts: `packages/shared/src/concrete-testing-table.ts`.
+
+- **Rows:** `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=` (`inventory.read`):
+  C22's scheduled specimens (not HOLD) whose target is today; with Include overdue also those past
+  their target with no complete entry tested before today. Overdue rows are flagged ("Overdue
+  N d", the target shown) and their targets are never changed (AC4). Grouped by project; within a
+  project by permanent set number (numeric: 26-2 before 26-10), unnumbered sets after by temporary
+  ID, then letter (`compareConcreteTestingRows`, unit-tested). At most 500 rows (`truncated`).
+- **Entry:** max load, height and diameter as typed (C07's fields; kN / mm, provisional; several
+  readings in one cell separated by spaces, none invented). The test date defaults to the lab date
+  on the first save and stays editable for delayed entry; the entry time is the revision time,
+  shown apart. Strength is a blank column until C24 (owner gate G2); units and the number of
+  readings wait on G8.
+- **Complete:** test date, tester, max load and at least one height and one diameter reading
+  (`concreteTestEntryComplete`, same rule in SQL). Entry completeness only, never a completed test.
+  Incomplete rows are saved but not counted ("N of M completed").
+- **Tester (AC1):** the page's "Tested by" (active staff with initials; a personal lab account
+  starts as itself) is sent only for a new attempt. A saved attempt never sends a tester, so it
+  keeps its own. On the LAB station it is also the person entering (`enteredByUserId`), required.
+- **Keyboard:** Tab across a row, Enter / Shift+Enter down / up a column; a row saves when focus
+  leaves it. States: Not entered, Not saved, Saving…, Saved (· incomplete), Failed (typed values
+  kept, Retry reuses the idempotency key: AC2), Reason needed.
+- **Corrections (AC3):** a change to a saved value shows a reason field in the row (the shared
+  `concreteTestResultChanges` rule); without a reason nothing is sent and the edit stays. The API's
+  422 `reason_required` is shown the same way.
+- **Other:** Hide completed, a project filter, hideable columns (remembered in the browser);
+  flagged rows link to the set page (Details) where photos will be added (no photo column).
+- **C22 changes:** Overdue excludes specimens with a complete entry; reschedule refuses them (409
+  `tested_specimen`).
 
 ## Reference data: suppliers, holidays, mix draft discard (C37)
 

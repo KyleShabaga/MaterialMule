@@ -42,6 +42,7 @@ import {
 import { parseBody } from '../validation/parse-body.js';
 import { testingMachineSnapshot } from './concrete-equipment.service.js';
 import { loadHolidayDates } from './concrete-reference-data.service.js';
+import { entryCompleteSql } from './concrete-testing-table.service.js';
 
 type Db = Pool | PoolClient;
 
@@ -75,12 +76,20 @@ const SCHEDULED = `
     AND NOT EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)`;
 
 /**
+ * MM-V2-C23: the specimen has a complete test entry (the testing table's rule). Entry
+ * completeness only: strength and pass/fail wait on C24.
+ */
+const TESTED = `EXISTS (SELECT 1 FROM concrete_test_result tc WHERE tc.specimen_id = sp.id
+  AND ${entryCompleteSql('tc')})`;
+
+/**
  * The date views (q.today, q.upcoming_through), the same rule as the shared
  * `concreteWorklistViewOf`. Reading a specimen as overdue never changes its target (AC2).
  */
 const VIEW_PREDICATE: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string> = {
   today: `sp.assigned_age <> 'HOLD' AND sp.target_date = q.today`,
-  overdue: `sp.assigned_age <> 'HOLD' AND sp.target_date < q.today`,
+  // Overdue = untested past its target (MM-V2-C23 adds the tested condition).
+  overdue: `sp.assigned_age <> 'HOLD' AND sp.target_date < q.today AND NOT ${TESTED}`,
   upcoming: `sp.assigned_age <> 'HOLD' AND sp.target_date > q.today
              AND sp.target_date <= q.upcoming_through`,
   hold: `sp.assigned_age = 'HOLD' AND sp.hold_expires_on IS NOT NULL`,
@@ -324,6 +333,12 @@ export class ConcreteWorklistService {
           [specimen.id],
         );
         if (disposing) throw new ConflictException({ code: 'disposal_authorized' });
+        // MM-V2-C23: a specimen with a complete test entry has been broken; its age stays.
+        const { rowCount: tested } = await client.query(
+          `SELECT 1 FROM concrete_specimen sp WHERE sp.id = $1 AND ${TESTED}`,
+          [specimen.id],
+        );
+        if (tested) throw new ConflictException({ code: 'tested_specimen' });
         if (specimen.target_date === null || specimen.casting_date === null) {
           throw new ConflictException({ code: 'no_casting_time' });
         }

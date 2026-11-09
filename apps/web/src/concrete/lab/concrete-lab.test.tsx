@@ -143,6 +143,7 @@ describe('Concrete Lab navigation (role-based, grants nothing)', () => {
       'Concrete home',
       'Specimen receiving',
       'Break worklist',
+      'Testing table',
       'Specimen lookup',
       'Concrete equipment',
     ]);
@@ -163,6 +164,7 @@ describe('Concrete Lab navigation (role-based, grants nothing)', () => {
       '/concrete',
       '/concrete/receiving',
       '/lab-testing/concrete',
+      '/concrete/testing',
       '/concrete/specimens',
       '/settings/equipment',
     ]);
@@ -233,7 +235,7 @@ describe('Concrete dashboard', () => {
     expect(screen.getByRole('button', { name: 'New field report' })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Open testing table' })).toHaveAttribute(
       'href',
-      '/lab-testing/concrete',
+      '/concrete/testing',
     );
   });
 

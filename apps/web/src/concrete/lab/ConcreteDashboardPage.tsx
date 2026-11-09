@@ -93,7 +93,7 @@ export function ConcreteDashboardPage() {
                 The field report form isn’t available yet.
               </span>
             </span>
-            <Link className="button primary" to="/lab-testing/concrete">
+            <Link className="button primary" to="/concrete/testing">
               Open testing table
             </Link>
           </div>
