@@ -184,7 +184,8 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   await mark.click();
   await expect(page.getByText('Marked reviewed. It now awaits issuance.')).toBeVisible();
 
-  // Issue: exact version, reviewer, photos unavailable, the machine-info choice.
+  // Issue: exact version, reviewer, photos unavailable. Machine info (C38): the project setting is
+  // unset, so it starts as Omit and Issue is available without a choice; the issuer overrides it.
   await page.getByRole('link', { name: 'Go to issue' }).click();
   const side = page.getByRole('complementary', { name: 'Issue' });
   await expect(side.getByText('v2', { exact: false }).first()).toBeVisible();
@@ -193,7 +194,8 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
     side.getByText('Engineer accepted the load at 130 mm', { exact: false }),
   ).toBeVisible();
   const issue = side.getByRole('button', { name: 'Issue report' });
-  await expect(issue).toBeDisabled();
+  await expect(side.getByRole('radio', { name: 'Omit' })).toBeChecked();
+  await expect(issue).toBeEnabled();
   await side.getByRole('radio', { name: 'Include' }).check();
   await issue.click();
   const confirm = page.getByRole('dialog', { name: 'Issue this report?' });

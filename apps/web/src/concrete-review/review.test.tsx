@@ -156,18 +156,13 @@ describe('review rules', () => {
     );
   });
 
-  it('issue waits for a reviewed report, authority and the machine-info choice', () => {
+  it('issue waits for a reviewed report and authority, never a machine-info choice (C38)', () => {
     const reviewed = detail({ state: 'reviewed', allowedActions: ['issue', 'return'] });
-    expect(issueBlock({ me: me('js'), detail: reviewed, issuers: null, machineChoice: null })).toBe(
-      'Choose whether to include the testing machine information.',
+    expect(issueBlock({ me: me('js'), detail: reviewed, issuers: null })).toBeNull();
+    expect(issueBlock({ me: me('tech'), detail: reviewed, issuers: null })).toMatch(
+      /Someone else must issue it/,
     );
-    expect(
-      issueBlock({ me: me('js'), detail: reviewed, issuers: null, machineChoice: false }),
-    ).toBeNull();
-    expect(
-      issueBlock({ me: me('tech'), detail: reviewed, issuers: null, machineChoice: true }),
-    ).toMatch(/Someone else must issue it/);
-    expect(issueBlock({ me: me('js'), detail: detail(), issuers: null, machineChoice: true })).toBe(
+    expect(issueBlock({ me: me('js'), detail: detail(), issuers: null })).toBe(
       'Only a reviewed report can be issued.',
     );
   });
@@ -423,7 +418,7 @@ describe('Issue view', () => {
   });
   const version = versionDetail(1, fields(), reviewedSummary, []);
 
-  it('shows the exact version, reviewer, photos unavailable and needs the machine choice', async () => {
+  it('shows the exact version, reviewer, photos unavailable; unset machine info starts as Omit', async () => {
     const fetchMock = renderAt(
       `/concrete/review/${REPORT_ID}/issue`,
       me('js'),
@@ -438,14 +433,12 @@ describe('Issue view', () => {
     const photos = within(side).getByRole('checkbox', { name: 'Include photos' });
     expect(photos).toBeDisabled();
     expect(photos).toHaveAccessibleDescription(/no photos are recorded/);
-    await screen.findByText('The project hasn’t set a default: choose one.');
-    const issue = within(side).getByRole('button', { name: 'Issue report' });
-    expect(issue).toBeDisabled();
-    expect(issue).toHaveAccessibleDescription(
-      'Choose whether to include the testing machine information.',
+    await screen.findByText(
+      'The project hasn’t set a default, so it’s omitted unless you choose Include.',
     );
-
-    await userEvent.click(within(side).getByRole('radio', { name: 'Omit' }));
+    // MM-V2-C38: no forced choice. Unset pre-fills Omit and Issue is available straight away.
+    await waitFor(() => expect(within(side).getByRole('radio', { name: 'Omit' })).toBeChecked());
+    const issue = within(side).getByRole('button', { name: 'Issue report' });
     expect(issue).toBeEnabled();
     await userEvent.click(issue);
     const dialog = screen.getByRole('dialog', { name: 'Issue this report?' });
@@ -460,5 +453,42 @@ describe('Issue view', () => {
       includePhotos: false,
       includeMachineInfo: false,
     });
+  });
+  it('pre-fills Include from the project setting; the issuer can still override (C38)', async () => {
+    const fetchMock = renderAt(
+      `/concrete/review/${REPORT_ID}/issue`,
+      me('js'),
+      reportApi(reviewed, [version], (url, init) => {
+        if (url.endsWith('/issue') && init?.method === 'POST') return json(201, reviewed);
+        if (url === `/api/projects/${PROJECT_ID}/concrete-settings`) {
+          return json(200, {
+            projectId: PROJECT_ID,
+            defaultSpecimenAges: [7, 28, 28, 'HOLD'],
+            holdDurationDays: 56,
+            includeMachineInfo: true,
+            version: 1,
+            updatedAt: null,
+            updatedBy: null,
+            canEdit: false,
+            history: [],
+            historyTotal: 0,
+          });
+        }
+        return undefined;
+      }),
+    );
+    const side = await screen.findByRole('complementary', { name: 'Issue' });
+    await screen.findByText('Project setting: include.');
+    await waitFor(() => expect(within(side).getByRole('radio', { name: 'Include' })).toBeChecked());
+    await userEvent.click(within(side).getByRole('radio', { name: 'Omit' }));
+    await userEvent.click(within(side).getByRole('button', { name: 'Issue report' }));
+    const dialog = screen.getByRole('dialog', { name: 'Issue this report?' });
+    expect(dialog).toHaveTextContent('testing machine information omitted');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Issue report' }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/issue'))).toBe(true),
+    );
+    const sent = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/issue'))!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ includeMachineInfo: false });
   });
 });

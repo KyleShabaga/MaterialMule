@@ -25,6 +25,12 @@ import { LabelPrintPage } from './printing/LabelPrintPage';
 import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { ProjectDetailPage } from './projects/ProjectDetailPage';
 import { ProjectsPage } from './projects/ProjectsPage';
+import {
+  ProjectConcretePage,
+  ProjectConcreteRedirect,
+} from './concrete/project/ProjectConcretePage';
+import { MixDetailPage } from './concrete/project/MixDetailPage';
+import { PropagationReviewPage } from './concrete/project/PropagationReviewPage';
 import { TeamPermissionsPage } from './projects/TeamPermissionsPage';
 import {
   AccessPendingPage,
@@ -148,6 +154,15 @@ export const routes: RouteObject[] = [
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },
               { path: 'projects/:projectId/team', element: <TeamPermissionsPage /> },
+              // The project's Concrete section (MM-V2-C30): five tabs, mix detail and the mix
+              // propagation review.
+              { path: 'projects/:projectId/concrete', element: <ProjectConcreteRedirect /> },
+              { path: 'projects/:projectId/concrete/:tab', element: <ProjectConcretePage /> },
+              { path: 'projects/:projectId/concrete/mixes/:mixId', element: <MixDetailPage /> },
+              {
+                path: 'projects/:projectId/concrete/mixes/:mixId/propagation',
+                element: <PropagationReviewPage />,
+              },
               // Concrete mixes of a project (MM-V2-C37: discard draft, supplier link).
               { path: 'projects/:projectId/concrete-mixes', element: <ProjectMixesPage /> },
               {

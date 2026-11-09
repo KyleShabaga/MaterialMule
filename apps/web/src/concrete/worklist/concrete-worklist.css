@@ -76,3 +76,16 @@
   padding-left: 1.25rem;
   margin: 0.5rem 0 0;
 }
+
+/* MM-V2-C38: a disabled Reschedule with the reason beside it ("Number this set first"). */
+.concrete-action-blocked {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.concrete-action-reason {
+  color: var(--muted, inherit);
+  font-size: 0.875em;
+}

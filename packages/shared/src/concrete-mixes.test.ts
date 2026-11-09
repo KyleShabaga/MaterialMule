@@ -5,7 +5,6 @@ import {
   concreteAdmixturesSchema,
   concreteMixListQuerySchema,
   concreteMixMissingForApproval,
-  concreteMixPropagationDecisionSchema,
   concreteMixSpecSchema,
   copyConcreteMixRequestSchema,
   createConcreteMixRequestSchema,
@@ -185,21 +184,5 @@ describe('concrete mix contracts (MM-V2-C03)', () => {
     expect(concreteMixListQuerySchema.parse({})).toMatchObject({ page: 1, pageSize: 50 });
     expect(concreteMixListQuerySchema.safeParse({ pageSize: '101' }).success).toBe(false);
     expect(concreteMixListQuerySchema.parse({ supplier: ' ' }).supplier).toBeUndefined();
-  });
-
-  it('a propagation decision is per item or Approve all of the displayed list', () => {
-    const base = { idempotencyKey: key, previewId: key };
-    expect(
-      concreteMixPropagationDecisionSchema.safeParse({
-        ...base,
-        selection: { kind: 'approve_all', displayedItemIds: ['i1', 'i2'] },
-      }).success,
-    ).toBe(true);
-    expect(
-      concreteMixPropagationDecisionSchema.safeParse({
-        ...base,
-        selection: { kind: 'items', itemIds: [] },
-      }).success,
-    ).toBe(false);
   });
 });

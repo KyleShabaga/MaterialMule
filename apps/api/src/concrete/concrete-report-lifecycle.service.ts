@@ -78,6 +78,15 @@ function unprocessable(code: string, errors: { field: string; message: string }[
   });
 }
 
+/** The project's C02 "include testing machine information" setting; unset (or no row) is false. */
+async function projectIncludesMachineInfo(client: PoolClient, projectId: string): Promise<boolean> {
+  const { rows } = await client.query<{ include_machine_info: boolean | null }>(
+    `SELECT include_machine_info FROM concrete_project_settings WHERE project_id = $1 FOR SHARE`,
+    [projectId],
+  );
+  return rows[0]?.include_machine_info ?? false;
+}
+
 function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
 }
@@ -345,6 +354,15 @@ export class ConcreteReportLifecycleService {
       const current = latest!;
       versionId = current.id;
       versionNo = current.version_no;
+      if (action === 'issue' && input.includeMachineInfo === undefined) {
+        // MM-V2-C38 (owner decision 2026-11-09): the issuer isn't forced to choose. Omitted means
+        // the project's concrete setting as it stands; a project that never set it leaves the
+        // machine information out. The resolved choice is what gets stored and audited.
+        input = {
+          ...input,
+          includeMachineInfo: await projectIncludesMachineInfo(client, found.project_id),
+        };
+      }
       await this.transitionVersion(client, action, current, user, context, input);
       await this.updateReport(client, action, found, current, user, to);
     }

@@ -100,7 +100,7 @@ export function documentBlock(input: Common): string | null {
 
 /** Why Issue report is unavailable now, or null. */
 export function issueBlock(
-  input: Common & { issuers: ProjectReportIssuers | null; machineChoice: boolean | null },
+  input: Common & { issuers: ProjectReportIssuers | null },
 ): string | null {
   const { detail } = input;
   if (detail.lifecycle.state !== 'reviewed') return 'Only a reviewed report can be issued.';
@@ -109,8 +109,6 @@ export function issueBlock(
   if (!detail.lifecycle.allowedActions.includes('issue')) {
     return `Only ${whoCanIssue(detail, input.issuers)} can issue this report.`;
   }
-  if (input.machineChoice === null) {
-    return 'Choose whether to include the testing machine information.';
-  }
+  // MM-V2-C38: no machine-info choice is required; omitted, the project setting applies.
   return null;
 }

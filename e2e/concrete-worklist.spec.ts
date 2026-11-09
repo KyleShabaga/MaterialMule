@@ -25,7 +25,8 @@ const isWeekend = (date: string) => [0, 6].includes(new Date(`${date}T00:00:00Z`
 
 async function castProjectSet(
   page: Page,
-): Promise<{ projectId: string; projectNumber: string; setId: string }> {
+  { numbered = true }: { numbered?: boolean } = {},
+): Promise<{ projectId: string; projectNumber: string; setId: string; reportId: string }> {
   const projectNumber = `E2E-C22-${randomBytes(3).toString('hex').toUpperCase()}`;
   const projectId = await withDatabase(async (client) => {
     const { rows } = await client.query<{ id: string }>(
@@ -53,13 +54,15 @@ async function castProjectSet(
   });
   expect(set.status()).toBe(201);
   const setId = ((await set.json()) as { id: string }).id;
-  await withDatabase((client) =>
-    client.query(
-      `UPDATE concrete_specimen_set SET permanent_number = 1, permanent_id = '26-01' WHERE id = $1`,
-      [setId],
-    ),
-  );
-  return { projectId, projectNumber, setId };
+  if (numbered) {
+    await withDatabase((client) =>
+      client.query(
+        `UPDATE concrete_specimen_set SET permanent_number = 1, permanent_id = '26-01' WHERE id = $1`,
+        [setId],
+      ),
+    );
+  }
+  return { projectId, projectNumber, setId, reportId };
 }
 
 async function openFor(page: Page, projectNumber: string) {
@@ -151,4 +154,29 @@ test('T3: the Lead Project Engineer reschedules a test with a reason; history is
     .find((g) => g.projectNumber === projectNumber)!
     .rows.find((r) => r.identity.permanentId === '26-01B')!;
   expect(moved.flags).toContain('rescheduled');
+});
+
+// MM-V2-C38 (owner decision 2026-11-09): past draft, an unnumbered set can't be rescheduled. The
+// report is moved past draft with SQL, standing in for C09's submit.
+test('C38: Reschedule is disabled for an unnumbered set past draft, with the reason', async ({
+  page,
+}) => {
+  const { projectNumber, reportId } = await castProjectSet(page, { numbered: false });
+  await withDatabase((client) =>
+    client.query(
+      `UPDATE concrete_field_report SET workflow_state = 'submitted', submitted_at = now()
+       WHERE id = $1`,
+      [reportId],
+    ),
+  );
+  await signInAs(page, 'pe');
+  await openFor(page, projectNumber);
+  const group = page.getByRole('region', { name: new RegExp(`${projectNumber} ·`) });
+  await expect(group.getByText('2 specimens', { exact: true })).toBeVisible();
+  const buttons = group.getByRole('button', { name: /Reschedule/ });
+  await expect(buttons).toHaveCount(2);
+  for (const button of await buttons.all()) {
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAccessibleDescription('Number this set first');
+  }
 });
