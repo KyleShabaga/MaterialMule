@@ -122,6 +122,12 @@ Database tests read `TEST_DATABASE_URL` (falling back to `DATABASE_URL` in `apps
 Each test file creates its own temporary schema (`test_<random>`), migrates it and drops it
 afterwards, so files run in parallel without sharing data.
 
+Building and dropping a fully migrated schema takes a lock per object, and parallel files do it at
+once. With 30+ migrations this outgrows PostgreSQL's default lock table and fails with "out of
+shared memory" (`53200`, hint `max_locks_per_transaction`). CI sets `max_locks_per_transaction =
+512` (`.github/actions/setup/action.yml`); a development PC that sees the error needs the same
+setting (`ALTER SYSTEM SET max_locks_per_transaction = 512;`, then restart PostgreSQL).
+
 ## Schema (MM-T02)
 
 ```mermaid
