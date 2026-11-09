@@ -16,6 +16,7 @@ import {
   type ConcreteProjectSpecimenList,
   type CopyConcreteMixRequest,
   type CreateConcreteMixRequest,
+  type DiscardConcreteMixDraftRequest,
   type UpdateConcreteMixRequest,
   type UpdateConcreteSettingsRequest,
   type ApproveConcreteMixRequest,
@@ -193,6 +194,25 @@ export function saveSettings(
 // ---- Messages ------------------------------------------------------------------------------------
 
 /** A plain sentence for a refusal on the Concrete screens. */
+/** Discard the open draft revision of an approved mix (the Lead; MM-V2-C37). */
+export function discardMixDraft(
+  mixId: string,
+  body: DiscardConcreteMixDraftRequest,
+): Promise<ConcreteMixDetail> {
+  return call(mix(mixId, '/discard-draft'), (b) => concreteMixDetailSchema.parse(b), {
+    method: 'POST',
+    body,
+  });
+}
+
+/** Link a listed supplier to the mix, or null to unlink (the Lead; MM-V2-C37). */
+export function linkMixSupplier(
+  mixId: string,
+  body: { idempotencyKey: string; version: number; supplierId: string | null },
+): Promise<ConcreteMixDetail> {
+  return call(mix(mixId), (b) => concreteMixDetailSchema.parse(b), { method: 'PATCH', body });
+}
+
 export function concreteProblem(error: unknown): string {
   if (!(error instanceof ConcreteApiError)) return 'Something went wrong. Try again.';
   switch (error.code) {
@@ -212,6 +232,12 @@ export function concreteProblem(error: unknown): string {
       return error.errors[0]?.message ?? 'One of the chosen records can’t be updated.';
     case 'nothing_to_apply':
       return 'None of the listed records can be updated from the mix.';
+    case 'no_approved_revision':
+      return 'This mix has no approved revision yet, so its draft stays.';
+    case 'revision_not_draft':
+      return 'That revision is no longer the open draft. Reload and try again.';
+    case 'invalid_supplier':
+      return 'Choose an active listed supplier.';
     default:
       if (error.status === 400 || error.status === 422) {
         return error.errors.map((e) => e.message).join('; ') || 'Check the entries and try again.';

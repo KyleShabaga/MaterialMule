@@ -574,13 +574,15 @@ describe.runIf(testDatabaseUrl)('project assignments and scoped grants API (MM-A
     expect(
       (await capabilities('a', 'del')).capabilities.find((c) => c.action === 'test.accept'),
     ).toMatchObject({ sources: ['acceptance_delegate'] });
-    // The Lab Manager keeps exactly its existing project powers.
+    // The Lab Manager keeps exactly its existing project powers, plus ordinary concrete HOLD
+    // release by role alone (C10/C26; listed since MM-V2-C08). No grant: no failed-specimen hold.
     expect(allowed(await capabilities('a', 'lm'))).toEqual([
       'program.reopen',
       'program.priority.set',
       'test.cancel',
       'retention.manage',
       'disposal.approve',
+      'concrete_ordinary_hold.manage',
     ]);
     // LAB reads none of this (personal accounts only), whoever it selects.
     expect((await get(projectPath('a', 'capabilities'), 'lab')).status).toBe(403);

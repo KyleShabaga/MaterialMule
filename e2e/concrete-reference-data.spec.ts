@@ -4,8 +4,9 @@ import { DEMO } from './support/receiving';
 
 // MM-V2-C37 against the real API, on desktop and phone: Settings → Suppliers (Lab (test) is the
 // fixtures' Lab Manager), Settings → Holidays (admin; Alberta general holidays seeded) and the
-// project mix screen's Discard draft (Pat Example, DEMO-2601's Lead). Fictional data only; names,
-// dates and mix numbers are unique per viewport so the two runs never collide.
+// mix detail page's Discard draft (Pat Example, DEMO-2601's Lead). Fictional data only; names,
+// dates and mix numbers are unique per viewport so the two runs never collide. Discard draft sits
+// on the mix detail page of the project's Concrete → Mixes tab (C30).
 
 const CSRF = { 'x-materialmule-csrf': '1' };
 
@@ -161,23 +162,31 @@ test('mix draft discard: the Lead discards a draft and the approved revision sta
   });
   expect(drafted.status()).toBe(200);
 
+  // The former mixes address opens the Concrete → Mixes tab; the mix's detail has the action.
   await page.goto(`/projects/${DEMO.projectId}`);
-  await page.getByRole('link', { name: 'Concrete mixes' }).click();
-  const card = page.getByRole('article', { name: `Example Ready-Mix ${mixNumber}` });
-  await expect(card.getByText('Revision pending')).toBeVisible();
-  await expect(card.getByText('Revision 1, 32 MPa')).toBeVisible();
-  await expect(card.getByText('Revision 2, 35 MPa')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Concrete mixes' })).toHaveCount(0);
+  await page.goto(`/projects/${DEMO.projectId}/concrete-mixes`);
+  await expect(page).toHaveURL(new RegExp(`/projects/${DEMO.projectId}/concrete/mixes$`));
+  await page.getByRole('link', { name: `Open mix ${mixNumber}` }).click();
+  const heading = page.locator('.mix-heading');
+  await expect(heading.getByText('Revision awaiting approval')).toBeVisible();
+  await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
+  await expect(page.getByText('Revision 2 (draft)')).toBeVisible();
   await expectNoHorizontalScroll(page);
-  await card.getByRole('button', { name: 'Discard draft revision 2' }).click();
+  await page.getByRole('button', { name: 'Discard draft revision 2' }).click();
   const dialog = page.getByRole('dialog', { name: 'Discard draft revision 2?' });
   await dialog.getByLabel(/Note/).fill('Wrong strength');
   await dialog.getByRole('button', { name: 'Discard draft' }).click();
   await expect(
     page.getByText(`Draft revision 2 of ${mixNumber} discarded. Revision 1 stays in effect.`),
   ).toBeVisible();
-  await expect(card.getByText('Approved', { exact: true })).toBeVisible();
-  await expect(card.getByText('Revision 1, 32 MPa')).toBeVisible();
-  await expect(card.getByRole('button', { name: /Discard draft/ })).toHaveCount(0);
+  await expect(heading.getByText('Approved', { exact: true })).toBeVisible();
+  await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
+  await expect(page.getByText('Revision 2 (draft)')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Discard draft/ })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText(
+    'Draft discarded',
+  );
 
   // The history records it.
   const detail = (await (await page.request.get(`/api/concrete-mixes/${mix.id}`)).json()) as {
