@@ -815,6 +815,8 @@ Contracts: `packages/shared/src/concrete-worklist.ts`; table: migration 0022
   under the D09 locks: the report FOR UPDATE, the set FOR UPDATE, the specimen FOR UPDATE, then
   the project and the actor's account FOR SHARE (`canUnderLock`). Retries: `idempotencyKey` (409
   `idempotency_key_reused`) and `version` (409 `version_conflict` with the current schedule).
+  Only a numbered set is rescheduled: unnumbered on a draft is 409 `edit_on_draft`, unnumbered
+  past draft is 409 `set_not_numbered` ("Number this set first", owner decision 2026-11-09, C38).
 - **Capabilities.** `concrete_specimen.reschedule` is in `PROJECT_CAPABILITY_ACTIONS` ("Reschedule
   concrete specimen tests"). `concreteRescheduleContext()` loads the lead, the live
   `concrete_field` reviewers and the concrete-grant holders for it, so Team & Permissions and
@@ -828,17 +830,17 @@ commands. Contracts: `packages/shared/src/concrete-report-lifecycle.ts`; tables:
 ([concrete.md](concrete.md#report-versions-and-lifecycle-c09)). Field reports only: strength
 reports wait for owner decision G2.
 
-| Route                                                                                      | Policy                                                                                    |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `GET /api/concrete/field-reports/:id/versions`                                             | `inventory.read` (every active session, LAB included)                                     |
-| `GET /api/concrete/field-reports/:id/versions/:versionNo`                                  | `inventory.read` (the version's frozen snapshot)                                          |
-| `POST …/:id/submit {version, idempotencyKey, technicianUserId?}`                           | `concrete_report.draft`, the report's own technician (LAB names them)                     |
-| `POST …/:id/resubmit {version, idempotencyKey, technicianUserId?}`                         | `concrete_report.draft`, as submit; routed (below)                                        |
-| `POST …/:id/recall {version, idempotencyKey, comment?}`                                    | active user; handler checks `concrete_report.recall` (the report's technician)            |
-| `POST …/:id/return {version, idempotencyKey, comment}`                                     | active user; handler checks `concrete.review` (lead or designated reviewer) + routing     |
-| `POST …/:id/review {version, idempotencyKey, comment?}`                                    | active user; handler checks `concrete.review` + routing                                   |
-| `POST …/:id/issue {version, idempotencyKey, comment?, includeMachineInfo, includePhotos?}` | active user; handler checks `report.issue` (lead or issuer grant, scope `concrete_field`) |
-| `POST …/:id/revise {version, idempotencyKey, comment}`                                     | active user; `concrete.review` (lead or designated reviewer), or the version's issuer     |
+| Route                                                                                       | Policy                                                                                    |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/concrete/field-reports/:id/versions`                                              | `inventory.read` (every active session, LAB included)                                     |
+| `GET /api/concrete/field-reports/:id/versions/:versionNo`                                   | `inventory.read` (the version's frozen snapshot)                                          |
+| `POST …/:id/submit {version, idempotencyKey, technicianUserId?}`                            | `concrete_report.draft`, the report's own technician (LAB names them)                     |
+| `POST …/:id/resubmit {version, idempotencyKey, technicianUserId?}`                          | `concrete_report.draft`, as submit; routed (below)                                        |
+| `POST …/:id/recall {version, idempotencyKey, comment?}`                                     | active user; handler checks `concrete_report.recall` (the report's technician)            |
+| `POST …/:id/return {version, idempotencyKey, comment}`                                      | active user; handler checks `concrete.review` (lead or designated reviewer) + routing     |
+| `POST …/:id/review {version, idempotencyKey, comment?}`                                     | active user; handler checks `concrete.review` + routing                                   |
+| `POST …/:id/issue {version, idempotencyKey, comment?, includeMachineInfo?, includePhotos?}` | active user; handler checks `report.issue` (lead or issuer grant, scope `concrete_field`) |
+| `POST …/:id/revise {version, idempotencyKey, comment}`                                      | active user; `concrete.review` (lead or designated reviewer), or the version's issuer     |
 
 - **Order of checks (D09).** 401/403 from the guard; then, against the report as it stands and
   before the body or any lock, the action's permission (403 `forbidden`; a personal account
@@ -894,7 +896,7 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
 | `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                       | `inventory.read`                                                                         |
 | `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                  | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
 
-- **Queue.** Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
+- **Queue.** Visible to every `inventory.read` session (confirmed by the owner, 2026-11-09). Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
   issuance, Issued; `counts` per status with the same filters. Each row's `canAct` says whether
   the caller could take its next step now: review (`concrete.review` + routing) or issue
   (`report.issue`), never on their own report (owner decision 2026-11-08); for a returned report,
@@ -910,11 +912,13 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
 - **Mark reviewed (C09 `review`)** adds 422 `exceptions_unresolved` (one error per open exception)
   after the routing check: every exception on the version must be documented, or no longer raised
   by the live report (e.g. the other report with the same ticket was corrected). Same rule as the
-  screen (`concreteReviewChecklist`). **Proposal (owner to confirm):** every C04/C05/C27 warning
-  is required; the deferred checks are shown as not yet checked.
-- **Issue** needs `includeMachineInfo` (the issuer's choice; the screen starts from the project
-  setting and makes the issuer choose when the project left it unset) and accepts only
-  `includePhotos: false` until photos exist (C15). Both are stored on the issued version.
+  screen (`concreteReviewChecklist`). **Confirmed by the owner (2026-11-09):** every C04/C05/C27
+  warning is required; the deferred checks are shown as not yet checked.
+- **Issue** takes an optional `includeMachineInfo` (owner decision 2026-11-09, C38): omitted, the
+  project's concrete setting applies (read under the issue transaction), false when unset; the
+  issuer may override it either way, and the screen pre-fills the setting (Omit when unset). It
+  accepts only `includePhotos: false` until photos exist (C15). The resolved values are stored on
+  the issued version and audited.
 - **Self-review** is refused by C09 (403 `own_report`, #135); the screens disable those actions
   with that reason, and the queue never marks one's own report as needing one's action.
 

@@ -320,6 +320,8 @@ export function concreteSnapshotChanged(
  * `POST /api/concrete/field-reports/:id/issue` (C09) with the issuer's choices (Combined Plan
  * "Issuance workflow"), stored with the issued version so the final layout (C32) renders exactly
  * what was chosen. Photos arrive with C15: until then nothing can be included, so only `false`.
+ * `includeMachineInfo` is optional (MM-V2-C38, owner decision 2026-11-09): omitted, the server
+ * uses the project's concrete setting, and leaves machine information out when that is unset.
  */
 export const concreteReportIssueRequestSchema = z.strictObject({
   idempotencyKey: idSchema,
@@ -331,7 +333,9 @@ export const concreteReportIssueRequestSchema = z.strictObject({
     .max(2000, { error: 'at most 2000 characters' })
     .optional(),
   includePhotos: z.literal(false, { error: 'Photos can’t be included yet' }).default(false),
-  includeMachineInfo: z.boolean({ error: 'Choose whether to include testing machine information' }),
+  includeMachineInfo: z
+    .boolean({ error: 'Include testing machine information: true or false' })
+    .optional(),
 });
 export type ConcreteReportIssueRequest = z.input<typeof concreteReportIssueRequestSchema>;
 
