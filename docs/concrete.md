@@ -167,10 +167,7 @@ erDiagram
   named one; else its draft), recording `copied_from_revision_id`; the source and its approval
   never change.
 - **Not in C03:** no Mixes tab or other UI, no draft discard or retirement, no file attachments,
-  no propagation. Propagation is a contract only (`concreteMixPropagationRequestSchema`,
-  `concreteMixPropagationPreviewSchema`, `concreteMixPropagationDecisionSchema`: per item or
-  Approve all of the displayed list; measured data, tested specimens and issued reports never
-  change).
+  no propagation (C30 below).
 
 ### For C04 / C05
 
@@ -181,6 +178,39 @@ erDiagram
   entries, flag it, and never create or edit a registry mix from field data (AC4).
 - Sets copy `testAges` from the snapshot (mix, else project, else lab default) when created; later
   mix edits never re-schedule existing specimens.
+
+## Project Concrete section and mix propagation (C30)
+
+- **Where it sits:** the project page has two sections under the same header, **Overview** (the
+  existing details, test holes, receipts, storage units, retention) and **Concrete**
+  (`/projects/:projectId/concrete/:tab`). Five tabs, each its own address: **Reports** (date,
+  Field ID, type, technician, structure / elements, location, status; search and status filter;
+  New field report stays disabled until the field form exists), **Specimens** (ID, casting date,
+  structure, location, age / HOLD, test date, strength (empty until C07/C23), status; a row opens
+  its field report), **Summary** (date range, default All dates; Generate summary report disabled
+  until C32), **Mixes** (table, Add mix, Copy from another project, detail with full
+  specification, ticket defaults, admixtures, the mix-design document place (C15), revisions and
+  history; edit and approve) and **Settings** (C02 settings, editable with `project.edit`; the
+  Lead and concrete reviewers from Team & Permissions).
+- **Reads:** `GET /api/concrete/projects/:projectId/specimens?search=&status=&page=&pageSize=`
+  (`inventory.read`; status derived on today's date in America/Edmonton, never stored) and the
+  C04 report list, which gains `search=` and `issued=` plus the Reports-tab columns.
+- **Propagation review** (`GET|POST /api/concrete-mixes/:id/propagation`): after the Lead approves
+  a revision, records made from an earlier revision are listed with what the approved revision
+  would change: a field report's "Mix spec" members (and its mix snapshot, which moves to the
+  approved revision), and an untested specimen's test age at the same position in its set's saved
+  schedule. Nothing changes until the Lead approves chosen items or Approve all of the displayed
+  list (`previewId` guards against a list that changed since it was shown; `displayedItemIds`
+  must be exactly the listed items). Never changed: measured results, the supplier-ticket column,
+  IDs, set schedule snapshots (C05 AC4), HOLD specimens (C26), and any report that isn't a draft
+  (submitted / reviewed / issued follow C09: start a revision first; a returned report is
+  corrected by its technician only). A value changed by hand on a draft, or a rescheduled age, is
+  kept and shown as kept. A specimen age change is written through C22's reschedule history
+  (reason names the mix revision); an unnumbered set without a casting time changes directly.
+  Each applied record gets its own audit event, and the mix gets
+  `concrete_mix.propagation_applied` with the scope (`items` or `approve_all`), what was applied,
+  and counts of what was not chosen or not eligible; an exact retry returns the same decision.
+  C07/C23 add the "already tested" block (`specimen_tested`) to the specimen query.
 
 ## Equipment (C27)
 

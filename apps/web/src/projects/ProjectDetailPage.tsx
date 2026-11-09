@@ -17,6 +17,7 @@ import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
 import { fetchProjectDetail, type LoadResult } from './api';
 import { EditProjectDialog } from './EditProjectDialog';
 import { LeadSection } from './LeadSection';
+import { ProjectSectionNav } from './ProjectSectionNav';
 import type { ProjectLinkState } from './ProjectsPage';
 import './projects.css';
 import { usePageTitle } from '../layout/page-title';
@@ -122,6 +123,8 @@ export function ProjectDetailPage() {
           ) : null}
         </div>
       </div>
+      {/* MM-V2-C30: Overview | Concrete. */}
+      <ProjectSectionNav projectId={project.id} current="overview" />
       <p className={notice ? 'notice notice-success' : 'notice'} role="status">
         {notice}
       </p>
