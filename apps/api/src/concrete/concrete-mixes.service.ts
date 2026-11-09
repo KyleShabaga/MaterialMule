@@ -18,6 +18,7 @@ import {
   concreteMixSpecSchema,
   copyConcreteMixRequestSchema,
   createConcreteMixRequestSchema,
+  discardConcreteMixDraftRequestSchema,
   updateConcreteMixRequestSchema,
   type ConcreteMixDetail,
   type ConcreteMixList,
@@ -40,6 +41,7 @@ import { withTransaction } from '../db/transaction.js';
 import { likeEscape } from '../projects/projects.service.js';
 import { findProject, intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
+import { findSupplier } from './concrete-reference-data.service.js';
 
 type Db = Pool | PoolClient;
 
@@ -56,6 +58,8 @@ interface NewMixPlan {
   prepare: () => Promise<{
     spec: ConcreteMixSpec;
     copiedFromRevisionId: string | null;
+    /** MM-V2-C37: the listed supplier the new mix links (null: none). */
+    supplierId: string | null;
     audit: {
       action: string;
       before: null;
@@ -81,6 +85,9 @@ interface MixRow {
   updated_at: Date;
   version: number;
   lead_project_engineer_user_id: string | null;
+  supplier_id: string | null;
+  supplier_link_name: string | null;
+  supplier_link_active: boolean | null;
 }
 
 interface RevisionRow {
@@ -112,19 +119,26 @@ interface RevisionRow {
   approved_by_initials_snapshot: string | null;
   approved_by_name_snapshot: string | null;
   superseded_at: Date | null;
+  discarded_at: Date | null;
+  discarded_by_user_id: string | null;
+  discarded_by_initials_snapshot: string | null;
+  discarded_by_name_snapshot: string | null;
 }
 
 const SELECT_MIX = `SELECT m.id, m.project_id, p.project_number, m.supplier_name, m.mix_number,
          m.effective_revision_id, m.draft_revision_id, m.copied_from_revision_id, m.created_at,
-         m.updated_at, m.version, p.lead_project_engineer_user_id
-  FROM concrete_mix m JOIN project p ON p.id = m.project_id`;
+         m.updated_at, m.version, p.lead_project_engineer_user_id, m.supplier_id,
+         s.name AS supplier_link_name, s.active AS supplier_link_active
+  FROM concrete_mix m JOIN project p ON p.id = m.project_id
+  LEFT JOIN concrete_supplier s ON s.id = m.supplier_id`;
 
 const REVISION_COLUMNS = `id, mix_id, revision_number, state, supplier_name, mix_number,
   plant_names, specified_strength_mpa, specified_strength_age_days, slump_target_mm,
   slump_tolerance_mm, air_min_percent, air_max_percent, max_aggregate_size_mm, cement_type,
   spec_admixtures, ticket_defaults, test_ages, created_at, created_by_user_id,
   created_by_initials_snapshot, created_by_name_snapshot, updated_at, approved_at,
-  approved_by_user_id, approved_by_initials_snapshot, approved_by_name_snapshot, superseded_at`;
+  approved_by_user_id, approved_by_initials_snapshot, approved_by_name_snapshot, superseded_at,
+  discarded_at, discarded_by_user_id, discarded_by_initials_snapshot, discarded_by_name_snapshot`;
 
 /** Spec field → revision column (the jsonb and array columns are converted below). */
 const COLUMN: Record<ConcreteMixSpecField, string> = {
@@ -198,6 +212,14 @@ function revisionOf(row: RevisionRow): ConcreteMixRevision {
         }
       : null,
     supersededAt: row.superseded_at?.toISOString() ?? null,
+    discardedAt: row.discarded_at?.toISOString() ?? null,
+    discardedBy: row.discarded_by_user_id
+      ? {
+          userId: row.discarded_by_user_id,
+          initials: row.discarded_by_initials_snapshot,
+          name: row.discarded_by_name_snapshot ?? '',
+        }
+      : null,
     missingForApproval: row.state === 'draft' ? concreteMixMissingForApproval(spec) : [],
   };
 }
@@ -261,7 +283,21 @@ function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
 }
 
-type Kind = 'create' | 'edit' | 'approve' | 'copy';
+type Kind = 'create' | 'edit' | 'approve' | 'copy' | 'discard';
+
+/**
+ * MM-V2-C37: a supplier a mix may newly link: listed and active (locked FOR SHARE so it can't be
+ * deactivated mid-write). 422 `invalid_supplier` otherwise.
+ */
+async function linkableSupplier(client: PoolClient, supplierId: string): Promise<string> {
+  const supplier = await findSupplier(client, supplierId, 'FOR SHARE');
+  if (!supplier || !supplier.active) {
+    unprocessable('invalid_supplier', [
+      { field: 'supplierId', message: 'Choose an active listed supplier' },
+    ]);
+  }
+  return supplier.id;
+}
 
 /**
  * Project concrete mixes (MM-V2-C03; CD-52, D14). Reads follow the project (`inventory.read`, LAB
@@ -392,9 +428,13 @@ export class ConcreteMixesService {
           kind: 'create',
           projectId: project.id,
           spec: input.spec,
+          supplierId: input.supplierId ?? null,
           note: input.note ?? null,
         }),
         prepare: async () => {
+          const supplierId = input.supplierId
+            ? await linkableSupplier(client, input.supplierId)
+            : null;
           // CD-52 / AC1: 7 / 28 / 28 / HOLD unless the project's own default ages differ (C02);
           // given values win.
           const { rows } = await client.query<{ default_specimen_ages: string[] }>(
@@ -412,10 +452,11 @@ export class ConcreteMixesService {
           return {
             spec,
             copiedFromRevisionId: null,
+            supplierId,
             audit: {
               action: 'concrete_mix.created',
               before: null,
-              after: { revision: 1, ...spec },
+              after: { revision: 1, ...spec, supplierId },
               reason: input.note ?? null,
             },
           };
@@ -447,7 +488,8 @@ export class ConcreteMixesService {
         `SELECT ${REVISION_COLUMNS} FROM concrete_mix_revision WHERE id = $1 AND mix_id = $2`,
         [revisionId, source.id],
       );
-      if (!rows[0]) {
+      // MM-V2-C37: a discarded draft is history, not a specification to copy.
+      if (!rows[0] || rows[0].state === 'discarded') {
         unprocessable('invalid_source_revision', [
           { field: 'sourceRevisionId', message: 'Choose a revision of the source mix' },
         ]);
@@ -466,6 +508,8 @@ export class ConcreteMixesService {
         prepare: async () => ({
           spec,
           copiedFromRevisionId: rows[0]!.id,
+          // MM-V2-C37: the source's supplier link travels with the copy while it is active.
+          supplierId: source.supplier_link_active ? source.supplier_id : null,
           audit: {
             action: 'concrete_mix.copied',
             before: null,
@@ -502,11 +546,18 @@ export class ConcreteMixesService {
         mixId: mix.id,
         version: input.version,
         spec: input.spec,
+        supplierId: input.supplierId,
         note: input.note ?? null,
       });
       const replay = await this.replay(client, input.idempotencyKey, 'edit', mix.id, hash, user);
       if (replay) return replay;
       await this.checkVersion(client, mix, input.version, user);
+      // MM-V2-C37: the supplier link belongs to the mix, not a revision.
+      const linkChanged = input.supplierId !== undefined && input.supplierId !== mix.supplier_id;
+      let nextSupplierId = mix.supplier_id;
+      if (linkChanged) {
+        nextSupplierId = input.supplierId ? await linkableSupplier(client, input.supplierId) : null;
+      }
 
       const draftId = mix.draft_revision_id;
       const baseId = draftId ?? mix.effective_revision_id!;
@@ -527,8 +578,25 @@ export class ConcreteMixesService {
         (field) => input.spec[field] !== undefined && !same(after.data[field], before[field]),
       );
       if (changed.length === 0) {
+        if (linkChanged) {
+          await client.query(
+            `UPDATE concrete_mix SET supplier_id = $2, version = version + 1, updated_at = now()
+             WHERE id = $1`,
+            [mix.id, nextSupplierId],
+          );
+          await recordAudit(client, {
+            action: 'concrete_mix.supplier_linked',
+            entityType: ENTITY_TYPE,
+            entityId: mix.id,
+            actor,
+            reason: input.note ?? null,
+            before: { supplierId: mix.supplier_id },
+            after: { supplierId: nextSupplierId },
+            requestId,
+          });
+        }
         await this.recordCommand(client, input.idempotencyKey, mix.id, 'edit', hash, user);
-        return this.detail(client, mix, user);
+        return this.detail(client, (await findMix(client, mix.id))!, user);
       }
       await this.checkNameFree(client, mix.project_id, after.data, mix.id);
 
@@ -547,7 +615,12 @@ export class ConcreteMixesService {
         // D14: an approved mix is never edited in place; a new draft revision starts from it and
         // the approved revision stays in effect until the Lead approves the draft.
         newDraftId = randomUUID();
-        revisionNumber = base.revision_number + 1;
+        // MM-V2-C37: after a discarded draft the next number follows it (numbers never reused).
+        const { rows: latest } = await client.query<{ n: number }>(
+          'SELECT max(revision_number)::int AS n FROM concrete_mix_revision WHERE mix_id = $1',
+          [mix.id],
+        );
+        revisionNumber = latest[0]!.n + 1;
         action = 'concrete_mix.revision_drafted';
         await insertRevision(client, {
           id: newDraftId,
@@ -560,10 +633,10 @@ export class ConcreteMixesService {
       }
       await client.query(
         `UPDATE concrete_mix
-         SET draft_revision_id = $2, supplier_name = $3, mix_number = $4,
+         SET draft_revision_id = $2, supplier_name = $3, mix_number = $4, supplier_id = $5,
              version = version + 1, updated_at = now()
          WHERE id = $1`,
-        [mix.id, newDraftId, after.data.supplierName, after.data.mixNumber],
+        [mix.id, newDraftId, after.data.supplierName, after.data.mixNumber, nextSupplierId],
       );
       await this.recordCommand(client, input.idempotencyKey, mix.id, 'edit', hash, user);
       await recordAudit(client, {
@@ -575,10 +648,12 @@ export class ConcreteMixesService {
         before: {
           revision: base.revision_number,
           ...Object.fromEntries(changed.map((field) => [field, before[field]])),
+          ...(linkChanged ? { supplierId: mix.supplier_id } : {}),
         },
         after: {
           revision: revisionNumber,
           ...Object.fromEntries(changed.map((field) => [field, after.data[field]])),
+          ...(linkChanged ? { supplierId: nextSupplierId } : {}),
         },
         requestId,
       });
@@ -659,6 +734,77 @@ export class ConcreteMixesService {
     });
   }
 
+  /**
+   * MM-V2-C37 (owner decision 2026-11-08): discard the open draft revision of an approved mix. The
+   * approved revision stays in effect and unchanged; the draft is kept as `discarded` (revisions
+   * are never deleted) and the mix's name returns to the approved revision's. A mix with no
+   * approved revision can't be discarded this way (no mix retirement). Audited.
+   */
+  async discardDraft(
+    mixId: string,
+    body: unknown,
+    user: AuthUser,
+    actor: AuditActor,
+    requestId: string | null,
+  ): Promise<ConcreteMixDetail> {
+    return this.existingMix(mixId, 'concrete_mix.manage', user, async (client, mix, by) => {
+      const input = parseBody(discardConcreteMixDraftRequestSchema, body);
+      const hash = intentHash({
+        kind: 'discard',
+        mixId: mix.id,
+        version: input.version,
+        revisionId: input.revisionId,
+        note: input.note ?? null,
+      });
+      const replay = await this.replay(client, input.idempotencyKey, 'discard', mix.id, hash, user);
+      if (replay) return replay;
+      await this.checkVersion(client, mix, input.version, user);
+      if (mix.draft_revision_id !== input.revisionId) {
+        unprocessable('revision_not_draft', [
+          { field: 'revisionId', message: 'Only the open draft revision can be discarded' },
+        ]);
+      }
+      if (!mix.effective_revision_id) {
+        throw new ConflictException({
+          code: 'no_approved_revision',
+          message: 'This mix has no approved revision to fall back on, so its draft stays.',
+        });
+      }
+      const draft = (await revisions(client, [input.revisionId]))[0]!;
+      const approved = (await revisions(client, [mix.effective_revision_id]))[0]!;
+      await client.query(
+        `UPDATE concrete_mix_revision
+         SET state = 'discarded', discarded_at = now(), discarded_by_user_id = $2,
+             discarded_by_initials_snapshot = $3, discarded_by_name_snapshot = $4,
+             updated_at = now()
+         WHERE id = $1`,
+        [draft.id, by.userId, by.initials, by.displayName],
+      );
+      await client.query(
+        `UPDATE concrete_mix
+         SET draft_revision_id = NULL, supplier_name = $2, mix_number = $3,
+             version = version + 1, updated_at = now()
+         WHERE id = $1`,
+        [mix.id, approved.supplier_name, approved.mix_number],
+      );
+      await this.recordCommand(client, input.idempotencyKey, mix.id, 'discard', hash, user);
+      await recordAudit(client, {
+        action: 'concrete_mix.draft_discarded',
+        entityType: ENTITY_TYPE,
+        entityId: mix.id,
+        actor,
+        reason: input.note ?? null,
+        before: {
+          draftRevision: draft.revision_number,
+          effectiveRevision: approved.revision_number,
+        },
+        after: { draftRevision: null, effectiveRevision: approved.revision_number },
+        requestId,
+      });
+      return this.detail(client, (await findMix(client, mix.id))!, user);
+    });
+  }
+
   // -------------------------------------------------------------------------------------------
   // Write plumbing
   // -------------------------------------------------------------------------------------------
@@ -697,8 +843,8 @@ export class ConcreteMixesService {
           `INSERT INTO concrete_mix
              (id, project_id, supplier_name, mix_number, draft_revision_id,
               copied_from_revision_id, created_by_user_id, created_by_initials_snapshot,
-              created_by_name_snapshot)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+              created_by_name_snapshot, supplier_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             mixId,
             project.id,
@@ -709,6 +855,7 @@ export class ConcreteMixesService {
             by.userId,
             by.initials,
             by.displayName,
+            prepared.supplierId,
           ],
         );
         await insertRevision(client, {
@@ -858,6 +1005,13 @@ export class ConcreteMixesService {
       projectId: mix.project_id,
       supplierName: mix.supplier_name,
       mixNumber: mix.mix_number,
+      supplier: mix.supplier_id
+        ? {
+            id: mix.supplier_id,
+            name: mix.supplier_link_name!,
+            active: mix.supplier_link_active!,
+          }
+        : null,
       status: statusOf(mix),
       effectiveRevision: mix.effective_revision_id ? byId.get(mix.effective_revision_id)! : null,
       draftRevision: mix.draft_revision_id ? byId.get(mix.draft_revision_id)! : null,

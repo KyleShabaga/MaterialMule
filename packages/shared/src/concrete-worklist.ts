@@ -6,6 +6,7 @@ import {
   CONCRETE_LAB_TIME_ZONE,
   concreteAddDays,
   concreteTargetDateFlags,
+  type ConcreteHolidayDates,
 } from './concrete-specimen-sets';
 import { personSnapshotSchema } from './lab-programs';
 
@@ -23,8 +24,8 @@ import { personSnapshotSchema } from './lab-programs';
 //   today); identity, curing-temperature and failed-test sources land with their cards.
 //
 // Dates are America/Edmonton business dates. Weekend targets are kept and flagged (AC1) through
-// `concreteTargetDateFlags`. Holidays: the owner decided on an admin-managed list of Alberta
-// statutory holidays (2026-11-08); C37 builds it and adds its flag in that one function.
+// `concreteTargetDateFlags`. A target on a company holiday (MM-V2-C37: the admin-managed
+// calendar, seeded with the Alberta general holidays) is kept and flagged the same way.
 //
 // "Untested": no concrete test result exists yet (C07/C23 own results), so every scheduled
 // specimen counts as untested until C23 adds the tested condition to the worklist query.
@@ -51,12 +52,6 @@ export const CONCRETE_UPCOMING_DAYS = 7;
 /** Rows per page; groups and counts always cover the whole view. */
 export const CONCRETE_WORKLIST_PAGE_SIZE = 200;
 
-/**
- * No holiday list exists yet: C37 builds the admin-managed Alberta statutory list (owner,
- * 2026-11-08). Until then only the weekend flag is applied.
- */
-export const CONCRETE_HOLIDAY_CALENDAR = null;
-
 const dayFormat = new Intl.DateTimeFormat('en-CA', {
   timeZone: CONCRETE_LAB_TIME_ZONE,
   year: 'numeric',
@@ -80,6 +75,7 @@ export function concreteDaysBetween(from: string, to: string): number {
 
 export const CONCRETE_WORKLIST_FLAGS = [
   'weekend_target',
+  'holiday_target',
   'overdue',
   'hold_review_due',
   'rescheduled',
@@ -89,6 +85,7 @@ export type ConcreteWorklistFlag = (typeof CONCRETE_WORKLIST_FLAGS)[number];
 
 export const CONCRETE_WORKLIST_FLAG_LABEL: Record<ConcreteWorklistFlag, string> = {
   weekend_target: 'Weekend target',
+  holiday_target: 'Holiday target',
   overdue: 'Overdue',
   hold_review_due: 'HOLD review due',
   rescheduled: 'Rescheduled',
@@ -121,9 +118,13 @@ export function concreteWorklistFlags(input: {
   today: string;
   rescheduleCount: number;
   reportState: string;
+  /** The company holiday calendar (MM-V2-C37). */
+  holidays?: ConcreteHolidayDates;
 }): ConcreteWorklistFlag[] {
   const flags: ConcreteWorklistFlag[] = [];
-  if (input.targetDate !== null) flags.push(...concreteTargetDateFlags(input.targetDate));
+  if (input.targetDate !== null) {
+    flags.push(...concreteTargetDateFlags(input.targetDate, input.holidays));
+  }
   if (input.targetDate !== null && concreteDaysBetween(input.today, input.targetDate) < 0) {
     flags.push('overdue');
   }

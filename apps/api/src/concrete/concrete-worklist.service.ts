@@ -17,6 +17,7 @@ import {
   concreteRescheduledTarget,
   concreteWorklistFlags,
   concreteWorklistQuerySchema,
+  type ConcreteHolidayDates,
   type ConcreteRescheduleEntry,
   type ConcreteRescheduleResult,
   type ConcreteScheduleHistory,
@@ -40,6 +41,7 @@ import {
 } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { testingMachineSnapshot } from './concrete-equipment.service.js';
+import { loadHolidayDates } from './concrete-reference-data.service.js';
 
 type Db = Pool | PoolClient;
 
@@ -221,6 +223,8 @@ export class ConcreteWorklistService {
       params,
     );
     const countOf = new Map(groupCounts.map((g) => [g.project_id, g.count]));
+    // MM-V2-C37: targets on a company holiday are flagged like weekends (never moved).
+    const holidays = await loadHolidayDates(db);
     const groups: ConcreteWorklistGroup[] = [];
     const byProject = new Map<string, ConcreteWorklistGroup>();
     for (const row of rows) {
@@ -237,7 +241,7 @@ export class ConcreteWorklistService {
         byProject.set(row.project_id, group);
         groups.push(group);
       }
-      group.rows.push(toRow(row, today));
+      group.rows.push(toRow(row, today, holidays));
     }
     return {
       ...base,
@@ -443,6 +447,7 @@ export class ConcreteWorklistService {
         today: concreteLabToday(),
         rescheduleCount: history.history.length,
         reportState: specimen.workflow_state,
+        holidays: await loadHolidayDates(db),
       }),
     };
   }
@@ -470,7 +475,11 @@ export class ConcreteWorklistService {
   }
 }
 
-function toRow(row: WorklistRowSql, today: string): ConcreteWorklistRow {
+function toRow(
+  row: WorklistRowSql,
+  today: string,
+  holidays: ConcreteHolidayDates,
+): ConcreteWorklistRow {
   const assignedAge = toAge(row.assigned_age);
   const daysLate = row.target_date === null ? null : concreteDaysBetween(row.target_date, today);
   return {
@@ -497,6 +506,7 @@ function toRow(row: WorklistRowSql, today: string): ConcreteWorklistRow {
       today,
       rescheduleCount: row.reschedules,
       reportState: row.workflow_state,
+      holidays,
     }),
     rescheduleCount: row.reschedules,
     reschedulable: assignedAge !== CONCRETE_HOLD_AGE && row.permanent_number !== null,

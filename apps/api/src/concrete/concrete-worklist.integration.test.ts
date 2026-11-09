@@ -525,4 +525,43 @@ describe.runIf(testDatabaseUrl)('concrete lab worklist (MM-V2-C22)', () => {
       h.db.pool.query(`UPDATE concrete_specimen_reschedule SET reason = 'changed'`),
     ).rejects.toMatchObject({ constraint: 'concrete_specimen_reschedule_append_only' });
   });
+
+  // Last in the file: it adds a June set, which the HOLD view would otherwise count.
+  it('MM-V2-C37 AC1: a 28-day target on Canada Day stays on that date with a holiday flag', async () => {
+    // Cast Wednesday 3 Jun 2026 → 28 days is Wednesday 1 Jul 2026, Canada Day (reference seed).
+    const set = await castSet(h.projects.b, '2026-06-03T09:00:00-06:00');
+    const permanentId = await attachNumber(set);
+    expect(set.specimens.map((s) => [s.letter, s.targetDate, s.flags])).toEqual([
+      ['A', '2026-06-10', []],
+      ['B', '2026-07-01', ['holiday_target']],
+      ['C', '2026-07-01', ['holiday_target']],
+      ['D', null, []],
+    ]);
+    const before = await snapshot();
+    const list = await worklist(`on=2026-07-01&projectId=${h.projects.b}`);
+    expect(ids(list)).toEqual([`${permanentId}B`, `${permanentId}C`]);
+    for (const row of list.groups[0]!.rows) {
+      expect(row.targetDate).toBe('2026-07-01');
+      expect(row.flags).toContain('holiday_target');
+      expect(row.flags).not.toContain('weekend_target');
+    }
+    // Reading it moved nothing.
+    expect(await snapshot()).toEqual(before);
+
+    // The calendar is read live: once the holiday is removed, the same target is unflagged.
+    await h.db.pool.query(
+      `UPDATE company_holiday
+       SET removed_at = now(), removed_by_user_id = $1, removed_by_name_snapshot = 'Admin',
+           removal_reason = 'Fictional test', version = version + 1
+       WHERE holiday_on = '2026-07-01' AND removed_at IS NULL`,
+      [h.users.admin],
+    );
+    const after = await worklist(`on=2026-07-01&projectId=${h.projects.b}`);
+    expect(
+      after.groups[0]!.rows.map((r) => [r.targetDate, r.flags.includes('holiday_target')]),
+    ).toEqual([
+      ['2026-07-01', false],
+      ['2026-07-01', false],
+    ]);
+  });
 });
