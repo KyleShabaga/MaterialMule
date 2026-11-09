@@ -452,6 +452,43 @@ describe.runIf(testDatabaseUrl)('concrete lab worklist (MM-V2-C22)', () => {
     expect(row.flags).toContain('report_draft');
   });
 
+  // MM-V2-C38 (owner decision 2026-11-09): number the set first. The report is moved past draft
+  // with SQL, standing in for C09's submit (which needs a complete report).
+  it('AC1/AC2: past draft an unnumbered set is refused until numbered; on a draft it is edited', async () => {
+    const set = await castSet(h.projects.a, '2026-11-21T10:00:00-06:00');
+    const specimen = set.specimens[1]!;
+    const body = () => ({ idempotencyKey: newKey(), version: 1, newAge: 35, reason: 'Late' });
+
+    // AC2: on the draft, the age is still the technician's to change (C05), as before.
+    const onDraft = await send('post', reschedulePath(specimen.id), body(), 'pe');
+    expect(onDraft.status).toBe(409);
+    expect(onDraft.body).toMatchObject({ code: 'edit_on_draft' });
+
+    await h.db.pool.query(
+      `UPDATE concrete_field_report SET workflow_state = 'submitted', submitted_at = now()
+       WHERE id = $1`,
+      [set.fieldReportId],
+    );
+    // AC1: refused, nothing written, nothing audited.
+    const before = await snapshot();
+    for (const as of ['pe', 'lm'] as const) {
+      const refused = await send('post', reschedulePath(specimen.id), body(), as);
+      expect(refused.status, JSON.stringify(refused.body)).toBe(409);
+      expect(refused.body).toMatchObject({ code: 'set_not_numbered' });
+      expect(String(refused.body.message)).toMatch(/Number this set first/);
+    }
+    expect(await snapshot()).toEqual(before);
+    const listed = await worklist('view=upcoming&on=2026-11-25');
+    const row = listed.groups.flatMap((g) => g.rows).find((r) => r.setId === set.id)!;
+    expect(row).toMatchObject({ reschedulable: false, reportState: 'submitted' });
+
+    // Numbered, the same reschedule goes through.
+    await attachNumber(set);
+    const done = await send('post', reschedulePath(specimen.id), body(), 'pe');
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(concreteRescheduleResultSchema.parse(done.body)).toMatchObject({ assignedAge: 35 });
+  });
+
   it('the database keeps a numbered set age fixed except through a recorded reschedule', async () => {
     const specimen = b.specimens[0]!;
     await expect(

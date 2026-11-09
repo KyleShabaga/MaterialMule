@@ -183,7 +183,10 @@ export const concreteWorklistRowSchema = z.object({
   reportState: z.string(),
   flags: z.array(z.enum(CONCRETE_WORKLIST_FLAGS)),
   rescheduleCount: z.number().int().min(0),
-  /** The set is numbered or its report is past draft: the age changes only by a reschedule. */
+  /**
+   * The set is numbered (and not HOLD): its age changes only by a reschedule. An unnumbered set
+   * is edited on its draft (C05); past draft it can't be rescheduled until numbered (MM-V2-C38).
+   */
   reschedulable: z.boolean(),
   version: z.number().int(),
 });
