@@ -922,6 +922,28 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
 - **Self-review** is refused by C09 (403 `own_report`, #135); the screens disable those actions
   with that reason, and the queue never marks one's own report as needing one's action.
 
+## Concrete dashboard, Lab workspace and search (MM-V2-C31)
+
+Read-only lists for the Concrete dashboard, the Concrete Lab workspace and search. Contracts:
+`packages/shared/src/concrete-lab.ts`; search indexes: migration 0030
+([concrete.md](concrete.md#dashboard-lab-workspace-and-search-c31)).
+
+| Route                                                                                                    | Policy                                                |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /api/concrete/receiving-queue?stage=awaiting_pickup\|awaiting_receiving&projectId=&page=&pageSize=` | `inventory.read` (every active session, LAB included) |
+| `GET /api/concrete/search?q=&page=&pageSize=`                                                            | `inventory.read`                                      |
+| `GET /api/concrete/lab-worklist?view=hold&holdDue=true` (C22's route, one more filter)                   | `inventory.read`                                      |
+
+- Like every concrete read, these cover every project; they grant nothing and say nothing about
+  who may act. Pickup, receipt and every other command check their own permission (C06).
+- **Navigation never grants permission.** The Concrete Lab menu group (Concrete home, Specimen
+  receiving, Break worklist, Specimen lookup, Concrete equipment) is shown to lab staff — the
+  Lab Technician role, Lab Managers and the shared LAB account (C36); everyone else gets one
+  Concrete link. A link a session can open does not mean it may act there.
+- **Lab search** (top bar) shows for sessions with `inventory.read` and calls each area's own
+  search: storage units (`GET /api/inventory?search=`), projects (`GET /api/projects/search`) and
+  Concrete search. It adds no new read.
+
 ## Concrete test-result drafts (MM-V2-C07)
 
 Test-result drafts with tester attribution and correction history. Contracts:

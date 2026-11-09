@@ -86,6 +86,12 @@ const VIEW_PREDICATE: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string
   hold: `sp.assigned_age = 'HOLD' AND sp.hold_expires_on IS NOT NULL`,
 };
 
+/**
+ * HOLDs due for review (MM-V2-C31): the hold-until date has come (the `hold_review_due` flag's
+ * rule). Nothing is released or disposed of automatically.
+ */
+const HOLD_REVIEW_DUE = `${VIEW_PREDICATE.hold} AND sp.hold_expires_on <= q.today`;
+
 const VIEW_ORDER: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string> = {
   today: 'sp.target_date',
   overdue: 'sp.target_date',
@@ -168,7 +174,7 @@ export class ConcreteWorklistService {
     const { rows: countRows } = await db.query<Record<string, number>>(
       `SELECT ${Object.entries(VIEW_PREDICATE)
         .map(([view, predicate]) => `count(*) FILTER (WHERE ${predicate})::int AS ${view}`)
-        .join(', ')}
+        .join(', ')}, count(*) FILTER (WHERE ${HOLD_REVIEW_DUE})::int AS hold_review_due
        ${SCHEDULED}`,
       params,
     );
@@ -195,6 +201,8 @@ export class ConcreteWorklistService {
       today,
       upcomingThrough,
       counts,
+      holdReviewDue: countRows[0]?.hold_review_due ?? 0,
+      holdDue: input.view === 'hold' && input.holdDue,
       page: input.page,
       pageSize: CONCRETE_WORKLIST_PAGE_SIZE,
       projects: projects.map((p) => ({ id: p.id, projectNumber: p.project_number, name: p.name })),
@@ -204,7 +212,8 @@ export class ConcreteWorklistService {
       return { ...base, total: exceptions.items.length, groups: [], exceptions: exceptions.items };
     }
 
-    const predicate = VIEW_PREDICATE[input.view];
+    const predicate =
+      input.view === 'hold' && input.holdDue ? HOLD_REVIEW_DUE : VIEW_PREDICATE[input.view];
     const { rows } = await db.query<WorklistRowSql>(
       `SELECT sp.id AS specimen_id, sp.set_id, st.field_report_id, sp.project_id,
               p.project_number, p.name AS project_name, sp.letter, st.temporary_id,

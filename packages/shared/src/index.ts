@@ -46,3 +46,4 @@ export * from './concrete-project-specimens';
 export * from './concrete-receiving';
 export * from './concrete-reference-data';
 export * from './concrete-test-results';
+export * from './concrete-lab';
