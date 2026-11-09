@@ -198,6 +198,10 @@ export type Permission =
   // MM-V2-C27: the air-meter register (register, assign to technicians, status, calibration
   // history). Lab Managers and Lab Technicians by role (MM-V2-C36, Kyle 2026-11-08).
   | 'concrete_settings.air_meter.manage'
+  // MM-V2-C37 (Kyle 2026-11-08): the concrete supplier list (Lab Manager or admin) and the company
+  // holiday calendar (admin).
+  | 'concrete_settings.supplier.manage'
+  | 'concrete_settings.holiday.manage'
   // Lab staff (MM-V2-C36, Kyle 2026-11-08): the Lab Technician role, the Lab Manager role, and
   // the shared LAB account naming the performing staff member (attribution only). Pickup,
   // receipt and mass entry; mass correction; test entry and correction; recording actual
@@ -312,6 +316,8 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'concrete_settings.testing_machine.manage',
   // MM-V2-C27, confirmed by MM-V2-C36: the air-meter register.
   'concrete_settings.air_meter.manage',
+  // MM-V2-C37 (Kyle 2026-11-08): the supplier list.
+  'concrete_settings.supplier.manage',
   // MM-V2-C36 (Kyle 2026-11-08): sync conflicts on receiving, test or submitted data, by role
   // alone (no project concrete grant), and the lab-staff actions.
   'concrete_sync_conflict.resolve_lab',
@@ -353,6 +359,9 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   // MM-V2-C10 global concrete settings. Never any concrete workflow authority.
   'concrete_settings.curing_standard.manage',
   'concrete_settings.attachment_limit.manage',
+  // MM-V2-C37 (Kyle 2026-11-08): the supplier list and the company holiday calendar.
+  'concrete_settings.supplier.manage',
+  'concrete_settings.holiday.manage',
 ]);
 
 /** Granted to the project's Lead Project Engineer (project-scoped). */

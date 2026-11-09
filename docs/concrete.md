@@ -610,6 +610,28 @@ owner decisions of 2026-11-08 (C36 lab staff).
 - **Not here:** the testing grid and table (C08/C23), formulas and rounding, pass/fail and failure
   notifications (C25), schedules after failure, report output, machine integration.
 
+## Reference data: suppliers, holidays, mix draft discard (C37)
+
+Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concrete-reference-data-mm-v2-c37-0028_concrete_reference_datasql).
+
+- **Suppliers** (Settings → Suppliers): a list of concrete suppliers and their plants, managed by Lab
+  Managers and admins, read by everyone. A mix keeps its free-text supplier and plant names and may
+  link a listed (active) supplier; the link is the mix's, not a revision's. A mix number stays
+  unique per project + supplier name (C03), so two suppliers may use the same number (AC3).
+- **Holiday calendar** (Settings → Holidays): admin-managed company holiday dates, seeded with the
+  Alberta general holidays for 2026–2028 (`seed/reference.sql`, Government of Alberta Employment
+  Standards list: New Year's Day, Family Day, Good Friday, Victoria Day, Canada Day, Labour Day,
+  Thanksgiving, Remembrance Day, Christmas Day). The optional holidays (Easter Monday, Heritage
+  Day, National Day for Truth and Reconciliation, Boxing Day) are not seeded; an admin adds any the
+  firm observes. `concreteTargetDateFlags(date, holidays)` adds `holiday_target` exactly as
+  `weekend_target`: the target is kept, never moved (AC1). The API reads the calendar per request
+  (set detail, worklist rows, reschedule results); the reschedule dialog fetches it for its preview.
+- **Mix draft discard** (project → Concrete mixes): the project's Lead discards the open draft
+  revision of an approved mix (`POST /api/concrete-mixes/:id/discard-draft`, `concrete_mix.manage`,
+  optional note). The approved revision stays in effect and unchanged; the draft is kept as
+  `discarded`; audited (AC2). An Unapproved mix's only draft can't be discarded (409
+  `no_approved_revision`): there is no mix retirement. The edit note stays optional.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before

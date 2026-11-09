@@ -192,16 +192,29 @@ export function concreteIsWeekend(date: string): boolean {
   return weekday === 0 || weekday === 6;
 }
 
-export const CONCRETE_SPECIMEN_FLAGS = ['weekend_target'] as const;
+export const CONCRETE_SPECIMEN_FLAGS = ['weekend_target', 'holiday_target'] as const;
 export type ConcreteSpecimenFlag = (typeof CONCRETE_SPECIMEN_FLAGS)[number];
 
 /**
- * The one place a target date's attention flags are decided (MM-V2-C22). A flagged target is
- * kept, never moved. Weekends only for now: the owner decided (2026-11-08) on an admin-managed
- * holiday list seeded with Alberta statutory holidays, which C37 adds here as a holiday flag.
+ * The company holiday dates in effect (YYYY-MM-DD), from the admin-managed calendar (MM-V2-C37,
+ * company_holiday; seeded with the Alberta general holidays). The API loads it per request.
  */
-export function concreteTargetDateFlags(date: string): ConcreteSpecimenFlag[] {
-  return concreteIsWeekend(date) ? ['weekend_target'] : [];
+export type ConcreteHolidayDates = ReadonlySet<string>;
+
+/**
+ * The one place a target date's attention flags are decided (MM-V2-C22). A flagged target is
+ * kept, never moved. A weekend is flagged; a date in the company holiday calendar is flagged as a
+ * holiday the same way (MM-V2-C37, owner decision 2026-11-08). Without a calendar only weekends
+ * are known.
+ */
+export function concreteTargetDateFlags(
+  date: string,
+  holidays?: ConcreteHolidayDates,
+): ConcreteSpecimenFlag[] {
+  const flags: ConcreteSpecimenFlag[] = [];
+  if (concreteIsWeekend(date)) flags.push('weekend_target');
+  if (holidays?.has(date)) flags.push('holiday_target');
+  return flags;
 }
 
 export interface ConcreteSpecimenDates {
@@ -212,12 +225,13 @@ export interface ConcreteSpecimenDates {
 
 /**
  * A specimen's dates from the casting time, its age and the set's saved HOLD duration. Unknown
- * casting → both null. A weekend target is kept and flagged (holidays: no calendar defined).
+ * casting → both null. A weekend or holiday target is kept and flagged, never moved.
  */
 export function concreteSpecimenDates(input: {
   castAt: string | null;
   age: ConcreteSpecimenAge;
   holdDurationDays: number | null;
+  holidays?: ConcreteHolidayDates;
 }): ConcreteSpecimenDates {
   if (input.castAt === null) return { targetDate: null, holdExpiresOn: null, flags: [] };
   const casting = concreteCastingDate(input.castAt);
@@ -233,13 +247,16 @@ export function concreteSpecimenDates(input: {
   return {
     targetDate,
     holdExpiresOn: null,
-    flags: concreteTargetDateFlags(targetDate),
+    flags: concreteTargetDateFlags(targetDate, input.holidays),
   };
 }
 
 /** Flags for a stored target date (the database computed it). */
-export function concreteSpecimenFlags(targetDate: string | null): ConcreteSpecimenFlag[] {
-  return targetDate === null ? [] : concreteTargetDateFlags(targetDate);
+export function concreteSpecimenFlags(
+  targetDate: string | null,
+  holidays?: ConcreteHolidayDates,
+): ConcreteSpecimenFlag[] {
+  return targetDate === null ? [] : concreteTargetDateFlags(targetDate, holidays);
 }
 
 // ---------------------------------------------------------------------------------------------

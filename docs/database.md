@@ -22,12 +22,12 @@ In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migra
 Four sets, each with its own job. All data except the reference data is fictional (DEMO- project
 numbers, invented people and clients) and none of it can be loaded in production.
 
-| Set            | Source                           | Loaded by                                | Where                    | What it is for                                                                                                                                                      |
-| -------------- | -------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reference data | `apps/api/seed/reference.sql`    | `db:migrate`, `db:seed`                  | every environment        | What production needs to start: the Receiving lab, the shared LAB account, the Soils / Advanced Soils groups and the starter template. Idempotent.                  |
-| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2, 3 DEMO test types. Fixed UUIDs; re-runnable. |
-| Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal. Created through the real API, so it is fully audited.   |
-| Benchmark data | `apps/api/src/bench/generate.ts` | `bench:seed`                             | a bench or test database | Ten-year and 5x stress volumes for MM-T19 ([performance/README.md](performance/README.md)). Deterministic; never loaded into dev.                                   |
+| Set            | Source                           | Loaded by                                | Where                    | What it is for                                                                                                                                                                                                            |
+| -------------- | -------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reference data | `apps/api/seed/reference.sql`    | `db:migrate`, `db:seed`                  | every environment        | What production needs to start: the Receiving lab, the shared LAB account, the Soils / Advanced Soils groups, the starter template and the Alberta general holidays (MM-V2-C37; add the next year each year). Idempotent. |
+| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2, 3 DEMO test types. Fixed UUIDs; re-runnable.                                                       |
+| Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal. Created through the real API, so it is fully audited.                                                         |
+| Benchmark data | `apps/api/src/bench/generate.ts` | `bench:seed`                             | a bench or test database | Ten-year and 5x stress volumes for MM-T19 ([performance/README.md](performance/README.md)). Deterministic; never loaded into dev.                                                                                         |
 
 Which one to change:
 
@@ -832,6 +832,31 @@ owns which fields: [concrete.md](concrete.md).
 - Proofs: `apps/api/src/db/schema-concrete-specimen-sets.test.ts` (including "0020 on a populated
   database": existing sets and specimens gain blank detail, storage-unit counters and every other
   table unchanged).
+
+## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
+
+Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`
+(including "0028 on a populated database": existing mixes and revisions unchanged, no link).
+
+- **`concrete_supplier`**: the listed suppliers (name unique ignoring case, 0–20 plant names,
+  `active`). Never deleted or truncated; `version` steps by one; creation fixed. Managed by Lab
+  Managers and admins (`concrete_settings.supplier.manage`); audit `concrete_supplier.created` /
+  `.updated`.
+- **`concrete_mix.supplier_id`**: optional link from a mix to a listed supplier. The mix's own
+  free-text supplier and plant names stay its identity, and C03's per-project + supplier-name
+  uniqueness is unchanged. Changing the link never makes a revision; audit
+  `concrete_mix.supplier_linked` (or the edit event when the specification changes too).
+- **`company_holiday`**: the company holiday calendar. `source` is `alberta_general` (seeded by
+  `seed/reference.sql` with fixed ids, no creator) or `company` (added by an admin). One holiday in
+  effect per date; the date and source never change; removal (who, when, reason) is final and keeps
+  the row, so re-running the reference seed never brings a removed holiday back. Never deleted or
+  truncated. Audit `company_holiday.added` / `.renamed` / `.removed`.
+- **Mix draft discard:** `concrete_mix_revision.state` gains `discarded` with `discarded_at` /
+  `discarded_by_*`. Only a draft becomes discarded, its specification exactly as last saved; a
+  discarded revision never changes again and is never deleted, so revision numbers stay gap-free
+  and the next draft takes the next number. C03's pointer checks keep the approved revision in
+  effect, and `concrete_mix_has_revision_check` means an Unapproved mix's only draft can't be
+  discarded. The command ledger accepts `discard`; audit `concrete_mix.draft_discarded`.
 
 ## Retention dates, holds, extensions and requests (MM-T29)
 

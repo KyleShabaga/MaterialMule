@@ -22,6 +22,7 @@ import {
   StatusBadge,
   TableScroll,
 } from '../../components/ui';
+import { fetchHolidayDates } from '../../settings/reference/api';
 import { fetchConcreteWorklist, fetchScheduleHistory, rescheduleSpecimen } from './api';
 import './concrete-worklist.css';
 
@@ -32,6 +33,7 @@ type Load =
 
 const FLAG_TONE: Record<ConcreteWorklistFlag, 'neutral' | 'warning' | 'danger' | 'info'> = {
   weekend_target: 'warning',
+  holiday_target: 'warning',
   overdue: 'danger',
   hold_review_due: 'warning',
   rescheduled: 'info',
@@ -376,6 +378,18 @@ function RescheduleDialog({
     };
   }, [row.specimenId]);
 
+  // MM-V2-C37: the company holiday calendar, so the preview flags a holiday target too.
+  const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    let current = true;
+    void fetchHolidayDates().then((dates) => {
+      if (current) setHolidays(dates);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
+
   const days = /^\d{1,3}$/.test(age.trim()) ? Number(age.trim()) : null;
   const preview =
     days !== null && days >= 1 ? concreteRescheduledTarget(row.castingDate, days) : null;
@@ -435,6 +449,9 @@ function RescheduleDialog({
           New target {preview}
           {concreteTargetDateFlags(preview).includes('weekend_target')
             ? ' (weekend target: kept and flagged)'
+            : ''}
+          {concreteTargetDateFlags(preview, holidays).includes('holiday_target')
+            ? ' (holiday target: kept and flagged)'
             : ''}
           .
         </p>

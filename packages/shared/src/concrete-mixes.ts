@@ -330,6 +330,8 @@ const specInput = specInputBase.superRefine(checkAir);
 export const createConcreteMixRequestSchema = z.strictObject({
   idempotencyKey: idSchema,
   spec: specInput,
+  /** MM-V2-C37: optional link to a listed (active) supplier; the free-text names stay. */
+  supplierId: idSchema.nullable().optional(),
   note: concreteMixNoteSchema,
 });
 export type CreateConcreteMixRequest = z.input<typeof createConcreteMixRequestSchema>;
@@ -347,7 +349,12 @@ export const updateConcreteMixRequestSchema = z.strictObject({
     .number({ error: 'Version is required' })
     .int()
     .min(1, { error: 'Version is required' }),
-  spec: specInputBase.partial().superRefine(checkAir),
+  spec: specInputBase.partial().superRefine(checkAir).default({}),
+  /**
+   * MM-V2-C37: link a listed (active) supplier, or null to unlink; omitted: unchanged. The link
+   * belongs to the mix, not a revision, so it never makes a draft revision on its own.
+   */
+  supplierId: idSchema.nullable().optional(),
   note: concreteMixNoteSchema,
 });
 export type UpdateConcreteMixRequest = z.input<typeof updateConcreteMixRequestSchema>;
@@ -366,6 +373,23 @@ export const approveConcreteMixRequestSchema = z.strictObject({
   note: concreteMixNoteSchema,
 });
 export type ApproveConcreteMixRequest = z.input<typeof approveConcreteMixRequestSchema>;
+
+/**
+ * `POST /api/concrete-mixes/:id/discard-draft` (`concrete_mix.manage`, MM-V2-C37). Discards the
+ * open draft revision of an approved mix: the approved revision stays in effect and unchanged,
+ * the discarded revision is kept in the history and never changes again. A mix with no approved
+ * revision has nothing to fall back on, so its draft can't be discarded (no mix retirement).
+ */
+export const discardConcreteMixDraftRequestSchema = z.strictObject({
+  idempotencyKey: idSchema,
+  version: z
+    .number({ error: 'Version is required' })
+    .int()
+    .min(1, { error: 'Version is required' }),
+  revisionId: idSchema,
+  note: concreteMixNoteSchema,
+});
+export type DiscardConcreteMixDraftRequest = z.input<typeof discardConcreteMixDraftRequestSchema>;
 
 /**
  * `POST /api/projects/:projectId/concrete-mixes/copy` (`concrete_mix.manage` on the destination).
@@ -409,7 +433,13 @@ export type ConcreteMixListQuery = z.output<typeof concreteMixListQuerySchema>;
 // Responses
 // ---------------------------------------------------------------------------------------------
 
-export const CONCRETE_MIX_REVISION_STATES = ['draft', 'approved', 'superseded'] as const;
+/** `discarded`: a draft the Lead discarded (MM-V2-C37); kept, never changes again. */
+export const CONCRETE_MIX_REVISION_STATES = [
+  'draft',
+  'approved',
+  'superseded',
+  'discarded',
+] as const;
 export type ConcreteMixRevisionState = (typeof CONCRETE_MIX_REVISION_STATES)[number];
 
 /**
@@ -430,6 +460,8 @@ export const concreteMixRevisionSchema = z.object({
   approvedAt: z.string().nullable(),
   approvedBy: personSnapshotSchema.nullable(),
   supersededAt: z.string().nullable(),
+  discardedAt: z.string().nullable(),
+  discardedBy: personSnapshotSchema.nullable(),
   /** Required fields still null (empty for approved revisions). */
   missingForApproval: z.array(z.string()),
 });
@@ -445,11 +477,21 @@ export const concreteMixCopySourceSchema = z.object({
   mixNumber: z.string(),
 });
 
+/** What a mix shows about its linked supplier (MM-V2-C37; null: not linked). */
+export const concreteMixSupplierLinkSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  active: z.boolean(),
+});
+export type ConcreteMixSupplierLink = z.infer<typeof concreteMixSupplierLinkSchema>;
+
 export const concreteMixSummarySchema = z.object({
   id: z.string(),
   projectId: z.string(),
   supplierName: z.string(),
   mixNumber: z.string(),
+  /** MM-V2-C37: the listed supplier this mix links, if any. */
+  supplier: concreteMixSupplierLinkSchema.nullable(),
   status: z.enum(CONCRETE_MIX_STATUSES),
   /** The approved revision in effect (null: Unapproved). */
   effectiveRevision: concreteMixRevisionSchema.nullable(),
