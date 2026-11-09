@@ -464,6 +464,9 @@ to the capability list in the same change.
   | `POST /api/projects/:projectId/concrete-mixes/copy {sourceMixId, sourceRevisionId?, …}` | active user; `concrete_mix.manage` on the destination |
   | `PATCH /api/concrete-mixes/:id {version, spec, idempotencyKey, note?}`                  | active user; handler checks `concrete_mix.manage`     |
   | `POST /api/concrete-mixes/:id/approve {version, revisionId, idempotencyKey, note?}`     | active user; handler checks `concrete_mix.approve`    |
+  | `GET /api/concrete-mixes/:id/propagation` (C30)                                         | `inventory.read`                                      |
+  | `POST /api/concrete-mixes/:id/propagation {previewId, selection, idempotencyKey}` (C30) | active user; handler checks `concrete_mix.approve`    |
+  | `GET /api/concrete/projects/:projectId/specimens` (C30)                                 | `inventory.read`                                      |
 
   Reads follow the project (mixes are project data; field preparation caches them, CD-15). Order
   of checks as AO03: 401/403 from the guard; 403 when the caller isn't the project's lead (an

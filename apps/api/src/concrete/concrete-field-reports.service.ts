@@ -48,6 +48,7 @@ import {
   findProject,
   intentHash,
 } from '../project-access/project-access.service.js';
+import { likeEscape } from '../projects/projects.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { evaluateEquipmentUse } from './concrete-equipment.service.js';
 import { reportLifecycle } from './concrete-report-lifecycle.read.js';
@@ -287,6 +288,20 @@ export class ConcreteFieldReportsService {
       params.push(query.technicianUserId);
       where.push(`r.technician_user_id = $${params.length}`);
     }
+    // MM-V2-C30: the project Reports tab's search and issued filter.
+    if (query.issued) {
+      where.push(query.issued === 'true' ? 'r.issue_count > 0' : 'r.issue_count = 0');
+    }
+    if (query.search) {
+      params.push(`%${likeEscape(query.search)}%`);
+      const p = `$${params.length}`;
+      where.push(`(r.supplier_name ILIKE ${p} OR r.mix_number ILIKE ${p} OR r.ticket_number ILIKE ${p}
+        OR r.paper_field_id ILIKE ${p} OR r.location_description ILIKE ${p}
+        OR r.location_element_other ILIKE ${p}
+        OR EXISTS (SELECT 1 FROM unnest(r.location_elements) e WHERE e ILIKE ${p})
+        OR EXISTS (SELECT 1 FROM app_user u WHERE u.id = r.technician_user_id
+                   AND u.display_name ILIKE ${p}))`);
+    }
     const whereSql = where.join(' AND ');
     const { rows: total } = await this.database.pool.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM concrete_field_report r WHERE ${whereSql}`,
@@ -323,6 +338,13 @@ export class ConcreteFieldReportsService {
           mixNumber: fields.mixNumber,
           ticketNumber: fields.ticketNumber,
           workflowState: row.workflow_state,
+          reportType: 'field' as const,
+          paperFieldId: fields.paperFieldId,
+          locationElements: fields.locationElements,
+          locationElementOther: fields.locationElementOther,
+          locationDescription: fields.locationDescription,
+          issueCount: row.issue_count,
+          lastIssuedAt: row.last_issued_at?.toISOString() ?? null,
           completeness: concreteFieldReportCompleteness({
             technicianUserId: row.technician_user_id,
             fields,

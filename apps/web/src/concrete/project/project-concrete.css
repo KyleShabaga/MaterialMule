@@ -1,0 +1,267 @@
+/* The project Concrete section (MM-V2-C30). Desktop tables that stack on phones (DataTable).
+   Moderate corner radii from the design tokens: never pill shapes. */
+
+.project-sections,
+.concrete-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-button);
+  margin: 0.75rem 0;
+  border-bottom: 1px solid var(--line-shell);
+}
+
+.project-sections a,
+.concrete-section-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--line-shell);
+  border-bottom: none;
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  background: var(--card-head);
+  color: inherit;
+  text-decoration: none;
+}
+
+.project-sections a[aria-current='page'],
+.concrete-section-tabs a[aria-current='page'],
+.concrete-section-tabs a.active {
+  font-weight: 600;
+  background: var(--accent-bg);
+  border-color: var(--accent-line, var(--line-shell));
+  color: var(--accent-ink, inherit);
+}
+
+.concrete-section-tabs {
+  border-bottom-color: var(--line);
+}
+
+.concrete-tab {
+  margin-top: 0.75rem;
+}
+
+.concrete-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.concrete-search {
+  flex: 1 1 22rem;
+  max-width: 36rem;
+}
+
+.concrete-search input {
+  flex: 1;
+  min-width: 0;
+}
+
+.concrete-filter {
+  display: flex;
+  flex-direction: column;
+}
+
+.concrete-toolbar-action {
+  margin-left: auto;
+  max-width: 22rem;
+}
+
+.concrete-toolbar-action .field-hint {
+  margin: 0.25rem 0 0;
+}
+
+.concrete-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-button);
+  margin-top: 0.5rem;
+}
+
+.concrete-lead-only {
+  margin: 0;
+}
+
+.concrete-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0;
+}
+
+.concrete-facts dt {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.concrete-facts dd {
+  margin: 0.15rem 0 0;
+}
+
+.mix-facts-wide {
+  grid-column: 1 / -1;
+}
+
+.concrete-people {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.concrete-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 44rem;
+}
+
+.concrete-form .page-actions {
+  margin-top: 0.75rem;
+}
+
+.mix-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.6rem 1rem;
+}
+
+.mix-form-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mix-form-wide {
+  grid-column: 1 / -1;
+}
+
+.mix-admixtures {
+  margin-top: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.mix-admixture-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.4rem 1rem;
+}
+
+.mix-admixture-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mix-admixture-list input[type='text'] {
+  width: 7rem;
+}
+
+.mix-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-button);
+}
+
+.mix-heading h2 {
+  margin: 0.25rem 0;
+}
+
+.mix-actions {
+  margin: 0.5rem 0;
+}
+
+.mix-revisions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.mix-history {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.mix-history li + li {
+  margin-top: 0.4rem;
+}
+
+.mix-history p {
+  margin: 0.15rem 0 0;
+}
+
+.concrete-choices {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.concrete-choices li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-button);
+}
+
+.concrete-range {
+  border: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.concrete-range-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.propagation-changes {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.propagation-kept {
+  margin-top: 0.35rem;
+}
+
+.propagation-kept .field-hint {
+  margin: 0;
+}
+
+.concrete-settings {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .concrete-toolbar-action {
+    margin-left: 0;
+  }
+
+  .concrete-search {
+    flex-basis: 100%;
+  }
+
+  .project-sections a,
+  .concrete-section-tabs a {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

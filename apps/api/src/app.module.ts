@@ -118,6 +118,9 @@ import { ConcreteReceivingController } from './concrete/concrete-receiving.contr
 import { ConcreteReceivingService } from './concrete/concrete-receiving.service.js';
 import { ConcreteWorklistController } from './concrete/concrete-worklist.controller.js';
 import { ConcreteWorklistService } from './concrete/concrete-worklist.service.js';
+import { ConcreteProjectTabsController } from './concrete/concrete-project-tabs.controller.js';
+import { ConcreteMixPropagationService } from './concrete/concrete-mix-propagation.service.js';
+import { ConcreteProjectSpecimensService } from './concrete/concrete-project-specimens.service.js';
 import { ConcreteTestResultsController } from './concrete/concrete-test-results.controller.js';
 import { ConcreteTestResultsService } from './concrete/concrete-test-results.service.js';
 import { UsersService } from './users/users.service.js';
@@ -178,6 +181,7 @@ export class AppModule {
         ConcreteReportLifecycleController,
         ConcreteReviewController,
         ConcreteWorklistController,
+        ConcreteProjectTabsController,
         ConcreteReceivingController,
         ConcreteTestResultsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (MM-T33).
@@ -211,6 +215,8 @@ export class AppModule {
         ConcreteReportLifecycleService,
         ConcreteReviewService,
         ConcreteWorklistService,
+        ConcreteMixPropagationService,
+        ConcreteProjectSpecimensService,
         ConcreteReceivingService,
         ConcreteTestResultsService,
         LeadNominationsService,
