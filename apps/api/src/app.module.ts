@@ -114,6 +114,8 @@ import { ConcreteSpecimenSetsController } from './concrete/concrete-specimen-set
 import { ConcreteSpecimenSetsService } from './concrete/concrete-specimen-sets.service.js';
 import { ConcreteWorklistController } from './concrete/concrete-worklist.controller.js';
 import { ConcreteWorklistService } from './concrete/concrete-worklist.service.js';
+import { ConcreteTestResultsController } from './concrete/concrete-test-results.controller.js';
+import { ConcreteTestResultsService } from './concrete/concrete-test-results.service.js';
 import { UsersService } from './users/users.service.js';
 
 @Module({})
@@ -171,6 +173,7 @@ export class AppModule {
         ConcreteReportLifecycleController,
         ConcreteReviewController,
         ConcreteWorklistController,
+        ConcreteTestResultsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (MM-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
@@ -201,6 +204,7 @@ export class AppModule {
         ConcreteReportLifecycleService,
         ConcreteReviewService,
         ConcreteWorklistService,
+        ConcreteTestResultsService,
         LeadNominationsService,
         GrantReviewsService,
         TeamJoinService,
