@@ -590,7 +590,9 @@ internal user is refused every lab-staff row.
 | `concrete_settings.air_meter.manage` | Lab Technician, Lab Manager (role alone)                                       | the air-meter register (C27, implemented)                                          |
 | `concrete_sync_conflict.resolve_lab` | Lab Manager (role alone, no project concrete grant), lead, designated reviewer | receiving, test or submitted data (C17)                                            |
 
-- **No route checks the four lab-staff rows yet.** Each owning card adds its route; `GET /api/me`
+- **Routes:** `concrete_specimen.receive` and `concrete_specimen.mass_correct` guard C06's
+  receiving routes and `concrete_test.enter` guards C07's test-result saves;
+  `concrete_specimen.dispose_record` has no route yet. Each owning card adds its route; `GET /api/me`
   already reports them (and `concrete_sync_conflict.resolve_lab` for Lab Managers) so the UI can
   show the controls. LAB's reported list still equals `LAB_PERMISSIONS`.
 - **A Lab Technician is never a Lab Manager.** It holds only the rows above (and everything any
@@ -890,6 +892,35 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
   `includePhotos: false` until photos exist (C15). Both are stored on the issued version.
 - **Self-review** is refused by C09 (403 `own_report`, #135); the screens disable those actions
   with that reason, and the queue never marks one's own report as needing one's action.
+
+## Concrete test-result drafts (MM-V2-C07)
+
+Test-result drafts with tester attribution and correction history. Contracts:
+`packages/shared/src/concrete-test-results.ts`; tables: migration 0027
+([concrete.md](concrete.md#test-result-drafts-and-correction-history-c07)).
+
+| Route                                                                | Policy                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /api/concrete/specimens/:specimenId/test-results`               | `inventory.read` (every active session, LAB included)                       |
+| `GET /api/concrete/specimens/:specimenId/test-results/:resultId`     | `inventory.read`                                                            |
+| `PUT /api/concrete/specimens/:specimenId/test-results/:resultId {…}` | `concrete_test.enter` (Lab Technician, Lab Manager, LAB); re-checked locked |
+
+- **Global, not project-scoped.** `concrete_test.enter` is a lab-staff role permission (C36), so
+  the route guard refuses everyone else (403) before the body is read; the endpoint sweep covers
+  all three routes. The handler checks it again under the account lock (a role removed first is
+  honoured).
+- **LAB** must send `enteredByUserId` (400 `required`; 422 `entered_by_invalid` unless an active
+  staff member with confirmed initials). That person is credited on the revision; LAB never gains
+  their roles. A personal account is always the person entering it (400 `not_allowed` for anyone
+  else). The named person is not required to hold a lab role (as for C36's other lab-staff rows).
+- **Tester** (`testerUserId`) is a recorded value, not authority: any active staff member with
+  confirmed initials, never LAB (422 `tester_invalid`); a new attempt defaults to the person
+  entering it.
+- **Order of checks:** specimen 404; attempt ID 404 when not an ID; 400 body; then one transaction:
+  report, set, specimen and attempt FOR UPDATE (D09), exact-retry replay, account lock and
+  permission, `enteredByUserId`, 409 `result_id_taken`, 409 `version_conflict`, 409
+  `report_void` / `set_void`, 422 `tester_invalid`, 422 `reason_required` (a saved value changed
+  or cleared without a reason). Audit `concrete_test_result.saved` / `.corrected`.
 
 ## Receiving Log (MM-T51)
 

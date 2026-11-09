@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { concreteSpecimenAgeSchema } from './concrete-settings';
 
 // The project Concrete section's Specimens tab (MM-V2-C30): every specimen of the project, one row
-// each, newest casting first. Read only; a row opens its field report. Strength is C07/C23's (the
+// each, newest casting first. Read only; a row opens its field report. Strength is C23's (the
 // column stays empty until results exist).
 
 export const CONCRETE_PROJECT_SPECIMEN_STATUSES = [
@@ -77,7 +77,7 @@ export const concreteProjectSpecimenRowSchema = z.object({
   assignedAge: concreteSpecimenAgeSchema.nullable(),
   /** Target date for an age in days, HOLD expiry for HOLD. */
   testDate: z.string().nullable(),
-  /** Measured strength (MPa): C07/C23. Null until a result exists. */
+  /** Measured strength (MPa): C23. Null until a result exists. */
   strengthMpa: z.number().nullable(),
   status: z.enum(CONCRETE_PROJECT_SPECIMEN_STATUSES),
 });

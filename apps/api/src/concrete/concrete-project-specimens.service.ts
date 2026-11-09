@@ -113,7 +113,7 @@ export class ConcreteProjectSpecimensService {
               ? CONCRETE_HOLD_AGE
               : Number(row.assigned_age),
         testDate: row.assigned_age === CONCRETE_HOLD_AGE ? row.hold_expires_on : row.target_date,
-        // C07/C23 fill this from the specimen's test result.
+        // C23 fill this from the specimen's test result.
         strengthMpa: null,
         status: row.status,
       })),

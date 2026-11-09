@@ -461,7 +461,7 @@ export class ConcreteMixPropagationService {
       }
 
       const targetAges = target.spec.testAges.map(String);
-      // Untested: no concrete result exists yet. C07/C23 add their "already tested" condition
+      // Untested: C07 drafts don't make a specimen tested (docs/concrete.md); C23 adds its "already tested" condition
       // here (block 'specimen_tested'), as in C22's worklist.
       const { rows: specimenRows } = await db.query<SpecimenCandidate>(
         `SELECT sp.id, sp.project_id, sp.letter, sp.assigned_age, sp.target_date::text,

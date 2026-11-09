@@ -20,7 +20,7 @@ import { useLoad } from './useLoad';
 
 // MM-V2-C30 Specimens tab: one row per specimen (ID, casting date, structure, location, age or
 // HOLD, test date, strength, status). A row opens its field report. Strength stays empty until
-// test results exist (C07/C23).
+// test results exist (C23).
 
 const TONE: Record<ConcreteProjectSpecimenStatus, BadgeTone> = {
   awaiting_casting: 'neutral',

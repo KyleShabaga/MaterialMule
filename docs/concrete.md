@@ -186,7 +186,7 @@ erDiagram
   (`/projects/:projectId/concrete/:tab`). Five tabs, each its own address: **Reports** (date,
   Field ID, type, technician, structure / elements, location, status; search and status filter;
   New field report stays disabled until the field form exists), **Specimens** (ID, casting date,
-  structure, location, age / HOLD, test date, strength (empty until C07/C23), status; a row opens
+  structure, location, age / HOLD, test date, strength (empty until C23), status; a row opens
   its field report), **Summary** (date range, default All dates; Generate summary report disabled
   until C32), **Mixes** (table, Add mix, Copy from another project, detail with full
   specification, ticket defaults, admixtures, the mix-design document place (C15), revisions and
@@ -210,7 +210,8 @@ erDiagram
   Each applied record gets its own audit event, and the mix gets
   `concrete_mix.propagation_applied` with the scope (`items` or `approve_all`), what was applied,
   and counts of what was not chosen or not eligible; an exact retry returns the same decision.
-  C07/C23 add the "already tested" block (`specimen_tested`) to the specimen query.
+  C23 adds the "already tested" block (`specimen_tested`) to the specimen query (C07 drafts
+  don't count as tested).
 
 ## Equipment (C27)
 
@@ -587,6 +588,58 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
 - **Who can act** is shown on every action: the routed reviewer or the designated reviewers and the
   lead for review; the lead and Authorized report issuers for issue; never the report's technician
   (owner decision 2026-11-08); personal accounts only.
+
+## Test-result drafts and correction history (C07)
+
+Migration `0027_concrete_test_results.sql`; contracts and the entry-versus-correction rule in
+`packages/shared/src/concrete-test-results.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-test-result-drafts-mm-v2-c07). No screen: the testing
+table is C23 (C08 testing UI). Source: combined plan package 1 (test-result persistence) and the
+owner decisions of 2026-11-08 (C36 lab staff).
+
+- **Attempts:** `concrete_test_result` is one result attempt on a specimen. The client chooses its
+  ID, so saving the same ID again (an exact retry, an offline resend, a second edit) never creates
+  a second attempt; a retest is a new ID with the next `attempt_no`. Attempts are never deleted.
+- **Drafts only.** `state` admits `'draft'` alone. Completed-test semantics, strength, rounding,
+  pass/fail, end preparation, fracture type and failure handling wait for the verified worksheet
+  and methods (owner inputs G2/G8; C23/C25). `calculation_method`, `calculation_method_version` and
+  `report_version_id` are prepared columns that the database keeps empty
+  (`concrete_test_result_method_gated`); no strength is stored or returned anywhere.
+- **Readings:** the machine's maximum load and 0–10 height and diameter readings, each optional.
+  Empty means "not entered", never zero. Units are stored per row: `kN` and `mm`, the only units
+  accepted, and `units_provisional` is always true until the worksheet's units and reading count
+  are verified; the API returns `units.provisional: true` so nothing presents them as validated.
+  The bounds (load under 100 000, dimensions under 10 000, all above 0) are sanity limits only,
+  not unit-specific validation.
+- **Testing machine:** no selector (CD-44). A new attempt records the registered testing machine
+  (C27) if there is one; none registered is fine.
+- **Tester and test date** are values on the result: the actual test date (`tested_on`, separate
+  from the entry time) and the tester (an active staff member with confirmed initials, never LAB;
+  snapshot of name and initials). A new attempt's tester defaults to the person entering it; a
+  later save keeps the recorded tester unless it sends `testerUserId`. A later page default never
+  touches saved results (AC2).
+- **Entry versus correction:** each save compares the proposed values with the saved row
+  (`concreteTestResultChanges`). Filling an empty field is entry; changing or clearing a saved value
+  (tester and test date included) is a correction and needs `reason`. Without one the save is 422
+  `reason_required` with the fields (`corrections`) and nothing is written, so the client keeps
+  its draft (AC3). Initial entry never needs a reason.
+- **History:** every committed save appends `concrete_test_result_revision` (`initial`, `entry` or
+  `correction`; the changed fields with before/after; the reason; the signed-in account and the
+  staff member credited; the time) and the audit event `concrete_test_result.saved` or
+  `.corrected`, in the same transaction. The database refuses a result update without its revision
+  in the same transaction (`concrete_test_result_revision_required`) and any change to a revision.
+- **Concurrency:** `version` 0 creates; otherwise it must equal the saved version (409
+  `version_conflict` with the current result). An exact retry (same key, same body, same account)
+  returns the attempt as it stands; the same key for anything else is 409 `idempotency_key_reused`.
+  A save that changes nothing writes nothing.
+- **Refused:** Void set or report (409 `set_void` / `report_void`); an attempt ID already used on
+  another specimen (409 `result_id_taken`). Receipt (C06) is not required yet; C23 decides when a
+  specimen is ready to test.
+- **Worklist:** drafts don't make a specimen tested; C22's worklist is unchanged until C23 defines
+  a completed test.
+- **Photos:** optional and never blocking; there is no photo column (attachments are C15).
+- **Not here:** the testing grid and table (C08/C23), formulas and rounding, pass/fail and failure
+  notifications (C25), schedules after failure, report output, machine integration.
 
 ## Notes for later cards
 
