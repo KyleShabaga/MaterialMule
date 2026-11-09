@@ -25,6 +25,7 @@ import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { ProjectDetailPage } from './projects/ProjectDetailPage';
 import { ProjectsPage } from './projects/ProjectsPage';
 import {
+  ProjectConcreteMixesRedirect,
   ProjectConcretePage,
   ProjectConcreteRedirect,
 } from './concrete/project/ProjectConcretePage';
@@ -48,7 +49,6 @@ import { LocationsPage } from './settings/locations/LocationsPage';
 import { EquipmentSettingsPage } from './settings/equipment/EquipmentSettingsPage';
 import { HolidaysSettingsPage } from './settings/reference/HolidaysSettingsPage';
 import { SuppliersSettingsPage } from './settings/reference/SuppliersSettingsPage';
-import { ProjectMixesPage } from './concrete/mixes/ProjectMixesPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { MyAccessPage } from './settings/access/MyAccessPage';
 import { StaffPage } from './settings/staff/StaffPage';
@@ -160,8 +160,11 @@ export const routes: RouteObject[] = [
                 path: 'projects/:projectId/concrete/mixes/:mixId/propagation',
                 element: <PropagationReviewPage />,
               },
-              // Concrete mixes of a project (MM-V2-C37: discard draft, supplier link).
-              { path: 'projects/:projectId/concrete-mixes', element: <ProjectMixesPage /> },
+              // C37's former mixes screen: its actions are on the Concrete → Mixes tab now.
+              {
+                path: 'projects/:projectId/concrete-mixes',
+                element: <ProjectConcreteMixesRedirect />,
+              },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
