@@ -248,7 +248,9 @@ export const concreteReceivingExceptionRequestSchema = z
   .strictObject({
     idempotencyKey: keySchema,
     id: idSchema.optional(),
-    kind: z.enum(CONCRETE_RECEIVING_EXCEPTION_KINDS, { error: 'Choose missing, extra or unmatched' }),
+    kind: z.enum(CONCRETE_RECEIVING_EXCEPTION_KINDS, {
+      error: 'Choose missing, extra or unmatched',
+    }),
     specimenId: idSchema.optional(),
     setId: idSchema.optional(),
     observedMarking: optionalText(200, 'marking').optional(),
@@ -261,7 +263,11 @@ export const concreteReceivingExceptionRequestSchema = z
   .superRefine((value, ctx) => {
     if (value.kind === 'missing') {
       if (!value.specimenId) {
-        ctx.addIssue({ code: 'custom', path: ['specimenId'], message: 'Choose the missing specimen' });
+        ctx.addIssue({
+          code: 'custom',
+          path: ['specimenId'],
+          message: 'Choose the missing specimen',
+        });
       }
       for (const field of ['setId', 'receivedAt', 'receivedByUserId', 'massG'] as const) {
         if (value[field] !== undefined) {
@@ -501,7 +507,13 @@ export function concreteReceivingIssues(input: ConcreteReceivingBlockerInput): {
   }
   const identity = input.exceptions.filter((e) => e.kind !== 'missing' && !e.resolved);
   if (identity.length > 0) {
-    blockers.push(issue('identity_unresolved', [], identity.map((e) => e.id)));
+    blockers.push(
+      issue(
+        'identity_unresolved',
+        [],
+        identity.map((e) => e.id),
+      ),
+    );
   }
   const unmarked = expected.filter((s) => s.received && !s.markerCovered).map((s) => s.specimenId);
   if (unmarked.length > 0) blockers.push(issue('marker_confirmation_missing', unmarked));

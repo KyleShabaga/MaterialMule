@@ -62,13 +62,7 @@ import { parseBody, validationError } from '../validation/parse-body.js';
 
 type Db = Pool | PoolClient;
 type Kind =
-  | 'pickup'
-  | 'pickup_window'
-  | 'receipt'
-  | 'marker'
-  | 'exception'
-  | 'resolve'
-  | 'curing_resolve';
+  'pickup' | 'pickup_window' | 'receipt' | 'marker' | 'exception' | 'resolve' | 'curing_resolve';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RECEIVE = 'concrete_specimen.receive' as const;
@@ -98,11 +92,6 @@ function withoutKey<T extends { idempotencyKey: string }>(input: T): Omit<T, 'id
   void _key;
   return rest;
 }
-
-const rawKey = (body: unknown): string | null => {
-  const key = (body as { idempotencyKey?: unknown } | null)?.idempotencyKey;
-  return typeof key === 'string' && UUID_PATTERN.test(key) ? key : null;
-};
 
 interface SetFacts {
   id: string;
@@ -206,7 +195,8 @@ export class ConcreteReceivingService {
     const { rows: report } = await db.query('SELECT 1 FROM concrete_field_report WHERE id = $1', [
       reportId,
     ]);
-    if (report.length === 0) throw new NotFoundException({ code: 'concrete_field_report_not_found' });
+    if (report.length === 0)
+      throw new NotFoundException({ code: 'concrete_field_report_not_found' });
     const { rows } = await db.query<SetFacts>(
       `${SELECT_SET} WHERE s.field_report_id = $1 ORDER BY s.created_at, s.id`,
       [reportId],
@@ -281,7 +271,11 @@ export class ConcreteReceivingService {
         [set.id, ids],
       );
       if (specimens.length !== ids.length) {
-        throw unprocessable('specimen_not_in_set', 'specimens', 'Every specimen must be of this set');
+        throw unprocessable(
+          'specimen_not_in_set',
+          'specimens',
+          'Every specimen must be of this set',
+        );
       }
       // The collector is the person doing the pickup: a LAB station names them on every save.
       const collector =
@@ -485,7 +479,11 @@ export class ConcreteReceivingService {
             hours: current?.hours ?? CONCRETE_PICKUP_WINDOW_DEFAULT_HOURS,
             source: current ? 'edited' : 'default',
           },
-          after: { hours: input.hours, source: 'edited', verified: CONCRETE_PICKUP_WINDOW_VERIFIED },
+          after: {
+            hours: input.hours,
+            source: 'edited',
+            verified: CONCRETE_PICKUP_WINDOW_VERIFIED,
+          },
           requestId,
         });
         return this.view(client, set);
@@ -508,49 +506,58 @@ export class ConcreteReceivingService {
     if (!found) throw new NotFoundException({ code: 'concrete_specimen_not_found' });
     const input = parseBody(concreteReceiptRequestSchema, body);
     const hash = intentHash({ kind: 'receipt', specimenId, ...withoutKey(input) });
-    return this.retrying(input.idempotencyKey, 'receipt', specimenId, hash, user, async (client) => {
-      const set = await lockSet(client, found);
-      await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [specimenId]);
-      const receiverId = this.personFor(user, input.receivedByUserId, 'receivedByUserId');
-      const people = await this.authorize(client, user, RECEIVE, [receiverId]);
-      const receiver = people.get(receiverId);
-      if (!receiver) {
-        throw unprocessable(
-          'invalid_receiver',
-          'receivedByUserId',
-          'must be an active staff member with confirmed initials',
+    return this.retrying(
+      input.idempotencyKey,
+      'receipt',
+      specimenId,
+      hash,
+      user,
+      async (client) => {
+        const set = await lockSet(client, found);
+        await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [
+          specimenId,
+        ]);
+        const receiverId = this.personFor(user, input.receivedByUserId, 'receivedByUserId');
+        const people = await this.authorize(client, user, RECEIVE, [receiverId]);
+        const receiver = people.get(receiverId);
+        if (!receiver) {
+          throw unprocessable(
+            'invalid_receiver',
+            'receivedByUserId',
+            'must be an active staff member with confirmed initials',
+          );
+        }
+        assertOpen(set);
+        const { rows: existing } = await client.query(
+          'SELECT 1 FROM concrete_specimen_receipt WHERE specimen_id = $1',
+          [specimenId],
         );
-      }
-      assertOpen(set);
-      const { rows: existing } = await client.query(
-        'SELECT 1 FROM concrete_specimen_receipt WHERE specimen_id = $1',
-        [specimenId],
-      );
-      // One receipt per specimen; a wrong mass is corrected, with a reason (CD-46).
-      if (existing.length > 0) throw new ConflictException({ code: 'already_received' });
-      notBeforeCasting(set, input.receivedAt, 'receivedAt');
-      await client.query(
-        `INSERT INTO concrete_specimen_receipt
+        // One receipt per specimen; a wrong mass is corrected, with a reason (CD-46).
+        if (existing.length > 0) throw new ConflictException({ code: 'already_received' });
+        notBeforeCasting(set, input.receivedAt, 'receivedAt');
+        await client.query(
+          `INSERT INTO concrete_specimen_receipt
            (project_id, specimen_id, received_at, received_by_user_id, mass_g, recorded_by_user_id)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [set.project_id, specimenId, input.receivedAt, receiverId, input.massG, user.userId],
-      );
-      await recordAudit(client, {
-        action: 'concrete_specimen.received',
-        entityType: 'concrete_specimen',
-        entityId: specimenId,
-        actor,
-        receiver: user.accountType === 'shared_lab' ? receiverOf(receiver) : null,
-        before: null,
-        after: {
-          receivedAt: new Date(input.receivedAt).toISOString(),
-          receivedByUserId: receiverId,
-          massG: concreteFormatTenths(input.massG),
-        },
-        requestId,
-      });
-      return this.view(client, set);
-    });
+          [set.project_id, specimenId, input.receivedAt, receiverId, input.massG, user.userId],
+        );
+        await recordAudit(client, {
+          action: 'concrete_specimen.received',
+          entityType: 'concrete_specimen',
+          entityId: specimenId,
+          actor,
+          receiver: user.accountType === 'shared_lab' ? receiverOf(receiver) : null,
+          before: null,
+          after: {
+            receivedAt: new Date(input.receivedAt).toISOString(),
+            receivedByUserId: receiverId,
+            massG: concreteFormatTenths(input.massG),
+          },
+          requestId,
+        });
+        return this.view(client, set);
+      },
+    );
   }
 
   async massCorrection(
@@ -590,7 +597,9 @@ export class ConcreteReceivingService {
     try {
       return await withTransaction(this.database.pool, async (client) => {
         const set = await lockSet(client, found);
-        await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [specimenId]);
+        await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [
+          specimenId,
+        ]);
         const replay = await run(client);
         if (replay) return replay;
         await this.authorize(client, user, MASS_CORRECT, []);
@@ -754,7 +763,11 @@ export class ConcreteReceivingService {
         if (input.specimenId) {
           set = await setOfSpecimen(client, input.specimenId);
           if (!set || set.project_id !== projectId) {
-            throw unprocessable('specimen_not_found', 'specimenId', 'No such specimen on this project');
+            throw unprocessable(
+              'specimen_not_found',
+              'specimenId',
+              'No such specimen on this project',
+            );
           }
         } else if (input.setId) {
           set = await findSet(client, input.setId);
@@ -868,99 +881,111 @@ export class ConcreteReceivingService {
     if (!(await this.couldResolve(db, user, found))) throw forbidden();
     const input = parseBody(concreteResolveReceivingExceptionRequestSchema, body);
     const hash = intentHash({ kind: 'resolve', exceptionId, ...withoutKey(input) });
-    return this.retrying(input.idempotencyKey, 'resolve', exceptionId, hash, user, async (client) => {
-      const matched = input.matchedSpecimenId
-        ? await setOfSpecimen(client, input.matchedSpecimenId)
-        : null;
-      if (input.matchedSpecimenId) {
-        if (found.kind === 'missing') {
-          throw unprocessable('not_matchable', 'matchedSpecimenId', 'A missing specimen is its own');
-        }
-        if (!matched || matched.project_id !== found.project_id) {
-          throw unprocessable(
-            'specimen_not_found',
-            'matchedSpecimenId',
-            'No such specimen on this project',
-          );
-        }
-      }
-      // Lock order: the sets concerned (report, set), the specimens, the exception, then the
-      // project and accounts (canUnderLock-style, inside resolveAuthority).
-      const own = found.set_id ? await findSet(client, found.set_id) : null;
-      for (const set of [own, matched].filter((s): s is SetFacts => s !== null)) {
-        await lockSet(client, set);
-      }
-      if (matched) {
-        await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [
-          input.matchedSpecimenId,
-        ]);
-      }
-      const exception = (await exceptionFacts(client, exceptionId, 'FOR UPDATE'))!;
-      // Casting-technician authority covers only specimens they cast: the set the record names
-      // and, when matched, the matched specimen's set; both must be theirs.
-      const technicians = [own?.technician_user_id, matched?.technician_user_id].filter(
-        (id) => id !== undefined,
-      );
-      const recordTechnician =
-        technicians.length > 0 && technicians.every((id) => id && id === technicians[0])
-          ? (technicians[0] ?? null)
+    return this.retrying(
+      input.idempotencyKey,
+      'resolve',
+      exceptionId,
+      hash,
+      user,
+      async (client) => {
+        const matched = input.matchedSpecimenId
+          ? await setOfSpecimen(client, input.matchedSpecimenId)
           : null;
-      const source = await this.resolveAuthority(client, user, exception.project_id, {
-        recordTechnicianUserId: recordTechnician,
-      });
-      if (!source) throw forbidden();
-      if (exception.resolved_at !== null) throw new ConflictException({ code: 'already_resolved' });
-      await client.query(
-        `UPDATE concrete_receiving_exception
+        if (input.matchedSpecimenId) {
+          if (found.kind === 'missing') {
+            throw unprocessable(
+              'not_matchable',
+              'matchedSpecimenId',
+              'A missing specimen is its own',
+            );
+          }
+          if (!matched || matched.project_id !== found.project_id) {
+            throw unprocessable(
+              'specimen_not_found',
+              'matchedSpecimenId',
+              'No such specimen on this project',
+            );
+          }
+        }
+        // Lock order: the sets concerned (report, set), the specimens, the exception, then the
+        // project and accounts (canUnderLock-style, inside resolveAuthority).
+        const own = found.set_id ? await findSet(client, found.set_id) : null;
+        for (const set of [own, matched].filter((s): s is SetFacts => s !== null)) {
+          await lockSet(client, set);
+        }
+        if (matched) {
+          await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [
+            input.matchedSpecimenId,
+          ]);
+        }
+        const exception = (await exceptionFacts(client, exceptionId, 'FOR UPDATE'))!;
+        // Casting-technician authority covers only specimens they cast: the set the record names
+        // and, when matched, the matched specimen's set; both must be theirs.
+        const technicians = [own?.technician_user_id, matched?.technician_user_id].filter(
+          (id) => id !== undefined,
+        );
+        const recordTechnician =
+          technicians.length > 0 && technicians.every((id) => id && id === technicians[0])
+            ? (technicians[0] ?? null)
+            : null;
+        const source = await this.resolveAuthority(client, user, exception.project_id, {
+          recordTechnicianUserId: recordTechnician,
+        });
+        if (!source) throw forbidden();
+        if (exception.resolved_at !== null)
+          throw new ConflictException({ code: 'already_resolved' });
+        await client.query(
+          `UPDATE concrete_receiving_exception
          SET resolved_at = now(), resolved_by_user_id = $2, resolution_source = $3,
              disposition = $4, resolution_reason = $5, matched_specimen_id = $6
          WHERE id = $1`,
-        [
-          exceptionId,
-          user.userId,
-          source,
-          input.disposition,
-          input.reason,
-          input.matchedSpecimenId ?? null,
-        ],
-      );
-      // Linked after verification: the recorded receipt becomes the matched specimen's.
-      let linkedReceipt = false;
-      if (matched && exception.received_at !== null && exception.mass_g !== null) {
-        const { rows } = await client.query(
-          'SELECT 1 FROM concrete_specimen_receipt WHERE specimen_id = $1',
-          [input.matchedSpecimenId],
+          [
+            exceptionId,
+            user.userId,
+            source,
+            input.disposition,
+            input.reason,
+            input.matchedSpecimenId ?? null,
+          ],
         );
-        if (rows.length === 0) {
-          await client.query(
-            `INSERT INTO concrete_specimen_receipt
+        // Linked after verification: the recorded receipt becomes the matched specimen's.
+        let linkedReceipt = false;
+        if (matched && exception.received_at !== null && exception.mass_g !== null) {
+          const { rows } = await client.query(
+            'SELECT 1 FROM concrete_specimen_receipt WHERE specimen_id = $1',
+            [input.matchedSpecimenId],
+          );
+          if (rows.length === 0) {
+            await client.query(
+              `INSERT INTO concrete_specimen_receipt
                (project_id, specimen_id, received_at, received_by_user_id, mass_g,
                 recorded_by_user_id, from_exception_id)
              SELECT project_id, $2, received_at, received_by_user_id, mass_g, recorded_by_user_id, id
              FROM concrete_receiving_exception WHERE id = $1`,
-            [exceptionId, input.matchedSpecimenId],
-          );
-          linkedReceipt = true;
+              [exceptionId, input.matchedSpecimenId],
+            );
+            linkedReceipt = true;
+          }
         }
-      }
-      await recordAudit(client, {
-        action: 'concrete_receiving_exception.resolved',
-        entityType: 'concrete_receiving_exception',
-        entityId: exceptionId,
-        actor,
-        reason: input.reason,
-        before: { resolved: false },
-        after: {
-          resolved: true,
-          source,
-          disposition: input.disposition,
-          matchedSpecimenId: input.matchedSpecimenId ?? null,
-          linkedReceipt,
-        },
-        requestId,
-      });
-      return (await exceptionsWhere(client, 'e.id = $1', [exceptionId]))[0]!;
-    });
+        await recordAudit(client, {
+          action: 'concrete_receiving_exception.resolved',
+          entityType: 'concrete_receiving_exception',
+          entityId: exceptionId,
+          actor,
+          reason: input.reason,
+          before: { resolved: false },
+          after: {
+            resolved: true,
+            source,
+            disposition: input.disposition,
+            matchedSpecimenId: input.matchedSpecimenId ?? null,
+            linkedReceipt,
+          },
+          requestId,
+        });
+        return (await exceptionsWhere(client, 'e.id = $1', [exceptionId]))[0]!;
+      },
+    );
   }
 
   // -------------------------------------------------------------------------------------------
@@ -988,9 +1013,11 @@ export class ConcreteReceivingService {
       user,
       async (client) => {
         const set = await lockSet(client, found);
-        await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [specimenId]);
+        await client.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [
+          specimenId,
+        ]);
         const { rows } = await client.query<PickupRow>(
-          `${SELECT_PICKUP} WHERE specimen_id = $1 FOR UPDATE`,
+          `${SELECT_PICKUP} WHERE pk.specimen_id = $1 FOR UPDATE OF pk`,
           [specimenId],
         );
         const pickup = rows[0];
@@ -1079,7 +1106,10 @@ export class ConcreteReceivingService {
     return people;
   }
 
-  private async reviewContext(db: Db, projectId: string): Promise<Omit<ProjectContext, 'leadProjectEngineerUserId'>> {
+  private async reviewContext(
+    db: Db,
+    projectId: string,
+  ): Promise<Omit<ProjectContext, 'leadProjectEngineerUserId'>> {
     return { designatedReviewerUserIds: await designatedReviewers(db, projectId, FIELD_SCOPE) };
   }
 
@@ -1210,7 +1240,7 @@ export class ConcreteReceivingService {
     ]);
     const ids = specimens.map((s) => s.id);
     const { rows: pickups } = await db.query<PickupRow>(
-      `${SELECT_PICKUP} WHERE specimen_id = ANY($1::uuid[])`,
+      `${SELECT_PICKUP} WHERE pk.specimen_id = ANY($1::uuid[])`,
       [ids],
     );
     const { rows: receipts } = await db.query<ReceiptRow>(
@@ -1246,7 +1276,7 @@ export class ConcreteReceivingService {
        FROM concrete_set_marker_confirmation c
        JOIN concrete_set_marker_confirmation_specimen cs ON cs.confirmation_id = c.id
        JOIN concrete_specimen sp ON sp.id = cs.specimen_id
-       WHERE c.set_id = $1 GROUP BY c.id ORDER BY c.confirmed_at, c.id`,
+       WHERE c.set_id = $1 GROUP BY c.id ORDER BY c.created_at, c.id`,
       [set.id],
     );
     const exceptions = await exceptionsWhere(
@@ -1280,7 +1310,8 @@ export class ConcreteReceivingService {
       const pickup = pickupBySpecimen.get(sp.id);
       const receipt = receiptBySpecimen.get(sp.id);
       const missingResolved =
-        !receipt && exceptions.some((e) => e.kind === 'missing' && e.specimenId === sp.id && e.resolution);
+        !receipt &&
+        exceptions.some((e) => e.kind === 'missing' && e.specimenId === sp.id && e.resolution);
       return {
         specimenId: sp.id,
         letter: sp.letter,
@@ -1606,9 +1637,12 @@ async function exceptionsWhere(
   const people = await peopleFor(
     db,
     rows.flatMap((r) =>
-      [r.received_by_user_id, r.reported_by_user_id, r.recorded_by_user_id, r.resolved_by_user_id].filter(
-        (id): id is string => id !== null,
-      ),
+      [
+        r.received_by_user_id,
+        r.reported_by_user_id,
+        r.recorded_by_user_id,
+        r.resolved_by_user_id,
+      ].filter((id): id is string => id !== null),
     ),
   );
   return rows.map((r) => ({

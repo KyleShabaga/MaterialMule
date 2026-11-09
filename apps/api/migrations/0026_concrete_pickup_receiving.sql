@@ -162,7 +162,7 @@ CREATE TABLE concrete_specimen_pickup (
     (curing_resolved_at IS NULL AND curing_resolved_by_user_id IS NULL
        AND curing_resolution_note IS NULL)
     OR (curing_resolved_at IS NOT NULL AND curing_resolved_by_user_id IS NOT NULL
-        AND curing_resolution_note IS NOT NULL AND cardinality(curing_flags) > 0)
+        AND curing_resolution_note IS NOT NULL AND coalesce(cardinality(curing_flags), 0) > 0)
   )
 );
 CREATE INDEX concrete_specimen_pickup_project_idx ON concrete_specimen_pickup (project_id);
@@ -180,6 +180,20 @@ BEGIN
      AND NOT concrete_receiving_person_ok(NEW.collected_by_user_id) THEN
     RAISE EXCEPTION 'a specimen collector must be an active personal account'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_specimen_pickup_person_check';
+  END IF;
+  -- A curing flag is resolved by a person on a personal account (never LAB).
+  IF (TG_OP = 'INSERT' OR NEW.curing_resolved_by_user_id IS DISTINCT FROM OLD.curing_resolved_by_user_id)
+     AND NOT concrete_receiving_person_ok(NEW.curing_resolved_by_user_id) THEN
+    RAISE EXCEPTION 'a curing flag is resolved from an active personal account'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_specimen_pickup_person_check';
+  END IF;
+  -- The copied bounds are the referenced range's bounds.
+  IF NEW.curing_standard_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM concrete_curing_standard c
+       WHERE c.id = NEW.curing_standard_id AND c.min_c = NEW.curing_range_min_c
+         AND c.max_c = NEW.curing_range_max_c) THEN
+    RAISE EXCEPTION 'a pickup copies the bounds of the range it was checked against'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_specimen_pickup_range_copy';
   END IF;
   RETURN NEW;
 END;
@@ -241,6 +255,7 @@ CREATE TABLE concrete_specimen_receipt (
   version              integer NOT NULL DEFAULT 1
                          CONSTRAINT concrete_specimen_receipt_version_check CHECK (version >= 1),
   CONSTRAINT concrete_specimen_receipt_specimen_key UNIQUE (specimen_id),
+  CONSTRAINT concrete_specimen_receipt_specimen_id_key UNIQUE (specimen_id, id),
   CONSTRAINT concrete_specimen_receipt_specimen_fkey FOREIGN KEY (project_id, specimen_id)
     REFERENCES concrete_specimen (project_id, id) ON UPDATE CASCADE
 );
@@ -254,7 +269,7 @@ CREATE TABLE concrete_specimen_mass_correction (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id            uuid NOT NULL,
   specimen_id           uuid NOT NULL,
-  receipt_id            uuid NOT NULL REFERENCES concrete_specimen_receipt (id),
+  receipt_id            uuid NOT NULL,
   previous_mass_g       numeric(7, 1) NOT NULL,
   new_mass_g            numeric(7, 1) NOT NULL
                           CONSTRAINT concrete_specimen_mass_correction_mass_check CHECK (new_mass_g > 0),
@@ -268,6 +283,9 @@ CREATE TABLE concrete_specimen_mass_correction (
   created_at            timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT concrete_specimen_mass_correction_specimen_fkey FOREIGN KEY (project_id, specimen_id)
     REFERENCES concrete_specimen (project_id, id) ON UPDATE CASCADE,
+  -- The receipt corrected is that specimen's.
+  CONSTRAINT concrete_specimen_mass_correction_receipt_fkey FOREIGN KEY (specimen_id, receipt_id)
+    REFERENCES concrete_specimen_receipt (specimen_id, id),
   CONSTRAINT concrete_specimen_mass_correction_changes CHECK (previous_mass_g <> new_mass_g)
 );
 CREATE INDEX concrete_specimen_mass_correction_specimen_idx
@@ -287,6 +305,15 @@ BEGIN
      AND NOT concrete_receiving_person_ok(NEW.received_by_user_id) THEN
     RAISE EXCEPTION 'a specimen receiver must be an active personal account'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_specimen_receipt_person_check';
+  END IF;
+  -- A receipt carried over from an extra / unmatched record: resolved, of the same project, and
+  -- confirmed as exactly this specimen.
+  IF TG_OP = 'INSERT' AND NEW.from_exception_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM concrete_receiving_exception e
+       WHERE e.id = NEW.from_exception_id AND e.resolved_at IS NOT NULL
+         AND e.project_id = NEW.project_id AND e.matched_specimen_id = NEW.specimen_id) THEN
+    RAISE EXCEPTION 'a linked receipt comes from a resolved record matched to this specimen'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_specimen_receipt_exception_check';
   END IF;
   IF TG_OP = 'UPDATE' THEN
     IF NEW.specimen_id IS DISTINCT FROM OLD.specimen_id
@@ -509,6 +536,11 @@ BEGIN
           USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_receiving_exception_scope_check';
       END IF;
     END IF;
+    IF NEW.kind = 'missing' AND EXISTS (
+         SELECT 1 FROM concrete_specimen_receipt r WHERE r.specimen_id = NEW.specimen_id) THEN
+      RAISE EXCEPTION 'specimen % was received, so it is not missing', NEW.specimen_id
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_receiving_exception_scope_check';
+    END IF;
     IF NEW.resolved_at IS NOT NULL THEN
       RAISE EXCEPTION 'a receiving exception starts open'
         USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_receiving_exception_kept';
@@ -549,10 +581,18 @@ CREATE TRIGGER concrete_receiving_exception_no_truncate
   BEFORE TRUNCATE ON concrete_receiving_exception
   FOR EACH STATEMENT EXECUTE FUNCTION concrete_receiving_exception_guard();
 
--- Mass-correction history is append-only (project corrections cascade).
+-- Mass-correction history is append-only (project corrections cascade); a correction is made
+-- from a personal account (CD-46).
 CREATE FUNCTION concrete_specimen_mass_correction_guard() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NOT concrete_receiving_person_ok(NEW.corrected_by_user_id) THEN
+      RAISE EXCEPTION 'a mass correction is made from an active personal account'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_specimen_mass_correction_person_check';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF TG_OP = 'UPDATE' THEN
     IF NEW.project_id IS DISTINCT FROM OLD.project_id
        AND (to_jsonb(NEW) - 'project_id') = (to_jsonb(OLD) - 'project_id') THEN
@@ -564,7 +604,7 @@ BEGIN
 END;
 $$;
 CREATE TRIGGER concrete_specimen_mass_correction_guard
-  BEFORE UPDATE OR DELETE ON concrete_specimen_mass_correction
+  BEFORE INSERT OR UPDATE OR DELETE ON concrete_specimen_mass_correction
   FOR EACH ROW EXECUTE FUNCTION concrete_specimen_mass_correction_guard();
 CREATE TRIGGER concrete_specimen_mass_correction_no_truncate
   BEFORE TRUNCATE ON concrete_specimen_mass_correction
