@@ -27,13 +27,16 @@ export function visibleNavItems(features: Record<FeatureFlag, boolean> = FEATURE
 
 /**
  * The Concrete Lab workspace (MM-V2-C31, the plan's proposal for the two concrete lab computers):
- * Receiving, Break worklist, Specimen lookup and Equipment, with the Concrete dashboard first.
+ * Receiving, Break worklist, Testing table (MM-V2-C23), Specimen lookup and Equipment, with the
+ * Concrete dashboard first.
  * Names are distinct from the main menu's so no link name contains another's.
  */
 export const CONCRETE_LAB_NAV_ITEMS: readonly NavItem[] = [
   { to: '/concrete', label: 'Concrete home' },
   { to: '/concrete/receiving', label: 'Specimen receiving' },
   { to: '/lab-testing/concrete', label: 'Break worklist' },
+  // MM-V2-C23: direct entry of today's breaks.
+  { to: '/concrete/testing', label: 'Testing table' },
   { to: '/concrete/specimens', label: 'Specimen lookup' },
   { to: '/settings/equipment', label: 'Concrete equipment' },
 ];

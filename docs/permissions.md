@@ -973,6 +973,16 @@ Test-result drafts with tester attribution and correction history. Contracts:
   `report_void` / `set_void`, 422 `tester_invalid`, 422 `reason_required` (a saved value changed
   or cleared without a reason). Audit `concrete_test_result.saved` / `.corrected`.
 
+## Concrete testing table (MM-V2-C23)
+
+| Route                                                            | Policy                                                |
+| ---------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=` | `inventory.read` (every active session, LAB included) |
+
+- Read only; entry is C07's PUT above (`concrete_test.enter`). The page shows the cells read-only
+  without that permission; the server decides either way. Swept by the endpoint sweep.
+- C22's reschedule gains 409 `tested_specimen` (a complete entry exists), after its other checks.
+
 ## Concrete HOLD management and disposal (MM-V2-C26)
 
 HOLD release, bulk HOLD actions and actual disposal of concrete specimens. Contracts:

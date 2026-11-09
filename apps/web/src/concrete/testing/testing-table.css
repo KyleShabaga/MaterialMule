@@ -1,0 +1,169 @@
+/* Concrete Lab → Testing table (MM-V2-C23). Desktop first and keyboard first; moderate corner
+   radii from the design tokens, never pill shapes. */
+
+.testing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.testing-toolbar select {
+  min-height: var(--control);
+  border-radius: var(--radius-control);
+}
+
+.testing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.testing-columns summary {
+  cursor: pointer;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.testing-columns fieldset {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.testing-progress {
+  margin: 0 0 0 auto;
+  font-weight: 600;
+}
+
+.testing-note {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--warning-line);
+  border-radius: var(--radius-control);
+  background: var(--warning-panel);
+  color: var(--warning-panel-ink);
+}
+
+.testing-group {
+  margin-bottom: 1.5rem;
+}
+
+.testing-group h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.5rem;
+}
+
+.testing-group-count {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-left: 0.5rem;
+}
+
+.testing-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.testing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.testing-table th,
+.testing-table td {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.testing-table thead th {
+  background: var(--card-head);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.testing-table input[type='text'] {
+  width: 7.5rem;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 0.375rem;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+
+.testing-table input[readonly] {
+  background: var(--inset);
+  color: var(--muted);
+}
+
+.testing-table input.testing-reason {
+  width: 14rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.testing-id {
+  font-weight: 600;
+}
+
+.testing-sub {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.testing-message {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--danger-panel-ink);
+  white-space: normal;
+  max-width: 16rem;
+}
+
+.testing-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.testing-status {
+  min-width: 9rem;
+}
+
+.testing-retry {
+  margin-top: 0.25rem;
+  border-radius: var(--radius-control);
+}
+
+.testing-row-failed,
+.testing-row-reason {
+  background: var(--danger-bg);
+}
+
+.testing-row-overdue th {
+  box-shadow: inset 3px 0 0 var(--danger-line);
+}
+
+.testing-strength {
+  min-width: 5rem;
+  background: var(--inset);
+}
