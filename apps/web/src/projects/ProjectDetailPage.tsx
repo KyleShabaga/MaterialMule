@@ -116,6 +116,12 @@ export function ProjectDetailPage() {
               Team &amp; Permissions
             </Link>
           ) : null}
+          <Link
+            className="button"
+            to={`/projects/${encodeURIComponent(project.id)}/concrete-mixes`}
+          >
+            Concrete mixes
+          </Link>
           {project.canEdit ? (
             <button type="button" onClick={() => setEditing(true)}>
               Edit project

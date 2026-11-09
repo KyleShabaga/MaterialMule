@@ -71,6 +71,10 @@ export function SettingsLayout() {
         <NavLink to="/settings/locations">Locations</NavLink>
         {/* MM-V2-C27: everyone reads the equipment register; Lab Managers change it. */}
         <NavLink to="/settings/equipment">Equipment</NavLink>
+        {/* MM-V2-C37: everyone reads them; Lab Managers and admins change suppliers, admins
+            the holiday calendar. */}
+        <NavLink to="/settings/suppliers">Suppliers</NavLink>
+        <NavLink to="/settings/holidays">Holidays</NavLink>
         {/* MISC-04: Tests and Templates are for Lab Managers and admins only. */}
         {me.permissions.includes('test_catalog.manage') ? (
           <>

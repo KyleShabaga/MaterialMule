@@ -46,6 +46,9 @@ import { ScanPage } from './scanning/ScanPage';
 import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCatalogueSettings';
 import { LocationsPage } from './settings/locations/LocationsPage';
 import { EquipmentSettingsPage } from './settings/equipment/EquipmentSettingsPage';
+import { HolidaysSettingsPage } from './settings/reference/HolidaysSettingsPage';
+import { SuppliersSettingsPage } from './settings/reference/SuppliersSettingsPage';
+import { ProjectMixesPage } from './concrete/mixes/ProjectMixesPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { MyAccessPage } from './settings/access/MyAccessPage';
 import { StaffPage } from './settings/staff/StaffPage';
@@ -157,6 +160,8 @@ export const routes: RouteObject[] = [
                 path: 'projects/:projectId/concrete/mixes/:mixId/propagation',
                 element: <PropagationReviewPage />,
               },
+              // Concrete mixes of a project (MM-V2-C37: discard draft, supplier link).
+              { path: 'projects/:projectId/concrete-mixes', element: <ProjectMixesPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,
@@ -173,6 +178,9 @@ export const routes: RouteObject[] = [
                   { path: 'locations', element: <LocationsPage /> },
                   // Concrete equipment: testing machine and air meters (MM-V2-C27).
                   { path: 'equipment', element: <EquipmentSettingsPage /> },
+                  // Concrete suppliers and the holiday calendar (MM-V2-C37).
+                  { path: 'suppliers', element: <SuppliersSettingsPage /> },
+                  { path: 'holidays', element: <HolidaysSettingsPage /> },
                   // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
                   { path: 'tests', element: <TestsSettingsPage /> },
                   { path: 'templates', element: <TemplatesSettingsPage /> },

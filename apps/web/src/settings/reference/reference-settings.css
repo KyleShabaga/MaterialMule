@@ -1,0 +1,67 @@
+/* Settings → Suppliers and Holidays, and the project mix list (MM-V2-C37). Moderate corner radii
+   only (no pill shapes); rows stack into labelled cards at phone width through .data-table. */
+
+.year-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.year-switcher strong {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: 1.125rem;
+}
+
+.row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.mix-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+
+.mix-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mix-card h3 {
+  margin: 0;
+}
+
+.mix-card dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.mix-card dd {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .mix-card dl {
+    grid-template-columns: 1fr;
+  }
+
+  .mix-card dt {
+    font-weight: 600;
+  }
+
+  .year-switcher button,
+  .mix-card .form-actions button {
+    flex: 1 1 auto;
+  }
+}
