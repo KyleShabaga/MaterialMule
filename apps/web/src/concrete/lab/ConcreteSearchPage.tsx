@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ErrorState, PageHeader } from '../../components/ui';
 import { fetchConcreteSearch, type LoadResult } from './api';
-import { ConcreteSearchForm, ConcreteSearchResults, setLookupPath } from './ConcreteSearch';
+import { ConcreteSearchForm, ConcreteSearchResults } from './ConcreteSearch';
+import { setLookupPath } from './format';
 import './concrete-lab.css';
 
 function useConcreteSearch(q: string, page: number) {
@@ -53,7 +54,7 @@ export function ConcreteSearchPage() {
   return (
     <div className="concrete-lab">
       <PageHeader title="Concrete search" />
-      <ConcreteSearchForm initial={q} />
+      <ConcreteSearchForm key={q} initial={q} />
       <section aria-label="Results" aria-busy={Boolean(q) && load === null}>
         {!q ? null : load === null ? (
           <p className="field-hint">Searching…</p>
@@ -98,6 +99,7 @@ export function SpecimenLookupPage() {
     <div className="concrete-lab">
       <PageHeader title="Specimen lookup" />
       <ConcreteSearchForm
+        key={q}
         initial={q}
         to="/concrete/specimens"
         label="Specimen or set ID"

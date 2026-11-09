@@ -11,6 +11,10 @@ const WORKFLOW_LABEL: Record<string, string> = {
   void: 'Void',
 };
 
+/** Where a set's lookup opens (the letter of a specimen ID search is kept). */
+export const setLookupPath = (setId: string, letter: string | null = null) =>
+  `/concrete/specimens/${encodeURIComponent(setId)}${letter ? `?letter=${letter}` : ''}`;
+
 export const workflowLabel = (state: string) => WORKFLOW_LABEL[state] ?? state;
 
 /** A set's readable name: the permanent ID, else the temporary ID, else "Unnumbered set". */

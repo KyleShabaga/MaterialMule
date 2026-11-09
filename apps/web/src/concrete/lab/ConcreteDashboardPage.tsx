@@ -63,13 +63,17 @@ const GROUPS: { title: string; counts: Count[] }[] = [
  */
 export function ConcreteDashboardPage() {
   const [attempt, setAttempt] = useState(0);
-  const [load, setLoad] = useState<LoadResult<ConcreteDashboardCounts> | null>(null);
+  // Each answer is kept with the attempt it answers; until it arrives the counts read as loading.
+  const [answer, setAnswer] = useState<{
+    attempt: number;
+    load: LoadResult<ConcreteDashboardCounts>;
+  } | null>(null);
+  const load = answer?.attempt === attempt ? answer.load : null;
   const newReportHint = useId();
 
   useEffect(() => {
     let current = true;
-    setLoad(null);
-    void fetchDashboardCounts().then((result) => current && setLoad(result));
+    void fetchDashboardCounts().then((result) => current && setAnswer({ attempt, load: result }));
     return () => {
       current = false;
     };

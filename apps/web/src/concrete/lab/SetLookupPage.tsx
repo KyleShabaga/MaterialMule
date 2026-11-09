@@ -114,28 +114,38 @@ export function SetLookupPage() {
   const [params] = useSearchParams();
   const letter = params.get('letter');
   const [attempt, setAttempt] = useState(0);
-  const [load, setLoad] = useState<LoadResult<SetLookup> | null>(null);
-  const [reschedules, setReschedules] = useState(new Map<string, ConcreteRescheduleEntry[]>());
+  const key = `${setId}|${attempt}`;
+  const [answer, setAnswer] = useState<{
+    key: string;
+    load: LoadResult<SetLookup>;
+    reschedules: Map<string, ConcreteRescheduleEntry[]>;
+  } | null>(null);
+  const load = answer?.key === key ? answer.load : null;
+  const reschedules =
+    answer?.key === key ? answer.reschedules : new Map<string, ConcreteRescheduleEntry[]>();
 
   useEffect(() => {
     let current = true;
-    setLoad(null);
     void fetchSetLookup(setId).then(async (result) => {
       if (!current) return;
-      setLoad(result);
+      setAnswer({ key, load: result, reschedules: new Map() });
       if (!result.ok) return;
       const histories = await Promise.all(
         result.data.set.specimens.map((s) => fetchScheduleHistory(s.id)),
       );
       if (!current) return;
-      setReschedules(
-        new Map(histories.flatMap((h) => (h.ok ? [[h.data.specimenId, h.data.history]] : []))),
-      );
+      setAnswer({
+        key,
+        load: result,
+        reschedules: new Map(
+          histories.flatMap((h) => (h.ok ? [[h.data.specimenId, h.data.history] as const] : [])),
+        ),
+      });
     });
     return () => {
       current = false;
     };
-  }, [setId, attempt]);
+  }, [setId, key]);
 
   if (load === null) {
     return (

@@ -19,12 +19,8 @@ import './concrete-lab.css';
  */
 export function LabSearchBox({ inert }: { inert?: boolean }) {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const [text, setText] = useState('');
   const id = useId();
-  useEffect(() => {
-    if (window.location.pathname === '/search') setText(params.get('q') ?? '');
-  }, [params]);
   function submit(event: FormEvent) {
     event.preventDefault();
     const q = text.trim();

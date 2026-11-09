@@ -9,8 +9,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { DataTable, EmptyState, ErrorState, PageHeader, StatusBadge } from '../../components/ui';
 import { fetchReceivingQueue, type LoadResult } from './api';
-import { setLookupPath } from './ConcreteSearch';
-import { labDateTime, setLabel, workflowLabel } from './format';
+import { labDateTime, setLabel, setLookupPath, workflowLabel } from './format';
 import '../worklist/concrete-worklist.css';
 import './concrete-lab.css';
 

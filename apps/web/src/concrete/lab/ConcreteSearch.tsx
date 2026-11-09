@@ -3,14 +3,15 @@ import {
   type ConcreteSearch,
   type ConcreteSearchResult,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { EmptyState, StatusBadge } from '../../components/ui';
-import { setLabel, workflowLabel } from './format';
+import { setLabel, setLookupPath, workflowLabel } from './format';
 
 /**
  * Concrete search box (MM-V2-C31): concrete content only; the top-bar Lab search covers every
  * lab area. A text input with a search hint, so it never competes with a page's own Search box.
+ * Pages give it `key={q}` so a new search in the URL starts it from that text.
  */
 export function ConcreteSearchForm({
   initial = '',
@@ -28,7 +29,6 @@ export function ConcreteSearchForm({
   const [text, setText] = useState(initial);
   const inputId = useId();
   const hintId = useId();
-  useEffect(() => setText(initial), [initial]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -63,10 +63,6 @@ export function ConcreteSearchForm({
     </form>
   );
 }
-
-/** Where a set's lookup opens (the letter of a specimen ID search is kept). */
-export const setLookupPath = (setId: string, letter: string | null = null) =>
-  `/concrete/specimens/${encodeURIComponent(setId)}${letter ? `?letter=${letter}` : ''}`;
 
 /**
  * Results: one card per field report, its project always shown, every set listed with both
