@@ -68,6 +68,9 @@ describe('security: test sign-in is refused in production (MM-T33 via T18)', () 
         await db.drop();
       }
     },
+    // Builds a whole migrated schema inside the test body (not a hook), so the default 5 s
+    // runs out on loaded CI runners as the migration list grows.
+    60_000,
   );
 
   describe.runIf(testDatabaseUrl && canMakeTestCertificates())('a running production API', () => {
