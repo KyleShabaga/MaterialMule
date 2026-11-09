@@ -156,6 +156,14 @@ export const concreteWorklistQuerySchema = z.strictObject({
   projectId: z.uuid({ error: 'must be an ID' }).optional(),
   /** The business date to read as "today"; defaults to the lab's date now. */
   on: dateSchema.optional(),
+  /**
+   * HOLD view only (MM-V2-C31): just the HOLDs due for review (hold-until date on or before
+   * today), the list the dashboard's "HOLDs due for review" count opens.
+   */
+  holdDue: z
+    .enum(['true', 'false'], { error: 'Use true or false' })
+    .transform((value) => value === 'true')
+    .default(false),
   page: z.coerce.number().int().min(1).default(1),
 });
 export type ConcreteWorklistQuery = z.infer<typeof concreteWorklistQuerySchema>;
@@ -231,6 +239,10 @@ export const concreteWorklistSchema = z.object({
   today: z.string(),
   upcomingThrough: z.string(),
   counts: concreteWorklistCountsSchema,
+  /** HOLD specimens due for review (hold-until on or before today), MM-V2-C31. */
+  holdReviewDue: z.number().int().min(0),
+  /** Whether the HOLD view was narrowed to those due for review. */
+  holdDue: z.boolean(),
   /** Specimens in this view (the total the pages cover). */
   total: z.number().int().min(0),
   page: z.number().int().min(1),
