@@ -328,6 +328,57 @@ Migration `0020_concrete_specimen_sets.sql`; contracts and helpers in
   `concrete_specimen.reschedule` (the lead, a designated reviewer or a concrete-grant Lab Manager).
   The designated reviewers for it are the `concrete_field` scope's.
 
+## Pickup, initial curing and receiving (C06)
+
+Migration `0026_concrete_pickup_receiving.sql`; contracts and the blocker rules in
+`packages/shared/src/concrete-receiving.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-pickup-and-receiving-mm-v2-c06). Source: combined plan
+field-sheet rows "Pickup", "Initial curing" and "Receiving", the Receiving screen, spec page 5
+(CD-29–CD-34, CD-46). API only: the Receiving and pickup screens are later cards.
+
+- **Pickup** (`concrete_specimen_pickup`, one per specimen): the actual collector, date/time,
+  initial-curing minimum and maximum (°C to 0.1), optional curing box and location. Mark picked up
+  (`complete: true`) needs all four (422 `pickup_incomplete`, AC1); `complete: false` saves what
+  is known (missing stays null). Partial pickup: select fewer specimens. Never filled from the
+  Pick up window or the receipt; never before casting (422 `before_casting`).
+- **Pick up window:** 24 h from casting by default, editable per set
+  (`concrete_set_pickup_window`); `verified: false` until CD-62 (CSA/ASTM) is answered. An
+  estimate only: it never records a pickup.
+- **Curing range** (`concrete_curing_standard`): one current standards-based range (specification,
+  edition, min, max), never per project; a change is a new row and the old one is retired. **None
+  is seeded and no value is guessed** (CD-62): without a range, readings are stored unchecked
+  (`curingRange: null`). With one, each pickup keeps the range it was checked against (reference
+  and copied bounds); a later range never rewrites it, and only changed readings are re-checked.
+  A minimum below or maximum above the range is flagged (`min_below_range`, `max_above_range`),
+  notifies the designated reviewers and the lead in-app (`concrete_curing.out_of_range`, C29,
+  targeting the field report) and blocks nothing. It is an **issuance gate** until a reviewer
+  resolves it (`curing-resolution`). The route that maintains ranges (Lab Manager or admin,
+  `concrete_settings.curing_standard.manage`) is not built: no card owns it yet.
+- **Receipt** (`concrete_specimen_receipt`): the actual receiver and date/time and one unmoulded
+  mass in grams to 0.1 g (`numeric(7,1)`; more decimals are refused, never rounded; responses
+  carry the exact decimal text, e.g. `"12345.6"`). Saving it marks the specimen received; each
+  specimen saves on its own (partial arrivals), with or without a pickup record. One per specimen
+  (409 `already_received`); a correction goes through `mass-correction`, with history.
+- **Marker confirmation** ("Permanent IDs added to all received specimens"): per set, needs a
+  permanent ID (409 `set_not_numbered`), and covers the received specimens no earlier
+  confirmation covers; a later arrival needs its own (AC6).
+- **Exceptions** (`concrete_receiving_exception`): `missing` (an expected specimen; never removed
+  from its set), `extra` (never added to a set), `unmatched` (observed marking kept; the actual
+  receipt and mass may be recorded). Resolution records disposition, reason, who, when and the
+  authority source. An extra or unmatched record confirmed as an existing specimen hands its
+  recorded receipt to that specimen (`fromExceptionId`). A resolved missing specimen is no longer
+  expected.
+- **Blockers** (computed, never stored; `GET …/receiving` per set and per report):
+  `pickup_incomplete`, `not_received`, `missing_unresolved`, `identity_unresolved`,
+  `marker_confirmation_missing`; issuance gate `curing_out_of_range_unresolved`. **Not applied to
+  submission yet:** C19 (auto-submission) and the submit command should call
+  `concreteReceivingIssues`. C04's `deferredChecks` still list the two C06 checks as unapplied.
+- **Draft sets:** once any lab record exists for a set, C05's draft edit that replaces its
+  specimens, and its discard, return 409 `set_has_receiving`.
+- **Not here:** the screens and the Awaiting pickup / Partially received lists, scale capture
+  (CD-70), the worklist's curing-temperature exception source (C31), linking an extra specimen into
+  a set as a new specimen (C21), offline caching of the range (C11/C17).
+
 ## Daily lab worklist and rescheduling (C22)
 
 Migration `0022_concrete_specimen_reschedule.sql`; contracts and the date rules in
@@ -511,6 +562,58 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
 - **Who can act** is shown on every action: the routed reviewer or the designated reviewers and the
   lead for review; the lead and Authorized report issuers for issue; never the report's technician
   (owner decision 2026-11-08); personal accounts only.
+
+## Test-result drafts and correction history (C07)
+
+Migration `0027_concrete_test_results.sql`; contracts and the entry-versus-correction rule in
+`packages/shared/src/concrete-test-results.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-test-result-drafts-mm-v2-c07). No screen: the testing
+table is C23 (C08 testing UI). Source: combined plan package 1 (test-result persistence) and the
+owner decisions of 2026-11-08 (C36 lab staff).
+
+- **Attempts:** `concrete_test_result` is one result attempt on a specimen. The client chooses its
+  ID, so saving the same ID again (an exact retry, an offline resend, a second edit) never creates
+  a second attempt; a retest is a new ID with the next `attempt_no`. Attempts are never deleted.
+- **Drafts only.** `state` admits `'draft'` alone. Completed-test semantics, strength, rounding,
+  pass/fail, end preparation, fracture type and failure handling wait for the verified worksheet
+  and methods (owner inputs G2/G8; C23/C25). `calculation_method`, `calculation_method_version` and
+  `report_version_id` are prepared columns that the database keeps empty
+  (`concrete_test_result_method_gated`); no strength is stored or returned anywhere.
+- **Readings:** the machine's maximum load and 0–10 height and diameter readings, each optional.
+  Empty means "not entered", never zero. Units are stored per row: `kN` and `mm`, the only units
+  accepted, and `units_provisional` is always true until the worksheet's units and reading count
+  are verified; the API returns `units.provisional: true` so nothing presents them as validated.
+  The bounds (load under 100 000, dimensions under 10 000, all above 0) are sanity limits only,
+  not unit-specific validation.
+- **Testing machine:** no selector (CD-44). A new attempt records the registered testing machine
+  (C27) if there is one; none registered is fine.
+- **Tester and test date** are values on the result: the actual test date (`tested_on`, separate
+  from the entry time) and the tester (an active staff member with confirmed initials, never LAB;
+  snapshot of name and initials). A new attempt's tester defaults to the person entering it; a
+  later save keeps the recorded tester unless it sends `testerUserId`. A later page default never
+  touches saved results (AC2).
+- **Entry versus correction:** each save compares the proposed values with the saved row
+  (`concreteTestResultChanges`). Filling an empty field is entry; changing or clearing a saved value
+  (tester and test date included) is a correction and needs `reason`. Without one the save is 422
+  `reason_required` with the fields (`corrections`) and nothing is written, so the client keeps
+  its draft (AC3). Initial entry never needs a reason.
+- **History:** every committed save appends `concrete_test_result_revision` (`initial`, `entry` or
+  `correction`; the changed fields with before/after; the reason; the signed-in account and the
+  staff member credited; the time) and the audit event `concrete_test_result.saved` or
+  `.corrected`, in the same transaction. The database refuses a result update without its revision
+  in the same transaction (`concrete_test_result_revision_required`) and any change to a revision.
+- **Concurrency:** `version` 0 creates; otherwise it must equal the saved version (409
+  `version_conflict` with the current result). An exact retry (same key, same body, same account)
+  returns the attempt as it stands; the same key for anything else is 409 `idempotency_key_reused`.
+  A save that changes nothing writes nothing.
+- **Refused:** Void set or report (409 `set_void` / `report_void`); an attempt ID already used on
+  another specimen (409 `result_id_taken`). Receipt (C06) is not required yet; C23 decides when a
+  specimen is ready to test.
+- **Worklist:** drafts don't make a specimen tested; C22's worklist is unchanged until C23 defines
+  a completed test.
+- **Photos:** optional and never blocking; there is no photo column (attachments are C15).
+- **Not here:** the testing grid and table (C08/C23), formulas and rounding, pass/fail and failure
+  notifications (C25), schedules after failure, report output, machine integration.
 
 ## Notes for later cards
 

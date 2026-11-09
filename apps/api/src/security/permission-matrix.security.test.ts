@@ -154,6 +154,12 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-V2-C22: rescheduling a specimen's test (the lead, a designated reviewer or a
   // concrete-grant Lab Manager; personal accounts only, reason required).
   'POST /api/concrete/specimens/:specimenId/reschedule': 'concrete_specimen.reschedule',
+  // MM-V2-C06: resolving a missing / extra / unmatched specimen (the lead, a designated reviewer,
+  // a concrete-grant Lab Manager or the casting technician; personal account, reason) and an
+  // out-of-range curing flag (the lead or a designated concrete_field reviewer).
+  'POST /api/concrete/receiving-exceptions/:exceptionId/resolve':
+    'concrete_receiving_exception.resolve',
+  'POST /api/concrete/specimens/:specimenId/curing-resolution': 'concrete.review',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
