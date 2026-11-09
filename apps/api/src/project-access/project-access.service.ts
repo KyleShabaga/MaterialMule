@@ -157,6 +157,17 @@ export async function projectContext(
 }
 
 const RESCHEDULE = 'concrete_specimen.reschedule';
+/**
+ * MM-V2-C08: capability rows evaluated with the reschedule facts (lead, live concrete_field
+ * reviewers, concrete-grant Lab Managers), as their routes check them: receiving exceptions
+ * (C06) and HOLD release (C26).
+ */
+const CONCRETE_GRANT_SCOPED: ReadonlySet<string> = new Set([
+  RESCHEDULE,
+  'concrete_receiving_exception.resolve',
+  'concrete_ordinary_hold.manage',
+  'concrete_hold.manage',
+]);
 /** Designated reviewers for `concrete_specimen.reschedule` (C05/C22; confirmed by the owner 2026-11-08). */
 export const CONCRETE_RESCHEDULE_REVIEW_SCOPE = 'concrete_field';
 
@@ -454,7 +465,11 @@ export class ProjectAccessService {
         capability(
           user,
           action,
-          action === RESCHEDULE ? reschedule : FIELD_SCOPED.has(action) ? fieldContext : context,
+          CONCRETE_GRANT_SCOPED.has(action)
+            ? reschedule
+            : FIELD_SCOPED.has(action)
+              ? fieldContext
+              : context,
         ),
       ),
     };

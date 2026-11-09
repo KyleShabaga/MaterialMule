@@ -6,7 +6,8 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ROUTE_POLICY, type RoutePolicy } from '../auth/auth.decorators.js';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
-import { can, type AuthUser, type Permission } from '../auth/policy.js';
+import { PROJECT_CAPABILITY_ACTIONS } from '@materialmule/shared';
+import { can, PROJECT_SCOPED, type AuthUser, type Permission } from '../auth/policy.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
 import { loadConfig } from '../config/env.js';
@@ -169,6 +170,15 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // Manager (concrete_hold.manage, a subset of the same callers). Refused before the body.
   'POST /api/concrete/holds/schedule-test': 'concrete_ordinary_hold.manage',
   'POST /api/concrete/holds/authorize-disposal': 'concrete_ordinary_hold.manage',
+};
+
+/**
+ * MM-V2-C08: a second permission the handler checks per item, beyond the one the sweep uses
+ * (C26: authorizing disposal of a failed-specimen hold needs concrete_hold.manage; failed holds
+ * have no Schedule test).
+ */
+const ALSO_CHECKED: Record<string, Permission[]> = {
+  'POST /api/concrete/holds/authorize-disposal': ['concrete_hold.manage'],
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */
@@ -474,6 +484,41 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       if (route.policy.kind === 'public') continue;
       for (const caller of CALLERS) expectedFor(route, caller); // throws when unclassified
     }
+  });
+
+  it('MM-V2-C08: every concrete route is swept, and its project-scoped permission is a listed capability', () => {
+    const concrete = listRoutes().filter((r) => /\/concrete|concrete-/.test(r.template));
+    // C02–C07, C09, C22, C26–C31, C36–C38 (grows with each card; never shrinks unnoticed).
+    expect(concrete.length).toBeGreaterThanOrEqual(80);
+    const checked = new Map<Permission, string[]>();
+    for (const route of concrete) {
+      const key = `${route.method} ${route.template}`;
+      // No concrete route is public or exempt from the sweep.
+      expect(route.policy.kind, key).not.toBe('public');
+      expect(NOT_SWEPT.has(key), key).toBe(false);
+      const permission =
+        route.policy.kind === 'permission'
+          ? route.policy.permission
+          : route.policy.kind === 'active'
+            ? ACTIVE_ROUTE_PERMISSION[key]
+            : undefined;
+      if (permission === undefined) throw new Error(`${key}: unclassified`);
+      for (const p of [...(permission ? [permission] : []), ...(ALSO_CHECKED[key] ?? [])]) {
+        checked.set(p, [...(checked.get(p) ?? []), key]);
+      }
+    }
+    // Per-record rights (the report's technician) are listed on the record instead (C09).
+    const PER_RECORD = new Set<Permission>(['concrete_report.recall']);
+    const unlisted = [...checked.keys()].filter(
+      (p) =>
+        PROJECT_SCOPED.has(p) &&
+        !PER_RECORD.has(p) &&
+        !(PROJECT_CAPABILITY_ACTIONS as readonly string[]).includes(p),
+    );
+    expect(unlisted).toEqual([]);
+    // Every concrete capability in the list is checked by at least one delivered route.
+    const concreteCapabilities = PROJECT_CAPABILITY_ACTIONS.filter((a) => a.startsWith('concrete'));
+    expect(concreteCapabilities.filter((a) => !checked.has(a as Permission))).toEqual([]);
   });
 
   it.each(CALLERS)(

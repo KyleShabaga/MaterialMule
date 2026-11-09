@@ -568,7 +568,8 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
         const entry = caps.capabilities.find((c) => c.action === 'project.edit');
         expect(entry?.allowed, caller).toBe(allowed);
         // Only actions with a route are listed (AO08 Q2): C03 added the mix actions, C09 field
-        // review, C22 the reschedule; the HOLD actions wait for their cards.
+        // review, C22 the reschedule; C08 the receiving-exception (C06) and HOLD (C26) actions.
+        // Actions with no route yet (failure schedules, Void, sync, recovery) stay out.
         expect(
           caps.capabilities.map((c) => c.action).filter((a) => a.startsWith('concrete')),
         ).toEqual([
@@ -576,8 +577,13 @@ describe.runIf(testDatabaseUrl)('concrete settings and authority (MM-V2-C02)', (
           'concrete_mix.approve',
           'concrete.review',
           'concrete_specimen.reschedule',
+          'concrete_receiving_exception.resolve',
+          'concrete_ordinary_hold.manage',
+          'concrete_hold.manage',
         ]);
-        expect(caps.capabilities.map((c) => c.action)).not.toContain('concrete_hold.manage');
+        expect(caps.capabilities.map((c) => c.action)).not.toContain(
+          'concrete_failure_schedule.approve',
+        );
       }
     });
   });
