@@ -109,7 +109,14 @@ describe.runIf(testDatabaseUrl)('concrete pickup and receiving (MM-V2-C06)', () 
                WHERE action LIKE 'concrete_specimen.%' OR action LIKE 'concrete_receiving%'
                   OR action LIKE 'concrete_specimen_set.markers%') AS audit`,
     );
-    return rows[0] as Record<string, number>;
+    return rows[0] as {
+      pickups: number;
+      receipts: number;
+      exceptions: number;
+      confirmations: number;
+      corrections: number;
+      audit: number;
+    };
   }
 
   beforeAll(async () => {
