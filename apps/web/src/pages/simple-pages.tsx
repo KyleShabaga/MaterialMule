@@ -75,6 +75,8 @@ export function SettingsLayout() {
             the holiday calendar. */}
         <NavLink to="/settings/suppliers">Suppliers</NavLink>
         <NavLink to="/settings/holidays">Holidays</NavLink>
+        {/* MM-V2-C32: everyone reads it; admins change it. */}
+        <NavLink to="/settings/report-header">Report header</NavLink>
         {/* MISC-04: Tests and Templates are for Lab Managers and admins only. */}
         {me.permissions.includes('test_catalog.manage') ? (
           <>

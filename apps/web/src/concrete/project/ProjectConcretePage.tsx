@@ -81,7 +81,7 @@ export function ProjectConcretePage() {
           <h2 className="visually-hidden">{current.label}</h2>
           {current.key === 'reports' ? <ReportsTab project={project} /> : null}
           {current.key === 'specimens' ? <SpecimensTab project={project} /> : null}
-          {current.key === 'summary' ? <SummaryTab /> : null}
+          {current.key === 'summary' ? <SummaryTab project={project} /> : null}
           {current.key === 'mixes' ? <MixesTab project={project} /> : null}
           {current.key === 'settings' ? <SettingsTab project={project} /> : null}
         </>

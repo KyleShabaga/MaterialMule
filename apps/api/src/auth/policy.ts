@@ -202,6 +202,9 @@ export type Permission =
   // holiday calendar (admin).
   | 'concrete_settings.supplier.manage'
   | 'concrete_settings.holiday.manage'
+  // MM-V2-C32: the report header printed on issued concrete reports (company name, address,
+  // phone). Admin (proposal: branding is company-level; owner to confirm).
+  | 'concrete_settings.report_header.manage'
   // Lab staff (MM-V2-C36, Kyle 2026-11-08): the Lab Technician role, the Lab Manager role, and
   // the shared LAB account naming the performing staff member (attribution only). Pickup,
   // receipt and mass entry; mass correction; test entry and correction; recording actual
@@ -362,6 +365,8 @@ const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   // MM-V2-C37 (Kyle 2026-11-08): the supplier list and the company holiday calendar.
   'concrete_settings.supplier.manage',
   'concrete_settings.holiday.manage',
+  // MM-V2-C32 (proposal): the report header on issued concrete reports.
+  'concrete_settings.report_header.manage',
 ]);
 
 /** Granted to the project's Lead Project Engineer (project-scoped). */

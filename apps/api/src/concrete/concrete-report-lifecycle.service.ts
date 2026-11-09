@@ -36,6 +36,10 @@ import { intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { ConcreteSpecimenSetsService } from './concrete-specimen-sets.service.js';
 import {
+  ConcreteReportOutputService,
+  type PreparedFieldIssue,
+} from './reports/concrete-report-output.service.js';
+import {
   ConcreteFieldReportsService,
   findReport,
   type ReportRow,
@@ -133,6 +137,7 @@ export class ConcreteReportLifecycleService {
     private readonly database: DatabaseService,
     private readonly reports: ConcreteFieldReportsService,
     private readonly sets: ConcreteSpecimenSetsService,
+    private readonly output: ConcreteReportOutputService,
   ) {}
 
   // -------------------------------------------------------------------------------------------
@@ -318,6 +323,7 @@ export class ConcreteReportLifecycleService {
 
     let versionId: string;
     let route: ConcreteReportRoute | null = null;
+    let issued: { prepared: PreparedFieldIssue; sha256: string; revisionNo: number } | null = null;
     let versionNo: number;
     if (action === 'submit' || action === 'resubmit') {
       const detail = await this.reports.detailOf(client, found, user);
@@ -363,7 +369,16 @@ export class ConcreteReportLifecycleService {
           includeMachineInfo: await projectIncludesMachineInfo(client, found.project_id),
         };
       }
-      await this.transitionVersion(client, action, current, user, context, input);
+      // MM-V2-C32: the template in force and the report number (first issue only; a revision
+      // keeps it), recorded on the version in the same update that issues it; then the PDF is
+      // rendered from the frozen snapshot and stored, all in this transaction.
+      const prepared =
+        action === 'issue' ? await this.output.prepareFieldIssue(client, found, user) : null;
+      await this.transitionVersion(client, action, current, user, context, input, prepared);
+      if (prepared) {
+        const file = await this.output.storeFieldIssue(client, prepared, found, current.id, user);
+        issued = { prepared, sha256: file.sha256, revisionNo: file.revisionNo };
+      }
       await this.updateReport(client, action, found, current, user, to);
     }
 
@@ -405,6 +420,15 @@ export class ConcreteReportLifecycleService {
           ? {
               includePhotos: input.includePhotos ?? false,
               includeMachineInfo: input.includeMachineInfo,
+            }
+          : {}),
+        ...(issued
+          ? {
+              reportNumber: issued.prepared.number.reportNumber,
+              reportRevisionNo: issued.revisionNo,
+              templateId: issued.prepared.template.id,
+              templateRevision: issued.prepared.template.revision,
+              fileSha256: issued.sha256,
             }
           : {}),
         ...(route
@@ -505,6 +529,7 @@ export class ConcreteReportLifecycleService {
     user: AuthUser,
     context: ProjectContext,
     input: Input,
+    prepared: PreparedFieldIssue | null = null,
   ) {
     const comment = input.comment ?? null;
     const sources = (permission: 'concrete.review' | 'report.issue') =>
@@ -546,7 +571,8 @@ export class ConcreteReportLifecycleService {
         await client.query(
           `UPDATE concrete_report_version
            SET state = 'issued', issued_by_user_id = $2, issued_at = now(), issue_source = $3,
-               issue_include_photos = $4, issue_include_machine_info = $5
+               issue_include_photos = $4, issue_include_machine_info = $5,
+               report_number_id = $6, report_template_id = $7
            WHERE id = $1`,
           [
             version.id,
@@ -556,6 +582,8 @@ export class ConcreteReportLifecycleService {
               : 'report_issuer',
             input.includePhotos ?? false,
             input.includeMachineInfo,
+            prepared?.number.id ?? null,
+            prepared?.template.id ?? null,
           ],
         );
         return;
