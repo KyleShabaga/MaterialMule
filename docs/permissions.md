@@ -587,8 +587,9 @@ internal user is refused every lab-staff row.
 | `concrete_settings.air_meter.manage` | Lab Technician, Lab Manager (role alone)                                       | the air-meter register (C27, implemented)                                          |
 | `concrete_sync_conflict.resolve_lab` | Lab Manager (role alone, no project concrete grant), lead, designated reviewer | receiving, test or submitted data (C17)                                            |
 
-- **Routes:** `concrete_test.enter` guards C07's test-result saves; the other three lab-staff
-  rows have no route yet. Each owning card adds its route; `GET /api/me`
+- **Routes:** `concrete_specimen.receive` and `concrete_specimen.mass_correct` guard C06's
+  receiving routes and `concrete_test.enter` guards C07's test-result saves;
+  `concrete_specimen.dispose_record` has no route yet. Each owning card adds its route; `GET /api/me`
   already reports them (and `concrete_sync_conflict.resolve_lab` for Lab Managers) so the UI can
   show the controls. LAB's reported list still equals `LAB_PERMISSIONS`.
 - **A Lab Technician is never a Lab Manager.** It holds only the rows above (and everything any
