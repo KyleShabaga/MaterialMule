@@ -418,9 +418,11 @@ briefing" (worklist structure confirmed by Kyle) and §7 "Scheduling and HOLD".
 - **Reschedule** (`POST /api/concrete/specimens/:specimenId/reschedule`,
   `{ idempotencyKey, version, newAge, reason }`): changes the assigned age in days; the database
   recomputes the target from the casting date (C05 trigger), so a target is always casting + age,
-  never a free date (owner to confirm that an age, not a free date, is what gets chosen). Allowed
-  for a numbered set, or any set once its report is past draft; an unnumbered set on a draft report
-  is 409 `edit_on_draft` (its technician edits the draft, C05). HOLD specimens are 409
+  never a free date (confirmed by the owner, 2026-11-09: a reschedule picks a new age). Allowed
+  only for a numbered set. An unnumbered set on a draft report is 409 `edit_on_draft` (its
+  technician edits the draft, C05); past draft it is 409 `set_not_numbered` ("Number this set
+  first", owner decision 2026-11-09, C38), nothing written or audited, and the worklist shows
+  Reschedule disabled with that reason. HOLD specimens are 409
   `hold_specimen` (C26); Void sets and reports are 409. Each change writes an append-only
   `concrete_specimen_reschedule` row (age and target before and after, who, when, why) and the
   audit event `concrete_specimen.rescheduled`; exact retries are idempotent. C05's
@@ -517,8 +519,9 @@ are untouched.
   `notification_concrete_return_check`): a retried return adds nothing; a later return of a newer
   version is a new notice. A Lab Manager who returns a report they reviewed gets no separate Lab
   Manager notice (AC1); a technician who is also a Lab Manager gets one (AC2). **Which Lab
-  Managers (proposal, owner to confirm):** those holding the project's active concrete Lab Manager
-  grant (C02), or every active Lab Manager when the project has none (`concreteLabManagersFor`).
+  Managers (confirmed by the owner, 2026-11-09):** those holding the project's active concrete Lab
+  Manager grant (C02), or every active Lab Manager when the project has none
+  (`concreteLabManagersFor`).
 - **For the later producers.** Call `notifyConcreteEvent(client, kind, target, '<kind>:<source
 id>', facts)` inside the transaction that records the event, and narrow the kind's key rule to
   the source row in your migration if you want the database to check it. C27 computes equipment
@@ -546,14 +549,16 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
   slump / air out of range and ticket vs spec, duplicate ticket, C27 air-meter flags, C05 specimens
   recorded but not cast. Each is resolved (no longer raised by the live report while the version
   awaits review), documented (`concrete_report_exception_note`, append-only, one per code and field
-  per version; a resubmission starts with none) or open. Mark reviewed waits for none open (AC1),
+  per version; a resubmission starts with none, confirmed by the owner 2026-11-09) or open. Mark reviewed waits for none open (AC1),
   on the screen and in C09's review command. C04's deferred checks (C06, C15, C17, C18, C20) show
   as not yet checked; curing temperature arrives with C06.
 - **Return** needs a comment (AC2; C09 400). **Issue view:** the exact version and its snapshot
   hash, reviewer and date, documented exceptions, "Include photos" (unavailable until C15) and
-  "Include testing machine information" (project setting as the starting value; the issuer chooses
-  when it is unset). Both choices are stored on the issued version (`issue_include_photos`,
-  `issue_include_machine_info`) for C32.
+  "Include testing machine information" (owner decision 2026-11-09, C38: never a forced choice. The
+  screen pre-fills the project setting, Omit when it is unset, and the issuer may override it; a
+  request without `includeMachineInfo` gets the project setting, false when unset). The resolved
+  choices are stored on the issued version (`issue_include_photos`, `issue_include_machine_info`)
+  and in the audit, so the issued record says what was printed (C32).
 - **Who can act** is shown on every action: the routed reviewer or the designated reviewers and the
   lead for review; the lead and Authorized report issuers for issue; never the report's technician
   (owner decision 2026-11-08); personal accounts only.

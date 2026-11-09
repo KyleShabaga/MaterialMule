@@ -38,8 +38,9 @@ export function IssueReportPage() {
       (s) => {
         if (!current) return;
         setSettings(s);
-        // The project's setting is the starting choice; unset means the issuer chooses.
-        setMachine((m) => m ?? s.includeMachineInfo);
+        // MM-V2-C38: the project's setting is the starting choice; unset starts as Omit. The
+        // issuer may change it either way, but is never forced to choose.
+        setMachine((m) => m ?? s.includeMachineInfo ?? false);
       },
       () => current && setSettings(null),
     );
@@ -72,7 +73,7 @@ export function IssueReportPage() {
   const { detail, version, checklist } = load.data;
   const issuedVersion = version.issued;
   const documented = checklist.filter((i) => i.status !== 'open');
-  const block = issueBlock({ me, detail, issuers, machineChoice: machine });
+  const block = issueBlock({ me, detail, issuers });
   const review = version.review;
 
   return (
@@ -205,9 +206,9 @@ export function IssueReportPage() {
                 </div>
                 <p className="field-hint">
                   {settings === null
-                    ? 'The project’s setting couldn’t be read.'
+                    ? 'The project’s setting couldn’t be read: issuing uses it (omitted when unset) unless you choose.'
                     : settings.includeMachineInfo === null
-                      ? 'The project hasn’t set a default: choose one.'
+                      ? 'The project hasn’t set a default, so it’s omitted unless you choose Include.'
                       : `Project setting: ${settings.includeMachineInfo ? 'include' : 'omit'}.`}
                 </p>
               </fieldset>
@@ -246,7 +247,8 @@ export function IssueReportPage() {
               version: detail.version,
               idempotencyKey: crypto.randomUUID(),
               includePhotos: false,
-              includeMachineInfo: machine,
+              // Left out when nothing is chosen yet: the server applies the project setting.
+              ...(machine === null ? {} : { includeMachineInfo: machine }),
             });
             setMessage({ tone: 'ok', text: `Version ${version.versionNo} issued.` });
             reload();
@@ -260,8 +262,12 @@ export function IssueReportPage() {
       >
         <p>
           Version {version.versionNo} is issued exactly as shown, with testing machine information{' '}
-          {machine ? 'included' : 'omitted'} and no photos. It can’t be changed afterwards;
-          corrections make a linked revision.
+          {machine === null
+            ? 'as the project setting says (omitted when unset)'
+            : machine
+              ? 'included'
+              : 'omitted'}{' '}
+          and no photos. It can’t be changed afterwards; corrections make a linked revision.
         </p>
       </ConfirmDialog>
     </div>

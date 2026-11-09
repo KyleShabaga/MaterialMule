@@ -307,6 +307,23 @@ function ProjectGroup({
                   >
                     Reschedule
                   </button>
+                ) : group.canReschedule && needsNumber(row) ? (
+                  // MM-V2-C38: past draft, an unnumbered set can't be rescheduled (server 409
+                  // `set_not_numbered`), so the action shows why instead of disappearing.
+                  <span className="concrete-action-blocked">
+                    <button
+                      type="button"
+                      className="compact"
+                      disabled
+                      aria-label={`Reschedule ${specimenLabel(row)}`}
+                      aria-describedby={`needs-number-${row.specimenId}`}
+                    >
+                      Reschedule
+                    </button>
+                    <span id={`needs-number-${row.specimenId}`} className="concrete-action-reason">
+                      Number this set first
+                    </span>
+                  </span>
                 ) : (
                   '—'
                 ),
@@ -315,6 +332,16 @@ function ProjectGroup({
         />
       </TableScroll>
     </section>
+  );
+}
+
+/** An unnumbered set on a report past draft: rescheduling waits for its permanent number. */
+function needsNumber(row: ConcreteWorklistRow): boolean {
+  return (
+    !row.reschedulable &&
+    row.identity.permanentId === null &&
+    row.reportState !== 'draft' &&
+    row.assignedAge !== CONCRETE_HOLD_AGE
   );
 }
 

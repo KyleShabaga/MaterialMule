@@ -314,6 +314,14 @@ export class ConcreteWorklistService {
         if (specimen.permanent_number === null && specimen.workflow_state === 'draft') {
           throw new ConflictException({ code: 'edit_on_draft' });
         }
+        // MM-V2-C38 (owner decision 2026-11-09): past draft, a set is rescheduled only once it has
+        // its permanent number. Number it first.
+        if (specimen.permanent_number === null) {
+          throw new ConflictException({
+            code: 'set_not_numbered',
+            message: 'Number this set first: an unnumbered set can’t be rescheduled.',
+          });
+        }
         if (String(input.newAge) === specimen.assigned_age) {
           throw new UnprocessableEntityException({
             code: 'no_change',
@@ -501,9 +509,7 @@ function toRow(
       holidays,
     }),
     rescheduleCount: row.reschedules,
-    reschedulable:
-      assignedAge !== CONCRETE_HOLD_AGE &&
-      (row.permanent_number !== null || row.workflow_state !== 'draft'),
+    reschedulable: assignedAge !== CONCRETE_HOLD_AGE && row.permanent_number !== null,
     version: row.version,
   };
 }
