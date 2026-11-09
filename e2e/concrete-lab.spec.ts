@@ -73,6 +73,8 @@ async function castTwoProjects(page: Page): Promise<Fixture> {
 }
 
 async function openMenu(page: Page) {
+  // Wait for the shell first: on a phone the Menu button only exists once the page has rendered.
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Sign out' })).toBeAttached();
   if (await page.getByRole('button', { name: 'Menu' }).isVisible()) {
     await page.getByRole('button', { name: 'Menu' }).click();
   }
