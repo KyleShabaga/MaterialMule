@@ -60,7 +60,8 @@ const toAge = (value: string): ConcreteSpecimenAge =>
 /**
  * Every specimen the worklist can show: a set that isn't Void, on a report that isn't Void, with a
  * known casting time and an assigned age. Untested: no concrete result exists yet (C07/C23), so
- * C23 adds its "not yet tested" condition here.
+ * C23 adds its "not yet tested" condition here. A specimen authorized for disposal (C26) is
+ * leaving the lab and is on no worklist view.
  */
 const SCHEDULED = `
   FROM (SELECT $1::date AS today, $2::date AS upcoming_through, $3::uuid AS project_id) q
@@ -70,7 +71,8 @@ const SCHEDULED = `
   JOIN project p ON p.id = sp.project_id
   WHERE st.voided_at IS NULL AND r.workflow_state <> 'void' AND r.cast_at IS NOT NULL
     AND sp.assigned_age IS NOT NULL
-    AND (q.project_id IS NULL OR sp.project_id = q.project_id)`;
+    AND (q.project_id IS NULL OR sp.project_id = q.project_id)
+    AND NOT EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)`;
 
 /**
  * The date views (q.today, q.upcoming_through), the same rule as the shared
@@ -83,6 +85,12 @@ const VIEW_PREDICATE: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string
              AND sp.target_date <= q.upcoming_through`,
   hold: `sp.assigned_age = 'HOLD' AND sp.hold_expires_on IS NOT NULL`,
 };
+
+/**
+ * HOLDs due for review (MM-V2-C31): the hold-until date has come (the `hold_review_due` flag's
+ * rule). Nothing is released or disposed of automatically.
+ */
+const HOLD_REVIEW_DUE = `${VIEW_PREDICATE.hold} AND sp.hold_expires_on <= q.today`;
 
 const VIEW_ORDER: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string> = {
   today: 'sp.target_date',
@@ -166,7 +174,7 @@ export class ConcreteWorklistService {
     const { rows: countRows } = await db.query<Record<string, number>>(
       `SELECT ${Object.entries(VIEW_PREDICATE)
         .map(([view, predicate]) => `count(*) FILTER (WHERE ${predicate})::int AS ${view}`)
-        .join(', ')}
+        .join(', ')}, count(*) FILTER (WHERE ${HOLD_REVIEW_DUE})::int AS hold_review_due
        ${SCHEDULED}`,
       params,
     );
@@ -193,6 +201,8 @@ export class ConcreteWorklistService {
       today,
       upcomingThrough,
       counts,
+      holdReviewDue: countRows[0]?.hold_review_due ?? 0,
+      holdDue: input.view === 'hold' && input.holdDue,
       page: input.page,
       pageSize: CONCRETE_WORKLIST_PAGE_SIZE,
       projects: projects.map((p) => ({ id: p.id, projectNumber: p.project_number, name: p.name })),
@@ -202,7 +212,8 @@ export class ConcreteWorklistService {
       return { ...base, total: exceptions.items.length, groups: [], exceptions: exceptions.items };
     }
 
-    const predicate = VIEW_PREDICATE[input.view];
+    const predicate =
+      input.view === 'hold' && input.holdDue ? HOLD_REVIEW_DUE : VIEW_PREDICATE[input.view];
     const { rows } = await db.query<WorklistRowSql>(
       `SELECT sp.id AS specimen_id, sp.set_id, st.field_report_id, sp.project_id,
               p.project_number, p.name AS project_name, sp.letter, st.temporary_id,
@@ -307,6 +318,12 @@ export class ConcreteWorklistService {
         if (specimen.assigned_age === CONCRETE_HOLD_AGE) {
           throw new ConflictException({ code: 'hold_specimen' });
         }
+        // A specimen authorized for disposal keeps its age (C26; the database refuses it too).
+        const { rowCount: disposing } = await client.query(
+          'SELECT 1 FROM concrete_specimen_disposal WHERE specimen_id = $1',
+          [specimen.id],
+        );
+        if (disposing) throw new ConflictException({ code: 'disposal_authorized' });
         if (specimen.target_date === null || specimen.casting_date === null) {
           throw new ConflictException({ code: 'no_casting_time' });
         }

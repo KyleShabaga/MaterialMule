@@ -1,0 +1,83 @@
+/* Lab Testing → HOLD and the Ready for disposal concrete filter (MM-V2-C26). Desktop table with
+   multi-select that stacks on phones (DataTable). Moderate corner radii from the design tokens:
+   never pill shapes. */
+
+.hold-filters,
+.hold-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+.hold-actions button {
+  min-height: 2.75rem;
+  border-radius: var(--radius-control);
+}
+
+.hold-notice {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-control);
+  background: var(--accent-bg);
+}
+
+.hold-history {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.hold-history ul,
+.hold-confirm-list {
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+
+.hold-confirm-list {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.hold-dialog-heading {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-ink, inherit);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.disposal-type-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.disposal-type-filter button {
+  min-height: 2.75rem;
+  border-radius: var(--radius-control);
+}
+
+.disposal-type-filter button[aria-pressed='true'] {
+  font-weight: 600;
+  background: var(--accent-bg);
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+}
+
+@media (max-width: 40rem) {
+  .hold-filters label,
+  .hold-filters select {
+    width: 100%;
+  }
+}

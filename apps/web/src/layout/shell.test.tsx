@@ -72,6 +72,7 @@ describe('navigation', () => {
       'Lab Testing',
       'Disposal & Retention',
       'Concrete Review',
+      'Concrete',
       'Projects',
       'Settings',
     ]);
@@ -82,6 +83,7 @@ describe('navigation', () => {
       labTesting: false,
       disposalRetention: false,
       concreteReview: false,
+      concreteLab: false,
     }).map((i) => i.label);
     expect(labels).toEqual([
       'Dashboard',
@@ -95,6 +97,7 @@ describe('navigation', () => {
         labTesting: true,
         disposalRetention: false,
         concreteReview: false,
+        concreteLab: false,
       }).map((i) => i.label),
     ).toContain('Lab Testing');
   });

@@ -67,6 +67,8 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0026_concrete_pickup_receiving',
       '0027_concrete_test_results',
       '0028_concrete_reference_data',
+      '0029_concrete_hold_disposal',
+      '0030_concrete_search_indexes',
     ]);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);

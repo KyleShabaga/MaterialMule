@@ -6,7 +6,9 @@ import { formatExpiry } from '../lib/format';
 import { NotificationsBell } from '../notifications/NotificationsBell';
 import { useMe, useSession } from '../session/context';
 import { DonkeyMark } from './DonkeyMark';
-import { accountBadge, visibleNavItems } from './nav';
+import { LabSearchBox } from '../concrete/lab/LabSearchPage';
+import { FEATURES } from '../features';
+import { accountBadge, navGroupsFor, type NavItem } from './nav';
 import { NavIcon } from './NavIcon';
 import { SidebarFooter } from './SidebarFooter';
 import { useFocusPageHeading } from './useFocusPageHeading';
@@ -20,7 +22,25 @@ export function AppLayout() {
   const badge = accountBadge(me);
   const canSeePending = me.permissions.includes('action_item.read');
   const canSeeNotifications = me.permissions.includes('notification.read');
+  const nav = navGroupsFor(me);
+  // MM-V2-C31: Lab search for every session that can read lab records (LAB included).
+  const canSearch = FEATURES.concreteLab && me.permissions.includes('inventory.read');
   useFocusPageHeading();
+
+  const navLinks = (items: NavItem[]) =>
+    items.map((item) => (
+      <li key={item.to}>
+        <NavLink
+          to={item.to}
+          end={item.to === '/' || item.to === '/concrete'}
+          // Close the phone drawer once a destination is chosen.
+          onClick={() => setMenuOpen(false)}
+        >
+          <NavIcon to={item.to} />
+          {item.label}
+        </NavLink>
+      </li>
+    ));
 
   // MTR-137: while the phone drawer is open, what it covers is inert; focus starts on the first
   // link, and Escape or a tap outside closes it and returns focus to Menu.
@@ -80,6 +100,7 @@ export function AppLayout() {
           </span>
           <span className="app-name">Material Mule</span>
         </Link>
+        {canSearch ? <LabSearchBox inert={menuOpen} /> : null}
         <div className="identity" aria-label="Signed in user" inert={menuOpen}>
           <span className="identity-name">
             {me.displayName}
@@ -110,22 +131,20 @@ export function AppLayout() {
         ) : null}
       </header>
       <nav id="side-nav" className="side-nav" aria-label="Main" ref={navRef}>
-        <p className="nav-heading">Primary navigation</p>
-        <ul>
-          {visibleNavItems().map((item) => (
-            <li key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.to === '/'}
-                // Close the phone drawer once a destination is chosen.
-                onClick={() => setMenuOpen(false)}
-              >
-                <NavIcon to={item.to} />
-                {item.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+        <p className="nav-heading" id="nav-primary">
+          Primary navigation
+        </p>
+        <ul aria-labelledby="nav-primary">{navLinks(nav.main)}</ul>
+        {nav.concreteLab.length > 0 ? (
+          <>
+            <p className="nav-heading" id="nav-concrete-lab">
+              Concrete Lab
+            </p>
+            <ul aria-labelledby="nav-concrete-lab" className="nav-group-concrete-lab">
+              {navLinks(nav.concreteLab)}
+            </ul>
+          </>
+        ) : null}
         <SidebarFooter />
       </nav>
       <main id="main" className="app-main" tabIndex={-1} inert={menuOpen}>

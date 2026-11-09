@@ -12,6 +12,11 @@ export const FEATURES = {
   disposalRetention: true,
   /** MM-V2-C28: Concrete review (queue, review and issue of field reports). */
   concreteReview: true,
+  /**
+   * MM-V2-C31: the Concrete dashboard, the Concrete Lab workspace (role-based navigation),
+   * Specimen lookup, Concrete search and the top-bar Lab search.
+   */
+  concreteLab: true,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURES;

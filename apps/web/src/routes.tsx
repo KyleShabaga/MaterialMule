@@ -13,6 +13,7 @@ import { SampleTagsPage } from './lab/SampleTagsPage';
 import { WorkedProgram } from './lab/WorkedProgram';
 import { WorklistPage } from './lab/WorklistPage';
 import { ConcreteWorklistPage } from './concrete/worklist/ConcreteWorklistPage';
+import { HoldManagementPage } from './concrete/holds/HoldManagementPage';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
 import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
@@ -57,6 +58,11 @@ import { TestSignInPage } from './TestSignInPage';
 import { IssueReportPage } from './concrete-review/IssueReportPage';
 import { ReviewQueuePage } from './concrete-review/ReviewQueuePage';
 import { ReviewReportPage } from './concrete-review/ReviewReportPage';
+import { ConcreteDashboardPage } from './concrete/lab/ConcreteDashboardPage';
+import { ConcreteReceivingPage } from './concrete/lab/ConcreteReceivingPage';
+import { ConcreteSearchPage, SpecimenLookupPage } from './concrete/lab/ConcreteSearchPage';
+import { LabSearchPage } from './concrete/lab/LabSearchPage';
+import { SetLookupPage } from './concrete/lab/SetLookupPage';
 
 const featureRoutes: RouteObject[] = [
   ...(FEATURES.labTesting
@@ -70,6 +76,8 @@ const featureRoutes: RouteObject[] = [
             { path: 'programs', element: <ProgramsPage /> },
             // Concrete breaks: the daily concrete lab worklist (MM-V2-C22).
             { path: 'concrete', element: <ConcreteWorklistPage /> },
+            // HOLD management and bulk HOLD actions (MM-V2-C26).
+            { path: 'concrete/holds', element: <HoldManagementPage /> },
             { path: 'programs/new', element: <ProgramEditor draft={null} /> },
             {
               path: 'programs/:programId',
@@ -101,6 +109,17 @@ const featureRoutes: RouteObject[] = [
         { path: 'concrete/review', element: <ReviewQueuePage /> },
         { path: 'concrete/review/:reportId', element: <ReviewReportPage /> },
         { path: 'concrete/review/:reportId/issue', element: <IssueReportPage /> },
+      ]
+    : []),
+  ...(FEATURES.concreteLab
+    ? [
+        // MM-V2-C31: Concrete dashboard, Concrete Lab workspace, search and specimen lookup.
+        { path: 'concrete', element: <ConcreteDashboardPage /> },
+        { path: 'concrete/receiving', element: <ConcreteReceivingPage /> },
+        { path: 'concrete/search', element: <ConcreteSearchPage /> },
+        { path: 'concrete/specimens', element: <SpecimenLookupPage /> },
+        { path: 'concrete/specimens/:setId', element: <SetLookupPage /> },
+        { path: 'search', element: <LabSearchPage /> },
       ]
     : []),
 ];

@@ -464,6 +464,52 @@ briefing" (worklist structure confirmed by Kyle) and §7 "Scheduling and HOLD".
   failure-triggered recommendations and their approval (C25, `concrete_failure_schedule.approve`),
   the Daily lab briefing dashboard counts, testing-age tolerance windows (open input).
 
+### HOLD management, bulk actions and disposal (C26)
+
+Migration `0029_concrete_hold_disposal.sql`; contracts in `packages/shared/src/concrete-holds.ts`;
+routes in [permissions.md](permissions.md#concrete-hold-management-and-disposal-mm-v2-c26).
+Screens: Lab Testing → **HOLD** (`/lab-testing/concrete/holds`) and the MISC-13 **Ready for
+disposal** card on Disposal & Retention, which gained a type filter (Storage units | Concrete
+specimens; owner decision 2026-11-08: one list, not a separate one). Source: combined plan
+"HOLD retention and disposition" (HOLD layout, bulk HOLD actions and the actual-disposal workflow
+confirmed by Kyle).
+
+- **Two kinds of hold, kept apart.** _Ordinary HOLD_: a spare specimen assigned HOLD (C05),
+  hold-until = casting + the set's saved HOLD days. _Failed-specimen hold_: a row in
+  `concrete_specimen_failure_hold` on a tested specimen; **C25 places it** (C26 only reads and
+  releases it). Reaching an ordinary HOLD date never releases a failed hold.
+- **HOLD table** (`GET /api/concrete/holds?kind=&status=&projectId=&on=&page=`): project,
+  specimen ID, casting date, HOLD expiry, kind and status. Status: _On hold_, _Review due_ (expiry
+  reached, a flag only, AC3), _Disposal authorized_, _Disposed_. Filters: open (default),
+  disposal authorized, disposed, all. Each row says which actions the caller has now.
+- **Schedule test** (ordinary HOLD only): choose an age in days; the target is casting + age
+  (owner decision via C22/C38: an age, not a free date). Numbered sets only: an unnumbered set's
+  ages change on its draft report (C05) and C38 refuses it once the report is past draft. Writes
+  `concrete_specimen_hold_schedule` (previous hold-until, new age and target, reason, who); the
+  age guard lets a numbered set's specimen leave HOLD only with that row in the same transaction.
+  The specimen then appears on the worklist on its target date.
+- **Authorize disposal** (reason required): writes the authorization on
+  `concrete_specimen_disposal` (which hold kind it released, who, when, why). It never records
+  removal. Authorized specimens leave the open HOLD list and every worklist view, refuse
+  reschedule (409 `disposal_authorized`) and any age change in the database.
+- **Record disposal** (lab staff): the actual removal date/time (not before the authorization, to
+  the minute; not in the future) and the performing person (LAB must name one; a personal account
+  records as itself). Written once; the authorization and removal never change.
+- **Bulk:** every command takes 1 to 200 specimens (with their versions for release), the UI shows
+  a confirmation list (each specimen and its change), and it is all-or-nothing: 403 `forbidden`
+  with the `specimens` the caller may not act on, else 409 `not_eligible` with one `problems`
+  entry per specimen. One `concrete_hold_command` row (idempotency key; exact retries return the
+  same result) and one history row plus one audit event per specimen
+  (`concrete_specimen.hold_test_scheduled`, `concrete_specimen.disposal_authorized`,
+  `concrete_specimen.disposed`): AC1.
+- **History:** `GET /api/concrete/specimens/:specimenId/hold-history` (failure hold, test
+  scheduled, disposal authorized, disposed; the recording account when it differs from the
+  performer).
+- **Not here:** placing failed-specimen holds and pass/fail (C24/C25); passing tested specimens
+  entering disposal (no result is final and pass/fail is undefined until C23/C24; the disposal
+  records and Record disposal are kind-agnostic, so that card adds an entry path); revoking a
+  disposal authorization (not in the card; owner to confirm); photos (C15).
+
 - **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
   project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
   prefix (C18). Add set detail in your own migration and extend `review.deferredChecks`'s
@@ -593,6 +639,43 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
 - **Who can act** is shown on every action: the routed reviewer or the designated reviewers and the
   lead for review; the lead and Authorized report issuers for issue; never the report's technician
   (owner decision 2026-11-08); personal accounts only.
+
+## Dashboard, Lab workspace and search (C31)
+
+Contracts in `packages/shared/src/concrete-lab.ts`; routes in
+[permissions.md](permissions.md#concrete-dashboard-lab-workspace-and-search-mm-v2-c31); migration
+`0030_concrete_search_indexes.sql` (indexes only). Source: Combined Plan "Daily lab briefing",
+"Search by any known reference" and the Concrete Lab workspace proposal.
+
+- **Concrete dashboard** (`/concrete`): Awaiting pickup, Awaiting receiving, Tests due today, Tests
+  overdue, HOLDs due for review, Awaiting review and Awaiting issuance. Each count is read from the
+  list it opens (AC3): the receiving queue below, C22's worklist (`counts`, plus `holdReviewDue`
+  and the HOLD view's `holdDue=true` filter: hold-until on or before today) and C28's review
+  queue `counts`. Shortcuts: New field report (disabled until the field form exists) and Open
+  testing table (`/lab-testing/concrete`).
+- **Receiving queue** (`GET /api/concrete/receiving-queue`): one row per set with specimens in the
+  stage. A specimen is awaiting pickup until a completed pickup, awaiting receiving until its
+  receipt; a resolved Missing disposition takes it off both (C06's rule). Void sets and reports and
+  sets without a casting time are left out. **My reports** (the report's technician is the caller)
+  come first and are counted separately (`mineTotal`); the rest stay listed. The screen
+  (`/concrete/receiving`) shows them as two sections.
+- **Concrete search** (`GET /api/concrete/search`): set aliases exactly (`26-05`, `TMP-D07-001`,
+  or a specimen ID such as `26-05B`, which keeps the letter) and from their start; ticket, project
+  number, paper Field ID and mix number from their start; technician name (contains) or initials;
+  a YYYY-MM-DD casting date (America/Edmonton). Ranked by the best match (`CONCRETE_SEARCH_MATCHES`
+  order), then the latest casting. One result per field report with its project and every set; a
+  number that repeats across projects lists every match and says so (`projectCount`, AC1). Each
+  branch reads at most 500 candidates; pages of 25 (max 50).
+- **Specimen lookup** (`/concrete/specimens`): type or scan the ID; one exact set match opens it,
+  otherwise the matches are listed with their projects. The set page (`/concrete/specimens/:setId`)
+  reads C05's set, C06's receiving record, C04's report and C22's schedule history and shows the
+  project, cast information, each specimen's age, test date, receiving state and mass, and one
+  history (cast, pickups, receipts, mass corrections, marker confirmations, exceptions,
+  reschedules, Void). Test results join it with C07/C23.
+- **Lab search** (top bar, `/search`): storage units, projects and concrete records side by side,
+  each from its area's own search.
+- **Concrete Lab workspace:** lab staff (C36) see a Concrete Lab menu group under the main menu;
+  navigation never grants permission.
 
 ## Test-result drafts and correction history (C07)
 

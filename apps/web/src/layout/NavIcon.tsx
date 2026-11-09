@@ -59,9 +59,31 @@ const ICONS: Record<
   },
 };
 
+// MM-V2-C31: the Concrete dashboard (a test cylinder) and Specimen lookup (a magnifier), drawn to
+// match with even-odd fills. The other Concrete Lab links reuse their area's icon.
+ICONS['/concrete'] = {
+  viewBox: '0 0 18 20',
+  width: 18,
+  height: 20,
+  fillRule: 'evenodd',
+  d: 'M9 0C13.4 0 18 1.3 18 3.5V16.5C18 18.7 13.4 20 9 20C4.6 20 0 18.7 0 16.5V3.5C0 1.3 4.6 0 9 0M2 6.2V16.3C2.6 17 5.3 18 9 18C12.7 18 15.4 17 16 16.3V6.2C14.3 6.8 11.7 7 9 7C6.3 7 3.7 6.8 2 6.2M9 2C5.3 2 2.6 2.9 2.1 3.5C2.6 4.1 5.3 5 9 5C12.7 5 15.4 4.1 15.9 3.5C15.4 2.9 12.7 2 9 2',
+};
+ICONS['/concrete/specimens'] = {
+  viewBox: '0 0 20 20',
+  width: 20,
+  height: 20,
+  fillRule: 'evenodd',
+  d: 'M8 0C12.4 0 16 3.6 16 8C16 9.8 15.4 11.5 14.4 12.9L20 18.6L18.6 20L12.9 14.4C11.5 15.4 9.8 16 8 16C3.6 16 0 12.4 0 8C0 3.6 3.6 0 8 0M8 2C4.7 2 2 4.7 2 8C2 11.3 4.7 14 8 14C11.3 14 14 11.3 14 8C14 4.7 11.3 2 8 2',
+};
+const ALIASES: Record<string, string> = {
+  '/concrete/receiving': '/receiving-log',
+  '/lab-testing/concrete': '/lab-testing',
+  '/settings/equipment': '/settings',
+};
+
 /** The menu icon for a route, or nothing for areas without one. Decorative: the link text names it. */
 export function NavIcon({ to }: { to: string }) {
-  const icon = ICONS[to];
+  const icon = ICONS[to] ?? ICONS[ALIASES[to] ?? ''];
   if (!icon) return <span className="nav-icon" aria-hidden="true" />;
   return (
     <span className="nav-icon" aria-hidden="true">
