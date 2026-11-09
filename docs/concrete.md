@@ -431,6 +431,52 @@ briefing" (worklist structure confirmed by Kyle) and §7 "Scheduling and HOLD".
   failure-triggered recommendations and their approval (C25, `concrete_failure_schedule.approve`),
   the Daily lab briefing dashboard counts, testing-age tolerance windows (open input).
 
+### HOLD management, bulk actions and disposal (C26)
+
+Migration `0029_concrete_hold_disposal.sql`; contracts in `packages/shared/src/concrete-holds.ts`;
+routes in [permissions.md](permissions.md#concrete-hold-management-and-disposal-mm-v2-c26).
+Screens: Lab Testing → **HOLD** (`/lab-testing/concrete/holds`) and the MISC-13 **Ready for
+disposal** card on Disposal & Retention, which gained a type filter (Storage units | Concrete
+specimens; owner decision 2026-11-08: one list, not a separate one). Source: combined plan
+"HOLD retention and disposition" (HOLD layout, bulk HOLD actions and the actual-disposal workflow
+confirmed by Kyle).
+
+- **Two kinds of hold, kept apart.** _Ordinary HOLD_: a spare specimen assigned HOLD (C05),
+  hold-until = casting + the set's saved HOLD days. _Failed-specimen hold_: a row in
+  `concrete_specimen_failure_hold` on a tested specimen; **C25 places it** (C26 only reads and
+  releases it). Reaching an ordinary HOLD date never releases a failed hold.
+- **HOLD table** (`GET /api/concrete/holds?kind=&status=&projectId=&on=&page=`): project,
+  specimen ID, casting date, HOLD expiry, kind and status. Status: _On hold_, _Review due_ (expiry
+  reached, a flag only, AC3), _Disposal authorized_, _Disposed_. Filters: open (default),
+  disposal authorized, disposed, all. Each row says which actions the caller has now.
+- **Schedule test** (ordinary HOLD only): choose an age in days; the target is casting + age
+  (owner decision via C22/C38: an age, not a free date). Numbered sets only: an unnumbered set's
+  ages change on its draft report (C05) and C38 refuses it once the report is past draft. Writes
+  `concrete_specimen_hold_schedule` (previous hold-until, new age and target, reason, who); the
+  age guard lets a numbered set's specimen leave HOLD only with that row in the same transaction.
+  The specimen then appears on the worklist on its target date.
+- **Authorize disposal** (reason required): writes the authorization on
+  `concrete_specimen_disposal` (which hold kind it released, who, when, why). It never records
+  removal. Authorized specimens leave the open HOLD list and every worklist view, refuse
+  reschedule (409 `disposal_authorized`) and any age change in the database.
+- **Record disposal** (lab staff): the actual removal date/time (not before the authorization, to
+  the minute; not in the future) and the performing person (LAB must name one; a personal account
+  records as itself). Written once; the authorization and removal never change.
+- **Bulk:** every command takes 1 to 200 specimens (with their versions for release), the UI shows
+  a confirmation list (each specimen and its change), and it is all-or-nothing: 403 `forbidden`
+  with the `specimens` the caller may not act on, else 409 `not_eligible` with one `problems`
+  entry per specimen. One `concrete_hold_command` row (idempotency key; exact retries return the
+  same result) and one history row plus one audit event per specimen
+  (`concrete_specimen.hold_test_scheduled`, `concrete_specimen.disposal_authorized`,
+  `concrete_specimen.disposed`): AC1.
+- **History:** `GET /api/concrete/specimens/:specimenId/hold-history` (failure hold, test
+  scheduled, disposal authorized, disposed; the recording account when it differs from the
+  performer).
+- **Not here:** placing failed-specimen holds and pass/fail (C24/C25); passing tested specimens
+  entering disposal (no result is final and pass/fail is undefined until C23/C24; the disposal
+  records and Record disposal are kind-agnostic, so that card adds an entry path); revoking a
+  disposal authorization (not in the card; owner to confirm); photos (C15).
+
 - **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
   project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
   prefix (C18). Add set detail in your own migration and extend `review.deferredChecks`'s

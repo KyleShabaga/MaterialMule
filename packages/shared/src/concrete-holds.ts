@@ -42,7 +42,12 @@ export const CONCRETE_HOLD_STATUS_LABEL: Record<ConcreteHoldStatus, string> = {
 };
 
 /** The HOLD table's status filter: open = on hold or review due. */
-export const CONCRETE_HOLD_STATUS_FILTERS = ['open', 'disposal_authorized', 'disposed', 'all'] as const;
+export const CONCRETE_HOLD_STATUS_FILTERS = [
+  'open',
+  'disposal_authorized',
+  'disposed',
+  'all',
+] as const;
 export type ConcreteHoldStatusFilter = (typeof CONCRETE_HOLD_STATUS_FILTERS)[number];
 
 export const CONCRETE_HOLD_PAGE_SIZE = 100;

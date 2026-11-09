@@ -361,10 +361,18 @@ export class ConcreteHoldsService {
           ...blank,
           kind: 'disposed',
           at: d.disposal_recorded_at.toISOString(),
-          by: person(d.disposed_by_user_id, d.disposed_by_initials_snapshot, d.disposed_by_name_snapshot)!,
+          by: person(
+            d.disposed_by_user_id,
+            d.disposed_by_initials_snapshot,
+            d.disposed_by_name_snapshot,
+          )!,
           recordedBy:
             d.recorder_id && d.recorder_id !== d.disposed_by_user_id
-              ? { userId: d.recorder_id, initials: d.recorder_initials, name: d.recorder_name ?? '' }
+              ? {
+                  userId: d.recorder_id,
+                  initials: d.recorder_initials,
+                  name: d.recorder_name ?? '',
+                }
               : null,
           disposedAt: d.disposed_at.toISOString(),
           commandId: d.disposal_command_id,
@@ -378,9 +386,7 @@ export class ConcreteHoldsService {
   /** Concrete specimens authorized for disposal and not yet removed (MISC-13 list filter). */
   async ready(query: unknown, user: AuthUser): Promise<ConcreteDisposalReady> {
     const input = parseBody(concreteDisposalReadyQuerySchema, query);
-    const { rows } = await this.database.pool.query<
-      HeldSql & { total: number }
-    >(
+    const { rows } = await this.database.pool.query<HeldSql & { total: number }>(
       `SELECT ${ROW_COLUMNS}, count(*) OVER ()::int AS total
        FROM concrete_specimen sp
        JOIN concrete_specimen_set st ON st.id = sp.set_id
@@ -450,82 +456,89 @@ export class ConcreteHoldsService {
       newAge: input.newAge,
       reason: input.reason,
     });
-    return this.command('schedule_test', input.idempotencyKey, hash, input.items, user, async (client, facts, authority) => {
-      const problems: Problem[] = [];
-      const refused: string[] = [];
-      for (const item of input.items) {
-        const s = facts.get(item.specimenId);
-        if (!s) {
-          problems.push({ specimenId: item.specimenId, code: 'not_found' });
-          continue;
-        }
-        if (s.has_failure_hold || s.hold_kind === 'failed') {
-          problems.push({ specimenId: s.specimen_id, code: 'failed_hold' });
-          continue;
-        }
-        if (!(await authority(s.project_id)).ordinary) {
-          refused.push(s.specimen_id);
-          continue;
-        }
-        const code = commonProblem(s, item.version);
-        if (code) problems.push({ specimenId: s.specimen_id, code });
-        else if (s.casting_date === null || s.hold_expires_on === null) {
-          problems.push({ specimenId: s.specimen_id, code: 'no_casting_time' });
-        } else if (s.permanent_number === null) {
-          // Owner decision (C38): an unnumbered set's ages change on its draft report only.
-          problems.push({ specimenId: s.specimen_id, code: 'unnumbered_set' });
-        }
-      }
-      settle(refused, problems);
-
-      const by = (await lockStanding(client, [user.userId])).get(user.userId)!;
-      return async (commandId) => {
+    return this.command(
+      'schedule_test',
+      input.idempotencyKey,
+      hash,
+      input.items,
+      user,
+      async (client, facts, authority) => {
+        const problems: Problem[] = [];
+        const refused: string[] = [];
         for (const item of input.items) {
-          const s = facts.get(item.specimenId)!;
-          const newTarget = concreteRescheduledTarget(s.casting_date!, input.newAge);
-          await client.query(
-            `INSERT INTO concrete_specimen_hold_schedule
+          const s = facts.get(item.specimenId);
+          if (!s) {
+            problems.push({ specimenId: item.specimenId, code: 'not_found' });
+            continue;
+          }
+          if (s.has_failure_hold || s.hold_kind === 'failed') {
+            problems.push({ specimenId: s.specimen_id, code: 'failed_hold' });
+            continue;
+          }
+          if (!(await authority(s.project_id)).ordinary) {
+            refused.push(s.specimen_id);
+            continue;
+          }
+          const code = commonProblem(s, item.version);
+          if (code) problems.push({ specimenId: s.specimen_id, code });
+          else if (s.casting_date === null || s.hold_expires_on === null) {
+            problems.push({ specimenId: s.specimen_id, code: 'no_casting_time' });
+          } else if (s.permanent_number === null) {
+            // Owner decision (C38): an unnumbered set's ages change on its draft report only.
+            problems.push({ specimenId: s.specimen_id, code: 'unnumbered_set' });
+          }
+        }
+        settle(refused, problems);
+
+        const by = (await lockStanding(client, [user.userId])).get(user.userId)!;
+        return async (commandId) => {
+          for (const item of input.items) {
+            const s = facts.get(item.specimenId)!;
+            const newTarget = concreteRescheduledTarget(s.casting_date!, input.newAge);
+            await client.query(
+              `INSERT INTO concrete_specimen_hold_schedule
                (project_id, specimen_id, command_id, previous_hold_expires_on, new_age,
                 new_target_date, reason, scheduled_by_user_id, scheduled_by_initials_snapshot,
                 scheduled_by_name_snapshot)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [
-              s.project_id,
-              s.specimen_id,
-              commandId,
-              s.hold_expires_on,
-              String(input.newAge),
-              newTarget,
-              input.reason,
-              user.userId,
-              by.initials,
-              by.displayName,
-            ],
-          );
-          // The database recomputes the target from the casting date (C05 trigger).
-          await client.query(
-            `UPDATE concrete_specimen SET assigned_age = $2, version = version + 1, updated_at = now()
+              [
+                s.project_id,
+                s.specimen_id,
+                commandId,
+                s.hold_expires_on,
+                String(input.newAge),
+                newTarget,
+                input.reason,
+                user.userId,
+                by.initials,
+                by.displayName,
+              ],
+            );
+            // The database recomputes the target from the casting date (C05 trigger).
+            await client.query(
+              `UPDATE concrete_specimen SET assigned_age = $2, version = version + 1, updated_at = now()
              WHERE id = $1`,
-            [s.specimen_id, String(input.newAge)],
-          );
-          await recordAudit(client, {
-            action: 'concrete_specimen.hold_test_scheduled',
-            entityType: 'concrete_specimen',
-            entityId: s.specimen_id,
-            actor,
-            reason: input.reason,
-            before: { version: s.version, assignedAge: 'HOLD', holdExpiresOn: s.hold_expires_on },
-            after: {
-              version: s.version + 1,
-              assignedAge: input.newAge,
-              targetDate: newTarget,
-              commandId,
-            },
-            requestId,
-          });
-        }
-      };
-    });
+              [s.specimen_id, String(input.newAge)],
+            );
+            await recordAudit(client, {
+              action: 'concrete_specimen.hold_test_scheduled',
+              entityType: 'concrete_specimen',
+              entityId: s.specimen_id,
+              actor,
+              reason: input.reason,
+              before: { version: s.version, assignedAge: 'HOLD', holdExpiresOn: s.hold_expires_on },
+              after: {
+                version: s.version + 1,
+                assignedAge: input.newAge,
+                targetDate: newTarget,
+                commandId,
+              },
+              requestId,
+            });
+          }
+        };
+      },
+    );
   }
 
   async authorizeDisposal(
@@ -536,61 +549,72 @@ export class ConcreteHoldsService {
   ): Promise<ConcreteHoldActionResult> {
     await this.assertMayManage(user);
     const input = parseBody(concreteHoldAuthorizeDisposalRequestSchema, body);
-    const hash = intentHash({ kind: 'authorize_disposal', items: input.items, reason: input.reason });
-    return this.command('authorize_disposal', input.idempotencyKey, hash, input.items, user, async (client, facts, authority) => {
-      const problems: Problem[] = [];
-      const refused: string[] = [];
-      for (const item of input.items) {
-        const s = facts.get(item.specimenId);
-        if (!s) {
-          problems.push({ specimenId: item.specimenId, code: 'not_found' });
-          continue;
-        }
-        const failed = s.has_failure_hold;
-        const may = await authority(s.project_id);
-        if (!(failed ? may.failed : may.ordinary)) {
-          refused.push(s.specimen_id);
-          continue;
-        }
-        const code = commonProblem(s, item.version);
-        if (code) problems.push({ specimenId: s.specimen_id, code });
-      }
-      settle(refused, problems);
-
-      const by = (await lockStanding(client, [user.userId])).get(user.userId)!;
-      return async (commandId) => {
+    const hash = intentHash({
+      kind: 'authorize_disposal',
+      items: input.items,
+      reason: input.reason,
+    });
+    return this.command(
+      'authorize_disposal',
+      input.idempotencyKey,
+      hash,
+      input.items,
+      user,
+      async (client, facts, authority) => {
+        const problems: Problem[] = [];
+        const refused: string[] = [];
         for (const item of input.items) {
-          const s = facts.get(item.specimenId)!;
-          const kind: ConcreteHoldKind = s.has_failure_hold ? 'failed' : 'ordinary';
-          await client.query(
-            `INSERT INTO concrete_specimen_disposal
+          const s = facts.get(item.specimenId);
+          if (!s) {
+            problems.push({ specimenId: item.specimenId, code: 'not_found' });
+            continue;
+          }
+          const failed = s.has_failure_hold;
+          const may = await authority(s.project_id);
+          if (!(failed ? may.failed : may.ordinary)) {
+            refused.push(s.specimen_id);
+            continue;
+          }
+          const code = commonProblem(s, item.version);
+          if (code) problems.push({ specimenId: s.specimen_id, code });
+        }
+        settle(refused, problems);
+
+        const by = (await lockStanding(client, [user.userId])).get(user.userId)!;
+        return async (commandId) => {
+          for (const item of input.items) {
+            const s = facts.get(item.specimenId)!;
+            const kind: ConcreteHoldKind = s.has_failure_hold ? 'failed' : 'ordinary';
+            await client.query(
+              `INSERT INTO concrete_specimen_disposal
                (project_id, specimen_id, hold_kind, authorization_command_id, authorization_reason,
                 authorized_by_user_id, authorized_by_initials_snapshot, authorized_by_name_snapshot)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [
-              s.project_id,
-              s.specimen_id,
-              kind,
-              commandId,
-              input.reason,
-              user.userId,
-              by.initials,
-              by.displayName,
-            ],
-          );
-          await recordAudit(client, {
-            action: 'concrete_specimen.disposal_authorized',
-            entityType: 'concrete_specimen',
-            entityId: s.specimen_id,
-            actor,
-            reason: input.reason,
-            before: { holdKind: kind, status: 'held' },
-            after: { holdKind: kind, status: 'disposal_authorized', commandId },
-            requestId,
-          });
-        }
-      };
-    });
+              [
+                s.project_id,
+                s.specimen_id,
+                kind,
+                commandId,
+                input.reason,
+                user.userId,
+                by.initials,
+                by.displayName,
+              ],
+            );
+            await recordAudit(client, {
+              action: 'concrete_specimen.disposal_authorized',
+              entityType: 'concrete_specimen',
+              entityId: s.specimen_id,
+              actor,
+              reason: input.reason,
+              before: { holdKind: kind, status: 'held' },
+              after: { holdKind: kind, status: 'disposal_authorized', commandId },
+              requestId,
+            });
+          }
+        };
+      },
+    );
   }
 
   async recordDisposal(
@@ -613,58 +637,66 @@ export class ConcreteHoldsService {
       performedByUserId: input.performedByUserId ?? null,
     });
     const items = input.specimenIds.map((specimenId) => ({ specimenId, version: null }));
-    return this.command('record_disposal', input.idempotencyKey, hash, items, user, async (client, facts) => {
-      // Recheck under lock: lab staff now (a role removed since sign-in counts).
-      if (!can(asLocked(user, await lockStanding(client, [user.userId])), RECORD)) {
-        throw forbidden();
-      }
-      const performer = await resolveActingPerson(client, user, input.performedByUserId, {
-        field: 'performedByUserId',
-        invalidCode: 'invalid_performer',
-      });
-      const problems: Problem[] = [];
-      for (const id of input.specimenIds) {
-        const s = facts.get(id);
-        if (!s) problems.push({ specimenId: id, code: 'not_found' });
-        else if (s.disposed_at) problems.push({ specimenId: id, code: 'disposed' });
-        else if (!s.disposal_id) problems.push({ specimenId: id, code: 'not_authorized_for_disposal' });
-        else if (disposedAt < truncMinute(s.authorized_at!)) {
-          problems.push({ specimenId: id, code: 'before_authorization' });
+    return this.command(
+      'record_disposal',
+      input.idempotencyKey,
+      hash,
+      items,
+      user,
+      async (client, facts) => {
+        // Recheck under lock: lab staff now (a role removed since sign-in counts).
+        if (!can(asLocked(user, await lockStanding(client, [user.userId])), RECORD)) {
+          throw forbidden();
         }
-      }
-      settle([], problems);
-      return async (commandId) => {
+        const performer = await resolveActingPerson(client, user, input.performedByUserId, {
+          field: 'performedByUserId',
+          invalidCode: 'invalid_performer',
+        });
+        const problems: Problem[] = [];
         for (const id of input.specimenIds) {
-          const s = facts.get(id)!;
-          await client.query(
-            `UPDATE concrete_specimen_disposal
+          const s = facts.get(id);
+          if (!s) problems.push({ specimenId: id, code: 'not_found' });
+          else if (s.disposed_at) problems.push({ specimenId: id, code: 'disposed' });
+          else if (!s.disposal_id)
+            problems.push({ specimenId: id, code: 'not_authorized_for_disposal' });
+          else if (disposedAt < truncMinute(s.authorized_at!)) {
+            problems.push({ specimenId: id, code: 'before_authorization' });
+          }
+        }
+        settle([], problems);
+        return async (commandId) => {
+          for (const id of input.specimenIds) {
+            const s = facts.get(id)!;
+            await client.query(
+              `UPDATE concrete_specimen_disposal
              SET disposal_command_id = $2, disposed_at = $3, disposed_by_user_id = $4,
                  disposed_by_initials_snapshot = $5, disposed_by_name_snapshot = $6,
                  disposal_recorded_by_user_id = $7, disposal_recorded_at = now()
              WHERE specimen_id = $1`,
-            [
-              id,
-              commandId,
-              disposedAt,
-              performer.userId,
-              performer.initials,
-              performer.name,
-              user.userId,
-            ],
-          );
-          await recordAudit(client, {
-            action: 'concrete_specimen.disposed',
-            entityType: 'concrete_specimen',
-            entityId: id,
-            actor,
-            receiver: receiverOf(performer),
-            before: { status: 'disposal_authorized', holdKind: s.hold_kind },
-            after: { status: 'disposed', disposedAt: disposedAt.toISOString(), commandId },
-            requestId,
-          });
-        }
-      };
-    });
+              [
+                id,
+                commandId,
+                disposedAt,
+                performer.userId,
+                performer.initials,
+                performer.name,
+                user.userId,
+              ],
+            );
+            await recordAudit(client, {
+              action: 'concrete_specimen.disposed',
+              entityType: 'concrete_specimen',
+              entityId: id,
+              actor,
+              receiver: receiverOf(performer),
+              before: { status: 'disposal_authorized', holdKind: s.hold_kind },
+              after: { status: 'disposed', disposedAt: disposedAt.toISOString(), commandId },
+              requestId,
+            });
+          }
+        };
+      },
+    );
   }
 
   // -------------------------------------------------------------------------------------------

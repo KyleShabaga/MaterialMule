@@ -95,7 +95,9 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
       )
     ).rows[0]!.version;
   const items = async (ids: string[]) =>
-    Promise.all(ids.map(async (specimenId) => ({ specimenId, version: await version(specimenId) })));
+    Promise.all(
+      ids.map(async (specimenId) => ({ specimenId, version: await version(specimenId) })),
+    );
 
   async function tallies() {
     const { rows } = await h.db.pool.query(
@@ -172,9 +174,9 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     expect((await holds('kind=failed&on=2026-12-01')).rows.map((r) => r.specimenId).sort()).toEqual(
       [failedA, failedB].sort(),
     );
-    expect((await holds(`kind=ordinary&projectId=${h.projects.b}`)).rows.map((r) => r.specimenId)).toEqual([
-      holdB,
-    ]);
+    expect(
+      (await holds(`kind=ordinary&projectId=${h.projects.b}`)).rows.map((r) => r.specimenId),
+    ).toEqual([holdB]);
     // An ordinary internal user and LAB read it, with no actions.
     const asTech = await holds('', 'tech');
     expect(asTech.rows.every((r) => !r.actions.scheduleTest && !r.actions.authorizeDisposal)).toBe(
@@ -190,39 +192,51 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     const early = await holds(`kind=ordinary&projectId=${h.projects.b}&on=2026-12-27`);
     expect(early.rows[0]!.status).toBe('held');
     const due = await holds(`kind=ordinary&projectId=${h.projects.b}&on=2026-12-28`);
-    expect(due.rows[0]!).toMatchObject({ status: 'review_due', assignedAge: 'HOLD', disposal: null });
+    expect(due.rows[0]!).toMatchObject({
+      status: 'review_due',
+      assignedAge: 'HOLD',
+      disposal: null,
+    });
     const later = await holds('on=2027-06-01');
-    expect(later.rows.filter((r) => r.holdKind === 'ordinary').every((r) => r.status === 'review_due')).toBe(
-      true,
-    );
+    expect(
+      later.rows.filter((r) => r.holdKind === 'ordinary').every((r) => r.status === 'review_due'),
+    ).toBe(true);
     // A failed-specimen hold is never released by a date.
-    expect(later.rows.filter((r) => r.holdKind === 'failed').every((r) => r.status === 'held')).toBe(
-      true,
-    );
+    expect(
+      later.rows.filter((r) => r.holdKind === 'failed').every((r) => r.status === 'held'),
+    ).toBe(true);
     expect(await tallies()).toEqual(before);
   });
 
   it('refuses callers with no HOLD authority before reading the body', async () => {
     const before = await tallies();
-    for (const path of ['/api/concrete/holds/schedule-test', '/api/concrete/holds/authorize-disposal']) {
+    for (const path of [
+      '/api/concrete/holds/schedule-test',
+      '/api/concrete/holds/authorize-disposal',
+    ]) {
       for (const caller of ['tech', 'js', 'lab'] as const) {
-        for (const payload of [{ bogus: true }, { idempotencyKey: newKey(), items: [], reason: 'x' }]) {
+        for (const payload of [
+          { bogus: true },
+          { idempotencyKey: newKey(), items: [], reason: 'x' },
+        ]) {
           expect((await post(path, payload, caller)).status, `${caller} ${path}`).toBe(403);
         }
       }
       expect((await post(path, {}, 'anonymous')).status).toBe(401);
     }
     // Recording disposal is lab staff: an ordinary internal user is refused.
-    expect(
-      (await post('/api/concrete/disposal/record', { bogus: true }, 'tech')).status,
-    ).toBe(403);
+    expect((await post('/api/concrete/disposal/record', { bogus: true }, 'tech')).status).toBe(403);
     expect(await tallies()).toEqual(before);
   });
 
   it('AC1: bulk authorize for five specimens writes five history entries and disposes of none', async () => {
     const before = await tallies();
     const key = newKey();
-    const body = { idempotencyKey: key, items: await items(fiveA), reason: 'Spare cylinders not needed' };
+    const body = {
+      idempotencyKey: key,
+      items: await items(fiveA),
+      reason: 'Spare cylinders not needed',
+    };
     const response = await post('/api/concrete/holds/authorize-disposal', body, 'lm');
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     const result = concreteHoldActionResultSchema.parse(response.body);
@@ -249,14 +263,21 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
       specimens: before.specimens,
     });
     // One audit event and one history entry per specimen, all in the one command.
-    const { rows: audit } = await h.db.pool.query<{ entity_id: string; after_values: { commandId: string } }>(
+    const { rows: audit } = await h.db.pool.query<{
+      entity_id: string;
+      after_values: { commandId: string };
+    }>(
       `SELECT entity_id, after_values FROM audit_event
        WHERE action = 'concrete_specimen.disposal_authorized' ORDER BY entity_id`,
     );
     expect(audit.map((a) => a.entity_id)).toEqual([...fiveA].sort());
-    expect(new Set(audit.map((a) => a.after_values.commandId))).toEqual(new Set([result.commandId]));
+    expect(new Set(audit.map((a) => a.after_values.commandId))).toEqual(
+      new Set([result.commandId]),
+    );
     for (const id of fiveA) {
-      const history = concreteHoldHistorySchema.parse((await get(`/api/concrete/specimens/${id}/hold-history`, 'lab')).body);
+      const history = concreteHoldHistorySchema.parse(
+        (await get(`/api/concrete/specimens/${id}/hold-history`, 'lab')).body,
+      );
       expect(history.events).toEqual([
         expect.objectContaining({
           kind: 'disposal_authorized',
@@ -270,7 +291,11 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     expect(retry.status).toBe(200);
     expect(concreteHoldActionResultSchema.parse(retry.body).commandId).toBe(result.commandId);
     expect(await tallies()).toEqual(after);
-    const reused = await post('/api/concrete/holds/authorize-disposal', { ...body, reason: 'Other' }, 'lm');
+    const reused = await post(
+      '/api/concrete/holds/authorize-disposal',
+      { ...body, reason: 'Other' },
+      'lm',
+    );
     expect(reused.status).toBe(409);
     expect(reused.body).toMatchObject({ code: 'idempotency_key_reused' });
     // Already authorized: refused, with the specimen named.
@@ -287,14 +312,18 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     // Authorized specimens leave the open list and the testing worklist, and appear in Ready.
     const list = await holds('status=disposal_authorized');
     expect(list.rows.map((r) => r.specimenId).sort()).toEqual([...fiveA].sort());
-    const ready = concreteDisposalReadySchema.parse((await get('/api/concrete/disposal/ready', 'lab')).body);
+    const ready = concreteDisposalReadySchema.parse(
+      (await get('/api/concrete/disposal/ready', 'lab')).body,
+    );
     expect(ready.specimens.map((s) => s.specimenId).sort()).toEqual([...fiveA].sort());
     expect(ready).toMatchObject({ canRecord: true, requiresPerformer: true });
-    expect(concreteDisposalReadySchema.parse((await get('/api/concrete/disposal/ready')).body).canRecord).toBe(false);
+    expect(
+      concreteDisposalReadySchema.parse((await get('/api/concrete/disposal/ready')).body).canRecord,
+    ).toBe(false);
     const worklist = await get('/api/concrete/lab-worklist?view=hold&on=2026-12-01', 'pe');
-    const listed = (worklist.body as { groups: { rows: { specimenId: string }[] }[] }).groups.flatMap((g) =>
-      g.rows.map((r) => r.specimenId),
-    );
+    const listed = (
+      worklist.body as { groups: { rows: { specimenId: string }[] }[] }
+    ).groups.flatMap((g) => g.rows.map((r) => r.specimenId));
     expect(listed.some((id) => fiveA.includes(id))).toBe(false);
   });
 
@@ -318,7 +347,12 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     // Ordinary HOLD release (Schedule test) by the same Lab Manager is allowed.
     const scheduled = await post(
       '/api/concrete/holds/schedule-test',
-      { idempotencyKey: newKey(), items: await items([holdB]), newAge: 56, reason: 'Engineer wants a 56-day break' },
+      {
+        idempotencyKey: newKey(),
+        items: await items([holdB]),
+        newAge: 56,
+        reason: 'Engineer wants a 56-day break',
+      },
       'lm',
     );
     expect(scheduled.status, JSON.stringify(scheduled.body)).toBe(200);
@@ -329,7 +363,11 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
       [holdB],
     );
     // 2 Nov 2026 + 56 days = 28 Dec 2026; the HOLD expiry is gone, the target follows casting.
-    expect(rows[0]).toEqual({ assigned_age: '56', target_date: '2026-12-28', hold_expires_on: null });
+    expect(rows[0]).toEqual({
+      assigned_age: '56',
+      target_date: '2026-12-28',
+      hold_expires_on: null,
+    });
     const history = concreteHoldHistorySchema.parse(
       (await get(`/api/concrete/specimens/${holdB}/hold-history`)).body,
     );
@@ -379,16 +417,26 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     const attempt = async (ids: string[], overrides: Record<string, unknown> = {}) =>
       post(
         '/api/concrete/holds/schedule-test',
-        { idempotencyKey: newKey(), items: await items(ids), newAge: 90, reason: 'Retest', ...overrides },
+        {
+          idempotencyKey: newKey(),
+          items: await items(ids),
+          newAge: 90,
+          reason: 'Retest',
+          ...overrides,
+        },
         'pe',
       );
     const failed = await attempt([failedA]);
     expect(failed.status).toBe(409);
     expect(failed.body).toMatchObject({ problems: [{ specimenId: failedA, code: 'failed_hold' }] });
     const draft = await attempt([unnumbered]);
-    expect(draft.body).toMatchObject({ problems: [{ specimenId: unnumbered, code: 'unnumbered_set' }] });
+    expect(draft.body).toMatchObject({
+      problems: [{ specimenId: unnumbered, code: 'unnumbered_set' }],
+    });
     const stale = await attempt([extra], { items: [{ specimenId: extra, version: 99 }] });
-    expect(stale.body).toMatchObject({ problems: [{ specimenId: extra, code: 'version_conflict' }] });
+    expect(stale.body).toMatchObject({
+      problems: [{ specimenId: extra, code: 'version_conflict' }],
+    });
     const unknown = await attempt([], { items: [{ specimenId: randomUUID(), version: 1 }] });
     expect(unknown.body).toMatchObject({ problems: [{ code: 'not_found' }] });
     expect((await attempt([extra], { newAge: 0 })).status).toBe(400);
@@ -429,7 +477,7 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
       'lm',
     );
     expect(future.status).toBe(400);
-    expect(future.body).toMatchObject({ errors: [{ field: "disposedAt", code: "in_future" }] });
+    expect(future.body).toMatchObject({ errors: [{ field: 'disposedAt', code: 'in_future' }] });
     const early = await removal(
       { specimenIds: [fiveA[0]], disposedAt: '2026-01-01T09:00:00-07:00' },
       'lm',
@@ -476,7 +524,9 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     // Disposed is distinct from authorized-but-not-removed.
     const list = await holds('status=disposed');
     expect(list.rows.map((r) => r.specimenId).sort()).toEqual(fiveA.slice(0, 3).sort());
-    const ready = concreteDisposalReadySchema.parse((await get('/api/concrete/disposal/ready')).body);
+    const ready = concreteDisposalReadySchema.parse(
+      (await get('/api/concrete/disposal/ready')).body,
+    );
     expect(ready.specimens.some((s) => fiveA.slice(0, 3).includes(s.specimenId))).toBe(false);
     expect(ready.specimens.some((s) => s.specimenId === fiveA[3])).toBe(true);
     // Recording again is refused; the database keeps the first removal.
@@ -499,9 +549,9 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     expect(other.status).toBe(400);
     const self = await removal({ specimenIds: [fiveA[3]], disposedAt: at }, 'lm');
     expect(self.status, JSON.stringify(self.body)).toBe(200);
-    expect(concreteHoldActionResultSchema.parse(self.body).rows[0]!.disposal!.disposedBy).toMatchObject(
-      { userId: h.users.lm },
-    );
+    expect(
+      concreteHoldActionResultSchema.parse(self.body).rows[0]!.disposal!.disposedBy,
+    ).toMatchObject({ userId: h.users.lm });
   });
 
   it('the database ties an authorization to the hold it releases', async () => {
