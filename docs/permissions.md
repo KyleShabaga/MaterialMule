@@ -70,14 +70,14 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_mix.manage / concrete_mix.approve (AO08, C03)                                                                                                   |     |                   |             |                |       |           ✓           |                     |
 | concrete.review (AO08, C09; + designated reviewer)                                                                                                       |     |                   |             |                |       |           ✓           |                     |
 | concrete_failure_schedule.approve (AO08, planned; + designated reviewer)                                                                                 |     |                   |             |                |       |           ✓           |                     |
-| concrete_hold.manage (AO08, planned; + concrete LM grant)                                                                                                |     |                   |             |                |       |           ✓           |                     |
+| concrete_hold.manage (AO08, C26; + concrete LM grant)                                                                                                    |     |                   |             |                |       |           ✓           |                     |
 | concrete_report.draft (C10; routes C04)                                                                                                                  |  ✓  |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | concrete_report.recall (C10, C09; record technician only)                                                                                                |     |                   |             |                |       |                       |                     |
 | concrete_receiving_exception.resolve (C10, planned; + reviewer, concrete LM grant, record technician)                                                    |     |                   |             |                |       |           ✓           |                     |
 | concrete_sync_conflict.resolve_field (C10, planned; record technician only)                                                                              |     |                   |             |                |       |                       |                     |
 | concrete_sync_conflict.resolve_lab (C10, C36, planned; + reviewer)                                                                                       |     |                   |      ✓      |                |       |           ✓           |                     |
 | concrete_recovery.import (C10, planned; + record technician)                                                                                             |     |                   |      ✓      |                |       |                       |                     |
-| concrete_ordinary_hold.manage (C10, planned)                                                                                                             |     |                   |      ✓      |                |       |           ✓           |                     |
+| concrete_ordinary_hold.manage (C10, C26)                                                                                                                 |     |                   |      ✓      |                |       |           ✓           |                     |
 | concrete_set.void / concrete_specimen.reschedule (C10, planned; + reviewer, concrete LM grant)                                                           |     |                   |             |                |       |           ✓           |                     |
 | concrete_settings.curing_standard.manage (C10, planned)                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
 | concrete_settings.testing_machine.manage (C10, C27)                                                                                                      |     |                   |      ✓      |                |       |                       |                     |
@@ -950,6 +950,38 @@ Test-result drafts with tester attribution and correction history. Contracts:
   permission, `enteredByUserId`, 409 `result_id_taken`, 409 `version_conflict`, 409
   `report_void` / `set_void`, 422 `tester_invalid`, 422 `reason_required` (a saved value changed
   or cleared without a reason). Audit `concrete_test_result.saved` / `.corrected`.
+
+## Concrete HOLD management and disposal (MM-V2-C26)
+
+HOLD release, bulk HOLD actions and actual disposal of concrete specimens. Contracts:
+`packages/shared/src/concrete-holds.ts`; tables: migration 0029
+([concrete.md](concrete.md#hold-management-bulk-actions-and-disposal-c26)). Storage-unit
+retention and disposal (MM-T29/T30, MISC-13) are unchanged.
+
+| Route                                                        | Policy                                                                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `GET /api/concrete/holds?kind=&status=&projectId=&on=&page=` | `inventory.read` (every active session, LAB included)                                                        |
+| `GET /api/concrete/specimens/:specimenId/hold-history`       | `inventory.read`                                                                                             |
+| `GET /api/concrete/disposal/ready?page=`                     | `inventory.read` (the Ready for disposal list's Concrete specimens filter)                                   |
+| `POST /api/concrete/holds/schedule-test`                     | active user; per specimen `concrete_ordinary_hold.manage` (ordinary HOLD only)                               |
+| `POST /api/concrete/holds/authorize-disposal`                | active user; per specimen `concrete_ordinary_hold.manage` (ordinary) or `concrete_hold.manage` (failed hold) |
+| `POST /api/concrete/disposal/record`                         | `concrete_specimen.dispose_record` (lab staff; LAB names the performing person)                              |
+
+- **Who.** Ordinary HOLD release (Schedule test, Authorize disposal): the project's Lead Project
+  Engineer or any Lab Manager by role alone (decided 2026-10-30). Failed-specimen hold: the lead,
+  or a Lab Manager holding the project's concrete grant (D13); a Lab Manager without it is
+  refused (AC2). Record disposal: Lab Technician, Lab Manager, or LAB with the performing staff
+  member (attribution only; LAB never gains their roles). Release is personal accounts only.
+- **Order of checks.** Release routes: 403 before the body unless the caller is an active personal
+  account that is a Lab Manager or leads some project; 400 body; then one transaction: replay by
+  idempotency key, reports, sets, then specimens FOR UPDATE (each in id order, D09), the authority
+  per project under `canUnderLock` (403 `forbidden` with `specimens`), eligibility (409
+  `not_eligible` with `problems`), then the writes. Record disposal: 400 body (including a
+  `disposedAt` in the future), the same locks, the caller's lab-staff standing under lock, the
+  performer (`resolveActingPerson`), eligibility, writes.
+- **Expiry flags only.** No route, job or read changes anything on a HOLD date (AC3).
+- `concrete_ordinary_hold.manage` and `concrete_hold.manage` are not in the project capability
+  list yet; the HOLD table reports each row's actions instead.
 
 ## Receiving Log (MM-T51)
 

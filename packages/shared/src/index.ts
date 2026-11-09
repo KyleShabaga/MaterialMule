@@ -40,6 +40,7 @@ export * from './concrete-specimen-sets';
 export * from './concrete-report-lifecycle';
 export * from './concrete-review';
 export * from './concrete-worklist';
+export * from './concrete-holds';
 export * from './concrete-mix-propagation';
 export * from './concrete-project-specimens';
 export * from './concrete-receiving';

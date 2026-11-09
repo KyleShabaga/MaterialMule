@@ -1,5 +1,5 @@
 import type { DisposalReady, DisposalReadyUnit } from '@materialmule/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { BandedCard, DataTable, ErrorState, StatusBadge, type Column } from '../components/ui';
 import { fetchReady } from './api';
@@ -46,8 +46,9 @@ const columns: Column<DisposalReadyUnit>[] = [
  * past the end comes back with no rows but the real total, so it is never shown as "nothing
  * ready": the card moves to the last page that exists and loads that instead. Each load belongs
  * to one effect run, so a response for a page or refresh the card has moved on from is ignored.
+ * `filter` (MM-V2-C26) is the Storage units | Concrete specimens type filter shown in the card.
  */
-export function ReadyForDisposal({ refresh }: { refresh: number }) {
+export function ReadyForDisposal({ refresh, filter }: { refresh: number; filter?: ReactNode }) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<DisposalReady | null>(null);
   const [failed, setFailed] = useState(false);
@@ -92,6 +93,7 @@ export function ReadyForDisposal({ refresh }: { refresh: number }) {
         ) : null
       }
     >
+      {filter}
       {failed ? (
         <ErrorState
           message="The units ready for disposal couldn’t be loaded."

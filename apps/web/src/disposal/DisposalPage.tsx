@@ -6,6 +6,8 @@ import { formatExpiry } from '../lib/format';
 import { ProjectFilter } from '../inventory/ProjectFilter';
 import { approveUnits, fetchCandidates, revokeApproval } from './api';
 import { ReadyForDisposal } from './ReadyForDisposal';
+import { ConcreteReadyForDisposal } from '../concrete/holds/ConcreteReadyForDisposal';
+import '../concrete/holds/holds.css';
 
 /**
  * Disposal & Retention (MM-T30): pick a project, see each current unit's standard eligibility
@@ -24,6 +26,30 @@ export function DisposalPage() {
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [key, setKey] = useState(() => crypto.randomUUID());
+  // MM-V2-C26 (owner decision 2026-11-08): concrete specimens join Ready for disposal behind a
+  // type filter; storage units stay the default and behave as before.
+  const [readyType, setReadyType] = useState<'storage_unit' | 'concrete_specimen'>(
+    params.get('ready') === 'concrete' ? 'concrete_specimen' : 'storage_unit',
+  );
+  const typeFilter = (
+    <div className="disposal-type-filter" role="group" aria-label="Show">
+      {(
+        [
+          ['storage_unit', 'Storage units'],
+          ['concrete_specimen', 'Concrete specimens'],
+        ] as const
+      ).map(([value, text]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={readyType === value}
+          onClick={() => setReadyType(value)}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
 
   useEffect(() => {
     if (!projectId) return;
@@ -81,7 +107,11 @@ export function DisposalPage() {
         tubes and bulk samples use “Confirm removal after testing” on their own page instead.
       </p>
       {notice ? <p role="status">{notice}</p> : null}
-      <ReadyForDisposal refresh={tick} />
+      {readyType === 'storage_unit' ? (
+        <ReadyForDisposal refresh={tick} filter={typeFilter} />
+      ) : (
+        <ConcreteReadyForDisposal filter={typeFilter} />
+      )}
       <ProjectFilter
         selected={project}
         selectedId={projectId}
