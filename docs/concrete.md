@@ -811,9 +811,16 @@ office examples arrive.
   specimen (`results.<letter>`). Mark reviewed needs each documented or no longer raised live.
 - **Review queue.** Strength reports appear with `reportType: 'strength'`, `setId`, `setLabel`;
   the "technician" column is the version's credited submitter; `canAct` follows the rules above.
-- **Report number (C32 seam).** `report_number` (`CS-YYYY-NNNNN`, unique, only once issued,
-  never changed) is taken at first issue from C32's allocator. Until C32 merges the seam
-  (`allocateStrengthReportNumber`) returns null and issued reports show no number.
+- **Report number and issued files (C32).** At first issue the command takes the strength
+  template in force and a `CS-YYYY-NNNNN` number from C32's `allocateReportNumber` (kind
+  `strength`, subject = the strength report) inside the issue transaction; every revision keeps
+  it. One source of truth: the number lives only in `concrete_report_number` (the strength report
+  row has no number column); each issued strength version must record it
+  (`concrete_report_version_strength_numbered`), and it must be its own report's (0031's
+  `concrete_report_version_number_check`, extended in 0032 to strength). At every issue (Rev 0,
+  then each revision) the PDF is rendered from the version's frozen snapshot with C32's strength
+  template P1 and stored through its file store, superseding the previous file; downloads are
+  C32's `GET /api/concrete/report-files/:id`. The version summary carries the number and file.
 - **Lists.** `GET /api/concrete/strength-reports` (project Reports tab: every set with a report or
   complete results; Lab workspace `needsLab=true`: not submitted, draft, returned, or issued with
   new results). Web: `/concrete/strength/:setId`, the project Concrete → Reports tab section and
@@ -900,9 +907,10 @@ nothing issued under P1 is rewritten.
   print; none exist until C39/C24, so a tested age reads "Pending review", an untested one "—",
   and HOLD specimens are counted in the status column.
 - **Strength report template P1 (design section 4).** `strength-report-template.ts` renders
-  `ConcreteStrengthReportSnapshot` (the shape agreed for C39). Strength, area, averages and
-  assessment always print "—" (G1/G8); the standards line is the placeholder "Test methods: [to be
-  confirmed by owner]". **Not wired** to issuing until C39's records are on main.
+  C39's `ConcreteStrengthReportSnapshot` (concrete-strength-reports.ts, the only definition).
+  Strength, area, averages and assessment always print "—" (G1/G8); the standards line is the
+  placeholder "Test methods: [to be confirmed by owner]". Wired to every strength-report issue
+  (C39).
 - **Report header.** `concrete_report_header_setting` (one row; default the fictional "Material
   Mule Testing Laboratory"; address and phone optional; no logo or accreditation marks yet),
   Settings → Report header; admins change it (proposal).

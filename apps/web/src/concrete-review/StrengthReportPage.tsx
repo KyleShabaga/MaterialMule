@@ -358,11 +358,13 @@ export function StrengthReportPage() {
       <p>
         <StrengthStateBadge state={detail.state} />{' '}
         {detail.reportNumber ? <span className="mono">{detail.reportNumber}</span> : null}
-        {detail.issueCount > 0 && !detail.reportNumber ? (
-          <span className="review-muted">
+        {detail.latestVersion?.issued?.file ? (
+          <>
             {' '}
-            Report number assigned with the report templates (C32).
-          </span>
+            <a href={`/api/concrete/report-files/${detail.latestVersion.issued.file.id}`}>
+              Download Rev {detail.latestVersion.issued.file.revisionNo} (PDF)
+            </a>
+          </>
         ) : null}
         {detail.newResults && detail.state === 'issued' ? (
           <>

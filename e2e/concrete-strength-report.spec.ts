@@ -111,6 +111,13 @@ test('submit → review → issue a strength report', async ({ page }) => {
   await page.getByRole('button', { name: 'Issue' }).click();
   await expect(page.getByText('Issued', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start a revision' })).toBeVisible();
+  // MM-V2-C32: a CS number at first issue and the stored PDF (Rev 0).
+  await expect(page.getByText(/^CS-\d{4}-\d{5}$/)).toBeVisible();
+  const pdf = page.getByRole('link', { name: 'Download Rev 0 (PDF)' });
+  await expect(pdf).toBeVisible();
+  const file = await page.request.get((await pdf.getAttribute('href'))!);
+  expect(file.status()).toBe(200);
+  expect(file.headers()['content-type']).toContain('application/pdf');
   // Strength stays blank until C24; the frozen version prints Rev 0.
   await expect(page.getByRole('heading', { name: /Rev 0/ })).toBeVisible();
 

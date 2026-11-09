@@ -11,8 +11,8 @@ import {
 } from './pdf-layout.js';
 
 // MM-V2-C32: the concrete compressive strength report, template revision P1 (provisional design,
-// section 4), against the snapshot shape agreed with C39 (`ConcreteStrengthReportSnapshot`).
-// NOT WIRED to issuing until C39's strength report records are on main. Strength, area, averages
+// section 4), from C39's frozen version snapshot (`ConcreteStrengthReportSnapshot`), rendered at
+// each issue of a strength report (MM-V2-C39 wires it). Strength, area, averages
 // and the assessment print "—" until C24 delivers the approved method (G1/G8), whatever the
 // snapshot holds. No standard is named until the owner confirms one.
 
@@ -69,11 +69,19 @@ export async function renderStrengthReportPdf(
 
   pdf.section('Specimen set');
   pdf.fields([
-    ['Set ID', formatText(set.label)],
+    ['Set ID', formatText(set.identity.permanentId ?? set.identity.temporaryId)],
     ['Field report', formatText(set.fieldReportNumber)],
     ['Field ID', formatText(set.paperFieldId)],
     ['Cast', formatDateTime(set.castAt)],
-    ['Structure / element', formatText(set.elements)],
+    [
+      'Structure / element',
+      formatText(
+        [
+          ...set.structureElements,
+          ...(set.structureElementOther ? [set.structureElementOther] : []),
+        ].join(', ') || null,
+      ),
+    ],
     ['Location', formatText(set.location)],
     ['Supplier', formatText(set.supplierName)],
     ['Mix number', formatText(set.mixNumber)],
@@ -83,14 +91,15 @@ export async function renderStrengthReportPdf(
         ? MISSING
         : `${set.specifiedStrengthMpa} MPa${set.specifiedStrengthAgeDays !== null ? ` at ${set.specifiedStrengthAgeDays} d` : ''}`,
     ],
-    ['Specimen size', `${set.specimenType}${set.mouldSize ? ` ${set.mouldSize} mm` : ''}`],
+    ['Specimen size', `${set.specimenType}${set.specimenSize ? ` ${set.specimenSize} mm` : ''}`],
     ['Received at the lab', formatDate(set.receivedOn)],
-    ['Initial field curing', formatText(set.initialCuring)],
+    ['Initial field curing', formatText(set.initialFieldCuring)],
     ['Lab curing', formatText(set.labCuring)],
   ]);
 
   pdf.section('Results');
-  const unitsProvisional = snapshot.specimens.some((s) => s.test?.unitsProvisional);
+  const unitsProvisional = snapshot.units.provisional;
+  const { load: loadUnit, dimension: dimensionUnit } = snapshot.units;
   pdf.table(
     [
       { header: 'Specimen', width: 1.1 },
@@ -106,11 +115,11 @@ export async function renderStrengthReportPdf(
       { header: 'Tested by', width: 0.6 },
       { header: 'Remarks', width: 1.4 },
     ],
-    snapshot.specimens.map((s) => {
-      const age = s.assignedAge === 'HOLD' ? 'HOLD' : String(s.assignedAge);
-      if (s.assignedAge === 'HOLD' && !s.test) {
+    snapshot.results.map((s) => {
+      const age = s.assignedAge === null ? MISSING : String(s.assignedAge);
+      if (s.status === 'hold') {
         return [
-          s.label,
+          s.specimenLabel,
           age,
           'HOLD',
           MISSING,
@@ -124,9 +133,25 @@ export async function renderStrengthReportPdf(
           'HOLD',
         ];
       }
-      if (!s.test) {
+      if (s.status === 'disposed') {
         return [
-          s.label,
+          s.specimenLabel,
+          age,
+          MISSING,
+          MISSING,
+          MISSING,
+          MISSING,
+          MISSING,
+          MISSING,
+          MISSING,
+          MISSING,
+          MISSING,
+          'Disposed',
+        ];
+      }
+      if (s.status !== 'tested') {
+        return [
+          s.specimenLabel,
           age,
           MISSING,
           MISSING,
@@ -140,21 +165,21 @@ export async function renderStrengthReportPdf(
           `Not yet tested (target ${formatDate(s.targetDate)})`,
         ];
       }
-      const t = s.test;
       return [
-        s.label,
+        s.specimenLabel,
         age,
-        formatDate(t.testedOn),
-        formatNumber(t.actualAgeDays),
-        formatNumber(t.averageDiameter, t.dimensionUnit),
-        formatNumber(t.averageHeight, t.dimensionUnit),
+        formatDate(s.testedOn),
+        formatNumber(s.actualAgeDays),
+        // G8 (readings, corrections, rounding) open: null until C24.
+        formatNumber(s.averageDiameter, dimensionUnit),
+        formatNumber(s.averageHeight, dimensionUnit),
         // G1/G8 open: never computed or printed until C24.
         MISSING,
-        formatNumber(t.maxLoad, t.loadUnit),
+        formatNumber(s.maxLoad, loadUnit),
         MISSING,
-        formatText(t.fractureType),
-        formatText(t.testedByInitials),
-        formatText(t.remarks),
+        formatText(s.fractureType),
+        formatText(s.testedBy?.initials ?? s.testedBy?.name ?? null),
+        formatText(s.remarks),
       ];
     }),
     { empty: 'No specimens in this set.' },
@@ -173,11 +198,13 @@ export async function renderStrengthReportPdf(
       { header: 'Assessment', width: 3 },
     ],
     // Both stay "—" until C24 delivers the approved method (G1/G8).
-    snapshot.ageSummaries.map((a) => [String(a.ageDays), MISSING, MISSING]),
+    snapshot.ages
+      .filter((a) => a.testedCount > 0)
+      .map((a) => [String(a.ageDays), MISSING, MISSING]),
     { empty: 'No age tested yet.' },
   );
   pdf.paragraph('Strength, area, averages and assessment are not calculated yet.', { muted: true });
-  pdf.paragraph(STRENGTH_STANDARDS_LINE);
+  pdf.paragraph(snapshot.standardsLine || STRENGTH_STANDARDS_LINE);
 
   if (input.includeMachineInfo) {
     pdf.section('Testing machine (as registered at issue)');

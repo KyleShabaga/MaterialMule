@@ -35,11 +35,6 @@ CREATE TABLE concrete_strength_report (
   last_issued_version      integer,
   last_issued_at           timestamptz,
   last_issued_by_user_id   uuid REFERENCES app_user (id),
-  -- CS-YYYY-NNNNN (design section 2), taken at first issue from the report-number allocator
-  -- (MM-V2-C32); revisions keep it. Null until then.
-  report_number            text
-                             CONSTRAINT concrete_strength_report_number_check
-                             CHECK (report_number ~ '^CS-[0-9]{4}-[0-9]{5}$'),
   created_by_user_id       uuid NOT NULL REFERENCES app_user (id),
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now(),
@@ -55,7 +50,6 @@ CREATE TABLE concrete_strength_report (
     AND (issue_count = 0) = (last_issued_at IS NULL)
     AND (issue_count = 0) = (last_issued_by_user_id IS NULL)
   ),
-  CONSTRAINT concrete_strength_report_number_issued CHECK (report_number IS NULL OR issue_count > 0),
   CONSTRAINT concrete_strength_report_submitted_shape CHECK (
     workflow_state = 'draft' OR submitted_at IS NOT NULL
   )
@@ -65,11 +59,10 @@ CREATE INDEX concrete_strength_report_project_idx
 CREATE INDEX concrete_strength_report_created_by_idx ON concrete_strength_report (created_by_user_id);
 CREATE INDEX concrete_strength_report_issued_by_idx
   ON concrete_strength_report (last_issued_by_user_id) WHERE last_issued_by_user_id IS NOT NULL;
-CREATE UNIQUE INDEX concrete_strength_report_number_key
-  ON concrete_strength_report (report_number) WHERE report_number IS NOT NULL;
 
--- A strength report is never deleted; it keeps its set, project and creator; its number, once
--- taken, never changes.
+-- A strength report is never deleted; it keeps its set, project and creator. Its CS number lives
+-- only in C32's concrete_report_number (subject = this report), which never changes.
+
 CREATE FUNCTION concrete_strength_report_guard() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -83,10 +76,6 @@ BEGIN
      OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
     RAISE EXCEPTION 'strength report % keeps its identity', OLD.id
       USING ERRCODE = 'restrict_violation', CONSTRAINT = 'concrete_strength_report_identity';
-  END IF;
-  IF OLD.report_number IS NOT NULL AND NEW.report_number IS DISTINCT FROM OLD.report_number THEN
-    RAISE EXCEPTION 'strength report % keeps its number', OLD.id
-      USING ERRCODE = 'restrict_violation', CONSTRAINT = 'concrete_strength_report_number_fixed';
   END IF;
   IF NEW.issue_count < OLD.issue_count THEN
     RAISE EXCEPTION 'strength report % never loses an issue', OLD.id
@@ -124,6 +113,30 @@ ALTER TABLE concrete_report_version
     REFERENCES concrete_report_version (id, strength_report_id);
 CREATE UNIQUE INDEX concrete_report_version_strength_one_open
   ON concrete_report_version (strength_report_id) WHERE state IN ('submitted', 'reviewed');
+
+-- Report numbers (C32, 0031): one source of truth, concrete_report_number (kind 'strength',
+-- subject = the strength report), taken at first issue and kept by every revision. Every issued
+-- strength version records it (and the template it was rendered with, 0031's output shape), and
+-- a version's number is its own report's, whichever kind (0031's check named field reports only).
+ALTER TABLE concrete_report_version
+  ADD CONSTRAINT concrete_report_version_strength_numbered CHECK (
+    report_kind <> 'strength' OR state <> 'issued' OR report_number_id IS NOT NULL
+  );
+
+CREATE OR REPLACE FUNCTION concrete_report_version_number_check() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.report_number_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM concrete_report_number n
+       WHERE n.id = NEW.report_number_id AND n.report_kind = NEW.report_kind
+         AND n.subject_id = coalesce(NEW.field_report_id, NEW.strength_report_id)
+         AND n.project_id = NEW.project_id) THEN
+    RAISE EXCEPTION 'a version takes its own report''s number'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'concrete_report_version_own_number';
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
 -- As 0021, per report of either kind.
 CREATE OR REPLACE FUNCTION concrete_report_version_insert() RETURNS trigger

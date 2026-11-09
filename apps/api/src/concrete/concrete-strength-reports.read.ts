@@ -31,13 +31,15 @@ export interface StrengthReportRow {
   issue_count: number;
   last_issued_version: number | null;
   last_issued_at: Date | null;
+  /** From C32's concrete_report_number (the one source of truth), null before first issue. */
   report_number: string | null;
   version: number;
   updated_at: Date;
 }
 
 const REPORT_COLUMNS = `id, project_id, specimen_set_id, workflow_state, issue_count,
-  last_issued_version, last_issued_at, report_number, version, updated_at`;
+  last_issued_version, last_issued_at, version, updated_at,
+  (SELECT n.report_number FROM concrete_report_number n WHERE n.report_kind = 'strength' AND n.subject_id = concrete_strength_report.id) AS report_number`;
 
 export async function findStrengthReport(
   db: Db,

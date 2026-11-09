@@ -7,6 +7,7 @@ import {
   type TestSchema,
 } from '../test-support/database.js';
 import { PG, insertProject, insertUser } from '../test-support/fixtures.js';
+import { allocateReportNumber } from '../concrete/reports/report-numbers.js';
 import { migrate, readMigrations } from './migrator.js';
 import { runSeed } from './seed.js';
 
@@ -25,6 +26,7 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
   let reviewer: string;
   let projectA: string;
   let fieldReport: string;
+  let template: string;
 
   beforeAll(async () => {
     db = await createMigratedSchema();
@@ -37,6 +39,13 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
       [projectA, tech],
     );
     fieldReport = rows[0]!.id;
+    template = randomUUID();
+    await db.pool.query(
+      `INSERT INTO concrete_report_template (id, report_kind, revision, name, provisional,
+         in_force_from)
+       VALUES ($1, 'strength', 'T1', 'Strength report template', true, now())`,
+      [template],
+    );
   });
 
   afterAll(async () => {
@@ -112,13 +121,42 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
          reviewed_at = now(), review_source = 'designated_reviewer' WHERE id = $1`,
       [id, reviewer],
     );
-  const issue = (id: string) =>
-    db.pool.query(
-      `UPDATE concrete_report_version SET state = 'issued', issued_by_user_id = $2,
-         issued_at = now(), issue_source = 'lead_project_engineer',
-         issue_include_photos = false, issue_include_machine_info = false WHERE id = $1`,
-      [id, tech],
-    );
+  /** Issue a version with a CS number from C32's allocator (one transaction, as the API does). */
+  async function issue(id: string, reportId: string): Promise<string> {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const number = await allocateReportNumber(client, {
+        kind: 'strength',
+        projectId: projectA,
+        subjectId: reportId,
+        userId: tech,
+      });
+      await client.query(
+        `UPDATE concrete_report_version SET state = 'issued', issued_by_user_id = $2,
+           issued_at = now(), issue_source = 'lead_project_engineer',
+           issue_include_photos = false, issue_include_machine_info = false,
+           report_number_id = $3, report_template_id = $4 WHERE id = $1`,
+        [id, tech, number.id, template],
+      );
+      // C32 (0031): an issued version has its stored file, checked at commit.
+      await client.query(
+        `INSERT INTO concrete_report_file (report_kind, project_id, report_number_id,
+           report_template_id, revision_no, report_version_id, file_name, content, byte_size,
+           sha256, include_photos, include_machine_info, created_by_user_id)
+         VALUES ('strength', $1, $2, $3, 0, $4, 'fictional.pdf', '\x25504446'::bytea, 0, '',
+           false, false, $5)`,
+        [projectA, number.id, template, id, tech],
+      );
+      await client.query('COMMIT');
+      return number.reportNumber;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 
   let attempt = 0;
   const newResult = (specimenId: string) => {
@@ -154,30 +192,36 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
     ).rejects.toMatchObject({ ...RESTRICT, constraint: 'concrete_strength_report_identity' });
   });
 
-  it('the CS number: its format, only once issued, and never changed once taken', async () => {
+  it('the CS number: only C32’s concrete_report_number, the report’s own, on every issue', async () => {
     const { setId } = await newSet();
-    await expect(
-      strengthReport(setId, {
-        report_number: 'CS-2026-00031',
-      }),
-    ).rejects.toMatchObject({ ...REJECT, constraint: 'concrete_strength_report_number_issued' });
-    const issued = {
-      issue_count: 1,
-      last_issued_version: 1,
-      last_issued_at: new Date(),
-      last_issued_by_user_id: tech,
-      workflow_state: 'reviewed',
-    };
-    await expect(
-      strengthReport(setId, { ...issued, report_number: 'CF-2026-00031' }),
-    ).rejects.toMatchObject({ ...REJECT, constraint: 'concrete_strength_report_number_check' });
-    const id = await strengthReport(setId, { ...issued, report_number: 'CS-2026-00031' });
+    const reportId = await strengthReport(setId);
+    const v = await version(reportId);
+    await review(v);
+    // An issued strength version always records its number (and template).
     await expect(
       db.pool.query(
-        `UPDATE concrete_strength_report SET report_number = 'CS-2026-00032' WHERE id = $1`,
-        [id],
+        `UPDATE concrete_report_version SET state = 'issued', issued_by_user_id = $2,
+           issued_at = now(), issue_source = 'lead_project_engineer',
+           issue_include_photos = false, issue_include_machine_info = false WHERE id = $1`,
+        [v, tech],
       ),
-    ).rejects.toMatchObject({ ...RESTRICT, constraint: 'concrete_strength_report_number_fixed' });
+    ).rejects.toMatchObject({ ...REJECT, constraint: 'concrete_report_version_strength_numbered' });
+    // Another strength report's number is refused.
+    const { setId: otherSet } = await newSet();
+    const other = await strengthReport(otherSet);
+    await expect(issue(v, other)).rejects.toMatchObject({
+      ...REJECT,
+      constraint: 'concrete_report_version_own_number',
+    });
+    const number = await issue(v, reportId);
+    expect(number).toMatch(/^CS-[0-9]{4}-[0-9]{5}$/);
+    // The strength report row carries no number of its own (one source of truth).
+    const { rows } = await db.pool.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = 'concrete_strength_report'
+         AND column_name LIKE '%number%'`,
+    );
+    expect(rows).toEqual([]);
   });
 
   it('a strength version names its strength report only; numbering and one open per report', async () => {
@@ -212,7 +256,7 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
       version(reportId, { version_no: 2, revision_of_version_id: first }),
     ).rejects.toMatchObject({ code: expect.stringMatching(/23/) });
     await review(first);
-    await issue(first);
+    await issue(first, reportId);
     const second = await version(reportId, { version_no: 2, revision_of_version_id: first });
     expect(second).toBeTruthy();
     // Issued versions never change and versions are never deleted.
@@ -311,7 +355,7 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
     // A later age (not on the version) stays open.
     await newResult(specimens.B!);
     await review(v);
-    await issue(v);
+    await issue(v, reportId);
     await db.pool.query(
       `UPDATE concrete_strength_report SET workflow_state = 'reviewed',
       issue_count = 1, last_issued_version = 1, last_issued_at = now(),

@@ -70,6 +70,10 @@ import {
   type StrengthReportRow,
 } from './concrete-strength-reports.read.js';
 import { entryCompleteSql } from './concrete-testing-table.service.js';
+import {
+  ConcreteReportOutputService,
+  type PreparedReportIssue,
+} from './reports/concrete-report-output.service.js';
 
 type Db = Pool | PoolClient;
 
@@ -115,17 +119,6 @@ function unprocessable(code: string, errors: { field: string; message: string }[
 
 function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
-}
-
-/**
- * MM-V2-C32 seam: the report-number allocator (CS-YYYY-NNNNN, one gap-free counter per kind and
- * year, at first issue). Until C32 merges there is no allocator, so a first issue leaves the
- * number empty; once wired, it runs in the issuing transaction and the number is kept for every
- * revision (the database refuses a change).
- */
-async function allocateStrengthReportNumber(_client: PoolClient): Promise<string | null> {
-  void _client;
-  return null;
 }
 
 type Input = {
@@ -202,7 +195,10 @@ const issuedByOf = (latest: VersionRow | null) =>
  */
 @Injectable()
 export class ConcreteStrengthReportsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly output: ConcreteReportOutputService,
+  ) {}
 
   // -------------------------------------------------------------------------------------------
   // Reads
@@ -332,7 +328,9 @@ export class ConcreteStrengthReportsService {
       new_results: boolean;
       updated_at: Date | null;
     }>(
-      `SELECT st.id AS set_id, sr.id AS report_id, sr.report_number, st.project_id,
+      `SELECT st.id AS set_id, sr.id AS report_id,
+              (SELECT n.report_number FROM concrete_report_number n WHERE n.report_kind = 'strength' AND n.subject_id = sr.id) AS report_number,
+              st.project_id,
               p.project_number, p.name AS project_name, st.permanent_id, st.temporary_id,
               concrete_casting_date(r.cast_at)::text AS casting_date, ${STATE} AS state,
               v.version_no, sr.issue_count,
@@ -569,6 +567,8 @@ export class ConcreteStrengthReportsService {
     let versionNo: number;
     let route: ConcreteReportRoute | null = null;
     const rowVersionBefore = report?.version ?? 0;
+    let prepared: PreparedReportIssue | null = null;
+    let issuedFile: { sha256: string; revisionNo: number } | null = null;
     if (action === 'submit' || action === 'resubmit') {
       const versions = report ? await versionsOf(client, report.id, COLUMN) : [];
       const issued = [...versions].reverse().find((v) => v.state === 'issued') ?? null;
@@ -657,7 +657,22 @@ export class ConcreteStrengthReportsService {
         );
         input = { ...input, includeMachineInfo: rows[0]?.include_machine_info ?? false };
       }
-      await this.transitionVersion(client, action, current, user, context, input);
+      // MM-V2-C32: the strength template in force and the CS number (first issue only; every
+      // revision keeps it), recorded on the version in the same update that issues it; then the
+      // PDF is rendered from the frozen snapshot and stored, all in this transaction.
+      prepared =
+        action === 'issue' ? await this.output.prepareStrengthIssue(client, report!, user) : null;
+      await this.transitionVersion(client, action, current, user, context, input, prepared);
+      if (prepared) {
+        const file = await this.output.storeStrengthIssue(
+          client,
+          prepared,
+          report!,
+          current.id,
+          user,
+        );
+        issuedFile = { sha256: file.sha256, revisionNo: file.revisionNo };
+      }
       await this.updateReport(client, action, report!, current, user, to);
     }
 
@@ -702,6 +717,15 @@ export class ConcreteStrengthReportsService {
           ? {
               includePhotos: input.includePhotos ?? false,
               includeMachineInfo: input.includeMachineInfo,
+            }
+          : {}),
+        ...(prepared && issuedFile
+          ? {
+              reportNumber: prepared.number.reportNumber,
+              reportRevisionNo: issuedFile.revisionNo,
+              templateId: prepared.template.id,
+              templateRevision: prepared.template.revision,
+              fileSha256: issuedFile.sha256,
             }
           : {}),
         ...(route
@@ -789,6 +813,7 @@ export class ConcreteStrengthReportsService {
     user: AuthUser,
     context: ProjectContext,
     input: Input,
+    prepared: PreparedReportIssue | null = null,
   ) {
     const comment = input.comment ?? null;
     const sources = (permission: 'concrete.review' | 'report.issue') =>
@@ -829,7 +854,8 @@ export class ConcreteStrengthReportsService {
         await client.query(
           `UPDATE concrete_report_version
            SET state = 'issued', issued_by_user_id = $2, issued_at = now(), issue_source = $3,
-               issue_include_photos = $4, issue_include_machine_info = $5
+               issue_include_photos = $4, issue_include_machine_info = $5,
+               report_number_id = $6, report_template_id = $7
            WHERE id = $1`,
           [
             version.id,
@@ -839,6 +865,8 @@ export class ConcreteStrengthReportsService {
               : 'report_issuer',
             input.includePhotos ?? false,
             input.includeMachineInfo,
+            prepared!.number.id,
+            prepared!.template.id,
           ],
         );
         return;
@@ -859,17 +887,12 @@ export class ConcreteStrengthReportsService {
     to: NonNullable<ReturnType<typeof concreteStrengthReportNextState>>,
   ) {
     if (action === 'issue') {
-      // The number is taken at first issue only; revisions keep it.
-      const number =
-        report.report_number ??
-        (report.issue_count === 0 ? await allocateStrengthReportNumber(client) : null);
       await client.query(
         `UPDATE concrete_strength_report
          SET issue_count = issue_count + 1, last_issued_version = $2, last_issued_at = now(),
-             last_issued_by_user_id = $3, report_number = $4, version = version + 1,
-             updated_at = now()
+             last_issued_by_user_id = $3, version = version + 1, updated_at = now()
          WHERE id = $1`,
-        [report.id, version.version_no, user.userId, number],
+        [report.id, version.version_no, user.userId],
       );
       return;
     }

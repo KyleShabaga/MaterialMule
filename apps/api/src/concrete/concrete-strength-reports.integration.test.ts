@@ -31,6 +31,7 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
   let rv: string;
   let lt: string;
   let set: ConcreteSpecimenSetDetail;
+  let reportNumber = '';
   const resultIds = new Map<string, string>();
   const resultVersions = new Map<string, number>();
 
@@ -380,8 +381,31 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
     expect((await command('issue', 'lm')).body.code).toBe('own_report');
     const issued = await ok('issue', 'js');
     expect(issued).toMatchObject({ state: 'issued', issueCount: 1, latestIssuedVersionNo: 1 });
-    // MM-V2-C32 seam: no allocator yet, so the CS number stays empty.
-    expect(issued.reportNumber).toBeNull();
+    // MM-V2-C32: the CS number at first issue, and the PDF rendered and stored (Rev 0).
+    expect(issued.reportNumber).toMatch(/^CS-[0-9]{4}-[0-9]{5}$/);
+    expect(issued.latestVersion!.issued).toMatchObject({
+      reportNumber: issued.reportNumber,
+      file: { kind: 'strength', revisionNo: 0, supersedesFileId: null },
+    });
+    reportNumber = issued.reportNumber!;
+    const file = issued.latestVersion!.issued!.file!;
+    const download = await h
+      .http()
+      .get(`/api/concrete/report-files/${file.id}`)
+      .set('Cookie', cookies.tech!)
+      .buffer(true)
+      .parse((res, done) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => done(null, Buffer.concat(chunks)));
+      });
+    expect(download.status).toBe(200);
+    expect(download.headers['content-type']).toContain('application/pdf');
+    expect(
+      createHash('sha256')
+        .update(download.body as Buffer)
+        .digest('hex'),
+    ).toBe(file.sha256);
   });
 
   it('AC1: a later age is Rev 1 of the same report; earlier versions never change', async () => {
@@ -408,6 +432,10 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
     expect((await ok('review', rv)).state).toBe('reviewed');
     const issued = await ok('issue', 'js');
     expect(issued).toMatchObject({ issueCount: 2, latestIssuedVersionNo: 2, revised: true });
+    // Rev 1 keeps the number and stores a new file that supersedes Rev 0's.
+    expect(issued.reportNumber).toBe(reportNumber);
+    expect(issued.latestVersion!.issued!.file).toMatchObject({ revisionNo: 1 });
+    expect(issued.latestVersion!.issued!.file!.supersedesFileId).not.toBeNull();
     expect(await versionDetail(1)).toMatchObject({
       state: 'issued',
       snapshotSha256: v1Before.snapshotSha256,
