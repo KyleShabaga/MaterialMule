@@ -11,7 +11,9 @@ import {
   concreteReviewQueueQuerySchema,
   CONCRETE_REVIEW_QUEUE_STATUSES,
   type ConcreteExceptionNoteList,
-  type ConcreteFieldReportWarning,
+  type ConcreteReportExceptionCode,
+  type ConcreteStrengthResultRow,
+  concreteStrengthSelfReviewUserIds,
   type ConcreteReviewQueue,
   type ConcreteReviewQueueQuery,
   type ConcreteReviewQueueRow,
@@ -20,7 +22,7 @@ import {
 } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
-import type { AuthUser, ProjectContext } from '../auth/policy.js';
+import { can, type AuthUser, type ProjectContext } from '../auth/policy.js';
 import { canUnderLock } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
@@ -37,6 +39,7 @@ import {
   type VersionRow,
 } from './concrete-report-lifecycle.read.js';
 import { exceptionNotesOf, submittedWarnings } from './concrete-review.read.js';
+import { strengthContext } from './concrete-strength-reports.read.js';
 
 const forbidden = (code = 'forbidden') => new ForbiddenException({ code });
 
@@ -70,15 +73,38 @@ const ORDER_SQL: Record<ConcreteReviewQueueStatus, string> = {
   issued: 'v.issued_at DESC, r.id',
 };
 
-const FROM_SQL = `FROM concrete_field_report r
+/**
+ * Field reports and (MM-V2-C39) strength reports, one row per report with its latest version.
+ * A strength report has no technician: its "technician" column is the latest version's credited
+ * submitter (lab staff), and it opens by its specimen set.
+ */
+const FROM_SQL = `FROM (
+    SELECT 'field'::text AS kind, fr.id, fr.project_id, fr.technician_user_id, fr.report_date,
+           fr.workflow_state, fr.issue_count, NULL::uuid AS set_id, NULL::text AS set_label
+    FROM concrete_field_report fr
+    UNION ALL
+    SELECT 'strength', sr.id, sr.project_id, NULL::uuid, NULL::date, sr.workflow_state,
+           sr.issue_count, sr.specimen_set_id, coalesce(st.permanent_id, st.temporary_id)
+    FROM concrete_strength_report sr JOIN concrete_specimen_set st ON st.id = sr.specimen_set_id
+  ) r
   JOIN project p ON p.id = r.project_id
   JOIN LATERAL (
-    SELECT * FROM concrete_report_version lv
-    WHERE lv.field_report_id = r.id ORDER BY lv.version_no DESC LIMIT 1
+    (SELECT * FROM concrete_report_version lv
+     WHERE r.kind = 'field' AND lv.field_report_id = r.id ORDER BY lv.version_no DESC LIMIT 1)
+    UNION ALL
+    (SELECT * FROM concrete_report_version lv
+     WHERE r.kind = 'strength' AND lv.strength_report_id = r.id
+     ORDER BY lv.version_no DESC LIMIT 1)
   ) v ON true`;
 
 interface QueueRow {
   id: string;
+  kind: 'field' | 'strength';
+  set_id: string | null;
+  set_label: string | null;
+  /** Strength: the latest version's rows, for its no-self-review rule. */
+  results: Pick<ConcreteStrengthResultRow, 'reported' | 'testedBy' | 'enteredBy'>[] | null;
+  submitted_staff_user_id: string;
   project_id: string;
   project_number: string;
   project_name: string;
@@ -102,12 +128,15 @@ interface QueueRow {
   closed_at: Date | null;
   issued_by_user_id: string | null;
   issued_at: Date | null;
-  warnings: { code: ConcreteFieldReportWarning['code'] }[] | null;
+  warnings: { code: ConcreteReportExceptionCode }[] | null;
   documented: number;
 }
 
-const SELECT_SQL = `SELECT r.id, r.project_id, p.project_number, p.name AS project_name,
-    p.lead_project_engineer_user_id, r.technician_user_id, r.report_date::text AS report_date,
+const SELECT_SQL = `SELECT r.id, r.kind, r.set_id, r.set_label,
+    CASE WHEN r.kind = 'strength' THEN v.snapshot->'results' END AS results,
+    v.submitted_staff_user_id, r.project_id, p.project_number, p.name AS project_name,
+    p.lead_project_engineer_user_id,
+    coalesce(r.technician_user_id, v.submitted_staff_user_id) AS technician_user_id, r.report_date::text AS report_date,
     r.workflow_state, r.issue_count, ${STATUS_CASE} AS status,
     v.id AS version_id, v.version_no, v.state AS version_state,
     (SELECT o.version_no FROM concrete_report_version o WHERE o.id = v.revision_of_version_id)
@@ -201,11 +230,13 @@ export class ConcreteReviewService {
       id === null ? null : (people.get(id) ?? { userId: id, initials: null, name: 'Unknown' });
     const out: ConcreteReviewQueueRow[] = [];
     for (const row of items) {
-      const byCode = new Map<ConcreteFieldReportWarning['code'], number>();
+      const byCode = new Map<ConcreteReportExceptionCode, number>();
       for (const w of row.warnings ?? []) byCode.set(w.code, (byCode.get(w.code) ?? 0) + 1);
       out.push({
         reportId: row.id,
-        reportType: 'field',
+        reportType: row.kind,
+        setId: row.set_id,
+        setLabel: row.set_label,
         projectId: row.project_id,
         projectNumber: row.project_number,
         projectName: row.project_name,
@@ -239,6 +270,7 @@ export class ConcreteReviewService {
     contexts: Map<string, Promise<ProjectContext>>,
   ): Promise<boolean> {
     if (row.status === 'issued') return false;
+    if (row.kind === 'strength') return this.canActOnStrength(row, user, contexts);
     if (row.status === 'returned') {
       // Only the technician corrects a returned report (owner decision 2026-11-08).
       return user.accountType !== 'shared_lab' && row.technician_user_id === user.userId;
@@ -252,10 +284,10 @@ export class ConcreteReviewService {
       technician_user_id: row.technician_user_id,
       workflow_state: row.workflow_state,
     };
-    let context = contexts.get(row.project_id);
+    let context = contexts.get(`field|${row.project_id}`);
     if (!context) {
       context = lifecycleContext(this.database.pool, facts);
-      contexts.set(row.project_id, context);
+      contexts.set(`field|${row.project_id}`, context);
     }
     const latest = {
       state: row.version_state,
@@ -265,6 +297,34 @@ export class ConcreteReviewService {
     const resolved = { ...(await context), recordTechnicianUserId: row.technician_user_id };
     const action = row.status === 'awaiting_review' ? 'review' : 'issue';
     return actionAllowed(user, action, facts, latest, resolved);
+  }
+
+  /** MM-V2-C39: lab staff correct a returned strength report; reviewers / issuers the rest. */
+  private async canActOnStrength(
+    row: QueueRow,
+    user: AuthUser,
+    contexts: Map<string, Promise<ProjectContext>>,
+  ): Promise<boolean> {
+    if (row.status === 'returned') return can(user, 'concrete_test.enter');
+    if (concreteStrengthSelfReviewUserIds(row.results ?? []).includes(user.userId)) return false;
+    const key = `strength|${row.project_id}`;
+    let context = contexts.get(key);
+    if (!context) {
+      context = strengthContext(this.database.pool, row);
+      contexts.set(key, context);
+    }
+    const resolved = await context;
+    if (row.status === 'awaiting_review') {
+      return (
+        can(user, 'concrete.review', resolved) &&
+        concreteReportMayReviewRouted(
+          { kind: row.route_kind, routedToUserId: row.routed_to_user_id },
+          user.userId,
+          row.lead_project_engineer_user_id,
+        )
+      );
+    }
+    return can(user, 'report.issue', resolved);
   }
 
   // -------------------------------------------------------------------------------------------
@@ -422,7 +482,13 @@ function filtersOf(query: ConcreteReviewQueueQuery) {
     where.push(sql(params.length));
   };
   if (query.projectId) add((n) => `r.project_id = $${n}`, query.projectId);
-  if (query.technicianUserId) add((n) => `r.technician_user_id = $${n}`, query.technicianUserId);
+  if (query.technicianUserId) {
+    add(
+      (n) => `coalesce(r.technician_user_id, v.submitted_staff_user_id) = $${n}`,
+      query.technicianUserId,
+    );
+  }
+  if (query.reportType) add((n) => `r.kind = $${n}`, query.reportType);
   if (query.submittedFrom) {
     add(
       (n) => `(v.submitted_at AT TIME ZONE 'America/Edmonton')::date >= $${n}::date`,
@@ -438,7 +504,6 @@ function filtersOf(query: ConcreteReviewQueueQuery) {
   const exceptionCount = `jsonb_array_length(coalesce(v.snapshot->'warnings', '[]'::jsonb))`;
   if (query.exceptions === 'with') where.push(`${exceptionCount} > 0`);
   if (query.exceptions === 'without') where.push(`${exceptionCount} = 0`);
-  // reportType: only field reports exist until owner decision G2.
   return { where, params };
 }
 

@@ -525,9 +525,7 @@ Migration `0021_concrete_report_lifecycle.sql`; contracts in
 `packages/shared/src/concrete-report-lifecycle.ts`; routes and checks in
 [permissions.md](permissions.md#concrete-report-lifecycle-mm-v2-c09). Source: Combined Plan
 "Corrections and revisions" and section 9 (issue and correction table). **Field reports only:**
-`report_kind` takes `field`; strength reports join in their own migration once owner decision
-**G2** (what a strength report contains, per age / per set / per field report, and its number
-format) is made.
+`report_kind` took `field` only here; strength reports joined in migration 0032 (C39, below).
 
 - **Model.** The report row stays the draft and current state. Each submission inserts
   `concrete_report_version` vN (1, 2, 3 … without gaps) with a frozen `snapshot` (the report's
@@ -763,6 +761,75 @@ drafts. Contracts: `packages/shared/src/concrete-testing-table.ts`.
 - **C22 changes:** Overdue excludes specimens with a complete entry; reschedule refuses them (409
   `tested_specimen`).
 
+## Strength reports (C39)
+
+Migration `0032_concrete_strength_reports.sql`; contracts (and the frozen snapshot type C32's
+renderer uses, `ConcreteStrengthReportSnapshot`) in
+`packages/shared/src/concrete-strength-reports.ts`; routes in
+[permissions.md](permissions.md#concrete-strength-reports-mm-v2-c39). Source: "V2 Concrete —
+Provisional report designs (G2, 2026-11-09)" section 4, owner-directed and provisional until the
+office examples arrive.
+
+- **One report per specimen set, cumulative.** `concrete_strength_report` (unique per set) is the
+  current state, like the field report row; it is created by the first submission. Versions,
+  transitions and exception notes are C09's / C28's tables, which now carry `report_kind`
+  `field` or `strength` and exactly one of `field_report_id` / `strength_report_id` (database
+  shape checks). Numbering, one open version, revisions of issued versions only, append-only
+  history and the database SHA-256 of the stored snapshot apply per strength report.
+- **When it can be submitted.** Once the set's first (lowest) test age is complete: every
+  specimen of that age, other than a disposed one, has a complete C23 entry
+  (`concreteTestEntryComplete`, the latest attempt). After an issue, submit is allowed again only
+  when a complete age the last issued version didn't report exists: that version is the next
+  revision (Rev 1, Rev 2 …) of the same report, so the latest revision shows every age so far
+  (422 `no_new_age` otherwise). Refusals: 422 `first_age_incomplete`, `no_ages`, `set_void`.
+- **Transitions.** C09's, plus `submit` from `issued` (the next age). A correction to an issued
+  result is a C09 revise (comment required, review authority or the version's issuer) → draft →
+  correct → submit. Each version after an issue records `revision` (supersedes Rev n-1, its issue
+  time, and a reason: the revise comments since that issue and "Added N d results").
+- **Frozen snapshot (section 4).** Set block (set ID, field report and Field ID, cast date and
+  time, structure / element, location, supplier, mix number, specified strength and age from the
+  field report's project spec, specimen size, first lab receipt date, initial field curing from
+  pickup; lab curing and the CF number are null until recorded / C32); one row per specimen
+  (label, assigned and actual age, test date, readings, max load, tested by, everyone credited
+  with entering it, remarks = the C07 note; fracture type null, not recorded yet); untested rows
+  `not_yet_tested` with their target date, HOLD rows `hold`, disposed `disposed`; per-age lines;
+  the standards placeholder line; units as stored (kN / mm, provisional). **Strength, area,
+  average diameter and height, per-age average and assessment are null** (G1/G8: no formula,
+  rounding or reading count is decided; C24).
+- **Locked results (AC2).** A result (any attempt) of a specimen the latest version shows as
+  tested is locked while the strength report is submitted, reviewed or issued (trigger
+  `concrete_test_result_reported`; C07's save answers 409 `result_on_strength_report`). Later
+  ages stay open. Submit takes the set FOR UPDATE, which C07's save also takes, so nothing changes
+  while a version is frozen. A new attempt for a reported specimen is a correction too.
+- **No self-review (AC3, mirrors the field-report technician rule).** The only tester of the
+  results a version reports, and the only person credited with entering them, never reviews,
+  returns, documents an exception on or issues it (403 `own_report`;
+  `concreteStrengthSelfReviewUserIds`). Two or more testers (or entrants) block nobody on that
+  side. A resubmission is never routed to a blocked person.
+- **Exceptions (C28 checklist).** `strength_tested_off_target` (tested on a date other than the
+  target) and `strength_overdue_untested` (past its target at submission, no complete entry), per
+  specimen (`results.<letter>`). Mark reviewed needs each documented or no longer raised live.
+- **Review queue.** Strength reports appear with `reportType: 'strength'`, `setId`, `setLabel`;
+  the "technician" column is the version's credited submitter; `canAct` follows the rules above.
+- **Report number and issued files (C32).** At first issue the command takes the strength
+  template in force and a `CS-YYYY-NNNNN` number from C32's `allocateReportNumber` (kind
+  `strength`, subject = the strength report) inside the issue transaction; every revision keeps
+  it. One source of truth: the number lives only in `concrete_report_number` (the strength report
+  row has no number column); each issued strength version must record it
+  (`concrete_report_version_strength_numbered`), and it must be its own report's (0031's
+  `concrete_report_version_number_check`, extended in 0032 to strength). At every issue (Rev 0,
+  then each revision) the PDF is rendered from the version's frozen snapshot with C32's strength
+  template P1 and stored through its file store, superseding the previous file; downloads are
+  C32's `GET /api/concrete/report-files/:id`. The version summary carries the number and file.
+- **Lists.** `GET /api/concrete/strength-reports` (project Reports tab: every set with a report or
+  complete results; Lab workspace `needsLab=true`: not submitted, draft, returned, or issued with
+  new results). Web: `/concrete/strength/:setId`, the project Concrete → Reports tab section and
+  the Concrete dashboard panel.
+- **Owner to confirm (built as proposal):** review / issue scope `concrete_strength` (not
+  `concrete_field`); lab staff (`concrete_test.enter`) submit, resubmit and recall; "sole tester
+  or entrant" read as two separate checks; a later age needs only that age complete (gaps allowed
+  for ages in between); the submitter is not separately barred from review.
+
 ## Reference data: suppliers, holidays, mix draft discard (C37)
 
 Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concrete-reference-data-mm-v2-c37-0028_concrete_reference_datasql).
@@ -840,9 +907,10 @@ nothing issued under P1 is rewritten.
   print; none exist until C39/C24, so a tested age reads "Pending review", an untested one "—",
   and HOLD specimens are counted in the status column.
 - **Strength report template P1 (design section 4).** `strength-report-template.ts` renders
-  `ConcreteStrengthReportSnapshot` (the shape agreed for C39). Strength, area, averages and
-  assessment always print "—" (G1/G8); the standards line is the placeholder "Test methods: [to be
-  confirmed by owner]". **Not wired** to issuing until C39's records are on main.
+  C39's `ConcreteStrengthReportSnapshot` (concrete-strength-reports.ts, the only definition).
+  Strength, area, averages and assessment always print "—" (G1/G8); the standards line is the
+  placeholder "Test methods: [to be confirmed by owner]". Wired to every strength-report issue
+  (C39).
 - **Report header.** `concrete_report_header_setting` (one row; default the fictional "Material
   Mule Testing Laboratory"; address and phone optional; no logo or accreditation marks yet),
   Settings → Report header; admins change it (proposal).

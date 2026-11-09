@@ -984,6 +984,28 @@ Test-result drafts with tester attribution and correction history. Contracts:
   without that permission; the server decides either way. Swept by the endpoint sweep.
 - C22's reschedule gains 409 `tested_specimen` (a complete entry exists), after its other checks.
 
+## Concrete strength reports (MM-V2-C39)
+
+| Route                                                                                                                    | Policy                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `GET /api/concrete/strength-reports?projectId=&needsLab=&state=`                                                         | `inventory.read`                                                                        |
+| `GET /api/concrete/specimen-sets/:setId/strength-report` (+ `/versions`, `/versions/:n`, `/versions/:n/exception-notes`) | `inventory.read`                                                                        |
+| `POST …/strength-report/submit`, `/resubmit`, `/recall`                                                                  | `concrete_test.enter` at the guard (Lab Technician, Lab Manager, LAB naming the person) |
+| `POST …/strength-report/return`, `/review`                                                                               | active user; service: `concrete.review` (scope `concrete_strength`) + C09 routing       |
+| `POST …/strength-report/issue`                                                                                           | active user; service: `report.issue` (scope `concrete_strength`)                        |
+| `POST …/strength-report/revise`                                                                                          | active user; service: `concrete.review` (strength) or the version's issuer              |
+| `POST …/strength-report/versions/:n/exception-notes`                                                                     | active user; service: `concrete.review` (strength) + routing                            |
+
+- Checked before the body against the report as it stands, then again under the locks (set FOR
+  UPDATE, strength report, latest version, project and accounts FOR SHARE). An unknown set is 404
+  for lab actions and for callers with strength review / issue authority somewhere, else 403.
+- **No self-review:** the version's sole tester or sole credited entrant gets 403 `own_report` on
+  review, return, issue and exception notes, whatever else they hold (owner decision 2026-11-08,
+  applied to strength reports). Every route is in the security sweep; no new permission, so
+  `PROJECT_CAPABILITY_ACTIONS` is unchanged (per-report rights show in `allowedActions`).
+- C07's test-result save answers 409 `result_on_strength_report` for a result on a submitted,
+  reviewed or issued strength report version.
+
 ## Concrete report output (MM-V2-C32)
 
 Issued report files, the project summary report and the report header. Contracts:

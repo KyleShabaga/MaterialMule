@@ -176,6 +176,8 @@ describe('Review queue page', () => {
       {
         reportId: REPORT_ID,
         reportType: 'field',
+        setId: null,
+        setLabel: null,
         projectId: PROJECT_ID,
         projectNumber: 'DEMO-2601',
         projectName: 'Fictional project',

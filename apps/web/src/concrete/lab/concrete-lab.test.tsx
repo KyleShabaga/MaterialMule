@@ -106,7 +106,12 @@ const twoProjects: ConcreteSearch = {
 function renderAt(path: string, answer: (url: URL) => Response | undefined, me: MeResponse = ME) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://x');
-    return answer(url) ?? json(404, {});
+    // MM-V2-C39: the dashboard's strength-report panel reads an empty list unless a test says.
+    const fallback =
+      url.pathname === '/api/concrete/strength-reports'
+        ? json(200, { items: [], truncated: false })
+        : json(404, {});
+    return answer(url) ?? fallback;
   });
   vi.stubGlobal('fetch', fetchMock);
   const router = createMemoryRouter(routes, { initialEntries: [path] });

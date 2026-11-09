@@ -152,6 +152,16 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/concrete/field-reports/:id/revise': 'concrete.review',
   // MM-V2-C28: documenting an exception is review work (concrete.review + routing).
   'POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes': 'concrete.review',
+  // MM-V2-C39: strength reports (scope concrete_strength). Return, review and revise: the lead or
+  // a designated strength reviewer (revise also the version's issuer); issue: the lead or a
+  // strength issuer grant; never the version's sole tester / entrant. Submit, resubmit and recall
+  // are lab work at the guard (concrete_test.enter).
+  'POST /api/concrete/specimen-sets/:setId/strength-report/return': 'concrete.review',
+  'POST /api/concrete/specimen-sets/:setId/strength-report/review': 'concrete.review',
+  'POST /api/concrete/specimen-sets/:setId/strength-report/issue': 'report.issue',
+  'POST /api/concrete/specimen-sets/:setId/strength-report/revise': 'concrete.review',
+  'POST /api/concrete/specimen-sets/:setId/strength-report/versions/:versionNo/exception-notes':
+    'concrete.review',
   'GET /api/me/grants': null,
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).

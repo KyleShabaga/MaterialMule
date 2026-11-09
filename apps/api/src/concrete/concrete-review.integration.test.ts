@@ -365,7 +365,9 @@ describe.runIf(testDatabaseUrl)('concrete review queue and exceptions (MM-V2-C28
     ]);
     const bad = await get('/api/concrete/review-queue?status=draft', 'pe');
     expect(bad.status).toBe(400);
-    expect((await get('/api/concrete/review-queue?reportType=strength', 'pe')).status).toBe(400);
+    expect((await get('/api/concrete/review-queue?reportType=summary', 'pe')).status).toBe(400);
+    // MM-V2-C39: strength reports are a report type (none submitted in this test).
+    expect((await queue('?reportType=strength', 'pe')).total).toBe(0);
 
     // Who can act. rv reviews A only (not B); the technician never reviews their own report but
     // corrects it when returned; js issues on A; LAB and jo read only.

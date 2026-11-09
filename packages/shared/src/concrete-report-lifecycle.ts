@@ -12,7 +12,8 @@ import { personSnapshotSchema } from './lab-programs';
 
 const idSchema = z.uuid({ error: 'must be an ID' });
 
-export const CONCRETE_REPORT_KINDS = ['field'] as const;
+/** MM-V2-C39: strength reports (one per specimen set) share the model. */
+export const CONCRETE_REPORT_KINDS = ['field', 'strength'] as const;
 export type ConcreteReportKind = (typeof CONCRETE_REPORT_KINDS)[number];
 
 export const CONCRETE_REPORT_ACTIONS = [

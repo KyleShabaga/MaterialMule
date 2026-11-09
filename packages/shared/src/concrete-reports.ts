@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { concreteSpecimenAgeSchema } from './concrete-settings';
 
 // MM-V2-C32: report numbers, template revisions, issued report files, the project summary report
 // and the strength report snapshot shape agreed with C39. Source: "V2 Concrete — Provisional
@@ -260,77 +259,6 @@ export const concreteSummaryReportListSchema = z.object({
 });
 export type ConcreteSummaryReportList = z.infer<typeof concreteSummaryReportListSchema>;
 
-// ---- Strength report snapshot (design section 4; records in C39) ------------------------------------
-
-/**
- * The frozen version snapshot C32's strength template renders, agreed with C39 (strength report
- * records). One report per specimen set, cumulative: every revision lists every specimen. Strength,
- * area, averages and the assessment stay null until C24 delivers the approved method (G1/G8);
- * the template prints "—" for them whatever the snapshot holds. Units as stored on the result
- * (C07: kN and mm, flagged provisional).
- */
-export const concreteStrengthSnapshotSpecimenSchema = z.object({
-  specimenId: z.string(),
-  /** Set ID + letter, e.g. "26-0042A". */
-  label: z.string(),
-  assignedAge: concreteSpecimenAgeSchema,
-  targetDate: z.string().nullable(),
-  /** null: not yet tested (printed "Not yet tested" with the target date). */
-  test: z
-    .object({
-      testedOn: z.string().nullable(),
-      actualAgeDays: z.number().nullable(),
-      averageDiameter: z.number().nullable(),
-      averageHeight: z.number().nullable(),
-      dimensionUnit: z.string(),
-      maxLoad: z.number().nullable(),
-      loadUnit: z.string(),
-      unitsProvisional: z.boolean(),
-      fractureType: z.string().nullable(),
-      testedByInitials: z.string().nullable(),
-      remarks: z.string().nullable(),
-      /** Always null until C24 (G1/G8). */
-      areaMm2: z.null(),
-      strengthMpa: z.null(),
-    })
-    .nullable(),
-});
-export type ConcreteStrengthSnapshotSpecimen = z.infer<
-  typeof concreteStrengthSnapshotSpecimenSchema
->;
-
-export const concreteStrengthReportSnapshotSchema = z.object({
-  kind: z.literal('strength'),
-  versionNo: z.number(),
-  reportId: z.string(),
-  projectId: z.string(),
-  projectNumber: z.string(),
-  projectName: z.string(),
-  client: z.string().nullable(),
-  set: z.object({
-    setId: z.string(),
-    label: z.string().nullable(),
-    fieldReportId: z.string(),
-    /** CF-… of the field report, when issued. */
-    fieldReportNumber: z.string().nullable(),
-    paperFieldId: z.string().nullable(),
-    castAt: z.string().nullable(),
-    elements: z.string().nullable(),
-    location: z.string().nullable(),
-    supplierName: z.string().nullable(),
-    mixNumber: z.string().nullable(),
-    specifiedStrengthMpa: z.number().nullable(),
-    specifiedStrengthAgeDays: z.number().nullable(),
-    specimenType: z.string(),
-    mouldSize: z.string().nullable(),
-    receivedOn: z.string().nullable(),
-    initialCuring: z.string().nullable(),
-    labCuring: z.string().nullable(),
-  }),
-  specimens: z.array(concreteStrengthSnapshotSpecimenSchema),
-  /** One line per numeric age tested so far; both values null until C24. */
-  ageSummaries: z.array(
-    z.object({ ageDays: z.number(), averageMpa: z.null(), assessment: z.null() }),
-  ),
-});
-export type ConcreteStrengthReportSnapshot = z.infer<typeof concreteStrengthReportSnapshotSchema>;
+// ---- Strength report snapshot ------------------------------------------------------------------------
+// The strength report's frozen version snapshot is C39's `ConcreteStrengthReportSnapshot`
+// (concrete-strength-reports.ts): one shape for the record, the API and the renderer.

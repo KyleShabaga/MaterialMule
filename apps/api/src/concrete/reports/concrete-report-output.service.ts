@@ -16,6 +16,7 @@ import {
   type ConcreteReportFile,
   type ConcreteReportHeader,
   type ConcreteNumberedReportKind,
+  type ConcreteStrengthReportSnapshot,
   type ConcreteSummaryAgeCell,
   type ConcreteSummaryFilters,
   type ConcreteSummaryReport,
@@ -41,6 +42,7 @@ import {
 import { formatDate, type ReportHeaderText } from './pdf-layout.js';
 import { allocateReportNumber, type AllocatedReportNumber } from './report-numbers.js';
 import { reportFileStore, type StoredReportFile } from './report-file-store.js';
+import { renderStrengthReportPdf } from './strength-report-template.js';
 import { renderSummaryReportPdf } from './summary-report-template.js';
 
 // MM-V2-C32: rendering and storing issued concrete reports (provisional designs P1, G2).
@@ -50,8 +52,9 @@ import { renderSummaryReportPdf } from './summary-report-template.js';
 //   stored once with their SHA-256 and never regenerated (AC1/AC2).
 // - Project summary: previewed (unnumbered, never stored) and issued (CSR number, stored) from
 //   the same snapshot builder and renderer, so the preview is what issuing stores.
-// - Strength reports: the template exists (strength-report-template.ts) and is wired once C39's
-//   records are on main; C39 calls the allocator for its CS number.
+// - Strength reports (MM-V2-C39): the same at every issue of a strength report (first issue and
+//   each cumulative or corrective revision), from C39's frozen `ConcreteStrengthReportSnapshot`,
+//   with the CS number from the allocator (subject = the strength report).
 
 type Db = Pool | PoolClient;
 
@@ -74,6 +77,9 @@ export interface PreparedFieldIssue {
   number: AllocatedReportNumber;
   template: ReportTemplateRow;
 }
+
+/** The template and number an issue records on its version (field or strength). */
+export type PreparedReportIssue = PreparedFieldIssue;
 
 function unprocessable(code: string, field: string, message: string): never {
   throw new UnprocessableEntityException({ code, errors: [{ field, message }] });
@@ -292,6 +298,101 @@ export class ConcreteReportOutputService {
     });
     if (file.revisionNo !== revisionNo) {
       // The database numbers revisions; a mismatch means the printed "Rev" is wrong.
+      throw new Error('Report file revision does not match the rendered revision');
+    }
+    return file;
+  }
+
+  // ---- Strength reports (called by the C39 issue command) -----------------------------------------
+
+  /** Before the version is issued: the strength template in force and the CS number. */
+  async prepareStrengthIssue(
+    client: PoolClient,
+    report: { id: string; project_id: string },
+    user: AuthUser,
+  ): Promise<PreparedReportIssue> {
+    const template = await templateInForce(client, 'strength');
+    const number = await allocateReportNumber(client, {
+      kind: 'strength',
+      projectId: report.project_id,
+      subjectId: report.id,
+      userId: user.userId,
+    });
+    return { number, template };
+  }
+
+  /** After the version is issued (same transaction): render the strength PDF and store it. */
+  async storeStrengthIssue(
+    client: PoolClient,
+    prepared: PreparedReportIssue,
+    report: { id: string; project_id: string },
+    versionId: string,
+    user: AuthUser,
+  ): Promise<ConcreteReportFile> {
+    const { rows } = await client.query<{
+      snapshot: ConcreteStrengthReportSnapshot;
+      issued_at: Date;
+      issued_by_user_id: string;
+      reviewed_by_user_id: string | null;
+      reviewed_at: Date | null;
+      issue_include_photos: boolean;
+      issue_include_machine_info: boolean;
+    }>(
+      `SELECT snapshot, issued_at, issued_by_user_id, reviewed_by_user_id, reviewed_at,
+              issue_include_photos, issue_include_machine_info
+       FROM concrete_report_version WHERE id = $1 AND report_kind = 'strength'`,
+      [versionId],
+    );
+    const version = rows[0]!;
+    const project = await projectHeader(client, report.project_id);
+    const names = await displayNames(client, [
+      version.issued_by_user_id,
+      version.reviewed_by_user_id,
+    ]);
+    const previous = await this.previousFile(client, prepared.number.id);
+    const revisionNo = previous ? previous.revision_no + 1 : 0;
+    const machine = version.issue_include_machine_info
+      ? await testingMachineSnapshot(client, formatDate(version.issued_at))
+      : null;
+    const header = await reportHeaderOf(client);
+    const content = await renderStrengthReportPdf({
+      header: headerText(header),
+      template: prepared.template,
+      reportNumber: prepared.number.reportNumber,
+      revisionNo,
+      issuedAt: version.issued_at,
+      supersedes: previous
+        ? {
+            revisionNo: previous.revision_no,
+            issuedAt: previous.created_at,
+            reason: version.snapshot.revision?.reason ?? null,
+          }
+        : null,
+      snapshot: version.snapshot,
+      leadProjectEngineer: project?.lead_name ?? null,
+      reviewedBy:
+        version.reviewed_by_user_id && version.reviewed_at
+          ? { name: names.get(version.reviewed_by_user_id) ?? 'Unknown', at: version.reviewed_at }
+          : null,
+      issuedBy: { name: names.get(version.issued_by_user_id) ?? 'Unknown', at: version.issued_at },
+      includePhotos: version.issue_include_photos,
+      includeMachineInfo: version.issue_include_machine_info,
+      machine,
+    });
+    const file = await reportFileStore.save(client, {
+      kind: 'strength',
+      projectId: report.project_id,
+      reportNumberId: prepared.number.id,
+      templateId: prepared.template.id,
+      reportVersionId: versionId,
+      summaryReportId: null,
+      fileName: `${prepared.number.reportNumber}-rev${revisionNo}.pdf`,
+      content,
+      includePhotos: version.issue_include_photos,
+      includeMachineInfo: version.issue_include_machine_info,
+      createdByUserId: user.userId,
+    });
+    if (file.revisionNo !== revisionNo) {
       throw new Error('Report file revision does not match the rendered revision');
     }
     return file;

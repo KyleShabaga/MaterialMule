@@ -361,11 +361,11 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09, migration
     await expect(insert({ field_report_id: other })).rejects.toMatchObject(FOREIGN);
   });
 
-  it('only field reports for now (strength reports wait for G2)', async () => {
+  it('a version names exactly the report of its kind (MM-V2-C39 adds strength)', async () => {
     const reportId = await report();
     await expect(submit(reportId, { report_kind: 'strength' })).rejects.toMatchObject({
       ...REJECT,
-      constraint: 'concrete_report_version_kind_check',
+      constraint: 'concrete_report_version_report_shape',
     });
   });
 
