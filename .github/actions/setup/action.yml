@@ -24,6 +24,12 @@ runs:
         Set-Service -InputObject $service -StartupType Manual
         Start-Service -InputObject $service
         $env:PGPASSWORD = 'root'
+        # Every database test builds and drops a fully migrated schema, and parallel workers do it
+        # at once. With 30+ migrations that outgrows the default lock table (64 per connection),
+        # failing with "out of shared memory" (53200). The setting needs a restart.
+        & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U postgres -c 'ALTER SYSTEM SET max_locks_per_transaction = 512;'
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Restart-Service -InputObject $service
         & "$env:PGBIN\psql.exe" -h 127.0.0.1 -U postgres -c 'CREATE DATABASE materialmule_test;'
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
