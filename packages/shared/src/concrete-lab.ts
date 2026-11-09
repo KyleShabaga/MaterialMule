@@ -161,7 +161,10 @@ export function concreteSearchTerms(raw: string): ConcreteSearchTerms {
   const text = raw.trim().replace(DASHES, '-').replace(/\s+/g, ' ').toUpperCase();
   let setAlias: string | null = null;
   let letter: string | null = null;
-  if (CONCRETE_PERMANENT_SET_ID_PATTERN.test(text) || CONCRETE_TEMPORARY_SET_ID_PATTERN.test(text)) {
+  if (
+    CONCRETE_PERMANENT_SET_ID_PATTERN.test(text) ||
+    CONCRETE_TEMPORARY_SET_ID_PATTERN.test(text)
+  ) {
     setAlias = text;
   } else {
     const withLetter = /^(.*\d)([A-Z])$/.exec(text);

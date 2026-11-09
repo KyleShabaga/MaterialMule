@@ -251,7 +251,10 @@ describe.runIf(testDatabaseUrl)('concrete lab workspace and search (MM-V2-C31)',
     expect(ticket.items.map((r) => [r.fieldReportId, r.matches])).toEqual([
       [a2.fieldReportId, ['ticket']],
     ]);
-    expect(ticket.items[0]).toMatchObject({ ticketNumber: 'T-77821', supplierName: 'Demo Ready Mix' });
+    expect(ticket.items[0]).toMatchObject({
+      ticketNumber: 'T-77821',
+      supplierName: 'Demo Ready Mix',
+    });
     expect((await search('FR-0042')).items[0]!.matches).toEqual(['field_id']);
     expect((await search('35mpa')).items[0]!.matches).toEqual(['mix']);
     const tech = await search('jordan');

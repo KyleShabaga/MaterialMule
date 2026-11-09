@@ -250,7 +250,10 @@ export class ConcreteLabService {
     const params: unknown[] = [];
     const union = branches
       .map((branch) => {
-        const sql = branch.sql.replace(/\$(\d+)/g, (_, n: string) => `$${Number(n) + params.length}`);
+        const sql = branch.sql.replace(
+          /\$(\d+)/g,
+          (_, n: string) => `$${Number(n) + params.length}`,
+        );
         params.push(...branch.params);
         return `(${sql} LIMIT ${BRANCH_LIMIT})`;
       })
