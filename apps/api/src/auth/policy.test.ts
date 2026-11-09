@@ -500,6 +500,12 @@ describe('MM-V2-C10 concrete contract extension (planned; no route checks these 
       allowed: ['lm', 'grantLm', 'labTech'],
       sources: ['lab_manager', 'lab_technician'],
     },
+    // MM-V2-C37 (Kyle 2026-11-08): suppliers by Lab Managers and admins; holidays by admins.
+    'concrete_settings.supplier.manage': {
+      allowed: ['admin', 'lm', 'grantLm'],
+      sources: ['lab_manager', 'admin'],
+    },
+    'concrete_settings.holiday.manage': { allowed: ['admin'], sources: ['admin'] },
   };
 
   it('T1/AC1: every new row matches the documented rule for every kind of caller', () => {

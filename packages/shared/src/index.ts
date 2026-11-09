@@ -42,3 +42,5 @@ export * from './concrete-review';
 export * from './concrete-worklist';
 export * from './concrete-holds';
 export * from './concrete-receiving';
+export * from './concrete-reference-data';
+export * from './concrete-test-results';
