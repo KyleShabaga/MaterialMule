@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { concreteSpecimenAgeSchema } from './concrete-settings';
 
 // MM-V2-C32: report numbers, template revisions, issued report files, the project summary report
 // and the strength report snapshot shape agreed with C39. Source: "V2 Concrete — Provisional
