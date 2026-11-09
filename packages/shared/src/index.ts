@@ -48,3 +48,4 @@ export * from './concrete-reference-data';
 export * from './concrete-test-results';
 export * from './concrete-testing-table';
 export * from './concrete-lab';
+export * from './concrete-reports';

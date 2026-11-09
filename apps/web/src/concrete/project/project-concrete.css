@@ -265,3 +265,8 @@
     justify-content: center;
   }
 }
+
+/* MM-V2-C32 Summary tab filters. */
+.concrete-summary-filters {
+  margin: 0 0 0.75rem;
+}

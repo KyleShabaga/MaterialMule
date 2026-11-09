@@ -562,7 +562,7 @@ format) is made.
   report, even as reviewer or lead (403 `own_report`). Revision after issue: the lead, a designated
   `concrete_field` reviewer, or the person who issued the version, with a reason.
 - **Not here:** review queue and preview (C28), auto-submission from Ready to submit (C19),
-  notifications (C29, below), PDFs (C32). Submission checks only C04's final-review field list; the
+  notifications (C29, below), PDFs (C32, below). Submission checks only C04's final-review field list; the
   `review.deferredChecks` blockers (C15, C05, C06, C17, C18, C20) are added by their cards. A report
   with versions keeps its project (the version foreign key has no cascade).
 
@@ -790,6 +790,70 @@ Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concre
   draft and supplier link now sit on C30's mix detail page; the old address redirects to the
   Mixes tab, and the project page no longer has a separate "Concrete mixes" button.
 
+## Report templates, numbers and issued files (C32)
+
+Migration `0031_concrete_report_output.sql`; contracts in `packages/shared/src/concrete-reports.ts`;
+code in `apps/api/src/concrete/reports/`; routes in
+[permissions.md](permissions.md#concrete-report-output-mm-v2-c32). Source: **"V2 Concrete —
+Provisional report designs (G2, 2026-11-09)"**, owner-directed provisional designs ("make up what
+the reports should be for now") standing in for the office's report examples. They are template
+revision **P1**, marked provisional on every page; the real examples become a new revision and
+nothing issued under P1 is rewritten.
+
+- **Numbers (design section 2).** `CF-YYYY-NNNNN` field, `CS-YYYY-NNNNN` strength,
+  `CSR-YYYY-NNNN` summary; one gap-free counter per kind and year (year = issue date,
+  America/Edmonton). `allocateReportNumber` (or the `ConcreteReportNumberService` provider) runs
+  inside the issue transaction, at first issue only; a revision keeps the report's number; a
+  number is never reused. The database proves it: a number must take the counter's value (which
+  only steps by one), the counter must be used by commit (`concrete_report_number_no_gap`), and
+  numbers never change. Concurrent issues serialise on the counter row; a rolled-back issue rolls
+  the counter back. Lock order: the issue command's own locks, then the counter row.
+- **Templates.** `concrete_report_template` (kind, revision, name, provisional, in force from),
+  append-only, P1 for each kind seeded in `seed/reference.sql`. The revision in force at issue is
+  recorded on the issued version (`report_template_id`, with `report_number_id`) and on its file.
+  A revision this build can't render is refused (422) rather than printed wrongly.
+- **Issued files.** At every field-report issue (first issue and each issued revision) the PDF is
+  rendered from the version's frozen snapshot plus values copied at issue (report header, lead,
+  reviewer and issuer names, the version's exception notes, the testing machine from
+  `testingMachineSnapshot()` when the issuer included machine info) and stored in
+  `concrete_report_file` with its database SHA-256, the template, the number, Rev n (0, 1, ...),
+  the file it supersedes and the include-photos / include-machine-info choices. Files are never
+  changed or regenerated (AC1/AC2): later source, header, people or machine-register changes don't
+  touch them. The database refuses an issued version without its file at commit. Bytes live in
+  PostgreSQL (bytea) behind `ReportFileStore` (`report-file-store.ts`) until C15's attachment
+  storage replaces the implementation. PDFs are made with pdf-lib 1.17.1 (pure JS, pinned) and
+  the standard Helvetica fonts; characters those fonts lack print as "?" (the stored record is
+  unchanged). The output is deterministic, so a preview is byte-for-byte what issuing would store.
+- **Field report template P1 (design section 3).** Project, placement, mix (the report's
+  specification column and mix registry revision), the load sampled (one report = one load),
+  every slump/air reading, specimens cast per set, remarks and the reviewer's exception notes, the
+  testing machine when included, and the sign-off (reviewed by, issued by; names and dates only).
+  Missing values print "—", never 0 or No; out-of-range readings are marked ⚠ (a vector marker)
+  with a legend, values unchanged. Fields the record lacks (weather, departure time, exposure
+  class, initial curing location) are left off. Footer on every page: Page x of y, template name
+  and revision, "Results relate only to the items tested.", "Provisional template".
+- **Project summary (design section 5).** Concrete → Summary tab: date range (cast date) and
+  element / mix filters; Preview opens the unnumbered PDF (same snapshot builder and renderer,
+  never stored); Generate summary report issues it (`report.issue`, CSR number, stored in
+  `concrete_summary_report` with its snapshot hash, and the file). Field values come only from the
+  field report's latest issued version (unissued: "Not issued", "—"). Only issued strength values
+  print; none exist until C39/C24, so a tested age reads "Pending review", an untested one "—",
+  and HOLD specimens are counted in the status column.
+- **Strength report template P1 (design section 4).** `strength-report-template.ts` renders
+  `ConcreteStrengthReportSnapshot` (the shape agreed for C39). Strength, area, averages and
+  assessment always print "—" (G1/G8); the standards line is the placeholder "Test methods: [to be
+  confirmed by owner]". **Not wired** to issuing until C39's records are on main.
+- **Report header.** `concrete_report_header_setting` (one row; default the fictional "Material
+  Mule Testing Laboratory"; address and phone optional; no logo or accreditation marks yet),
+  Settings → Report header; admins change it (proposal).
+- **Export (C33).** Include `concrete_report_file` (bytes, sha256, file name, number, revision,
+  template, options), `concrete_report_number`, `concrete_report_template` and
+  `concrete_summary_report` with the project's records; exported bytes must hash to the stored
+  `sha256`.
+- **Still open:** the office's examples (a new template revision), branding/logo and
+  accreditation marks, standards references, photos (C15), strength values and assessment (C24,
+  G1/G8), distribution/email (out of scope).
+
 ## Foundation integration (C08)
 
 `apps/api/src/concrete/concrete-foundation.integration.test.ts` runs one fictional scenario through
@@ -811,6 +875,7 @@ the open gates (G2, G8, workbook and standards, report templates, offline device
   `project_concrete_lab_manager_grant.granted`/`.revoked`, C03 the `concrete_mix.*` events; each writing card records its own with
   `recordAudit` in the same transaction.
 - **Open owner inputs, deliberately not defaulted:** testing-machine / worksheet units and reading
-  count, calculation and rounding methods, final and summary report templates, CSA/ASTM curing and
+  count, calculation and rounding methods, the office's report examples (provisional P1
+  templates stand in, C32), CSA/ASTM curing and
   pickup limits, paper Field ID vs Set ID (CD-65), externally numbered sets (CD-69), a report-level
   reference number (none is defined).

@@ -49,6 +49,7 @@ import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCata
 import { LocationsPage } from './settings/locations/LocationsPage';
 import { EquipmentSettingsPage } from './settings/equipment/EquipmentSettingsPage';
 import { HolidaysSettingsPage } from './settings/reference/HolidaysSettingsPage';
+import { ReportHeaderSettingsPage } from './settings/reference/ReportHeaderSettingsPage';
 import { SuppliersSettingsPage } from './settings/reference/SuppliersSettingsPage';
 import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
 import { MyAccessPage } from './settings/access/MyAccessPage';
@@ -206,6 +207,8 @@ export const routes: RouteObject[] = [
                   // Concrete suppliers and the holiday calendar (MM-V2-C37).
                   { path: 'suppliers', element: <SuppliersSettingsPage /> },
                   { path: 'holidays', element: <HolidaysSettingsPage /> },
+                  // The header printed on issued concrete reports (MM-V2-C32).
+                  { path: 'report-header', element: <ReportHeaderSettingsPage /> },
                   // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
                   { path: 'tests', element: <TestsSettingsPage /> },
                   { path: 'templates', element: <TemplatesSettingsPage /> },

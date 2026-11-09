@@ -87,3 +87,28 @@ BEGIN
   ON CONFLICT DO NOTHING;
 END
 $$;
+
+-- Report template revisions (MM-V2-C32). P1 is the provisional design the owner directed on
+-- 2026-11-09 ("V2 Concrete — Provisional report designs (G2, 2026-11-09)") in place of the
+-- office's report examples; those, when supplied, become a new revision (never an edit of P1).
+-- Fixed IDs; in force from 2026-11-09 (America/Edmonton). Skipped before migration 0031.
+DO $$
+BEGIN
+  IF to_regclass('concrete_report_template') IS NULL THEN
+    RETURN;
+  END IF;
+  INSERT INTO concrete_report_template
+    (id, report_kind, revision, name, provisional, design_reference, in_force_from)
+  VALUES
+    ('00000000-0000-4000-8000-000c32000001', 'field', 'P1', 'Field report template', true,
+     'V2 Concrete — Provisional report designs (G2, 2026-11-09), section 3',
+     '2026-11-09T00:00:00-07:00'),
+    ('00000000-0000-4000-8000-000c32000002', 'strength', 'P1', 'Strength report template', true,
+     'V2 Concrete — Provisional report designs (G2, 2026-11-09), section 4',
+     '2026-11-09T00:00:00-07:00'),
+    ('00000000-0000-4000-8000-000c32000003', 'summary', 'P1', 'Summary report template', true,
+     'V2 Concrete — Provisional report designs (G2, 2026-11-09), section 5',
+     '2026-11-09T00:00:00-07:00')
+  ON CONFLICT DO NOTHING;
+END
+$$;

@@ -6,6 +6,11 @@ import {
   concreteMixPropagationResultSchema,
   concreteProjectSettingsSchema,
   concreteProjectSpecimenListSchema,
+  concreteSummaryReportListSchema,
+  concreteSummaryReportSchema,
+  type ConcreteSummaryFilters,
+  type ConcreteSummaryReport,
+  type ConcreteSummaryReportList,
   type ConcreteFieldReportList,
   type ConcreteMixDetail,
   type ConcreteMixList,
@@ -189,6 +194,38 @@ export function saveSettings(
       body,
     },
   );
+}
+
+// ---- Summary report (MM-V2-C32) -------------------------------------------------------------------
+
+const summaries = (projectId: string, rest = '') =>
+  `/api/concrete/projects/${encodeURIComponent(projectId)}/summary-reports${rest}`;
+
+export function fetchSummaryReports(projectId: string): Promise<ConcreteSummaryReportList> {
+  return call(summaries(projectId), (b) => concreteSummaryReportListSchema.parse(b));
+}
+
+/** The unnumbered preview PDF (rendered by the server, never stored). */
+export function summaryPreviewUrl(projectId: string, filters: ConcreteSummaryFilters): string {
+  return summaries(
+    projectId,
+    `/preview${search({
+      from: filters.from ?? undefined,
+      to: filters.to ?? undefined,
+      element: filters.element ?? undefined,
+      mixId: filters.mixId ?? undefined,
+    })}`,
+  );
+}
+
+export function issueSummaryReport(
+  projectId: string,
+  filters: ConcreteSummaryFilters,
+): Promise<ConcreteSummaryReport> {
+  return call(summaries(projectId), (b) => concreteSummaryReportSchema.parse(b), {
+    method: 'POST',
+    body: { idempotencyKey: crypto.randomUUID(), filters },
+  });
 }
 
 // ---- Messages ------------------------------------------------------------------------------------
