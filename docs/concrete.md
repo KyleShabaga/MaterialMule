@@ -358,6 +358,57 @@ Migration `0020_concrete_specimen_sets.sql`; contracts and helpers in
   `concrete_specimen.reschedule` (the lead, a designated reviewer or a concrete-grant Lab Manager).
   The designated reviewers for it are the `concrete_field` scope's.
 
+## Pickup, initial curing and receiving (C06)
+
+Migration `0026_concrete_pickup_receiving.sql`; contracts and the blocker rules in
+`packages/shared/src/concrete-receiving.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-pickup-and-receiving-mm-v2-c06). Source: combined plan
+field-sheet rows "Pickup", "Initial curing" and "Receiving", the Receiving screen, spec page 5
+(CD-29–CD-34, CD-46). API only: the Receiving and pickup screens are later cards.
+
+- **Pickup** (`concrete_specimen_pickup`, one per specimen): the actual collector, date/time,
+  initial-curing minimum and maximum (°C to 0.1), optional curing box and location. Mark picked up
+  (`complete: true`) needs all four (422 `pickup_incomplete`, AC1); `complete: false` saves what
+  is known (missing stays null). Partial pickup: select fewer specimens. Never filled from the
+  Pick up window or the receipt; never before casting (422 `before_casting`).
+- **Pick up window:** 24 h from casting by default, editable per set
+  (`concrete_set_pickup_window`); `verified: false` until CD-62 (CSA/ASTM) is answered. An
+  estimate only: it never records a pickup.
+- **Curing range** (`concrete_curing_standard`): one current standards-based range (specification,
+  edition, min, max), never per project; a change is a new row and the old one is retired. **None
+  is seeded and no value is guessed** (CD-62): without a range, readings are stored unchecked
+  (`curingRange: null`). With one, each pickup keeps the range it was checked against (reference
+  and copied bounds); a later range never rewrites it, and only changed readings are re-checked.
+  A minimum below or maximum above the range is flagged (`min_below_range`, `max_above_range`),
+  notifies the designated reviewers and the lead in-app (`concrete_curing.out_of_range`, C29,
+  targeting the field report) and blocks nothing. It is an **issuance gate** until a reviewer
+  resolves it (`curing-resolution`). The route that maintains ranges (Lab Manager or admin,
+  `concrete_settings.curing_standard.manage`) is not built: no card owns it yet.
+- **Receipt** (`concrete_specimen_receipt`): the actual receiver and date/time and one unmoulded
+  mass in grams to 0.1 g (`numeric(7,1)`; more decimals are refused, never rounded; responses
+  carry the exact decimal text, e.g. `"12345.6"`). Saving it marks the specimen received; each
+  specimen saves on its own (partial arrivals), with or without a pickup record. One per specimen
+  (409 `already_received`); a correction goes through `mass-correction`, with history.
+- **Marker confirmation** ("Permanent IDs added to all received specimens"): per set, needs a
+  permanent ID (409 `set_not_numbered`), and covers the received specimens no earlier
+  confirmation covers; a later arrival needs its own (AC6).
+- **Exceptions** (`concrete_receiving_exception`): `missing` (an expected specimen; never removed
+  from its set), `extra` (never added to a set), `unmatched` (observed marking kept; the actual
+  receipt and mass may be recorded). Resolution records disposition, reason, who, when and the
+  authority source. An extra or unmatched record confirmed as an existing specimen hands its
+  recorded receipt to that specimen (`fromExceptionId`). A resolved missing specimen is no longer
+  expected.
+- **Blockers** (computed, never stored; `GET …/receiving` per set and per report):
+  `pickup_incomplete`, `not_received`, `missing_unresolved`, `identity_unresolved`,
+  `marker_confirmation_missing`; issuance gate `curing_out_of_range_unresolved`. **Not applied to
+  submission yet:** C19 (auto-submission) and the submit command should call
+  `concreteReceivingIssues`. C04's `deferredChecks` still list the two C06 checks as unapplied.
+- **Draft sets:** once any lab record exists for a set, C05's draft edit that replaces its
+  specimens, and its discard, return 409 `set_has_receiving`.
+- **Not here:** the screens and the Awaiting pickup / Partially received lists, scale capture
+  (CD-70), the worklist's curing-temperature exception source (C31), linking an extra specimen into
+  a set as a new specimen (C21), offline caching of the range (C11/C17).
+
 ## Daily lab worklist and rescheduling (C22)
 
 Migration `0022_concrete_specimen_reschedule.sql`; contracts and the date rules in
