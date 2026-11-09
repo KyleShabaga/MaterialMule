@@ -95,3 +95,9 @@ export function ProjectConcreteRedirect() {
   const { projectId = '' } = useParams();
   return <Navigate to={concreteTabPath(projectId)} replace />;
 }
+
+/** `/projects/:projectId/concrete-mixes` (MM-V2-C37's former mixes screen) opens the Mixes tab. */
+export function ProjectConcreteMixesRedirect() {
+  const { projectId = '' } = useParams();
+  return <Navigate to={concreteTabPath(projectId, 'mixes')} replace />;
+}

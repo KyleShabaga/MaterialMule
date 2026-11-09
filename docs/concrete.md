@@ -190,7 +190,7 @@ erDiagram
   its field report), **Summary** (date range, default All dates; Generate summary report disabled
   until C32), **Mixes** (table, Add mix, Copy from another project, detail with full
   specification, ticket defaults, admixtures, the mix-design document place (C15), revisions and
-  history; edit and approve) and **Settings** (C02 settings, editable with `project.edit`; the
+  history; edit, approve, and C37's discard draft and listed-supplier link) and **Settings** (C02 settings, editable with `project.edit`; the
   Lead and concrete reviewers from Team & Permissions).
 - **Reads:** `GET /api/concrete/projects/:projectId/specimens?search=&status=&page=&pageSize=`
   (`inventory.read`; status derived on today's date in America/Edmonton, never stored) and the
@@ -735,7 +735,8 @@ Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concre
 
 - **Suppliers** (Settings → Suppliers): a list of concrete suppliers and their plants, managed by Lab
   Managers and admins, read by everyone. A mix keeps its free-text supplier and plant names and may
-  link a listed (active) supplier; the link is the mix's, not a revision's. A mix number stays
+  link a listed (active) supplier (the Lead, on the mix detail page); the link is the mix's, not a
+  revision's. A mix number stays
   unique per project + supplier name (C03), so two suppliers may use the same number (AC3).
 - **Holiday calendar** (Settings → Holidays): admin-managed company holiday dates, seeded with the
   Alberta general holidays for 2026–2028 (`seed/reference.sql`, Government of Alberta Employment
@@ -745,11 +746,15 @@ Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concre
   firm observes. `concreteTargetDateFlags(date, holidays)` adds `holiday_target` exactly as
   `weekend_target`: the target is kept, never moved (AC1). The API reads the calendar per request
   (set detail, worklist rows, reschedule results); the reschedule dialog fetches it for its preview.
-- **Mix draft discard** (project → Concrete mixes): the project's Lead discards the open draft
+- **Mix draft discard** (project → Concrete → Mixes → the mix): the project's Lead discards the open draft
   revision of an approved mix (`POST /api/concrete-mixes/:id/discard-draft`, `concrete_mix.manage`,
   optional note). The approved revision stays in effect and unchanged; the draft is kept as
   `discarded`; audited (AC2). An Unapproved mix's only draft can't be discarded (409
   `no_approved_revision`): there is no mix retirement. The edit note stays optional.
+- **One mixes screen:** C37 first shipped its own project mixes page
+  (`/projects/:projectId/concrete-mixes`) because C30's Mixes tab wasn't merged yet. Its discard
+  draft and supplier link now sit on C30's mix detail page; the old address redirects to the
+  Mixes tab, and the project page no longer has a separate "Concrete mixes" button.
 
 ## Notes for later cards
 

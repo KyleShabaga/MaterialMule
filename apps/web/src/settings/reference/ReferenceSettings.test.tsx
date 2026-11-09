@@ -1,8 +1,9 @@
 import type {
   CompanyHoliday,
-  ConcreteMixList,
+  ConcreteMixDetail,
   ConcreteSupplier,
   MeResponse,
+  ProjectDetail,
 } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,7 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
 
-// MM-V2-C37: Settings → Suppliers and Holidays, and the project mix screen's Discard draft.
+// MM-V2-C37: Settings → Suppliers and Holidays, and Discard draft / supplier link on the mix
+// detail page (C30's Concrete → Mixes tab).
 // Fictional people, suppliers and mixes only.
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
@@ -192,7 +194,7 @@ describe('Settings → Holidays (MM-V2-C37)', () => {
   });
 });
 
-describe('Project concrete mixes: Discard draft (MM-V2-C37)', () => {
+describe('Mix detail: Discard draft and supplier link (MM-V2-C37 on the C30 Mixes tab)', () => {
   const PROJECT = '00000000-0000-4000-8000-000000000701';
   const revision = (id: string, revisionNumber: number, state: 'draft' | 'approved') => ({
     id,
@@ -233,59 +235,95 @@ describe('Project concrete mixes: Discard draft (MM-V2-C37)', () => {
     discardedBy: null,
     missingForApproval: [],
   });
-  const list = (canManage: boolean): ConcreteMixList => ({
-    projectId: PROJECT,
-    items: [
-      {
-        id: '00000000-0000-4000-8000-000000000801',
-        projectId: PROJECT,
-        supplierName: 'Example Ready-Mix',
-        mixNumber: 'M-1',
-        supplier: null,
-        status: 'revision_pending',
-        effectiveRevision: revision('00000000-0000-4000-8000-000000000811', 1, 'approved'),
-        draftRevision: revision('00000000-0000-4000-8000-000000000812', 2, 'draft'),
-        copiedFrom: null,
-        version: 3,
-        createdAt: '2026-11-01T16:00:00.000Z',
-        updatedAt: '2026-11-01T16:00:00.000Z',
-      },
-    ] as ConcreteMixList['items'],
-    total: 1,
-    page: 1,
-    pageSize: 100,
-    canManage,
-    canApprove: canManage,
-  });
-
-  it('the Lead discards the draft after confirming; the approved revision stays', async () => {
-    const calls = renderAt(`/projects/${PROJECT}/concrete-mixes`, TECH, (method, url) => {
-      if (method === 'GET' && url.includes('/concrete-mixes')) return json(200, list(true));
+  const MIX = '00000000-0000-4000-8000-000000000801';
+  const project: ProjectDetail = {
+    id: PROJECT,
+    projectNumber: 'DEMO-2601',
+    name: 'Riverbank investigation',
+    client: 'Example Client',
+    leadProjectEngineer: { id: person.userId, displayName: 'Lee', initials: 'LM' },
+    serverFolderPath: null,
+    version: 1,
+    numberLocked: true,
+    leadNomination: null,
+    canEdit: false,
+    canChangeLeadProjectEngineer: false,
+    unitCount: 0,
+    inStockUnitCount: 0,
+    testHoles: [],
+    receipts: [],
+    receiptCount: 0,
+  };
+  const detail = (canManage: boolean, overrides: Partial<ConcreteMixDetail> = {}) =>
+    ({
+      id: MIX,
+      projectId: PROJECT,
+      projectNumber: 'DEMO-2601',
+      supplierName: 'Example Ready-Mix',
+      mixNumber: 'M-1',
+      supplier: null,
+      status: 'revision_pending',
+      effectiveRevision: revision('00000000-0000-4000-8000-000000000811', 1, 'approved'),
+      draftRevision: revision('00000000-0000-4000-8000-000000000812', 2, 'draft'),
+      copiedFrom: null,
+      version: 3,
+      createdAt: '2026-11-01T16:00:00.000Z',
+      updatedAt: '2026-11-01T16:00:00.000Z',
+      revisions: [],
+      history: [],
+      historyTotal: 0,
+      canManage,
+      canApprove: canManage,
+      ...overrides,
+    }) as ConcreteMixDetail;
+  const base =
+    (canManage: boolean, more?: Handler): Handler =>
+    (method, url, body) => {
+      if (method === 'GET' && url === `/api/projects/${PROJECT}`) return json(200, project);
+      if (method === 'GET' && url === `/api/concrete-mixes/${MIX}`)
+        return json(200, detail(canManage));
       if (method === 'GET' && url.startsWith('/api/concrete/suppliers')) {
         return json(200, { items: [supplier], canManage: false });
       }
-      if (method === 'POST' && url.endsWith('/discard-draft')) {
-        const [mix] = list(true).items;
+      return more?.(method, url, body);
+    };
+  const at = `/projects/${PROJECT}/concrete/mixes/${MIX}`;
+
+  it('the old /concrete-mixes address opens the Mixes tab', async () => {
+    renderAt(`/projects/${PROJECT}/concrete-mixes`, TECH, (method, url) => {
+      if (method === 'GET' && url === `/api/projects/${PROJECT}`) return json(200, project);
+      if (method === 'GET' && url.includes('/concrete-mixes')) {
         return json(200, {
-          ...mix,
-          status: 'approved',
-          draftRevision: null,
-          version: 4,
-          projectNumber: 'DEMO-2601',
-          revisions: [],
-          history: [],
-          historyTotal: 0,
-          canManage: true,
-          canApprove: true,
+          projectId: PROJECT,
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 50,
+          canManage: false,
+          canApprove: false,
         });
       }
       return undefined;
     });
+    const tabs = await screen.findByRole('navigation', { name: 'Concrete' });
+    expect(within(tabs).getByRole('link', { name: 'Mixes' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('the Lead discards the draft after confirming; the approved revision stays', async () => {
+    const calls = renderAt(
+      at,
+      TECH,
+      base(true, (method, url) =>
+        method === 'POST' && url.endsWith('/discard-draft')
+          ? json(200, detail(true, { status: 'approved', draftRevision: null, version: 4 }))
+          : undefined,
+      ),
+    );
     const user = userEvent.setup();
-    const card = await screen.findByRole('article', { name: 'Example Ready-Mix M-1' });
-    expect(within(card).getByText('Revision 1, 32 MPa')).toBeInTheDocument();
-    expect(within(card).getByText('Revision 2, 35 MPa')).toBeInTheDocument();
-    await user.click(within(card).getByRole('button', { name: 'Discard draft revision 2' }));
+    await user.click(await screen.findByRole('button', { name: 'Discard draft revision 2' }));
     const dialog = await screen.findByRole('dialog', { name: 'Discard draft revision 2?' });
     expect(within(dialog).getByText(/stays in effect, unchanged/)).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText(/Note/), 'Wrong strength');
@@ -293,8 +331,9 @@ describe('Project concrete mixes: Discard draft (MM-V2-C37)', () => {
     expect(
       await screen.findByText('Draft revision 2 of M-1 discarded. Revision 1 stays in effect.'),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Discard draft/ })).toBeNull();
     expect(calls.find((c) => c.method === 'POST')).toMatchObject({
-      url: '/api/concrete-mixes/00000000-0000-4000-8000-000000000801/discard-draft',
+      url: `/api/concrete-mixes/${MIX}/discard-draft`,
       body: {
         version: 3,
         revisionId: '00000000-0000-4000-8000-000000000812',
@@ -303,18 +342,42 @@ describe('Project concrete mixes: Discard draft (MM-V2-C37)', () => {
     });
   });
 
-  it('without mix authority there is no Discard draft button', async () => {
-    renderAt(`/projects/${PROJECT}/concrete-mixes`, TECH, (method, url) => {
-      if (method === 'GET' && url.includes('/concrete-mixes')) return json(200, list(false));
-      if (method === 'GET' && url.startsWith('/api/concrete/suppliers')) {
-        return json(200, { items: [], canManage: false });
-      }
-      return undefined;
+  it('the Lead links a listed supplier', async () => {
+    const calls = renderAt(
+      at,
+      TECH,
+      base(true, (method, url) =>
+        method === 'PATCH' && url === `/api/concrete-mixes/${MIX}`
+          ? json(
+              200,
+              detail(true, {
+                supplier: { id: supplier.id, name: supplier.name, active: true },
+                version: 4,
+              }),
+            )
+          : undefined,
+      ),
+    );
+    const user = userEvent.setup();
+    const select = await screen.findByLabelText('Listed supplier');
+    await screen.findByRole('option', { name: 'Example Ready-Mix' });
+    await user.selectOptions(select, supplier.id);
+    await user.click(screen.getByRole('button', { name: 'Save link' }));
+    expect(await screen.findByText('M-1 linked to Example Ready-Mix.')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({
+      body: { version: 3, supplierId: supplier.id },
     });
-    const card = await screen.findByRole('article', { name: 'Example Ready-Mix M-1' });
-    expect(within(card).queryByRole('button', { name: /Discard draft/ })).toBeNull();
+  });
+
+  it('without mix authority there is no Discard draft or supplier picker', async () => {
+    renderAt(at, TECH, base(false));
     expect(
-      screen.getByText(/Only the project.s Lead Project Engineer can change its mixes\./),
+      await screen.findByText(
+        'Only the project’s Lead Project Engineer can edit or approve this mix.',
+      ),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Discard draft/ })).toBeNull();
+    expect(screen.queryByLabelText('Listed supplier')).toBeNull();
+    expect(screen.getByText('Not linked')).toBeInTheDocument();
   });
 });
