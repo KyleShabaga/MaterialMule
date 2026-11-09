@@ -82,6 +82,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_settings.curing_standard.manage (C10, planned)                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
 | concrete_settings.testing_machine.manage (C10, C27)                                                                                                      |     |                   |      ✓      |                |       |                       |                     |
 | concrete_settings.air_meter.manage (C27, C36)                                                                                                            |     |                   |      ✓      |       ✓        |       |                       |                     |
+| concrete_settings.supplier.manage (C37)                                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
+| concrete_settings.holiday.manage (C37)                                                                                                                   |     |                   |             |                |   ✓   |                       |                     |
 | concrete_settings.attachment_limit.manage (C10, planned)                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
 | concrete_specimen.receive / concrete_specimen.mass_correct / concrete_specimen.dispose_record / concrete_test.enter (C36; routes C06/C07, C20, C23, C26) |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
 | reviewer_eligibility.manage (AO03, D05)                                                                                                                  |     |                   |             |                |   ✓   |                       |                     |
@@ -587,7 +589,9 @@ internal user is refused every lab-staff row.
 | `concrete_settings.air_meter.manage` | Lab Technician, Lab Manager (role alone)                                       | the air-meter register (C27, implemented)                                          |
 | `concrete_sync_conflict.resolve_lab` | Lab Manager (role alone, no project concrete grant), lead, designated reviewer | receiving, test or submitted data (C17)                                            |
 
-- **No route checks the four lab-staff rows yet.** Each owning card adds its route; `GET /api/me`
+- **Routes:** `concrete_specimen.receive` and `concrete_specimen.mass_correct` guard C06's
+  receiving routes and `concrete_test.enter` guards C07's test-result saves;
+  `concrete_specimen.dispose_record` has no route yet. Each owning card adds its route; `GET /api/me`
   already reports them (and `concrete_sync_conflict.resolve_lab` for Lab Managers) so the UI can
   show the controls. LAB's reported list still equals `LAB_PERMISSIONS`.
 - **A Lab Technician is never a Lab Manager.** It holds only the rows above (and everything any
@@ -604,6 +608,29 @@ internal user is refused every lab-staff row.
 - **Migration 0024** widens the `role_assignment.role` check to `admin`, `lab_manager`,
   `lab_technician`; existing assignments are unchanged. The dev seed adds the fictional Lab
   Technician Taylor Bench (fixture key `lt`, `…000000000110`).
+
+## Concrete reference data (MM-V2-C37)
+
+Owner decisions of 2026-11-08 (Kyle). Contracts: `packages/shared/src/concrete-reference-data.ts`.
+
+| Route                                                             | Policy                                                        |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `GET /api/concrete/suppliers?includeInactive=`                    | `inventory.read` (every active session, LAB included)         |
+| `POST /api/concrete/suppliers`, `PATCH …/:id`                     | `concrete_settings.supplier.manage` (Lab Manager role, admin) |
+| `GET /api/concrete/holidays?year=`                                | `inventory.read`                                              |
+| `POST /api/concrete/holidays`, `PATCH …/:id`, `POST …/:id/remove` | `concrete_settings.holiday.manage` (admin)                    |
+| `POST /api/concrete-mixes/:id/discard-draft`                      | `concrete_mix.manage` (the project's Lead Project Engineer)   |
+
+- **Order of checks:** 401/403 (route permission, before the body), 404 for an unknown supplier or a
+  holiday not in effect, 400 body, then under the lock (the row FOR UPDATE, then the actor's
+  account FOR SHARE, D09) the final permission check. A stale `version` is 409 `version_conflict`
+  with the current row; a duplicate name 409 `supplier_exists`; a date already a holiday 409
+  `holiday_exists`. Removing a holiday needs a reason.
+- **Discard draft** follows C03's mix order of checks (mix FOR UPDATE, project and account FOR
+  SHARE). 422 `revision_not_draft` when the named revision isn't the open draft; 409
+  `no_approved_revision` for an Unapproved mix; idempotent by key.
+- **Supplier link:** `supplierId` on mix create/PATCH must name an active listed supplier (422
+  `invalid_supplier`); `null` unlinks.
 
 ## Concrete equipment (MM-V2-C27)
 
@@ -909,6 +936,35 @@ Read-only lists for the Concrete dashboard, the Concrete Lab workspace and searc
 - **Lab search** (top bar) shows for sessions with `inventory.read` and calls each area's own
   search: storage units (`GET /api/inventory?search=`), projects (`GET /api/projects/search`) and
   Concrete search. It adds no new read.
+
+## Concrete test-result drafts (MM-V2-C07)
+
+Test-result drafts with tester attribution and correction history. Contracts:
+`packages/shared/src/concrete-test-results.ts`; tables: migration 0027
+([concrete.md](concrete.md#test-result-drafts-and-correction-history-c07)).
+
+| Route                                                                | Policy                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /api/concrete/specimens/:specimenId/test-results`               | `inventory.read` (every active session, LAB included)                       |
+| `GET /api/concrete/specimens/:specimenId/test-results/:resultId`     | `inventory.read`                                                            |
+| `PUT /api/concrete/specimens/:specimenId/test-results/:resultId {…}` | `concrete_test.enter` (Lab Technician, Lab Manager, LAB); re-checked locked |
+
+- **Global, not project-scoped.** `concrete_test.enter` is a lab-staff role permission (C36), so
+  the route guard refuses everyone else (403) before the body is read; the endpoint sweep covers
+  all three routes. The handler checks it again under the account lock (a role removed first is
+  honoured).
+- **LAB** must send `enteredByUserId` (400 `required`; 422 `entered_by_invalid` unless an active
+  staff member with confirmed initials). That person is credited on the revision; LAB never gains
+  their roles. A personal account is always the person entering it (400 `not_allowed` for anyone
+  else). The named person is not required to hold a lab role (as for C36's other lab-staff rows).
+- **Tester** (`testerUserId`) is a recorded value, not authority: any active staff member with
+  confirmed initials, never LAB (422 `tester_invalid`); a new attempt defaults to the person
+  entering it.
+- **Order of checks:** specimen 404; attempt ID 404 when not an ID; 400 body; then one transaction:
+  report, set, specimen and attempt FOR UPDATE (D09), exact-retry replay, account lock and
+  permission, `enteredByUserId`, 409 `result_id_taken`, 409 `version_conflict`, 409
+  `report_void` / `set_void`, 422 `tester_invalid`, 422 `reason_required` (a saved value changed
+  or cleared without a reason). Audit `concrete_test_result.saved` / `.corrected`.
 
 ## Receiving Log (MM-T51)
 

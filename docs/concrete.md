@@ -595,6 +595,80 @@ Contracts in `packages/shared/src/concrete-lab.ts`; routes in
 - **Concrete Lab workspace:** lab staff (C36) see a Concrete Lab menu group under the main menu;
   navigation never grants permission.
 
+## Test-result drafts and correction history (C07)
+
+Migration `0027_concrete_test_results.sql`; contracts and the entry-versus-correction rule in
+`packages/shared/src/concrete-test-results.ts`; routes and checks in
+[permissions.md](permissions.md#concrete-test-result-drafts-mm-v2-c07). No screen: the testing
+table is C23 (C08 testing UI). Source: combined plan package 1 (test-result persistence) and the
+owner decisions of 2026-11-08 (C36 lab staff).
+
+- **Attempts:** `concrete_test_result` is one result attempt on a specimen. The client chooses its
+  ID, so saving the same ID again (an exact retry, an offline resend, a second edit) never creates
+  a second attempt; a retest is a new ID with the next `attempt_no`. Attempts are never deleted.
+- **Drafts only.** `state` admits `'draft'` alone. Completed-test semantics, strength, rounding,
+  pass/fail, end preparation, fracture type and failure handling wait for the verified worksheet
+  and methods (owner inputs G2/G8; C23/C25). `calculation_method`, `calculation_method_version` and
+  `report_version_id` are prepared columns that the database keeps empty
+  (`concrete_test_result_method_gated`); no strength is stored or returned anywhere.
+- **Readings:** the machine's maximum load and 0–10 height and diameter readings, each optional.
+  Empty means "not entered", never zero. Units are stored per row: `kN` and `mm`, the only units
+  accepted, and `units_provisional` is always true until the worksheet's units and reading count
+  are verified; the API returns `units.provisional: true` so nothing presents them as validated.
+  The bounds (load under 100 000, dimensions under 10 000, all above 0) are sanity limits only,
+  not unit-specific validation.
+- **Testing machine:** no selector (CD-44). A new attempt records the registered testing machine
+  (C27) if there is one; none registered is fine.
+- **Tester and test date** are values on the result: the actual test date (`tested_on`, separate
+  from the entry time) and the tester (an active staff member with confirmed initials, never LAB;
+  snapshot of name and initials). A new attempt's tester defaults to the person entering it; a
+  later save keeps the recorded tester unless it sends `testerUserId`. A later page default never
+  touches saved results (AC2).
+- **Entry versus correction:** each save compares the proposed values with the saved row
+  (`concreteTestResultChanges`). Filling an empty field is entry; changing or clearing a saved value
+  (tester and test date included) is a correction and needs `reason`. Without one the save is 422
+  `reason_required` with the fields (`corrections`) and nothing is written, so the client keeps
+  its draft (AC3). Initial entry never needs a reason.
+- **History:** every committed save appends `concrete_test_result_revision` (`initial`, `entry` or
+  `correction`; the changed fields with before/after; the reason; the signed-in account and the
+  staff member credited; the time) and the audit event `concrete_test_result.saved` or
+  `.corrected`, in the same transaction. The database refuses a result update without its revision
+  in the same transaction (`concrete_test_result_revision_required`) and any change to a revision.
+- **Concurrency:** `version` 0 creates; otherwise it must equal the saved version (409
+  `version_conflict` with the current result). An exact retry (same key, same body, same account)
+  returns the attempt as it stands; the same key for anything else is 409 `idempotency_key_reused`.
+  A save that changes nothing writes nothing.
+- **Refused:** Void set or report (409 `set_void` / `report_void`); an attempt ID already used on
+  another specimen (409 `result_id_taken`). Receipt (C06) is not required yet; C23 decides when a
+  specimen is ready to test.
+- **Worklist:** drafts don't make a specimen tested; C22's worklist is unchanged until C23 defines
+  a completed test.
+- **Photos:** optional and never blocking; there is no photo column (attachments are C15).
+- **Not here:** the testing grid and table (C08/C23), formulas and rounding, pass/fail and failure
+  notifications (C25), schedules after failure, report output, machine integration.
+
+## Reference data: suppliers, holidays, mix draft discard (C37)
+
+Owner decisions of 2026-11-08 (Kyle); tables in [database.md](database.md#concrete-reference-data-mm-v2-c37-0028_concrete_reference_datasql).
+
+- **Suppliers** (Settings → Suppliers): a list of concrete suppliers and their plants, managed by Lab
+  Managers and admins, read by everyone. A mix keeps its free-text supplier and plant names and may
+  link a listed (active) supplier; the link is the mix's, not a revision's. A mix number stays
+  unique per project + supplier name (C03), so two suppliers may use the same number (AC3).
+- **Holiday calendar** (Settings → Holidays): admin-managed company holiday dates, seeded with the
+  Alberta general holidays for 2026–2028 (`seed/reference.sql`, Government of Alberta Employment
+  Standards list: New Year's Day, Family Day, Good Friday, Victoria Day, Canada Day, Labour Day,
+  Thanksgiving, Remembrance Day, Christmas Day). The optional holidays (Easter Monday, Heritage
+  Day, National Day for Truth and Reconciliation, Boxing Day) are not seeded; an admin adds any the
+  firm observes. `concreteTargetDateFlags(date, holidays)` adds `holiday_target` exactly as
+  `weekend_target`: the target is kept, never moved (AC1). The API reads the calendar per request
+  (set detail, worklist rows, reschedule results); the reschedule dialog fetches it for its preview.
+- **Mix draft discard** (project → Concrete mixes): the project's Lead discards the open draft
+  revision of an approved mix (`POST /api/concrete-mixes/:id/discard-draft`, `concrete_mix.manage`,
+  optional note). The approved revision stays in effect and unchanged; the draft is kept as
+  `discarded`; audited (AC2). An Unapproved mix's only draft can't be discarded (409
+  `no_approved_revision`): there is no mix retirement. The edit note stays optional.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before

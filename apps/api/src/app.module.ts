@@ -104,6 +104,8 @@ import { ConcreteSettingsController } from './concrete/concrete-settings.control
 import { ConcreteSettingsService } from './concrete/concrete-settings.service.js';
 import { ConcreteEquipmentController } from './concrete/concrete-equipment.controller.js';
 import { ConcreteEquipmentService } from './concrete/concrete-equipment.service.js';
+import { ConcreteReferenceDataController } from './concrete/concrete-reference-data.controller.js';
+import { ConcreteReferenceDataService } from './concrete/concrete-reference-data.service.js';
 import { ConcreteFieldReportsController } from './concrete/concrete-field-reports.controller.js';
 import { ConcreteReportLifecycleController } from './concrete/concrete-report-lifecycle.controller.js';
 import { ConcreteReportLifecycleService } from './concrete/concrete-report-lifecycle.service.js';
@@ -118,6 +120,8 @@ import { ConcreteLabController } from './concrete/concrete-lab.controller.js';
 import { ConcreteLabService } from './concrete/concrete-lab.service.js';
 import { ConcreteWorklistController } from './concrete/concrete-worklist.controller.js';
 import { ConcreteWorklistService } from './concrete/concrete-worklist.service.js';
+import { ConcreteTestResultsController } from './concrete/concrete-test-results.controller.js';
+import { ConcreteTestResultsService } from './concrete/concrete-test-results.service.js';
 import { UsersService } from './users/users.service.js';
 
 @Module({})
@@ -170,6 +174,7 @@ export class AppModule {
         ConcreteSettingsController,
         ConcreteMixesController,
         ConcreteEquipmentController,
+        ConcreteReferenceDataController,
         ConcreteFieldReportsController,
         ConcreteSpecimenSetsController,
         ConcreteReportLifecycleController,
@@ -177,6 +182,7 @@ export class AppModule {
         ConcreteWorklistController,
         ConcreteLabController,
         ConcreteReceivingController,
+        ConcreteTestResultsController,
         // Fixture sign-in exists only in development/test with ENABLE_TEST_AUTH=true (MM-T33).
         ...(testAuthEnabled(config) ? [TestAuthController] : []),
       ],
@@ -202,6 +208,7 @@ export class AppModule {
         ConcreteSettingsService,
         ConcreteMixesService,
         ConcreteEquipmentService,
+        ConcreteReferenceDataService,
         ConcreteFieldReportsService,
         ConcreteSpecimenSetsService,
         ConcreteReportLifecycleService,
@@ -209,6 +216,7 @@ export class AppModule {
         ConcreteWorklistService,
         ConcreteLabService,
         ConcreteReceivingService,
+        ConcreteTestResultsService,
         LeadNominationsService,
         GrantReviewsService,
         TeamJoinService,

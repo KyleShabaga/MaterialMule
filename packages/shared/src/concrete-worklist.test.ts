@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CONCRETE_HOLIDAY_CALENDAR,
   concreteDaysBetween,
   concreteLabToday,
   concreteRescheduleRequestSchema,
@@ -9,7 +8,7 @@ import {
   concreteWorklistQuerySchema,
   concreteWorklistViewOf,
 } from './concrete-worklist';
-import { concreteSpecimenDates } from './concrete-specimen-sets';
+import { concreteSpecimenDates, concreteTargetDateFlags } from './concrete-specimen-sets';
 
 // MM-V2-C22 T1: target / overdue / HOLD date maths, including the year boundary. America/Edmonton
 // is UTC−6 all year in tzdata 2026c; times are written in local time.
@@ -64,8 +63,38 @@ describe('concrete lab worklist dates (MM-V2-C22)', () => {
     });
     expect(flags).toEqual(['weekend_target']);
     expect(view(28, dates.targetDate, null, '2026-12-05')).toBe('today');
-    // Holidays: no calendar defined yet (open owner input), so none is flagged.
-    expect(CONCRETE_HOLIDAY_CALENDAR).toBeNull();
+  });
+
+  it('C37 AC1: a 28-day target on Canada Day stays on that date with a holiday flag', () => {
+    // Cast Wednesday 3 Jun 2026 → 28 days is Wednesday 1 Jul 2026 (Canada Day).
+    const holidays = new Set(['2026-07-01']);
+    const dates = concreteSpecimenDates({
+      castAt: '2026-06-03T09:00:00-06:00',
+      age: 28,
+      holdDurationDays: 56,
+      holidays,
+    });
+    expect(dates).toEqual({
+      targetDate: '2026-07-01',
+      holdExpiresOn: null,
+      flags: ['holiday_target'],
+    });
+    const flags = concreteWorklistFlags({
+      assignedAge: 28,
+      targetDate: '2026-07-01',
+      holdExpiresOn: null,
+      today: '2026-06-30',
+      rescheduleCount: 0,
+      reportState: 'submitted',
+      holidays,
+    });
+    expect(flags).toEqual(['holiday_target']);
+    // Without the calendar only the weekend rule is known; a holiday on a weekend gets both.
+    expect(concreteTargetDateFlags('2026-07-01')).toEqual([]);
+    expect(concreteTargetDateFlags('2027-12-25', new Set(['2027-12-25']))).toEqual([
+      'weekend_target',
+      'holiday_target',
+    ]);
   });
 
   it('AC2: an untested specimen past its target is overdue and keeps the same target', () => {
