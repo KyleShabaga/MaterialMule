@@ -717,6 +717,52 @@ route here.
   `concrete_specimen.reschedule` to `PROJECT_CAPABILITY_ACTIONS` with the facts it needs (below).
   Each set's `canEdit` says whether the caller may edit its specimens.
 
+## Concrete pickup and receiving (MM-V2-C06)
+
+Contracts: `packages/shared/src/concrete-receiving.ts`; tables: migration 0026
+([concrete.md](concrete.md#pickup-initial-curing-and-receiving-c06)).
+
+| Route                                                          | Policy                                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /api/concrete/specimen-sets/:setId/receiving`             | `inventory.read`                                                                |
+| `GET /api/concrete/field-reports/:reportId/receiving`          | `inventory.read`                                                                |
+| `GET /api/concrete/projects/:projectId/receiving-exceptions`   | `inventory.read`                                                                |
+| `POST /api/concrete/specimen-sets/:setId/pickup`               | `concrete_specimen.receive`                                                     |
+| `PUT /api/concrete/specimen-sets/:setId/pickup-window`         | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/specimens/:specimenId/receipt`             | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/specimens/:specimenId/mass-correction`     | `concrete_specimen.mass_correct`, personal account                              |
+| `POST /api/concrete/specimen-sets/:setId/marker-confirmation`  | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/projects/:projectId/receiving-exceptions`  | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/receiving-exceptions/:exceptionId/resolve` | `concrete_receiving_exception.resolve` on the record's project (in the handler) |
+| `POST /api/concrete/specimens/:specimenId/curing-resolution`   | `concrete.review` on the specimen's project (in the handler)                    |
+
+- **Lab staff** (C36): pickup, the Pick up window, receipt and mass entry, marker confirmation
+  and recording missing / extra / unmatched specimens need `concrete_specimen.receive` (Lab
+  Technician, Lab Manager, or LAB). A plain internal user is refused (403, nothing changed). The
+  route guard checks it, then the handler again with the account as it stands under the locks.
+- **Actual person vs account.** Every record keeps the actual person (collector, receiver,
+  confirming or reporting person) and the signed-in account that recorded it. A personal account
+  is the person unless it names the actual one (the screen's autofill, corrected); a LAB station
+  must name them (400 `required`). The person must be an active staff member with confirmed
+  initials (422) and is attribution only: LAB never gains their roles. Audit: the account is the
+  actor and, on LAB, the person the receiver.
+- **Mass correction** (CD-46): any lab staff on a **personal account** (LAB: 403
+  `personal_account_required`), reason required, the receipt's `version` (409
+  `version_conflict`). History is append-only; the database changes a receipt's mass only with a
+  correction row in the same transaction.
+- **Exception resolution** (C10 `concrete_receiving_exception.resolve`, CD-34): the project's
+  lead, a designated `concrete_field` reviewer, a Lab Manager holding the project's concrete grant,
+  or the **casting technician for specimens they cast** (the record's set and, for a match, the
+  matched specimen's set must both be theirs). Personal accounts only; disposition and reason
+  required; the source is recorded. Checked before the body (an unknown record is 403 unless the
+  caller could hold this authority somewhere) and again under the locks. LAB is refused whoever it
+  names.
+- **Curing flag resolution** (CD-32 issuance gate): `concrete.review` with the `concrete_field`
+  reviewers, i.e. the lead or a designated reviewer, on a personal account, with a note. A Lab
+  Manager, Lab Technician or LAB is refused.
+- **Retries:** every write takes an `idempotencyKey` (409 `idempotency_key_reused` for another
+  request); per-record `version`s give 409 `version_conflict` with the current view.
+
 ## Concrete lab worklist and rescheduling (MM-V2-C22)
 
 Contracts: `packages/shared/src/concrete-worklist.ts`; table: migration 0022
