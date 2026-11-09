@@ -60,7 +60,8 @@ const toAge = (value: string): ConcreteSpecimenAge =>
 /**
  * Every specimen the worklist can show: a set that isn't Void, on a report that isn't Void, with a
  * known casting time and an assigned age. Untested: no concrete result exists yet (C07/C23), so
- * C23 adds its "not yet tested" condition here.
+ * C23 adds its "not yet tested" condition here. A specimen authorized for disposal (C26) is
+ * leaving the lab and is on no worklist view.
  */
 const SCHEDULED = `
   FROM (SELECT $1::date AS today, $2::date AS upcoming_through, $3::uuid AS project_id) q
@@ -70,7 +71,8 @@ const SCHEDULED = `
   JOIN project p ON p.id = sp.project_id
   WHERE st.voided_at IS NULL AND r.workflow_state <> 'void' AND r.cast_at IS NOT NULL
     AND sp.assigned_age IS NOT NULL
-    AND (q.project_id IS NULL OR sp.project_id = q.project_id)`;
+    AND (q.project_id IS NULL OR sp.project_id = q.project_id)
+    AND NOT EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)`;
 
 /**
  * The date views (q.today, q.upcoming_through), the same rule as the shared
@@ -316,12 +318,26 @@ export class ConcreteWorklistService {
         if (specimen.assigned_age === CONCRETE_HOLD_AGE) {
           throw new ConflictException({ code: 'hold_specimen' });
         }
+        // A specimen authorized for disposal keeps its age (C26; the database refuses it too).
+        const { rowCount: disposing } = await client.query(
+          'SELECT 1 FROM concrete_specimen_disposal WHERE specimen_id = $1',
+          [specimen.id],
+        );
+        if (disposing) throw new ConflictException({ code: 'disposal_authorized' });
         if (specimen.target_date === null || specimen.casting_date === null) {
           throw new ConflictException({ code: 'no_casting_time' });
         }
         // An unnumbered set on a draft report: its technician changes the ages on the draft (C05).
         if (specimen.permanent_number === null && specimen.workflow_state === 'draft') {
           throw new ConflictException({ code: 'edit_on_draft' });
+        }
+        // MM-V2-C38 (owner decision 2026-11-09): past draft, a set is rescheduled only once it has
+        // its permanent number. Number it first.
+        if (specimen.permanent_number === null) {
+          throw new ConflictException({
+            code: 'set_not_numbered',
+            message: 'Number this set first: an unnumbered set can’t be rescheduled.',
+          });
         }
         if (String(input.newAge) === specimen.assigned_age) {
           throw new UnprocessableEntityException({
@@ -510,9 +526,7 @@ function toRow(
       holidays,
     }),
     rescheduleCount: row.reschedules,
-    reschedulable:
-      assignedAge !== CONCRETE_HOLD_AGE &&
-      (row.permanent_number !== null || row.workflow_state !== 'draft'),
+    reschedulable: assignedAge !== CONCRETE_HOLD_AGE && row.permanent_number !== null,
     version: row.version,
   };
 }

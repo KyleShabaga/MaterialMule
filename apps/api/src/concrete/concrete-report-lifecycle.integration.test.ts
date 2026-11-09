@@ -175,7 +175,7 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
       {
         idempotencyKey: key,
         version: report.version,
-        // MM-V2-C28: the issuer chooses whether machine information is included.
+        // MM-V2-C28: an explicit machine-info choice (optional since C38; omitted = project setting).
         ...(action === 'issue' ? { includeMachineInfo: false } : {}),
         ...extra,
       },

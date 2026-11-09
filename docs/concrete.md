@@ -167,10 +167,7 @@ erDiagram
   named one; else its draft), recording `copied_from_revision_id`; the source and its approval
   never change.
 - **Not in C03:** no Mixes tab or other UI, no draft discard or retirement, no file attachments,
-  no propagation. Propagation is a contract only (`concreteMixPropagationRequestSchema`,
-  `concreteMixPropagationPreviewSchema`, `concreteMixPropagationDecisionSchema`: per item or
-  Approve all of the displayed list; measured data, tested specimens and issued reports never
-  change).
+  no propagation (C30 below).
 
 ### For C04 / C05
 
@@ -181,6 +178,40 @@ erDiagram
   entries, flag it, and never create or edit a registry mix from field data (AC4).
 - Sets copy `testAges` from the snapshot (mix, else project, else lab default) when created; later
   mix edits never re-schedule existing specimens.
+
+## Project Concrete section and mix propagation (C30)
+
+- **Where it sits:** the project page has two sections under the same header, **Overview** (the
+  existing details, test holes, receipts, storage units, retention) and **Concrete**
+  (`/projects/:projectId/concrete/:tab`). Five tabs, each its own address: **Reports** (date,
+  Field ID, type, technician, structure / elements, location, status; search and status filter;
+  New field report stays disabled until the field form exists), **Specimens** (ID, casting date,
+  structure, location, age / HOLD, test date, strength (empty until C23), status; a row opens
+  its field report), **Summary** (date range, default All dates; Generate summary report disabled
+  until C32), **Mixes** (table, Add mix, Copy from another project, detail with full
+  specification, ticket defaults, admixtures, the mix-design document place (C15), revisions and
+  history; edit and approve) and **Settings** (C02 settings, editable with `project.edit`; the
+  Lead and concrete reviewers from Team & Permissions).
+- **Reads:** `GET /api/concrete/projects/:projectId/specimens?search=&status=&page=&pageSize=`
+  (`inventory.read`; status derived on today's date in America/Edmonton, never stored) and the
+  C04 report list, which gains `search=` and `issued=` plus the Reports-tab columns.
+- **Propagation review** (`GET|POST /api/concrete-mixes/:id/propagation`): after the Lead approves
+  a revision, records made from an earlier revision are listed with what the approved revision
+  would change: a field report's "Mix spec" members (and its mix snapshot, which moves to the
+  approved revision), and an untested specimen's test age at the same position in its set's saved
+  schedule. Nothing changes until the Lead approves chosen items or Approve all of the displayed
+  list (`previewId` guards against a list that changed since it was shown; `displayedItemIds`
+  must be exactly the listed items). Never changed: measured results, the supplier-ticket column,
+  IDs, set schedule snapshots (C05 AC4), HOLD specimens (C26), and any report that isn't a draft
+  (submitted / reviewed / issued follow C09: start a revision first; a returned report is
+  corrected by its technician only). A value changed by hand on a draft, or a rescheduled age, is
+  kept and shown as kept. A specimen age change is written through C22's reschedule history
+  (reason names the mix revision); an unnumbered set without a casting time changes directly.
+  Each applied record gets its own audit event, and the mix gets
+  `concrete_mix.propagation_applied` with the scope (`items` or `approve_all`), what was applied,
+  and counts of what was not chosen or not eligible; an exact retry returns the same decision.
+  C23 adds the "already tested" block (`specimen_tested`) to the specimen query (C07 drafts
+  don't count as tested).
 
 ## Equipment (C27)
 
@@ -418,9 +449,11 @@ briefing" (worklist structure confirmed by Kyle) and §7 "Scheduling and HOLD".
 - **Reschedule** (`POST /api/concrete/specimens/:specimenId/reschedule`,
   `{ idempotencyKey, version, newAge, reason }`): changes the assigned age in days; the database
   recomputes the target from the casting date (C05 trigger), so a target is always casting + age,
-  never a free date (owner to confirm that an age, not a free date, is what gets chosen). Allowed
-  for a numbered set, or any set once its report is past draft; an unnumbered set on a draft report
-  is 409 `edit_on_draft` (its technician edits the draft, C05). HOLD specimens are 409
+  never a free date (confirmed by the owner, 2026-11-09: a reschedule picks a new age). Allowed
+  only for a numbered set. An unnumbered set on a draft report is 409 `edit_on_draft` (its
+  technician edits the draft, C05); past draft it is 409 `set_not_numbered` ("Number this set
+  first", owner decision 2026-11-09, C38), nothing written or audited, and the worklist shows
+  Reschedule disabled with that reason. HOLD specimens are 409
   `hold_specimen` (C26); Void sets and reports are 409. Each change writes an append-only
   `concrete_specimen_reschedule` row (age and target before and after, who, when, why) and the
   audit event `concrete_specimen.rescheduled`; exact retries are idempotent. C05's
@@ -430,6 +463,52 @@ briefing" (worklist structure confirmed by Kyle) and §7 "Scheduling and HOLD".
 - **Not here:** result entry and the testing table (C23), HOLD release and disposal (C26),
   failure-triggered recommendations and their approval (C25, `concrete_failure_schedule.approve`),
   the Daily lab briefing dashboard counts, testing-age tolerance windows (open input).
+
+### HOLD management, bulk actions and disposal (C26)
+
+Migration `0029_concrete_hold_disposal.sql`; contracts in `packages/shared/src/concrete-holds.ts`;
+routes in [permissions.md](permissions.md#concrete-hold-management-and-disposal-mm-v2-c26).
+Screens: Lab Testing → **HOLD** (`/lab-testing/concrete/holds`) and the MISC-13 **Ready for
+disposal** card on Disposal & Retention, which gained a type filter (Storage units | Concrete
+specimens; owner decision 2026-11-08: one list, not a separate one). Source: combined plan
+"HOLD retention and disposition" (HOLD layout, bulk HOLD actions and the actual-disposal workflow
+confirmed by Kyle).
+
+- **Two kinds of hold, kept apart.** _Ordinary HOLD_: a spare specimen assigned HOLD (C05),
+  hold-until = casting + the set's saved HOLD days. _Failed-specimen hold_: a row in
+  `concrete_specimen_failure_hold` on a tested specimen; **C25 places it** (C26 only reads and
+  releases it). Reaching an ordinary HOLD date never releases a failed hold.
+- **HOLD table** (`GET /api/concrete/holds?kind=&status=&projectId=&on=&page=`): project,
+  specimen ID, casting date, HOLD expiry, kind and status. Status: _On hold_, _Review due_ (expiry
+  reached, a flag only, AC3), _Disposal authorized_, _Disposed_. Filters: open (default),
+  disposal authorized, disposed, all. Each row says which actions the caller has now.
+- **Schedule test** (ordinary HOLD only): choose an age in days; the target is casting + age
+  (owner decision via C22/C38: an age, not a free date). Numbered sets only: an unnumbered set's
+  ages change on its draft report (C05) and C38 refuses it once the report is past draft. Writes
+  `concrete_specimen_hold_schedule` (previous hold-until, new age and target, reason, who); the
+  age guard lets a numbered set's specimen leave HOLD only with that row in the same transaction.
+  The specimen then appears on the worklist on its target date.
+- **Authorize disposal** (reason required): writes the authorization on
+  `concrete_specimen_disposal` (which hold kind it released, who, when, why). It never records
+  removal. Authorized specimens leave the open HOLD list and every worklist view, refuse
+  reschedule (409 `disposal_authorized`) and any age change in the database.
+- **Record disposal** (lab staff): the actual removal date/time (not before the authorization, to
+  the minute; not in the future) and the performing person (LAB must name one; a personal account
+  records as itself). Written once; the authorization and removal never change.
+- **Bulk:** every command takes 1 to 200 specimens (with their versions for release), the UI shows
+  a confirmation list (each specimen and its change), and it is all-or-nothing: 403 `forbidden`
+  with the `specimens` the caller may not act on, else 409 `not_eligible` with one `problems`
+  entry per specimen. One `concrete_hold_command` row (idempotency key; exact retries return the
+  same result) and one history row plus one audit event per specimen
+  (`concrete_specimen.hold_test_scheduled`, `concrete_specimen.disposal_authorized`,
+  `concrete_specimen.disposed`): AC1.
+- **History:** `GET /api/concrete/specimens/:specimenId/hold-history` (failure hold, test
+  scheduled, disposal authorized, disposed; the recording account when it differs from the
+  performer).
+- **Not here:** placing failed-specimen holds and pass/fail (C24/C25); passing tested specimens
+  entering disposal (no result is final and pass/fail is undefined until C23/C24; the disposal
+  records and Record disposal are kind-agnostic, so that card adds an entry path); revoking a
+  disposal authorization (not in the card; owner to confirm); photos (C15).
 
 - **C05 (sets):** read the report's `mixSnapshot.spec.testAges` for a new set's ages (else the
   project's C02 settings); `specimensCast` and `castAt` live on the report; `material` gives the G
@@ -517,8 +596,9 @@ are untouched.
   `notification_concrete_return_check`): a retried return adds nothing; a later return of a newer
   version is a new notice. A Lab Manager who returns a report they reviewed gets no separate Lab
   Manager notice (AC1); a technician who is also a Lab Manager gets one (AC2). **Which Lab
-  Managers (proposal, owner to confirm):** those holding the project's active concrete Lab Manager
-  grant (C02), or every active Lab Manager when the project has none (`concreteLabManagersFor`).
+  Managers (confirmed by the owner, 2026-11-09):** those holding the project's active concrete Lab
+  Manager grant (C02), or every active Lab Manager when the project has none
+  (`concreteLabManagersFor`).
 - **For the later producers.** Call `notifyConcreteEvent(client, kind, target, '<kind>:<source
 id>', facts)` inside the transaction that records the event, and narrow the kind's key rule to
   the source row in your migration if you want the database to check it. C27 computes equipment
@@ -546,14 +626,16 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
   slump / air out of range and ticket vs spec, duplicate ticket, C27 air-meter flags, C05 specimens
   recorded but not cast. Each is resolved (no longer raised by the live report while the version
   awaits review), documented (`concrete_report_exception_note`, append-only, one per code and field
-  per version; a resubmission starts with none) or open. Mark reviewed waits for none open (AC1),
+  per version; a resubmission starts with none, confirmed by the owner 2026-11-09) or open. Mark reviewed waits for none open (AC1),
   on the screen and in C09's review command. C04's deferred checks (C06, C15, C17, C18, C20) show
   as not yet checked; curing temperature arrives with C06.
 - **Return** needs a comment (AC2; C09 400). **Issue view:** the exact version and its snapshot
   hash, reviewer and date, documented exceptions, "Include photos" (unavailable until C15) and
-  "Include testing machine information" (project setting as the starting value; the issuer chooses
-  when it is unset). Both choices are stored on the issued version (`issue_include_photos`,
-  `issue_include_machine_info`) for C32.
+  "Include testing machine information" (owner decision 2026-11-09, C38: never a forced choice. The
+  screen pre-fills the project setting, Omit when it is unset, and the issuer may override it; a
+  request without `includeMachineInfo` gets the project setting, false when unset). The resolved
+  choices are stored on the issued version (`issue_include_photos`, `issue_include_machine_info`)
+  and in the audit, so the issued record says what was printed (C32).
 - **Who can act** is shown on every action: the routed reviewer or the designated reviewers and the
   lead for review; the lead and Authorized report issuers for issue; never the report's technician
   (owner decision 2026-11-08); personal accounts only.

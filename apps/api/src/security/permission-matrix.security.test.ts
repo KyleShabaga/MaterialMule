@@ -136,6 +136,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/projects/:projectId/concrete-mixes/copy': 'concrete_mix.manage',
   'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
   'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
+  // MM-V2-C30: applying a mix propagation review is the Lead's alone, like approval.
+  'POST /api/concrete-mixes/:id/propagation': 'concrete_mix.approve',
   // MM-V2-C37: discarding a draft revision is mix management (the project's Lead only).
   'POST /api/concrete-mixes/:id/discard-draft': 'concrete_mix.manage',
   // MM-V2-C09: field-report lifecycle. Recall: the report's technician; return and review: the
@@ -162,6 +164,11 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/concrete/receiving-exceptions/:exceptionId/resolve':
     'concrete_receiving_exception.resolve',
   'POST /api/concrete/specimens/:specimenId/curing-resolution': 'concrete.review',
+  // MM-V2-C26: HOLD release per specimen: an ordinary HOLD by the lead or any Lab Manager
+  // (concrete_ordinary_hold.manage); a failed-specimen hold by the lead or a concrete-grant Lab
+  // Manager (concrete_hold.manage, a subset of the same callers). Refused before the body.
+  'POST /api/concrete/holds/schedule-test': 'concrete_ordinary_hold.manage',
+  'POST /api/concrete/holds/authorize-disposal': 'concrete_ordinary_hold.manage',
 };
 
 /** Sign-out is open to every session; calling it would end the caller's session mid-sweep. */

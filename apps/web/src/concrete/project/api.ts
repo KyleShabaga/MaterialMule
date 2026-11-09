@@ -1,0 +1,221 @@
+import {
+  concreteFieldReportListSchema,
+  concreteMixDetailSchema,
+  concreteMixListSchema,
+  concreteMixPropagationPreviewSchema,
+  concreteMixPropagationResultSchema,
+  concreteProjectSettingsSchema,
+  concreteProjectSpecimenListSchema,
+  type ConcreteFieldReportList,
+  type ConcreteMixDetail,
+  type ConcreteMixList,
+  type ConcreteMixPropagationDecision,
+  type ConcreteMixPropagationPreview,
+  type ConcreteMixPropagationResult,
+  type ConcreteProjectSettings,
+  type ConcreteProjectSpecimenList,
+  type CopyConcreteMixRequest,
+  type CreateConcreteMixRequest,
+  type UpdateConcreteMixRequest,
+  type UpdateConcreteSettingsRequest,
+  type ApproveConcreteMixRequest,
+} from '@materialmule/shared';
+import { apiFetch } from '../../api/client';
+
+// MM-V2-C30: the project Concrete section (Reports, Specimens, Summary, Mixes and Settings tabs)
+// and the mix propagation review. Every call throws ConcreteApiError on a refusal so the screen
+// keeps the person's input and can say why.
+
+export class ConcreteApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+    readonly errors: { field: string; message: string }[] = [],
+    readonly body: unknown = null,
+  ) {
+    super(code ?? `HTTP ${status}`);
+  }
+}
+
+async function failure(response: Response): Promise<ConcreteApiError> {
+  const body = (await response.json().catch(() => null)) as {
+    code?: unknown;
+    errors?: unknown;
+  } | null;
+  const code = typeof body?.code === 'string' ? body.code : null;
+  const errors = Array.isArray(body?.errors)
+    ? (body.errors as { field?: unknown; path?: unknown; message?: unknown }[]).map((e) => ({
+        field: String(e.field ?? (Array.isArray(e.path) ? e.path.join('.') : '')),
+        message: String(e.message ?? ''),
+      }))
+    : [];
+  return new ConcreteApiError(response.status, code, errors, body);
+}
+
+async function call<T>(
+  path: string,
+  parse: (body: unknown) => T,
+  init?: { method: string; body: unknown },
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      path,
+      init ? { method: init.method, body: JSON.stringify(init.body) } : {},
+    );
+  } catch {
+    throw new ConcreteApiError(0, 'unreachable');
+  }
+  if (!response.ok) throw await failure(response);
+  return parse(await response.json());
+}
+
+const project = (id: string, rest: string) => `/api/projects/${encodeURIComponent(id)}${rest}`;
+const mix = (id: string, rest = '') => `/api/concrete-mixes/${encodeURIComponent(id)}${rest}`;
+
+export function search(params: Record<string, string | number | undefined>): string {
+  const out = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    out.set(key, String(value));
+  }
+  const text = out.toString();
+  return text ? `?${text}` : '';
+}
+
+// ---- Reports and Specimens ----------------------------------------------------------------------
+
+export function fetchProjectReports(
+  projectId: string,
+  query: { search?: string; state?: string; issued?: string; page?: number },
+): Promise<ConcreteFieldReportList> {
+  return call(
+    `/api/concrete/projects/${encodeURIComponent(projectId)}/field-reports${search({ ...query, pageSize: 25 })}`,
+    (b) => concreteFieldReportListSchema.parse(b),
+  );
+}
+
+export function fetchProjectSpecimens(
+  projectId: string,
+  query: { search?: string; status?: string; page?: number },
+): Promise<ConcreteProjectSpecimenList> {
+  return call(
+    `/api/concrete/projects/${encodeURIComponent(projectId)}/specimens${search(query)}`,
+    (b) => concreteProjectSpecimenListSchema.parse(b),
+  );
+}
+
+// ---- Mixes ---------------------------------------------------------------------------------------
+
+export function fetchMixes(
+  projectId: string,
+  query: { search?: string; status?: string; page?: number } = {},
+): Promise<ConcreteMixList> {
+  return call(project(projectId, `/concrete-mixes${search({ ...query, pageSize: 50 })}`), (b) =>
+    concreteMixListSchema.parse(b),
+  );
+}
+
+export function fetchMix(id: string): Promise<ConcreteMixDetail> {
+  return call(mix(id), (b) => concreteMixDetailSchema.parse(b));
+}
+
+export function createMix(
+  projectId: string,
+  body: CreateConcreteMixRequest,
+): Promise<ConcreteMixDetail> {
+  return call(project(projectId, '/concrete-mixes'), (b) => concreteMixDetailSchema.parse(b), {
+    method: 'POST',
+    body,
+  });
+}
+
+export function copyMix(
+  projectId: string,
+  body: CopyConcreteMixRequest,
+): Promise<ConcreteMixDetail> {
+  return call(project(projectId, '/concrete-mixes/copy'), (b) => concreteMixDetailSchema.parse(b), {
+    method: 'POST',
+    body,
+  });
+}
+
+export function updateMix(id: string, body: UpdateConcreteMixRequest): Promise<ConcreteMixDetail> {
+  return call(mix(id), (b) => concreteMixDetailSchema.parse(b), { method: 'PATCH', body });
+}
+
+export function approveMix(
+  id: string,
+  body: ApproveConcreteMixRequest,
+): Promise<ConcreteMixDetail> {
+  return call(mix(id, '/approve'), (b) => concreteMixDetailSchema.parse(b), {
+    method: 'POST',
+    body,
+  });
+}
+
+export function fetchPropagation(id: string): Promise<ConcreteMixPropagationPreview> {
+  return call(mix(id, '/propagation'), (b) => concreteMixPropagationPreviewSchema.parse(b));
+}
+
+export function applyPropagation(
+  id: string,
+  body: ConcreteMixPropagationDecision,
+): Promise<ConcreteMixPropagationResult> {
+  return call(mix(id, '/propagation'), (b) => concreteMixPropagationResultSchema.parse(b), {
+    method: 'POST',
+    body,
+  });
+}
+
+// ---- Settings ------------------------------------------------------------------------------------
+
+export function fetchSettings(projectId: string): Promise<ConcreteProjectSettings> {
+  return call(project(projectId, '/concrete-settings'), (b) =>
+    concreteProjectSettingsSchema.parse(b),
+  );
+}
+
+export function saveSettings(
+  projectId: string,
+  body: UpdateConcreteSettingsRequest,
+): Promise<ConcreteProjectSettings> {
+  return call(
+    project(projectId, '/concrete-settings'),
+    (b) => concreteProjectSettingsSchema.parse(b),
+    {
+      method: 'PATCH',
+      body,
+    },
+  );
+}
+
+// ---- Messages ------------------------------------------------------------------------------------
+
+/** A plain sentence for a refusal on the Concrete screens. */
+export function concreteProblem(error: unknown): string {
+  if (!(error instanceof ConcreteApiError)) return 'Something went wrong. Try again.';
+  switch (error.code) {
+    case 'unreachable':
+      return 'Material Mule couldn’t be reached. Check the connection and try again.';
+    case 'forbidden':
+      return 'Only the project’s Lead Project Engineer can do this.';
+    case 'version_conflict':
+      return 'Someone changed this while you had it open. It has been reloaded; check it and try again.';
+    case 'mix_number_taken':
+      return 'This project already has this mix number from this supplier.';
+    case 'incomplete_for_approval':
+      return `Fill in every required value before approving: ${error.errors.map((e) => e.field.replace('spec.', '')).join(', ')}.`;
+    case 'preview_stale':
+      return 'The affected records changed since this list was shown. It has been reloaded; check it and decide again.';
+    case 'item_not_eligible':
+      return error.errors[0]?.message ?? 'One of the chosen records can’t be updated.';
+    case 'nothing_to_apply':
+      return 'None of the listed records can be updated from the mix.';
+    default:
+      if (error.status === 400 || error.status === 422) {
+        return error.errors.map((e) => e.message).join('; ') || 'Check the entries and try again.';
+      }
+      return 'The server had a problem. Try again in a minute.';
+  }
+}

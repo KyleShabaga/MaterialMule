@@ -180,9 +180,17 @@ describe('request schemas', () => {
     ).toBe('Mix confirmed with the supplier');
   });
 
-  it('issue needs the machine-info choice and refuses photos until C15', () => {
+  it('issue takes an optional machine-info choice and refuses photos until C15', () => {
+    // MM-V2-C38: omitted means the project setting (resolved by the server), not an error.
+    const omitted = concreteReportIssueRequestSchema.parse({ idempotencyKey: KEY, version: 3 });
+    expect(omitted).toMatchObject({ includePhotos: false });
+    expect(omitted.includeMachineInfo).toBeUndefined();
     expect(
-      concreteReportIssueRequestSchema.safeParse({ idempotencyKey: KEY, version: 3 }).success,
+      concreteReportIssueRequestSchema.safeParse({
+        idempotencyKey: KEY,
+        version: 3,
+        includeMachineInfo: 'yes',
+      }).success,
     ).toBe(false);
     expect(
       concreteReportIssueRequestSchema.parse({

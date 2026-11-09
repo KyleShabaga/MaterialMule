@@ -70,14 +70,14 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_mix.manage / concrete_mix.approve (AO08, C03)                                                                                                   |     |                   |             |                |       |           ✓           |                     |
 | concrete.review (AO08, C09; + designated reviewer)                                                                                                       |     |                   |             |                |       |           ✓           |                     |
 | concrete_failure_schedule.approve (AO08, planned; + designated reviewer)                                                                                 |     |                   |             |                |       |           ✓           |                     |
-| concrete_hold.manage (AO08, planned; + concrete LM grant)                                                                                                |     |                   |             |                |       |           ✓           |                     |
+| concrete_hold.manage (AO08, C26; + concrete LM grant)                                                                                                    |     |                   |             |                |       |           ✓           |                     |
 | concrete_report.draft (C10; routes C04)                                                                                                                  |  ✓  |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | concrete_report.recall (C10, C09; record technician only)                                                                                                |     |                   |             |                |       |                       |                     |
 | concrete_receiving_exception.resolve (C10, planned; + reviewer, concrete LM grant, record technician)                                                    |     |                   |             |                |       |           ✓           |                     |
 | concrete_sync_conflict.resolve_field (C10, planned; record technician only)                                                                              |     |                   |             |                |       |                       |                     |
 | concrete_sync_conflict.resolve_lab (C10, C36, planned; + reviewer)                                                                                       |     |                   |      ✓      |                |       |           ✓           |                     |
 | concrete_recovery.import (C10, planned; + record technician)                                                                                             |     |                   |      ✓      |                |       |                       |                     |
-| concrete_ordinary_hold.manage (C10, planned)                                                                                                             |     |                   |      ✓      |                |       |           ✓           |                     |
+| concrete_ordinary_hold.manage (C10, C26)                                                                                                                 |     |                   |      ✓      |                |       |           ✓           |                     |
 | concrete_set.void / concrete_specimen.reschedule (C10, planned; + reviewer, concrete LM grant)                                                           |     |                   |             |                |       |           ✓           |                     |
 | concrete_settings.curing_standard.manage (C10, planned)                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
 | concrete_settings.testing_machine.manage (C10, C27)                                                                                                      |     |                   |      ✓      |                |       |                       |                     |
@@ -464,6 +464,9 @@ to the capability list in the same change.
   | `POST /api/projects/:projectId/concrete-mixes/copy {sourceMixId, sourceRevisionId?, …}` | active user; `concrete_mix.manage` on the destination |
   | `PATCH /api/concrete-mixes/:id {version, spec, idempotencyKey, note?}`                  | active user; handler checks `concrete_mix.manage`     |
   | `POST /api/concrete-mixes/:id/approve {version, revisionId, idempotencyKey, note?}`     | active user; handler checks `concrete_mix.approve`    |
+  | `GET /api/concrete-mixes/:id/propagation` (C30)                                         | `inventory.read`                                      |
+  | `POST /api/concrete-mixes/:id/propagation {previewId, selection, idempotencyKey}` (C30) | active user; handler checks `concrete_mix.approve`    |
+  | `GET /api/concrete/projects/:projectId/specimens` (C30)                                 | `inventory.read`                                      |
 
   Reads follow the project (mixes are project data; field preparation caches them, CD-15). Order
   of checks as AO03: 401/403 from the guard; 403 when the caller isn't the project's lead (an
@@ -812,6 +815,8 @@ Contracts: `packages/shared/src/concrete-worklist.ts`; table: migration 0022
   under the D09 locks: the report FOR UPDATE, the set FOR UPDATE, the specimen FOR UPDATE, then
   the project and the actor's account FOR SHARE (`canUnderLock`). Retries: `idempotencyKey` (409
   `idempotency_key_reused`) and `version` (409 `version_conflict` with the current schedule).
+  Only a numbered set is rescheduled: unnumbered on a draft is 409 `edit_on_draft`, unnumbered
+  past draft is 409 `set_not_numbered` ("Number this set first", owner decision 2026-11-09, C38).
 - **Capabilities.** `concrete_specimen.reschedule` is in `PROJECT_CAPABILITY_ACTIONS` ("Reschedule
   concrete specimen tests"). `concreteRescheduleContext()` loads the lead, the live
   `concrete_field` reviewers and the concrete-grant holders for it, so Team & Permissions and
@@ -825,17 +830,17 @@ commands. Contracts: `packages/shared/src/concrete-report-lifecycle.ts`; tables:
 ([concrete.md](concrete.md#report-versions-and-lifecycle-c09)). Field reports only: strength
 reports wait for owner decision G2.
 
-| Route                                                                                      | Policy                                                                                    |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `GET /api/concrete/field-reports/:id/versions`                                             | `inventory.read` (every active session, LAB included)                                     |
-| `GET /api/concrete/field-reports/:id/versions/:versionNo`                                  | `inventory.read` (the version's frozen snapshot)                                          |
-| `POST …/:id/submit {version, idempotencyKey, technicianUserId?}`                           | `concrete_report.draft`, the report's own technician (LAB names them)                     |
-| `POST …/:id/resubmit {version, idempotencyKey, technicianUserId?}`                         | `concrete_report.draft`, as submit; routed (below)                                        |
-| `POST …/:id/recall {version, idempotencyKey, comment?}`                                    | active user; handler checks `concrete_report.recall` (the report's technician)            |
-| `POST …/:id/return {version, idempotencyKey, comment}`                                     | active user; handler checks `concrete.review` (lead or designated reviewer) + routing     |
-| `POST …/:id/review {version, idempotencyKey, comment?}`                                    | active user; handler checks `concrete.review` + routing                                   |
-| `POST …/:id/issue {version, idempotencyKey, comment?, includeMachineInfo, includePhotos?}` | active user; handler checks `report.issue` (lead or issuer grant, scope `concrete_field`) |
-| `POST …/:id/revise {version, idempotencyKey, comment}`                                     | active user; `concrete.review` (lead or designated reviewer), or the version's issuer     |
+| Route                                                                                       | Policy                                                                                    |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/concrete/field-reports/:id/versions`                                              | `inventory.read` (every active session, LAB included)                                     |
+| `GET /api/concrete/field-reports/:id/versions/:versionNo`                                   | `inventory.read` (the version's frozen snapshot)                                          |
+| `POST …/:id/submit {version, idempotencyKey, technicianUserId?}`                            | `concrete_report.draft`, the report's own technician (LAB names them)                     |
+| `POST …/:id/resubmit {version, idempotencyKey, technicianUserId?}`                          | `concrete_report.draft`, as submit; routed (below)                                        |
+| `POST …/:id/recall {version, idempotencyKey, comment?}`                                     | active user; handler checks `concrete_report.recall` (the report's technician)            |
+| `POST …/:id/return {version, idempotencyKey, comment}`                                      | active user; handler checks `concrete.review` (lead or designated reviewer) + routing     |
+| `POST …/:id/review {version, idempotencyKey, comment?}`                                     | active user; handler checks `concrete.review` + routing                                   |
+| `POST …/:id/issue {version, idempotencyKey, comment?, includeMachineInfo?, includePhotos?}` | active user; handler checks `report.issue` (lead or issuer grant, scope `concrete_field`) |
+| `POST …/:id/revise {version, idempotencyKey, comment}`                                      | active user; `concrete.review` (lead or designated reviewer), or the version's issuer     |
 
 - **Order of checks (D09).** 401/403 from the guard; then, against the report as it stands and
   before the body or any lock, the action's permission (403 `forbidden`; a personal account
@@ -891,7 +896,7 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
 | `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                       | `inventory.read`                                                                         |
 | `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                  | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
 
-- **Queue.** Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
+- **Queue.** Visible to every `inventory.read` session (confirmed by the owner, 2026-11-09). Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
   issuance, Issued; `counts` per status with the same filters. Each row's `canAct` says whether
   the caller could take its next step now: review (`concrete.review` + routing) or issue
   (`report.issue`), never on their own report (owner decision 2026-11-08); for a returned report,
@@ -907,11 +912,13 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
 - **Mark reviewed (C09 `review`)** adds 422 `exceptions_unresolved` (one error per open exception)
   after the routing check: every exception on the version must be documented, or no longer raised
   by the live report (e.g. the other report with the same ticket was corrected). Same rule as the
-  screen (`concreteReviewChecklist`). **Proposal (owner to confirm):** every C04/C05/C27 warning
-  is required; the deferred checks are shown as not yet checked.
-- **Issue** needs `includeMachineInfo` (the issuer's choice; the screen starts from the project
-  setting and makes the issuer choose when the project left it unset) and accepts only
-  `includePhotos: false` until photos exist (C15). Both are stored on the issued version.
+  screen (`concreteReviewChecklist`). **Confirmed by the owner (2026-11-09):** every C04/C05/C27
+  warning is required; the deferred checks are shown as not yet checked.
+- **Issue** takes an optional `includeMachineInfo` (owner decision 2026-11-09, C38): omitted, the
+  project's concrete setting applies (read under the issue transaction), false when unset; the
+  issuer may override it either way, and the screen pre-fills the setting (Omit when unset). It
+  accepts only `includePhotos: false` until photos exist (C15). The resolved values are stored on
+  the issued version and audited.
 - **Self-review** is refused by C09 (403 `own_report`, #135); the screens disable those actions
   with that reason, and the queue never marks one's own report as needing one's action.
 
@@ -965,6 +972,38 @@ Test-result drafts with tester attribution and correction history. Contracts:
   permission, `enteredByUserId`, 409 `result_id_taken`, 409 `version_conflict`, 409
   `report_void` / `set_void`, 422 `tester_invalid`, 422 `reason_required` (a saved value changed
   or cleared without a reason). Audit `concrete_test_result.saved` / `.corrected`.
+
+## Concrete HOLD management and disposal (MM-V2-C26)
+
+HOLD release, bulk HOLD actions and actual disposal of concrete specimens. Contracts:
+`packages/shared/src/concrete-holds.ts`; tables: migration 0029
+([concrete.md](concrete.md#hold-management-bulk-actions-and-disposal-c26)). Storage-unit
+retention and disposal (MM-T29/T30, MISC-13) are unchanged.
+
+| Route                                                        | Policy                                                                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `GET /api/concrete/holds?kind=&status=&projectId=&on=&page=` | `inventory.read` (every active session, LAB included)                                                        |
+| `GET /api/concrete/specimens/:specimenId/hold-history`       | `inventory.read`                                                                                             |
+| `GET /api/concrete/disposal/ready?page=`                     | `inventory.read` (the Ready for disposal list's Concrete specimens filter)                                   |
+| `POST /api/concrete/holds/schedule-test`                     | active user; per specimen `concrete_ordinary_hold.manage` (ordinary HOLD only)                               |
+| `POST /api/concrete/holds/authorize-disposal`                | active user; per specimen `concrete_ordinary_hold.manage` (ordinary) or `concrete_hold.manage` (failed hold) |
+| `POST /api/concrete/disposal/record`                         | `concrete_specimen.dispose_record` (lab staff; LAB names the performing person)                              |
+
+- **Who.** Ordinary HOLD release (Schedule test, Authorize disposal): the project's Lead Project
+  Engineer or any Lab Manager by role alone (decided 2026-10-30). Failed-specimen hold: the lead,
+  or a Lab Manager holding the project's concrete grant (D13); a Lab Manager without it is
+  refused (AC2). Record disposal: Lab Technician, Lab Manager, or LAB with the performing staff
+  member (attribution only; LAB never gains their roles). Release is personal accounts only.
+- **Order of checks.** Release routes: 403 before the body unless the caller is an active personal
+  account that is a Lab Manager or leads some project; 400 body; then one transaction: replay by
+  idempotency key, reports, sets, then specimens FOR UPDATE (each in id order, D09), the authority
+  per project under `canUnderLock` (403 `forbidden` with `specimens`), eligibility (409
+  `not_eligible` with `problems`), then the writes. Record disposal: 400 body (including a
+  `disposedAt` in the future), the same locks, the caller's lab-staff standing under lock, the
+  performer (`resolveActingPerson`), eligibility, writes.
+- **Expiry flags only.** No route, job or read changes anything on a HOLD date (AC3).
+- `concrete_ordinary_hold.manage` and `concrete_hold.manage` are not in the project capability
+  list yet; the HOLD table reports each row's actions instead.
 
 ## Receiving Log (MM-T51)
 

@@ -582,7 +582,9 @@ describe.runIf(testDatabaseUrl)('concrete review queue and exceptions (MM-V2-C28
     await documentAll(submitted, rv);
     const reviewed = await ok('review', submitted, rv);
 
-    expect((await command('issue', reviewed, 'js')).status).toBe(400);
+    expect((await command('issue', reviewed, 'js', { includeMachineInfo: 'yes' })).status).toBe(
+      400,
+    );
     expect(
       (await command('issue', reviewed, 'js', { includeMachineInfo: true, includePhotos: true }))
         .status,
@@ -612,5 +614,62 @@ describe.runIf(testDatabaseUrl)('concrete review queue and exceptions (MM-V2-C28
       [submitted.id],
     );
     expect(rows[0]!.after).toMatchObject({ includePhotos: false, includeMachineInfo: true });
+  });
+
+  // MM-V2-C38 (owner decision 2026-11-09): the issuer isn't forced to choose machine info.
+  it('issue without a choice follows the project setting; unset leaves machine info out', async () => {
+    // Settings rows are never deleted (C02), so set the value and put it back to unset after.
+    const setMachineInfo = (value: boolean | null) =>
+      h.db.pool.query(
+        `INSERT INTO concrete_project_settings
+           (project_id, include_machine_info, updated_by_user_id, updated_by_name_snapshot)
+         VALUES ($1, $2, $3, 'Pat Example')
+         ON CONFLICT (project_id) DO UPDATE
+           SET include_machine_info = EXCLUDED.include_machine_info, updated_at = now(),
+               version = concrete_project_settings.version + 1`,
+        [h.projects.a, value, h.users.pe],
+      );
+    /** Issue a fresh report on A with project setting `setting` ('none' = no settings row). */
+    const issueWith = async (setting: boolean | null | 'none', choice?: boolean) => {
+      if (setting !== 'none') await setMachineInfo(setting);
+      const submitted = await ok('submit', await draft(), 'tech');
+      await documentAll(submitted, rv);
+      const reviewed = await ok('review', submitted, rv);
+      const issued = await ok(
+        'issue',
+        reviewed,
+        'js',
+        choice === undefined ? {} : { includeMachineInfo: choice },
+      );
+      const { rows } = await h.db.pool.query<{ stored: boolean; after: Record<string, unknown> }>(
+        `SELECT v.issue_include_machine_info AS stored, a.after_values AS after
+         FROM concrete_report_version v
+         JOIN audit_event a
+           ON a.entity_id = v.field_report_id AND a.action = 'concrete_field_report.issued'
+         WHERE v.field_report_id = $1 AND v.state = 'issued'`,
+        [submitted.id],
+      );
+      expect(rows).toHaveLength(1);
+      // The issued record and its audit both say what was printed.
+      expect(rows[0]!.after).toMatchObject({ includeMachineInfo: rows[0]!.stored });
+      expect(issued.lifecycle.latestVersion?.issued?.includeMachineInfo).toBe(rows[0]!.stored);
+      return rows[0]!.stored;
+    };
+    try {
+      // AC3: setting unset and no choice → issued with machine info excluded, recorded as such.
+      const { rows: existing } = await h.db.pool.query(
+        `SELECT 1 FROM concrete_project_settings WHERE project_id = $1`,
+        [h.projects.a],
+      );
+      if (existing.length === 0) expect(await issueWith('none')).toBe(false);
+      expect(await issueWith(null)).toBe(false);
+      expect(await issueWith(true)).toBe(true);
+      expect(await issueWith(false)).toBe(false);
+      // The issuer may still override the setting either way.
+      expect(await issueWith(true, false)).toBe(false);
+      expect(await issueWith(null, true)).toBe(true);
+    } finally {
+      await setMachineInfo(null);
+    }
   });
 });

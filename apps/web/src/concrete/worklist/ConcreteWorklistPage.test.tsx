@@ -204,6 +204,32 @@ describe('Lab Testing → Concrete breaks (MM-V2-C22)', () => {
     expect(within(table).queryByRole('button', { name: /Reschedule/ })).toBeNull();
   });
 
+  it('disables Reschedule for an unnumbered set past draft: number it first (C38)', async () => {
+    renderPage((view) =>
+      list(view as ConcreteWorklist['view'], [
+        row({
+          identity: { temporaryId: 'T-0007', permanentId: null },
+          reportState: 'submitted',
+          reschedulable: false,
+        }),
+        row({
+          specimenId: '00000000-0000-4000-8000-000000000602',
+          letter: 'C',
+          identity: { temporaryId: 'T-0008', permanentId: null },
+          reportState: 'draft',
+          flags: ['report_draft'],
+          reschedulable: false,
+        }),
+      ]),
+    );
+    const table = await screen.findByRole('table', { name: 'DEMO-2601 specimens' });
+    const blocked = within(table).getByRole('button', { name: /Reschedule/ });
+    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAccessibleDescription('Number this set first');
+    // On a draft the technician edits the ages on the draft itself: no action here, as before.
+    expect(within(table).getAllByRole('button', { name: /Reschedule/ })).toHaveLength(1);
+  });
+
   it('reschedules with a reason, previewing the target from the casting date', async () => {
     const user = userEvent.setup();
     const posts: { url: string; body: Record<string, unknown> }[] = [];
