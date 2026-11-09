@@ -21,9 +21,12 @@ export async function fetchConcreteWorklist(query: {
   view: ConcreteWorklistView;
   projectId: string;
   page: number;
+  /** HOLD view only: just the HOLDs due for review (MM-V2-C31). */
+  holdDue?: boolean;
 }): Promise<LoadResult<ConcreteWorklist>> {
   const params = new URLSearchParams({ view: query.view, page: String(query.page) });
   if (query.projectId) params.set('projectId', query.projectId);
+  if (query.holdDue) params.set('holdDue', 'true');
   try {
     const response = await apiFetch(`/api/concrete/lab-worklist?${params.toString()}`);
     if (!response.ok) return { ok: false, message: "The concrete worklist couldn't load." };

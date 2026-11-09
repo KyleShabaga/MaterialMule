@@ -115,7 +115,14 @@ describe('concrete lab worklist dates (MM-V2-C22)', () => {
   });
 
   it('validates the worklist query and the reschedule request', () => {
-    expect(concreteWorklistQuerySchema.parse({})).toEqual({ view: 'today', page: 1 });
+    expect(concreteWorklistQuerySchema.parse({})).toEqual({
+      view: 'today',
+      holdDue: false,
+      page: 1,
+    });
+    // MM-V2-C31: the HOLD-due list behind the dashboard count.
+    expect(concreteWorklistQuerySchema.parse({ view: 'hold', holdDue: 'true' }).holdDue).toBe(true);
+    expect(concreteWorklistQuerySchema.safeParse({ holdDue: 'yes' }).success).toBe(false);
     expect(concreteWorklistQuerySchema.safeParse({ view: 'later' }).success).toBe(false);
     expect(concreteWorklistQuerySchema.parse({ view: 'hold', page: '2' }).page).toBe(2);
     const ok = {

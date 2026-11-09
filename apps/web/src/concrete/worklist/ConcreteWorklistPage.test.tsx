@@ -58,6 +58,8 @@ const list = (
   today: '2026-12-05',
   upcomingThrough: '2026-12-12',
   counts: { today: 1, overdue: 0, upcoming: 3, hold: 1, exceptions: 0 },
+  holdReviewDue: 0,
+  holdDue: false,
   total: rows.length,
   page: 1,
   pageSize: 200,

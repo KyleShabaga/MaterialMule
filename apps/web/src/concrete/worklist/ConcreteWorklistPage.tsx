@@ -15,6 +15,7 @@ import {
   type ConcreteWorklistView,
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import {
   ConfirmDialog,
   DataTable,
@@ -51,13 +52,22 @@ const ageLabel = (row: ConcreteWorklistRow) =>
  * or disposed of. An authorized reschedule needs a reason and keeps the history.
  */
 export function ConcreteWorklistPage() {
-  const [view, setView] = useState<ConcreteWorklistView>('today');
+  // MM-V2-C31: the Concrete dashboard opens a view (`?view=`), and HOLDs due for review
+  // (`?view=hold&holdDue=true`); the tabs work as before after that.
+  const [params] = useSearchParams();
+  const [view, setView] = useState<ConcreteWorklistView>(() => {
+    const asked = params.get('view');
+    return (CONCRETE_WORKLIST_VIEWS as readonly string[]).includes(asked ?? '')
+      ? (asked as ConcreteWorklistView)
+      : 'today';
+  });
+  const [holdDue, setHoldDue] = useState(() => params.get('holdDue') === 'true');
   const [projectId, setProjectId] = useState('');
   const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
   // Each answer is kept with the request it answers, so one for an earlier view, page or retry
   // never fills the table (it reads as loading until the current answer arrives).
-  const requestKey = `${view}|${projectId}|${page}|${attempt}`;
+  const requestKey = `${view}|${holdDue}|${projectId}|${page}|${attempt}`;
   const [answer, setAnswer] = useState<{ key: string; load: Load }>({
     key: '',
     load: { state: 'loading' },
@@ -72,19 +82,21 @@ export function ConcreteWorklistPage() {
 
   useEffect(() => {
     let current = true;
-    fetchConcreteWorklist({ view, projectId, page }).then((result) => {
-      if (!current) return;
-      if (result.ok) {
-        setLast(result.data);
-        setAnswer({ key: requestKey, load: { state: 'ready', list: result.data } });
-      } else {
-        setAnswer({ key: requestKey, load: { state: 'error', message: result.message } });
-      }
-    });
+    fetchConcreteWorklist({ view, projectId, page, holdDue: view === 'hold' && holdDue }).then(
+      (result) => {
+        if (!current) return;
+        if (result.ok) {
+          setLast(result.data);
+          setAnswer({ key: requestKey, load: { state: 'ready', list: result.data } });
+        } else {
+          setAnswer({ key: requestKey, load: { state: 'error', message: result.message } });
+        }
+      },
+    );
     return () => {
       current = false;
     };
-  }, [view, projectId, page, requestKey]);
+  }, [view, holdDue, projectId, page, requestKey]);
 
   function choose(next: ConcreteWorklistView, focus = false) {
     setView(next);
@@ -182,6 +194,19 @@ export function ConcreteWorklistPage() {
         {load.state === 'loading' ? <p aria-busy="true">Loading the worklist…</p> : null}
         {load.state === 'error' ? (
           <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />
+        ) : null}
+        {view === 'hold' && (list ?? last) ? (
+          <label className="concrete-hold-due">
+            <input
+              type="checkbox"
+              checked={holdDue}
+              onChange={(event) => {
+                setHoldDue(event.target.checked);
+                setPage(1);
+              }}
+            />{' '}
+            Only HOLDs due for review ({(list ?? last)!.holdReviewDue})
+          </label>
         ) : null}
         {list && view === 'exceptions' ? <Exceptions list={list} /> : null}
         {list && view !== 'exceptions' ? (

@@ -558,6 +558,43 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
   lead for review; the lead and Authorized report issuers for issue; never the report's technician
   (owner decision 2026-11-08); personal accounts only.
 
+## Dashboard, Lab workspace and search (C31)
+
+Contracts in `packages/shared/src/concrete-lab.ts`; routes in
+[permissions.md](permissions.md#concrete-dashboard-lab-workspace-and-search-mm-v2-c31); migration
+`0030_concrete_search_indexes.sql` (indexes only). Source: Combined Plan "Daily lab briefing",
+"Search by any known reference" and the Concrete Lab workspace proposal.
+
+- **Concrete dashboard** (`/concrete`): Awaiting pickup, Awaiting receiving, Tests due today, Tests
+  overdue, HOLDs due for review, Awaiting review and Awaiting issuance. Each count is read from the
+  list it opens (AC3): the receiving queue below, C22's worklist (`counts`, plus `holdReviewDue`
+  and the HOLD view's `holdDue=true` filter: hold-until on or before today) and C28's review
+  queue `counts`. Shortcuts: New field report (disabled until the field form exists) and Open
+  testing table (`/lab-testing/concrete`).
+- **Receiving queue** (`GET /api/concrete/receiving-queue`): one row per set with specimens in the
+  stage. A specimen is awaiting pickup until a completed pickup, awaiting receiving until its
+  receipt; a resolved Missing disposition takes it off both (C06's rule). Void sets and reports and
+  sets without a casting time are left out. **My reports** (the report's technician is the caller)
+  come first and are counted separately (`mineTotal`); the rest stay listed. The screen
+  (`/concrete/receiving`) shows them as two sections.
+- **Concrete search** (`GET /api/concrete/search`): set aliases exactly (`26-05`, `TMP-D07-001`,
+  or a specimen ID such as `26-05B`, which keeps the letter) and from their start; ticket, project
+  number, paper Field ID and mix number from their start; technician name (contains) or initials;
+  a YYYY-MM-DD casting date (America/Edmonton). Ranked by the best match (`CONCRETE_SEARCH_MATCHES`
+  order), then the latest casting. One result per field report with its project and every set; a
+  number that repeats across projects lists every match and says so (`projectCount`, AC1). Each
+  branch reads at most 500 candidates; pages of 25 (max 50).
+- **Specimen lookup** (`/concrete/specimens`): type or scan the ID; one exact set match opens it,
+  otherwise the matches are listed with their projects. The set page (`/concrete/specimens/:setId`)
+  reads C05's set, C06's receiving record, C04's report and C22's schedule history and shows the
+  project, cast information, each specimen's age, test date, receiving state and mass, and one
+  history (cast, pickups, receipts, mass corrections, marker confirmations, exceptions,
+  reschedules, Void). Test results join it with C07/C23.
+- **Lab search** (top bar, `/search`): storage units, projects and concrete records side by side,
+  each from its area's own search.
+- **Concrete Lab workspace:** lab staff (C36) see a Concrete Lab menu group under the main menu;
+  navigation never grants permission.
+
 ## Notes for later cards
 
 - **Project placeholders (CD-24):** `project_id` is required. If C17 needs to accept a report before
