@@ -136,6 +136,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/projects/:projectId/concrete-mixes/copy': 'concrete_mix.manage',
   'PATCH /api/concrete-mixes/:id': 'concrete_mix.manage',
   'POST /api/concrete-mixes/:id/approve': 'concrete_mix.approve',
+  // MM-V2-C30: applying a mix propagation review is the Lead's alone, like approval.
+  'POST /api/concrete-mixes/:id/propagation': 'concrete_mix.approve',
   // MM-V2-C09: field-report lifecycle. Recall: the report's technician; return and review: the
   // lead or a designated reviewer; issue: the lead or an issuer grant; revise: the lead, a
   // designated reviewer or the version's issuer (owner decision 2026-11-08).

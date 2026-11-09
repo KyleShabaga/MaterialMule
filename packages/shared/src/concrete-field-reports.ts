@@ -406,6 +406,16 @@ export const concreteFieldReportListQuerySchema = z.object({
     .enum(['draft', 'ready_to_submit', 'submitted', 'returned', 'reviewed', 'void'])
     .optional(),
   technicianUserId: idSchema.optional(),
+  /**
+   * MM-V2-C30 (project Reports tab): contains, ignoring case, in the supplier, mix number, ticket,
+   * paper Field ID, location, structure element or technician name.
+   */
+  search: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().max(200).optional(),
+  ),
+  /** MM-V2-C30: issued reports only (any workflow state), or never-issued ones. */
+  issued: z.enum(['true', 'false']).optional(),
 });
 export type ConcreteFieldReportListQuery = z.output<typeof concreteFieldReportListQuerySchema>;
 
@@ -553,6 +563,14 @@ export const concreteFieldReportSummarySchema = z.object({
   mixNumber: z.string().nullable(),
   ticketNumber: z.string().nullable(),
   workflowState: z.string(),
+  /** MM-V2-C30 (Reports tab): the report type, structure / elements, location and issue. */
+  reportType: z.literal('field'),
+  paperFieldId: z.string().nullable(),
+  locationElements: z.array(z.string()),
+  locationElementOther: z.string().nullable(),
+  locationDescription: z.string().nullable(),
+  issueCount: z.number(),
+  lastIssuedAt: z.string().nullable(),
   completeness: concreteDraftCompletenessSchema,
   version: z.number(),
   createdAt: z.string(),
