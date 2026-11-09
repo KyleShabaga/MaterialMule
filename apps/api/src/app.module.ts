@@ -104,6 +104,8 @@ import { ConcreteSettingsController } from './concrete/concrete-settings.control
 import { ConcreteSettingsService } from './concrete/concrete-settings.service.js';
 import { ConcreteEquipmentController } from './concrete/concrete-equipment.controller.js';
 import { ConcreteEquipmentService } from './concrete/concrete-equipment.service.js';
+import { ConcreteReferenceDataController } from './concrete/concrete-reference-data.controller.js';
+import { ConcreteReferenceDataService } from './concrete/concrete-reference-data.service.js';
 import { ConcreteFieldReportsController } from './concrete/concrete-field-reports.controller.js';
 import { ConcreteReportLifecycleController } from './concrete/concrete-report-lifecycle.controller.js';
 import { ConcreteReportLifecycleService } from './concrete/concrete-report-lifecycle.service.js';
@@ -166,6 +168,7 @@ export class AppModule {
         ConcreteSettingsController,
         ConcreteMixesController,
         ConcreteEquipmentController,
+        ConcreteReferenceDataController,
         ConcreteFieldReportsController,
         ConcreteSpecimenSetsController,
         ConcreteReportLifecycleController,
@@ -196,6 +199,7 @@ export class AppModule {
         ConcreteSettingsService,
         ConcreteMixesService,
         ConcreteEquipmentService,
+        ConcreteReferenceDataService,
         ConcreteFieldReportsService,
         ConcreteSpecimenSetsService,
         ConcreteReportLifecycleService,

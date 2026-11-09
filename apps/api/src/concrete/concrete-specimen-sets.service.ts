@@ -42,6 +42,7 @@ import {
   intentHash,
 } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
+import { loadHolidayDates } from './concrete-reference-data.service.js';
 
 type Db = Pool | PoolClient;
 type Kind = 'create' | 'save' | 'discard';
@@ -810,6 +811,8 @@ export class ConcreteSpecimenSetsService {
       ),
     );
     const castAt = report.cast_at?.toISOString() ?? null;
+    // MM-V2-C37: a target on a company holiday is flagged like a weekend (never moved).
+    const holidays = await loadHolidayDates(db);
     const editable =
       can(user, DRAFT) &&
       ['draft', 'returned'].includes(report.workflow_state) &&
@@ -846,7 +849,7 @@ export class ConcreteSpecimenSetsService {
           assignedAge: toAge(s.assigned_age ?? CONCRETE_HOLD_AGE),
           targetDate: s.target_date,
           holdExpiresOn: s.hold_expires_on,
-          flags: concreteSpecimenFlags(s.target_date),
+          flags: concreteSpecimenFlags(s.target_date, holidays),
           identity: {
             temporaryId: set.temporary_id === null ? null : `${set.temporary_id}${s.letter}`,
             permanentId: set.permanent_id === null ? null : `${set.permanent_id}${s.letter}`,

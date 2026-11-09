@@ -82,6 +82,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_settings.curing_standard.manage (C10, planned)                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
 | concrete_settings.testing_machine.manage (C10, C27)                                                                                                      |     |                   |      ✓      |                |       |                       |                     |
 | concrete_settings.air_meter.manage (C27, C36)                                                                                                            |     |                   |      ✓      |       ✓        |       |                       |                     |
+| concrete_settings.supplier.manage (C37)                                                                                                                  |     |                   |      ✓      |                |   ✓   |                       |                     |
+| concrete_settings.holiday.manage (C37)                                                                                                                   |     |                   |             |                |   ✓   |                       |                     |
 | concrete_settings.attachment_limit.manage (C10, planned)                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
 | concrete_specimen.receive / concrete_specimen.mass_correct / concrete_specimen.dispose_record / concrete_test.enter (C36; routes C06/C07, C20, C23, C26) |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
 | reviewer_eligibility.manage (AO03, D05)                                                                                                                  |     |                   |             |                |   ✓   |                       |                     |
@@ -604,6 +606,29 @@ internal user is refused every lab-staff row.
 - **Migration 0024** widens the `role_assignment.role` check to `admin`, `lab_manager`,
   `lab_technician`; existing assignments are unchanged. The dev seed adds the fictional Lab
   Technician Taylor Bench (fixture key `lt`, `…000000000110`).
+
+## Concrete reference data (MM-V2-C37)
+
+Owner decisions of 2026-11-08 (Kyle). Contracts: `packages/shared/src/concrete-reference-data.ts`.
+
+| Route                                                             | Policy                                                        |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `GET /api/concrete/suppliers?includeInactive=`                    | `inventory.read` (every active session, LAB included)         |
+| `POST /api/concrete/suppliers`, `PATCH …/:id`                     | `concrete_settings.supplier.manage` (Lab Manager role, admin) |
+| `GET /api/concrete/holidays?year=`                                | `inventory.read`                                              |
+| `POST /api/concrete/holidays`, `PATCH …/:id`, `POST …/:id/remove` | `concrete_settings.holiday.manage` (admin)                    |
+| `POST /api/concrete-mixes/:id/discard-draft`                      | `concrete_mix.manage` (the project's Lead Project Engineer)   |
+
+- **Order of checks:** 401/403 (route permission, before the body), 404 for an unknown supplier or a
+  holiday not in effect, 400 body, then under the lock (the row FOR UPDATE, then the actor's
+  account FOR SHARE, D09) the final permission check. A stale `version` is 409 `version_conflict`
+  with the current row; a duplicate name 409 `supplier_exists`; a date already a holiday 409
+  `holiday_exists`. Removing a holiday needs a reason.
+- **Discard draft** follows C03's mix order of checks (mix FOR UPDATE, project and account FOR
+  SHARE). 422 `revision_not_draft` when the named revision isn't the open draft; 409
+  `no_approved_revision` for an Unapproved mix; idempotent by key.
+- **Supplier link:** `supplierId` on mix create/PATCH must name an active listed supplier (422
+  `invalid_supplier`); `null` unlinks.
 
 ## Concrete equipment (MM-V2-C27)
 

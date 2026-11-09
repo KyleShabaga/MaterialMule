@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import type {
   ConcreteMixDetail,
   ConcreteMixList,
@@ -88,5 +99,18 @@ export class ConcreteMixesController {
     @Req() request: AuthenticatedRequest,
   ): Promise<ConcreteMixDetail> {
     return this.mixes.approve(id, body, user, actorFor(user), requestIdOf(request));
+  }
+
+  /** MM-V2-C37: discard the open draft revision of an approved mix (the Lead). */
+  @Post('concrete-mixes/:id/discard-draft')
+  @ActiveUser()
+  @HttpCode(HttpStatus.OK)
+  discardDraft(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ConcreteMixDetail> {
+    return this.mixes.discardDraft(id, body, user, actorFor(user), requestIdOf(request));
   }
 }

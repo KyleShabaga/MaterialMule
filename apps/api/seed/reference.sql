@@ -38,3 +38,52 @@ BEGIN
   ON CONFLICT DO NOTHING;
 END
 $$;
+
+-- Company holiday calendar (MM-V2-C37, owner decision 2026-11-08): the Alberta general holidays
+-- for 2026–2028. A concrete specimen target on one of these dates is flagged like a weekend and
+-- never moved. Source: Government of Alberta, Employment Standards "General holidays and general
+-- holiday pay" (alberta.ca/general-holidays-and-general-holiday-pay): New Year's Day, Alberta
+-- Family Day (3rd Monday of February), Good Friday, Victoria Day (the Monday before May 25),
+-- Canada Day, Labour Day (1st Monday of September), Thanksgiving Day (2nd Monday of October),
+-- Remembrance Day and Christmas Day. The optional Alberta holidays (Easter Monday, Heritage Day,
+-- National Day for Truth and Reconciliation, Boxing Day) are NOT seeded: an admin adds any the
+-- firm observes in Settings → Holidays. Dates are the calendar dates themselves (a holiday on a
+-- weekend is not shifted to an observed weekday). Fixed IDs, so an admin's later rename or removal
+-- is never undone by re-running this. Add the next year here each year.
+DO $$
+BEGIN
+  IF to_regclass('company_holiday') IS NULL THEN
+    RETURN;
+  END IF;
+  INSERT INTO company_holiday (id, holiday_on, name, source)
+  VALUES
+    ('00000000-0000-4000-8000-000c37202601', '2026-01-01', 'New Year''s Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202602', '2026-02-16', 'Alberta Family Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202603', '2026-04-03', 'Good Friday', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202604', '2026-05-18', 'Victoria Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202605', '2026-07-01', 'Canada Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202606', '2026-09-07', 'Labour Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202607', '2026-10-12', 'Thanksgiving Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202608', '2026-11-11', 'Remembrance Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202609', '2026-12-25', 'Christmas Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202701', '2027-01-01', 'New Year''s Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202702', '2027-02-15', 'Alberta Family Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202703', '2027-03-26', 'Good Friday', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202704', '2027-05-24', 'Victoria Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202705', '2027-07-01', 'Canada Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202706', '2027-09-06', 'Labour Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202707', '2027-10-11', 'Thanksgiving Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202708', '2027-11-11', 'Remembrance Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202709', '2027-12-25', 'Christmas Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202801', '2028-01-01', 'New Year''s Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202802', '2028-02-21', 'Alberta Family Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202803', '2028-04-14', 'Good Friday', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202804', '2028-05-22', 'Victoria Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202805', '2028-07-01', 'Canada Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202806', '2028-09-04', 'Labour Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202807', '2028-10-09', 'Thanksgiving Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202808', '2028-11-11', 'Remembrance Day', 'alberta_general'),
+    ('00000000-0000-4000-8000-000c37202809', '2028-12-25', 'Christmas Day', 'alberta_general')
+  ON CONFLICT DO NOTHING;
+END
+$$;
