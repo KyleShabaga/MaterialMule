@@ -169,7 +169,7 @@ test('mix draft discard: the Lead discards a draft and the approved revision sta
   await expect(page).toHaveURL(new RegExp(`/projects/${DEMO.projectId}/concrete/mixes$`));
   await page.getByRole('link', { name: `Open mix ${mixNumber}` }).click();
   const heading = page.locator('.mix-heading');
-  await expect(heading.getByText('Revision pending')).toBeVisible();
+  await expect(heading.getByText('Revision awaiting approval')).toBeVisible();
   await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
   await expect(page.getByText('Revision 2 (draft)')).toBeVisible();
   await expectNoHorizontalScroll(page);
