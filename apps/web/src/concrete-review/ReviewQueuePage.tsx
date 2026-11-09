@@ -303,7 +303,14 @@ export function ReviewQueuePage() {
               {
                 header: 'Project',
                 cell: (row) => (
-                  <Link to={`/concrete/review/${row.reportId}`} className="mono">
+                  <Link
+                    to={
+                      row.reportType === 'strength' && row.setId
+                        ? `/concrete/strength/${row.setId}`
+                        : `/concrete/review/${row.reportId}`
+                    }
+                    className="mono"
+                  >
                     {row.projectNumber}
                   </Link>
                 ),
@@ -312,7 +319,8 @@ export function ReviewQueuePage() {
                 header: 'Report type',
                 cell: (row) => (
                   <>
-                    {CONCRETE_REPORT_KIND_LABEL[row.reportType]} v{row.versionNo}
+                    {CONCRETE_REPORT_KIND_LABEL[row.reportType]}
+                    {row.setLabel ? ` ${row.setLabel}` : ''} v{row.versionNo}
                     {row.revised ? (
                       <>
                         {' '}

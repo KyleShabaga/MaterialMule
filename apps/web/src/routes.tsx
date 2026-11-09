@@ -58,6 +58,7 @@ import { TestSignInPage } from './TestSignInPage';
 import { IssueReportPage } from './concrete-review/IssueReportPage';
 import { ReviewQueuePage } from './concrete-review/ReviewQueuePage';
 import { ReviewReportPage } from './concrete-review/ReviewReportPage';
+import { StrengthReportPage } from './concrete-review/StrengthReportPage';
 import { ConcreteDashboardPage } from './concrete/lab/ConcreteDashboardPage';
 import { ConcreteReceivingPage } from './concrete/lab/ConcreteReceivingPage';
 import { ConcreteSearchPage, SpecimenLookupPage } from './concrete/lab/ConcreteSearchPage';
@@ -110,6 +111,8 @@ const featureRoutes: RouteObject[] = [
         { path: 'concrete/review', element: <ReviewQueuePage /> },
         { path: 'concrete/review/:reportId', element: <ReviewReportPage /> },
         { path: 'concrete/review/:reportId/issue', element: <IssueReportPage /> },
+        // MM-V2-C39: a specimen set's strength report (lab submit, review, issue, revise).
+        { path: 'concrete/strength/:setId', element: <StrengthReportPage /> },
       ]
     : []),
   ...(FEATURES.concreteLab

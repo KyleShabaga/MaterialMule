@@ -4,6 +4,7 @@ import { ErrorState, PageHeader } from '../../components/ui';
 import { fetchDashboardCounts, type ConcreteDashboardCounts, type LoadResult } from './api';
 import { ConcreteSearchForm } from './ConcreteSearch';
 import './concrete-lab.css';
+import { StrengthReportList } from '../../concrete-review/StrengthReportList';
 
 interface Count {
   key: keyof ConcreteDashboardCounts;
@@ -109,6 +110,18 @@ export function ConcreteDashboardPage() {
           <CountGroup key={group.title} title={group.title} counts={group.counts} load={load} />
         ))}
       </div>
+
+      <section className="dash-panel" aria-labelledby="concrete-strength-reports">
+        <h2 id="concrete-strength-reports">Strength reports for the lab</h2>
+        <p className="field-hint">
+          Sets with results to submit, a returned report to correct, or a new age after an issue.
+        </p>
+        <StrengthReportList
+          needsLab
+          caption="Strength reports for the lab"
+          empty="No strength reports need the lab right now."
+        />
+      </section>
 
       <section className="dash-panel concrete-dashboard-search" aria-labelledby="concrete-search">
         <h2 id="concrete-search">Find concrete records</h2>

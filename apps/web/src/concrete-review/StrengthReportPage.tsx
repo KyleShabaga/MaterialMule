@@ -1,0 +1,484 @@
+import {
+  CONCRETE_EXCEPTION_LABEL,
+  CONCRETE_STRENGTH_REPORT_STATE_LABEL,
+  CONCRETE_STRENGTH_SUBMIT_BLOCKER_MESSAGE,
+  formatPerson,
+  type ConcreteExceptionNote,
+  type ConcreteReportAction,
+  type ConcreteReportVersionList,
+  type ConcreteStrengthReportDetail,
+  type ConcreteStrengthReportSnapshot,
+  type ConcreteStrengthResultRow,
+  type StaffOption,
+} from '@materialmule/shared';
+import { useEffect, useId, useState } from 'react';
+import { Link, useParams } from 'react-router';
+import { listActiveStaff } from '../api/projects';
+import { ErrorState, PageHeader, StatusBadge, TableScroll } from '../components/ui';
+import { shortDateTime } from '../dashboard/format';
+import { useMe } from '../session/context';
+import { ActionButton, CommentDialog, Labelled } from './ReviewReportPage';
+import {
+  documentStrengthException,
+  fetchStrengthNotes,
+  fetchStrengthReport,
+  fetchStrengthSnapshot,
+  fetchStrengthVersions,
+  sendStrengthCommand,
+  strengthProblemText,
+} from './strength-api';
+import './review.css';
+
+// MM-V2-C39: a concrete compressive strength report (provisional design, G2 section 4): one per
+// specimen set, cumulative. The set block and results table as the report prints them (strength,
+// area, averages and assessment "—" until C24), the lifecycle commands the server allows (lab
+// staff submit; a reviewer reviews or returns; an issuer issues; revise after issue), and the
+// exceptions a reviewer documents before Mark reviewed.
+
+const dash = (value: string | number | null | undefined) =>
+  value === null || value === undefined || value === '' ? '—' : String(value);
+
+export function StrengthStateBadge({ state }: { state: ConcreteStrengthReportDetail['state'] }) {
+  const tone =
+    state === 'issued'
+      ? 'success'
+      : state === 'returned'
+        ? 'danger'
+        : state === 'submitted' || state === 'reviewed'
+          ? 'warning'
+          : 'neutral';
+  return <StatusBadge tone={tone}>{CONCRETE_STRENGTH_REPORT_STATE_LABEL[state]}</StatusBadge>;
+}
+
+const ACTION_LABEL: Partial<Record<ConcreteReportAction, string>> = {
+  submit: 'Submit for review',
+  resubmit: 'Resubmit',
+  recall: 'Recall',
+  review: 'Mark reviewed',
+  issue: 'Issue',
+};
+
+function resultStatus(row: ConcreteStrengthResultRow): string {
+  if (row.status === 'hold') return 'HOLD';
+  if (row.status === 'disposed') return 'Disposed';
+  if (row.status === 'not_yet_tested') {
+    return row.targetDate ? `Not yet tested (target ${row.targetDate})` : 'Not yet tested';
+  }
+  return 'Tested';
+}
+
+export function StrengthReportBody({ snapshot }: { snapshot: ConcreteStrengthReportSnapshot }) {
+  const s = snapshot.set;
+  const elements = [
+    ...s.structureElements,
+    ...(s.structureElementOther ? [s.structureElementOther] : []),
+  ];
+  return (
+    <div className="review-preview">
+      <div className="review-preview-head">
+        <h2>Concrete compressive strength report · Rev {snapshot.revNo}</h2>
+        {snapshot.revision ? (
+          <p className="review-preview-notice">
+            Rev {snapshot.revNo}, supersedes Rev {snapshot.revision.supersedesRevNo} issued{' '}
+            {snapshot.revision.supersedesIssuedAt.slice(0, 10)}: {snapshot.revision.reason}
+          </p>
+        ) : null}
+        <p className="review-preview-notice">{snapshot.calculation.note}</p>
+      </div>
+      <section className="review-preview-section" aria-label="Set">
+        <h3>Set</h3>
+        <dl className="review-fields">
+          <Labelled label="Project">
+            {snapshot.projectNumber} · {snapshot.projectName}
+          </Labelled>
+          <Labelled label="Client">{dash(snapshot.client)}</Labelled>
+          <Labelled label="Lead Project Engineer">
+            {snapshot.leadProjectEngineer
+              ? formatPerson(
+                  snapshot.leadProjectEngineer.initials,
+                  snapshot.leadProjectEngineer.name,
+                )
+              : '—'}
+          </Labelled>
+          <Labelled label="Set ID">
+            {dash(s.identity.permanentId ?? s.identity.temporaryId)}
+          </Labelled>
+          <Labelled label="Field report">{dash(s.fieldReportNumber)}</Labelled>
+          <Labelled label="Field ID">{dash(s.paperFieldId)}</Labelled>
+          <Labelled label="Cast">{s.castAt ? shortDateTime(s.castAt) : '—'}</Labelled>
+          <Labelled label="Structure / element">{dash(elements.join(', '))}</Labelled>
+          <Labelled label="Location">{dash(s.location)}</Labelled>
+          <Labelled label="Supplier">{dash(s.supplierName)}</Labelled>
+          <Labelled label="Mix number">{dash(s.mixNumber)}</Labelled>
+          <Labelled label="Specified strength">
+            {s.specifiedStrengthMpa === null
+              ? '—'
+              : `${s.specifiedStrengthMpa} MPa${s.specifiedStrengthAgeDays ? ` at ${s.specifiedStrengthAgeDays} d` : ''}`}
+          </Labelled>
+          <Labelled label="Specimen size">{dash(s.specimenSize)}</Labelled>
+          <Labelled label="Received at the lab">{dash(s.receivedOn)}</Labelled>
+          <Labelled label="Initial field curing">{dash(s.initialFieldCuring)}</Labelled>
+          <Labelled label="Lab curing">{dash(s.labCuring)}</Labelled>
+        </dl>
+      </section>
+      <section className="review-preview-section" aria-label="Results">
+        <h3>Results</h3>
+        <TableScroll label="Strength results">
+          <table className="review-table">
+            <caption className="visually-hidden">Strength results</caption>
+            <thead>
+              <tr>
+                <th scope="col">Specimen</th>
+                <th scope="col">Age (d)</th>
+                <th scope="col">Test date</th>
+                <th scope="col">Actual age (d)</th>
+                <th scope="col">Diameters ({snapshot.units.dimension})</th>
+                <th scope="col">Heights ({snapshot.units.dimension})</th>
+                <th scope="col">Area</th>
+                <th scope="col">Max load ({snapshot.units.load})</th>
+                <th scope="col">Strength</th>
+                <th scope="col">Fracture</th>
+                <th scope="col">Tested by</th>
+                <th scope="col">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshot.results.map((row) => (
+                <tr key={row.specimenId}>
+                  <th scope="row" className="mono">
+                    {row.specimenLabel}
+                  </th>
+                  <td>{dash(row.assignedAge)}</td>
+                  <td>{row.status === 'tested' ? dash(row.testedOn) : resultStatus(row)}</td>
+                  <td>{dash(row.actualAgeDays)}</td>
+                  <td>{row.diameterReadings.length ? row.diameterReadings.join(', ') : '—'}</td>
+                  <td>{row.heightReadings.length ? row.heightReadings.join(', ') : '—'}</td>
+                  <td>—</td>
+                  <td>{dash(row.maxLoad)}</td>
+                  <td>—</td>
+                  <td>{dash(row.fractureType)}</td>
+                  <td>{dash(row.testedBy?.initials ?? row.testedBy?.name)}</td>
+                  <td>{dash(row.remarks)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableScroll>
+        <ul className="review-list" aria-label="Per-age results">
+          {snapshot.ages.map((age) => (
+            <li key={age.ageDays}>
+              {age.ageDays} d: {age.testedCount} of {age.specimenCount} tested
+              {age.complete ? '' : ' (incomplete)'} · average strength — · assessment —
+            </li>
+          ))}
+        </ul>
+        <p className="field-hint">
+          {snapshot.standardsLine} Units as entered ({snapshot.units.load},{' '}
+          {snapshot.units.dimension}
+          {snapshot.units.provisional ? ', provisional' : ''}).
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function ExceptionList({
+  snapshot,
+  notes,
+  canDocument,
+  onDocument,
+}: {
+  snapshot: ConcreteStrengthReportSnapshot;
+  notes: ConcreteExceptionNote[];
+  canDocument: boolean;
+  onDocument: (code: string, field: string | null, note: string) => Promise<void>;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  if (snapshot.warnings.length === 0) return <p className="review-muted">No exceptions.</p>;
+  return (
+    <ul className="review-checklist">
+      {snapshot.warnings.map((w) => {
+        const key = `${w.code}|${w.field ?? ''}`;
+        const note = notes.find((n) => n.code === w.code && n.field === w.field);
+        return (
+          <li
+            key={key}
+            className={note ? 'review-check-item' : 'review-check-item review-check-open'}
+          >
+            <strong>{CONCRETE_EXCEPTION_LABEL[w.code]}</strong> ·{' '}
+            {w.field?.replace('results.', 'Specimen ')}
+            {note ? (
+              <p className="review-note">
+                Documented by {note.documentedBy.name}: {note.note}
+              </p>
+            ) : canDocument ? (
+              <form
+                className="review-note-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const text = (drafts[key] ?? '').trim();
+                  if (text) void onDocument(w.code, w.field, text);
+                }}
+              >
+                <label>
+                  How it was addressed
+                  <textarea
+                    value={drafts[key] ?? ''}
+                    maxLength={2000}
+                    onChange={(event) => setDrafts({ ...drafts, [key]: event.target.value })}
+                  />
+                </label>
+                <button type="submit">Document</button>
+              </form>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+type Load =
+  | { state: 'loading' }
+  | { state: 'error'; message: string }
+  | {
+      state: 'ready';
+      detail: ConcreteStrengthReportDetail;
+      shown: ConcreteStrengthReportSnapshot;
+      notes: ConcreteExceptionNote[];
+      history: ConcreteReportVersionList | null;
+    };
+
+export function StrengthReportPage() {
+  const { setId = '' } = useParams();
+  const me = useMe();
+  const sharedStation = me.accountType === 'shared_lab';
+  const staffId = useId();
+  const [attempt, setAttempt] = useState(0);
+  const [load, setLoad] = useState<Load>({ state: 'loading' });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  const [dialog, setDialog] = useState<'return' | 'revise' | null>(null);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
+  const [performer, setPerformer] = useState('');
+
+  useEffect(() => {
+    if (!sharedStation) return;
+    void listActiveStaff()
+      .then((list) => setStaff(list.filter((p) => p.initials)))
+      .catch(() => setStaff([]));
+  }, [sharedStation]);
+
+  useEffect(() => {
+    let current = true;
+    void (async () => {
+      try {
+        const detail = await fetchStrengthReport(setId);
+        const latest = detail.latestVersion;
+        const frozen =
+          latest && !['not_started', 'draft', 'returned'].includes(detail.state)
+            ? await fetchStrengthSnapshot(setId, latest.versionNo)
+            : null;
+        const notes =
+          latest && frozen ? (await fetchStrengthNotes(setId, latest.versionNo)).notes : [];
+        const history = detail.reportId ? await fetchStrengthVersions(setId) : null;
+        if (current) {
+          setLoad({ state: 'ready', detail, shown: frozen ?? detail.preview, notes, history });
+        }
+      } catch (error) {
+        if (current) setLoad({ state: 'error', message: strengthProblemText(error) });
+      }
+    })();
+    return () => {
+      current = false;
+    };
+  }, [setId, attempt]);
+
+  if (load.state === 'loading') return <p aria-busy="true">Loading the strength report…</p>;
+  if (load.state === 'error') {
+    return <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />;
+  }
+  const { detail, shown, notes, history } = load;
+  const allowed = new Set(detail.allowedActions);
+  const label =
+    shown.set.identity.permanentId ?? shown.set.identity.temporaryId ?? 'Unnumbered set';
+  const needsPerformer = sharedStation && performer === '';
+
+  async function run(action: ConcreteReportAction, extra: Record<string, unknown> = {}) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const lab = action === 'submit' || action === 'resubmit' || action === 'recall';
+      await sendStrengthCommand(setId, action, {
+        idempotencyKey: crypto.randomUUID(),
+        version: detail.version,
+        ...(lab && sharedStation ? { performedByUserId: performer } : {}),
+        ...extra,
+      });
+      setDialog(null);
+      setMessage({ error: false, text: 'Saved.' });
+      setAttempt((n) => n + 1);
+    } catch (error) {
+      setMessage({ error: true, text: strengthProblemText(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const blockFor = (action: ConcreteReportAction): string | null => {
+    if (allowed.has(action)) {
+      return needsPerformer && ['submit', 'resubmit', 'recall'].includes(action)
+        ? 'Choose who is doing this first.'
+        : null;
+    }
+    if ((action === 'submit' || action === 'resubmit') && detail.submitBlocker) {
+      return CONCRETE_STRENGTH_SUBMIT_BLOCKER_MESSAGE[detail.submitBlocker];
+    }
+    if ((action === 'review' || action === 'issue') && detail.selfReviewUserIds.includes(me.id)) {
+      return 'You entered or tested these results alone: someone else reviews and issues it.';
+    }
+    return 'Not available to you at this stage.';
+  };
+  const offered = (['submit', 'resubmit', 'recall', 'review', 'issue'] as const).filter(
+    (action) =>
+      allowed.has(action) ||
+      (action === 'submit' && ['not_started', 'draft', 'issued'].includes(detail.state)) ||
+      (action === 'resubmit' && detail.state === 'returned') ||
+      (action === 'review' && detail.state === 'submitted') ||
+      (action === 'issue' && detail.state === 'reviewed'),
+  );
+  const canDocument = allowed.has('review') && detail.state === 'submitted';
+
+  return (
+    <div className="review-page">
+      <PageHeader title={`Strength report ${label}`} />
+      <p>
+        <Link to="/concrete/review">Back to the review queue</Link>
+      </p>
+      <p>
+        <StrengthStateBadge state={detail.state} />{' '}
+        {detail.reportNumber ? <span className="mono">{detail.reportNumber}</span> : null}
+        {detail.issueCount > 0 && !detail.reportNumber ? (
+          <span className="review-muted">
+            {' '}
+            Report number assigned with the report templates (C32).
+          </span>
+        ) : null}
+        {detail.newResults && detail.state === 'issued' ? (
+          <>
+            {' '}
+            <StatusBadge tone="info">New results to submit</StatusBadge>
+          </>
+        ) : null}
+      </p>
+      {message ? (
+        <p
+          role={message.error ? 'alert' : 'status'}
+          className={message.error ? 'review-message review-message-error' : 'review-message'}
+        >
+          {message.text}
+        </p>
+      ) : null}
+
+      <section className="review-actions" aria-label="Actions">
+        {sharedStation ? (
+          <div className="form-field">
+            <label htmlFor={staffId}>Who is doing this</label>
+            <select id={staffId} value={performer} onChange={(e) => setPerformer(e.target.value)}>
+              <option value="">Choose a person</option>
+              {staff.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {formatPerson(p.initials, p.displayName)}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <div className="review-action-row">
+          {offered.map((action) => (
+            <ActionButton
+              key={action}
+              label={ACTION_LABEL[action]!}
+              block={blockFor(action)}
+              primary={action === 'submit' || action === 'review' || action === 'issue'}
+              busy={busy}
+              onClick={() => void run(action)}
+            />
+          ))}
+          {allowed.has('return') ? (
+            <ActionButton
+              label="Return for correction"
+              block={null}
+              busy={busy}
+              onClick={() => setDialog('return')}
+            />
+          ) : null}
+          {allowed.has('revise') ? (
+            <ActionButton
+              label="Start a revision"
+              block={null}
+              busy={busy}
+              onClick={() => setDialog('revise')}
+            />
+          ) : null}
+        </div>
+      </section>
+
+      <div className="review-layout">
+        <StrengthReportBody snapshot={shown} />
+        <div className="review-side">
+          <section aria-label="Exceptions">
+            <h2 className="review-subhead">Exceptions</h2>
+            <ExceptionList
+              snapshot={shown}
+              notes={notes}
+              canDocument={canDocument}
+              onDocument={async (code, field, note) => {
+                try {
+                  await documentStrengthException(setId, detail.latestVersion!.versionNo, {
+                    code: code as never,
+                    field,
+                    note,
+                  });
+                  setAttempt((n) => n + 1);
+                } catch (error) {
+                  setMessage({ error: true, text: strengthProblemText(error) });
+                }
+              }}
+            />
+          </section>
+          {history ? (
+            <section aria-label="Versions">
+              <h2 className="review-subhead">Versions</h2>
+              <ol className="review-history">
+                {history.versions.map((v) => (
+                  <li key={v.id}>
+                    v{v.versionNo} · {v.state}
+                    {v.revisionOfVersionNo ? ` (revises v${v.revisionOfVersionNo})` : ''} ·{' '}
+                    {shortDateTime(v.submittedAt)}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+        </div>
+      </div>
+
+      <CommentDialog
+        open={dialog !== null}
+        title={dialog === 'revise' ? 'Start a revision' : 'Return for correction'}
+        label={dialog === 'revise' ? 'Revision reason' : 'Changes needed'}
+        hint={
+          dialog === 'revise'
+            ? 'Prints on the revised report. The issued version stays exactly as issued.'
+            : 'The lab sees this comment and corrects the results.'
+        }
+        confirmLabel={dialog === 'revise' ? 'Start revision' : 'Return'}
+        busy={busy}
+        error={message?.error ? message.text : null}
+        onConfirm={(comment) => void run(dialog!, { comment })}
+        onCancel={() => setDialog(null)}
+      />
+    </div>
+  );
+}

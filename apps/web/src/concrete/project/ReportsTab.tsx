@@ -7,6 +7,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { DataTable, ErrorState, TableScroll } from '../../components/ui';
 import { StateBadge } from '../../concrete-review/ReviewReportPage';
+import { StrengthReportList } from '../../concrete-review/StrengthReportList';
 import { concreteProblem, fetchProjectReports } from './api';
 import { Pager } from './Pager';
 import { structureText } from './mix-format';
@@ -60,108 +61,119 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
   }
 
   return (
-    <section className="concrete-tab" aria-label="Field reports">
-      <div className="concrete-toolbar">
-        <form role="search" className="concrete-search" onSubmit={submit}>
-          <label htmlFor={searchId}>Search reports</label>
-          <div className="inline-input">
-            <input
-              id={searchId}
-              type="search"
-              value={text}
-              maxLength={200}
-              placeholder="Supplier, mix, ticket, Field ID, location or technician"
-              onChange={(event) => setText(event.target.value)}
-            />
-            <button type="submit">Search</button>
+    <>
+      <section className="concrete-tab" aria-label="Field reports">
+        <div className="concrete-toolbar">
+          <form role="search" className="concrete-search" onSubmit={submit}>
+            <label htmlFor={searchId}>Search reports</label>
+            <div className="inline-input">
+              <input
+                id={searchId}
+                type="search"
+                value={text}
+                maxLength={200}
+                placeholder="Supplier, mix, ticket, Field ID, location or technician"
+                onChange={(event) => setText(event.target.value)}
+              />
+              <button type="submit">Search</button>
+            </div>
+          </form>
+          <div className="concrete-filter">
+            <label htmlFor={statusId}>Status</label>
+            <select
+              id={statusId}
+              value={status}
+              onChange={(event) => update({ status: event.target.value })}
+            >
+              {STATUS_FILTERS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
-        </form>
-        <div className="concrete-filter">
-          <label htmlFor={statusId}>Status</label>
-          <select
-            id={statusId}
-            value={status}
-            onChange={(event) => update({ status: event.target.value })}
-          >
-            {STATUS_FILTERS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="concrete-toolbar-action">
+            <button type="button" className="primary" disabled aria-describedby={`${searchId}-new`}>
+              New field report
+            </button>
+            <p id={`${searchId}-new`} className="field-hint">
+              Technicians start field reports in the field form, which arrives with a later card.
+            </p>
+          </div>
         </div>
-        <div className="concrete-toolbar-action">
-          <button type="button" className="primary" disabled aria-describedby={`${searchId}-new`}>
-            New field report
-          </button>
-          <p id={`${searchId}-new`} className="field-hint">
-            Technicians start field reports in the field form, which arrives with a later card.
-          </p>
-        </div>
-      </div>
 
-      {load.state === 'loading' ? <p role="status">Loading…</p> : null}
-      {load.state === 'error' ? (
-        <ErrorState message={concreteProblem(load.error)} onRetry={reload} />
-      ) : null}
-      {load.state === 'ready' ? (
-        <>
-          <TableScroll label="Field reports">
-            <DataTable<ConcreteFieldReportSummary>
-              rows={load.data.items}
-              rowKey={(row) => row.id}
-              caption="Field reports"
-              empty={
-                q || status
-                  ? 'No field reports match these filters.'
-                  : 'No field reports for this project yet.'
-              }
-              columns={[
-                {
-                  header: 'Date',
-                  cell: (row) => (
-                    <Link
-                      className="nowrap"
-                      to={`/concrete/review/${encodeURIComponent(row.id)}`}
-                      aria-label={`Open field report ${row.reportDate ?? 'with no date'}`}
-                    >
-                      {row.reportDate ?? 'No date'}
-                    </Link>
-                  ),
-                },
-                { header: 'Field ID', cell: (row) => row.paperFieldId ?? '—' },
-                { header: 'Type', cell: () => 'Field' },
-                {
-                  header: 'Technician',
-                  cell: (row) =>
-                    row.technician
-                      ? formatPerson(row.technician.initials, row.technician.name)
-                      : '—',
-                },
-                {
-                  header: 'Structure / elements',
-                  cell: (row) =>
-                    structureText(row.locationElements, row.locationElementOther) || '—',
-                },
-                { header: 'Location', cell: (row) => row.locationDescription ?? '—' },
-                {
-                  header: 'Status',
-                  cell: (row) => (
-                    <StateBadge state={row.issueCount > 0 ? 'issued' : row.workflowState} />
-                  ),
-                },
-              ]}
+        {load.state === 'loading' ? <p role="status">Loading…</p> : null}
+        {load.state === 'error' ? (
+          <ErrorState message={concreteProblem(load.error)} onRetry={reload} />
+        ) : null}
+        {load.state === 'ready' ? (
+          <>
+            <TableScroll label="Field reports">
+              <DataTable<ConcreteFieldReportSummary>
+                rows={load.data.items}
+                rowKey={(row) => row.id}
+                caption="Field reports"
+                empty={
+                  q || status
+                    ? 'No field reports match these filters.'
+                    : 'No field reports for this project yet.'
+                }
+                columns={[
+                  {
+                    header: 'Date',
+                    cell: (row) => (
+                      <Link
+                        className="nowrap"
+                        to={`/concrete/review/${encodeURIComponent(row.id)}`}
+                        aria-label={`Open field report ${row.reportDate ?? 'with no date'}`}
+                      >
+                        {row.reportDate ?? 'No date'}
+                      </Link>
+                    ),
+                  },
+                  { header: 'Field ID', cell: (row) => row.paperFieldId ?? '—' },
+                  { header: 'Type', cell: () => 'Field' },
+                  {
+                    header: 'Technician',
+                    cell: (row) =>
+                      row.technician
+                        ? formatPerson(row.technician.initials, row.technician.name)
+                        : '—',
+                  },
+                  {
+                    header: 'Structure / elements',
+                    cell: (row) =>
+                      structureText(row.locationElements, row.locationElementOther) || '—',
+                  },
+                  { header: 'Location', cell: (row) => row.locationDescription ?? '—' },
+                  {
+                    header: 'Status',
+                    cell: (row) => (
+                      <StateBadge state={row.issueCount > 0 ? 'issued' : row.workflowState} />
+                    ),
+                  },
+                ]}
+              />
+            </TableScroll>
+            <Pager
+              page={load.data.page}
+              pageSize={load.data.pageSize}
+              total={load.data.total}
+              noun="reports"
+              onPage={(next) => update({ page: next > 1 ? String(next) : '' })}
             />
-          </TableScroll>
-          <Pager
-            page={load.data.page}
-            pageSize={load.data.pageSize}
-            total={load.data.total}
-            noun="reports"
-            onPage={(next) => update({ page: next > 1 ? String(next) : '' })}
-          />
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null}
+      </section>
+      {/* MM-V2-C39: one strength report per specimen set, cumulative. */}
+      <section className="concrete-tab" aria-labelledby="strength-reports-heading">
+        <h2 id="strength-reports-heading">Strength reports</h2>
+        <StrengthReportList
+          projectId={project.id}
+          caption="Strength reports"
+          empty="No strength reports for this project yet. A set appears once its results are entered."
+        />
+      </section>
+    </>
   );
 }
