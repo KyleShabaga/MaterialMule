@@ -358,6 +358,7 @@ export class ConcreteSpecimenSetsService {
           [set.id, specimenType, mouldSize],
         );
         if (next) {
+          await assertNoReceivingRecords(client, set.id);
           // An unnumbered draft: the list is replaced whole (stable row ids keep their specimen).
           await client.query('DELETE FROM concrete_specimen WHERE set_id = $1', [set.id]);
           await insertSpecimens(client, set.project_id, set.id, next);
@@ -430,6 +431,7 @@ export class ConcreteSpecimenSetsService {
         // A numbered set stays in the register (CD-08): Void is C18's.
         throw new ConflictException({ code: 'set_numbered' });
       }
+      await assertNoReceivingRecords(client, set.id);
       const specimens = await specimensFor(client, [set.id]);
       await client.query('DELETE FROM concrete_specimen WHERE set_id = $1', [set.id]);
       await client.query('DELETE FROM concrete_specimen_set WHERE id = $1', [set.id]);
@@ -1122,4 +1124,25 @@ export async function specimenSetSummaries(
     });
   }
   return out;
+}
+
+/**
+ * MM-V2-C06: once the lab has recorded a pickup, receipt, marker confirmation, exception or Pick
+ * up window for a set's specimens, a draft edit no longer replaces or discards them (409
+ * `set_has_receiving`); a later change goes through the lab records and their history.
+ */
+async function assertNoReceivingRecords(client: PoolClient, setId: string): Promise<void> {
+  const { rows } = await client.query(
+    `SELECT 1 FROM concrete_specimen sp
+     WHERE sp.set_id = $1 AND (
+       EXISTS (SELECT 1 FROM concrete_specimen_pickup x WHERE x.specimen_id = sp.id)
+       OR EXISTS (SELECT 1 FROM concrete_specimen_receipt x WHERE x.specimen_id = sp.id)
+       OR EXISTS (SELECT 1 FROM concrete_receiving_exception x
+                  WHERE x.specimen_id = sp.id OR x.matched_specimen_id = sp.id))
+     UNION ALL SELECT 1 FROM concrete_receiving_exception WHERE set_id = $1
+     UNION ALL SELECT 1 FROM concrete_set_pickup_window WHERE set_id = $1
+     LIMIT 1`,
+    [setId],
+  );
+  if (rows.length > 0) throw new ConflictException({ code: 'set_has_receiving' });
 }

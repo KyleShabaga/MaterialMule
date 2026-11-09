@@ -589,7 +589,9 @@ internal user is refused every lab-staff row.
 | `concrete_settings.air_meter.manage` | Lab Technician, Lab Manager (role alone)                                       | the air-meter register (C27, implemented)                                          |
 | `concrete_sync_conflict.resolve_lab` | Lab Manager (role alone, no project concrete grant), lead, designated reviewer | receiving, test or submitted data (C17)                                            |
 
-- **No route checks the four lab-staff rows yet.** Each owning card adds its route; `GET /api/me`
+- **Routes:** `concrete_specimen.receive` and `concrete_specimen.mass_correct` guard C06's
+  receiving routes and `concrete_test.enter` guards C07's test-result saves;
+  `concrete_specimen.dispose_record` has no route yet. Each owning card adds its route; `GET /api/me`
   already reports them (and `concrete_sync_conflict.resolve_lab` for Lab Managers) so the UI can
   show the controls. LAB's reported list still equals `LAB_PERMISSIONS`.
 - **A Lab Technician is never a Lab Manager.** It holds only the rows above (and everything any
@@ -741,6 +743,52 @@ route here.
   `concrete_specimen.reschedule` to `PROJECT_CAPABILITY_ACTIONS` with the facts it needs (below).
   Each set's `canEdit` says whether the caller may edit its specimens.
 
+## Concrete pickup and receiving (MM-V2-C06)
+
+Contracts: `packages/shared/src/concrete-receiving.ts`; tables: migration 0026
+([concrete.md](concrete.md#pickup-initial-curing-and-receiving-c06)).
+
+| Route                                                          | Policy                                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /api/concrete/specimen-sets/:setId/receiving`             | `inventory.read`                                                                |
+| `GET /api/concrete/field-reports/:reportId/receiving`          | `inventory.read`                                                                |
+| `GET /api/concrete/projects/:projectId/receiving-exceptions`   | `inventory.read`                                                                |
+| `POST /api/concrete/specimen-sets/:setId/pickup`               | `concrete_specimen.receive`                                                     |
+| `PUT /api/concrete/specimen-sets/:setId/pickup-window`         | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/specimens/:specimenId/receipt`             | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/specimens/:specimenId/mass-correction`     | `concrete_specimen.mass_correct`, personal account                              |
+| `POST /api/concrete/specimen-sets/:setId/marker-confirmation`  | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/projects/:projectId/receiving-exceptions`  | `concrete_specimen.receive`                                                     |
+| `POST /api/concrete/receiving-exceptions/:exceptionId/resolve` | `concrete_receiving_exception.resolve` on the record's project (in the handler) |
+| `POST /api/concrete/specimens/:specimenId/curing-resolution`   | `concrete.review` on the specimen's project (in the handler)                    |
+
+- **Lab staff** (C36): pickup, the Pick up window, receipt and mass entry, marker confirmation
+  and recording missing / extra / unmatched specimens need `concrete_specimen.receive` (Lab
+  Technician, Lab Manager, or LAB). A plain internal user is refused (403, nothing changed). The
+  route guard checks it, then the handler again with the account as it stands under the locks.
+- **Actual person vs account.** Every record keeps the actual person (collector, receiver,
+  confirming or reporting person) and the signed-in account that recorded it. A personal account
+  is the person unless it names the actual one (the screen's autofill, corrected); a LAB station
+  must name them (400 `required`). The person must be an active staff member with confirmed
+  initials (422) and is attribution only: LAB never gains their roles. Audit: the account is the
+  actor and, on LAB, the person the receiver.
+- **Mass correction** (CD-46): any lab staff on a **personal account** (LAB: 403
+  `personal_account_required`), reason required, the receipt's `version` (409
+  `version_conflict`). History is append-only; the database changes a receipt's mass only with a
+  correction row in the same transaction.
+- **Exception resolution** (C10 `concrete_receiving_exception.resolve`, CD-34): the project's
+  lead, a designated `concrete_field` reviewer, a Lab Manager holding the project's concrete grant,
+  or the **casting technician for specimens they cast** (the record's set and, for a match, the
+  matched specimen's set must both be theirs). Personal accounts only; disposition and reason
+  required; the source is recorded. Checked before the body (an unknown record is 403 unless the
+  caller could hold this authority somewhere) and again under the locks. LAB is refused whoever it
+  names.
+- **Curing flag resolution** (CD-32 issuance gate): `concrete.review` with the `concrete_field`
+  reviewers, i.e. the lead or a designated reviewer, on a personal account, with a note. A Lab
+  Manager, Lab Technician or LAB is refused.
+- **Retries:** every write takes an `idempotencyKey` (409 `idempotency_key_reused` for another
+  request); per-record `version`s give 409 `version_conflict` with the current view.
+
 ## Concrete lab worklist and rescheduling (MM-V2-C22)
 
 Contracts: `packages/shared/src/concrete-worklist.ts`; table: migration 0022
@@ -866,6 +914,35 @@ issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migra
   `includePhotos: false` until photos exist (C15). Both are stored on the issued version.
 - **Self-review** is refused by C09 (403 `own_report`, #135); the screens disable those actions
   with that reason, and the queue never marks one's own report as needing one's action.
+
+## Concrete test-result drafts (MM-V2-C07)
+
+Test-result drafts with tester attribution and correction history. Contracts:
+`packages/shared/src/concrete-test-results.ts`; tables: migration 0027
+([concrete.md](concrete.md#test-result-drafts-and-correction-history-c07)).
+
+| Route                                                                | Policy                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /api/concrete/specimens/:specimenId/test-results`               | `inventory.read` (every active session, LAB included)                       |
+| `GET /api/concrete/specimens/:specimenId/test-results/:resultId`     | `inventory.read`                                                            |
+| `PUT /api/concrete/specimens/:specimenId/test-results/:resultId {…}` | `concrete_test.enter` (Lab Technician, Lab Manager, LAB); re-checked locked |
+
+- **Global, not project-scoped.** `concrete_test.enter` is a lab-staff role permission (C36), so
+  the route guard refuses everyone else (403) before the body is read; the endpoint sweep covers
+  all three routes. The handler checks it again under the account lock (a role removed first is
+  honoured).
+- **LAB** must send `enteredByUserId` (400 `required`; 422 `entered_by_invalid` unless an active
+  staff member with confirmed initials). That person is credited on the revision; LAB never gains
+  their roles. A personal account is always the person entering it (400 `not_allowed` for anyone
+  else). The named person is not required to hold a lab role (as for C36's other lab-staff rows).
+- **Tester** (`testerUserId`) is a recorded value, not authority: any active staff member with
+  confirmed initials, never LAB (422 `tester_invalid`); a new attempt defaults to the person
+  entering it.
+- **Order of checks:** specimen 404; attempt ID 404 when not an ID; 400 body; then one transaction:
+  report, set, specimen and attempt FOR UPDATE (D09), exact-retry replay, account lock and
+  permission, `enteredByUserId`, 409 `result_id_taken`, 409 `version_conflict`, 409
+  `report_void` / `set_void`, 422 `tester_invalid`, 422 `reason_required` (a saved value changed
+  or cleared without a reason). Audit `concrete_test_result.saved` / `.corrected`.
 
 ## Receiving Log (MM-T51)
 
