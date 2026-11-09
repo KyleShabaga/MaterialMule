@@ -16,6 +16,7 @@ import {
   updateMix,
 } from './api';
 import { MixForm, type MixSpecInput } from './MixForm';
+import { DiscardDraftDialog, SupplierLink } from './MixManage';
 import {
   MIX_STATUS,
   admixturesText,
@@ -33,6 +34,8 @@ import { useLoad } from './useLoad';
 // admixtures, test ages), the mix-design document place, every revision and the change history.
 // The Lead edits (D14: an approved mix gets a draft revision) and approves; after an approval the
 // Lead reviews which existing records the new revision would change (propagation review).
+// MM-V2-C37's discard draft and listed-supplier link live here too (consolidated from C37's
+// separate mixes screen).
 
 const ACTION_LABEL: Record<string, string> = {
   'concrete_mix.created': 'Created',
@@ -40,6 +43,8 @@ const ACTION_LABEL: Record<string, string> = {
   'concrete_mix.draft_edited': 'Draft edited',
   'concrete_mix.revision_drafted': 'Revision drafted',
   'concrete_mix.approved': 'Approved',
+  'concrete_mix.draft_discarded': 'Draft discarded',
+  'concrete_mix.supplier_linked': 'Listed supplier changed',
   'concrete_mix.propagation_applied': 'Records updated from the mix',
 };
 
@@ -119,6 +124,7 @@ function MixDetail({ projectId, mixId }: { projectId: string; mixId: string }) {
   const { load, reload, replace } = useLoad(`mix|${mixId}`, () => fetchMix(mixId));
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -137,6 +143,13 @@ function MixDetail({ projectId, mixId }: { projectId: string; mixId: string }) {
     }
     setError(concreteProblem(caught));
   };
+
+  function managed(next: ConcreteMixDetail, message: string) {
+    replace(next);
+    setDiscarding(false);
+    setError(null);
+    setNotice(message);
+  }
 
   function save(spec: Partial<MixSpecInput>) {
     setBusy(true);
@@ -223,6 +236,16 @@ function MixDetail({ projectId, mixId }: { projectId: string; mixId: string }) {
                 Review affected records
               </Link>
             ) : null}
+            {mix.canManage && mix.draftRevision && mix.effectiveRevision ? (
+              <button
+                type="button"
+                className="danger"
+                disabled={busy}
+                onClick={() => setDiscarding(true)}
+              >
+                Discard draft revision {mix.draftRevision.revisionNumber}
+              </button>
+            ) : null}
           </div>
         ) : null
       ) : (
@@ -235,6 +258,13 @@ function MixDetail({ projectId, mixId }: { projectId: string; mixId: string }) {
           Before approval, fill in: {mix.draftRevision.missingForApproval.join(', ')}.
         </p>
       ) : null}
+
+      {mix.canManage && mix.draftRevision && !mix.effectiveRevision ? (
+        <p className="field-hint">
+          This mix has no approved revision yet, so its draft can&rsquo;t be discarded.
+        </p>
+      ) : null}
+      <SupplierLink key={mix.version} mix={mix} onDone={managed} />
 
       {editing && working ? (
         <BandedCard title={mix.draftRevision ? 'Edit draft' : 'Edit as a new revision'}>
@@ -307,6 +337,9 @@ function MixDetail({ projectId, mixId }: { projectId: string; mixId: string }) {
         ) : null}
       </BandedCard>
 
+      {discarding && mix.draftRevision && mix.effectiveRevision ? (
+        <DiscardDraftDialog mix={mix} onDone={managed} onCancel={() => setDiscarding(false)} />
+      ) : null}
       <ConfirmDialog
         open={confirming}
         title={`Approve revision ${mix.draftRevision?.revisionNumber ?? ''}?`}
