@@ -19,6 +19,7 @@ import {
   type LabHarness,
   type PersonKey,
 } from '../test-support/lab-harness.js';
+import { lockWaiters } from '../test-support/lock-waiters.js';
 
 // MM-V2-C05: specimen sets, age assignments and stable identity records (card AC1–AC5; test plan
 // T1, T2). Real PostgreSQL, direct API calls. Fictional data only: DEMO-2601 (A, led by Pat
@@ -394,6 +395,36 @@ describe.runIf(testDatabaseUrl)('concrete specimen sets (MM-V2-C05)', () => {
     expect(await counts()).toEqual(before);
   });
 
+  it('review fix (PR #133): one key raced on two sets saves one and refuses the other', async () => {
+    const first = await createSet((await report()).id);
+    const second = await createSet((await report()).id);
+    const key = newKey();
+    const blocker = await h.db.pool.connect();
+    let responses: Awaited<ReturnType<typeof send>>[];
+    try {
+      // Both saves pass the ledger check, then wait on the account lock (D09) held here.
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT 1 FROM app_user WHERE id = $1 FOR NO KEY UPDATE', [h.users.tech]);
+      const pending = [
+        send('patch', setPath(first.id), { idempotencyKey: key, version: 1, mouldSize: '100x200' }),
+        send('patch', setPath(second.id), { idempotencyKey: key, version: 1, mouldSize: '75x150' }),
+      ];
+      await lockWaiters(h.db.pool, blocker, 2);
+      await blocker.query('COMMIT');
+      responses = await Promise.all(pending);
+    } finally {
+      blocker.release();
+    }
+    const statuses = responses.map((r) => r.status).sort();
+    expect(statuses, JSON.stringify(responses.map((r) => r.body))).toEqual([200, 409]);
+    const [won, lost] = responses[0]!.status === 200 ? [0, 1] : [1, 0];
+    expect(responses[lost]!.body).toEqual({ code: 'idempotency_key_reused' });
+    const winner = concreteSpecimenSetDetailSchema.parse(responses[won]!.body);
+    expect(winner.id).toBe([first, second][won]!.id);
+    // The losing set was never written.
+    expect((await readSet([first, second][lost]!.id)).version).toBe(1);
+  });
+
   it('a save from an old version conflicts without writing; a foreign specimen id is refused', async () => {
     const r = await report();
     const set = await createSet(r.id);
@@ -517,6 +548,80 @@ describe.runIf(testDatabaseUrl)('concrete specimen sets (MM-V2-C05)', () => {
     expect(refused.status).toBe(409);
     expect(refused.body).toMatchObject({ code: 'set_numbered' });
     expect((await readSet(kept.id)).specimenCount).toBe(4);
+  });
+
+  it('review fix (PR #140): a draft specimen with a test result survives edits; destructive ones are 409', async () => {
+    const r = await report();
+    const set = await createSet(r.id);
+    const [a, b] = set.specimens as [
+      ConcreteSpecimenSetDetail['specimens'][number],
+      ConcreteSpecimenSetDetail['specimens'][number],
+    ];
+    // Test entry before any pickup or receipt (a Lab Manager enters it).
+    const resultId = randomUUID();
+    const entered = await h
+      .http()
+      .put(`/api/concrete/specimens/${a.id}/test-results/${resultId}`)
+      .set(CSRF_HEADER, '1')
+      .set('Cookie', cookies.lm!)
+      .send({ idempotencyKey: newKey(), version: 0, maxLoad: 401.5 });
+    expect(entered.status, JSON.stringify(entered.body)).toBe(200);
+    const results = async () =>
+      (
+        await h.db.pool.query<{ specimen_id: string }>(
+          'SELECT specimen_id FROM concrete_test_result WHERE id = $1',
+          [resultId],
+        )
+      ).rows;
+
+    // An edit that keeps the tested specimen as it is saves, and keeps its row and result.
+    const added = randomUUID();
+    const kept = await send('patch', setPath(set.id), {
+      idempotencyKey: newKey(),
+      version: 1,
+      specimens: [
+        { id: a.id, age: a.assignedAge },
+        { id: b.id, age: b.assignedAge },
+        { id: added, age: 56 },
+      ],
+    });
+    expect(kept.status, JSON.stringify(kept.body)).toBe(200);
+    const saved = concreteSpecimenSetDetailSchema.parse(kept.body);
+    expect(saved.specimens.map((s) => [s.id, s.letter])).toEqual([
+      [a.id, 'A'],
+      [b.id, 'B'],
+      [added, 'C'],
+    ]);
+    expect(await results()).toEqual([{ specimen_id: a.id }]);
+
+    // Removing it, changing its age, or discarding the set is a domain conflict, not a 500.
+    const before = await counts();
+    const removed = await send('patch', setPath(set.id), {
+      idempotencyKey: newKey(),
+      version: 2,
+      specimens: [{ id: b.id, age: b.assignedAge }],
+    });
+    expect(removed.status, JSON.stringify(removed.body)).toBe(409);
+    expect(removed.body).toMatchObject({ code: 'specimen_has_history' });
+    const rescheduled = await send('patch', setPath(set.id), {
+      idempotencyKey: newKey(),
+      version: 2,
+      specimens: [
+        { id: a.id, age: 56 },
+        { id: b.id, age: b.assignedAge },
+      ],
+    });
+    expect(rescheduled.status, JSON.stringify(rescheduled.body)).toBe(409);
+    expect(rescheduled.body).toMatchObject({ code: 'specimen_has_history' });
+    const discarded = await send('delete', setPath(set.id), {
+      idempotencyKey: newKey(),
+      version: 2,
+    });
+    expect(discarded.status, JSON.stringify(discarded.body)).toBe(409);
+    expect(discarded.body).toMatchObject({ code: 'specimen_has_history' });
+    expect(await counts()).toEqual(before);
+    expect(await results()).toEqual([{ specimen_id: a.id }]);
+    expect((await readSet(set.id)).specimenCount).toBe(3);
   });
 
   // ---------------------------------------------------------------------------------------------
