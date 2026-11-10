@@ -11,7 +11,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
+import { REVIEW_APPROVAL } from '../project-access/grant-tables.js';
 import { testDatabaseUrl } from '../test-support/database.js';
+import { endGrantDuring } from '../test-support/grant-race.js';
 import { createLabHarness, newKey, type LabHarness } from '../test-support/lab-harness.js';
 
 // MM-V2-C28: the review queue (T1: filters and permissions), exception notes, the Mark reviewed
@@ -673,5 +675,28 @@ describe.runIf(testDatabaseUrl)('concrete review queue and exceptions (MM-V2-C28
     } finally {
       await setMachineInfo(null);
     }
+  });
+
+  it('review fix #134: an approval ended before the final check refuses the note; nothing is written', async () => {
+    const rv3 = await designatedReviewer('Casey Third', 'CT', h.projects.a);
+    const submitted = await ok('submit', await draft('tech', completeFields(130)), 'tech');
+    const before = await writes(submitted.id);
+    const { rows } = await h.db.pool.query<{ id: string }>(
+      `SELECT id FROM project_review_approval
+       WHERE project_id = $1 AND reviewer_user_id = $2 AND ended_at IS NULL`,
+      [h.projects.a, rv3],
+    );
+    const response = await endGrantDuring(
+      h.db.pool,
+      REVIEW_APPROVAL,
+      rows[0]!.id,
+      { userId: h.users.pe, initials: 'PE', displayName: 'Pat Example' },
+      () =>
+        document(submitted, rv3, { code: 'unknown_mix', field: 'mixNumber', note: 'Confirmed' }),
+      // As a lost eligibility ends it (review-eligibility.ts).
+      { end_kind: 'eligibility_lost' },
+    );
+    expect(response.status, JSON.stringify(response.body)).toBe(403);
+    expect(await writes(submitted.id)).toEqual(before);
   });
 });

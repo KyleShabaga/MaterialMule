@@ -863,6 +863,13 @@ owns which fields: [concrete.md](concrete.md).
 - Rules proven in `apps/api/src/db/schema-concrete-strength-calculation.test.ts`. Details:
   [concrete.md](concrete.md#strength-calculation-and-assessment-provisional-method-p1-c24).
 
+## Issued field report names its version (review fix, `0035_concrete_field_report_issued_version.sql`)
+
+- `concrete_field_report_issued_has_version`: `issue_count = 0 OR last_issued_version IS NOT NULL`.
+  0015's shape check compares the version with `BETWEEN`, which a NULL turns UNKNOWN (accepted), so
+  an issued report could lose the pointer to its last issue. Proven in
+  `apps/api/src/db/schema-concrete.test.ts`.
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`

@@ -16,6 +16,7 @@ import {
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { can, type AuthUser, type Permission, type ProjectContext } from '../auth/policy.js';
+import { lockProjectGrants } from '../auth/standing.js';
 import { projectContext } from '../project-access/project-access.service.js';
 import { reportFileStore } from './reports/report-file-store.js';
 
@@ -279,6 +280,35 @@ export async function lifecycleContext(db: Db, report: LifecycleFacts): Promise<
     FIELD_REPORT_SCOPE,
   );
   return { ...context, recordTechnicianUserId: report.technician_user_id };
+}
+
+/**
+ * Review fix (#134): `lifecycleContext` for a final check, with the field-scope issuer grants,
+ * reviewer assignments and approvals locked FOR SHARE first, so a revocation commits wholly
+ * before or after the command. Pass it to `canUnderLock` as the `context` loader (after the
+ * project and account locks).
+ */
+export async function lockedLifecycleContext(
+  client: PoolClient,
+  report: LifecycleFacts,
+): Promise<ProjectContext> {
+  await lockProjectGrants(client, report.project_id, {
+    reportScope: FIELD_REPORT_SCOPE,
+    reviewScope: FIELD_REPORT_SCOPE,
+  });
+  return lifecycleContext(client, report);
+}
+
+/** A context loader for `canUnderLock` that also keeps the full context it read. */
+export function grantLoader(load: (client: PoolClient) => Promise<ProjectContext>) {
+  const held: { context: ProjectContext | null } = { context: null };
+  const loader = async (client: PoolClient) => {
+    held.context = await load(client);
+    const { leadProjectEngineerUserId: _lead, ...facts } = held.context;
+    void _lead;
+    return facts;
+  };
+  return { loader, held };
 }
 
 /**

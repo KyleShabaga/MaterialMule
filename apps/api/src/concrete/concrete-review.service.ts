@@ -31,9 +31,11 @@ import { findReport } from './concrete-field-reports.service.js';
 import {
   actionAllowed,
   FIELD_REPORT_SCOPE,
+  grantLoader,
   holdsActionPermission,
   latestVersion,
   lifecycleContext,
+  lockedLifecycleContext,
   peopleOf,
   versionsOf,
   type VersionRow,
@@ -370,11 +372,11 @@ export class ConcreteReviewService {
       if (!latest || !/^[1-9][0-9]{0,8}$/.test(versionNo) || number > latest.version_no) {
         throw new NotFoundException({ code: 'concrete_report_version_not_found' });
       }
-      const lockedContext = await lifecycleContext(client, found);
-      const { leadProjectEngineerUserId: _lead, ...facts } = lockedContext;
-      void _lead;
+      // Review fix #134: the reviewer grants are locked and read after the project and account.
       if (
-        !(await canUnderLock(client, user, 'concrete.review', found.project_id, { context: facts }))
+        !(await canUnderLock(client, user, 'concrete.review', found.project_id, {
+          context: grantLoader((c) => lockedLifecycleContext(c, found)).loader,
+        }))
       ) {
         throw forbidden();
       }

@@ -11,7 +11,9 @@ import {
 } from '@materialmule/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
+import { CONCRETE_LAB_MANAGER_GRANT } from '../project-access/grant-tables.js';
 import { testDatabaseUrl } from '../test-support/database.js';
+import { endGrantDuring } from '../test-support/grant-race.js';
 import {
   createLabHarness,
   newKey,
@@ -634,5 +636,28 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     await expect(
       h.db.pool.query('DELETE FROM concrete_hold_command WHERE id = $1', [command.rows[0]!.id]),
     ).rejects.toMatchObject({ constraint: 'concrete_hold_command_append_only' });
+  });
+
+  it('review fix #134: a Lab Manager grant revoked before the final check refuses the failed-hold release; nothing is written', async () => {
+    // Lee holds the concrete grant on B (AC2 above); a new failed hold there.
+    const failed = (await heldSpecimen(reportB)).tested;
+    await failureHold(failed);
+    const { rows } = await h.db.pool.query<{ id: string }>(
+      `SELECT id FROM project_concrete_lab_manager_grant
+       WHERE project_id = $1 AND lab_manager_user_id = $2 AND revoked_at IS NULL`,
+      [h.projects.b, h.users.lm],
+    );
+    const body = { idempotencyKey: newKey(), items: await items([failed]), reason: 'Dispose' };
+    const before = await tallies();
+    const response = await endGrantDuring(
+      h.db.pool,
+      CONCRETE_LAB_MANAGER_GRANT,
+      rows[0]!.id,
+      { userId: h.users.pe, initials: 'PE', displayName: 'Pat Example' },
+      () => post('/api/concrete/holds/authorize-disposal', body, 'lm'),
+    );
+    expect(response.status, JSON.stringify(response.body)).toBe(403);
+    expect(response.body).toMatchObject({ code: 'forbidden', specimens: [failed] });
+    expect(await tallies()).toEqual(before);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   concreteExceptionNoteRequestSchema,
+  concreteFieldReportIssueRequestSchema,
   concreteReportIssueRequestSchema,
   concreteReviewChecklist,
   concreteReviewOpenExceptions,
@@ -205,5 +206,18 @@ describe('request schemas', () => {
         includePhotos: true,
       }).success,
     ).toBe(false);
+  });
+
+  it('review fix #139: a field issue may name the version shown; the shared issue body may not', () => {
+    const body = { idempotencyKey: KEY, version: 3, reportVersionNo: 2 };
+    expect(concreteFieldReportIssueRequestSchema.parse(body)).toMatchObject({ reportVersionNo: 2 });
+    expect(
+      concreteFieldReportIssueRequestSchema.safeParse({ ...body, reportVersionNo: 0 }).success,
+    ).toBe(false);
+    expect(concreteFieldReportIssueRequestSchema.safeParse({ ...body, extra: true }).success).toBe(
+      false,
+    );
+    // Strength issue still uses the plain body, which stays strict.
+    expect(concreteReportIssueRequestSchema.safeParse(body).success).toBe(false);
   });
 });
