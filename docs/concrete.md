@@ -210,8 +210,16 @@ erDiagram
   Each applied record gets its own audit event, and the mix gets
   `concrete_mix.propagation_applied` with the scope (`items` or `approve_all`), what was applied,
   and counts of what was not chosen or not eligible; an exact retry returns the same decision.
-  C23 adds the "already tested" block (`specimen_tested`) to the specimen query (C07 drafts
-  don't count as tested).
+  A specimen with a complete test entry (C23's rule; C07 drafts don't count) is `specimen_tested`
+  and keeps its age, target and history; a break saved after the preview makes it stale. A
+  specimen's age is compared with the one the last propagation gave it (its
+  `concrete_specimen.rescheduled` event with `source: mix_propagation`), else the set's saved
+  schedule, so a second revision propagates too while a manual reschedule stays kept.
+- **Route and project:** the mix and propagation pages load by mix ID; under another project's
+  address they go to the mix's own project before showing anything.
+- **Mix names (review fix, PR #143):** while a draft renames an approved mix, the approved
+  revision's supplier / number stays reserved, so discarding the draft can always restore it.
+  Two identical simultaneous creates (same key) both return the one mix.
 
 ## Equipment (C27)
 

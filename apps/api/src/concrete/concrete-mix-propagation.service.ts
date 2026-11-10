@@ -33,6 +33,7 @@ import { withTransaction } from '../db/transaction.js';
 import { intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { captureMixSnapshot } from './concrete-mixes.service.js';
+import { entryCompleteSql } from './concrete-testing-table.service.js';
 
 type Db = Pool | PoolClient;
 
@@ -73,6 +74,11 @@ interface SpecimenCandidate {
   workflow_state: string;
   casting_date: string | null;
   revision_number: number;
+  /** The age the last propagation gave this specimen (null: never propagated). */
+  propagated_age: string | null;
+  propagated_revision_number: number | null;
+  /** A complete test entry exists (the specimen has been broken). */
+  tested: boolean;
 }
 
 /** What the preview found, with the rows each item came from (for applying it). */
@@ -262,6 +268,7 @@ export class ConcreteMixPropagationService {
             by,
             actor,
             requestId,
+            revisionNumber: target.revisionNumber,
           });
         }
       }
@@ -358,6 +365,7 @@ export class ConcreteMixPropagationService {
       by: { userId: string; initials: string | null; displayName: string };
       actor: AuditActor;
       requestId: string | null;
+      revisionNumber: number;
     },
   ) {
     const newAge = String(item.changes[0]!.proposed);
@@ -401,7 +409,13 @@ export class ConcreteMixPropagationService {
       actor: context.actor,
       reason: context.reason,
       before: { assignedAge: Number(previousAge), targetDate: specimen.target_date },
-      after: { assignedAge: Number(newAge), targetDate: newTarget, source: 'mix_propagation' },
+      after: {
+        assignedAge: Number(newAge),
+        targetDate: newTarget,
+        source: 'mix_propagation',
+        // The provenance of this age: a later revision compares the age with this one.
+        mixRevisionNumber: context.revisionNumber,
+      },
       requestId: context.requestId,
     });
   }
@@ -461,18 +475,34 @@ export class ConcreteMixPropagationService {
       }
 
       const targetAges = target.spec.testAges.map(String);
-      // Untested: C07 drafts don't make a specimen tested (docs/concrete.md); C23 adds its "already tested" condition
-      // here (block 'specimen_tested'), as in C22's worklist.
+      // Tested = a complete test entry (C23's rule, as the reschedule guard): a broken specimen
+      // keeps its age (block 'specimen_tested'). C07 drafts don't make a specimen tested. The
+      // lock order in apply() means a break saved after the preview makes that preview stale.
+      // The age to compare with is the one the last propagation gave the specimen (its audit
+      // event), else the set's saved schedule: a system-applied age is not a manual edit.
       const { rows: specimenRows } = await db.query<SpecimenCandidate>(
         `SELECT sp.id, sp.project_id, sp.letter, sp.assigned_age, sp.target_date::text,
                 st.id AS set_id, st.default_ages, st.permanent_id, st.temporary_id,
                 r.id AS field_report_id, r.workflow_state,
                 concrete_casting_date(r.cast_at)::text AS casting_date,
-                rev.revision_number
+                rev.revision_number, prop.age AS propagated_age,
+                prop.revision_number AS propagated_revision_number,
+                EXISTS (SELECT 1 FROM concrete_test_result tc
+                        WHERE tc.specimen_id = sp.id AND ${entryCompleteSql('tc')}) AS tested
          FROM concrete_specimen sp
          JOIN concrete_specimen_set st ON st.id = sp.set_id
          JOIN concrete_field_report r ON r.id = st.field_report_id
          JOIN concrete_mix_revision rev ON rev.id = st.default_ages_mix_revision_id
+         LEFT JOIN LATERAL (
+           SELECT a.after_values ->> 'assignedAge' AS age,
+                  (a.after_values ->> 'mixRevisionNumber')::int AS revision_number
+           FROM audit_event a
+           WHERE a.entity_type = 'concrete_specimen' AND a.entity_id = sp.id
+             AND a.action = 'concrete_specimen.rescheduled'
+             AND a.after_values ->> 'source' = 'mix_propagation'
+           ORDER BY a.occurred_at DESC, a.id DESC
+           LIMIT 1
+         ) prop ON true
          WHERE rev.mix_id = $1 AND st.default_ages_source = 'mix' AND st.voided_at IS NULL
            AND r.workflow_state <> 'void'
            AND (st.default_ages_mix_revision_id <> $2 OR st.default_ages <> $3::text[])
@@ -483,12 +513,14 @@ export class ConcreteMixPropagationService {
       for (const row of specimenRows) {
         const index = row.letter.charCodeAt(0) - 'A'.charCodeAt(0);
         const result = concreteMixPropagationSpecimenChange({
-          savedAge: toAge(row.default_ages[index] ?? null),
+          savedAge: toAge(row.propagated_age ?? row.default_ages[index] ?? null),
           currentAge: toAge(row.assigned_age),
           proposedAge: target.spec.testAges[index] ?? null,
         });
         if (!result) continue;
-        let block: ConcreteMixPropagationIneligible | null = result.block;
+        let block: ConcreteMixPropagationIneligible | null = row.tested
+          ? 'specimen_tested'
+          : result.block;
         // Without a casting time, only an unnumbered set's age can change (no history row needs
         // a target date there); a numbered set waits for its casting time.
         if (!block && row.casting_date === null && row.permanent_id !== null) {
@@ -502,7 +534,7 @@ export class ConcreteMixPropagationService {
           recordLabel: specimenLabel(row),
           fieldReportId: row.field_report_id,
           reportState: row.workflow_state,
-          fromRevisionNumber: row.revision_number,
+          fromRevisionNumber: row.propagated_revision_number ?? row.revision_number,
           changes: [result.change],
           kept: [],
           eligible: block === null,
