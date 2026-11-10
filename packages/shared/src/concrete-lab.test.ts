@@ -29,6 +29,15 @@ describe('concrete search terms (MM-V2-C31)', () => {
     });
     expect(concreteSearchTerms('2026-11-02').date).toBe('2026-11-02');
     expect(concreteSearchTerms('2026-13-45').date).toBeNull();
+    // Impossible calendar dates are text, never a casting date (JavaScript would roll them over).
+    expect(concreteSearchTerms('2026-02-30').date).toBeNull();
+    expect(concreteSearchTerms('2026-04-31').date).toBeNull();
+    expect(concreteSearchTerms('2026-02-29').date).toBeNull();
+    expect(concreteSearchTerms('1900-02-29').date).toBeNull();
+    expect(concreteSearchTerms('2026-00-10').date).toBeNull();
+    expect(concreteSearchTerms('2028-02-29').date).toBe('2028-02-29');
+    expect(concreteSearchTerms('2000-02-29').date).toBe('2000-02-29');
+    expect(concreteSearchTerms('2026-12-31').date).toBe('2026-12-31');
     expect(concreteSearchTerms('T-77821')).toMatchObject({ setAlias: null, date: null });
   });
 

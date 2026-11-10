@@ -18,8 +18,11 @@ export type LoadResult<T> = { ok: true; data: T } | { ok: false; message: string
 
 export async function fetchTestingTable(query: {
   includeOverdue: boolean;
+  /** Read one project on the server, so the row limit applies within it. */
+  projectId?: string | null;
 }): Promise<LoadResult<ConcreteTestingTable>> {
   const params = new URLSearchParams({ includeOverdue: String(query.includeOverdue) });
+  if (query.projectId) params.set('projectId', query.projectId);
   try {
     const response = await apiFetch(`/api/concrete/testing-table?${params.toString()}`);
     if (!response.ok) return { ok: false, message: "The testing table couldn't load." };

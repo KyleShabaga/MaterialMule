@@ -105,6 +105,13 @@ export const concreteTestingTableSchema = z.object({
   completed: z.number().int().min(0),
   /** More rows matched than were returned (CONCRETE_TESTING_TABLE_MAX_ROWS). */
   truncated: z.boolean(),
+  /**
+   * Every project with a listed-kind row (the same day and overdue choice), whatever the project
+   * filter and the row limit, so any project can be chosen and read on its own.
+   */
+  projects: z.array(
+    z.object({ projectId: z.string(), projectNumber: z.string(), projectName: z.string() }),
+  ),
   groups: z.array(concreteTestingTableGroupSchema),
 });
 export type ConcreteTestingTable = z.infer<typeof concreteTestingTableSchema>;

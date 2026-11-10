@@ -86,7 +86,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | concrete_settings.holiday.manage (C37)                                                                                                                   |     |                   |             |                |   ✓   |                       |                     |
 | concrete_settings.report_header.manage (C32)                                                                                                             |     |                   |             |                |   ✓   |                       |                     |
 | concrete_settings.attachment_limit.manage (C10, planned)                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
-| concrete_specimen.receive / concrete_specimen.mass_correct / concrete_specimen.dispose_record / concrete_test.enter (C36; routes C06/C07, C20, C23, C26) |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
+| concrete_specimen.receive / concrete_specimen.dispose_record / concrete_test.enter (C36; routes C06/C07, C20, C23, C26; LAB names the performing person) |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
+| concrete_specimen.mass_correct (C36, C06; personal account only, CD-46)                                                                                  |     |                   |      ✓      |       ✓        |       |                       |                     |
 | reviewer_eligibility.manage (AO03, D05)                                                                                                                  |     |                   |             |                |   ✓   |                       |                     |
 | staff_capability.manage (AO03, D01)                                                                                                                      |     |                   |             |                |   ✓   |                       |                     |
 | project.lead_project_engineer.change (T35)                                                                                                               |     |                   |             |                |   ✓   |                       |                     |
@@ -592,7 +593,7 @@ internal user is refused every lab-staff row.
 | Permission                           | Granted to (sources)                                                           | Handler also checks (owner card)                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `concrete_specimen.receive`          | Lab Technician, Lab Manager (role alone), LAB (`lab`)                          | pickup, receipt and mass entry; LAB requires the performing person (C06, then C20) |
-| `concrete_specimen.mass_correct`     | Lab Technician, Lab Manager, LAB                                               | mass correction after save, reason (C06, then C20)                                 |
+| `concrete_specimen.mass_correct`     | Lab Technician, Lab Manager (never LAB: CD-46 personal account)                | mass correction after save, reason (C06, then C20)                                 |
 | `concrete_test.enter`                | Lab Technician, Lab Manager, LAB                                               | test entry and correction (reason); LAB requires the tester (C07, then C23)        |
 | `concrete_specimen.dispose_record`   | Lab Technician, Lab Manager, LAB                                               | record actual disposal; LAB requires the performing person (C26)                   |
 | `concrete_settings.air_meter.manage` | Lab Technician, Lab Manager (role alone)                                       | the air-meter register (C27, implemented)                                          |
@@ -602,7 +603,9 @@ internal user is refused every lab-staff row.
   receiving routes and `concrete_test.enter` guards C07's test-result saves;
   `concrete_specimen.dispose_record` has no route yet. Each owning card adds its route; `GET /api/me`
   already reports them (and `concrete_sync_conflict.resolve_lab` for Lab Managers) so the UI can
-  show the controls. LAB's reported list still equals `LAB_PERMISSIONS`.
+  show the controls. LAB's reported list still equals `LAB_PERMISSIONS`, which leaves out
+  `concrete_specimen.mass_correct`: the correction route needs a personal account (CD-46), so
+  LAB never advertises it.
 - **A Lab Technician is never a Lab Manager.** It holds only the rows above (and everything any
   internal user holds). It never reviews (`concrete.review`), issues (`report.issue`), accepts,
   approves, manages HOLDs, settings other than air meters, the catalogue, retention or disposal

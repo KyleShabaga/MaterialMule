@@ -155,7 +155,21 @@ export interface ConcreteSearchTerms {
 }
 
 const DASHES = /[‐‑‒–—―−]/g;
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** A real calendar day (YYYY-MM-DD). `Date` would roll 2026-02-30 over into March. */
+function calendarDate(text: string): string | null {
+  const parts = DATE.exec(text);
+  if (!parts) return null;
+  const [year, month, day] = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCFullYear(year);
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+    ? text
+    : null;
+}
 
 export function concreteSearchTerms(raw: string): ConcreteSearchTerms {
   const text = raw.trim().replace(DASHES, '-').replace(/\s+/g, ' ').toUpperCase();
@@ -177,7 +191,7 @@ export function concreteSearchTerms(raw: string): ConcreteSearchTerms {
       letter = withLetter[2]!;
     }
   }
-  const date = DATE.test(text) && !Number.isNaN(Date.parse(`${text}T00:00:00Z`)) ? text : null;
+  const date = calendarDate(text);
   return { text, lower: text.toLowerCase(), setAlias, letter, date };
 }
 
