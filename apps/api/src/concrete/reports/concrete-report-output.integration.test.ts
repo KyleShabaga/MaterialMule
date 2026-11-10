@@ -10,7 +10,9 @@ import {
 import type { Response } from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../../auth/auth.guard.js';
+import { REPORT_ISSUER_GRANT } from '../../project-access/grant-tables.js';
 import { testDatabaseUrl } from '../../test-support/database.js';
+import { endGrantDuring } from '../../test-support/grant-race.js';
 import { createLabHarness, newKey, type LabHarness } from '../../test-support/lab-harness.js';
 import { pdfText } from '../../test-support/pdf-text.js';
 
@@ -399,6 +401,46 @@ describe.runIf(testDatabaseUrl)('concrete report output (MM-V2-C32)', () => {
       expect(pdfText(file.body)).toContain(report.reportNumber);
       const listed = concreteSummaryReportListSchema.parse((await get(summaryPath(), 'tech')).body);
       expect(listed.items.map((i) => i.id)).toContain(report.id);
+    });
+
+    it('review fix #134: an issuer grant revoked before the final check refuses it; nothing is stored', async () => {
+      const granted = await send(
+        'post',
+        `/api/projects/${h.projects.a}/report-issuers`,
+        {
+          issuerUserId: h.users.js,
+          scopeCode: 'concrete_field',
+          reason: 'Signs reports while the lead is away',
+          idempotencyKey: newKey(),
+        },
+        'pe',
+      );
+      expect(granted.status, JSON.stringify(granted.body)).toBe(201);
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM project_report_issuer_grant
+         WHERE project_id = $1 AND issuer_user_id = $2 AND revoked_at IS NULL`,
+        [h.projects.a, h.users.js],
+      );
+      const stored = async () =>
+        (
+          await h.db.pool.query(
+            `SELECT (SELECT count(*)::int FROM concrete_summary_report) AS summaries,
+                    (SELECT count(*)::int FROM concrete_report_file) AS files,
+                    (SELECT count(*)::int FROM audit_event
+                     WHERE entity_type = 'concrete_summary_report') AS audit`,
+          )
+        ).rows[0];
+      const before = await stored();
+      const response = await endGrantDuring(
+        h.db.pool,
+        REPORT_ISSUER_GRANT,
+        rows[0]!.id,
+        { userId: h.users.pe, initials: 'PE', displayName: 'Pat Example' },
+        () => send('post', summaryPath(), { idempotencyKey: newKey(), filters: {} }, 'js'),
+        { revocation_kind: 'ordinary' },
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(await stored()).toEqual(before);
     });
   });
 

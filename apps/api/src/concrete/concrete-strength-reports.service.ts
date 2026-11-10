@@ -25,6 +25,7 @@ import {
   concreteStrengthSelfReviewUserIds,
   concreteStrengthSubmitBlocker,
   concreteStrengthSubmitRequestSchema,
+  STRENGTH_REPORT_SCOPE,
   type ConcreteExceptionNoteList,
   type ConcreteReportAction,
   type ConcreteReportRoute,
@@ -45,13 +46,14 @@ import {
   type Permission,
   type ProjectContext,
 } from '../auth/policy.js';
-import { asLocked, canUnderLock, lockStanding } from '../auth/standing.js';
+import { asLocked, canUnderLock, lockProjectGrants, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { receiverOf, resolveActingPerson } from '../lab/attribution.js';
 import { intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import {
+  grantLoader,
   latestVersion,
   peopleOf,
   transitionsOf,
@@ -115,6 +117,21 @@ function unprocessable(code: string, errors: { field: string; message: string }[
     code,
     errors: errors.map((error) => ({ ...error, code })),
   });
+}
+
+/**
+ * Review fix (#134): the strength context for a final check, with the `concrete_strength` issuer
+ * grants, reviewer assignments and approvals locked FOR SHARE first (`canUnderLock` loader).
+ */
+async function lockedStrengthContext(
+  client: PoolClient,
+  set: Pick<SetFacts, 'project_id' | 'lead_project_engineer_user_id'>,
+): Promise<ProjectContext> {
+  await lockProjectGrants(client, set.project_id, {
+    reportScope: STRENGTH_REPORT_SCOPE,
+    reviewScope: STRENGTH_REPORT_SCOPE,
+  });
+  return strengthContext(client, set);
 }
 
 function isConstraint(error: unknown, constraint: string): boolean {
@@ -492,17 +509,19 @@ export class ConcreteStrengthReportsService {
     const replay = await this.replay(client, action, set.id, input.idempotencyKey, hash, user);
     if (replay) return replay;
 
-    // D09: the final check with the project and the actor's account as they stand.
-    const context = await strengthContext(client, set);
-    const { leadProjectEngineerUserId: _lead, ...facts } = context;
-    void _lead;
+    // D09: the final check with the project, the actor's account and (review fix #134) the
+    // issuer and reviewer grants as they stand, all locked before they are read.
+    const grants = grantLoader((c) => lockedStrengthContext(c, set));
     let permitted = false;
     for (const permission of STRENGTH_ACTION_PERMISSIONS[action]) {
-      if (await canUnderLock(client, user, permission, set.project_id, { context: facts })) {
+      if (
+        await canUnderLock(client, user, permission, set.project_id, { context: grants.loader })
+      ) {
         permitted = true;
         break;
       }
     }
+    const context = grants.held.context ?? (await lockedStrengthContext(client, set));
     const issuer = action === 'revise' ? issuedByOf(latest) : null;
     if (!permitted && issuer === user.userId) {
       const standing = asLocked(user, await lockStanding(client, [user.userId]));
@@ -1005,12 +1024,10 @@ export class ConcreteStrengthReportsService {
       if (!found || !latest || !/^[1-9][0-9]{0,8}$/.test(versionNo) || number > latest.version_no) {
         throw new NotFoundException({ code: 'concrete_report_version_not_found' });
       }
-      const lockedContext = await strengthContext(client, locked);
-      const { leadProjectEngineerUserId: _lead, ...facts } = lockedContext;
-      void _lead;
+      // Review fix #134: the reviewer grants are locked and read after the project and account.
       if (
         !(await canUnderLock(client, user, 'concrete.review', locked.project_id, {
-          context: facts,
+          context: grantLoader((c) => lockedStrengthContext(c, locked)).loader,
         }))
       ) {
         throw forbidden();

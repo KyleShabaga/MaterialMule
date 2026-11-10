@@ -27,7 +27,7 @@ import {
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../../audit/audit.js';
 import { can, type AuthUser } from '../../auth/policy.js';
-import { canUnderLock } from '../../auth/standing.js';
+import { canUnderLock, lockProjectGrants } from '../../auth/standing.js';
 import { DatabaseService } from '../../database/database.service.js';
 import { withTransaction } from '../../db/transaction.js';
 import { projectContext } from '../../project-access/project-access.service.js';
@@ -765,9 +765,24 @@ export class ConcreteReportOutputService {
       return await withTransaction(this.database.pool, async (client) => {
         const earlier = await replay(client);
         if (earlier) return earlier;
-        const { leadProjectEngineerUserId: _lead, ...facts } = context;
-        void _lead;
-        if (!(await canUnderLock(client, user, 'report.issue', projectId, { context: facts }))) {
+        // Review fix #134: the issuer grants are locked and read as they stand, after the
+        // project and account (the list read before the transaction is only the first check).
+        const lockedIssuers = async (c: PoolClient) => {
+          await lockProjectGrants(c, projectId, { reportScope: FIELD_REPORT_SCOPE });
+          const { leadProjectEngineerUserId: _lead, ...facts } = await projectContext(
+            c,
+            project,
+            FIELD_REPORT_SCOPE,
+            FIELD_REPORT_SCOPE,
+          );
+          void _lead;
+          return facts;
+        };
+        if (
+          !(await canUnderLock(client, user, 'report.issue', projectId, {
+            context: lockedIssuers,
+          }))
+        ) {
           throw new ForbiddenException({ code: 'forbidden' });
         }
         const template = await templateInForce(client, 'summary');

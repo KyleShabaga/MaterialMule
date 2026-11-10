@@ -10,7 +10,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
+import { REPORT_ISSUER_GRANT, REVIEWER_ASSIGNMENT } from '../project-access/grant-tables.js';
 import { testDatabaseUrl } from '../test-support/database.js';
+import { endGrantDuring } from '../test-support/grant-race.js';
 import { createLabHarness, newKey, type LabHarness } from '../test-support/lab-harness.js';
 
 // MM-V2-C09: report versions and the review / issue lifecycle, field-report path (card AC1–AC5;
@@ -871,5 +873,67 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     expect(await caps('js')).toEqual({ 'concrete.review': false, 'report.issue': true });
     expect(await caps('pe')).toEqual({ 'concrete.review': true, 'report.issue': true });
     expect(await caps('tech')).toEqual({ 'concrete.review': false, 'report.issue': false });
+  });
+
+  // ---------------------------------------------------------------------------------------------
+  // Review fix #134: a revocation that commits first wins (D09); these end grants, so they run last
+  // ---------------------------------------------------------------------------------------------
+
+  describe('a grant ending that commits before the final check wins', () => {
+    const ender = () => ({ userId: h.users.pe, initials: 'PE', displayName: 'Pat Example' });
+
+    async function activeGrant(table: string, column: string, userId: string) {
+      const ended = table === 'project_report_issuer_grant' ? 'revoked_at' : 'removed_at';
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM ${table} WHERE project_id = $1 AND ${column} = $2 AND ${ended} IS NULL`,
+        [h.projects.a, userId],
+      );
+      return rows[0]!.id;
+    }
+
+    async function issueOutput(reportId: string) {
+      const { rows } = await h.db.pool.query(
+        `SELECT (SELECT count(*)::int FROM concrete_report_file f
+                 JOIN concrete_report_version v ON v.id = f.report_version_id
+                 WHERE v.field_report_id = $1) AS files,
+                (SELECT count(*)::int FROM concrete_report_version
+                 WHERE field_report_id = $1 AND (state = 'issued' OR report_number_id IS NOT NULL))
+                  AS issued`,
+        [reportId],
+      );
+      return rows[0];
+    }
+
+    it('issue: the issuer grant revoked meanwhile refuses it; no version, number, file or audit', async () => {
+      const reviewed = await ok('review', await ok('submit', await completeReport(), 'tech'), rv);
+      const before = await counts(reviewed.id);
+      const response = await endGrantDuring(
+        h.db.pool,
+        REPORT_ISSUER_GRANT,
+        await activeGrant('project_report_issuer_grant', 'issuer_user_id', h.users.js),
+        ender(),
+        () => command('issue', reviewed, 'js'),
+        { revocation_kind: 'ordinary' },
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(await counts(reviewed.id)).toEqual(before);
+      expect(await issueOutput(reviewed.id)).toEqual({ files: 0, issued: 0 });
+    });
+
+    it('review: the reviewer assignment removed meanwhile refuses it; nothing is written', async () => {
+      const rv3 = await designatedReviewer('Casey Third', 'CT');
+      const submitted = await ok('submit', await completeReport(), 'tech');
+      await documentExceptions(submitted.id);
+      const before = await counts(submitted.id);
+      const response = await endGrantDuring(
+        h.db.pool,
+        REVIEWER_ASSIGNMENT,
+        await activeGrant('project_reviewer_assignment', 'reviewer_user_id', rv3),
+        ender(),
+        () => command('review', submitted, rv3),
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(await counts(submitted.id)).toEqual(before);
+    });
   });
 });

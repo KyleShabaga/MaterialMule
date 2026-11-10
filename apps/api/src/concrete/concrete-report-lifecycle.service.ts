@@ -47,11 +47,13 @@ import {
 import {
   ACTION_PERMISSIONS,
   FIELD_REPORT_SCOPE,
+  grantLoader,
   holdsActionPermission,
   isSelfReview,
   issuedByOf,
   latestVersion,
   lifecycleContext,
+  lockedLifecycleContext,
   peopleOf,
   transitionsOf,
   versionPeople,
@@ -248,17 +250,19 @@ export class ConcreteReportLifecycleService {
     const replay = await this.replay(client, action, found.id, input.idempotencyKey, hash, user);
     if (replay) return replay;
 
-    // D09: the final check with the project and the actor's account as they stand.
-    const context = await lifecycleContext(client, found);
-    const { leadProjectEngineerUserId: _lead, ...facts } = context;
-    void _lead;
+    // D09: the final check with the project, the actor's account and (review fix #134) the
+    // issuer and reviewer grants as they stand, all locked before they are read.
+    const grants = grantLoader((c) => lockedLifecycleContext(c, found));
     let permitted = false;
     for (const permission of ACTION_PERMISSIONS[action]) {
-      if (await canUnderLock(client, user, permission, found.project_id, { context: facts })) {
+      if (
+        await canUnderLock(client, user, permission, found.project_id, { context: grants.loader })
+      ) {
         permitted = true;
         break;
       }
     }
+    const context = grants.held.context ?? (await lockedLifecycleContext(client, found));
     // Revise: the person who issued the version being corrected may also correct it, while
     // their account is an active personal one (as it stands under the lock).
     const issuer = action === 'revise' ? issuedByOf(latest) : null;
