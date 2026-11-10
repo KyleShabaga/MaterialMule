@@ -262,10 +262,22 @@ const LAB_AND_INTERNAL: ReadonlySet<Permission> = new Set<Permission>([
   'concrete_report.draft',
 ]);
 
-/** What the shared LAB account may do: the shared allow-list plus the lab-staff actions. */
+/**
+ * Lab-staff actions that need a personal account (CD-46: a mass correction after save). The
+ * roles grant them; LAB never does, whoever the station selects, so /api/me never advertises
+ * an action the route always refuses.
+ */
+const LAB_STAFF_PERSONAL_ONLY: ReadonlySet<Permission> = new Set<Permission>([
+  'concrete_specimen.mass_correct',
+]);
+
+/**
+ * What the shared LAB account may do: the shared allow-list plus the lab-staff actions, except
+ * the personal-only ones.
+ */
 export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   ...LAB_AND_INTERNAL,
-  ...LAB_STAFF_PERMISSIONS,
+  ...[...LAB_STAFF_PERMISSIONS].filter((p) => !LAB_STAFF_PERSONAL_ONLY.has(p)),
 ]);
 
 /** Any active personal (or test) account. */
