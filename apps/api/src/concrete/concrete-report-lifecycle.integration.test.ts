@@ -875,6 +875,87 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     expect(await caps('tech')).toEqual({ 'concrete.review': false, 'report.issue': false });
   });
 
+  it('review fix #141: an unresolved curing flag stops issue (no number, file or audit) until resolved', async () => {
+    // A verified-range fixture (not a CSA/ASTM value), retired afterwards.
+    const { rows } = await h.db.pool.query<{ id: string }>(
+      `INSERT INTO concrete_curing_standard (specification, edition, min_c, max_c, created_by_user_id)
+       VALUES ('FIXTURE-SPEC', 'test fixture', 16.0, 27.0, $1) RETURNING id`,
+      [h.users.lm],
+    );
+    try {
+      const draft = await completeReport(
+        'tech',
+        { ...completeFields(), specimensCast: true, castAt: '2026-11-08T15:40:00.000Z' },
+        false,
+      );
+      const made = await send(
+        'post',
+        reportPath(draft.id, '/specimen-sets'),
+        { idempotencyKey: newKey() },
+        'tech',
+      );
+      expect(made.status, JSON.stringify(made.body)).toBe(201);
+      const set = made.body as { id: string; specimens: { id: string }[] };
+      const specimen = set.specimens[0]!.id;
+      const flagged = await send(
+        'post',
+        `/api/concrete/specimen-sets/${set.id}/pickup`,
+        {
+          idempotencyKey: newKey(),
+          specimens: [{ id: specimen, version: null }],
+          complete: true,
+          collectedAt: '2026-11-09T08:00:00-06:00',
+          curingMinC: '15.0',
+          curingMaxC: '22.0',
+        },
+        'lm',
+      );
+      expect(flagged.status, JSON.stringify(flagged.body)).toBe(201);
+      const ready = concreteFieldReportDetailSchema.parse(
+        (await get(reportPath(draft.id), 'tech')).body,
+      );
+      const reviewed = await ok('review', await ok('submit', ready, 'tech'), rv);
+
+      const before = await counts(reviewed.id);
+      const refused = await command('issue', reviewed, 'pe');
+      expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+      expect(refused.body).toMatchObject({
+        code: 'issuance_gated',
+        errors: [{ field: 'curing_out_of_range_unresolved', code: 'issuance_gated' }],
+      });
+      expect(await counts(reviewed.id)).toEqual(before);
+      const { rows: output } = await h.db.pool.query(
+        `SELECT (SELECT count(*)::int FROM concrete_report_file f
+                 JOIN concrete_report_version v ON v.id = f.report_version_id
+                 WHERE v.field_report_id = $1) AS files,
+                (SELECT count(*)::int FROM concrete_report_number WHERE subject_id = $1) AS numbers`,
+        [reviewed.id],
+      );
+      expect(output[0]).toEqual({ files: 0, numbers: 0 });
+
+      // The lead resolves the flag; then the same report issues.
+      const { rows: pickup } = await h.db.pool.query<{ version: number }>(
+        'SELECT version FROM concrete_specimen_pickup WHERE specimen_id = $1',
+        [specimen],
+      );
+      const resolved = await send(
+        'post',
+        `/api/concrete/specimens/${specimen}/curing-resolution`,
+        { idempotencyKey: newKey(), version: pickup[0]!.version, note: 'Box heater checked' },
+        'pe',
+      );
+      expect(resolved.status, JSON.stringify(resolved.body)).toBe(201);
+      const issued = await ok('issue', reviewed, 'pe');
+      expect(issued.issuance.issueCount).toBe(1);
+    } finally {
+      await h.db.pool.query(
+        `UPDATE concrete_curing_standard SET retired_at = now(), retired_by_user_id = $2
+         WHERE id = $1`,
+        [rows[0]!.id, h.users.lm],
+      );
+    }
+  });
+
   // ---------------------------------------------------------------------------------------------
   // Review fix #134: a revocation that commits first wins (D09); these end grants, so they run last
   // ---------------------------------------------------------------------------------------------

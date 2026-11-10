@@ -93,6 +93,24 @@ async function projectIncludesMachineInfo(client: PoolClient, projectId: string)
   return rows[0]?.include_machine_info ?? false;
 }
 
+/**
+ * Review fix (#141): the report's specimens (in sets that aren't void) whose pickup has an
+ * out-of-range curing flag nobody has resolved: the `curing_out_of_range_unresolved` issuance
+ * gate the receiving view shows (`concreteReceivingIssues`). Read under the report's FOR UPDATE
+ * lock: pickups and resolutions lock the report FOR SHARE first, so none can change meanwhile.
+ */
+async function unresolvedCuringFlags(client: PoolClient, reportId: string): Promise<number> {
+  const { rows } = await client.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM concrete_specimen_pickup pk
+     JOIN concrete_specimen sp ON sp.id = pk.specimen_id
+     JOIN concrete_specimen_set s ON s.id = sp.set_id
+     WHERE s.field_report_id = $1 AND s.voided_at IS NULL
+       AND cardinality(pk.curing_flags) > 0 AND pk.curing_resolved_at IS NULL`,
+    [reportId],
+  );
+  return rows[0]!.n;
+}
+
 function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
 }
@@ -323,6 +341,16 @@ export class ConcreteReportLifecycleService {
           })),
         );
       }
+    }
+
+    // Review fix #141: the receiving issuance gate (CD-32), live, before any number or file.
+    if (action === 'issue' && (await unresolvedCuringFlags(client, found.id)) > 0) {
+      unprocessable('issuance_gated', [
+        {
+          field: 'curing_out_of_range_unresolved',
+          message: 'An out-of-range initial curing reading needs resolving before issue',
+        },
+      ]);
     }
 
     let versionId: string;

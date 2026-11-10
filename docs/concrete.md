@@ -401,7 +401,9 @@ field-sheet rows "Pickup", "Initial curing" and "Receiving", the Receiving scree
   expected.
 - **Blockers** (computed, never stored; `GET …/receiving` per set and per report):
   `pickup_incomplete`, `not_received`, `missing_unresolved`, `identity_unresolved`,
-  `marker_confirmation_missing`; issuance gate `curing_out_of_range_unresolved`. **Not applied to
+  `marker_confirmation_missing`; issuance gate `curing_out_of_range_unresolved`. The field-report
+  issue command applies the gate in its transaction (review fix #141): 422 `issuance_gated` with
+  no number, file, transition or audit until the flag is resolved. **Blockers are not applied to
   submission yet:** C19 (auto-submission) and the submit command should call
   `concreteReceivingIssues`. C04's `deferredChecks` still list the two C06 checks as unapplied.
 - **Draft sets:** once any lab record exists for a set, C05's draft edit that replaces its
