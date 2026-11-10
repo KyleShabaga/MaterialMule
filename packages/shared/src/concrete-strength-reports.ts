@@ -12,6 +12,12 @@ import {
   CONCRETE_TEST_RESULT_LOAD_UNITS,
 } from './concrete-test-results';
 import { personSnapshotSchema } from './lab-programs';
+import {
+  CONCRETE_STRENGTH_ASSESSMENTS,
+  CONCRETE_STRENGTH_FLAGS,
+  concreteCalculationMethodSchema,
+  concreteStrengthExclusionSchema,
+} from './concrete-strength';
 
 // MM-V2-C39: concrete compressive strength reports (provisional design, G2 owner direction
 // 2026-11-09, section 4). One report per specimen set, cumulative:
@@ -25,9 +31,10 @@ import { personSnapshotSchema } from './lab-programs';
 //   `concrete.review` and issue `report.issue` for the `concrete_strength` scope.
 // - No self-review: the only tester, or the only person credited with entering, the results a
 //   version shows never reviews or issues it (as a field report's technician never does).
-// - Strength, area, the per-age average and the assessment are null until C24 delivers the
-//   approved method (G1 / G8). Average diameter and height stay null too: the number of readings,
-//   corrections and rounding are G8's. Readings and the maximum load print as entered.
+// - MM-V2-C24: strength, area, average diameter / height, the per-age average and the advisory
+//   assessment come from the result's calculation method (provisional P1, see
+//   concrete-strength.ts) and are frozen in each version. Versions frozen before C24 keep their
+//   nulls (they print "—"); the schema reads both. Readings and the maximum load print as entered.
 
 const idSchema = z.uuid({ error: 'must be an ID' });
 
@@ -93,13 +100,21 @@ export const concreteStrengthResultRowSchema = z.object({
   actualAgeDays: z.number().nullable(),
   heightReadings: z.array(z.number()),
   diameterReadings: z.array(z.number()),
-  /** G8 (readings, corrections, rounding): null until C24. */
-  averageDiameter: z.null(),
-  averageHeight: z.null(),
-  area: z.null(),
+  /** Mean diameter / height (mm, unrounded) and area (mm², nearest 1): null when not calculated. */
+  averageDiameter: z.number().nullable(),
+  averageHeight: z.number().nullable(),
+  area: z.number().nullable(),
   maxLoad: z.number().nullable(),
-  /** G1 / G8: null until C24. */
-  strength: z.null(),
+  /** Corrected strength rounded to 0.1 MPa (C24), null when not calculated or L/D below 1.00. */
+  strength: z.number().nullable(),
+  /** C24 additions (absent from versions frozen before C24, read as their defaults). */
+  strengthRaw: z.number().nullable().default(null),
+  ldRatio: z.number().nullable().default(null),
+  correctionFactor: z.number().nullable().default(null),
+  calculationMethodVersion: z.string().nullable().default(null),
+  flags: z.array(z.enum(CONCRETE_STRENGTH_FLAGS)).default([]),
+  /** Excluded by the reviewer from its strength test (listed, struck from the average). */
+  excluded: concreteStrengthExclusionSchema.nullable().default(null),
   /** Not recorded by C07 yet: null prints "—". */
   fractureType: z.string().nullable(),
   testedBy: personSnapshotSchema.nullable(),
@@ -115,9 +130,14 @@ export const concreteStrengthAgeLineSchema = z.object({
   testedCount: z.number(),
   /** Every specimen of the age (not disposed) has a complete entry. */
   complete: z.boolean(),
-  /** G1 / G8: null until C24. */
-  averageStrength: z.null(),
-  assessment: z.null(),
+  /** The strength test (C24): null until the age is complete and a specimen counts. */
+  averageStrength: z.number().nullable(),
+  /** Advisory only: never acceptance. "Information only" away from the reference age. */
+  assessment: z.enum(CONCRETE_STRENGTH_ASSESSMENTS).nullable(),
+  countedCount: z.number().default(0),
+  single: z.boolean().default(false),
+  runningAverage: z.number().nullable().default(null),
+  failed: z.boolean().default(false),
 });
 export type ConcreteStrengthAgeLine = z.infer<typeof concreteStrengthAgeLineSchema>;
 
@@ -184,13 +204,21 @@ export const concreteStrengthReportSnapshotSchema = z.object({
   agesReported: z.array(z.number()),
   warnings: z.array(concreteStrengthReportWarningSchema),
   standardsLine: z.string(),
-  /** Why strength values are blank: the method isn't approved yet (C24, G1/G8). */
-  calculation: z.object({ method: z.null(), note: z.string() }),
+  /**
+   * The calculation method the values come from ("Calculation method P1 (provisional)"); null on
+   * versions frozen before C24, whose note says why their values are blank.
+   */
+  calculation: z.object({ method: concreteCalculationMethodSchema.nullable(), note: z.string() }),
 });
 export type ConcreteStrengthReportSnapshot = z.infer<typeof concreteStrengthReportSnapshotSchema>;
 
+/** The note frozen with versions before C24 (kept so old snapshots read the same). */
 export const CONCRETE_STRENGTH_CALCULATION_NOTE =
   'Strength, area, averages and assessment await the approved method (C24; owner gates G1/G8).';
+
+/** The note with P1 values: they are provisional and the assessment is advisory. */
+export const CONCRETE_STRENGTH_P1_NOTE =
+  'Provisional calculation pending the office worksheet. The assessment is an advisory flag for the reviewer, not acceptance.';
 
 // ---- Pure rules (API and web agree) ---------------------------------------------------------------
 
@@ -216,6 +244,10 @@ export function concreteStrengthAgeLines(
       complete: line.tested > 0 && line.open === 0,
       averageStrength: null,
       assessment: null,
+      countedCount: 0,
+      single: false,
+      runningAverage: null,
+      failed: false,
     }));
 }
 
@@ -376,6 +408,12 @@ export const concreteStrengthReportDetailSchema = z.object({
   latestIssuedVersionNo: z.number().nullable(),
   /** People who never review or issue the latest version (sole tester / entrant). */
   selfReviewUserIds: z.array(z.string()),
+  /**
+   * MM-V2-C24: the viewer may exclude specimens from their strength tests now (a strength
+   * reviewer, while no version is submitted, reviewed or issued). The server still refuses a
+   * specimen whose result the viewer tested or entered.
+   */
+  canExclude: z.boolean().default(false),
   allowedActions: z.array(z.enum(CONCRETE_REPORT_ACTIONS)),
 });
 export type ConcreteStrengthReportDetail = z.infer<typeof concreteStrengthReportDetailSchema>;

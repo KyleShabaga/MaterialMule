@@ -6,11 +6,15 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  CONCRETE_STRENGTH_CALCULATORS,
   CONCRETE_TEST_RESULT_FIELDS,
   concreteLabToday,
+  concreteTestEntryComplete,
   concreteTestResultChanges,
   concreteTestResultSaveRequestSchema,
   type ConcreteSpecimenTestResults,
+  type ConcreteStrengthCalculation,
+  type ConcreteStrengthInputs,
   type ConcreteTestResult,
   type ConcreteTestResultField,
   type ConcreteTestResultRevision,
@@ -28,6 +32,17 @@ import { resolveActingPerson } from '../lab/attribution.js';
 import { intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { testingMachineSnapshot } from './concrete-equipment.service.js';
+import {
+  calcColumnsSql,
+  calcSetSql,
+  calculationOf,
+  calcValues,
+  currentMethod,
+  describeCalculation,
+  findMethod,
+  type CalcSql,
+  type MethodRow,
+} from './concrete-strength.calc.js';
 
 type Db = Pool | PoolClient;
 
@@ -57,7 +72,7 @@ const SELECT_SPECIMEN = `SELECT sp.id, sp.project_id, sp.set_id, st.field_report
   JOIN concrete_specimen_set st ON st.id = sp.set_id
   JOIN concrete_field_report r ON r.id = st.field_report_id`;
 
-interface ResultRow {
+interface ResultRow extends CalcSql {
   id: string;
   project_id: string;
   specimen_id: string;
@@ -87,8 +102,30 @@ const SELECT_RESULT = `SELECT id, project_id, specimen_id, attempt_no, state, te
          tester_user_id, tester_initials_snapshot, tester_name_snapshot, max_load::text, load_unit,
          height_readings::text[], diameter_readings::text[], dimension_unit, units_provisional,
          notes, testing_machine_id, calculation_method, calculation_method_version,
-         report_version_id, created_at, updated_at, version
+         report_version_id, created_at, updated_at, version, ${calcColumnsSql('concrete_test_result')}
   FROM concrete_test_result`;
+
+type Calculators = Readonly<
+  Record<string, (input: ConcreteStrengthInputs) => ConcreteStrengthCalculation | null>
+>;
+
+/**
+ * MM-V2-C24: the calculation of a result's values with its method version (null while the
+ * entry is incomplete). A version the code has no calculator for refuses the save (a later
+ * method must ship its calculator before it becomes current).
+ */
+function calculate(
+  method: MethodRow | null,
+  values: ConcreteTestResultValues,
+  calculators: Calculators = CONCRETE_STRENGTH_CALCULATORS,
+): ConcreteStrengthCalculation | null {
+  if (!method) return null;
+  if (!concreteTestEntryComplete(values)) return null;
+  const calculator = calculators[method.version];
+  if (!calculator) throw new ConflictException({ code: 'calculation_method_unavailable' });
+  const calc = calculator(values);
+  return calc ? { ...calc, methodVersion: method.version, provisional: method.provisional } : null;
+}
 
 function valuesOf(row: ResultRow): ConcreteTestResultValues {
   return {
@@ -272,12 +309,19 @@ export class ConcreteTestResultsService {
             [specimen.id],
           );
           const machine = await testingMachineSnapshot(client, next.testedOn ?? concreteLabToday());
+          // MM-V2-C24: the attempt is calculated with the method current now, for good (AC2).
+          const method = await currentMethod(client);
+          const calc = calculate(method, next);
           await client.query(
             `INSERT INTO concrete_test_result
                (id, project_id, specimen_id, attempt_no, tested_on, tester_user_id,
                 tester_initials_snapshot, tester_name_snapshot, max_load, height_readings,
-                diameter_readings, notes, testing_machine_id, created_by_user_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                diameter_readings, notes, testing_machine_id, created_by_user_id,
+                calculation_method, calculation_method_version, calc_mean_diameter,
+                calc_mean_height, calc_area_raw, calc_area, calc_ld_ratio, calc_correction_factor,
+                calc_strength_raw, calc_strength, calc_flags, calculated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+                     $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)`,
             [
               resultId,
               specimen.project_id,
@@ -293,6 +337,9 @@ export class ConcreteTestResultsService {
               next.notes,
               machine?.equipmentId ?? null,
               user.userId,
+              method?.method ?? null,
+              method?.version ?? null,
+              ...calcValues(calc),
             ],
           );
         }
@@ -319,11 +366,19 @@ export class ConcreteTestResultsService {
           ],
         );
         if (existing) {
+          // MM-V2-C24: recalculated with the attempt's own method version (never the current
+          // one: AC2). An attempt saved before C24 takes the current method on this save.
+          const method =
+            existing.calc_method_version !== null
+              ? await findMethod(client, existing.calc_method_version)
+              : await currentMethod(client);
+          const calc = calculate(method, next);
           await client.query(
             `UPDATE concrete_test_result
              SET tested_on = $2, tester_user_id = $3, tester_initials_snapshot = $4,
                  tester_name_snapshot = $5, max_load = $6, height_readings = $7,
-                 diameter_readings = $8, notes = $9, version = $10, updated_at = now()
+                 diameter_readings = $8, notes = $9, version = $10, updated_at = now(),
+                 calculation_method = $11, calculation_method_version = $12, ${calcSetSql(13)}
              WHERE id = $1`,
             [
               resultId,
@@ -336,6 +391,9 @@ export class ConcreteTestResultsService {
               next.diameterReadings,
               next.notes,
               revisionNo,
+              method?.method ?? null,
+              method?.version ?? null,
+              ...calcValues(calc),
             ],
           );
         }
@@ -372,6 +430,107 @@ export class ConcreteTestResultsService {
           code: 'version_conflict',
           current: await loadResult(this.database.pool, resultId),
         });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * MM-V2-C24 (AC2): deliberately recalculate an attempt with another method version. It is a
+   * revision of kind 'recalculation' with a reason, whose changes hold the calculation before and
+   * after; the readings are untouched. The database refuses a method change any other way.
+   *
+   * No route calls this yet: it ships with the next method version, once the owner says who may
+   * recalculate (proposal: Lab Manager). The integration tests drive it with a test-only method.
+   */
+  async recalculate(
+    resultId: string,
+    input: { toVersion: string; reason: string; idempotencyKey: string },
+    user: AuthUser,
+    actor: AuditActor,
+    requestId: string | null,
+    calculators: Calculators = CONCRETE_STRENGTH_CALCULATORS,
+  ): Promise<ConcreteTestResult> {
+    const found = await loadResult(this.database.pool, resultId);
+    if (!found) throw new NotFoundException({ code: 'concrete_test_result_not_found' });
+    const specimenFacts = (await findSpecimen(this.database.pool, found.specimenId))!;
+    try {
+      return await withTransaction(this.database.pool, async (client) => {
+        await client.query('SELECT 1 FROM concrete_field_report WHERE id = $1 FOR UPDATE', [
+          specimenFacts.field_report_id,
+        ]);
+        await client.query('SELECT 1 FROM concrete_specimen_set WHERE id = $1 FOR UPDATE', [
+          specimenFacts.set_id,
+        ]);
+        await findSpecimen(client, specimenFacts.id, 'FOR UPDATE OF sp');
+        const { rows } = await client.query<ResultRow>(
+          `${SELECT_RESULT} WHERE id = $1 FOR UPDATE`,
+          [resultId],
+        );
+        const existing = rows[0]!;
+        const method = await findMethod(client, input.toVersion);
+        if (!method) {
+          throw new UnprocessableEntityException({
+            code: 'calculation_method_unknown',
+            errors: [{ field: 'toVersion', code: 'unknown', message: 'Choose a method version' }],
+          });
+        }
+        const person = await resolveActingPerson(client, user, undefined, {
+          field: 'enteredByUserId',
+          invalidCode: 'entered_by_invalid',
+        });
+        const before = calculationOf(existing);
+        const after = calculate(method, valuesOf(existing), calculators);
+        const revisionNo = existing.version + 1;
+        const changes = {
+          calculation: {
+            before: describeCalculation(existing.calc_method_version, before),
+            after: describeCalculation(method.version, after),
+          },
+        };
+        await client.query(
+          `INSERT INTO concrete_test_result_revision
+             (project_id, result_id, revision_no, kind, changes, reason, account_user_id,
+              account_type, entered_by_user_id, entered_by_initials_snapshot,
+              entered_by_name_snapshot, idempotency_key, request_hash)
+           VALUES ($1, $2, $3, 'recalculation', $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            existing.project_id,
+            resultId,
+            revisionNo,
+            JSON.stringify(changes),
+            input.reason,
+            user.userId,
+            user.accountType,
+            person.userId,
+            person.initials,
+            person.name,
+            input.idempotencyKey,
+            intentHash({ kind: 'recalculation', resultId, toVersion: input.toVersion }),
+          ],
+        );
+        await client.query(
+          `UPDATE concrete_test_result
+           SET calculation_method = $2, calculation_method_version = $3, version = $4,
+               updated_at = now(), ${calcSetSql(5)}
+           WHERE id = $1`,
+          [resultId, method.method, method.version, revisionNo, ...calcValues(after)],
+        );
+        await recordAudit(client, {
+          action: 'concrete_test_result.recalculated',
+          entityType: 'concrete_test_result',
+          entityId: resultId,
+          actor,
+          reason: input.reason,
+          before: { version: existing.version },
+          after: { version: revisionNo, changes },
+          requestId,
+        });
+        return (await loadResult(client, resultId))!;
+      });
+    } catch (error) {
+      if (isConstraint(error, 'concrete_test_result_reported')) {
+        throw new ConflictException({ code: 'result_on_strength_report' });
       }
       throw error;
     }
@@ -556,6 +715,7 @@ function toResult(row: ResultRow, revisions: ConcreteTestResultRevision[]): Conc
     testingMachineId: row.testing_machine_id,
     calculationMethod: row.calculation_method,
     calculationMethodVersion: row.calculation_method_version,
+    calculation: calculationOf(row),
     reportVersionId: row.report_version_id,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),

@@ -3,8 +3,8 @@ import { z } from 'zod';
 // MM-V2-C32: report numbers, template revisions, issued report files, the project summary report
 // and the strength report snapshot shape agreed with C39. Source: "V2 Concrete — Provisional
 // report designs (G2, 2026-11-09)", owner-directed provisional designs; the office's examples,
-// when supplied, become a new template revision. Calculation rules (G1) and units/readings (G8)
-// stay open: no strength, area, average or assessment is computed or printed anywhere here.
+// when supplied, become a new template revision. Strength values come from C24's provisional
+// method P1 (concrete-strength.ts); nothing here computes them.
 
 const idSchema = z.uuid({ error: 'must be an ID' });
 const dateSchema = z.iso.date({ error: 'must be a date (YYYY-MM-DD)' });

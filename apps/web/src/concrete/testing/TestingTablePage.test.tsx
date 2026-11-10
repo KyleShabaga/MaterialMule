@@ -57,6 +57,7 @@ const row = (n: number, letter: string, extra: Partial<ConcreteTestingTableRow> 
     daysOverdue: null,
     actualAge: 28,
     reportState: 'submitted',
+    specifiedStrengthMpa: 25,
     flags: [],
     result: null,
     complete: false,
@@ -74,6 +75,9 @@ const SAVED: ConcreteTestingTableResult = {
   diameterReadings: [101.6],
   units: { load: 'kN', dimension: 'mm', provisional: true },
   enteredAt: '2026-11-30T15:00:00.000Z',
+  calculation: null,
+  strengthFlags: [],
+  excluded: false,
 };
 
 const table = (rows: ConcreteTestingTableRow[], includeOverdue = false): ConcreteTestingTable => ({
@@ -116,8 +120,9 @@ function savedResult(
     units: { load: 'kN', dimension: 'mm', provisional: true },
     notes: null,
     testingMachineId: null,
-    calculationMethod: null,
-    calculationMethodVersion: null,
+    calculationMethod: 'compressive_strength',
+    calculationMethodVersion: 'P1',
+    calculation: base.calculation ?? null,
     reportVersionId: null,
     createdAt: '2026-11-30T15:00:00.000Z',
     updatedAt: '2026-11-30T15:05:00.000Z',
@@ -332,14 +337,44 @@ describe('Testing table (MM-V2-C23)', () => {
     expect(screen.getByRole('rowheader', { name: '26-01A' })).toBeInTheDocument();
   });
 
-  it('hides a column and keeps strength blank', async () => {
+  it('hides a column; strength is blank until the entry is complete', async () => {
     renderPage(table([row(1, 'B')]), (put) => ok(put));
     await screen.findByRole('rowheader', { name: '26-01B' });
-    expect(screen.getAllByRole('columnheader', { name: 'Strength' })).toHaveLength(1);
+    expect(screen.getAllByRole('columnheader', { name: 'Strength (MPa)' })).toHaveLength(1);
+    expect(screen.getByLabelText('Strength 26-01B: not calculated')).toHaveTextContent('—');
     await userEvent.click(screen.getByText('Columns'));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Strength' }));
-    expect(screen.queryByRole('columnheader', { name: 'Strength' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Strength (MPa)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Height (mm)' })).toBeInTheDocument();
+  });
+
+  it('MM-V2-C24: a complete entry shows its stored strength, method version and flags', async () => {
+    const calculated: ConcreteTestingTableResult = {
+      ...SAVED,
+      calculation: {
+        methodVersion: 'P1',
+        provisional: true,
+        meanDiameter: 101.6,
+        meanHeight: 203.2,
+        areaRaw: 8107.32,
+        area: 8107,
+        ldRatio: 2,
+        correctionFactor: 1,
+        strengthRaw: 49.338,
+        strength: 49.3,
+        flags: ['diameter_spread'],
+      },
+      strengthFlags: ['diameter_spread'],
+    };
+    renderPage(table([row(1, 'B', { result: calculated, complete: true })]), (put) => ok(put));
+    const cell = await screen.findByLabelText('Strength 26-01B: 49.3 MPa');
+    expect(cell).toHaveTextContent('49.3');
+    expect(cell).toHaveTextContent('P1 (provisional)');
+    expect(cell).toHaveAttribute(
+      'title',
+      expect.stringContaining('Calculation method P1 (provisional)'),
+    );
+    expect(screen.getByText('Diameters differ by more than 2%')).toBeVisible();
   });
 
   it('read-only for someone without concrete_test.enter', async () => {

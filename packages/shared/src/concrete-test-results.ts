@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { concreteSpecimenIdentitySchema } from './concrete';
+import { concreteStrengthCalculationSchema } from './concrete-strength';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-V2-C07: concrete test-result drafts, tester attribution and correction history
@@ -7,9 +8,11 @@ import { personSnapshotSchema } from './lab-programs';
 //
 // - A result attempt has a stable ID the client chooses (offline-safe): saving the same ID again
 //   updates that attempt, never a second one.
-// - Drafts only. Completed-test semantics, strength, rounding, pass/fail, end preparation and
-//   fracture type are gated on the verified worksheet and methods (owner inputs G2/G8; C23). The
-//   API never reports a strength or a completed test.
+// - Drafts only. End preparation and fracture type wait for the verified worksheet (G8).
+// - MM-V2-C24: a complete entry is calculated with the result's method version (provisional P1)
+//   in the same save, and the values are stored with it. The method version is fixed when the
+//   attempt is created; a later method never changes it except by a deliberate recalculation
+//   (revision kind 'recalculation', with a reason), so history shows every change (AC2).
 // - Units are stored with each result: kN for load and mm for dimensions, both provisional until
 //   the worksheet is verified. The number of dimension readings isn't fixed (0 to 10 each).
 // - Filling an empty field is entry; changing or clearing a saved value is a correction and
@@ -33,7 +36,13 @@ export const CONCRETE_TEST_RESULT_LOAD_UNITS = ['kN'] as const;
 export const CONCRETE_TEST_RESULT_DIMENSION_UNITS = ['mm'] as const;
 export const CONCRETE_TEST_RESULT_MAX_READINGS = 10;
 export const CONCRETE_TEST_RESULT_STATES = ['draft'] as const;
-export const CONCRETE_TEST_RESULT_REVISION_KINDS = ['initial', 'entry', 'correction'] as const;
+export const CONCRETE_TEST_RESULT_REVISION_KINDS = [
+  'initial',
+  'entry',
+  'correction',
+  /** MM-V2-C24: recalculated with another method version (deliberate, with a reason). */
+  'recalculation',
+] as const;
 export type ConcreteTestResultRevisionKind = (typeof CONCRETE_TEST_RESULT_REVISION_KINDS)[number];
 
 const reading = (label: string, max: number) =>
@@ -162,9 +171,14 @@ export const concreteTestResultSchema = z.object({
   notes: z.string().nullable(),
   /** The registered testing machine when the attempt was created (none registered: null). */
   testingMachineId: z.string().nullable(),
-  /** Prepared, always null until a verified method exists (no strength is ever calculated). */
+  /**
+   * MM-V2-C24: the method and version this attempt is calculated with (set when the attempt is
+   * created; null only on attempts saved before C24 until their next save).
+   */
   calculationMethod: z.string().nullable(),
   calculationMethodVersion: z.string().nullable(),
+  /** The stored calculation (null while the entry is incomplete). */
+  calculation: concreteStrengthCalculationSchema.nullable(),
   reportVersionId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

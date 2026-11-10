@@ -4,6 +4,7 @@ import {
   compareConcreteTestingRows,
   concreteDaysBetween,
   concreteLabToday,
+  concreteStrengthRelativeFlags,
   concreteTestEntryComplete,
   concreteTestingTableQuerySchema,
   concreteWorklistFlags,
@@ -15,6 +16,7 @@ import {
 import { DatabaseService } from '../database/database.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { loadHolidayDates } from './concrete-reference-data.service.js';
+import { calcColumnsSql, calculationOf, type CalcSql } from './concrete-strength.calc.js';
 
 /**
  * A result whose entry is complete (the shared `concreteTestEntryComplete` rule): test date,
@@ -33,7 +35,9 @@ export function testedBeforeSql(specimenAlias: string, dateSql: string): string 
     AND ${entryCompleteSql('tc')} AND tc.tested_on < ${dateSql})`;
 }
 
-interface TableRowSql {
+interface TableRowSql extends CalcSql {
+  specified_mpa: string | null;
+  excluded: boolean;
   specimen_id: string;
   set_id: string;
   field_report_id: string;
@@ -97,7 +101,12 @@ export class ConcreteTestingTableService {
               tr.diameter_readings::text[], tr.load_unit, tr.dimension_unit,
               tr.units_provisional,
               (SELECT max(rv.created_at) FROM concrete_test_result_revision rv
-               WHERE rv.result_id = tr.id) AS entered_at
+               WHERE rv.result_id = tr.id) AS entered_at,
+              ${calcColumnsSql('tr')},
+              r.project_spec->>'specifiedStrengthMpa' AS specified_mpa,
+              coalesce((SELECT e.action = 'exclude' FROM concrete_strength_exclusion e
+                        WHERE e.specimen_id = sp.id ORDER BY e.sequence_no DESC LIMIT 1),
+                       false) AS excluded
        FROM (SELECT $1::date AS today, $2::boolean AS include_overdue, $3::uuid AS project_id) q
        CROSS JOIN concrete_specimen sp
        JOIN concrete_specimen_set st ON st.id = sp.set_id
@@ -183,7 +192,18 @@ function toRow(
             provisional: row.units_provisional!,
           },
           enteredAt: (row.entered_at ?? new Date()).toISOString(),
+          calculation: calculationOf(row),
+          strengthFlags: [],
+          excluded: row.excluded,
         };
+  const specified =
+    row.specified_mpa === null || row.specified_mpa === '' ? null : Number(row.specified_mpa);
+  if (result?.calculation) {
+    result.strengthFlags = [
+      ...result.calculation.flags,
+      ...concreteStrengthRelativeFlags(result.calculation.strength, specified),
+    ];
+  }
   return {
     specimenId: row.specimen_id,
     setId: row.set_id,
@@ -201,6 +221,7 @@ function toRow(
     daysOverdue: late > 0 ? late : null,
     actualAge: concreteDaysBetween(row.casting_date, result?.testedOn ?? today),
     reportState: row.workflow_state,
+    specifiedStrengthMpa: specified,
     flags: concreteWorklistFlags({
       assignedAge,
       targetDate: row.target_date,

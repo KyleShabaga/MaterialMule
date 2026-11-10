@@ -686,11 +686,11 @@ owner decisions of 2026-11-08 (C36 lab staff).
 - **Attempts:** `concrete_test_result` is one result attempt on a specimen. The client chooses its
   ID, so saving the same ID again (an exact retry, an offline resend, a second edit) never creates
   a second attempt; a retest is a new ID with the next `attempt_no`. Attempts are never deleted.
-- **Drafts only.** `state` admits `'draft'` alone. Completed-test semantics, strength, rounding,
-  pass/fail, end preparation, fracture type and failure handling wait for the verified worksheet
-  and methods (owner inputs G2/G8; C23/C25). `calculation_method`, `calculation_method_version` and
-  `report_version_id` are prepared columns that the database keeps empty
-  (`concrete_test_result_method_gated`); no strength is stored or returned anywhere.
+- **Drafts only.** `state` admits `'draft'` alone. End preparation, fracture type and failure
+  handling wait for the verified worksheet (G8; C25). `report_version_id` stays empty. MM-V2-C24:
+  `calculation_method` / `calculation_method_version` name the method version the attempt is
+  calculated with, and a complete entry stores its provisional P1 values
+  ([below](#strength-calculation-and-assessment-provisional-method-p1-c24)).
 - **Readings:** the machine's maximum load and 0–10 height and diameter readings, each optional.
   Empty means "not entered", never zero. Units are stored per row: `kN` and `mm`, the only units
   accepted, and `units_provisional` is always true until the worksheet's units and reading count
@@ -742,8 +742,8 @@ drafts. Contracts: `packages/shared/src/concrete-testing-table.ts`.
 - **Entry:** max load, height and diameter as typed (C07's fields; kN / mm, provisional; several
   readings in one cell separated by spaces, none invented). The test date defaults to the lab date
   on the first save and stays editable for delayed entry; the entry time is the revision time,
-  shown apart. Strength is a blank column until C24 (owner gate G2); units and the number of
-  readings wait on G8.
+  shown apart. Strength shows the stored P1 value once the entry is complete (C24); units and
+  the number of readings stay provisional (G8).
 - **Complete:** test date, tester, max load and at least one height and one diameter reading
   (`concreteTestEntryComplete`, same rule in SQL). Entry completeness only, never a completed test.
   Incomplete rows are saved but not counted ("N of M completed").
@@ -793,9 +793,9 @@ office examples arrive.
   (label, assigned and actual age, test date, readings, max load, tested by, everyone credited
   with entering it, remarks = the C07 note; fracture type null, not recorded yet); untested rows
   `not_yet_tested` with their target date, HOLD rows `hold`, disposed `disposed`; per-age lines;
-  the standards placeholder line; units as stored (kN / mm, provisional). **Strength, area,
-  average diameter and height, per-age average and assessment are null** (G1/G8: no formula,
-  rounding or reading count is decided; C24).
+  the standards placeholder line; units as stored (kN / mm, provisional). MM-V2-C24: each tested
+  row carries its stored P1 values and the per-age line its strength test and advisory
+  assessment, with the method line (versions frozen before C24 keep their nulls).
 - **Locked results (AC2).** A result (any attempt) of a specimen the latest version shows as
   tested is locked while the strength report is submitted, reviewed or issued (trigger
   `concrete_test_result_reported`; C07's save answers 409 `result_on_strength_report`). Later
@@ -829,6 +829,93 @@ office examples arrive.
   `concrete_field`); lab staff (`concrete_test.enter`) submit, resubmit and recall; "sole tester
   or entrant" read as two separate checks; a later age needs only that age complete (gaps allowed
   for ages in between); the submitter is not separately barred from review.
+
+## Strength calculation and assessment, provisional method P1 (C24)
+
+Migration `0033_concrete_strength_calculation.sql`; the pure calculation in
+`packages/shared/src/concrete-strength.ts` (web and API agree; hand-checked worked examples in
+`concrete-strength.test.ts`); stored values in `apps/api/src/concrete/concrete-strength.calc.ts`;
+strength tests in `concrete-strength-tests.read.ts`; routes in
+[permissions.md](permissions.md#concrete-strength-calculation-mm-v2-c24). Source: "V2 Concrete —
+Provisional report designs (G2, 2026-11-09)" section 6, **method P1 (provisional)**, owner
+direction 2026-11-09 extended to G1/G8 by the master session because the office worksheet isn't
+available. Everything P1 produces is labelled provisional; the worksheet becomes a new method
+version.
+
+- **Methods.** `concrete_calculation_method` (method `compressive_strength`, version, name,
+  provisional, source, `is_current`): one row per version, never changed or deleted; exactly one
+  current per method. `seed/reference.sql` seeds `P1` (provisional, current). A version the code
+  can calculate needs a calculator in `CONCRETE_STRENGTH_CALCULATORS`; a current version without
+  one refuses new attempts (409 `calculation_method_unavailable`), so a version row must ship with
+  its code.
+- **P1 (one specimen).** d̄ and h̄ = the means of the readings as entered (mm). Area = π × d̄² / 4
+  (mm², kept unrounded, printed to 1 mm²). Strength = max load (kN) × 1000 / area × the L/D factor,
+  in MPa: kept unrounded and rounded half-up to 0.1 MPa (`roundHalfUp`, free of binary rounding
+  error) for display and assessment. L/D = h̄ / d̄: ≤ 1.75 → factor interpolated linearly from
+  1.75 → 0.98, 1.50 → 0.96, 1.25 → 0.93, 1.00 → 0.87; above 1.75 → none (1); below 1.00 → no
+  strength, flagged.
+- **Flags (never change a value).** Stored with the calculation: `diameter_spread` (diameter
+  readings differ by more than 2%), `ld_below_minimum` (L/D below 1.00), `ld_out_of_range` (L/D
+  outside 1.00–2.20). Read with the field report's specification (never stored, f′c can be
+  corrected): `strength_below_half_specified` / `strength_above_double_specified` (below 50% /
+  above 200% of f′c).
+- **Stored with each result (AC2).** `concrete_test_result.calculation_method` /
+  `calculation_method_version` (C07's held-empty columns) name the version an attempt is
+  calculated with, fixed when the attempt is created (the current version then). The `calc_*`
+  columns hold the means, raw and printed area, L/D, factor, raw and rounded strength and the
+  flags, written in the same save, and exist exactly when the entry is complete (database checks
+  `concrete_test_result_calc_shape` / `_calc_complete`; nothing is calculated from a partial
+  entry). A correction recalculates with the attempt's own version, never the current one. The
+  database refuses any change of the version except with a revision of kind `recalculation` (with
+  a reason) in the same transaction (`concrete_test_result_method_kept`), and never clears it.
+  `ConcreteTestResultsService.recalculate` does that deliberately (revision changes hold the
+  calculation before and after; audit `concrete_test_result.recalculated`); no route calls it yet
+  (see below). Attempts saved before C24 have no version until their next save (no backfill:
+  there is no calculator in SQL and V2 holds no production results).
+- **Strength test (one set, one assigned age).** Once the age is complete (every specimen of it,
+  other than a disposed one, has a complete entry on its latest attempt), the average of the
+  counted specimens: complete, with a strength, not excluded. One counted specimen is reported and
+  marked "single specimen". No counted specimen: no test.
+- **Exclusion.** A reviewer strikes a specimen from its strength test, or reinstates it, always
+  with a reason: `concrete_strength_exclusion`, append-only events alternating exclude /
+  reinstate per specimen (who, when, reason; never LAB), audit `concrete_strength.excluded` /
+  `.reinstated`. The specimen stays listed (struck through, with the reason). Refused while a
+  submitted, reviewed or issued strength report version reports the specimen (trigger
+  `concrete_strength_exclusion_reported`, 409 `result_on_strength_report`), as a result correction
+  is: return, recall or revise first.
+- **Assessment (advisory, never acceptance).** Only at the field report's reference age
+  (`specifiedStrengthAgeDays`, normally 28 d); every other age is "Information only" (AC3: a 7-day
+  result is never assessed against 28 days). At the reference age, in order: "Below specified −
+  3.5 MPa" (below f′c − 3.5), "Below specified" (below f′c), "Running average below specified"
+  (the average of this and the previous two reference-age tests on the same project and registry
+  mix is below f′c; shown only once three exist), else "Meets specified". No reference age, or no
+  f′c at the reference age: not assessed ("—").
+- **Failed result (for C25).** Any reference-age assessment other than "Meets specified":
+  `failed` on each strength test, and `GET /api/concrete/strength-tests?projectId=…&failed=true`
+  lists them. C25's workflow (notifications, HOLD moves, schedules) is not built.
+- **Where it shows.** Testing table (C23): the Strength (MPa) column with the method version
+  ("P1 (provisional)"; area, L/D and factor in the tooltip), the strength flags in Flags, and
+  "Excluded". Strength report (C39): area, strength (method version per row), the flags in
+  Remarks, the per-age average with "single specimen", the assessment and the running average,
+  and the method line; reviewers get Exclude / Reinstate on the live preview. The frozen version
+  snapshot carries every value (C39's schema reads versions frozen before C24 with their nulls);
+  C32's PDF prints them with "Calculation method P1 (provisional)", excluded specimens and their
+  reasons, and "—" for anything missing. Issued versions are never changed. The project summary
+  (C32) prints an age's average once the latest issued strength version reports it.
+- **P1 readings (interpretations to confirm with the owner):**
+  1. "Differ by more than 2%" = (largest − smallest) > 2% of the smallest reading.
+  2. L/D below 1.00 raises both "L/D below 1.00" and "L/D outside 1.00–2.20".
+  3. The 50% / 200% flags apply to specimens of any age, against f′c.
+  4. The average is taken of the unrounded strengths, then rounded; the running average is the
+     mean of the three rounded test values, rounded.
+  5. A test exists only once its age is complete (no partial averages).
+  6. Running-average order: latest counted test date, then casting time, then set; "same mix" =
+     the field report's registry mix (`mix_id`); a set without one has no running average.
+  7. Means print to 0.1 mm on the PDF (display only).
+- **Owner to confirm (built as proposal):** exclusion by `concrete.review` for the
+  `concrete_strength` scope (the project's Lead or a designated strength reviewer), never on a
+  result the reviewer tested or entered (403 `own_result`); who may run a deliberate
+  recalculation (proposal: Lab Manager), whose route ships with the next method version.
 
 ## Reference data: suppliers, holidays, mix draft discard (C37)
 
@@ -943,7 +1030,7 @@ the open gates (G2, G8, workbook and standards, report templates, offline device
   `project_concrete_lab_manager_grant.granted`/`.revoked`, C03 the `concrete_mix.*` events; each writing card records its own with
   `recordAudit` in the same transaction.
 - **Open owner inputs, deliberately not defaulted:** testing-machine / worksheet units and reading
-  count, calculation and rounding methods, the office's report examples (provisional P1
-  templates stand in, C32), CSA/ASTM curing and
+  count, the office's calculation worksheet (provisional method P1 stands in, C24), the office's
+  report examples (provisional P1 templates stand in, C32), CSA/ASTM curing and
   pickup limits, paper Field ID vs Set ID (CD-65), externally numbered sets (CD-69), a report-level
   reference number (none is defined).

@@ -118,8 +118,14 @@ test('submit → review → issue a strength report', async ({ page }) => {
   const file = await page.request.get((await pdf.getAttribute('href'))!);
   expect(file.status()).toBe(200);
   expect(file.headers()['content-type']).toContain('application/pdf');
-  // Strength stays blank until C24; the frozen version prints Rev 0.
+  // The frozen version prints Rev 0 with its P1 strength (MM-V2-C24): 412.6 kN on
+  // π × 100.1² / 4 = 7 869.70 mm² → 52.43 → 52.4 MPa.
   await expect(page.getByRole('heading', { name: /Rev 0/ })).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Strength results' }).getByRole('row', {
+      name: new RegExp(`${label}A`),
+    }),
+  ).toContainText('52.4 MPa');
 
   const listed = await page.request.get(`/api/concrete/strength-reports?state=issued`);
   expect(listed.status()).toBe(200);

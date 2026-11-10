@@ -839,6 +839,22 @@ owns which fields: [concrete.md](concrete.md).
   database": existing sets and specimens gain blank detail, storage-unit counters and every other
   table unchanged).
 
+## Concrete strength calculation (MM-V2-C24, `0033_concrete_strength_calculation.sql`)
+
+- `concrete_calculation_method` (PK method + version; `provisional`, `source`, `is_current`, one
+  current per method): reference data, `P1` seeded by `seed/reference.sql`. A row never changes
+  except `is_current` and is never deleted.
+- `concrete_test_result` gains the stored calculation (`calc_mean_diameter`, `calc_mean_height`,
+  `calc_area_raw`, `calc_area`, `calc_ld_ratio`, `calc_correction_factor`, `calc_strength_raw`,
+  `calc_strength`, `calc_flags`, `calculated_at`); `calculation_method` / `_version` reference the
+  method table and change only with a `recalculation` revision. C07's
+  `concrete_test_result_method_gated` is replaced (`report_version_id` stays empty).
+- `concrete_strength_exclusion`: append-only exclude / reinstate events per specimen with a
+  reason (sequence without gaps, alternating, never a shared account, refused while a submitted
+  or issued strength version reports the specimen).
+- Rules proven in `apps/api/src/db/schema-concrete-strength-calculation.test.ts`. Details:
+  [concrete.md](concrete.md#strength-calculation-and-assessment-provisional-method-p1-c24).
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`

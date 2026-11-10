@@ -1,4 +1,6 @@
 import {
+  CONCRETE_STRENGTH_FLAG_LABEL,
+  concreteCalculationMethodLine,
   CONCRETE_TESTING_TABLE_COLUMNS,
   CONCRETE_TESTING_TABLE_COLUMN_LABEL,
   CONCRETE_TEST_RESULT_DIMENSION_UNITS,
@@ -7,6 +9,7 @@ import {
   concreteTestEntryComplete,
   type ConcreteTestingTable,
   type ConcreteTestingTableColumn,
+  type ConcreteTestingTableResult,
   type ConcreteTestingTableRow,
   type ConcreteWorklistFlag,
   type StaffOption,
@@ -239,7 +242,7 @@ export function TestingTablePage() {
     });
     inFlight.current.delete(specimenId);
     if (outcome.ok) {
-      const result = tableResultOf(outcome.result);
+      const result = tableResultOf(outcome.result, state.row);
       update(specimenId, (s) => {
         const row = { ...s.row, result, complete: concreteTestEntryComplete(result) };
         const typedSince = JSON.stringify(s.edit) !== JSON.stringify(sentEdit);
@@ -262,7 +265,7 @@ export function TestingTablePage() {
     } else {
       // AC2: a failed save keeps every typed value. After a version conflict the row compares
       // against the server's copy from now on (a change to its values then needs a reason).
-      const current = outcome.current ? tableResultOf(outcome.current) : null;
+      const current = outcome.current ? tableResultOf(outcome.current, state.row) : null;
       update(specimenId, (s) => ({
         ...s,
         ...(current && current.id === s.resultId
@@ -494,8 +497,11 @@ export function TestingTablePage() {
                         {show('height') ? <th scope="col">Height ({DIMENSION_UNIT})</th> : null}
                         {show('diameter') ? <th scope="col">Diameter ({DIMENSION_UNIT})</th> : null}
                         {show('strength') ? (
-                          <th scope="col" title="Calculated later: the method isn’t confirmed yet">
-                            Strength
+                          <th
+                            scope="col"
+                            title="Provisional calculation method P1 until the office worksheet is confirmed"
+                          >
+                            Strength (MPa)
                           </th>
                         ) : null}
                         {show('flags') ? <th scope="col">Flags</th> : null}
@@ -633,9 +639,7 @@ function TestingRow({
       {cell('height', 'Height')}
       {cell('diameter', 'Diameter')}
       {show('strength') ? (
-        <td className="testing-strength" aria-label={`Strength ${label}: not calculated yet`}>
-          {' '}
-        </td>
+        <StrengthCell result={row.result} complete={row.complete} label={label} />
       ) : null}
       {show('flags') ? (
         <td>
@@ -647,6 +651,12 @@ function TestingRow({
                   : CONCRETE_WORKLIST_FLAG_LABEL[flag]}
               </StatusBadge>
             ))}
+            {(row.result?.strengthFlags ?? []).map((flag) => (
+              <StatusBadge key={flag} tone="warning">
+                {CONCRETE_STRENGTH_FLAG_LABEL[flag]}
+              </StatusBadge>
+            ))}
+            {row.result?.excluded ? <StatusBadge tone="neutral">Excluded</StatusBadge> : null}
             {row.flags.length > 0 ? (
               <Link to={`/concrete/specimens/${row.setId}`} aria-label={`Details for ${label}`}>
                 Details
@@ -689,5 +699,48 @@ function TestingRow({
         ) : null}
       </td>
     </tr>
+  );
+}
+
+/**
+ * MM-V2-C24: the stored strength of a complete entry (provisional method P1) with its method
+ * version; "—" while the entry is incomplete or L/D is below 1.00. Values never change here: the
+ * server calculates and stores them with each save.
+ */
+function StrengthCell({
+  result,
+  complete,
+  label,
+}: {
+  result: ConcreteTestingTableResult | null;
+  complete: boolean;
+  label: string;
+}) {
+  const calc = complete ? (result?.calculation ?? null) : null;
+  if (!calc) {
+    return (
+      <td className="testing-strength" aria-label={`Strength ${label}: not calculated`}>
+        <span className="testing-sub">—</span>
+      </td>
+    );
+  }
+  const method = concreteCalculationMethodLine(calc.methodVersion, calc.provisional);
+  const text = calc.strength === null ? '—' : calc.strength.toFixed(1);
+  return (
+    <td
+      className="testing-strength"
+      aria-label={`Strength ${label}: ${calc.strength === null ? 'none (L/D below 1.00)' : `${text} MPa`}`}
+      title={`${method}. Area ${calc.area} mm², L/D ${calc.ldRatio.toFixed(2)}${
+        calc.correctionFactor !== null && calc.correctionFactor !== 1
+          ? `, correction ${calc.correctionFactor}`
+          : ''
+      }`}
+    >
+      <span className={result?.excluded ? 'testing-struck' : undefined}>{text}</span>
+      <span className="testing-sub">
+        {calc.methodVersion}
+        {calc.provisional ? ' (provisional)' : ''}
+      </span>
+    </td>
   );
 }

@@ -1006,6 +1006,28 @@ Test-result drafts with tester attribution and correction history. Contracts:
 - C07's test-result save answers 409 `result_on_strength_report` for a result on a submitted,
   reviewed or issued strength report version.
 
+## Concrete strength calculation (MM-V2-C24)
+
+| Route                                                        | Policy                                                                                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `GET /api/concrete/strength-tests?setId=&projectId=&failed=` | `inventory.read`                                                                                              |
+| `GET /api/concrete/specimens/:specimenId/strength-exclusion` | `inventory.read`                                                                                              |
+| `PUT /api/concrete/specimens/:specimenId/strength-exclusion` | active user; service: `concrete.review` (scope `concrete_strength`), never on a result they tested or entered |
+
+- **Proposal (owner to confirm):** exclusion is review work: the project's Lead Project Engineer
+  or a designated `concrete_strength` reviewer, as reviewing the strength report. Checked before
+  the body against the project as it stands, then again under the locks (field report, set,
+  specimen FOR UPDATE; project and account FOR SHARE). An unknown specimen is 404 for callers with
+  strength review authority somewhere, else 403. 403 `own_result` when the caller tested or
+  entered the specimen's latest result (no self-review). LAB never excludes.
+- 409 `result_on_strength_report` while a submitted, reviewed or issued strength report version
+  reports the specimen; 409 `already_excluded` / `not_excluded` for a stale request; a reason is
+  always required (400). No new permission: `concrete.review` is already a listed project
+  capability, so `PROJECT_CAPABILITY_ACTIONS` is unchanged; the route is in the security sweep
+  (`ACTIVE_ROUTE_PERMISSION`).
+- Calculation needs no permission of its own: C07's save (`concrete_test.enter`) stores it.
+  Deliberate recalculation to another method version has no route yet (proposal: Lab Manager).
+
 ## Concrete report output (MM-V2-C32)
 
 Issued report files, the project summary report and the report header. Contracts:
