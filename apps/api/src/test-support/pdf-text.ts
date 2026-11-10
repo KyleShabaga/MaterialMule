@@ -48,3 +48,31 @@ export function pdfPageCount(bytes: Uint8Array): number {
   const match = /\/Type\s*\/Pages[^>]*?\/Count\s+(\d+)/.exec(Buffer.from(bytes).toString('latin1'));
   return match ? Number(match[1]) : 0;
 }
+
+/** Each drawn string with its baseline position (pdf-lib writes `1 0 0 1 x y Tm <…> Tj`). */
+export function pdfTextRuns(bytes: Uint8Array): { text: string; x: number; y: number }[] {
+  const buffer = Buffer.from(bytes);
+  const runs: { text: string; x: number; y: number }[] = [];
+  let from = 0;
+  for (;;) {
+    const start = buffer.indexOf('stream', from, 'latin1');
+    if (start < 0) break;
+    const dataStart = start + (buffer[start + 6] === 0x0d ? 8 : 7);
+    const end = buffer.indexOf('endstream', dataStart, 'latin1');
+    if (end < 0) break;
+    let data = buffer.subarray(dataStart, end);
+    try {
+      data = inflateSync(data);
+    } catch {
+      // Not compressed.
+    }
+    const content = data.toString('latin1');
+    for (const match of content.matchAll(
+      /1 0 0 1 (-?[\d.]+) (-?[\d.]+) Tm\s*<([0-9A-Fa-f]*)>\s*Tj/g,
+    )) {
+      runs.push({ text: decode(match[3]!), x: Number(match[1]), y: Number(match[2]) });
+    }
+    from = end + 9;
+  }
+  return runs;
+}

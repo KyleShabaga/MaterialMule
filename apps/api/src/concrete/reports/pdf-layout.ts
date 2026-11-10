@@ -384,29 +384,43 @@ export class ReportPdf {
         this.newPage();
         drawHead();
       }
-      let x = MARGIN;
-      cells.forEach((cell, i) => {
-        const font = cell.bold ? this.bold : this.font;
-        const right = columns[i]!.align === 'right';
-        let tx = x + pad;
-        if (cell.warn && !right) tx += this.marker(tx, this.y - pad - size, size);
-        cell.lines.forEach((t, l) => {
-          const lx = right ? x + widths[i]! - pad - this.textWidth(t, size, font) : tx;
-          // Right-aligned: the marker sits just before the value.
-          if (cell.warn && right && l === 0) {
-            this.marker(lx - cell.markerWidth, this.y - pad - size, size);
-          }
-          this.draw(t, lx, this.y - pad - size - l * lineHeight, size, font);
+      // A row taller than the rest of a fresh page is split: the lines that fit, then the rest
+      // on the next page under the repeated header, so nothing falls past the footer.
+      for (let first = 0; first < lines;) {
+        // (The epsilon keeps float rounding from splitting a row that fits exactly.)
+        const room = Math.floor((this.y - MARGIN - FOOTER_HEIGHT - 2 * pad) / lineHeight + 1e-9);
+        const count = Math.min(lines - first, Math.max(1, room));
+        let x = MARGIN;
+        cells.forEach((cell, i) => {
+          const font = cell.bold ? this.bold : this.font;
+          const right = columns[i]!.align === 'right';
+          let tx = x + pad;
+          if (cell.warn && !right && first === 0) tx += this.marker(tx, this.y - pad - size, size);
+          else if (cell.warn && !right) tx += cell.markerWidth;
+          cell.lines.slice(first, first + count).forEach((t, k) => {
+            const l = first + k;
+            const lx = right ? x + widths[i]! - pad - this.textWidth(t, size, font) : tx;
+            // Right-aligned: the marker sits just before the value.
+            if (cell.warn && right && l === 0) {
+              this.marker(lx - cell.markerWidth, this.y - pad - size, size);
+            }
+            this.draw(t, lx, this.y - pad - size - k * lineHeight, size, font);
+          });
+          x += widths[i]!;
         });
-        x += widths[i]!;
-      });
-      this.y -= h;
-      this.page.drawLine({
-        start: { x: MARGIN, y: this.y },
-        end: { x: this.width - MARGIN, y: this.y },
-        thickness: 0.3,
-        color: RULE,
-      });
+        this.y -= count * lineHeight + 2 * pad;
+        this.page.drawLine({
+          start: { x: MARGIN, y: this.y },
+          end: { x: this.width - MARGIN, y: this.y },
+          thickness: 0.3,
+          color: RULE,
+        });
+        first += count;
+        if (first < lines) {
+          this.newPage();
+          drawHead();
+        }
+      }
     }
     this.y -= 4;
   }

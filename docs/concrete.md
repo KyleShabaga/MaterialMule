@@ -797,17 +797,22 @@ office examples arrive.
 - **Frozen snapshot (section 4).** Set block (set ID, field report and Field ID, cast date and
   time, structure / element, location, supplier, mix number, specified strength and age from the
   field report's project spec, specimen size, first lab receipt date, initial field curing from
-  pickup; lab curing and the CF number are null until recorded / C32); one row per specimen
+  pickup; the originating field report's CF number once that report is issued, else null; lab
+  curing null until recorded); one row per specimen
   (label, assigned and actual age, test date, readings, max load, tested by, everyone credited
   with entering it, remarks = the C07 note; fracture type null, not recorded yet); untested rows
-  `not_yet_tested` with their target date, HOLD rows `hold`, disposed `disposed`; per-age lines;
+  `not_yet_tested` with their target date, HOLD rows `hold`, disposed `disposed` (removal
+  recorded: `disposed_at`; an authorization alone keeps the row `hold` / `not_yet_tested`, so it
+  still holds its age open); per-age lines;
   the standards placeholder line; units as stored (kN / mm, provisional). MM-V2-C24: each tested
   row carries its stored P1 values and the per-age line its strength test and advisory
   assessment, with the method line (versions frozen before C24 keep their nulls).
 - **Locked results (AC2).** A result (any attempt) of a specimen the latest version shows as
   tested is locked while the strength report is submitted, reviewed or issued (trigger
-  `concrete_test_result_reported`; C07's save answers 409 `result_on_strength_report`). Later
-  ages stay open. Submit takes the set FOR UPDATE, which C07's save also takes, so nothing changes
+  `concrete_test_result_reported`; C07's save answers 409 `result_on_strength_report`). The
+  results the latest issued version reports also stay locked until a revise of that issued
+  version (0034): recalling or returning a later-age submission reopens only the new age.
+  C24's exclusions follow the same rule. Later ages stay open. Submit takes the set FOR UPDATE, which C07's save also takes, so nothing changes
   while a version is frozen. A new attempt for a reported specimen is a correction too.
 - **No self-review (AC3, mirrors the field-report technician rule).** The only tester of the
   results a version reports, and the only person credited with entering them, never reviews,
@@ -999,7 +1004,9 @@ nothing issued under P1 is rewritten.
   never stored); Generate summary report issues it (`report.issue`, CSR number, stored in
   `concrete_summary_report` with its snapshot hash, and the file). Field values come only from the
   field report's latest issued version (unissued: "Not issued", "—"). Only issued strength values
-  print; none exist until C39/C24, so a tested age reads "Pending review", an untested one "—",
+  print; a tested age (latest attempt a complete entry, `concreteTestEntryComplete`, as the
+  testing table and strength report count it) not yet issued reads "Pending review", an
+  untested one "—",
   and HOLD specimens are counted in the status column.
 - **Strength report template P1 (design section 4).** `strength-report-template.ts` renders
   C39's `ConcreteStrengthReportSnapshot` (concrete-strength-reports.ts, the only definition).
