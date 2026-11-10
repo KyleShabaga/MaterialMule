@@ -839,6 +839,14 @@ owns which fields: [concrete.md](concrete.md).
   database": existing sets and specimens gain blank detail, storage-unit counters and every other
   table unchanged).
 
+## Concrete strength issued lock (review fix, `0035_concrete_strength_issued_lock.sql`)
+
+- `concrete_strength_specimen_locked(specimen)`: locked while the latest strength version reports
+  the specimen and the report is submitted or reviewed (0032), or while the latest issued version
+  reports it and no `revise` transition names that issued version. Used by
+  `concrete_test_result_reported_guard` and `concrete_strength_exclusion_guard` (0033), replaced
+  here. Proofs: `apps/api/src/db/schema-concrete-strength-reports.test.ts`.
+
 ## Concrete strength calculation (MM-V2-C24, `0033_concrete_strength_calculation.sql`)
 
 - `concrete_calculation_method` (PK method + version; `provisional`, `source`, `is_current`, one

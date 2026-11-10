@@ -10,6 +10,7 @@ import {
   CONCRETE_EXCEPTION_LABEL,
   CONCRETE_REPORT_HEADER_DEFAULT_NAME,
   concreteSummaryPreviewQuerySchema,
+  concreteTestEntryComplete,
   issueConcreteSummaryReportRequestSchema,
   updateConcreteReportHeaderRequestSchema,
   type ConcreteFieldReportFields,
@@ -524,18 +525,38 @@ export class ConcreteReportOutputService {
        ORDER BY r.cast_at NULLS LAST, coalesce(s.permanent_id, s.temporary_id), s.id`,
       [projectId, filters.from, filters.to, filters.element, filters.mixId],
     );
-    const { rows: specimens } = await db.query<{
+    // Tested = the latest attempt is a complete entry (`concreteTestEntryComplete`), the rule the
+    // testing table and the strength report use.
+    const { rows: specimenRows } = await db.query<{
       set_id: string;
       assigned_age: string | null;
-      tested: boolean;
+      tested_on: string | null;
+      tester_user_id: string | null;
+      max_load: string | null;
+      height_readings: string[] | null;
+      diameter_readings: string[] | null;
     }>(
-      `SELECT sp.set_id, sp.assigned_age,
-              EXISTS (SELECT 1 FROM concrete_test_result t
-                      WHERE t.specimen_id = sp.id AND t.tested_on IS NOT NULL
-                        AND t.max_load IS NOT NULL) AS tested
-       FROM concrete_specimen sp WHERE sp.set_id = ANY($1::uuid[])`,
+      `SELECT sp.set_id, sp.assigned_age, t.tested_on::text, t.tester_user_id, t.max_load::text,
+              t.height_readings::text[], t.diameter_readings::text[]
+       FROM concrete_specimen sp
+       LEFT JOIN LATERAL (
+         SELECT * FROM concrete_test_result r WHERE r.specimen_id = sp.id
+         ORDER BY r.attempt_no DESC LIMIT 1
+       ) t ON true
+       WHERE sp.set_id = ANY($1::uuid[])`,
       [sets.map((s) => s.id)],
     );
+    const specimens = specimenRows.map((sp) => ({
+      set_id: sp.set_id,
+      assigned_age: sp.assigned_age,
+      tested: concreteTestEntryComplete({
+        testedOn: sp.tested_on,
+        tester: sp.tester_user_id,
+        maxLoad: sp.max_load === null ? null : Number(sp.max_load),
+        heightReadings: (sp.height_readings ?? []).map(Number),
+        diameterReadings: (sp.diameter_readings ?? []).map(Number),
+      }),
+    }));
     // MM-V2-C24: the latest issued strength version of each set (only issued values print).
     const { rows: issuedStrength } = await db.query<{
       set_id: string;

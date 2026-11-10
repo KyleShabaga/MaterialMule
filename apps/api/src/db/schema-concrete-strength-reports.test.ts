@@ -363,12 +363,105 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39, migration
       [reportId, tech],
     );
     await expect(newResult(specimens.A!)).rejects.toMatchObject(locked);
-    // A revision reopens the report as a draft: the correction can be entered.
+    // A revision (C09's revise of the issued version) reopens the report as a draft: the
+    // correction can be entered.
+    await reopen(reportId, 'revise');
+    await revised(reportId, v);
+    await newResult(specimens.A!);
+  });
+
+  /** Back to draft (recall) or returned, as the lifecycle commands set the report row. */
+  const reopen = (reportId: string, how: 'revise' | 'recall' | 'return') =>
+    db.pool.query(
+      how === 'return'
+        ? `UPDATE concrete_strength_report SET workflow_state = 'returned' WHERE id = $1`
+        : `UPDATE concrete_strength_report SET workflow_state = 'draft', submitted_at = NULL
+           WHERE id = $1`,
+      [reportId],
+    );
+  /** C09's revise transition on an issued version. */
+  const revised = (reportId: string, versionId: string) =>
+    db.pool.query(
+      `INSERT INTO concrete_report_transition
+         (report_kind, project_id, strength_report_id, version_id, action, from_state, to_state,
+          actor_user_id, comment, idempotency_key, request_hash)
+       VALUES ('strength', $1, $2, $3, 'revise', 'reviewed', 'draft', $4, 'Correction', $5, 'h')`,
+      [projectA, reportId, versionId, reviewer, randomUUID()],
+    );
+
+  it('review fix: recalling or returning a later age keeps the issued results locked', async () => {
+    const { setId, specimens } = await newSet();
+    const reportId = await strengthReport(setId);
+    const snapshot = (reportedB: boolean) =>
+      JSON.stringify({
+        kind: 'strength',
+        results: [
+          { specimenId: specimens.A, reported: true },
+          { specimenId: specimens.B, reported: reportedB },
+        ],
+      });
+    const v1 = await version(reportId, { snapshot: snapshot(false) });
+    await review(v1);
+    await issue(v1, reportId);
     await db.pool.query(
-      `UPDATE concrete_strength_report SET workflow_state = 'draft', submitted_at = NULL
+      `UPDATE concrete_strength_report SET workflow_state = 'reviewed',
+      issue_count = 1, last_issued_version = 1, last_issued_at = now(),
+      last_issued_by_user_id = $2 WHERE id = $1`,
+      [reportId, tech],
+    );
+    const locked = { ...RESTRICT, constraint: 'concrete_test_result_reported' };
+    // The cumulative Rev 1 (A and the new age B), submitted, then recalled.
+    await db.pool.query(
+      `UPDATE concrete_strength_report SET workflow_state = 'submitted', submitted_at = now()
        WHERE id = $1`,
       [reportId],
     );
+    const v2 = await version(reportId, {
+      version_no: 2,
+      revision_of_version_id: v1,
+      snapshot: snapshot(true),
+    });
+    await expect(newResult(specimens.B!)).rejects.toMatchObject(locked);
+    await db.pool.query(
+      `UPDATE concrete_report_version SET state = 'recalled', closed_at = now(),
+         closed_by_user_id = $2 WHERE id = $1`,
+      [v2, tech],
+    );
+    await reopen(reportId, 'recall');
+    // The new age is open for correction; the issued result stays locked.
+    await newResult(specimens.B!);
+    await expect(newResult(specimens.A!)).rejects.toMatchObject(locked);
+    // So is excluding it from its strength test (C24).
+    await expect(
+      db.pool.query(
+        `INSERT INTO concrete_strength_exclusion (project_id, specimen_id, sequence_no, action,
+           reason, user_id, user_name_snapshot, idempotency_key, request_hash)
+         VALUES ($1, $2, 1, 'exclude', 'Fictional', $3, 'Riley Reviewer', $4, 'h')`,
+        [projectA, specimens.A, reviewer, randomUUID()],
+      ),
+    ).rejects.toMatchObject({ ...RESTRICT, constraint: 'concrete_strength_exclusion_reported' });
+    // Resubmitted, then returned: the same.
+    await db.pool.query(
+      `UPDATE concrete_strength_report SET workflow_state = 'submitted', submitted_at = now()
+       WHERE id = $1`,
+      [reportId],
+    );
+    const v3 = await version(reportId, {
+      version_no: 3,
+      revision_of_version_id: v1,
+      snapshot: snapshot(true),
+    });
+    await db.pool.query(
+      `UPDATE concrete_report_version SET state = 'returned', closed_at = now(),
+         closed_by_user_id = $2, close_comment = 'Check B' WHERE id = $1`,
+      [v3, reviewer],
+    );
+    await reopen(reportId, 'return');
+    await newResult(specimens.B!);
+    await expect(newResult(specimens.A!)).rejects.toMatchObject(locked);
+    // A revise of the issued version reopens it.
+    await reopen(reportId, 'revise');
+    await revised(reportId, v1);
     await newResult(specimens.A!);
   });
 
