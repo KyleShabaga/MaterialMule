@@ -60,6 +60,8 @@ export interface SetFacts {
   id: string;
   project_id: string;
   field_report_id: string;
+  /** The field report's CF number (C32), allocated at its issue; null until then. */
+  field_report_number: string | null;
   permanent_id: string | null;
   temporary_id: string | null;
   specimen_type: string;
@@ -91,7 +93,11 @@ export async function findSet(
 ): Promise<SetFacts | null> {
   if (!UUID.test(setId)) return null;
   const { rows } = await db.query<SetFacts>(
-    `SELECT st.id, st.project_id, st.field_report_id, st.permanent_id, st.temporary_id,
+    `SELECT st.id, st.project_id, st.field_report_id,
+            (SELECT n.report_number FROM concrete_report_number n
+             WHERE n.report_kind = 'field' AND n.subject_id = st.field_report_id)
+              AS field_report_number,
+            st.permanent_id, st.temporary_id,
             st.specimen_type, st.mould_size, st.voided_at IS NOT NULL AS voided,
             r.workflow_state = 'void' AS report_void, r.cast_at,
             concrete_casting_date(r.cast_at)::text AS casting_date, r.paper_field_id,
@@ -155,8 +161,9 @@ interface SpecimenSql {
 async function specimensOf(db: Db, setId: string): Promise<SpecimenSql[]> {
   const { rows } = await db.query<SpecimenSql>(
     `SELECT sp.id, sp.letter, sp.assigned_age, sp.target_date::text,
-            EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)
-              AS disposed,
+            -- Disposed once removal is recorded; an authorization alone isn't removal.
+            EXISTS (SELECT 1 FROM concrete_specimen_disposal d
+                    WHERE d.specimen_id = sp.id AND d.disposed_at IS NOT NULL) AS disposed,
             tr.id AS result_id, tr.attempt_no, tr.tested_on::text, tr.tester_user_id,
             tr.tester_initials_snapshot, tr.tester_name_snapshot, tr.max_load::text,
             tr.height_readings::text[], tr.diameter_readings::text[], tr.notes, tr.load_unit,
@@ -357,7 +364,7 @@ export async function buildStrengthSnapshot(
       setId: set.id,
       identity: { permanentId: set.permanent_id, temporaryId: set.temporary_id },
       fieldReportId: set.field_report_id,
-      fieldReportNumber: null,
+      fieldReportNumber: set.field_report_number,
       paperFieldId: set.paper_field_id,
       castAt: set.cast_at?.toISOString() ?? null,
       castingDate: set.casting_date,

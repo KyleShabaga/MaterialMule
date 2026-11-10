@@ -194,13 +194,15 @@ export class ConcreteSpecimenSetsService {
   ): Promise<ConcreteSpecimenSetDetail> {
     // Authority first: before the body, any lock or the transaction.
     if (!can(user, DRAFT)) throw forbidden();
+    // The parsed request's hash, kept for a race replay (null until the body parses).
+    let hash: string | null = null;
     try {
       return await withTransaction(this.database.pool, async (client) => {
         const report = await findReport(client, reportId, 'FOR UPDATE');
         if (!report) throw new NotFoundException({ code: 'concrete_field_report_not_found' });
         ownDraftBeforeBody(user, report);
         const input = parseBody(createConcreteSpecimenSetRequestSchema, body);
-        const hash = intentHash({ kind: 'create', reportId: report.id, ...withoutKey(input) });
+        hash = intentHash({ kind: 'create', reportId: report.id, ...withoutKey(input) });
         const replay = await this.replay(client, input.idempotencyKey, 'create', null, hash, user);
         if (replay) return replay;
 
@@ -283,7 +285,7 @@ export class ConcreteSpecimenSetsService {
         return this.detail(client, report, (await findSet(client, setId))!, user);
       });
     } catch (error) {
-      return this.retryRace(error, rawKey(body), 'create', reportId, user);
+      return this.retryRace(error, rawKey(body), 'create', { reportId, setId: null, hash }, user);
     }
   }
 
@@ -295,12 +297,14 @@ export class ConcreteSpecimenSetsService {
     requestId: string | null,
   ): Promise<ConcreteSpecimenSetDetail> {
     if (!can(user, DRAFT)) throw forbidden();
+    // The parsed request's hash and set, kept for a race replay (null until the body parses).
+    let hash: string | null = null;
     try {
       return await withTransaction(this.database.pool, async (client) => {
         const { report, set } = await lockSet(client, setId);
         ownDraftBeforeBody(user, report);
         const input = parseBody(saveConcreteSpecimenSetRequestSchema, body);
-        const hash = intentHash({ kind: 'save', setId: set.id, ...withoutKey(input) });
+        hash = intentHash({ kind: 'save', setId: set.id, ...withoutKey(input) });
         const replay = await this.replay(client, input.idempotencyKey, 'save', set.id, hash, user);
         if (replay) return replay;
 
@@ -359,9 +363,25 @@ export class ConcreteSpecimenSetsService {
         );
         if (next) {
           await assertNoReceivingRecords(client, set.id);
-          // An unnumbered draft: the list is replaced whole (stable row ids keep their specimen).
-          await client.query('DELETE FROM concrete_specimen WHERE set_id = $1', [set.id]);
-          await insertSpecimens(client, set.project_id, set.id, next);
+          // An unnumbered draft: rows kept unchanged (same id, letter and age) stay, so a specimen
+          // with test history survives an edit; the others are replaced (review fix, PR #140).
+          const same = (a: ConcreteNormalizedSpecimen, b: ConcreteNormalizedSpecimen) =>
+            a.id === b.id &&
+            a.letter === b.letter &&
+            JSON.stringify(a.age) === JSON.stringify(b.age);
+          const kept = next.filter((row) => beforeSpecimens.some((old) => same(old, row)));
+          const keptIds = kept.map((row) => row.id);
+          await deleteSpecimens(
+            client,
+            'DELETE FROM concrete_specimen WHERE set_id = $1 AND NOT (id = ANY($2::uuid[]))',
+            [set.id, keptIds],
+          );
+          await insertSpecimens(
+            client,
+            set.project_id,
+            set.id,
+            next.filter((row) => !keptIds.includes(row.id)),
+          );
         }
         await this.recordCommand(
           client,
@@ -395,7 +415,7 @@ export class ConcreteSpecimenSetsService {
         return this.detail(client, report, (await findSet(client, set.id))!, user);
       });
     } catch (error) {
-      return this.retryRace(error, rawKey(body), 'save', null, user);
+      return this.retryRace(error, rawKey(body), 'save', { reportId: null, setId, hash }, user);
     }
   }
 
@@ -433,7 +453,7 @@ export class ConcreteSpecimenSetsService {
       }
       await assertNoReceivingRecords(client, set.id);
       const specimens = await specimensFor(client, [set.id]);
-      await client.query('DELETE FROM concrete_specimen WHERE set_id = $1', [set.id]);
+      await deleteSpecimens(client, 'DELETE FROM concrete_specimen WHERE set_id = $1', [set.id]);
       await client.query('DELETE FROM concrete_specimen_set WHERE id = $1', [set.id]);
       await this.recordCommand(
         client,
@@ -685,25 +705,30 @@ export class ConcreteSpecimenSetsService {
     return this.detail(client, (await findReport(client, set.field_report_id))!, set, user);
   }
 
-  /** The same key raced itself: the other request committed first, so this is its retry. */
+  /**
+   * The same key raced itself: the other request committed first. Its ledger row is compared as
+   * on any replay (kind, request hash, account and target set), so only an exact retry gets the
+   * committed result; anything else is `idempotency_key_reused` (review fix, PR #133).
+   */
   private async retryRace(
     error: unknown,
     raw: { idempotencyKey?: unknown },
     kind: Kind,
-    reportId: string | null,
+    target: { reportId: string | null; setId: string | null; hash: string | null },
     user: AuthUser,
   ): Promise<ConcreteSpecimenSetDetail> {
     const raced =
       isConstraint(error, 'concrete_specimen_set_command_pkey') ||
       isConstraint(error, 'concrete_specimen_set_pkey');
-    if (raced && typeof raw.idempotencyKey === 'string') {
+    if (raced && typeof raw.idempotencyKey === 'string' && target.hash !== null) {
       const key = raw.idempotencyKey;
+      const hash = target.hash;
       const replay = await withTransaction(this.database.pool, async (client) => {
-        const previous = await this.command(client, key);
-        if (!previous || previous.kind !== kind || previous.user_id !== user.userId) return null;
-        const set = await findSet(client, previous.set_id);
-        if (!set || (reportId !== null && set.field_report_id !== reportId)) return null;
-        return this.detail(client, (await findReport(client, set.field_report_id))!, set, user);
+        const set = await this.replay(client, key, kind, target.setId, hash, user);
+        if (set && target.reportId !== null && set.fieldReportId !== target.reportId) {
+          throw new ConflictException({ code: 'idempotency_key_reused' });
+        }
+        return set;
       });
       if (replay) return replay;
       if (isConstraint(error, 'concrete_specimen_set_pkey')) {
@@ -1131,6 +1156,21 @@ export async function specimenSetSummaries(
  * up window for a set's specimens, a draft edit no longer replaces or discards them (409
  * `set_has_receiving`); a later change goes through the lab records and their history.
  */
+/**
+ * Deletes draft specimens. A specimen something already refers to (a test result entered before
+ * pickup, a hold, an exclusion) is kept by its foreign key: that is a domain conflict, not a 500.
+ */
+async function deleteSpecimens(client: PoolClient, sql: string, params: unknown[]): Promise<void> {
+  try {
+    await client.query(sql, params);
+  } catch (error) {
+    if ((error as { code?: string }).code === '23503') {
+      throw new ConflictException({ code: 'specimen_has_history' });
+    }
+    throw error;
+  }
+}
+
 async function assertNoReceivingRecords(client: PoolClient, setId: string): Promise<void> {
   const { rows } = await client.query(
     `SELECT 1 FROM concrete_specimen sp
