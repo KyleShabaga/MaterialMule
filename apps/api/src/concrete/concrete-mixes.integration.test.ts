@@ -714,5 +714,98 @@ describe.runIf(testDatabaseUrl)('concrete mixes (MM-V2-C03)', () => {
         blocker.release();
       }
     });
+
+    // Review fix (PR #130): two identical creates both miss the command ledger; the one that
+    // loses on the supplier / number index is a retry of the winner, not a name conflict.
+    it('simultaneous identical creates both return the one mix; another key still conflicts', async () => {
+      const body = {
+        idempotencyKey: newKey(),
+        spec: { supplierName: 'Example Ready-Mix', mixNumber: 'RACE-1' },
+      };
+      blocker = await h.db.pool.connect();
+      let responses: Awaited<ReturnType<typeof send>>[];
+      const before = await counts();
+      try {
+        await blocker.query('BEGIN');
+        // Hold the project as a lead change would; both creates queue behind it.
+        await blocker.query('SELECT id FROM project WHERE id = $1 FOR UPDATE', [h.projects.a]);
+        const pending = [
+          send('post', mixesPath('a'), body, 'pe'),
+          send('post', mixesPath('a'), body, 'pe'),
+        ];
+        await waiters(2);
+        await blocker.query('COMMIT');
+        responses = await Promise.all(pending);
+      } finally {
+        blocker.release();
+      }
+      for (const response of responses) {
+        expect(response.status, JSON.stringify(response.body)).toBe(201);
+      }
+      const ids = responses.map((r) => concreteMixDetailSchema.parse(r.body).id);
+      expect(ids[0]).toBe(ids[1]);
+      const after = await counts();
+      expect(after.mixes - before.mixes).toBe(1);
+      expect(after.commands - before.commands).toBe(1);
+      const { rows } = await h.db.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM audit_event
+         WHERE action = 'concrete_mix.created' AND entity_id = $1`,
+        [ids[0]],
+      );
+      expect(rows[0]!.n).toBe(1);
+
+      const other = await send('post', mixesPath('a'), { ...body, idempotencyKey: newKey() }, 'pe');
+      expect(other.status).toBe(409);
+      expect(other.body).toMatchObject({ code: 'mix_number_taken' });
+    });
+  });
+
+  // Review fix (PR #143): the approved revision's supplier / number stays reserved while an open
+  // draft renames the mix, so discarding the draft can always restore it.
+  it('a draft rename keeps the approved identity reserved until it is approved or discarded', async () => {
+    const mix = await approved({ mixNumber: 'KEEP-1' });
+    const renamed = await edit(mix, { mixNumber: 'KEEP-1R' });
+    expect(renamed.status, JSON.stringify(renamed.body)).toBe(200);
+    const draft = concreteMixDetailSchema.parse(renamed.body);
+    expect(draft.mixNumber).toBe('KEEP-1R');
+
+    const before = await counts();
+    const taken = await send(
+      'post',
+      mixesPath('a'),
+      {
+        idempotencyKey: newKey(),
+        spec: { supplierName: 'example ready-mix', mixNumber: 'keep-1' },
+      },
+      'pe',
+    );
+    expect(taken.status, JSON.stringify(taken.body)).toBe(409);
+    expect(taken.body).toMatchObject({ code: 'mix_number_taken' });
+    const other = await create({ mixNumber: 'KEEP-2' });
+    const renameOnto = await edit(other, { mixNumber: 'KEEP-1' });
+    expect(renameOnto.status).toBe(409);
+    expect(renameOnto.body).toMatchObject({ code: 'mix_number_taken' });
+    expect((await counts()).mixes).toBe(before.mixes + 1);
+
+    // Another supplier may still use the number.
+    await create({ supplierName: 'Sample Concrete Supply', mixNumber: 'KEEP-1' });
+
+    const discarded = await send(
+      'post',
+      `/api/concrete-mixes/${draft.id}/discard-draft`,
+      { idempotencyKey: newKey(), version: draft.version, revisionId: draft.draftRevision!.id },
+      'pe',
+    );
+    expect(discarded.status, JSON.stringify(discarded.body)).toBe(200);
+    expect(concreteMixDetailSchema.parse(discarded.body).mixNumber).toBe('KEEP-1');
+
+    // Approving a rename releases the old identity.
+    const again = concreteMixDetailSchema.parse(discarded.body);
+    const renamedAgain = await edit(again, { mixNumber: 'KEEP-1R' });
+    expect(renamedAgain.status, JSON.stringify(renamedAgain.body)).toBe(200);
+    const second = concreteMixDetailSchema.parse(renamedAgain.body);
+    const approvedRename = await approve(second);
+    expect(approvedRename.status, JSON.stringify(approvedRename.body)).toBe(201);
+    await create({ mixNumber: 'KEEP-1' });
   });
 });
