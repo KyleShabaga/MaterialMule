@@ -86,6 +86,7 @@ const table = (rows: ConcreteTestingTableRow[], includeOverdue = false): Concret
   total: rows.length,
   completed: rows.filter((r) => r.complete).length,
   truncated: false,
+  projects: [{ projectId: PROJECT_ID, projectNumber: 'DEMO-2601', projectName: 'Example tower' }],
   groups: [
     { projectId: PROJECT_ID, projectNumber: 'DEMO-2601', projectName: 'Example tower', rows },
   ],
@@ -134,9 +135,10 @@ function savedResult(
 type Put = { url: string; body: Record<string, unknown> };
 
 function renderPage(
-  data: ConcreteTestingTable,
+  data: ConcreteTestingTable | ((url: URL) => ConcreteTestingTable),
   onPut: (put: Put) => Response,
   me: MeResponse = ME,
+  reads: string[] = [],
 ) {
   const puts: Put[] = [];
   vi.stubGlobal(
@@ -145,7 +147,10 @@ function renderPage(
       const url = String(input);
       const method = (init?.method ?? 'GET').toUpperCase();
       if (url.startsWith('/api/staff/active')) return json(200, [TB, LM]);
-      if (url.startsWith('/api/concrete/testing-table')) return json(200, data);
+      if (url.startsWith('/api/concrete/testing-table')) {
+        reads.push(url);
+        return json(200, typeof data === 'function' ? data(new URL(url, 'http://test')) : data);
+      }
       if (method === 'PUT') {
         const put = { url, body: JSON.parse(String(init?.body)) as Record<string, unknown> };
         puts.push(put);
@@ -375,6 +380,91 @@ describe('Testing table (MM-V2-C23)', () => {
       expect.stringContaining('Calculation method P1 (provisional)'),
     );
     expect(screen.getByText('Diameters differ by more than 2%')).toBeVisible();
+  });
+
+  it('keeps a failed overdue edit and its retry key while Include overdue is off', async () => {
+    const overdue = row(2, 'A', {
+      targetDate: '2026-11-09',
+      assignedAge: 7,
+      daysOverdue: 21,
+      flags: ['overdue'],
+    });
+    let fail = true;
+    const puts = renderPage(
+      (url) =>
+        url.searchParams.get('includeOverdue') === 'true'
+          ? table([row(1, 'B'), overdue], true)
+          : table([row(1, 'B')]),
+      (put) => (fail ? json(503, { code: 'unavailable' }) : ok(put)),
+    );
+    await screen.findByRole('rowheader', { name: '26-01B' });
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveValue(TB.id),
+    );
+    const includeOverdue = screen.getByRole('checkbox', { name: 'Include overdue' });
+    await userEvent.click(includeOverdue);
+    await userEvent.click(await screen.findByRole('textbox', { name: 'Max load 26-01A' }));
+    await userEvent.keyboard('388.1');
+    await userEvent.click(document.body);
+    await waitFor(() =>
+      expect(within(statusOf('26-01A') as HTMLElement).getByText('Failed')).toBeInTheDocument(),
+    );
+
+    await userEvent.click(includeOverdue);
+    await waitFor(() =>
+      expect(screen.queryByRole('rowheader', { name: '26-01A' })).not.toBeInTheDocument(),
+    );
+    await userEvent.click(includeOverdue);
+    expect(await screen.findByRole('textbox', { name: 'Max load 26-01A' })).toHaveValue('388.1');
+    expect(within(statusOf('26-01A') as HTMLElement).getByText('Failed')).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry 26-01A' }));
+    await waitFor(() =>
+      expect(within(statusOf('26-01A') as HTMLElement).getByText(/Saved/)).toBeInTheDocument(),
+    );
+    expect(puts).toHaveLength(2);
+    expect(puts[1]!.body.idempotencyKey).toBe(puts[0]!.body.idempotencyKey);
+  });
+
+  it('lists every project with breaks and reads the chosen one from the server', async () => {
+    const OTHER = '00000000-0000-4000-8000-000000000202';
+    const projects = [
+      { projectId: PROJECT_ID, projectNumber: 'DEMO-2601', projectName: 'Example tower' },
+      { projectId: OTHER, projectNumber: 'DEMO-2602', projectName: 'Example bridge' },
+    ];
+    const otherRow = row(3, 'A', {
+      projectId: OTHER,
+      identity: { temporaryId: null, permanentId: '26-09A' },
+    });
+    const reads: string[] = [];
+    renderPage(
+      (url) =>
+        url.searchParams.get('projectId') === OTHER
+          ? {
+              ...table([otherRow]),
+              projects,
+              groups: [
+                {
+                  projectId: OTHER,
+                  projectNumber: 'DEMO-2602',
+                  projectName: 'Example bridge',
+                  rows: [otherRow],
+                },
+              ],
+            }
+          : // The first project fills the row limit; the second has no rows in this window.
+            { ...table([row(1, 'B')]), truncated: true, projects },
+      (put) => ok(put),
+      ME,
+      reads,
+    );
+    await screen.findByRole('rowheader', { name: '26-01B' });
+    const select = screen.getByRole('combobox', { name: 'Project' });
+    expect(within(select).getByRole('option', { name: 'DEMO-2602' })).toBeInTheDocument();
+    await userEvent.selectOptions(select, OTHER);
+    expect(await screen.findByRole('rowheader', { name: '26-09A' })).toBeInTheDocument();
+    expect(screen.queryByRole('rowheader', { name: '26-01B' })).not.toBeInTheDocument();
+    expect(reads.at(-1)).toContain(`projectId=${OTHER}`);
   });
 
   it('read-only for someone without concrete_test.enter', async () => {

@@ -87,6 +87,31 @@ export class ConcreteTestingTableService {
     const input = parseBody(concreteTestingTableQuerySchema, query);
     const db = this.database.pool;
     const today = input.on ?? concreteLabToday();
+    // The listed specimens ($1 today, $2 Include overdue, $3 the project or null for all).
+    const listed = `FROM (SELECT $1::date AS today, $2::boolean AS include_overdue,
+                                 $3::uuid AS project_id) q
+       CROSS JOIN concrete_specimen sp
+       JOIN concrete_specimen_set st ON st.id = sp.set_id
+       JOIN concrete_field_report r ON r.id = st.field_report_id
+       JOIN project p ON p.id = sp.project_id`;
+    const listedWhere = `st.voided_at IS NULL AND r.workflow_state <> 'void' AND r.cast_at IS NOT NULL
+         AND sp.assigned_age IS NOT NULL AND sp.assigned_age <> 'HOLD'
+         AND (q.project_id IS NULL OR sp.project_id = q.project_id)
+         AND NOT EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)
+         AND (sp.target_date = q.today
+              OR (q.include_overdue AND sp.target_date < q.today
+                  AND NOT ${testedBeforeSql('sp', 'q.today')}))`;
+    // Every project with a listed row, whatever the project filter and the row limit, so the
+    // page can offer each one and read it on its own.
+    const { rows: projects } = await db.query<{
+      id: string;
+      project_number: string;
+      name: string;
+    }>(
+      `SELECT DISTINCT p.id, p.project_number, p.name ${listed} WHERE ${listedWhere}
+       ORDER BY p.project_number, p.id`,
+      [today, input.includeOverdue, null],
+    );
     const { rows } = await db.query<TableRowSql>(
       `SELECT sp.id AS specimen_id, sp.set_id, st.field_report_id, sp.project_id,
               p.project_number, p.name AS project_name, sp.letter, st.temporary_id,
@@ -107,22 +132,12 @@ export class ConcreteTestingTableService {
               coalesce((SELECT e.action = 'exclude' FROM concrete_strength_exclusion e
                         WHERE e.specimen_id = sp.id ORDER BY e.sequence_no DESC LIMIT 1),
                        false) AS excluded
-       FROM (SELECT $1::date AS today, $2::boolean AS include_overdue, $3::uuid AS project_id) q
-       CROSS JOIN concrete_specimen sp
-       JOIN concrete_specimen_set st ON st.id = sp.set_id
-       JOIN concrete_field_report r ON r.id = st.field_report_id
-       JOIN project p ON p.id = sp.project_id
-       LEFT JOIN LATERAL (
-         SELECT * FROM concrete_test_result t WHERE t.specimen_id = sp.id
-         ORDER BY t.attempt_no DESC LIMIT 1
-       ) tr ON true
-       WHERE st.voided_at IS NULL AND r.workflow_state <> 'void' AND r.cast_at IS NOT NULL
-         AND sp.assigned_age IS NOT NULL AND sp.assigned_age <> 'HOLD'
-         AND (q.project_id IS NULL OR sp.project_id = q.project_id)
-         AND NOT EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)
-         AND (sp.target_date = q.today
-              OR (q.include_overdue AND sp.target_date < q.today
-                  AND NOT ${testedBeforeSql('sp', 'q.today')}))
+       ${listed}
+         LEFT JOIN LATERAL (
+           SELECT * FROM concrete_test_result t WHERE t.specimen_id = sp.id
+           ORDER BY t.attempt_no DESC LIMIT 1
+         ) tr ON true
+       WHERE ${listedWhere}
        ORDER BY p.project_number, p.id, st.permanent_number NULLS LAST, st.temporary_id,
                 st.id, sp.letter
        LIMIT ${CONCRETE_TESTING_TABLE_MAX_ROWS + 1}`,
@@ -155,6 +170,11 @@ export class ConcreteTestingTableService {
       total: all.length,
       completed: all.filter((r) => r.complete).length,
       truncated,
+      projects: projects.map((p) => ({
+        projectId: p.id,
+        projectNumber: p.project_number,
+        projectName: p.name,
+      })),
       groups,
     };
   }
