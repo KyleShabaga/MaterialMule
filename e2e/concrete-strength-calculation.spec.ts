@@ -97,7 +97,7 @@ test('enter a break in the testing table, see its P1 strength, issue the strengt
   const rowA = results.getByRole('row', { name: new RegExp(`${label}A`) });
   await expect(rowA).toContainText('52.4 MPa');
   await expect(rowA).toContainText('7870 mm²');
-  await expect(page.getByText('Information only')).toBeVisible();
+  await expect(page.getByText('Information only', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Submit for review' }).click();
   await expect(page.getByText('Awaiting review', { exact: true })).toBeVisible();
 
