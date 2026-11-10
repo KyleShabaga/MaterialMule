@@ -461,6 +461,30 @@ describe.runIf(testDatabaseUrl)('concrete domain roots (MM-V2-C01, migration 001
         REJECT,
       );
     });
+
+    it('refuses an issued report without the version it last issued (migration 0034)', async () => {
+      const issued = {
+        workflow_state: 'reviewed',
+        submitted_at: '2026-11-07T16:00:00Z',
+        issue_count: 1,
+        last_issued_version: 1,
+        last_issued_at: '2026-11-07T17:00:00Z',
+        last_issued_by_user_id: lead,
+      };
+      const constraint = { ...REJECT, constraint: 'concrete_field_report_issued_has_version' };
+      // Only the version missing: NULL made the shape check UNKNOWN, which PostgreSQL accepted.
+      await expect(
+        report(db.pool, projectA, tech, { ...issued, last_issued_version: null }),
+      ).rejects.toMatchObject(constraint);
+      const id = await report(db.pool, projectA, tech, issued);
+      await expect(
+        db.pool.query('UPDATE concrete_field_report SET last_issued_version = NULL WHERE id = $1', [
+          id,
+        ]),
+      ).rejects.toMatchObject(constraint);
+      // Never-issued reports still carry no version.
+      await report(db.pool, projectA, tech);
+    });
   });
 
   describe('staff attribution', () => {
