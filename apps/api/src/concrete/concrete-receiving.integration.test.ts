@@ -20,6 +20,7 @@ import {
   type LabHarness,
   type PersonKey,
 } from '../test-support/lab-harness.js';
+import { lockWaiters } from '../test-support/lock-waiters.js';
 
 // MM-V2-C06: pickup and initial curing, lab receipt with one unmoulded mass, marker confirmation,
 // receiving exceptions and blockers (card AC1–AC6; test plan T1–T3). Real PostgreSQL, direct API
@@ -722,6 +723,52 @@ describe.runIf(testDatabaseUrl)('concrete pickup and receiving (MM-V2-C06)', () 
     const stale = await correct('lm', { ...base, idempotencyKey: newKey(), massG: '12000.0' });
     expect(stale.status).toBe(409);
     expect(stale.body.code).toBe('version_conflict');
+  });
+
+  it('review fix (PR #141): two overlapping identical receipts both return the committed receipt', async () => {
+    const set = await castSet(h.projects.a);
+    const specimen = set.specimens[0]!;
+    const body = {
+      idempotencyKey: newKey(),
+      receivedAt: '2026-11-03T10:10:00-06:00',
+      massG: '12100.0',
+    };
+    const before = await tallies();
+    const blocker = await h.db.pool.connect();
+    let responses: Awaited<ReturnType<typeof send>>[];
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT 1 FROM concrete_specimen WHERE id = $1 FOR UPDATE', [
+        specimen.id,
+      ]);
+      const url = `/api/concrete/specimens/${specimen.id}/receipt`;
+      // Promise.resolve starts each request now (supertest sends on the first then()).
+      const pending = [
+        Promise.resolve(send('post', url, body, 'lt')),
+        Promise.resolve(send('post', url, body, 'lt')),
+      ];
+      await lockWaiters(h.db.pool, blocker, 2);
+      await blocker.query('COMMIT');
+      responses = await Promise.all(pending);
+    } finally {
+      blocker.release();
+    }
+    for (const response of responses) {
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+    }
+    expect(responses[1]!.body).toEqual(responses[0]!.body);
+    const after = await tallies();
+    expect(after.receipts - before.receipts).toBe(1);
+    expect(after.audit - before.audit).toBe(1);
+    const { rows } = await h.db.pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM concrete_receiving_command WHERE idempotency_key = $1',
+      [body.idempotencyKey],
+    );
+    expect(rows[0]!.n).toBe(1);
+    // A genuinely different receipt for the same specimen is still refused.
+    const other = await receive(specimen.id, '12000.0');
+    expect(other.status).toBe(409);
+    expect(other.body.code).toBe('already_received');
   });
 
   it('reads: unknown sets are 404, and LAB reads receiving', async () => {

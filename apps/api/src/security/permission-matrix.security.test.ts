@@ -602,7 +602,8 @@ describe.runIf(testDatabaseUrl)('security: permission matrix sweep (MM-T18 T2)',
       expect(refusals).toBeGreaterThan(0);
     },
     // One table fingerprint per refused route (plus one after each allowed call): a caller refused
-    // everywhere takes ~8 s locally with the MM-V2-C03 routes, past the 5 s default.
-    30_000,
+    // everywhere took ~8 s locally with the MM-V2-C03 routes, and ~29 s on CI by MM-V2-C24 (every
+    // concrete card adds routes). 120 s leaves room; a real hang still fails.
+    120_000,
   );
 });
