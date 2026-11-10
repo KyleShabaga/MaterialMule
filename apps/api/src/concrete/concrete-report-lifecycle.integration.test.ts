@@ -10,7 +10,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
+import { REPORT_ISSUER_GRANT, REVIEWER_ASSIGNMENT } from '../project-access/grant-tables.js';
 import { testDatabaseUrl } from '../test-support/database.js';
+import { endGrantDuring } from '../test-support/grant-race.js';
 import { createLabHarness, newKey, type LabHarness } from '../test-support/lab-harness.js';
 
 // MM-V2-C09: report versions and the review / issue lifecycle, field-report path (card AC1–AC5;
@@ -871,5 +873,172 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     expect(await caps('js')).toEqual({ 'concrete.review': false, 'report.issue': true });
     expect(await caps('pe')).toEqual({ 'concrete.review': true, 'report.issue': true });
     expect(await caps('tech')).toEqual({ 'concrete.review': false, 'report.issue': false });
+  });
+
+  it('review fix #139: a command naming a version other than the latest is 409; nothing changes', async () => {
+    const submitted = await ok('submit', await completeReport(), 'tech');
+    // The reviewer opens v1; meanwhile it is returned and resubmitted as v2.
+    const returned = await ok('return', submitted, rv, { comment: 'Check the ticket' });
+    const resubmitted = await ok('resubmit', returned, 'tech');
+    expect(resubmitted.lifecycle.latestVersion!.versionNo).toBe(2);
+    await documentExceptions(resubmitted.id);
+    const before = await counts(resubmitted.id);
+    for (const action of ['review', 'return'] as const) {
+      const stale = await command(action, resubmitted, rv, {
+        reportVersionNo: 1,
+        ...(action === 'return' ? { comment: 'Looked at v1' } : {}),
+      });
+      expect(stale.status, JSON.stringify(stale.body)).toBe(409);
+      expect(stale.body.code).toBe('version_conflict');
+      expect(stale.body.current.lifecycle.latestVersion.versionNo).toBe(2);
+    }
+    expect(await counts(resubmitted.id)).toEqual(before);
+    const reviewed = await ok('review', resubmitted, rv, { reportVersionNo: 2 });
+    const staleIssue = await command('issue', reviewed, 'pe', { reportVersionNo: 1 });
+    expect(staleIssue.status).toBe(409);
+    expect((await ok('issue', reviewed, 'pe', { reportVersionNo: 2 })).issuance.issueCount).toBe(1);
+  });
+
+  it('review fix #141: an unresolved curing flag stops issue (no number, file or audit) until resolved', async () => {
+    // A verified-range fixture (not a CSA/ASTM value), retired afterwards.
+    const { rows } = await h.db.pool.query<{ id: string }>(
+      `INSERT INTO concrete_curing_standard (specification, edition, min_c, max_c, created_by_user_id)
+       VALUES ('FIXTURE-SPEC', 'test fixture', 16.0, 27.0, $1) RETURNING id`,
+      [h.users.lm],
+    );
+    try {
+      const draft = await completeReport(
+        'tech',
+        { ...completeFields(), specimensCast: true, castAt: '2026-11-08T15:40:00.000Z' },
+        false,
+      );
+      const made = await send(
+        'post',
+        reportPath(draft.id, '/specimen-sets'),
+        { idempotencyKey: newKey() },
+        'tech',
+      );
+      expect(made.status, JSON.stringify(made.body)).toBe(201);
+      const set = made.body as { id: string; specimens: { id: string }[] };
+      const specimen = set.specimens[0]!.id;
+      const flagged = await send(
+        'post',
+        `/api/concrete/specimen-sets/${set.id}/pickup`,
+        {
+          idempotencyKey: newKey(),
+          specimens: [{ id: specimen, version: null }],
+          complete: true,
+          collectedAt: '2026-11-09T08:00:00-06:00',
+          curingMinC: '15.0',
+          curingMaxC: '22.0',
+        },
+        'lm',
+      );
+      expect(flagged.status, JSON.stringify(flagged.body)).toBe(201);
+      const ready = concreteFieldReportDetailSchema.parse(
+        (await get(reportPath(draft.id), 'tech')).body,
+      );
+      const reviewed = await ok('review', await ok('submit', ready, 'tech'), rv);
+
+      const before = await counts(reviewed.id);
+      const refused = await command('issue', reviewed, 'pe');
+      expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+      expect(refused.body).toMatchObject({
+        code: 'issuance_gated',
+        errors: [{ field: 'curing_out_of_range_unresolved', code: 'issuance_gated' }],
+      });
+      expect(await counts(reviewed.id)).toEqual(before);
+      const { rows: output } = await h.db.pool.query(
+        `SELECT (SELECT count(*)::int FROM concrete_report_file f
+                 JOIN concrete_report_version v ON v.id = f.report_version_id
+                 WHERE v.field_report_id = $1) AS files,
+                (SELECT count(*)::int FROM concrete_report_number WHERE subject_id = $1) AS numbers`,
+        [reviewed.id],
+      );
+      expect(output[0]).toEqual({ files: 0, numbers: 0 });
+
+      // The lead resolves the flag; then the same report issues.
+      const { rows: pickup } = await h.db.pool.query<{ version: number }>(
+        'SELECT version FROM concrete_specimen_pickup WHERE specimen_id = $1',
+        [specimen],
+      );
+      const resolved = await send(
+        'post',
+        `/api/concrete/specimens/${specimen}/curing-resolution`,
+        { idempotencyKey: newKey(), version: pickup[0]!.version, note: 'Box heater checked' },
+        'pe',
+      );
+      expect(resolved.status, JSON.stringify(resolved.body)).toBe(201);
+      const issued = await ok('issue', reviewed, 'pe');
+      expect(issued.issuance.issueCount).toBe(1);
+    } finally {
+      await h.db.pool.query(
+        `UPDATE concrete_curing_standard SET retired_at = now(), retired_by_user_id = $2
+         WHERE id = $1`,
+        [rows[0]!.id, h.users.lm],
+      );
+    }
+  });
+
+  // ---------------------------------------------------------------------------------------------
+  // Review fix #134: a revocation that commits first wins (D09); these end grants, so they run last
+  // ---------------------------------------------------------------------------------------------
+
+  describe('a grant ending that commits before the final check wins', () => {
+    const ender = () => ({ userId: h.users.pe, initials: 'PE', displayName: 'Pat Example' });
+
+    async function activeGrant(table: string, column: string, userId: string) {
+      const ended = table === 'project_report_issuer_grant' ? 'revoked_at' : 'removed_at';
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM ${table} WHERE project_id = $1 AND ${column} = $2 AND ${ended} IS NULL`,
+        [h.projects.a, userId],
+      );
+      return rows[0]!.id;
+    }
+
+    async function issueOutput(reportId: string) {
+      const { rows } = await h.db.pool.query(
+        `SELECT (SELECT count(*)::int FROM concrete_report_file f
+                 JOIN concrete_report_version v ON v.id = f.report_version_id
+                 WHERE v.field_report_id = $1) AS files,
+                (SELECT count(*)::int FROM concrete_report_version
+                 WHERE field_report_id = $1 AND (state = 'issued' OR report_number_id IS NOT NULL))
+                  AS issued`,
+        [reportId],
+      );
+      return rows[0];
+    }
+
+    it('issue: the issuer grant revoked meanwhile refuses it; no version, number, file or audit', async () => {
+      const reviewed = await ok('review', await ok('submit', await completeReport(), 'tech'), rv);
+      const before = await counts(reviewed.id);
+      const response = await endGrantDuring(
+        h.db.pool,
+        REPORT_ISSUER_GRANT,
+        await activeGrant('project_report_issuer_grant', 'issuer_user_id', h.users.js),
+        ender(),
+        () => command('issue', reviewed, 'js'),
+        { revocation_kind: 'ordinary' },
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(await counts(reviewed.id)).toEqual(before);
+      expect(await issueOutput(reviewed.id)).toEqual({ files: 0, issued: 0 });
+    });
+
+    it('review: the reviewer assignment removed meanwhile refuses it; nothing is written', async () => {
+      const rv3 = await designatedReviewer('Casey Third', 'CT');
+      const submitted = await ok('submit', await completeReport(), 'tech');
+      await documentExceptions(submitted.id);
+      const before = await counts(submitted.id);
+      const response = await endGrantDuring(
+        h.db.pool,
+        REVIEWER_ASSIGNMENT,
+        await activeGrant('project_reviewer_assignment', 'reviewer_user_id', rv3),
+        ender(),
+        () => command('review', submitted, rv3),
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(await counts(submitted.id)).toEqual(before);
+    });
   });
 });

@@ -431,6 +431,8 @@ export function ReviewReportPage() {
     try {
       const next = await sendCommand(detail.id, action, {
         version: detail.version,
+        // Review fix #139: the server refuses the command if this isn't the latest version.
+        reportVersionNo: version.versionNo,
         idempotencyKey: crypto.randomUUID(),
         ...extra,
       });

@@ -8,7 +8,7 @@ import {
 import {
   concreteReportCommandRequestSchema,
   concreteReportCommentRequiredSchema,
-  concreteReportIssueRequestSchema,
+  concreteFieldReportIssueRequestSchema,
   concreteReviewOpenExceptions,
   CONCRETE_EXCEPTION_LABEL,
   concreteReportLifecycleState,
@@ -47,11 +47,13 @@ import {
 import {
   ACTION_PERMISSIONS,
   FIELD_REPORT_SCOPE,
+  grantLoader,
   holdsActionPermission,
   isSelfReview,
   issuedByOf,
   latestVersion,
   lifecycleContext,
+  lockedLifecycleContext,
   peopleOf,
   transitionsOf,
   versionPeople,
@@ -91,6 +93,24 @@ async function projectIncludesMachineInfo(client: PoolClient, projectId: string)
   return rows[0]?.include_machine_info ?? false;
 }
 
+/**
+ * Review fix (#141): the report's specimens (in sets that aren't void) whose pickup has an
+ * out-of-range curing flag nobody has resolved: the `curing_out_of_range_unresolved` issuance
+ * gate the receiving view shows (`concreteReceivingIssues`). Read under the report's FOR UPDATE
+ * lock: pickups and resolutions lock the report FOR SHARE first, so none can change meanwhile.
+ */
+async function unresolvedCuringFlags(client: PoolClient, reportId: string): Promise<number> {
+  const { rows } = await client.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM concrete_specimen_pickup pk
+     JOIN concrete_specimen sp ON sp.id = pk.specimen_id
+     JOIN concrete_specimen_set s ON s.id = sp.set_id
+     WHERE s.field_report_id = $1 AND s.voided_at IS NULL
+       AND cardinality(pk.curing_flags) > 0 AND pk.curing_resolved_at IS NULL`,
+    [reportId],
+  );
+  return rows[0]!.n;
+}
+
 function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
 }
@@ -98,6 +118,8 @@ function isConstraint(error: unknown, constraint: string): boolean {
 type Input = {
   idempotencyKey: string;
   version: number;
+  /** Review fix #139: the report version the caller was shown (not on submit / resubmit). */
+  reportVersionNo?: number;
   comment?: string;
   technicianUserId?: string;
   /** Issue only (MM-V2-C28). */
@@ -112,7 +134,7 @@ function parseInput(action: ConcreteReportAction, body: unknown): Input {
   if (action === 'return' || action === 'revise') {
     return parseBody(concreteReportCommentRequiredSchema, body);
   }
-  if (action === 'issue') return parseBody(concreteReportIssueRequestSchema, body);
+  if (action === 'issue') return parseBody(concreteFieldReportIssueRequestSchema, body);
   return parseBody(concreteReportCommandRequestSchema, body);
 }
 
@@ -248,17 +270,19 @@ export class ConcreteReportLifecycleService {
     const replay = await this.replay(client, action, found.id, input.idempotencyKey, hash, user);
     if (replay) return replay;
 
-    // D09: the final check with the project and the actor's account as they stand.
-    const context = await lifecycleContext(client, found);
-    const { leadProjectEngineerUserId: _lead, ...facts } = context;
-    void _lead;
+    // D09: the final check with the project, the actor's account and (review fix #134) the
+    // issuer and reviewer grants as they stand, all locked before they are read.
+    const grants = grantLoader((c) => lockedLifecycleContext(c, found));
     let permitted = false;
     for (const permission of ACTION_PERMISSIONS[action]) {
-      if (await canUnderLock(client, user, permission, found.project_id, { context: facts })) {
+      if (
+        await canUnderLock(client, user, permission, found.project_id, { context: grants.loader })
+      ) {
         permitted = true;
         break;
       }
     }
+    const context = grants.held.context ?? (await lockedLifecycleContext(client, found));
     // Revise: the person who issued the version being corrected may also correct it, while
     // their account is an active personal one (as it stands under the lock).
     const issuer = action === 'revise' ? issuedByOf(latest) : null;
@@ -284,7 +308,11 @@ export class ConcreteReportLifecycleService {
       if (found.technician_user_id !== person.userId) throw forbidden('not_own_report');
     }
 
-    if (input.version !== found.version) {
+    if (
+      input.version !== found.version ||
+      // Review fix #139: a command bound to a version acts only while it is still the latest.
+      (input.reportVersionNo !== undefined && input.reportVersionNo !== latest?.version_no)
+    ) {
       throw new ConflictException({
         code: 'version_conflict',
         current: await this.reports.detailOf(client, found, user),
@@ -319,6 +347,16 @@ export class ConcreteReportLifecycleService {
           })),
         );
       }
+    }
+
+    // Review fix #141: the receiving issuance gate (CD-32), live, before any number or file.
+    if (action === 'issue' && (await unresolvedCuringFlags(client, found.id)) > 0) {
+      unprocessable('issuance_gated', [
+        {
+          field: 'curing_out_of_range_unresolved',
+          message: 'An out-of-range initial curing reading needs resolving before issue',
+        },
+      ]);
     }
 
     let versionId: string;

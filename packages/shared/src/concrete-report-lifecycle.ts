@@ -205,10 +205,18 @@ export const concreteReportSubmitRequestSchema = z.strictObject({
 });
 export type ConcreteReportSubmitRequest = z.input<typeof concreteReportSubmitRequestSchema>;
 
+/**
+ * Review fix (#139): the report version (1, 2, …) the caller was shown. When sent, a command on
+ * any other than the latest version is 409 `version_conflict`, so a review never lands on a
+ * version the reviewer didn't see.
+ */
+export const reportVersionNoSchema = z.int().positive().optional();
+
 /** Recall, review, issue: an optional note. */
 export const concreteReportCommandRequestSchema = z.strictObject({
   ...commandBase,
   comment: commentSchema.optional(),
+  reportVersionNo: reportVersionNoSchema,
 });
 export type ConcreteReportCommandRequest = z.input<typeof concreteReportCommandRequestSchema>;
 
@@ -216,6 +224,7 @@ export type ConcreteReportCommandRequest = z.input<typeof concreteReportCommandR
 export const concreteReportCommentRequiredSchema = z.strictObject({
   ...commandBase,
   comment: commentSchema,
+  reportVersionNo: reportVersionNoSchema,
 });
 export type ConcreteReportCommentRequiredRequest = z.input<
   typeof concreteReportCommentRequiredSchema

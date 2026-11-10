@@ -423,7 +423,12 @@ never rolled back retroactively. MM-AO03 brought program close, reopen, test can
 retention placement/release/decisions and disposal approval/revocation under this rule
 (`canUnderLock`), alongside acceptance (MM-T25). Disposal approval now locks the units' projects
 before the units, the order removal and retention placement already used, so the three can't
-deadlock. Requests that only route work to the lead (closure and cancellation requests) take no
+deadlock. A check that depends on grants (report issuers, designated reviewers and their
+approvals, concrete Lab Managers) locks those rows FOR SHARE and reads them only then:
+`canUnderLock` takes the context as a loader that runs after the project and account locks, and
+the loader calls `lockProjectGrants` (review fix #134; field and strength review, return, issue
+and revise, exception notes, summary issue, HOLD release). A list read before the locks is only
+the first check. Requests that only route work to the lead (closure and cancellation requests) take no
 authority and are unchanged; open-task rerouting (D10) is MM-AO07.
 
 ## Concrete permission contract (MM-AO08)
@@ -854,7 +859,8 @@ reports wait for owner decision G2.
   a real report. Then 400 body, then one transaction: report FOR UPDATE, its latest version FOR
   UPDATE, project and account FOR SHARE (`canUnderLock`, the permission again), the performing
   person (LAB) FOR SHARE; 409 `idempotency_key_reused`, 409 `version_conflict` (with the current
-  report), 422 `invalid_transition`, 403 `routed_to_another_reviewer`, 422 `incomplete_for_review`
+  report; also when the optional `reportVersionNo` on recall, return, review, issue or revise is
+  not the latest version, review fix #139), 422 `invalid_transition`, 403 `routed_to_another_reviewer`, 422 `incomplete_for_review`
   (C04's final-review field list), 422 `no_lead_project_engineer`.
 - **LAB** may submit and resubmit, naming the performing staff member (the report's technician),
   audited as receiver. LAB never recalls, returns, reviews, issues or revises, whoever a station

@@ -30,7 +30,7 @@ import {
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { can, type AuthUser, type Permission, type ProjectContext } from '../auth/policy.js';
-import { asLocked, canUnderLock, lockStanding } from '../auth/standing.js';
+import { asLocked, canUnderLock, lockProjectGrants, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { receiverOf, resolveActingPerson } from '../lab/attribution.js';
@@ -934,8 +934,12 @@ async function lockedAuthority(
   if (user.status !== 'active' || user.accountType === 'shared_lab') {
     return { ordinary: false, failed: false };
   }
-  const context: Omit<ProjectContext, 'leadProjectEngineerUserId'> = {
-    concreteLabManagerUserIds: await concreteLabManagers(client, projectId),
+  // Review fix #134: the Lab Manager grants are locked and read after the project and account.
+  const context = async (
+    c: PoolClient,
+  ): Promise<Omit<ProjectContext, 'leadProjectEngineerUserId'>> => {
+    await lockProjectGrants(c, projectId, { concreteLabManagers: true });
+    return { concreteLabManagerUserIds: await concreteLabManagers(c, projectId) };
   };
   return {
     ordinary: await canUnderLock(client, user, ORDINARY, projectId),

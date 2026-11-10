@@ -15,7 +15,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
 import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
+import { REPORT_ISSUER_GRANT, REVIEW_APPROVAL } from '../project-access/grant-tables.js';
 import { testDatabaseUrl } from '../test-support/database.js';
+import { endGrantDuring } from '../test-support/grant-race.js';
 import { createLabHarness, newKey, type LabHarness } from '../test-support/lab-harness.js';
 
 // MM-V2-C39: strength reports on the C09 lifecycle (AC1–AC3): first age submitted, reviewed and
@@ -594,5 +596,92 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
     expect(bad.status).toBe(400);
     expect(JSON.stringify(bad.body)).not.toContain('nonsense');
     expect((await h.http().get(base())).status).toBe(401);
+  });
+
+  // Review fix #134: a grant ending that commits before the final check wins (D09). These end
+  // grants, so they run last.
+  describe('a grant ending that commits before the final check wins', () => {
+    const ender = { userId: '', initials: 'PE', displayName: 'Pat Example' };
+    async function writes() {
+      const { rows } = await h.db.pool.query(
+        `SELECT (SELECT count(*)::int FROM concrete_report_exception_note n
+                 JOIN concrete_strength_report r ON r.id = n.strength_report_id
+                 WHERE r.specimen_set_id = $1) AS notes,
+                (SELECT count(*)::int FROM concrete_report_transition t
+                 JOIN concrete_strength_report r ON r.id = t.strength_report_id
+                 WHERE r.specimen_set_id = $1) AS transitions,
+                (SELECT count(*)::int FROM concrete_report_file f
+                 JOIN concrete_report_version v ON v.id = f.report_version_id
+                 JOIN concrete_strength_report r ON r.id = v.strength_report_id
+                 WHERE r.specimen_set_id = $1) AS files,
+                (SELECT row_to_json(r)::text FROM concrete_strength_report r WHERE r.specimen_set_id = $1)
+                  AS report`,
+        [set.id],
+      );
+      return rows[0];
+    }
+
+    it('exception note: the reviewer approval ended meanwhile refuses it; nothing is written', async () => {
+      expect((await ok('return', rv, { comment: 'Recheck A' })).state).toBe('returned');
+      // The resubmission is routed back to Riley, who returned it; Riley's approval ends.
+      const again = await ok('resubmit', 'lm');
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM project_review_approval
+         WHERE project_id = $1 AND reviewer_user_id = $2 AND scope_code = 'concrete_strength'
+           AND ended_at IS NULL`,
+        [h.projects.a, rv],
+      );
+      const before = await writes();
+      const response = await endGrantDuring(
+        h.db.pool,
+        REVIEW_APPROVAL,
+        rows[0]!.id,
+        { ...ender, userId: h.users.pe },
+        () =>
+          send(
+            'post',
+            `${base()}/versions/${again.latestVersion!.versionNo}/exception-notes`,
+            { code: 'strength_tested_off_target', field: 'results.A', note: 'Tested late' },
+            rv,
+          ),
+        { end_kind: 'eligibility_lost' },
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(response.body).toEqual({ code: 'forbidden' });
+      expect(await writes()).toEqual(before);
+    });
+
+    it('issue: the issuer grant revoked meanwhile refuses it; no transition, file or audit', async () => {
+      // Riley no longer reviews here: the lead documents and reviews instead.
+      created(
+        await send(
+          'post',
+          `${base()}/versions/${(await detail()).latestVersion!.versionNo}/exception-notes`,
+          { code: 'strength_tested_off_target', field: 'results.A', note: 'Tested late' },
+          'pe',
+        ),
+      );
+      await ok('review', 'pe');
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `SELECT id FROM project_report_issuer_grant
+         WHERE project_id = $1 AND issuer_user_id = $2 AND report_scope_code = 'concrete_strength'
+           AND revoked_at IS NULL`,
+        [h.projects.a, h.users.js],
+      );
+      const version = (await detail()).version;
+      const before = await writes();
+      const response = await endGrantDuring(
+        h.db.pool,
+        REPORT_ISSUER_GRANT,
+        rows[0]!.id,
+        { ...ender, userId: h.users.pe },
+        () => send('post', `${base()}/issue`, { idempotencyKey: newKey(), version }, 'js'),
+        { revocation_kind: 'ordinary' },
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(403);
+      expect(response.body).toEqual({ code: 'forbidden' });
+      expect(await writes()).toEqual(before);
+      expect((await detail()).state).toBe('reviewed');
+    });
   });
 });

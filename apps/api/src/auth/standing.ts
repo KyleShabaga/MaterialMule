@@ -95,11 +95,68 @@ export async function lockProjectLead(
   return rows[0] ? rows[0].lead_project_engineer_user_id : undefined;
 }
 
+/** The grant-based facts of a project context, read inside the transaction. */
+export type GrantContext = Omit<ProjectContext, 'leadProjectEngineerUserId'>;
+
+/**
+ * Review fix (#134): locks FOR SHARE, in id order, the project's active grant rows a final
+ * check is about to read: report issuer grants for `reportScope`, reviewer assignments and their
+ * open review approvals for `reviewScope`, and concrete Lab Manager grants. Every ending (a
+ * revocation, a removal, a lost approval through eligibility) locks its row FOR UPDATE, so once
+ * this returns none can commit until this transaction does, and one that committed first is no
+ * longer selected (PostgreSQL re-checks the row after the wait). Read the context after this.
+ *
+ * Lock order: after the project and the accounts (`canUnderLock` with a `context` loader calls it
+ * at that point), as docs/permissions.md "Lock order" puts assignment and grant rows last.
+ */
+export async function lockProjectGrants(
+  client: PoolClient,
+  projectId: string,
+  grants: { reportScope?: string; reviewScope?: string; concreteLabManagers?: boolean },
+): Promise<void> {
+  if (grants.reportScope) {
+    await client.query(
+      `SELECT id FROM project_report_issuer_grant
+       WHERE project_id = $1 AND report_scope_code = $2 AND revoked_at IS NULL
+       ORDER BY id FOR SHARE`,
+      [projectId, grants.reportScope],
+    );
+  }
+  if (grants.reviewScope) {
+    await client.query(
+      `SELECT id FROM project_reviewer_assignment
+       WHERE project_id = $1 AND scope_code = $2 AND removed_at IS NULL
+       ORDER BY id FOR SHARE`,
+      [projectId, grants.reviewScope],
+    );
+    await client.query(
+      `SELECT ap.id FROM project_review_approval ap
+       JOIN project_reviewer_assignment a ON a.id = ap.reviewer_assignment_id
+       WHERE a.project_id = $1 AND a.scope_code = $2 AND a.removed_at IS NULL
+         AND ap.ended_at IS NULL
+       ORDER BY ap.id FOR SHARE OF ap`,
+      [projectId, grants.reviewScope],
+    );
+  }
+  if (grants.concreteLabManagers) {
+    await client.query(
+      `SELECT id FROM project_concrete_lab_manager_grant
+       WHERE project_id = $1 AND revoked_at IS NULL
+       ORDER BY id FOR SHARE`,
+      [projectId],
+    );
+  }
+}
+
 /**
  * D09's final authority check for a project-scoped action: the project's lead as it stands (the
  * project locked FOR SHARE, or `lock`) and the actor's roles and status as they stand (account
  * locked FOR SHARE). Call it after locking the domain rows, per the lock order above. Whichever of
  * this action and a lead change, role change or disable commits first wins; the loser sees it.
+ *
+ * A check that depends on grants passes `context` as a loader: it runs after the project and
+ * account locks, so it can lock the grant rows (`lockProjectGrants`) and read them as they stand
+ * (review fix #134). A context object read earlier would miss a revocation committed meanwhile.
  */
 export async function canUnderLock(
   client: PoolClient,
@@ -108,11 +165,13 @@ export async function canUnderLock(
   projectId: string,
   options: {
     lock?: 'FOR SHARE' | 'FOR NO KEY UPDATE';
-    context?: Omit<ProjectContext, 'leadProjectEngineerUserId'>;
+    context?: GrantContext | ((client: PoolClient) => Promise<GrantContext>);
   } = {},
 ): Promise<boolean> {
   const lead = await lockProjectLead(client, projectId, options.lock);
   if (lead === undefined) return false;
   const actor = asLocked(user, await lockStanding(client, [user.userId]));
-  return can(actor, permission, { ...options.context, leadProjectEngineerUserId: lead });
+  const context =
+    typeof options.context === 'function' ? await options.context(client) : options.context;
+  return can(actor, permission, { ...context, leadProjectEngineerUserId: lead });
 }

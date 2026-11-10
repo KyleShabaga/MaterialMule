@@ -5,7 +5,7 @@ import {
   type ConcreteReviewQueue,
   type MeResponse,
 } from '@materialmule/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -43,12 +43,16 @@ afterEach(() => vi.unstubAllGlobals());
 
 type Api = (url: string, init?: RequestInit) => Response | undefined;
 
+/** The last router `renderAt` mounted, to navigate it without unmounting (review fix #144). */
+let router: ReturnType<typeof createMemoryRouter>;
+
 function renderAt(path: string, user: MeResponse, api: Api) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     return api(url, init) ?? json(404, { code: 'not_found' });
   });
   vi.stubGlobal('fetch', fetchMock);
+  router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
     <SessionContext.Provider
       value={{
@@ -57,7 +61,7 @@ function renderAt(path: string, user: MeResponse, api: Api) {
         signOut: vi.fn(async () => undefined),
       }}
     >
-      <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
+      <RouterProvider router={router} />
     </SessionContext.Provider>,
   );
   return fetchMock;
@@ -351,6 +355,49 @@ describe('Review view', () => {
     expect(screen.getByText(/Engineer accepted the load/)).toBeInTheDocument();
   });
 
+  it('review fix #139: a version list behind the detail never enables actions on the shown version', async () => {
+    // The list still shows v1 submitted; the detail (read in parallel) already has v2.
+    const staleV1 = versionDetail(1, fields(), {}, []);
+    const resubmitted = detail({ latest: versionSummary(2), warnings: [] });
+    const fetchMock = renderAt(
+      `/concrete/review/${REPORT_ID}`,
+      me('rv'),
+      reportApi(resubmitted, [staleV1]),
+    );
+    await screen.findByRole('article', { name: /Review preview · version 1/ });
+    const mark = screen.getByRole('button', { name: 'Mark reviewed' });
+    expect(mark).toBeDisabled();
+    expect(mark).toHaveAccessibleDescription('You are looking at an earlier version.');
+    expect(screen.getByRole('button', { name: 'Return for correction' })).toBeDisabled();
+    // The two reads were retried before giving up on them agreeing.
+    expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/versions')).length).toBe(3);
+  });
+
+  it('review fix #139: Mark reviewed names the version shown, so the server can refuse another', async () => {
+    const clean = versionDetail(1, fields(), {}, []);
+    const fetchMock = renderAt(
+      `/concrete/review/${REPORT_ID}`,
+      me('rv'),
+      reportApi(detail({ latest: versionSummary(1), warnings: [] }), [clean], (url, init) =>
+        url.endsWith('/review') && init?.method === 'POST'
+          ? json(201, detail({ latest: versionSummary(1, { state: 'reviewed' }), warnings: [] }))
+          : undefined,
+      ),
+    );
+    const mark = await screen.findByRole('button', { name: 'Mark reviewed' });
+    await waitFor(() => expect(mark).toBeEnabled());
+    await userEvent.click(mark);
+    const dialog = screen.queryByRole('dialog');
+    if (dialog) {
+      await userEvent.click(within(dialog).getByRole('button', { name: /Mark reviewed/ }));
+    }
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/review'))).toBe(true),
+    );
+    const sent = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/review'))!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ version: 4, reportVersionNo: 1 });
+  });
+
   it('AC2: Return for correction needs a comment before anything is sent', async () => {
     const fetchMock = renderAt(
       `/concrete/review/${REPORT_ID}`,
@@ -452,6 +499,8 @@ describe('Issue view', () => {
     const sent = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/issue'))!;
     expect(JSON.parse(String(sent[1]!.body))).toMatchObject({
       version: 4,
+      // Review fix #139: bound to the version shown.
+      reportVersionNo: 1,
       includePhotos: false,
       includeMachineInfo: false,
     });
@@ -491,6 +540,71 @@ describe('Issue view', () => {
       expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/issue'))).toBe(true),
     );
     const sent = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/issue'))!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ includeMachineInfo: false });
+  });
+
+  it('review fix #144: moving to another report starts from that project’s setting, not the last choice', async () => {
+    const OTHER_REPORT = '00000000-0000-4000-8000-0000000000b2';
+    const OTHER_PROJECT = '00000000-0000-4000-8000-0000000000c2';
+    const other = { ...reviewed, id: OTHER_REPORT, projectId: OTHER_PROJECT };
+    const settings = (projectId: string, includeMachineInfo: boolean) => ({
+      projectId,
+      defaultSpecimenAges: [7, 28, 28, 'HOLD'],
+      holdDurationDays: 56,
+      includeMachineInfo,
+      version: 1,
+      updatedAt: null,
+      updatedBy: null,
+      canEdit: false,
+      history: [],
+      historyTotal: 0,
+    });
+    const versions = (reportId: string) => {
+      const { snapshot: _s, reportId: _r, ...summary } = version;
+      void _s;
+      void _r;
+      return { reportId, versions: [summary], transitions: [] };
+    };
+    const fetchMock = renderAt(`/concrete/review/${REPORT_ID}/issue`, me('js'), (url, init) => {
+      for (const [id, body] of [
+        [REPORT_ID, reviewed],
+        [OTHER_REPORT, other],
+      ] as const) {
+        const base = `/api/concrete/field-reports/${id}`;
+        if (url === base) return json(200, body);
+        if (url === `${base}/versions`) return json(200, versions(id));
+        if (url === `${base}/versions/1`) return json(200, { ...version, reportId: id });
+        if (url === `${base}/versions/1/exception-notes`) {
+          return json(200, { reportId: id, versionNo: 1, notes: [] });
+        }
+        if (url === `${base}/issue` && init?.method === 'POST') return json(201, body);
+      }
+      // A includes machine information; the other project omits it.
+      if (url === `/api/projects/${PROJECT_ID}/concrete-settings`) {
+        return json(200, settings(PROJECT_ID, true));
+      }
+      if (url === `/api/projects/${OTHER_PROJECT}/concrete-settings`) {
+        return json(200, settings(OTHER_PROJECT, false));
+      }
+      return undefined;
+    });
+    await screen.findByText('Project setting: include.');
+    let side = screen.getByRole('complementary', { name: 'Issue' });
+    await waitFor(() => expect(within(side).getByRole('radio', { name: 'Include' })).toBeChecked());
+
+    await act(() => router.navigate(`/concrete/review/${OTHER_REPORT}/issue`));
+    await screen.findByText('Project setting: omit.');
+    side = screen.getByRole('complementary', { name: 'Issue' });
+    await waitFor(() => expect(within(side).getByRole('radio', { name: 'Omit' })).toBeChecked());
+    await userEvent.click(within(side).getByRole('button', { name: 'Issue report' }));
+    const dialog = screen.getByRole('dialog', { name: 'Issue this report?' });
+    expect(dialog).toHaveTextContent('testing machine information omitted');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Issue report' }));
+    const issued = `/api/concrete/field-reports/${OTHER_REPORT}/issue`;
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]) === issued)).toBe(true),
+    );
+    const sent = fetchMock.mock.calls.find((c) => String(c[0]) === issued)!;
     expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ includeMachineInfo: false });
   });
 });

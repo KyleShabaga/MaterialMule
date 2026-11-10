@@ -24,9 +24,14 @@ export function IssueReportPage() {
   const { reportId = '' } = useParams();
   const { load, reload } = useReviewData(reportId, null);
   const me = useMe();
-  const [settings, setSettings] = useState<ConcreteProjectSettings | null>(null);
+  // Review fix #144: React Router reuses this page for another report, so the settings are kept
+  // with the project they belong to and a manual choice with the report it was made on.
+  const [loadedSettings, setLoadedSettings] = useState<{
+    projectId: string;
+    settings: ConcreteProjectSettings | null;
+  } | null>(null);
   const [issuers, setIssuers] = useState<ProjectReportIssuers | null>(null);
-  const [machine, setMachine] = useState<boolean | null>(null);
+  const [override, setOverride] = useState<{ reportId: string; include: boolean } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
@@ -36,14 +41,8 @@ export function IssueReportPage() {
     if (!projectId) return;
     let current = true;
     fetchConcreteSettings(projectId).then(
-      (s) => {
-        if (!current) return;
-        setSettings(s);
-        // MM-V2-C38: the project's setting is the starting choice; unset starts as Omit. The
-        // issuer may change it either way, but is never forced to choose.
-        setMachine((m) => m ?? s.includeMachineInfo ?? false);
-      },
-      () => current && setSettings(null),
+      (s) => current && setLoadedSettings({ projectId, settings: s }),
+      () => current && setLoadedSettings({ projectId, settings: null }),
     );
     fetchReportIssuers(projectId).then(
       (i) => current && setIssuers(i),
@@ -53,6 +52,18 @@ export function IssueReportPage() {
       current = false;
     };
   }, [projectId]);
+
+  const settings = loadedSettings?.projectId === projectId ? loadedSettings.settings : null;
+  // MM-V2-C38: this project's setting is the starting choice; unset starts as Omit. The issuer
+  // may change it either way, but is never forced to choose. Null: nothing to go on yet (the
+  // server then applies the project setting).
+  const machine: boolean | null =
+    override?.reportId === reportId
+      ? override.include
+      : settings
+        ? (settings.includeMachineInfo ?? false)
+        : null;
+  const setMachine = (include: boolean) => setOverride({ reportId, include });
 
   if (load.state === 'loading') return <p aria-busy="true">Loading the report…</p>;
   if (load.state === 'error' || load.state === 'empty') {
@@ -71,10 +82,13 @@ export function IssueReportPage() {
     );
   }
 
-  const { detail, version, checklist } = load.data;
+  const { detail, version, checklist, isLatest } = load.data;
   const issuedVersion = version.issued;
   const documented = checklist.filter((i) => i.status !== 'open');
-  const block = issueBlock({ me, detail, issuers });
+  // Review fix #139: only the report's latest version, as shown, can be issued.
+  const block = isLatest
+    ? issueBlock({ me, detail, issuers })
+    : 'The report changed while it loaded. Reload to see its latest version.';
   const review = version.review;
 
   return (
@@ -268,6 +282,8 @@ export function IssueReportPage() {
           try {
             await sendCommand(detail.id, 'issue', {
               version: detail.version,
+              // Review fix #139: the server refuses the issue if this isn't the latest version.
+              reportVersionNo: version.versionNo,
               idempotencyKey: crypto.randomUUID(),
               includePhotos: false,
               // Left out when nothing is chosen yet: the server applies the project setting.
