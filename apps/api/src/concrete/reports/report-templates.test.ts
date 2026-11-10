@@ -12,7 +12,7 @@ import {
   STRENGTH_SNAPSHOT_P1,
   SUMMARY_SNAPSHOT,
 } from '../../test-support/concrete-report-fixtures.js';
-import { pdfPageCount, pdfText } from '../../test-support/pdf-text.js';
+import { pdfPageCount, pdfText, pdfTextRuns } from '../../test-support/pdf-text.js';
 import { renderFieldReportPdf } from './field-report-template.js';
 import { renderStrengthReportPdf, STRENGTH_STANDARDS_LINE } from './strength-report-template.js';
 import { renderSummaryReportPdf } from './summary-report-template.js';
@@ -171,6 +171,36 @@ describe('strength report template P1 (design section 4, unwired until C39)', ()
     expect(text).not.toMatch(/\d MPa\b(?! at)/);
     expect(text).toContain('not calculated yet');
     expect(text).not.toContain('Calculation method');
+  });
+
+  it('review fix: a row taller than a page continues on the next page, inside the margins', async () => {
+    // A maximum-length (2,000-character) multi-line C07 note in the narrow Remarks column.
+    const line = 'Fictional remark about the cylinder ends and capping.';
+    let remarks = '';
+    while (remarks.length + line.length + 1 < 2000 - 8)
+      remarks += `${line}
+`;
+    remarks += 'ZQ-END';
+    expect(remarks.length).toBeLessThanOrEqual(2000);
+    const snapshot: ConcreteStrengthReportSnapshot = {
+      ...STRENGTH_SNAPSHOT_P1,
+      results: STRENGTH_SNAPSHOT_P1.results.map((r, i) => (i === 0 ? { ...r, remarks } : r)),
+    };
+    const bytes = await render(snapshot);
+    const runs = pdfTextRuns(bytes);
+    const marker = runs.find((r) => r.text.includes('ZQ-END'));
+    expect(marker).toBeDefined();
+    // Above the footer (margin 40 + footer 34) and below the page header; never off the page.
+    const footer = 40 + 34;
+    expect(marker!.y).toBeGreaterThanOrEqual(footer);
+    const top = Math.max(...runs.map((r) => r.y));
+    expect(marker!.y).toBeLessThan(top);
+    for (const run of runs.filter((r) => r.text.startsWith('Fictional remark'))) {
+      expect(run.y, run.text).toBeGreaterThanOrEqual(footer);
+    }
+    expect(pdfPageCount(bytes)).toBeGreaterThan(1);
+    // Every remark line is printed exactly once.
+    expect(runs.filter((r) => r.text.includes('ZQ-END'))).toHaveLength(1);
   });
 
   it('MM-V2-C24: prints the P1 values, the assessment and the method line', async () => {

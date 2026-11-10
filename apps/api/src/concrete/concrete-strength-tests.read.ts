@@ -142,8 +142,9 @@ export async function specimenStrengthsOf(
   if (setIds.length === 0) return [];
   const { rows } = await db.query<SpecimenSql>(
     `SELECT sp.id AS specimen_id, sp.set_id, sp.letter, sp.assigned_age,
-            EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)
-              AS disposed,
+            -- Disposed once removal is recorded; an authorization alone isn't removal.
+            EXISTS (SELECT 1 FROM concrete_specimen_disposal d
+                    WHERE d.specimen_id = sp.id AND d.disposed_at IS NOT NULL) AS disposed,
             t.id AS result_id, t.tested_on::text, t.tester_user_id, t.max_load::text,
             cardinality(t.height_readings) AS height_count,
             cardinality(t.diameter_readings) AS diameter_count, ${calcColumnsSql('t')}
