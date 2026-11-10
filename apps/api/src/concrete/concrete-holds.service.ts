@@ -725,6 +725,10 @@ export class ConcreteHoldsService {
         const replay = await this.replay(client, key, kind, hash, user);
         if (replay) return replay;
         const facts = await lockSpecimens(client, ids);
+        // An identical command that held these locks first has committed by now: replay it rather
+        // than refuse the specimens it just changed (review fix, PR #145).
+        const replayed = await this.replay(client, key, kind, hash, user);
+        if (replayed) return replayed;
         const cache = new Map<string, Promise<Authority>>();
         const authority = (projectId: string) => {
           let found = cache.get(projectId);
