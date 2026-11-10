@@ -437,4 +437,163 @@ describe.runIf(testDatabaseUrl)('concrete mix propagation (MM-V2-C30)', () => {
     );
     expect(issuedOnly.items).toHaveLength(0);
   });
+
+  // -------------------------------------------------------------------------------------------
+  // Review fixes (2026-11-09): completed breaks and the provenance of a propagated age
+  // -------------------------------------------------------------------------------------------
+
+  let permanentNumber = 900;
+
+  /** A numbered set (C18 stand-in) cast on 2026-11-02 from `mix`'s current approved revision. */
+  async function numberedSet(mix: ConcreteMixDetail) {
+    const r = await report({
+      mixId: mix.id,
+      applyMixDefaults: true,
+      castAt: '2026-11-02T09:15:00-06:00',
+    });
+    const set = await createSet(r.id);
+    permanentNumber += 1;
+    await h.db.pool.query(
+      `UPDATE concrete_specimen_set SET permanent_number = $2, permanent_id = $3 WHERE id = $1`,
+      [set.id, permanentNumber, `26-${permanentNumber}`],
+    );
+    return set.specimens.find((s) => s.letter === 'A')!.id;
+  }
+
+  async function specimenRow(id: string) {
+    const { rows } = await h.db.pool.query<{ age: string; target: string; version: number }>(
+      `SELECT assigned_age AS age, target_date::text AS target, version FROM concrete_specimen
+       WHERE id = $1`,
+      [id],
+    );
+    const { rows: history } = await h.db.pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM concrete_specimen_reschedule WHERE specimen_id = $1',
+      [id],
+    );
+    return { ...rows[0]!, reschedules: history[0]!.n };
+  }
+
+  /** A complete test entry (the break) by the Lab Manager. */
+  async function breakSpecimen(specimenId: string) {
+    const response = await h
+      .http()
+      .put(`/api/concrete/specimens/${specimenId}/test-results/${newKey()}`)
+      .set('Cookie', cookies.lm!)
+      .set(CSRF_HEADER, '1')
+      .send({
+        idempotencyKey: newKey(),
+        version: 0,
+        testedOn: '2026-11-09',
+        maxLoad: 250,
+        heightReadings: [200],
+        diameterReadings: [100],
+      });
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+  }
+
+  const applyItems = async (mixId: string, previewId: string, itemIds: string[]) =>
+    send('post', propagationPath(mixId), {
+      idempotencyKey: newKey(),
+      previewId,
+      selection: { kind: 'items', itemIds },
+    });
+
+  it('a broken specimen keeps its age, target and history when the mix age changes', async () => {
+    const mix = await approvedMix('D-P1-01');
+    const specimen = await numberedSet(mix);
+    await breakSpecimen(specimen);
+    const before = await specimenRow(specimen);
+    expect(before).toMatchObject({ age: '7', target: '2026-11-09', reschedules: 0 });
+
+    const revised = await revise(mix, { testAges: [14, 28, 28, 'HOLD'] });
+    const shown = await preview(revised.id);
+    const item = shown.items.find((i) => i.recordId === specimen);
+    expect(item).toMatchObject({ eligible: false, ineligibleReason: 'specimen_tested' });
+
+    const refused = await applyItems(revised.id, shown.previewId, [`specimen:${specimen}`]);
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body).toMatchObject({ code: 'item_not_eligible' });
+    const all = await send('post', propagationPath(revised.id), {
+      idempotencyKey: newKey(),
+      previewId: shown.previewId,
+      selection: { kind: 'approve_all', displayedItemIds: shown.items.map((i) => i.itemId) },
+    });
+    expect(all.status, JSON.stringify(all.body)).toBe(201);
+    expect(concreteMixPropagationResultSchema.parse(all.body).appliedItemIds).not.toContain(
+      `specimen:${specimen}`,
+    );
+    expect(await specimenRow(specimen)).toEqual(before);
+  });
+
+  it('a break saved after the preview makes applying it stale; the age stays', async () => {
+    const mix = await approvedMix('D-P1-02');
+    const specimen = await numberedSet(mix);
+    const revised = await revise(mix, { testAges: [14, 28, 28, 'HOLD'] });
+    const shown = await preview(revised.id);
+    expect(shown.items.find((i) => i.recordId === specimen)).toMatchObject({ eligible: true });
+
+    await breakSpecimen(specimen);
+    const before = await specimenRow(specimen);
+    const stale = await applyItems(revised.id, shown.previewId, [`specimen:${specimen}`]);
+    expect(stale.status, JSON.stringify(stale.body)).toBe(409);
+    expect(stale.body).toMatchObject({ code: 'preview_stale' });
+    expect(await specimenRow(specimen)).toEqual(before);
+    expect(before).toMatchObject({ age: '7', reschedules: 0 });
+  });
+
+  it('a propagated age can be propagated again (7 → 14 → 21)', async () => {
+    const mix = await approvedMix('D-P2-01');
+    const specimen = await numberedSet(mix);
+    const second = await revise(mix, { testAges: [14, 28, 28, 'HOLD'] });
+    const first = await preview(second.id);
+    const applied = await applyItems(second.id, first.previewId, [`specimen:${specimen}`]);
+    expect(applied.status, JSON.stringify(applied.body)).toBe(201);
+    expect(await specimenRow(specimen)).toMatchObject({ age: '14', reschedules: 1 });
+
+    const third = await revise(second, { testAges: [21, 28, 28, 'HOLD'] });
+    const next = await preview(third.id);
+    expect(next.items.find((i) => i.recordId === specimen)).toMatchObject({
+      eligible: true,
+      changes: [{ field: 'assignedAge', before: 14, proposed: 21 }],
+    });
+    const again = await applyItems(third.id, next.previewId, [`specimen:${specimen}`]);
+    expect(again.status, JSON.stringify(again.body)).toBe(201);
+    expect(await specimenRow(specimen)).toMatchObject({
+      age: '21',
+      target: '2026-11-23',
+      reschedules: 2,
+    });
+    // The set's saved schedule (casting snapshot) never changes.
+    const { rows } = await h.db.pool.query<{ ages: string[] }>(
+      `SELECT st.default_ages AS ages FROM concrete_specimen sp
+       JOIN concrete_specimen_set st ON st.id = sp.set_id WHERE sp.id = $1`,
+      [specimen],
+    );
+    expect(rows[0]!.ages).toEqual(['7', '28', '28', 'HOLD']);
+  });
+
+  it('a manual reschedule after a propagation stays protected from the next revision', async () => {
+    const mix = await approvedMix('D-P2-02');
+    const specimen = await numberedSet(mix);
+    const second = await revise(mix, { testAges: [14, 28, 28, 'HOLD'] });
+    const first = await preview(second.id);
+    expect((await applyItems(second.id, first.previewId, [`specimen:${specimen}`])).status).toBe(
+      201,
+    );
+    const manual = await send('post', `/api/concrete/specimens/${specimen}/reschedule`, {
+      idempotencyKey: newKey(),
+      version: (await specimenRow(specimen)).version,
+      newAge: 10,
+      reason: 'Lab asked for an earlier break',
+    });
+    expect(manual.status, JSON.stringify(manual.body)).toBe(201);
+
+    const third = await revise(second, { testAges: [21, 28, 28, 'HOLD'] });
+    const next = await preview(third.id);
+    expect(next.items.find((i) => i.recordId === specimen)).toMatchObject({
+      eligible: false,
+      ineligibleReason: 'manually_edited',
+    });
+    expect(await specimenRow(specimen)).toMatchObject({ age: '10', reschedules: 2 });
+  });
 });

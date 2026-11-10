@@ -877,9 +877,20 @@ export class ConcreteMixesService {
         return this.detail(client, (await findMix(client, mixId))!, user);
       });
     } catch (error) {
-      if (isConstraint(error, 'concrete_mix_project_supplier_number_key')) throw mixNumberTaken();
-      // The same key raced itself: the other request committed first, so this is its retry.
+      // The same key raced itself: the other request committed first, so this is its retry. The
+      // loser can fail on the mix's supplier / number index (it inserts the mix before its
+      // command) or on the command key; either way the committed command for this key, actor and
+      // intent answers it. Anything else under that name is a real name conflict.
       const raced = attempt as { key: string; kind: Kind; hash: string } | null;
+      if (isConstraint(error, 'concrete_mix_project_supplier_number_key')) {
+        if (raced) {
+          const replay = await withTransaction(this.database.pool, (client) =>
+            this.replay(client, raced.key, raced.kind, null, raced.hash, user),
+          );
+          if (replay) return replay;
+        }
+        throw mixNumberTaken();
+      }
       if (isConstraint(error, 'concrete_mix_command_pkey') && raced) {
         return withTransaction(this.database.pool, async (client) => {
           const replay = await this.replay(client, raced.key, raced.kind, null, raced.hash, user);
@@ -978,10 +989,16 @@ export class ConcreteMixesService {
     spec: Pick<ConcreteMixSpec, 'supplierName' | 'mixNumber'>,
     exceptMixId: string | null,
   ) {
+    // A mix's name is taken by its current (draft) name and, while a draft renames it, by its
+    // approved revision's: that revision is still in effect and discarding the draft restores it.
+    // An effective revision's name changes only when a draft is approved, and a draft's name is
+    // already the mix's own (under the unique index), so this check leaves no race window.
     const { rows } = await client.query(
-      `SELECT 1 FROM concrete_mix
-       WHERE project_id = $1 AND lower(supplier_name) = lower($2) AND lower(mix_number) = lower($3)
-         AND id IS DISTINCT FROM $4`,
+      `SELECT 1 FROM concrete_mix m
+       LEFT JOIN concrete_mix_revision e ON e.id = m.effective_revision_id
+       WHERE m.project_id = $1 AND m.id IS DISTINCT FROM $4
+         AND ((lower(m.supplier_name) = lower($2) AND lower(m.mix_number) = lower($3))
+              OR (lower(e.supplier_name) = lower($2) AND lower(e.mix_number) = lower($3)))`,
       [projectId, spec.supplierName, spec.mixNumber, exceptMixId],
     );
     if (rows.length > 0) throw mixNumberTaken();

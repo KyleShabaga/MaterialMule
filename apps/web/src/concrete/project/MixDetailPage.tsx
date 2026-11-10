@@ -4,7 +4,7 @@ import {
   type ConcreteMixSpec,
 } from '@materialmule/shared';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { BandedCard, ConfirmDialog, ErrorState, StatusBadge } from '../../components/ui';
 import { shortDateTime } from '../../dashboard/format';
 import {
@@ -27,7 +27,7 @@ import {
   value,
 } from './mix-format';
 import { ConcreteFrame } from './ProjectConcretePage';
-import { concreteTabPath, propagationPath } from './paths';
+import { concreteTabPath, mixPath, propagationPath } from './paths';
 import { useLoad } from './useLoad';
 
 // MM-V2-C30: one mix with its full specification (project spec, supplier-ticket defaults,
@@ -134,6 +134,9 @@ function MixDetail({ projectId, mixId }: { projectId: string; mixId: string }) {
     return <ErrorState message={concreteProblem(load.error)} onRetry={reload} />;
   }
   const mix = load.data;
+  // The mix is loaded by ID alone: under another project's address it goes to its own project, so
+  // its content and controls never show under the wrong project header.
+  if (mix.projectId !== projectId) return <Navigate replace to={mixPath(mix.projectId, mix.id)} />;
   const status = MIX_STATUS[mix.status];
   const working = mix.draftRevision ?? mix.effectiveRevision;
   const stale = (caught: unknown) => {
