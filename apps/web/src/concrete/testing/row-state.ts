@@ -1,4 +1,5 @@
 import {
+  concreteStrengthRelativeFlags,
   concreteTestResultChanges,
   parseConcreteReadings,
   type ConcreteTestResult,
@@ -57,8 +58,16 @@ export function initialRowState(row: ConcreteTestingTableRow, newId: () => strin
   };
 }
 
-/** The table's copy of a saved result (the save answer carries the full C07 result). */
-export function tableResultOf(result: ConcreteTestResult): ConcreteTestingTableResult {
+/**
+ * The table's copy of a saved result (the save answer carries the full C07 result, with its
+ * stored calculation). MM-V2-C24: the flags against f′c come from the row's specification, and
+ * the exclusion stays as the table read it (only a reviewer changes it).
+ */
+export function tableResultOf(
+  result: ConcreteTestResult,
+  row: Pick<ConcreteTestingTableRow, 'specifiedStrengthMpa' | 'result'>,
+): ConcreteTestingTableResult {
+  const calculation = result.calculation;
   return {
     id: result.id,
     attemptNo: result.attemptNo,
@@ -70,6 +79,14 @@ export function tableResultOf(result: ConcreteTestResult): ConcreteTestingTableR
     diameterReadings: result.diameterReadings,
     units: result.units,
     enteredAt: result.revisions.at(-1)?.at ?? result.updatedAt,
+    calculation,
+    strengthFlags: calculation
+      ? [
+          ...calculation.flags,
+          ...concreteStrengthRelativeFlags(calculation.strength, row.specifiedStrengthMpa),
+        ]
+      : [],
+    excluded: row.result?.id === result.id ? row.result.excluded : false,
   };
 }
 

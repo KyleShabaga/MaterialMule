@@ -166,4 +166,11 @@
 .testing-strength {
   min-width: 5rem;
   background: var(--inset);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* MM-V2-C24: a specimen the reviewer excluded stays listed, struck from the average. */
+.testing-struck {
+  text-decoration: line-through;
 }

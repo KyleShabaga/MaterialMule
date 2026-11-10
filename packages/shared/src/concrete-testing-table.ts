@@ -5,6 +5,7 @@ import {
   CONCRETE_TEST_RESULT_LOAD_UNITS,
 } from './concrete-test-results';
 import { CONCRETE_WORKLIST_FLAGS } from './concrete-worklist';
+import { CONCRETE_STRENGTH_FLAGS, concreteStrengthCalculationSchema } from './concrete-strength';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-V2-C23: the daily concrete testing table (direct entry on the lab computers).
@@ -14,9 +15,9 @@ import { personSnapshotSchema } from './lab-programs';
 // - Grouped by project, then sorted by set number (numeric: 26-2 before 26-10), then letter.
 // - Entry writes C07 test-result drafts (PUT …/test-results/:resultId). The row shows the
 //   latest attempt; a row with no attempt saves a new one with a client-chosen ID.
-// - "Complete" is an entry-completeness check only (test date, tester, max load and at least one
-//   height and one diameter reading). It is not a completed test: strength, rounding and
-//   pass/fail wait on C24 (owner gate G2), and the number of readings and units on G8.
+// - "Complete" is an entry-completeness check (test date, tester, max load and at least one
+//   height and one diameter reading). MM-V2-C24: a complete entry shows its stored strength
+//   (provisional method P1) and its unusual-measurement flags.
 // - Each saved row keeps its own tester: the page's "Tested by" only fills new rows (AC1).
 
 /** `GET /api/concrete/testing-table` query (`inventory.read`). */
@@ -52,6 +53,12 @@ export const concreteTestingTableResultSchema = z.object({
   }),
   /** When the latest change was entered (kept apart from the test date). */
   enteredAt: z.string(),
+  /** MM-V2-C24: the stored calculation (method version included), null while incomplete. */
+  calculation: concreteStrengthCalculationSchema.nullable(),
+  /** Specimen flags plus the flags against the specified strength. */
+  strengthFlags: z.array(z.enum(CONCRETE_STRENGTH_FLAGS)),
+  /** Excluded by a reviewer from its strength test. */
+  excluded: z.boolean(),
 });
 export type ConcreteTestingTableResult = z.infer<typeof concreteTestingTableResultSchema>;
 
@@ -72,6 +79,8 @@ export const concreteTestingTableRowSchema = z.object({
   /** Actual age on the test date (or today while untested), in whole days from casting. */
   actualAge: z.number().int(),
   reportState: z.string(),
+  /** MM-V2-C24: f′c from the field report's specification (MPa), for the strength flags. */
+  specifiedStrengthMpa: z.number().nullable(),
   flags: z.array(z.enum(CONCRETE_WORKLIST_FLAGS)),
   result: concreteTestingTableResultSchema.nullable(),
   /** Entry complete (see `concreteTestEntryComplete`); never a completed test. */

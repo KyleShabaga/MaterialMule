@@ -1,4 +1,9 @@
-import type { ConcreteStrengthReportSnapshot } from '@materialmule/shared';
+import {
+  CONCRETE_STRENGTH_ASSESSMENT_LABEL,
+  CONCRETE_STRENGTH_FLAG_LABEL,
+  roundHalfUp,
+  type ConcreteStrengthReportSnapshot,
+} from '@materialmule/shared';
 import type { TestingMachineCopy } from './field-report-template.js';
 import {
   formatDate,
@@ -12,9 +17,16 @@ import {
 
 // MM-V2-C32: the concrete compressive strength report, template revision P1 (provisional design,
 // section 4), from C39's frozen version snapshot (`ConcreteStrengthReportSnapshot`), rendered at
-// each issue of a strength report (MM-V2-C39 wires it). Strength, area, averages
-// and the assessment print "—" until C24 delivers the approved method (G1/G8), whatever the
-// snapshot holds. No standard is named until the owner confirms one.
+// each issue of a strength report (MM-V2-C39 wires it). MM-V2-C24: strength, area, average
+// diameter / height, the per-age average and the advisory assessment print from the frozen
+// snapshot with the line "Calculation method P1 (provisional)"; a version frozen before C24 holds
+// nulls and prints "—" as before. No standard is named until the owner confirms one.
+
+/** The PDF's standard font has no U+2212 minus or prime: print plain ASCII for those. */
+const pdfSafe = (text: string) => text.replace(/−/g, '-').replace(/′/g, "'");
+
+/** Means print to 0.1 mm (display only; the snapshot keeps them unrounded). */
+const mm = (value: number | null) => (value === null ? null : roundHalfUp(value, 1));
 
 export const STRENGTH_STANDARDS_LINE = 'Test methods: [to be confirmed by owner]';
 
@@ -170,16 +182,16 @@ export async function renderStrengthReportPdf(
         age,
         formatDate(s.testedOn),
         formatNumber(s.actualAgeDays),
-        // G8 (readings, corrections, rounding) open: null until C24.
-        formatNumber(s.averageDiameter, dimensionUnit),
-        formatNumber(s.averageHeight, dimensionUnit),
-        // G1/G8 open: never computed or printed until C24.
-        MISSING,
+        formatNumber(mm(s.averageDiameter), dimensionUnit),
+        formatNumber(mm(s.averageHeight), dimensionUnit),
+        formatNumber(s.area, `${dimensionUnit}²`),
         formatNumber(s.maxLoad, loadUnit),
-        MISSING,
+        s.strength === null
+          ? MISSING
+          : `${s.strength.toFixed(1)} MPa${s.excluded ? ' (excluded)' : ''}`,
         formatText(s.fractureType),
         formatText(s.testedBy?.initials ?? s.testedBy?.name ?? null),
-        formatText(s.remarks),
+        formatText(remarksOf(s)),
       ];
     }),
     { empty: 'No specimens in this set.' },
@@ -197,13 +209,40 @@ export async function renderStrengthReportPdf(
       { header: 'Average strength', width: 2 },
       { header: 'Assessment', width: 3 },
     ],
-    // Both stay "—" until C24 delivers the approved method (G1/G8).
     snapshot.ages
       .filter((a) => a.testedCount > 0)
-      .map((a) => [String(a.ageDays), MISSING, MISSING]),
+      .map((a) => [
+        String(a.ageDays),
+        a.averageStrength === null
+          ? MISSING
+          : `${a.averageStrength.toFixed(1)} MPa${a.single ? ' (single specimen)' : ''}`,
+        a.assessment === null
+          ? MISSING
+          : pdfSafe(
+              CONCRETE_STRENGTH_ASSESSMENT_LABEL[a.assessment] +
+                (a.runningAverage !== null
+                  ? ` (running average ${a.runningAverage.toFixed(1)} MPa)`
+                  : ''),
+            ),
+      ]),
     { empty: 'No age tested yet.' },
   );
-  pdf.paragraph('Strength, area, averages and assessment are not calculated yet.', { muted: true });
+  const method = snapshot.calculation.method;
+  if (method) {
+    pdf.paragraph(method.line, { bold: true });
+    pdf.paragraph(pdfSafe(snapshot.calculation.note), { muted: true });
+  } else {
+    pdf.paragraph('Strength, area, averages and assessment are not calculated yet.', {
+      muted: true,
+    });
+  }
+  const excluded = snapshot.results.filter((r) => r.excluded);
+  for (const row of excluded) {
+    pdf.paragraph(
+      `${row.specimenLabel} excluded from the average by ${row.excluded!.by.name}: ${row.excluded!.reason}`,
+      { muted: true },
+    );
+  }
   pdf.paragraph(snapshot.standardsLine || STRENGTH_STANDARDS_LINE);
 
   if (input.includeMachineInfo) {
@@ -237,4 +276,11 @@ export async function renderStrengthReportPdf(
     ],
   ]);
   return pdf.finish();
+}
+
+/** The row's remarks with its unusual-measurement flags (values never change). */
+function remarksOf(row: ConcreteStrengthReportSnapshot['results'][number]): string | null {
+  const flags = row.flags.map((flag) => pdfSafe(CONCRETE_STRENGTH_FLAG_LABEL[flag]));
+  const parts = [...(row.remarks ? [row.remarks] : []), ...flags];
+  return parts.length > 0 ? parts.join('; ') : null;
 }

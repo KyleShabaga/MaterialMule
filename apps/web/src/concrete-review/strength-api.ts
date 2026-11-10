@@ -5,7 +5,9 @@ import {
   concreteStrengthReportDetailSchema,
   concreteStrengthReportListSchema,
   concreteStrengthReportSnapshotSchema,
+  concreteStrengthExclusionStateSchema,
   type ConcreteExceptionNoteList,
+  type ConcreteStrengthExclusionState,
   type ConcreteExceptionNoteRequest,
   type ConcreteReportAction,
   type ConcreteReportVersionList,
@@ -112,9 +114,33 @@ export function fetchStrengthReports(query: {
 }
 
 /** A plain sentence for a strength-report refusal (never echoes a value). */
+/** MM-V2-C24: exclude a specimen from its strength test (or reinstate it), with a reason. */
+export async function setStrengthExclusion(
+  specimenId: string,
+  excluded: boolean,
+  reason: string,
+): Promise<ConcreteStrengthExclusionState> {
+  const response = await apiFetch(
+    `/api/concrete/specimens/${encodeURIComponent(specimenId)}/strength-exclusion`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(), excluded, reason }),
+    },
+  );
+  if (!response.ok) throw await failure(response);
+  return concreteStrengthExclusionStateSchema.parse(await response.json());
+}
+
 export function strengthProblemText(error: unknown): string {
   if (error instanceof ReviewApiError) {
     switch (error.code) {
+      case 'own_result':
+        return 'You tested or entered this result. Another reviewer decides whether to exclude it.';
+      case 'result_on_strength_report':
+        return 'This specimen is on a submitted or issued strength report. Return, recall or revise the report first.';
+      case 'already_excluded':
+      case 'not_excluded':
+        return 'Someone changed this specimen while you had it open. Reload and try again.';
       case 'own_report':
         return 'You entered or tested these results alone. Someone else must review or issue this report.';
       case 'first_age_incomplete':

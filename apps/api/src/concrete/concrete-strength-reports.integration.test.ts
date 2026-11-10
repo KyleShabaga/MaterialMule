@@ -292,7 +292,11 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
         ageDays: 7,
         testedCount: 1,
         complete: true,
-        averageStrength: null,
+        // MM-V2-C24 (P1): one specimen, 51.9 MPa (see A below). This report's specification
+        // names no reference age, so nothing is assessed.
+        averageStrength: 51.9,
+        single: true,
+        assessment: null,
       }),
       expect.objectContaining({ ageDays: 28, testedCount: 0, complete: false, assessment: null }),
     ]);
@@ -304,9 +308,13 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
       actualAgeDays: 8,
       maxLoad: 410.2,
       heightReadings: [200.1, 200.3],
-      strength: null,
-      area: null,
-      averageDiameter: null,
+      // MM-V2-C24 (P1): d̄ = 100.3 mm, A = π × 100.3² / 4 = 7 901.18 mm² → 7 901 mm²,
+      // L/D = 200.2 / 100.3 = 2.00 (no correction), f = 410.2 kN / 7 901.18 mm² = 51.92 → 51.9 MPa.
+      strength: 51.9,
+      area: 7901,
+      calculationMethodVersion: 'P1',
+      correctionFactor: 1,
+      excluded: null,
       fractureType: null,
       remarks: 'Fictional break',
       testedBy: { userId: h.users.lm, initials: 'LM' },
@@ -321,6 +329,12 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
     expect(s.warnings).toEqual([
       expect.objectContaining({ code: 'strength_tested_off_target', field: 'results.A' }),
     ]);
+    expect(a.averageDiameter).toBeCloseTo(100.3, 10);
+    expect(s.calculation.method).toMatchObject({
+      version: 'P1',
+      provisional: true,
+      line: 'Calculation method P1 (provisional)',
+    });
   });
 
   it('AC2: a reported result is locked while submitted; later ages stay open', async () => {
@@ -328,6 +342,16 @@ describe.runIf(testDatabaseUrl)('concrete strength reports (MM-V2-C39)', () => {
     expect(locked.status).toBe(409);
     expect(locked.body.code).toBe('result_on_strength_report');
     expect(JSON.stringify(locked.body)).not.toContain('999');
+    // MM-V2-C24: so is excluding it from its strength test (the lead reviews strength here).
+    const specimenA = set.specimens.find((sp) => sp.letter === 'A')!;
+    const exclusion = await h
+      .http()
+      .put(`/api/concrete/specimens/${specimenA.id}/strength-exclusion`)
+      .set('Cookie', cookies.pe!)
+      .set(CSRF_HEADER, '1')
+      .send({ idempotencyKey: newKey(), excluded: true, reason: 'Defective specimen' });
+    expect(exclusion.status, JSON.stringify(exclusion.body)).toBe(409);
+    expect(exclusion.body.code).toBe('result_on_strength_report');
   });
 
   it('AC3: the sole tester / entrant never reviews or issues; queue and notes work', async () => {

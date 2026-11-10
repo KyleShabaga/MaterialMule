@@ -9,6 +9,7 @@ import {
   fieldRenderInput,
   FIELD_SNAPSHOT,
   STRENGTH_SNAPSHOT,
+  STRENGTH_SNAPSHOT_P1,
   SUMMARY_SNAPSHOT,
 } from '../../test-support/concrete-report-fixtures.js';
 import { pdfPageCount, pdfText } from '../../test-support/pdf-text.js';
@@ -166,8 +167,25 @@ describe('strength report template P1 (design section 4, unwired until C39)', ()
     expect(text).toContain('HOLD');
     expect(text).toContain(STRENGTH_STANDARDS_LINE);
     expect(text).toContain('Strength report template P1');
-    // G1/G8 open: no MPa result, area or assessment is printed.
+    // A version frozen before C24: no MPa result, area or assessment is printed.
     expect(text).not.toMatch(/\d MPa\b(?! at)/);
+    expect(text).toContain('not calculated yet');
+    expect(text).not.toContain('Calculation method');
+  });
+
+  it('MM-V2-C24: prints the P1 values, the assessment and the method line', async () => {
+    const text = pdfText(await render(STRENGTH_SNAPSHOT_P1))
+      .split('\n')
+      .join(' ');
+    expect(text).toContain('Calculation method P1 (provisional)');
+    expect(text).toContain('24.8 MPa');
+    expect(text).toContain('8107 mm²');
+    expect(text).toContain('101.6 mm');
+    expect(text).toContain('single specimen');
+    expect(text).toContain('Information only');
+    expect(text).not.toContain('not calculated yet');
+    // Never an invented value for the untested 28-day specimen.
+    expect(text).not.toContain('0.0 MPa');
   });
 });
 

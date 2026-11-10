@@ -279,6 +279,11 @@ export class ConcreteStrengthReportsService {
       latestIssuedVersionNo: report?.last_issued_version ?? null,
       selfReviewUserIds: selfReview,
       allowedActions: allowed,
+      canExclude:
+        user.accountType !== 'shared_lab' &&
+        ['not_started', 'draft', 'returned'].includes(state) &&
+        !(set.voided || set.report_void) &&
+        can(user, 'concrete.review', context),
     };
   }
 

@@ -1,5 +1,7 @@
 import {
   CONCRETE_EXCEPTION_LABEL,
+  CONCRETE_STRENGTH_ASSESSMENT_LABEL,
+  CONCRETE_STRENGTH_FLAG_LABEL,
   CONCRETE_STRENGTH_REPORT_STATE_LABEL,
   CONCRETE_STRENGTH_SUBMIT_BLOCKER_MESSAGE,
   formatPerson,
@@ -25,15 +27,18 @@ import {
   fetchStrengthSnapshot,
   fetchStrengthVersions,
   sendStrengthCommand,
+  setStrengthExclusion,
   strengthProblemText,
 } from './strength-api';
 import './review.css';
 
 // MM-V2-C39: a concrete compressive strength report (provisional design, G2 section 4): one per
-// specimen set, cumulative. The set block and results table as the report prints them (strength,
-// area, averages and assessment "—" until C24), the lifecycle commands the server allows (lab
-// staff submit; a reviewer reviews or returns; an issuer issues; revise after issue), and the
-// exceptions a reviewer documents before Mark reviewed.
+// specimen set, cumulative. The set block and results table as the report prints them, the
+// lifecycle commands the server allows (lab staff submit; a reviewer reviews or returns; an issuer
+// issues; revise after issue), and the exceptions a reviewer documents before Mark reviewed.
+// MM-V2-C24: strength, area, the per-age average and the advisory assessment come from the
+// provisional method P1 (the method line shows which); a strength reviewer can exclude a specimen
+// from its strength test, with a reason, before the report is submitted.
 
 const dash = (value: string | number | null | undefined) =>
   value === null || value === undefined || value === '' ? '—' : String(value);
@@ -67,7 +72,16 @@ function resultStatus(row: ConcreteStrengthResultRow): string {
   return 'Tested';
 }
 
-export function StrengthReportBody({ snapshot }: { snapshot: ConcreteStrengthReportSnapshot }) {
+const mpa = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} MPa`);
+
+export function StrengthReportBody({
+  snapshot,
+  onExclude,
+}: {
+  snapshot: ConcreteStrengthReportSnapshot;
+  /** Offered on the live preview to a strength reviewer (MM-V2-C24). */
+  onExclude?: (row: ConcreteStrengthResultRow) => void;
+}) {
   const s = snapshot.set;
   const elements = [
     ...s.structureElements,
@@ -81,6 +95,11 @@ export function StrengthReportBody({ snapshot }: { snapshot: ConcreteStrengthRep
           <p className="review-preview-notice">
             Rev {snapshot.revNo}, supersedes Rev {snapshot.revision.supersedesRevNo} issued{' '}
             {snapshot.revision.supersedesIssuedAt.slice(0, 10)}: {snapshot.revision.reason}
+          </p>
+        ) : null}
+        {snapshot.calculation.method ? (
+          <p className="review-preview-notice">
+            <strong>{snapshot.calculation.method.line}</strong>
           </p>
         ) : null}
         <p className="review-preview-notice">{snapshot.calculation.note}</p>
@@ -140,6 +159,7 @@ export function StrengthReportBody({ snapshot }: { snapshot: ConcreteStrengthRep
                 <th scope="col">Fracture</th>
                 <th scope="col">Tested by</th>
                 <th scope="col">Remarks</th>
+                {onExclude ? <th scope="col">Strength test</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -153,12 +173,45 @@ export function StrengthReportBody({ snapshot }: { snapshot: ConcreteStrengthRep
                   <td>{dash(row.actualAgeDays)}</td>
                   <td>{row.diameterReadings.length ? row.diameterReadings.join(', ') : '—'}</td>
                   <td>{row.heightReadings.length ? row.heightReadings.join(', ') : '—'}</td>
-                  <td>—</td>
+                  <td>{row.area === null ? '—' : `${row.area} mm²`}</td>
                   <td>{dash(row.maxLoad)}</td>
-                  <td>—</td>
+                  <td>
+                    <span className={row.excluded ? 'review-struck' : undefined}>
+                      {mpa(row.strength)}
+                    </span>
+                    {row.calculationMethodVersion ? (
+                      <span className="review-muted"> ({row.calculationMethodVersion})</span>
+                    ) : null}
+                    {row.excluded ? (
+                      <span className="review-muted">
+                        {' '}
+                        Excluded: {row.excluded.reason} ({row.excluded.by.name})
+                      </span>
+                    ) : null}
+                  </td>
                   <td>{dash(row.fractureType)}</td>
                   <td>{dash(row.testedBy?.initials ?? row.testedBy?.name)}</td>
-                  <td>{dash(row.remarks)}</td>
+                  <td>
+                    {dash(row.remarks)}
+                    {row.flags.map((flag) => (
+                      <StatusBadge key={flag} tone="warning">
+                        {CONCRETE_STRENGTH_FLAG_LABEL[flag]}
+                      </StatusBadge>
+                    ))}
+                  </td>
+                  {onExclude ? (
+                    <td>
+                      {row.status === 'tested' || row.excluded ? (
+                        <button
+                          type="button"
+                          aria-label={`${row.excluded ? 'Reinstate' : 'Exclude'} ${row.specimenLabel}`}
+                          onClick={() => onExclude(row)}
+                        >
+                          {row.excluded ? 'Reinstate' : 'Exclude'}
+                        </button>
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -168,10 +221,25 @@ export function StrengthReportBody({ snapshot }: { snapshot: ConcreteStrengthRep
           {snapshot.ages.map((age) => (
             <li key={age.ageDays}>
               {age.ageDays} d: {age.testedCount} of {age.specimenCount} tested
-              {age.complete ? '' : ' (incomplete)'} · average strength — · assessment —
+              {age.complete ? '' : ' (incomplete)'} · average strength {mpa(age.averageStrength)}
+              {age.single ? ' (single specimen)' : ''} · assessment{' '}
+              {age.assessment ? (
+                <StatusBadge tone={age.failed ? 'danger' : 'neutral'}>
+                  {CONCRETE_STRENGTH_ASSESSMENT_LABEL[age.assessment]}
+                </StatusBadge>
+              ) : (
+                '—'
+              )}
+              {age.runningAverage !== null ? ` · running average ${mpa(age.runningAverage)}` : ''}
             </li>
           ))}
         </ul>
+        {snapshot.calculation.method ? (
+          <p className="field-hint">
+            The assessment is advisory, for the reviewer: never acceptance. Only the reference age
+            is assessed; other ages are information only.
+          </p>
+        ) : null}
         <p className="field-hint">
           {snapshot.standardsLine} Units as entered ({snapshot.units.load},{' '}
           {snapshot.units.dimension}
@@ -259,6 +327,7 @@ export function StrengthReportPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const [dialog, setDialog] = useState<'return' | 'revise' | null>(null);
+  const [excluding, setExcluding] = useState<ConcreteStrengthResultRow | null>(null);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [performer, setPerformer] = useState('');
 
@@ -427,7 +496,10 @@ export function StrengthReportPage() {
       </section>
 
       <div className="review-layout">
-        <StrengthReportBody snapshot={shown} />
+        <StrengthReportBody
+          snapshot={shown}
+          onExclude={detail.canExclude && shown === detail.preview ? setExcluding : undefined}
+        />
         <div className="review-side">
           <section aria-label="Exceptions">
             <h2 className="review-subhead">Exceptions</h2>
@@ -465,6 +537,38 @@ export function StrengthReportPage() {
           ) : null}
         </div>
       </div>
+
+      <CommentDialog
+        open={excluding !== null}
+        title={
+          excluding?.excluded ? 'Reinstate in the strength test' : 'Exclude from the strength test'
+        }
+        label="Reason"
+        hint={
+          excluding?.excluded
+            ? 'The specimen counts in its age’s average again.'
+            : 'The specimen stays listed, struck from its age’s average (e.g. defective specimen).'
+        }
+        confirmLabel={excluding?.excluded ? 'Reinstate' : 'Exclude'}
+        busy={busy}
+        error={message?.error ? message.text : null}
+        onConfirm={(reason) => {
+          const row = excluding!;
+          setBusy(true);
+          setMessage(null);
+          void setStrengthExclusion(row.specimenId, !row.excluded, reason)
+            .then(() => {
+              setExcluding(null);
+              setMessage({ error: false, text: 'Saved.' });
+              setAttempt((n) => n + 1);
+            })
+            .catch((error: unknown) =>
+              setMessage({ error: true, text: strengthProblemText(error) }),
+            )
+            .finally(() => setBusy(false));
+        }}
+        onCancel={() => setExcluding(null)}
+      />
 
       <CommentDialog
         open={dialog !== null}

@@ -331,3 +331,8 @@
     max-width: none;
   }
 }
+
+/* MM-V2-C24: an excluded specimen stays listed, struck from its age's average. */
+.review-struck {
+  text-decoration: line-through;
+}

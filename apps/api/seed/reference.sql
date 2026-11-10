@@ -112,3 +112,21 @@ BEGIN
   ON CONFLICT DO NOTHING;
 END
 $$;
+
+-- MM-V2-C24: concrete strength calculation methods. P1 is PROVISIONAL (owner direction
+-- 2026-11-09, design page section 6) and current until the office worksheet arrives as a new
+-- version. A version row never changes once inserted; only which one is current moves (by a
+-- later migration or seed, never here: ON CONFLICT leaves an existing row alone).
+DO $$
+BEGIN
+  IF to_regclass('concrete_calculation_method') IS NULL THEN
+    RETURN;
+  END IF;
+  INSERT INTO concrete_calculation_method (method, version, name, provisional, source, is_current)
+  SELECT 'compressive_strength', 'P1', 'Calculation method P1 (provisional)', true,
+         'V2 Concrete — Provisional report designs (G2, 2026-11-09), section 6',
+         NOT EXISTS (SELECT 1 FROM concrete_calculation_method
+                     WHERE method = 'compressive_strength' AND is_current)
+  ON CONFLICT DO NOTHING;
+END
+$$;

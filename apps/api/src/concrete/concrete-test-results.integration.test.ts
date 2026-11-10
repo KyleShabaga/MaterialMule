@@ -129,7 +129,7 @@ describe.runIf(testDatabaseUrl)('concrete test results (MM-V2-C07)', () => {
     await h?.close();
   });
 
-  it('AC1/AC5: a partial draft persists as a draft, with provisional units and no strength or method', async () => {
+  it('AC1/AC5: a partial draft persists as a draft, with provisional units, its method version and no calculation', async () => {
     const resultId = randomUUID();
     const saved = await save(specimenA, resultId, { version: 0, maxLoad: 412.5 });
     expect(saved.created).toBe(true);
@@ -148,8 +148,11 @@ describe.runIf(testDatabaseUrl)('concrete test results (MM-V2-C07)', () => {
       notes: null,
       // No testing machine is registered here, and none is required.
       testingMachineId: null,
-      calculationMethod: null,
-      calculationMethodVersion: null,
+      // MM-V2-C24: the attempt takes the current method for good; nothing is calculated from a
+      // partial entry.
+      calculationMethod: 'compressive_strength',
+      calculationMethodVersion: 'P1',
+      calculation: null,
       reportVersionId: null,
       version: 1,
     });
@@ -165,9 +168,9 @@ describe.runIf(testDatabaseUrl)('concrete test results (MM-V2-C07)', () => {
       maxLoad: { before: null, after: 412.5 },
       tester: { before: null, after: { userId: ltId } },
     });
-    // Nothing anywhere claims a strength or a completed test.
+    // Nothing claims a completed test or a pass / fail.
     const text = JSON.stringify(saved.result);
-    expect(text).not.toMatch(/strength|completed|pass|fail/i);
+    expect(text).not.toMatch(/completed|pass|fail/i);
 
     // Read back by anyone with the internal read, LAB included.
     const one = await get(path(specimenA, resultId), 'lab');

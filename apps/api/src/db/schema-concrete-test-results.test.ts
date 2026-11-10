@@ -120,7 +120,7 @@ describe.runIf(testDatabaseUrl)('concrete test results (MM-V2-C07, migration 002
     });
   });
 
-  it('AC5: no completed state, unverified unit, calculation method or report link can be stored', async () => {
+  it('AC5: no completed state, unverified unit, half a calculation method or report link can be stored', async () => {
     await expect(result({ state: 'completed' })).rejects.toMatchObject(REJECT);
     await expect(result({ load_unit: 'lbf' })).rejects.toMatchObject(REJECT);
     await expect(result({ dimension_unit: 'in' })).rejects.toMatchObject(REJECT);

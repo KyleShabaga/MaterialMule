@@ -1,5 +1,6 @@
 import {
   CONCRETE_STRENGTH_CALCULATION_NOTE,
+  CONCRETE_STRENGTH_P1_NOTE,
   CONCRETE_STRENGTH_STANDARDS_LINE,
   CONCRETE_STRENGTH_WARNING_MESSAGE,
   concreteDaysBetween,
@@ -16,6 +17,8 @@ import type { Pool, PoolClient } from 'pg';
 import type { ProjectContext } from '../auth/policy.js';
 import { projectContext } from '../project-access/project-access.service.js';
 import { peopleOf } from './concrete-report-lifecycle.read.js';
+import { currentMethod, findMethod, methodOf } from './concrete-strength.calc.js';
+import { strengthTestsOf } from './concrete-strength-tests.read.js';
 
 // MM-V2-C39: reading a specimen set as a strength report (design section 4) and the strength
 // report row. Shared by the detail, the list and the lifecycle commands, so a version freezes
@@ -197,9 +200,10 @@ const numberOrNull = (value: string | null) => (value === null ? null : Number(v
 
 /**
  * The set as a strength report now (design section 4): the set block, one row per specimen
- * with its latest attempt, the per-age lines and the exceptions. Strength, area, averages and
- * assessment are null (C24). Version-specific parts (version and rev numbers, revision) are the
- * caller's.
+ * with its latest attempt, the per-age lines and the exceptions. MM-V2-C24: each tested row
+ * carries its stored calculation (method version, raw and rounded values, flags, exclusion) and
+ * each age line its strength test and advisory assessment. Version-specific parts (version and
+ * rev numbers, revision) are the caller's.
  */
 export async function buildStrengthSnapshot(
   db: Db,
@@ -214,6 +218,8 @@ export async function buildStrengthSnapshot(
 ): Promise<ConcreteStrengthReportSnapshot> {
   const today = meta.today ?? concreteLabToday();
   const specimens = await specimensOf(db, set.id);
+  const strength = await strengthTestsOf(db, [set.id]);
+  const bySpecimen = new Map(strength.specimens.map((sp) => [sp.specimenId, sp]));
   const extras = await setExtrasOf(db, set.id);
   const lead = set.lead_project_engineer_user_id
     ? ((await peopleOf(db, [set.lead_project_engineer_user_id])).get(
@@ -233,6 +239,8 @@ export async function buildStrengthSnapshot(
     const heights = (sp.height_readings ?? []).map(Number);
     const diameters = (sp.diameter_readings ?? []).map(Number);
     const maxLoad = numberOrNull(sp.max_load);
+    const facts = bySpecimen.get(sp.id);
+    const calc = facts?.calculation ?? null;
     const complete =
       sp.result_id !== null &&
       concreteTestEntryComplete({
@@ -276,11 +284,17 @@ export async function buildStrengthSnapshot(
           : null,
       heightReadings: heights,
       diameterReadings: diameters,
-      averageDiameter: null,
-      averageHeight: null,
-      area: null,
+      averageDiameter: complete ? (calc?.meanDiameter ?? null) : null,
+      averageHeight: complete ? (calc?.meanHeight ?? null) : null,
+      area: complete ? (calc?.area ?? null) : null,
       maxLoad,
-      strength: null,
+      strength: complete ? (calc?.strength ?? null) : null,
+      strengthRaw: complete ? (calc?.strengthRaw ?? null) : null,
+      ldRatio: complete ? (calc?.ldRatio ?? null) : null,
+      correctionFactor: complete ? (calc?.correctionFactor ?? null) : null,
+      calculationMethodVersion: complete ? (calc?.methodVersion ?? null) : null,
+      flags: complete ? (facts?.flags ?? []) : [],
+      excluded: facts?.excluded ?? null,
       fractureType: null,
       testedBy: tester,
       enteredBy: [...(sp.entered_by ?? [])].sort((a, b) => a.userId.localeCompare(b.userId)),
@@ -305,7 +319,28 @@ export async function buildStrengthSnapshot(
       });
     }
   }
-  const ages = concreteStrengthAgeLines(results);
+  const ages = concreteStrengthAgeLines(results).map((age) => {
+    const test = strength.lines.find((l) => l.ageDays === age.ageDays);
+    return test && age.complete
+      ? {
+          ...age,
+          averageStrength: test.average,
+          assessment: test.assessment,
+          countedCount: test.count,
+          single: test.single,
+          runningAverage: test.runningAverage,
+          failed: test.failed,
+        }
+      : age;
+  });
+  // The method line: the version the reported values use (the current one before any).
+  const versions = [
+    ...new Set(
+      results.flatMap((r) => (r.calculationMethodVersion ? [r.calculationMethodVersion] : [])),
+    ),
+  ];
+  const methodRow =
+    versions.length === 1 ? await findMethod(db, versions[0]!) : await currentMethod(db);
   const unitSource = specimens.find((sp) => sp.load_unit !== null);
   return {
     kind: 'strength',
@@ -349,6 +384,13 @@ export async function buildStrengthSnapshot(
     agesReported: ages.filter((a) => a.complete).map((a) => a.ageDays),
     warnings,
     standardsLine: CONCRETE_STRENGTH_STANDARDS_LINE,
-    calculation: { method: null, note: CONCRETE_STRENGTH_CALCULATION_NOTE },
+    calculation: methodRow
+      ? {
+          method: methodOf(methodRow),
+          note: methodRow.provisional
+            ? CONCRETE_STRENGTH_P1_NOTE
+            : 'The assessment is an advisory flag for the reviewer, not acceptance.',
+        }
+      : { method: null, note: CONCRETE_STRENGTH_CALCULATION_NOTE },
   };
 }

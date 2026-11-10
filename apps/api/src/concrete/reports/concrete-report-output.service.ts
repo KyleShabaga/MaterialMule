@@ -536,6 +536,25 @@ export class ConcreteReportOutputService {
        FROM concrete_specimen sp WHERE sp.set_id = ANY($1::uuid[])`,
       [sets.map((s) => s.id)],
     );
+    // MM-V2-C24: the latest issued strength version of each set (only issued values print).
+    const { rows: issuedStrength } = await db.query<{
+      set_id: string;
+      snapshot: {
+        agesReported?: number[];
+        ages?: { ageDays: number; averageStrength: number | null }[];
+      };
+    }>(
+      `SELECT sr.specimen_set_id AS set_id, v.snapshot
+       FROM concrete_strength_report sr
+       CROSS JOIN LATERAL (
+         SELECT lv.snapshot FROM concrete_report_version lv
+         WHERE lv.strength_report_id = sr.id AND lv.state = 'issued'
+         ORDER BY lv.version_no DESC LIMIT 1
+       ) v
+       WHERE sr.specimen_set_id = ANY($1::uuid[])`,
+      [sets.map((s) => s.id)],
+    );
+    const issuedBySet = new Map(issuedStrength.map((row) => [row.set_id, row.snapshot]));
     const ages = [
       ...new Set(
         specimens
@@ -550,14 +569,21 @@ export class ConcreteReportOutputService {
       const cells: Record<string, ConcreteSummaryAgeCell> = {};
       for (const age of ages) {
         const at = own.filter((s) => s.assigned_age === String(age));
-        // Only issued strength values print (C39/C24); none exist yet, so a tested specimen is
-        // pending review.
+        // Only issued strength values print (C39/C24): an age the latest issued strength version
+        // reports prints its frozen average ("—" on a version frozen before C24); a tested age not
+        // yet issued is pending review.
+        const issued = issuedBySet.get(set.id);
+        const issuedLine = issued?.agesReported?.includes(age)
+          ? (issued.ages?.find((line) => line.ageDays === age) ?? null)
+          : null;
         cells[String(age)] =
           at.length === 0
             ? { status: 'not_scheduled' }
-            : at.some((s) => s.tested)
-              ? { status: 'pending_review' }
-              : { status: 'untested' };
+            : issuedLine
+              ? { status: 'issued', averageMpa: issuedLine.averageStrength ?? null }
+              : at.some((s) => s.tested)
+                ? { status: 'pending_review' }
+                : { status: 'untested' };
       }
       const issued = set.issued_snapshot;
       const f: ConcreteFieldReportFields | null = issued?.fields ?? null;
