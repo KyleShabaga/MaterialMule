@@ -62,9 +62,6 @@ interface QueueRowSql {
   workflow_state: string;
 }
 
-/** Each search branch reads at most this many candidates before ranking (bounded). */
-const BRANCH_LIMIT = 500;
-
 interface SearchCandidate {
   report_id: string;
   rank: number;
@@ -245,8 +242,9 @@ export class ConcreteLabService {
       });
     }
 
-    // Each branch is bounded, then the candidates are ranked per report: the best match first,
-    // then the latest casting.
+    // Every match is ranked per report before paging (the best match first, then the latest
+    // casting, then the ID), so the total and every page cover all matches. The counts row is
+    // always returned, even for a page past the end.
     const params: unknown[] = [];
     const union = branches
       .map((branch) => {
@@ -255,30 +253,50 @@ export class ConcreteLabService {
           (_, n: string) => `$${Number(n) + params.length}`,
         );
         params.push(...branch.params);
-        return `(${sql} LIMIT ${BRANCH_LIMIT})`;
+        return `(${sql})`;
       })
       .join(' UNION ALL ');
     const rankCase = `CASE c.match ${CONCRETE_SEARCH_MATCHES.map(
       (m) => `WHEN '${m}' THEN ${rankOf(m)}`,
     ).join(' ')} END`;
-    const { rows: candidates } = await db.query<SearchCandidate & { cast_at: Date | null }>(
-      `SELECT c.report_id, min(${rankCase})::int AS rank,
-              array_agg(DISTINCT c.match) AS matches,
-              array_agg(DISTINCT c.set_id) FILTER (WHERE c.set_id IS NOT NULL) AS set_ids,
-              r.cast_at
-       FROM (${union}) c JOIN concrete_field_report r ON r.id = c.report_id
-       GROUP BY c.report_id, r.cast_at`,
+    const offset = (query.page - 1) * query.pageSize;
+    const { rows: ranked } = await db.query<
+      { [K in keyof SearchCandidate]: SearchCandidate[K] | null } & {
+        total: number;
+        projects: number;
+      }
+    >(
+      `WITH ranked AS (
+         SELECT c.report_id, min(${rankCase})::int AS rank,
+                array_agg(DISTINCT c.match) AS matches,
+                array_agg(DISTINCT c.set_id) FILTER (WHERE c.set_id IS NOT NULL) AS set_ids,
+                r.cast_at, r.project_id
+         FROM (${union}) c JOIN concrete_field_report r ON r.id = c.report_id
+         GROUP BY c.report_id, r.cast_at, r.project_id
+       ),
+       counts AS (
+         SELECT count(*)::int AS total, count(DISTINCT project_id)::int AS projects FROM ranked
+       ),
+       page AS (
+         SELECT * FROM ranked ORDER BY rank, cast_at DESC NULLS LAST, report_id
+         LIMIT ${query.pageSize} OFFSET ${offset}
+       )
+       SELECT counts.total, counts.projects, page.report_id, page.rank, page.matches,
+              page.set_ids
+       FROM counts LEFT JOIN page ON true
+       ORDER BY page.rank, page.cast_at DESC NULLS LAST, page.report_id`,
       params,
     );
-    candidates.sort(
-      (a, b) =>
-        a.rank - b.rank ||
-        (b.cast_at?.getTime() ?? -Infinity) - (a.cast_at?.getTime() ?? -Infinity) ||
-        a.report_id.localeCompare(b.report_id),
-    );
-    const total = candidates.length;
-    const offset = (query.page - 1) * query.pageSize;
-    const page = candidates.slice(offset, offset + query.pageSize);
+    const total = ranked[0]?.total ?? 0;
+    const projects = ranked[0]?.projects ?? 0;
+    const page: SearchCandidate[] = ranked
+      .filter((row) => row.report_id !== null)
+      .map((row) => ({
+        report_id: row.report_id!,
+        rank: row.rank!,
+        matches: row.matches!,
+        set_ids: row.set_ids,
+      }));
 
     const ids = page.map((c) => c.report_id);
     const { rows: reports } = await db.query<SearchReportSql>(
@@ -306,11 +324,6 @@ export class ConcreteLabService {
        FROM concrete_specimen_set st WHERE st.field_report_id = ANY($1::uuid[])
        ORDER BY st.permanent_number NULLS LAST, st.temporary_id NULLS LAST, st.created_at, st.id`,
       [ids],
-    );
-    const { rows: projectCount } = await db.query<{ n: number }>(
-      `SELECT count(DISTINCT project_id)::int AS n FROM concrete_field_report
-       WHERE id = ANY($1::uuid[])`,
-      [candidates.map((c) => c.report_id)],
     );
     const people = await peopleOf(
       db,
@@ -353,7 +366,7 @@ export class ConcreteLabService {
       total,
       page: query.page,
       pageSize: query.pageSize,
-      projectCount: projectCount[0]?.n ?? 0,
+      projectCount: projects,
       items,
     };
   }
