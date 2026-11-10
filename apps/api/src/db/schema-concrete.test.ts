@@ -462,7 +462,7 @@ describe.runIf(testDatabaseUrl)('concrete domain roots (MM-V2-C01, migration 001
       );
     });
 
-    it('refuses an issued report without the version it last issued (migration 0034)', async () => {
+    it('refuses an issued report without the version it last issued (migration 0035)', async () => {
       const issued = {
         workflow_state: 'reviewed',
         submitted_at: '2026-11-07T16:00:00Z',
