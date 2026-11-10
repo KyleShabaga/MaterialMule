@@ -839,7 +839,7 @@ owns which fields: [concrete.md](concrete.md).
   database": existing sets and specimens gain blank detail, storage-unit counters and every other
   table unchanged).
 
-## Concrete strength issued lock (review fix, `0035_concrete_strength_issued_lock.sql`)
+## Concrete strength issued lock (review fix, `0034_concrete_strength_issued_lock.sql`)
 
 - `concrete_strength_specimen_locked(specimen)`: locked while the latest strength version reports
   the specimen and the report is submitted or reviewed (0032), or while the latest issued version

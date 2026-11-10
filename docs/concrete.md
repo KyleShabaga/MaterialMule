@@ -803,7 +803,7 @@ office examples arrive.
   tested is locked while the strength report is submitted, reviewed or issued (trigger
   `concrete_test_result_reported`; C07's save answers 409 `result_on_strength_report`). The
   results the latest issued version reports also stay locked until a revise of that issued
-  version (0035): recalling or returning a later-age submission reopens only the new age.
+  version (0034): recalling or returning a later-age submission reopens only the new age.
   C24's exclusions follow the same rule. Later ages stay open. Submit takes the set FOR UPDATE, which C07's save also takes, so nothing changes
   while a version is frozen. A new attempt for a reported specimen is a correction too.
 - **No self-review (AC3, mirrors the field-report technician rule).** The only tester of the
