@@ -20,6 +20,7 @@ import {
   type LabHarness,
   type PersonKey,
 } from '../test-support/lab-harness.js';
+import { lockWaiters } from '../test-support/lock-waiters.js';
 
 // MM-V2-C26: HOLD management, bulk HOLD actions and disposal (card AC1–AC3; test plan T1). Real
 // PostgreSQL, direct API calls. Fictional data only: DEMO-2601 (A) and DEMO-2602 (B), both led by
@@ -554,6 +555,66 @@ describe.runIf(testDatabaseUrl)('concrete HOLD management and disposal (MM-V2-C2
     expect(
       concreteHoldActionResultSchema.parse(self.body).rows[0]!.disposal!.disposedBy,
     ).toMatchObject({ userId: h.users.lm });
+  });
+
+  it('review fix (PR #145): identical HOLD commands raced on the specimen locks replay one command', async () => {
+    const pair = [(await heldSpecimen(reportA)).hold, (await heldSpecimen(reportA)).hold];
+    /** Fires the same command twice while the specimens are locked, then lets both run. */
+    async function race(url: string, body: Record<string, unknown>, as: Caller) {
+      const blocker = await h.db.pool.connect();
+      try {
+        await blocker.query('BEGIN');
+        await blocker.query(
+          'SELECT 1 FROM concrete_specimen WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE',
+          [pair],
+        );
+        const pending = [post(url, body, as), post(url, body, as)];
+        await lockWaiters(h.db.pool, blocker, 2);
+        await blocker.query('COMMIT');
+        const responses = await Promise.all(pending);
+        for (const response of responses) {
+          expect(response.status, JSON.stringify(response.body)).toBe(200);
+        }
+        const [first, second] = responses.map((r) => concreteHoldActionResultSchema.parse(r.body));
+        expect(second!.commandId).toBe(first!.commandId);
+        return first!;
+      } finally {
+        blocker.release();
+      }
+    }
+
+    const before = await tallies();
+    const authorized = await race(
+      '/api/concrete/holds/authorize-disposal',
+      { idempotencyKey: newKey(), items: await items(pair), reason: 'Spare cylinders not needed' },
+      'lm',
+    );
+    expect(authorized.rows.map((r) => r.status)).toEqual([
+      'disposal_authorized',
+      'disposal_authorized',
+    ]);
+    const afterAuthorize = await tallies();
+    expect(afterAuthorize).toMatchObject({
+      disposals: (before.disposals as number) + 2,
+      disposed: before.disposed,
+      commands: (before.commands as number) + 1,
+      audit: (before.audit as number) + 2,
+    });
+
+    const at = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    const removed = await race(
+      '/api/concrete/disposal/record',
+      { idempotencyKey: newKey(), specimenIds: pair, disposedAt: at },
+      'lm',
+    );
+    expect(removed.commandId).not.toBe(authorized.commandId);
+    expect(removed.rows.map((r) => r.status)).toEqual(['disposed', 'disposed']);
+    expect(await tallies()).toMatchObject({
+      disposals: afterAuthorize.disposals,
+      disposed: (afterAuthorize.disposed as number) + 2,
+      commands: (afterAuthorize.commands as number) + 1,
+      audit: (afterAuthorize.audit as number) + 2,
+    });
   });
 
   it('the database ties an authorization to the hold it releases', async () => {

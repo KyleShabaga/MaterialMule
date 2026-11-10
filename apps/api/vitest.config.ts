@@ -16,6 +16,10 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
+    // Database tests build fully migrated schemas (30+ migrations), some inside the test body
+    // (migration-on-populated-data checks). The 5 s / 10 s defaults ran out on loaded CI runners.
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
     env: testDatabaseUrl ? { TEST_DATABASE_URL: testDatabaseUrl } : {},
   },
 });
