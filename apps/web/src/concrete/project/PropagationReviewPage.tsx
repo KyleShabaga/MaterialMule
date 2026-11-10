@@ -6,7 +6,7 @@ import {
   type ConcreteMixPropagationPreview,
 } from '@materialmule/shared';
 import { useId, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, Navigate, useParams } from 'react-router';
 import {
   BandedCard,
   ConfirmDialog,
@@ -15,7 +15,7 @@ import {
   TableScroll,
 } from '../../components/ui';
 import { ConcreteApiError, applyPropagation, concreteProblem, fetchPropagation } from './api';
-import { mixPath } from './paths';
+import { mixPath, propagationPath } from './paths';
 import { propagationValue } from './mix-format';
 import { ConcreteFrame } from './ProjectConcretePage';
 import { useLoad } from './useLoad';
@@ -49,12 +49,12 @@ export function PropagationReviewPage() {
       title="Mix propagation review"
       back={<Link to={mixPath(projectId, mixId)}>← Back to the mix</Link>}
     >
-      {() => <PropagationReview mixId={mixId} />}
+      {() => <PropagationReview projectId={projectId} mixId={mixId} />}
     </ConcreteFrame>
   );
 }
 
-function PropagationReview({ mixId }: { mixId: string }) {
+function PropagationReview({ projectId, mixId }: { projectId: string; mixId: string }) {
   const id = useId();
   const { load, reload, replace } = useLoad(`propagation|${mixId}`, () => fetchPropagation(mixId));
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -69,6 +69,10 @@ function PropagationReview({ mixId }: { mixId: string }) {
     return <ErrorState message={concreteProblem(load.error)} onRetry={reload} />;
   }
   const preview = load.data;
+  // As the mix page: under another project's address, go to the mix's own project.
+  if (preview.projectId !== projectId) {
+    return <Navigate replace to={propagationPath(preview.projectId, preview.mixId)} />;
+  }
   const eligible = preview.items.filter((i) => i.eligible);
   const chosen = eligible.filter((i) => selected.has(i.itemId));
 
