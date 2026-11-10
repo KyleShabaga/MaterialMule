@@ -183,4 +183,54 @@ describe.runIf(testDatabaseUrl)('concrete testing table (MM-V2-C23)', () => {
     expect(bad.status).toBe(400);
     expect(JSON.stringify(bad.body)).not.toContain('maybe');
   });
+
+  it('lists every project whatever the row limit, and reads a chosen project on its own', async () => {
+    // Cast Monday 7 Dec 2026: on 4 Jan 2027 (with overdue) each set lists A (7 d, overdue), B
+    // and C (28 d). 168 sets in DEMO-2601 fill the 500-row limit; DEMO-2602 comes after it.
+    const castOn = async (projectId: string) => {
+      const report = await h.send(
+        'post',
+        `/api/concrete/projects/${projectId}/field-reports`,
+        {
+          idempotencyKey: newKey(),
+          material: 'concrete',
+          specimensCast: true,
+          castAt: '2026-12-07T09:15:00-07:00',
+        },
+        cookies.tech!,
+      );
+      expect(report.status, JSON.stringify(report.body)).toBe(201);
+      return concreteFieldReportDetailSchema.parse(report.body).id;
+    };
+    const addSet = async (reportId: string) => {
+      const set = await h.send(
+        'post',
+        `/api/concrete/field-reports/${reportId}/specimen-sets`,
+        { idempotencyKey: newKey() },
+        cookies.tech!,
+      );
+      expect(set.status, JSON.stringify(set.body)).toBe(201);
+      return concreteSpecimenSetDetailSchema.parse(set.body);
+    };
+    const bulk = await castOn(h.projects.a);
+    for (let i = 0; i < 168; i += 1) await addSet(bulk);
+    const other = await addSet(await castOn(h.projects.b));
+
+    const all = await table('on=2027-01-04&includeOverdue=true');
+    expect(all.truncated).toBe(true);
+    expect(all.groups.map((g) => g.projectNumber)).toEqual(['DEMO-2601']);
+    expect(all.projects.map((p) => p.projectNumber)).toEqual(['DEMO-2601', 'DEMO-2602']);
+
+    const chosen = await table(`on=2027-01-04&includeOverdue=true&projectId=${h.projects.b}`);
+    expect(chosen.truncated).toBe(false);
+    expect(chosen.groups.map((g) => g.projectNumber)).toEqual(['DEMO-2602']);
+    expect(chosen.groups[0]!.rows.map((r) => r.specimenId).sort()).toEqual(
+      other.specimens
+        .filter((sp) => sp.assignedAge !== 'HOLD')
+        .map((sp) => sp.id)
+        .sort(),
+    );
+    // The list of projects never narrows to the chosen one.
+    expect(chosen.projects.map((p) => p.projectNumber)).toEqual(['DEMO-2601', 'DEMO-2602']);
+  }, 180_000);
 });

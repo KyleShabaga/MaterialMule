@@ -331,4 +331,51 @@ describe.runIf(testDatabaseUrl)('concrete lab workspace and search (MM-V2-C31)',
       expect.objectContaining({ setId: c.id, voided: true, matched: true }),
     ]);
   });
+
+  // ---- Review fixes (lane E) -------------------------------------------------------------------
+
+  it('an impossible calendar date is searched as text: a ticket named 2026-02-30 is found', async () => {
+    const report = await castSet(h.projects.b, '2026-11-04T09:00:00-06:00', 'js');
+    await h.db.pool.query(`UPDATE concrete_field_report SET ticket_number = $2 WHERE id = $1`, [
+      report.fieldReportId,
+      '2026-02-30',
+    ]);
+    const found = await search('2026-02-30');
+    expect(found.items.map((r) => [r.fieldReportId, r.matches])).toEqual([
+      [report.fieldReportId, ['ticket']],
+    ]);
+    expect((await search('2026-13-01')).total).toBe(0);
+    // A real leap day is still a casting date (America/Edmonton day of the casting time).
+    const leap = await castSet(h.projects.b, '2028-02-29T09:00:00-07:00', 'js');
+    const leapDay = await search('2028-02-29');
+    expect(leapDay.items.map((r) => [r.fieldReportId, r.matches])).toEqual([
+      [leap.fieldReportId, ['casting_date']],
+    ]);
+  });
+
+  it('ranks every match before paging: the newest of 501 matching reports comes first', async () => {
+    // 500 older reports with the same mix, then the newest one inserted last.
+    await h.db.pool.query(
+      `INSERT INTO concrete_field_report
+         (project_id, created_by_user_id, technician_user_id, material, cast_at, mix_number)
+       SELECT r.project_id, r.created_by_user_id, r.technician_user_id, r.material,
+              timestamptz '2025-01-01T09:00:00-07:00' + make_interval(hours => n), 'BULK-501'
+       FROM concrete_field_report r, generate_series(1, 500) n WHERE r.id = $1`,
+      [a2.fieldReportId],
+    );
+    const { rows } = await h.db.pool.query<{ id: string }>(
+      `INSERT INTO concrete_field_report
+         (project_id, created_by_user_id, technician_user_id, material, cast_at, mix_number)
+       SELECT project_id, created_by_user_id, technician_user_id, material,
+              timestamptz '2026-10-30T09:00:00-06:00', 'BULK-501'
+       FROM concrete_field_report WHERE id = $1 RETURNING id`,
+      [a2.fieldReportId],
+    );
+    const first = await search('bulk-501', 'tech', '&pageSize=50');
+    expect(first.total).toBe(501);
+    expect(first.items[0]!.fieldReportId).toBe(rows[0]!.id);
+    const last = await search('bulk-501', 'tech', '&pageSize=50&page=11');
+    expect(last.items).toHaveLength(1);
+    expect(last.items[0]!.castingDate).toBe('2025-01-01');
+  });
 });

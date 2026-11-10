@@ -91,8 +91,8 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'concrete_settings.holiday.manage',
   // MM-V2-C32: Settings → Report header shows its form from this.
   'concrete_settings.report_header.manage',
-  // MM-V2-C36: lab-staff actions (Lab Technician, Lab Manager, LAB) and the Lab Manager's
-  // role-alone sync-conflict row. No route checks them yet (C06/C07, C17, C20, C23, C26).
+  // MM-V2-C36: lab-staff actions (Lab Technician, Lab Manager, LAB; mass correction never LAB,
+  // CD-46) and the Lab Manager's role-alone sync-conflict row.
   'concrete_specimen.receive',
   'concrete_specimen.mass_correct',
   'concrete_test.enter',

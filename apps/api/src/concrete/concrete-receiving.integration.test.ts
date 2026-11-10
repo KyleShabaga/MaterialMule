@@ -698,8 +698,9 @@ describe.runIf(testDatabaseUrl)('concrete pickup and receiving (MM-V2-C06)', () 
       send('post', `/api/concrete/specimens/${specimen.id}/mass-correction`, body, as);
     const base = { idempotencyKey: newKey(), version, massG: '12354.6', reason: 'Digits swapped' };
     const lab = await correct('lab', { ...base, idempotencyKey: newKey() });
+    // LAB never holds concrete_specimen.mass_correct (CD-46), so the route refuses it first.
     expect(lab.status).toBe(403);
-    expect(lab.body.code).toBe('personal_account_required');
+    expect(lab.body.code).toBe('forbidden');
     const plain = await correct('js', { ...base, idempotencyKey: newKey() });
     expect(plain.status).toBe(403);
     const noReason = await correct('lt', { ...base, idempotencyKey: newKey(), reason: ' ' });

@@ -681,11 +681,11 @@ describe('MM-V2-C36 Lab Technician role and lab-staff permissions', () => {
 
   it('every lab-staff row comes from LAB, the Lab Manager role and the Lab Technician role only', () => {
     for (const permission of LAB_STAFF) {
-      expect(possibleSources(permission), permission).toEqual([
-        'lab',
-        'lab_manager',
-        'lab_technician',
-      ]);
+      expect(possibleSources(permission), permission).toEqual(
+        permission === 'concrete_specimen.mass_correct'
+          ? ['lab_manager', 'lab_technician']
+          : ['lab', 'lab_manager', 'lab_technician'],
+      );
     }
   });
 
@@ -740,9 +740,15 @@ describe('MM-V2-C36 Lab Technician role and lab-staff permissions', () => {
   });
 
   it('AC2: LAB holds the lab actions; attributing the selected person is the handler job', () => {
-    for (const permission of LAB_STAFF) {
+    for (const permission of LAB_STAFF.filter((p) => p !== 'concrete_specimen.mass_correct')) {
       expect(permissionSources(lab, permission), permission).toEqual(['lab']);
     }
+    // CD-46: a mass correction needs a personal account, so LAB never holds (or advertises) it,
+    // whoever the station selects. Receipt with its initial mass stays on LAB.
+    expect(can(lab, 'concrete_specimen.mass_correct', ctx)).toBe(false);
+    expect(can(lab, 'concrete_specimen.receive', ctx)).toBe(true);
+    expect(can(labTech, 'concrete_specimen.mass_correct', ctx)).toBe(true);
+    expect(can(lm, 'concrete_specimen.mass_correct', ctx)).toBe(true);
     // A role assigned to LAB by mistake still adds nothing.
     const labWithRole = user({
       userId: 'u-lt',

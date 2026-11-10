@@ -150,24 +150,29 @@ export function TestingTablePage() {
 
   useEffect(() => {
     let current = true;
-    void fetchTestingTable({ includeOverdue }).then((answer) => {
+    void fetchTestingTable({ includeOverdue, projectId: projectId || null }).then((answer) => {
       if (!current) return;
       if (!answer.ok) {
         setLoad({ state: 'error', message: answer.message });
         return;
       }
       setTable(answer.data);
-      // Rows with unsaved or failed edits keep them across a reload.
+      // Rows with unsaved, saving, failed or reason-needed edits keep them (and their retry key)
+      // across a reload, even while the new view leaves them out (Include overdue off, another
+      // project): they show again, as they were, when a later view lists them.
       setRows((previous) => {
+        const unsaved = (state: RowState | undefined): state is RowState =>
+          state !== undefined && state.status !== 'saved' && state.status !== 'empty';
         const next: Record<string, RowState> = {};
-        rowsRef.current = next;
-        for (const row of answer.data.groups.flatMap((g) => g.rows)) {
-          const kept = previous[row.specimenId];
-          next[row.specimenId] =
-            kept && kept.status !== 'saved' && kept.status !== 'empty'
-              ? kept
-              : initialRowState(row, () => crypto.randomUUID());
+        for (const [specimenId, state] of Object.entries(previous)) {
+          if (unsaved(state)) next[specimenId] = state;
         }
+        for (const row of answer.data.groups.flatMap((g) => g.rows)) {
+          if (!unsaved(next[row.specimenId])) {
+            next[row.specimenId] = initialRowState(row, () => crypto.randomUUID());
+          }
+        }
+        rowsRef.current = next;
         return next;
       });
       setLoad({ state: 'ready' });
@@ -175,7 +180,7 @@ export function TestingTablePage() {
     return () => {
       current = false;
     };
-  }, [includeOverdue, attempt]);
+  }, [includeOverdue, projectId, attempt]);
 
   const update = useCallback((specimenId: string, change: (state: RowState) => RowState) => {
     setRows((previous) => {
@@ -391,12 +396,15 @@ export function TestingTablePage() {
           <select
             aria-label="Project"
             value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onChange={(event) => {
+              setLoad({ state: 'loading' });
+              setProjectId(event.target.value);
+            }}
           >
             <option value="">All</option>
-            {(table?.groups ?? []).map((group) => (
-              <option key={group.projectId} value={group.projectId}>
-                {group.projectNumber}
+            {(table?.projects ?? []).map((project) => (
+              <option key={project.projectId} value={project.projectId}>
+                {project.projectNumber}
               </option>
             ))}
           </select>
@@ -457,8 +465,8 @@ export function TestingTablePage() {
       ) : null}
       {table?.truncated ? (
         <p className="testing-note" role="note">
-          Showing the first {table.total} rows. Narrow the list (turn off Include overdue) to see
-          the rest.
+          Showing the first {table.total} rows. Narrow the list (choose a project or turn off
+          Include overdue) to see the rest.
         </p>
       ) : null}
       <div ref={containerRef}>
