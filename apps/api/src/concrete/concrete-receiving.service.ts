@@ -1199,6 +1199,13 @@ export class ConcreteReceivingService {
     };
     try {
       return await withTransaction(this.database.pool, async (client) => {
+        // Requests with one key take turns (always the first lock, so D09 order is kept): an
+        // overlapping retry waits for the first to commit, then finds its ledger row and replays
+        // instead of tripping over the receipt it just wrote (review fix, PR #141).
+        await client.query(
+          `SELECT pg_advisory_xact_lock(hashtextextended('concrete_receiving_command:' || $1, 0))`,
+          [key],
+        );
         const previous = await replay(client);
         if (previous) return previous;
         const result = await work(client);
