@@ -856,7 +856,8 @@ reports wait for owner decision G2.
   a real report. Then 400 body, then one transaction: report FOR UPDATE, its latest version FOR
   UPDATE, project and account FOR SHARE (`canUnderLock`, the permission again), the performing
   person (LAB) FOR SHARE; 409 `idempotency_key_reused`, 409 `version_conflict` (with the current
-  report), 422 `invalid_transition`, 403 `routed_to_another_reviewer`, 422 `incomplete_for_review`
+  report; also when the optional `reportVersionNo` on recall, return, review, issue or revise is
+  not the latest version, review fix #139), 422 `invalid_transition`, 403 `routed_to_another_reviewer`, 422 `incomplete_for_review`
   (C04's final-review field list), 422 `no_lead_project_engineer`.
 - **LAB** may submit and resubmit, naming the performing staff member (the report's technician),
   audited as receiver. LAB never recalls, returns, reviews, issues or revises, whoever a station

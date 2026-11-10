@@ -875,6 +875,30 @@ describe.runIf(testDatabaseUrl)('concrete report lifecycle (MM-V2-C09)', () => {
     expect(await caps('tech')).toEqual({ 'concrete.review': false, 'report.issue': false });
   });
 
+  it('review fix #139: a command naming a version other than the latest is 409; nothing changes', async () => {
+    const submitted = await ok('submit', await completeReport(), 'tech');
+    // The reviewer opens v1; meanwhile it is returned and resubmitted as v2.
+    const returned = await ok('return', submitted, rv, { comment: 'Check the ticket' });
+    const resubmitted = await ok('resubmit', returned, 'tech');
+    expect(resubmitted.lifecycle.latestVersion!.versionNo).toBe(2);
+    await documentExceptions(resubmitted.id);
+    const before = await counts(resubmitted.id);
+    for (const action of ['review', 'return'] as const) {
+      const stale = await command(action, resubmitted, rv, {
+        reportVersionNo: 1,
+        ...(action === 'return' ? { comment: 'Looked at v1' } : {}),
+      });
+      expect(stale.status, JSON.stringify(stale.body)).toBe(409);
+      expect(stale.body.code).toBe('version_conflict');
+      expect(stale.body.current.lifecycle.latestVersion.versionNo).toBe(2);
+    }
+    expect(await counts(resubmitted.id)).toEqual(before);
+    const reviewed = await ok('review', resubmitted, rv, { reportVersionNo: 2 });
+    const staleIssue = await command('issue', reviewed, 'pe', { reportVersionNo: 1 });
+    expect(staleIssue.status).toBe(409);
+    expect((await ok('issue', reviewed, 'pe', { reportVersionNo: 2 })).issuance.issueCount).toBe(1);
+  });
+
   it('review fix #141: an unresolved curing flag stops issue (no number, file or audit) until resolved', async () => {
     // A verified-range fixture (not a CSA/ASTM value), retired afterwards.
     const { rows } = await h.db.pool.query<{ id: string }>(

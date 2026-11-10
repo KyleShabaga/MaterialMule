@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { CONCRETE_FIELD_REPORT_WARNINGS } from './concrete-field-reports';
-import { CONCRETE_REPORT_ROUTE_KINDS, CONCRETE_REPORT_KINDS } from './concrete-report-lifecycle';
+import {
+  CONCRETE_REPORT_ROUTE_KINDS,
+  CONCRETE_REPORT_KINDS,
+  reportVersionNoSchema,
+} from './concrete-report-lifecycle';
 import {
   CONCRETE_STRENGTH_REPORT_WARNINGS,
   CONCRETE_STRENGTH_WARNING_MESSAGE,
@@ -351,6 +355,11 @@ export const concreteReportIssueRequestSchema = z.strictObject({
     .optional(),
 });
 export type ConcreteReportIssueRequest = z.input<typeof concreteReportIssueRequestSchema>;
+
+/** Field-report issue: also bound to the version shown (review fix #139, `reportVersionNo`). */
+export const concreteFieldReportIssueRequestSchema = concreteReportIssueRequestSchema.extend({
+  reportVersionNo: reportVersionNoSchema,
+});
 
 export const concreteIssueOptionsSchema = z.object({
   includePhotos: z.boolean(),

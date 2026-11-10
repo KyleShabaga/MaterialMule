@@ -8,7 +8,7 @@ import {
 import {
   concreteReportCommandRequestSchema,
   concreteReportCommentRequiredSchema,
-  concreteReportIssueRequestSchema,
+  concreteFieldReportIssueRequestSchema,
   concreteReviewOpenExceptions,
   CONCRETE_EXCEPTION_LABEL,
   concreteReportLifecycleState,
@@ -118,6 +118,8 @@ function isConstraint(error: unknown, constraint: string): boolean {
 type Input = {
   idempotencyKey: string;
   version: number;
+  /** Review fix #139: the report version the caller was shown (not on submit / resubmit). */
+  reportVersionNo?: number;
   comment?: string;
   technicianUserId?: string;
   /** Issue only (MM-V2-C28). */
@@ -132,7 +134,7 @@ function parseInput(action: ConcreteReportAction, body: unknown): Input {
   if (action === 'return' || action === 'revise') {
     return parseBody(concreteReportCommentRequiredSchema, body);
   }
-  if (action === 'issue') return parseBody(concreteReportIssueRequestSchema, body);
+  if (action === 'issue') return parseBody(concreteFieldReportIssueRequestSchema, body);
   return parseBody(concreteReportCommandRequestSchema, body);
 }
 
@@ -306,7 +308,11 @@ export class ConcreteReportLifecycleService {
       if (found.technician_user_id !== person.userId) throw forbidden('not_own_report');
     }
 
-    if (input.version !== found.version) {
+    if (
+      input.version !== found.version ||
+      // Review fix #139: a command bound to a version acts only while it is still the latest.
+      (input.reportVersionNo !== undefined && input.reportVersionNo !== latest?.version_no)
+    ) {
       throw new ConflictException({
         code: 'version_conflict',
         current: await this.reports.detailOf(client, found, user),

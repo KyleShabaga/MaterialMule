@@ -71,10 +71,13 @@ export function IssueReportPage() {
     );
   }
 
-  const { detail, version, checklist } = load.data;
+  const { detail, version, checklist, isLatest } = load.data;
   const issuedVersion = version.issued;
   const documented = checklist.filter((i) => i.status !== 'open');
-  const block = issueBlock({ me, detail, issuers });
+  // Review fix #139: only the report's latest version, as shown, can be issued.
+  const block = isLatest
+    ? issueBlock({ me, detail, issuers })
+    : 'The report changed while it loaded. Reload to see its latest version.';
   const review = version.review;
 
   return (
@@ -268,6 +271,8 @@ export function IssueReportPage() {
           try {
             await sendCommand(detail.id, 'issue', {
               version: detail.version,
+              // Review fix #139: the server refuses the issue if this isn't the latest version.
+              reportVersionNo: version.versionNo,
               idempotencyKey: crypto.randomUUID(),
               includePhotos: false,
               // Left out when nothing is chosen yet: the server applies the project setting.

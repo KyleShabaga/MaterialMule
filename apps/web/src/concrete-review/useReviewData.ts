@@ -6,6 +6,7 @@ import {
   type ConcreteFieldReportDetail,
   type ConcreteReportVersionDetail,
   type ConcreteReportVersionList,
+  type ConcreteReportVersionSummary,
   type ConcreteSnapshotChange,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
@@ -31,11 +32,20 @@ export type ReviewLoad =
   | { state: 'empty'; detail: ConcreteFieldReportDetail }
   | { state: 'ready'; data: ReviewData };
 
+/** Reads of the detail and the version list retried when they disagree (review fix #139). */
+const AGREEMENT_ATTEMPTS = 3;
+
 export async function loadReviewData(
   reportId: string,
   versionNo: number | null,
 ): Promise<ReviewLoad> {
-  const [detail, versions] = await Promise.all([fetchReport(reportId), fetchVersions(reportId)]);
+  let [detail, versions] = await Promise.all([fetchReport(reportId), fetchVersions(reportId)]);
+  // Review fix #139: the two reads run in parallel, so a (re)submission between them can leave
+  // the list a version behind the detail. Read again until they name the same latest version.
+  for (let attempt = 1; attempt < AGREEMENT_ATTEMPTS; attempt += 1) {
+    if (sameVersion(detail.lifecycle.latestVersion, versions.versions.at(-1) ?? null)) break;
+    [detail, versions] = await Promise.all([fetchReport(reportId), fetchVersions(reportId)]);
+  }
   const latest = versions.versions.at(-1);
   if (!latest) return { state: 'empty', detail };
   const chosen =
@@ -47,7 +57,9 @@ export async function loadReviewData(
     chosen > 1 ? fetchVersion(reportId, chosen - 1) : Promise.resolve(null),
     fetchExceptionNotes(reportId, chosen),
   ]);
-  const isLatest = chosen === latest.versionNo;
+  // Actions act on the report's latest version (the detail's), so they are offered only while
+  // the version shown is exactly that one, in the same state.
+  const isLatest = sameVersion(detail.lifecycle.latestVersion, version);
   const submitted = (version.snapshot.warnings ?? []) as Parameters<
     typeof concreteReviewChecklist
   >[0]['submitted'];
@@ -70,6 +82,13 @@ export async function loadReviewData(
       isLatest,
     },
   };
+}
+
+function sameVersion(
+  a: Pick<ConcreteReportVersionSummary, 'id' | 'state'> | null,
+  b: Pick<ConcreteReportVersionSummary, 'id' | 'state'> | null,
+): boolean {
+  return a !== null && b !== null && a.id === b.id && a.state === b.state;
 }
 
 export function useReviewData(reportId: string, versionNo: number | null) {
