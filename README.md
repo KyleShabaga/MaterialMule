@@ -1,7 +1,8 @@
 # Material Mule
 
-Laboratory sample receiving, storage-unit tracking and testing-program workflow. React web app,
-NestJS API and PostgreSQL, hosted on a Windows PC on the office network.
+Laboratory sample receiving, storage-unit tracking and testing-program workflow, plus concrete
+field reports, specimen testing and issued reports (V2, see [Concrete](#concrete-v2)). React web
+app, NestJS API and PostgreSQL, hosted on a Windows PC on the office network.
 
 Formerly named Trapezoid (renamed 2026-10-26). Git history, old branch names and PR titles, and
 schema comments keep the old `TRP-Txx` card IDs (now `MM-Txx`).
@@ -19,6 +20,10 @@ for the schema and [docs/permissions.md](docs/permissions.md) for who can do wha
    winget install --id PostgreSQL.PostgreSQL.17 -e
    ```
    The installer asks for a password for the `postgres` superuser; keep it for step 3.
+   Then raise PostgreSQL's lock limit: each database test file builds and drops a fully migrated
+   schema, and with 30+ migrations the default of 64 runs out ("out of shared memory", `53200`).
+   As `postgres` in psql run `ALTER SYSTEM SET max_locks_per_transaction = 512;` and restart the
+   PostgreSQL service (CI does the same; see [docs/database.md](docs/database.md#tests)).
 3. Create a role and two databases (development and test) in **psql** or pgAdmin:
    ```sql
    CREATE ROLE materialmule LOGIN PASSWORD 'choose-a-local-password';
@@ -92,15 +97,16 @@ investigation" with test holes **TH26-01** and **TH26-02**, a second project **D
 http://127.0.0.1:5173/sign-in/test and pick one; picking another signs the first out. Everything
 they do is audited with a TEST account type.
 
-| Key       | Name         | Initials | Role or position                             |
-| --------- | ------------ | -------- | -------------------------------------------- |
-| `admin`   | Admin (test) | ADM      | Admin: staff, sessions, printers             |
-| `lab`     | Lab (test)   | LAB      | Lab Manager (not the shared LAB account)     |
-| `at`      | Alex Tester  | AT       | Technician                                   |
-| `pe`      | Pat Example  | PE       | Engineer; Lead Project Engineer of DEMO-2601 |
-| `de`      | Dana Example | DE       | Engineer                                     |
-| `js-tech` | Jordan Smith | JS       | Technologist (duplicate initials)            |
-| `js-eng`  | Jamie Song   | JS       | Engineer (duplicate initials)                |
+| Key       | Name         | Initials | Role or position                               |
+| --------- | ------------ | -------- | ---------------------------------------------- |
+| `admin`   | Admin (test) | ADM      | Admin: staff, sessions, printers               |
+| `lab`     | Lab (test)   | LAB      | Lab Manager (not the shared LAB account)       |
+| `at`      | Alex Tester  | AT       | Technician                                     |
+| `pe`      | Pat Example  | PE       | Engineer; Lead Project Engineer of DEMO-2601   |
+| `de`      | Dana Example | DE       | Engineer                                       |
+| `js-tech` | Jordan Smith | JS       | Technologist (duplicate initials)              |
+| `js-eng`  | Jamie Song   | JS       | Engineer (duplicate initials)                  |
+| `lt`      | Taylor Bench | TB       | Lab Technician (concrete lab staff, MM-V2-C36) |
 
 Two applicants, **Riley Pending** and **Casey Pending**, wait in Settings → Staff & access for an
 admin to approve them. `npm run db:reset:dev` puts all of this back (names, roles, pending
@@ -221,6 +227,36 @@ e.g. "2 drafts older than 90 days were deleted from this computer (automatic cle
 administrator)." Drafts whose confirmation was interrupted are never deleted, and if the setting
 can't be loaded (offline, server error) nothing is deleted.
 
+## Concrete (V2)
+
+Concrete is its own domain alongside storage units: field reports and specimen sets per project,
+pickup and receiving one specimen at a time, breaks and results, review and issued reports.
+Records, rules and the status of each card: [docs/concrete.md](docs/concrete.md). What package 1
+provides and the open gates: [docs/concrete-package-2-handoff.md](docs/concrete-package-2-handoff.md).
+Who may do what: [docs/permissions.md](docs/permissions.md).
+
+Where to find it once signed in:
+
+- **Concrete** (top menu): Concrete home (dashboard), Specimen receiving, Break worklist,
+  Testing table (today's breaks, keyboard entry), Specimen lookup and Concrete equipment.
+- **Concrete Review**: the review queue for field and strength reports, and issuing them.
+- **Projects → a project → Concrete**: Reports, Specimens, Summary (project summary report),
+  Mixes and Settings tabs.
+- **Settings**: suppliers, holidays, equipment and the report header printed on issued reports.
+
+Issued reports are stored PDFs that are never regenerated, numbered at first issue: field
+reports `CF-YYYY-NNNNN`, strength reports `CS-YYYY-NNNNN` and project summaries `CSR-YYYY-NNNN`.
+
+**Provisional:** the report layouts (template P1) and the strength calculation (method P1:
+strength from load and area, L/D correction, 0.1 MPa rounding, advisory assessment at the
+reference age) were made up for now on the owner's direction (2026-11-09). They are marked
+"Provisional" on every report and will be replaced by the office's own templates and worksheet
+as new versions. Offline field entry on phones is not built yet: it waits on the MM-V2-C11
+device spike.
+
+`lt` (Taylor Bench) and `lab` can enter results; `pe` (Pat Example) is the Lead of DEMO-2601 for
+mixes and review. `npm run db:seed:demo` has no concrete data yet.
+
 ## Checks
 
 ```powershell
@@ -268,3 +304,4 @@ are deleted automatically. CI doesn't replace the local gate: run `npm run verif
 | Microsoft sign-in fails on the way back               | Open the app at `127.0.0.1`, not `localhost`, matching `MICROSOFT_REDIRECT_URI`     |
 | E2E fails waiting for its port                        | `apps/api/.env.test` is missing or invalid, or `E2E_PORT`, +1000 or +2000 is in use |
 | E2E requests time out at random with more workers     | Antivirus web shields (AVG here) can stall browser traffic; keep 2 workers          |
+| Tests fail with `out of shared memory` (`53200`)      | Raise `max_locks_per_transaction` to 512 and restart PostgreSQL (Prerequisites)     |
