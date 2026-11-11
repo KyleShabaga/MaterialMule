@@ -18,7 +18,7 @@ import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
-import { rerouteOpenItems } from '../notifications/rerouting.js';
+import { announceNewlyRoutedItems, rerouteOpenItems } from '../notifications/rerouting.js';
 import { revokeTechnicalGrants } from '../project-access/grant-tables.js';
 import {
   beginEligibilityChange,
@@ -506,6 +506,10 @@ export class StaffService {
             requestId: change.requestId,
           },
         );
+      }
+      // ...and open work that a granted role now routes to them reaches their inbox, announced.
+      if (wanted.some((role) => !before.includes(role))) {
+        await announceNewlyRoutedItems(client, id);
       }
       return this.get(id, client);
     });

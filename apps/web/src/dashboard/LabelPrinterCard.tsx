@@ -93,6 +93,16 @@ function printerState(printer: DefaultPrinterStatus | null): {
   const reason = attempt.printerMessage ?? attempt.error;
   const because = reason ? ` — ${reason}` : '';
   const since = formatWhen(printer.failingSince ?? attempt.at);
+  // The printer answered its status check with a fault (e.g. "Printer out of labels"): it is
+  // reachable and needs a person, not a connection fix (review fix for #119).
+  const fault = attempt.printerMessage;
+  if (fault && (attempt.outcome === 'retrying' || attempt.outcome === 'failed')) {
+    return {
+      tone: attempt.outcome === 'failed' ? 'danger' : 'warning',
+      badge: 'Printer needs attention',
+      text: `${printer.name}: ${fault} since ${since}.${attempt.outcome === 'retrying' ? ' Trying again.' : ''}`,
+    };
+  }
   switch (attempt.outcome) {
     case 'ok':
       return {

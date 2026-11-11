@@ -7,8 +7,9 @@ const WAIT_MS = 5000;
 /**
  * After a route change, moves focus to the new page's h1 (made focusable with tabIndex=-1), so
  * keyboard and screen-reader users land on the page they opened instead of the old menu link or
- * the page body (MTR-136). The first page load keeps the browser's own focus, and a page that
- * already put focus inside the main area (a scan box, a wizard step) keeps it.
+ * the page body (MTR-136). The first page load keeps the browser's own focus, a page that
+ * already put focus inside the main area (a scan box, a wizard step) keeps it, and so does a
+ * control the user moves to while a slow page is still loading.
  */
 export function useFocusPageHeading() {
   const { pathname } = useLocation();
@@ -32,6 +33,15 @@ export function useFocusPageHeading() {
     }
 
     if (focusHeading()) return;
+    // While waiting, a deliberate move to another control (a sidebar link, the search box) is the
+    // user's choice: stop, so the late heading doesn't take focus from it. The initiating link
+    // and the page body don't count, so an untouched navigation still lands on the heading.
+    const initial = document.activeElement;
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (target === initial || target === document.body || target === main) return;
+      stop();
+    };
     const observer = new MutationObserver(() => {
       if (focusHeading()) stop();
     });
@@ -39,7 +49,9 @@ export function useFocusPageHeading() {
     function stop() {
       observer.disconnect();
       clearTimeout(timer);
+      document.removeEventListener('focusin', onFocusIn);
     }
+    document.addEventListener('focusin', onFocusIn);
     observer.observe(main, { childList: true, subtree: true });
     return stop;
   }, [pathname]);

@@ -188,6 +188,7 @@ const detail = (
   selfReviewUserIds: [],
   allowedActions: ['submit'],
   canExclude: false,
+  excludableSpecimenIds: [],
   ...overrides,
 });
 
@@ -275,7 +276,10 @@ describe('Strength report page', () => {
       if (init?.method === 'PUT') {
         return json(200, { specimenId: 'a', excluded: null, history: [] });
       }
-      return json(200, detail({ preview: p1, canExclude: true }));
+      return json(
+        200,
+        detail({ preview: p1, canExclude: true, excludableSpecimenIds: ['a', 'b', 'd'] }),
+      );
     });
     expect(await screen.findByText('Calculation method P1 (provisional)')).toBeVisible();
     const table = screen.getByRole('table', { name: 'Strength results' });
@@ -300,6 +304,81 @@ describe('Strength report page', () => {
       excluded: true,
       reason: 'Defective specimen',
     });
+  });
+
+  it('review fix: after an issue, the new later-age results can be shown and excluded', async () => {
+    const base = snapshot();
+    // Issued Rev 0 reports A (7 d); B's 28-day result came in afterwards.
+    const issued = base;
+    const live = concreteStrengthReportSnapshotSchema.parse({
+      ...base,
+      versionNo: 2,
+      results: base.results.map((row) =>
+        row.letter === 'B'
+          ? {
+              ...row,
+              status: 'tested',
+              reported: true,
+              resultId: 'rb',
+              attemptNo: 1,
+              testedOn: '2026-11-30',
+              actualAgeDays: 28,
+              maxLoad: 300,
+            }
+          : row,
+      ),
+    });
+    const version = {
+      id: 'v1',
+      versionNo: 1,
+      state: 'issued',
+      revisionOfVersionNo: null,
+      snapshotSha256: 'x'.repeat(64),
+      submittedAt: '2026-11-10T16:00:00.000Z',
+      submittedBy: LEE,
+      submittedStaff: LEE,
+      route: { kind: 'designated_reviewers', routedTo: null, reason: null },
+      review: null,
+      closed: null,
+      issued: null,
+    };
+    const user = userEvent.setup();
+    renderAt((url) => {
+      if (url.pathname.endsWith('/exception-notes')) {
+        return json(200, { reportId: 'sr', versionNo: 1, notes: [] });
+      }
+      if (url.pathname.endsWith('/versions/1')) {
+        return json(200, { ...version, reportId: 'sr', snapshot: issued });
+      }
+      if (url.pathname.endsWith('/versions')) {
+        return json(200, { reportId: 'sr', versions: [version], transitions: [] });
+      }
+      return json(
+        200,
+        detail({
+          reportId: 'sr',
+          state: 'issued',
+          version: 3,
+          issueCount: 1,
+          preview: live,
+          latestVersion: version as ConcreteStrengthReportDetail['latestVersion'],
+          latestIssuedVersionNo: 1,
+          allowedActions: [],
+          canExclude: true,
+          // A is on the issued version (locked); B is new.
+          excludableSpecimenIds: ['b', 'd'],
+        }),
+      );
+    });
+    const toggle = await screen.findByRole('button', { name: 'Show the new results' });
+    // The issued version is shown first, without exclusion controls.
+    expect(screen.queryByRole('button', { name: /^Exclude / })).toBeNull();
+    await user.click(toggle);
+    expect(screen.getByRole('button', { name: 'Exclude 26-07B' })).toBeVisible();
+    // The issued specimen stays protected.
+    expect(screen.queryByRole('button', { name: 'Exclude 26-07A' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show the issued version' }));
+    expect(screen.queryByRole('button', { name: /^Exclude / })).toBeNull();
   });
 
   it('explains why the sole tester can’t review', async () => {

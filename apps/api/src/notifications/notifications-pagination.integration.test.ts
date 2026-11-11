@@ -319,6 +319,31 @@ describe.runIf(testDatabaseUrl)('notification paging (MM-T91)', () => {
       expect(response.status, query).toBe(400);
       expect(response.body.code, query).toBe(code);
     }
+    // Review fix (#123): impossible calendar dates and clock times are 400, not a database error.
+    const id = newKey();
+    for (const at of [
+      '2026-02-30T08:00:00.000000Z',
+      '2026-02-29T08:00:00.000000Z', // 2026 is not a leap year
+      '1900-02-29T08:00:00.000000Z', // nor is 1900
+      '2026-13-01T08:00:00.000000Z',
+      '2026-04-31T08:00:00.000000Z',
+      '2026-10-00T08:00:00.000000Z',
+      '2026-10-30T24:00:00.000000Z',
+      '2026-10-30T08:60:00.000000Z',
+      '0000-01-01T00:00:00.000000Z',
+    ]) {
+      const response = await h.get(`/api/notifications?cursor=${encodeCursor({ at, id })}`, 'jo');
+      expect(response.status, at).toBe(400);
+      expect(response.body.code, at).toBe('invalid_cursor');
+    }
+    // A real leap day is a valid cursor: it pages from there, keeping the microseconds (Jamie's
+    // 12:00:00.123456 block sits after 2028, so the page holds everything older).
+    const leap = await page('jo', {
+      filter: 'all',
+      cursor: encodeCursor({ at: '2028-02-29T08:00:00.000000Z', id }),
+      limit: NOTIFICATION_PAGE_SIZE_MAX,
+    });
+    expect(leap.items.length).toBe(NOTIFICATION_PAGE_SIZE_MAX);
     // A well-formed cursor past every row is simply an empty last page.
     const past = encodeCursor({ at: '2000-01-01T00:00:00.000000Z', id: newKey() });
     expect(await page('jo', { filter: 'all', cursor: past })).toEqual({

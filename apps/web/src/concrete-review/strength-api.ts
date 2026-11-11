@@ -136,6 +136,8 @@ export function strengthProblemText(error: unknown): string {
     switch (error.code) {
       case 'own_result':
         return 'You tested or entered this result. Another reviewer decides whether to exclude it.';
+      case 'result_not_complete':
+        return 'This specimen has no complete result yet. Exclude it once its result is entered.';
       case 'result_on_strength_report':
         return 'This specimen is on a submitted or issued strength report. Return, recall or revise the report first.';
       case 'already_excluded':

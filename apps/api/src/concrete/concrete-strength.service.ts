@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -22,14 +23,28 @@ import { resolveActingPerson } from '../lab/attribution.js';
 import { intentHash } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { currentMethod, methodOf } from './concrete-strength.calc.js';
-import { findSet, strengthContext } from './concrete-strength-reports.read.js';
-import { exclusionsOf, strengthTestsOf } from './concrete-strength-tests.read.js';
+import { grantLoader } from './concrete-report-lifecycle.read.js';
+import {
+  findSet,
+  lockedStrengthContext,
+  strengthContext,
+} from './concrete-strength-reports.read.js';
+import {
+  exclusionsOf,
+  specimenStrengthsOf,
+  strengthTestsOf,
+} from './concrete-strength-tests.read.js';
 
 type Db = Pool | PoolClient;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REVIEW = 'concrete.review' as const;
 const forbidden = (code = 'forbidden') => new ForbiddenException({ code });
+const invalidCursor = () =>
+  new BadRequestException({
+    code: 'validation_failed',
+    errors: [{ field: 'after', code: 'invalid_cursor', message: 'The cursor is not a set here' }],
+  });
 
 function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
@@ -75,28 +90,52 @@ export class ConcreteStrengthService {
     const db = this.database.pool;
     let setIds: string[];
     let truncated = false;
+    let nextCursor: string | null = null;
     if (query.setId) {
       const set = await findSet(db, query.setId);
       if (!set) throw new NotFoundException({ code: 'concrete_specimen_set_not_found' });
       if (query.projectId && set.project_id !== query.projectId) setIds = [];
       else setIds = [set.id];
     } else {
+      // Review fix: paged by set in a stable order, the cursor being the last set of the previous
+      // page, so every set (and every failure) is reachable. Each page still reads the full peer
+      // history for its running averages (strengthTestsOf).
       const { rows } = await db.query<{ id: string }>(
-        `SELECT st.id FROM concrete_specimen_set st
-         JOIN concrete_field_report r ON r.id = st.field_report_id
-         WHERE st.project_id = $1 AND st.voided_at IS NULL AND r.workflow_state <> 'void'
-         ORDER BY r.cast_at NULLS LAST, st.permanent_number NULLS LAST, st.temporary_id, st.id
+        `WITH ordered AS (
+           SELECT st.id, row_number() OVER (
+                    ORDER BY r.cast_at NULLS LAST, st.permanent_number NULLS LAST, st.temporary_id,
+                             st.id) AS rn
+           FROM concrete_specimen_set st
+           JOIN concrete_field_report r ON r.id = st.field_report_id
+           WHERE st.project_id = $1 AND st.voided_at IS NULL AND r.workflow_state <> 'void'),
+         start AS (SELECT rn FROM ordered WHERE id = $2::uuid)
+         SELECT o.id
+         FROM ordered o
+         WHERE $2::uuid IS NULL OR o.rn > (SELECT rn FROM start)
+         ORDER BY o.rn
          LIMIT ${CONCRETE_STRENGTH_TESTS_MAX_SETS + 1}`,
-        [query.projectId],
+        [query.projectId, query.after ?? null],
       );
+      if (query.after && rows.length === 0) {
+        const { rows: found } = await db.query(
+          `SELECT 1 FROM concrete_specimen_set st
+           JOIN concrete_field_report r ON r.id = st.field_report_id
+           WHERE st.id = $1 AND st.project_id = $2 AND st.voided_at IS NULL
+             AND r.workflow_state <> 'void'`,
+          [query.after, query.projectId],
+        );
+        if (found.length === 0) throw invalidCursor();
+      }
       truncated = rows.length > CONCRETE_STRENGTH_TESTS_MAX_SETS;
       setIds = rows.slice(0, CONCRETE_STRENGTH_TESTS_MAX_SETS).map((r) => r.id);
+      nextCursor = truncated ? setIds.at(-1)! : null;
     }
     const { lines } = await strengthTestsOf(db, setIds);
     const method = await currentMethod(db);
     return {
       method: method ? methodOf(method) : null,
       truncated,
+      nextCursor,
       tests: query.failed ? lines.filter((l) => l.failed) : lines,
     };
   }
@@ -143,14 +182,23 @@ export class ConcreteStrengthService {
         await findSpecimen(client, found.id, 'FOR UPDATE OF sp');
         const replay = await replayOf(client, input.idempotencyKey, found.id, hash, user);
         if (replay) return replay;
-        const context = await strengthContext(client, locked);
-        const { leadProjectEngineerUserId: _lead, ...facts } = context;
-        void _lead;
-        if (!(await canUnderLock(client, user, REVIEW, locked.project_id, { context: facts }))) {
+        // Review fix: the reviewer context is read after the project and the account are locked,
+        // with the strength assignments and approvals locked FOR SHARE (as exception notes do),
+        // so an approval ended meanwhile is honoured.
+        if (
+          !(await canUnderLock(client, user, REVIEW, locked.project_id, {
+            context: grantLoader((c) => lockedStrengthContext(c, locked)).loader,
+          }))
+        ) {
           throw forbidden();
         }
         if (await ownResult(client, found.id, user.userId)) throw forbidden('own_result');
         if (locked.voided || locked.report_void) throw new ConflictException({ code: 'set_void' });
+        // Review fix: only a completed result is excluded, so an exclusion never waits on a
+        // specimen for a result its reviewer later tests or enters (result saves refuse that).
+        if (input.excluded && !(await hasCompleteResult(client, found))) {
+          throw new ConflictException({ code: 'result_not_complete' });
+        }
         const person = await resolveActingPerson(client, user, undefined, {
           field: 'performedByUserId',
           invalidCode: 'invalid_performed_by',
@@ -222,6 +270,12 @@ export class ConcreteStrengthService {
     );
     return rows[0]?.any ?? false;
   }
+}
+
+/** The specimen's latest attempt is a complete entry. */
+async function hasCompleteResult(db: Db, specimen: SpecimenFacts): Promise<boolean> {
+  const strengths = await specimenStrengthsOf(db, [specimen.set_id]);
+  return strengths.some((sp) => sp.specimenId === specimen.id && sp.complete);
 }
 
 /** The reviewer tested or entered the specimen's latest result (no self-review). */
