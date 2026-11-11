@@ -1,7 +1,10 @@
-import type { InventoryItem, MoveRequest } from '@materialmule/shared';
+import type { InventoryItem, MeResponse, MoveRequest } from '@materialmule/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { MemoryRouter, createMemoryRouter } from 'react-router';
+import { RouterProvider } from 'react-router/dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { routes } from '../routes';
+import { SessionContext } from '../session/context';
 import { indexedDbMoveStore, type NewMove, type QueuedMove } from '../moves/store';
 import { pendingMovesByUnit, usePendingMoves } from '../moves/usePendingMoves';
 import { StorageUnitTable, type StorageUnitTableView } from './StorageUnitTable';
@@ -161,6 +164,112 @@ describe('Sample Storage conflict and Pending markers (MM-T81)', () => {
       other.postMessage('changed');
       other.close();
       expect(await screen.findByTestId('pending-move')).toHaveTextContent('Pending');
+    },
+  );
+});
+
+describe('Sample Storage rows after an offline move settles in another tab (review fix, PR #107)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const me: MeResponse = {
+    id: LAB,
+    displayName: 'LAB',
+    initials: null,
+    accountType: 'shared_lab',
+    status: 'active',
+    roles: [],
+    permissions: ['inventory.read'],
+    sessionExpiresAt: '2026-10-28T06:00:00.000Z',
+  } as unknown as MeResponse;
+
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  /** Tab A: inventory open at `path`; `rows` answers each inventory request in turn. */
+  function openInventory(path: string, rows: () => InventoryItem[]) {
+    const requests: URL[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/api/inventory') {
+          requests.push(url);
+          return json({ items: rows(), total: 30, page: 2, pageSize: 25 });
+        }
+        if (url.pathname === '/api/locations') return json([]);
+        return new Response('{}', { status: 404 });
+      }),
+    );
+    render(
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
+      </SessionContext.Provider>,
+    );
+    return requests;
+  }
+
+  /** Tab B announces a queue change on the moves channel, as useMoveQueue does. */
+  const announce = () => {
+    const other = new BroadcastChannel('materialmule-moves');
+    other.postMessage('changed');
+    other.close();
+  };
+
+  it.runIf(typeof BroadcastChannel !== 'undefined')(
+    'a saved move shows its new location without a manual reload, keeping filters and page',
+    async () => {
+      let saved = false;
+      const requests = openInventory('/sample-storage?search=BKT&page=2', () => [
+        item(U1, saved ? { location: { id: C1.id, code: C1.code, name: C1.name } } : {}),
+      ]);
+      await screen.findByRole('link', { name: U1.readableId });
+      expect(row(U1.readableId).getByText(RECEIVING.name)).toBeVisible();
+      // Tab B queues the move: only the Pending marker changes, nothing is fetched again.
+      const move = await indexedDbMoveStore.add(newMove(U1, C1));
+      announce();
+      expect(await screen.findByTestId('pending-move')).toHaveTextContent('Pending');
+      expect(requests).toHaveLength(1);
+      // Tab B's drain saves it.
+      saved = true;
+      await indexedDbMoveStore.update(move.clientMoveId, { state: 'saved' });
+      announce();
+      expect(await row(U1.readableId).findByText(C1.name)).toBeVisible();
+      expect(screen.queryByTestId('pending-move')).toBeNull();
+      expect(requests).toHaveLength(2);
+      expect(requests[1]!.searchParams.get('search')).toBe('BKT');
+      expect(requests[1]!.searchParams.get('page')).toBe('2');
+    },
+  );
+
+  it.runIf(typeof BroadcastChannel !== 'undefined')(
+    'a refused move shows its open conflict on a conflict-filtered list',
+    async () => {
+      let refused = false;
+      const requests = openInventory('/sample-storage?conflict=open&page=2', () =>
+        refused ? [item(U1, { openConflict: true })] : [item(U2, { openConflict: true })],
+      );
+      expect(await screen.findByRole('link', { name: U2.readableId })).toBeVisible();
+      // Queued and refused between two of tab A's reads: still a settlement to show.
+      const move = await indexedDbMoveStore.add(newMove(U1, C1));
+      refused = true;
+      await indexedDbMoveStore.update(move.clientMoveId, { state: 'conflict' });
+      announce();
+      await screen.findByRole('link', { name: U1.readableId });
+      expect(row(U1.readableId).getByText('Conflict')).toBeVisible();
+      expect(requests).toHaveLength(2);
+      expect(requests[1]!.searchParams.get('conflict')).toBe('open');
+      expect(requests[1]!.searchParams.get('page')).toBe('2');
     },
   );
 });
