@@ -67,14 +67,14 @@ describe('toActivityItem (T1)', () => {
     ).toBe('AT reprinted the label for BKT-2026-000014');
   });
 
-  it('MM-T79 T1: a location label print or reprint names the location and links to Settings → Locations', () => {
+  it('MM-T79 T1: a location label print or reprint request names the location and links to Settings → Locations', () => {
     const location = { target: 'location', locationId: 'l1', locationCode: 'WH-C1' };
     expect(
       toActivityItem(
         event({ action: 'label.print_requested', actorAccountType: 'personal', after: location }),
       ),
     ).toMatchObject({
-      summary: 'AT printed the location label for WH-C1',
+      summary: 'AT requested the location label for WH-C1',
       href: '/settings/locations',
     });
     expect(
@@ -82,7 +82,7 @@ describe('toActivityItem (T1)', () => {
         event({ action: 'label.reprint_requested', actorAccountType: 'personal', after: location }),
       ),
     ).toMatchObject({
-      summary: 'AT reprinted the location label for WH-C1',
+      summary: 'AT requested a reprint of the location label for WH-C1',
       href: '/settings/locations',
     });
     // At a LAB station, the person it was printed for, as recorded.
@@ -97,7 +97,7 @@ describe('toActivityItem (T1)', () => {
           after: location,
         }),
       ).summary,
-    ).toBe('LAB printed the location label for WH-C1 (for RE)');
+    ).toBe('LAB requested the location label for WH-C1 (for RE)');
   });
 
   it('MM-T79 AC3: storage unit label prints read as before', () => {
@@ -258,6 +258,55 @@ describe.runIf(testDatabaseUrl)('GET /api/activity/recent and /api/auth/provider
       .get('/api/activity/recent?limit=5000')
       .set('Cookie', activeCookie);
     expect(response.status).toBe(200);
+  });
+
+  it('review fix (#109): a location label job that never printed reads as a request', async () => {
+    const actor = { userId: null, accountType: 'system' as const, initials: 'AT', name: 'Alex' };
+    const undrained = randomUUID();
+    const failed = randomUUID();
+    const location = { target: 'location', locationId: randomUUID(), locationCode: 'WH-Q1' };
+    await withTransaction(db.pool, async (client) => {
+      // Queued, and the print worker hasn't taken it.
+      await recordAudit(client, {
+        action: 'label.print_requested',
+        entityType: 'print_job',
+        entityId: undrained,
+        actor,
+        after: location,
+      });
+      // Queued as a reprint, then refused by the printer.
+      await recordAudit(client, {
+        action: 'label.reprint_requested',
+        entityType: 'print_job',
+        entityId: failed,
+        actor,
+        after: location,
+      });
+      await recordAudit(client, {
+        action: 'label.print_failed',
+        entityType: 'print_job',
+        entityId: failed,
+        actor,
+        after: { status: 'failed' },
+      });
+    });
+    const items = activityResponseSchema.parse(
+      (await request(app.getHttpServer()).get('/api/activity/recent').set('Cookie', activeCookie))
+        .body,
+    );
+    const jobs = items.filter((item) => item.action.startsWith('label.'));
+    // Both were recorded in one transaction (same time), so their order is not compared.
+    expect(jobs.map(({ summary, href }) => ({ summary, href }))).toEqual(
+      expect.arrayContaining([
+        {
+          summary: 'AT requested a reprint of the location label for WH-Q1',
+          href: '/settings/locations',
+        },
+        { summary: 'AT requested the location label for WH-Q1', href: '/settings/locations' },
+      ]),
+    );
+    expect(jobs).toHaveLength(2);
+    expect(JSON.stringify(jobs)).not.toMatch(/printed/);
   });
 
   it('reports which sign-in providers exist', async () => {
