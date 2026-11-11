@@ -442,7 +442,7 @@ Navigation labels are the seven destinations above.
   Lucide's default 2 px stroke; 16 px in the sidebar and menus, 20 px elsewhere. Names in use:
   `house` Today, `inbox` Inbox, `square-check-big` My requests, `folder` Projects,
   `arrow-down-to-line` Receive, `package` Inventory, `flask-conical` Lab programs, `hourglass`
-  Retention, `cylinder` Concrete, `search`, `scan-line`, `square-pen` New, `bell`, `settings`,
+  Retention, `cylinder` Concrete, `search`, `scan-line`, `bell`, `settings`,
   `circle-question-mark` Help, `bug` Feedback & bugs, `log-out` Sign out, `chevrons-up-down`,
   `chevron-down`, `chevron-right`, `arrow-right`, `check`, `lock`, `clock`, `circle-alert`, `pause`.
 - **Checks:** `npm run check:bundle` and `npm run verify` stay the gate; no new runtime network
@@ -512,8 +512,9 @@ this file's history (commit b43c23a) and will be redrawn from these components.
 
 ### Sidebar (boards: real shadcn/ui, mock variants, mock component)
 
-shadcn `Sidebar` with ideas from Linear and Notion. Header: lab switcher (logo tile, "Material Mule",
-the lab, up/down chevron) and a New button; a search field with `Ctrl K` under it. Then Today,
+shadcn `Sidebar` with ideas from Linear and Notion. Header: a static logo (the donkey mark from
+`apps/web/src/layout/DonkeyMark.tsx` in a tile), "Material Mule" and the lab, with no switcher
+or buttons; a search field with `Ctrl K` under it. Then Today,
 Inbox and My requests; a collapsible "Lab" group with the six work areas (Concrete open as a
 `SidebarMenuSub`, Retention folded); Pinned records; a folded Recent group; and a footer with only
 the account row. Clicking it opens the account menu (`DropdownMenu`, as in Notion and Linear): the
