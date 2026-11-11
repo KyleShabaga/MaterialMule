@@ -428,6 +428,12 @@ export function CommentItem({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
+            // The window can close while the editor is open; the API still decides, but don't
+            // send an edit we know it will refuse, whether by click or by Enter in a field.
+            if (!mine || new Date(comment.editableUntil).getTime() <= Date.now()) {
+              setNow(Date.now());
+              return;
+            }
             const result = await editComment(comment.id, {
               body,
               version: comment.version,
@@ -449,6 +455,12 @@ export function CommentItem({
             onChange={(e) => setBody(e.target.value)}
           />
           <WhoIsDoingThis value={person} onChange={setPerson} />
+          {canEdit ? null : (
+            <p className="notice notice-warning" role="alert">
+              The 15-minute edit window has closed, so this change can’t be saved. Copy your text if
+              you need it, then cancel.
+            </p>
+          )}
           <div className="form-actions">
             <button type="button" onClick={() => setEditing(false)}>
               Cancel
@@ -456,7 +468,7 @@ export function CommentItem({
             <button
               type="submit"
               className="primary"
-              disabled={!body.trim() || (shared && !person)}
+              disabled={!canEdit || !body.trim() || (shared && !person)}
             >
               Save comment
             </button>

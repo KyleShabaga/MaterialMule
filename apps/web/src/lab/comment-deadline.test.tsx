@@ -1,5 +1,5 @@
 import type { LabComment, MeResponse } from '@materialmule/shared';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext } from '../session/context';
 import { CommentItem } from './WorkedProgram';
@@ -48,7 +48,30 @@ function renderComment(item: LabComment = comment) {
   );
 }
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** Records PATCH /api/comments/... calls and answers them with the edited comment. */
+function stubEditApi() {
+  const edits: unknown[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).startsWith('/api/comments/') && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { body: string };
+        edits.push(body);
+        return new Response(JSON.stringify({ ...comment, body: body.body, version: 2 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } });
+    }),
+  );
+  return edits;
+}
 
 describe('Lab comment edit deadline (MTR-139)', () => {
   it('shows "Editable until" beside Edit, and both go away when the window closes', () => {
@@ -79,5 +102,59 @@ describe('Lab comment edit deadline (MTR-139)', () => {
     });
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Editable until/)).not.toBeInTheDocument();
+  });
+
+  it('saves from an open editor before the deadline', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-30T04:03:00.000Z') });
+    const edits = stubEditApi();
+    renderComment();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Edit comment'), { target: { value: 'Fixed text' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save comment' }));
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(edits).toHaveLength(1);
+  });
+
+  it('announces expiry in an open editor, keeps the draft and sends nothing', async () => {
+    // One second before 10:04 p.m.
+    vi.useFakeTimers({ now: new Date('2026-10-30T04:03:59.000Z') });
+    const edits = stubEditApi();
+    renderComment();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const box = screen.getByLabelText('Edit comment');
+    fireEvent.change(box, { target: { value: 'Late change' } });
+    expect(screen.getByRole('button', { name: 'Save comment' })).toBeEnabled();
+
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByRole('alert')).toHaveTextContent(/edit window has closed/);
+    expect(screen.getByLabelText('Edit comment')).toHaveValue('Late change');
+    const save = screen.getByRole('button', { name: 'Save comment' });
+    expect(save).toBeDisabled();
+
+    fireEvent.click(save);
+    // A direct form submit (Enter in a field) must not send either.
+    fireEvent.submit(box.closest('form')!);
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(edits).toHaveLength(0);
+  });
+
+  it('refuses a keyboard submit even if the deadline passed before the timer fired', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-30T04:03:59.000Z') });
+    const edits = stubEditApi();
+    renderComment();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const box = screen.getByLabelText('Edit comment');
+    // Move the clock without running timers, like a throttled background tab.
+    vi.setSystemTime(new Date('2026-10-30T04:04:01.000Z'));
+    fireEvent.submit(box.closest('form')!);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(edits).toHaveLength(0);
+    expect(screen.getByRole('alert')).toHaveTextContent(/edit window has closed/);
   });
 });

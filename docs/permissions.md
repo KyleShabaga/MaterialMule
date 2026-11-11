@@ -1017,16 +1017,17 @@ Test-result drafts with tester attribution and correction history. Contracts:
 
 ## Concrete strength calculation (MM-V2-C24)
 
-| Route                                                        | Policy                                                                                                        |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `GET /api/concrete/strength-tests?setId=&projectId=&failed=` | `inventory.read`                                                                                              |
-| `GET /api/concrete/specimens/:specimenId/strength-exclusion` | `inventory.read`                                                                                              |
-| `PUT /api/concrete/specimens/:specimenId/strength-exclusion` | active user; service: `concrete.review` (scope `concrete_strength`), never on a result they tested or entered |
+| Route                                                               | Policy                                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET /api/concrete/strength-tests?setId=&projectId=&failed=&after=` | `inventory.read`                                                                                              |
+| `GET /api/concrete/specimens/:specimenId/strength-exclusion`        | `inventory.read`                                                                                              |
+| `PUT /api/concrete/specimens/:specimenId/strength-exclusion`        | active user; service: `concrete.review` (scope `concrete_strength`), never on a result they tested or entered |
 
 - **Proposal (owner to confirm):** exclusion is review work: the project's Lead Project Engineer
   or a designated `concrete_strength` reviewer, as reviewing the strength report. Checked before
   the body against the project as it stands, then again under the locks (field report, set,
-  specimen FOR UPDATE; project and account FOR SHARE). An unknown specimen is 404 for callers with
+  specimen FOR UPDATE; project and account FOR SHARE; then the strength reviewer assignments and
+  approvals FOR SHARE, read after them, so an approval ended meanwhile is honoured). An unknown specimen is 404 for callers with
   strength review authority somewhere, else 403. 403 `own_result` when the caller tested or
   entered the specimen's latest result (no self-review). LAB never excludes.
 - 409 `result_on_strength_report` while a submitted, reviewed or issued strength report version
