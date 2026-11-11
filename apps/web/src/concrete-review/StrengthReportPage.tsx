@@ -77,10 +77,13 @@ const mpa = (value: number | null) => (value === null ? '—' : `${value.toFixed
 export function StrengthReportBody({
   snapshot,
   onExclude,
+  excludable,
 }: {
   snapshot: ConcreteStrengthReportSnapshot;
   /** Offered on the live preview to a strength reviewer (MM-V2-C24). */
   onExclude?: (row: ConcreteStrengthResultRow) => void;
+  /** The specimens whose exclusion may change now (review fix); others show no control. */
+  excludable?: readonly string[];
 }) {
   const s = snapshot.set;
   const elements = [
@@ -201,7 +204,8 @@ export function StrengthReportBody({
                   </td>
                   {onExclude ? (
                     <td>
-                      {row.status === 'tested' || row.excluded ? (
+                      {(row.status === 'tested' || row.excluded) &&
+                      (!excludable || excludable.includes(row.specimenId)) ? (
                         <button
                           type="button"
                           aria-label={`${row.excluded ? 'Reinstate' : 'Exclude'} ${row.specimenLabel}`}
@@ -312,7 +316,8 @@ type Load =
   | {
       state: 'ready';
       detail: ConcreteStrengthReportDetail;
-      shown: ConcreteStrengthReportSnapshot;
+      /** The latest submitted, reviewed or issued version as frozen, or null (live preview). */
+      frozen: ConcreteStrengthReportSnapshot | null;
       notes: ConcreteExceptionNote[];
       history: ConcreteReportVersionList | null;
     };
@@ -328,6 +333,8 @@ export function StrengthReportPage() {
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const [dialog, setDialog] = useState<'return' | 'revise' | null>(null);
   const [excluding, setExcluding] = useState<ConcreteStrengthResultRow | null>(null);
+  // Review fix: after an issue, the new later-age results can be viewed live (and excluded).
+  const [live, setLive] = useState(false);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [performer, setPerformer] = useState('');
 
@@ -352,7 +359,7 @@ export function StrengthReportPage() {
           latest && frozen ? (await fetchStrengthNotes(setId, latest.versionNo)).notes : [];
         const history = detail.reportId ? await fetchStrengthVersions(setId) : null;
         if (current) {
-          setLoad({ state: 'ready', detail, shown: frozen ?? detail.preview, notes, history });
+          setLoad({ state: 'ready', detail, frozen, notes, history });
         }
       } catch (error) {
         if (current) setLoad({ state: 'error', message: strengthProblemText(error) });
@@ -367,7 +374,9 @@ export function StrengthReportPage() {
   if (load.state === 'error') {
     return <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />;
   }
-  const { detail, shown, notes, history } = load;
+  const { detail, frozen, notes, history } = load;
+  const showLive = frozen === null || (live && detail.state === 'issued');
+  const shown = showLive || frozen === null ? detail.preview : frozen;
   const allowed = new Set(detail.allowedActions);
   const label =
     shown.set.identity.permanentId ?? shown.set.identity.temporaryId ?? 'Unnumbered set';
@@ -438,7 +447,10 @@ export function StrengthReportPage() {
         {detail.newResults && detail.state === 'issued' ? (
           <>
             {' '}
-            <StatusBadge tone="info">New results to submit</StatusBadge>
+            <StatusBadge tone="info">New results to submit</StatusBadge>{' '}
+            <button type="button" aria-pressed={live} onClick={() => setLive((v) => !v)}>
+              {live ? 'Show the issued version' : 'Show the new results'}
+            </button>
           </>
         ) : null}
       </p>
@@ -498,7 +510,8 @@ export function StrengthReportPage() {
       <div className="review-layout">
         <StrengthReportBody
           snapshot={shown}
-          onExclude={detail.canExclude && shown === detail.preview ? setExcluding : undefined}
+          onExclude={detail.canExclude && showLive ? setExcluding : undefined}
+          excludable={detail.excludableSpecimenIds}
         />
         <div className="review-side">
           <section aria-label="Exceptions">

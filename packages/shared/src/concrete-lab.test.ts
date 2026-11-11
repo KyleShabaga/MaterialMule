@@ -37,6 +37,10 @@ describe('concrete search terms (MM-V2-C31)', () => {
     expect(concreteSearchTerms('2026-00-10').date).toBeNull();
     expect(concreteSearchTerms('2028-02-29').date).toBe('2028-02-29');
     expect(concreteSearchTerms('2000-02-29').date).toBe('2000-02-29');
+    // Review fix: PostgreSQL has no year 0; such text is searched as text only.
+    expect(concreteSearchTerms('0000-01-01')).toMatchObject({ date: null, text: '0000-01-01' });
+    expect(concreteSearchTerms('0000-02-29').date).toBeNull();
+    expect(concreteSearchTerms('0001-01-01').date).toBe('0001-01-01');
     expect(concreteSearchTerms('2026-12-31').date).toBe('2026-12-31');
     expect(concreteSearchTerms('T-77821')).toMatchObject({ setAlias: null, date: null });
   });

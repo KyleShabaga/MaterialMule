@@ -42,6 +42,8 @@ const REFUSAL: Record<string, string> = {
   tester_invalid: 'The tester must be active staff with confirmed initials.',
   idempotency_key_reused: 'This save was already sent differently. Reload and try again.',
   concrete_specimen_not_found: 'This specimen no longer exists.',
+  own_exclusion:
+    'The reviewer who excluded this specimen can’t also test or enter its result. Reinstate it first, or have someone else enter it.',
 };
 
 export type SaveOutcome =

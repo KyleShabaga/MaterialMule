@@ -15,6 +15,7 @@ import {
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { ProjectContext } from '../auth/policy.js';
+import { lockProjectGrants } from '../auth/standing.js';
 import { projectContext } from '../project-access/project-access.service.js';
 import { peopleOf } from './concrete-report-lifecycle.read.js';
 import { currentMethod, findMethod, methodOf } from './concrete-strength.calc.js';
@@ -133,6 +134,21 @@ export async function strengthContext(
     STRENGTH_REPORT_SCOPE,
     STRENGTH_REPORT_SCOPE,
   );
+}
+
+/**
+ * Review fix (#134): the strength context for a final check, with the `concrete_strength` issuer
+ * grants, reviewer assignments and approvals locked FOR SHARE first (`canUnderLock` loader).
+ */
+export async function lockedStrengthContext(
+  client: PoolClient,
+  set: Pick<SetFacts, 'project_id' | 'lead_project_engineer_user_id'>,
+): Promise<ProjectContext> {
+  await lockProjectGrants(client, set.project_id, {
+    reportScope: STRENGTH_REPORT_SCOPE,
+    reviewScope: STRENGTH_REPORT_SCOPE,
+  });
+  return strengthContext(client, set);
 }
 
 interface SpecimenSql {

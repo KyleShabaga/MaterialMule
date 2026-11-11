@@ -25,7 +25,6 @@ import {
   concreteStrengthSelfReviewUserIds,
   concreteStrengthSubmitBlocker,
   concreteStrengthSubmitRequestSchema,
-  STRENGTH_REPORT_SCOPE,
   type ConcreteExceptionNoteList,
   type ConcreteReportAction,
   type ConcreteReportRoute,
@@ -46,7 +45,7 @@ import {
   type Permission,
   type ProjectContext,
 } from '../auth/policy.js';
-import { asLocked, canUnderLock, lockProjectGrants, lockStanding } from '../auth/standing.js';
+import { asLocked, canUnderLock, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { receiverOf, resolveActingPerson } from '../lab/attribution.js';
@@ -67,6 +66,7 @@ import {
   buildStrengthSnapshot,
   findSet,
   findStrengthReport,
+  lockedStrengthContext,
   strengthContext,
   type SetFacts,
   type StrengthReportRow,
@@ -119,21 +119,6 @@ function unprocessable(code: string, errors: { field: string; message: string }[
   });
 }
 
-/**
- * Review fix (#134): the strength context for a final check, with the `concrete_strength` issuer
- * grants, reviewer assignments and approvals locked FOR SHARE first (`canUnderLock` loader).
- */
-async function lockedStrengthContext(
-  client: PoolClient,
-  set: Pick<SetFacts, 'project_id' | 'lead_project_engineer_user_id'>,
-): Promise<ProjectContext> {
-  await lockProjectGrants(client, set.project_id, {
-    reportScope: STRENGTH_REPORT_SCOPE,
-    reviewScope: STRENGTH_REPORT_SCOPE,
-  });
-  return strengthContext(client, set);
-}
-
 function isConstraint(error: unknown, constraint: string): boolean {
   return (error as { constraint?: string }).constraint === constraint;
 }
@@ -177,6 +162,17 @@ async function storedSnapshot(db: Db, versionId: string): Promise<ConcreteStreng
 async function selfReviewOf(db: Db, latest: VersionRow | null): Promise<string[]> {
   if (!latest) return [];
   return concreteStrengthSelfReviewUserIds((await storedSnapshot(db, latest.id)).results);
+}
+
+/** The set's specimens no submitted, reviewed or issued version locks (0034's function). */
+async function unlockedSpecimenIds(db: Db, setId: string): Promise<string[]> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT sp.id FROM concrete_specimen sp
+     WHERE sp.set_id = $1 AND NOT concrete_strength_specimen_locked(sp.id)
+     ORDER BY sp.letter`,
+    [setId],
+  );
+  return rows.map((r) => r.id);
 }
 
 function holdsPermission(
@@ -279,6 +275,14 @@ export class ConcreteStrengthReportsService {
       }
       return true;
     });
+    // Review fix: after an issue, a later age's new results may still be excluded; the specimens
+    // an issued (or submitted / reviewed) version reports stay locked (0034's rule).
+    const mayExclude =
+      user.accountType !== 'shared_lab' &&
+      ['not_started', 'draft', 'returned', 'issued'].includes(state) &&
+      !(set.voided || set.report_void) &&
+      can(user, 'concrete.review', context);
+    const excludable = mayExclude ? await unlockedSpecimenIds(db, set.id) : [];
     return {
       setId: set.id,
       projectId: set.project_id,
@@ -296,11 +300,8 @@ export class ConcreteStrengthReportsService {
       latestIssuedVersionNo: report?.last_issued_version ?? null,
       selfReviewUserIds: selfReview,
       allowedActions: allowed,
-      canExclude:
-        user.accountType !== 'shared_lab' &&
-        ['not_started', 'draft', 'returned'].includes(state) &&
-        !(set.voided || set.report_void) &&
-        can(user, 'concrete.review', context),
+      canExclude: excludable.length > 0,
+      excludableSpecimenIds: excludable,
     };
   }
 
