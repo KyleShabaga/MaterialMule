@@ -1,0 +1,168 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tailwind also scans the canvas artboards, so classes written in their markup exist. */
+@source "../../strata-canvas/project";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Strata theme: shadcn variables filled from the Radix custom palette, accent #21206D (DESIGN.md). */
+:root {
+  --radius: 0.625rem;
+  --background: #ffffff;
+  --foreground: #1e1f24;
+  --card: #ffffff;
+  --card-foreground: #1e1f24;
+  --popover: #ffffff;
+  --popover-foreground: #1e1f24;
+  --primary: #21206d;
+  --primary-foreground: #ffffff;
+  --secondary: #eff0f3;
+  --secondary-foreground: #1e1f24;
+  --muted: #eff0f3;
+  --muted-foreground: #62636c;
+  --accent: #eef1ff;
+  --accent-foreground: #242471;
+  --destructive: #ce2c31;
+  --border: #d8d9e0;
+  --input: #8b8d98;
+  --ring: #21206d;
+  --link: #5159bd;
+  --sidebar: #f9f9fb;
+  --sidebar-foreground: #1e1f24;
+  --sidebar-primary: #21206d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef1ff;
+  --sidebar-accent-foreground: #242471;
+  --sidebar-border: #d8d9e0;
+  --sidebar-ring: #21206d;
+  --stage-draft-bg: #fff7c2;
+  --stage-draft-fg: #4f3422;
+  --stage-draft-mark: #ab6400;
+  --stage-storage-bg: #e9f6e9;
+  --stage-storage-fg: #2a7e3b;
+  --stage-storage-mark: #2a7e3b;
+  --stage-lab-bg: #def7f9;
+  --stage-lab-fg: #0d3c48;
+  --stage-lab-mark: #107d98;
+  --stage-due-bg: #ffefd6;
+  --stage-due-fg: #582d1d;
+  --stage-due-mark: #cc4e00;
+  --stage-danger-bg: #feebec;
+  --stage-danger-fg: #ce2c31;
+  --stage-danger-mark: #ce2c31;
+  --stage-closed-bg: #eff0f3;
+  --stage-closed-fg: #62636c;
+  --stage-closed-mark: #62636c;
+}
+
+.dark {
+  --background: #111113;
+  --foreground: #eeeef0;
+  --card: #19191b;
+  --card-foreground: #eeeef0;
+  --popover: #222325;
+  --popover-foreground: #eeeef0;
+  --primary: #555bdc;
+  --primary-foreground: #ffffff;
+  --secondary: #222325;
+  --secondary-foreground: #eeeef0;
+  --muted: #222325;
+  --muted-foreground: #b2b3bd;
+  --accent: #1d2050;
+  --accent-foreground: #d8e0ff;
+  --destructive: #ce2c31;
+  --border: #393a40;
+  --input: #797b86;
+  --ring: #9eadff;
+  --link: #9eadff;
+  --sidebar: #19191b;
+  --sidebar-foreground: #eeeef0;
+  --sidebar-primary: #555bdc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1d2050;
+  --sidebar-accent-foreground: #d8e0ff;
+  --sidebar-border: #393a40;
+  --sidebar-ring: #9eadff;
+  --stage-draft-bg: #302008;
+  --stage-draft-fg: #ffca16;
+  --stage-draft-mark: #ffca16;
+  --stage-storage-bg: #1b2a1e;
+  --stage-storage-fg: #71d083;
+  --stage-storage-mark: #71d083;
+  --stage-lab-bg: #082c36;
+  --stage-lab-fg: #4ccce6;
+  --stage-lab-mark: #4ccce6;
+  --stage-due-bg: #331e0b;
+  --stage-due-fg: #ffa057;
+  --stage-due-mark: #ffa057;
+  --stage-danger-bg: #3b1219;
+  --stage-danger-fg: #ff9592;
+  --stage-danger-mark: #ff9592;
+  --stage-closed-bg: #222325;
+  --stage-closed-fg: #b2b3bd;
+  --stage-closed-mark: #b2b3bd;
+}
+
+@theme inline {
+  --font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-stage-draft-bg: var(--stage-draft-bg);
+  --color-stage-draft-fg: var(--stage-draft-fg);
+  --color-stage-draft-mark: var(--stage-draft-mark);
+  --color-stage-storage-bg: var(--stage-storage-bg);
+  --color-stage-storage-fg: var(--stage-storage-fg);
+  --color-stage-storage-mark: var(--stage-storage-mark);
+  --color-stage-lab-bg: var(--stage-lab-bg);
+  --color-stage-lab-fg: var(--stage-lab-fg);
+  --color-stage-lab-mark: var(--stage-lab-mark);
+  --color-stage-due-bg: var(--stage-due-bg);
+  --color-stage-due-fg: var(--stage-due-fg);
+  --color-stage-due-mark: var(--stage-due-mark);
+  --color-stage-danger-bg: var(--stage-danger-bg);
+  --color-stage-danger-fg: var(--stage-danger-fg);
+  --color-stage-danger-mark: var(--stage-danger-mark);
+  --color-stage-closed-bg: var(--stage-closed-bg);
+  --color-stage-closed-fg: var(--stage-closed-fg);
+  --color-stage-closed-mark: var(--stage-closed-mark);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}

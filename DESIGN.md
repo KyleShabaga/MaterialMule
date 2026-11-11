@@ -484,8 +484,9 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 
 Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private).
 Every board has a Dark tweak; the dark boards are the same boards with it on. The boards are
-drawn as HTML markup that imitates shadcn/ui (its variables, sizes and component structure); no real
-shadcn components run on the canvas. The icons are the real Lucide SVGs. Drafts for review, not approved.
+drawn as HTML markup that imitates shadcn/ui (its variables, sizes and component structure), except
+the "Sidebar, real shadcn/ui" board, which mounts real shadcn components from the Strata UI bundle
+(`design/strata-ui`, README there). The icons are the real Lucide SVGs. Drafts for review, not approved.
 
 ### Today (boards: desktop, nothing needs you, dark)
 

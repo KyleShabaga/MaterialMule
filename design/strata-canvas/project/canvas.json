@@ -1,0 +1,160 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-11T18:00:00Z"
+  },
+  "title": "Material Mule — Strata",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1240,
+      "title": "Today — desktop",
+      "expand": "fill"
+    },
+    "TodayClear.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1000,
+      "title": "Today — nothing needs you (LAB station)",
+      "expand": "fill"
+    },
+    "TodayDark.dc.html": {
+      "x": 0,
+      "y": 1660,
+      "w": 1440,
+      "h": 1240,
+      "title": "Today — desktop, dark",
+      "expand": "fill"
+    },
+    "SignIn.dc.html": {
+      "x": 0,
+      "y": 3320,
+      "w": 1440,
+      "h": 900,
+      "title": "Sign in — desktop",
+      "expand": "fill"
+    },
+    "SignInStates.dc.html": {
+      "x": 1520,
+      "y": 3320,
+      "w": 1520,
+      "h": 1260,
+      "title": "Sign in — states"
+    },
+    "SignInDark.dc.html": {
+      "x": 0,
+      "y": 4960,
+      "w": 1440,
+      "h": 900,
+      "title": "Sign in — desktop, dark",
+      "expand": "fill"
+    },
+    "SidebarVariants.dc.html": {
+      "x": 0,
+      "y": 6240,
+      "w": 1320,
+      "h": 1040,
+      "title": "Sidebar — variants"
+    },
+    "SidebarNav.dc.html": {
+      "x": 1400,
+      "y": 6240,
+      "w": 256,
+      "h": 900,
+      "title": "Sidebar — component (Dark and Collapsed tweaks)"
+    },
+    "SidebarLive.dc.html": {
+      "x": 0,
+      "y": 7660,
+      "w": 1280,
+      "h": 800,
+      "title": "Sidebar — live shadcn/ui (Dark tweak)",
+      "is_interactive": true
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "TodayClear.dc.html",
+    "TodayDark.dc.html",
+    "SignIn.dc.html",
+    "SignInStates.dc.html",
+    "SignInDark.dc.html",
+    "SidebarVariants.dc.html",
+    "SidebarNav.dc.html",
+    "SidebarLive.dc.html"
+  ],
+  "notes": {
+    "rowToday": {
+      "x": 0,
+      "y": -300,
+      "text": "Today",
+      "kind": "title1",
+      "maxW": 2960
+    },
+    "rowTodayDark": {
+      "x": 0,
+      "y": 1360,
+      "text": "Today in dark",
+      "kind": "title1",
+      "maxW": 1440
+    },
+    "rowSignIn": {
+      "x": 0,
+      "y": 3020,
+      "text": "Sign in",
+      "kind": "title1",
+      "maxW": 3040
+    },
+    "rowSignInDark": {
+      "x": 0,
+      "y": 4660,
+      "text": "Sign in, dark",
+      "kind": "title1",
+      "maxW": 1440
+    },
+    "about": {
+      "x": 3040,
+      "y": 0,
+      "w": 380,
+      "text": "Strata on shadcn/ui — first screens. Spec: DESIGN.md (repo root). Palette: Radix custom, accent #21206D (indigo) with its matched gray, in light and dark. Tokens use shadcn names (background, card, muted, primary, accent, border, input, ring, sidebar). Stages use Radix amber, grass, cyan, orange, red and gray. Buttons and inputs 8 px (shadcn rounded-md), cards 14 px, tags and avatars fully round. Atkinson Hyperlegible Next and Mono. All data is fictional. Each artboard has a Dark tweak.",
+      "fill": "blue"
+    },
+    "rowSidebar": {
+      "x": 0,
+      "y": 5940,
+      "text": "Sidebar (shadcn Sidebar)",
+      "kind": "title1",
+      "maxW": 1656
+    },
+    "sidebarNotes": {
+      "x": 1736,
+      "y": 6240,
+      "w": 400,
+      "fill": "yellow",
+      "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number."
+    },
+    "rowSidebarLive": {
+      "x": 0,
+      "y": 7360,
+      "text": "Sidebar, real shadcn/ui",
+      "kind": "title1",
+      "maxW": 1280
+    },
+    "liveNotes": {
+      "x": 1360,
+      "y": 7660,
+      "w": 400,
+      "fill": "green",
+      "text": "Real shadcn/ui, not a drawing: SidebarProvider, Sidebar (collapsible icon), SidebarMenu, Collapsible, DropdownMenu, Tooltip and Kbd from shadcn 4.23 on Radix, styled by Tailwind v4 with the Strata variables, icons from lucide-react 1.72. Press Play: collapse with the trigger or Ctrl+B, hover icons for tooltips, fold Lab, open Concrete and Retention, open the account menu. Bundle: strata-ui/strata-ui.js and .css."
+    }
+  },
+  "designSystems": []
+}
