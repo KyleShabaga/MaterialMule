@@ -12,7 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
 
-// Lab Testing → Concrete breaks (MM-V2-C22). Fictional projects and people only.
+// Concrete → Breaks (MM-V2-C22). Fictional projects and people only.
+
+/** A specimen ID drawn as set ID + lettered square (SpecimenId): matched on its whole text. */
+const specimen = (id: string) => (_: string, element: Element | null) =>
+  element?.classList.contains('specimen-id') === true && element.textContent === id;
 
 const ME: MeResponse = {
   id: '00000000-0000-4000-8000-000000000101',
@@ -145,19 +149,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Lab Testing → Concrete breaks (MM-V2-C22)', () => {
+describe('Concrete → Breaks (MM-V2-C22)', () => {
   it('opens on Today, grouped by project with counts, and flags a weekend target', async () => {
     renderPage((view) => list(view as ConcreteWorklist['view'], view === 'today' ? [row()] : []));
+    expect(await screen.findByRole('heading', { name: 'Concrete breaks', level: 1 })).toBeVisible();
     const tabs = await screen.findByRole('tablist', { name: 'Concrete worklist views' });
     expect(within(tabs).getByRole('tab', { name: /Today/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    expect(within(tabs).getByRole('tab', { name: /Upcoming \(7 days\) 3/ })).toBeInTheDocument();
+    expect(within(tabs).getByRole('tab', { name: 'Next 7 days 3' })).toBeInTheDocument();
     const group = await screen.findByRole('region', { name: /DEMO-2601 · Example tower/ });
     expect(within(group).getByText('1 specimen')).toBeInTheDocument();
     const table = within(group).getByRole('table', { name: 'DEMO-2601 specimens' });
-    expect(within(table).getByText('26-01B')).toBeInTheDocument();
+    expect(within(table).getByText(specimen('26-01B'))).toBeInTheDocument();
     expect(within(table).getByText('2026-12-05')).toBeInTheDocument();
     expect(within(table).getByText('Weekend target')).toBeInTheDocument();
     expect(screen.getByText(/the holiday list\s+comes later/)).toBeInTheDocument();

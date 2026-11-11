@@ -370,6 +370,33 @@ describe('Concrete search and specimen lookup', () => {
     expect(screen.getByText('also TMP-D07-001', { exact: false })).toBeVisible();
     expect(screen.getByRole('textbox', { name: 'Search concrete' })).toHaveValue('T-778');
   });
+
+  it('groups results into field reports and sets, and tags a ticket listed twice on both', async () => {
+    renderAt('/concrete/search?q=T-77821', (url) =>
+      url.pathname === '/api/concrete/search'
+        ? json(200, {
+            ...twoProjects,
+            q: 'T-77821',
+            letter: null,
+            items: [
+              ...twoProjects.items.map((item) => ({ ...item, matches: ['ticket'] as const })),
+              result({
+                fieldReportId: '00000000-0000-4000-8000-000000000403',
+                workflowState: 'void',
+                matches: ['ticket'],
+                sets: [],
+              }),
+            ],
+            total: 3,
+          })
+        : undefined,
+    );
+    expect(await screen.findByRole('heading', { name: 'Field reports', level: 2 })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Specimen sets', level: 2 })).toBeVisible();
+    // The two live reports share supplier and ticket; the Void one is not counted.
+    expect(screen.getAllByText('Duplicate ticket')).toHaveLength(2);
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(3);
+  });
 });
 
 describe('Lab search (top bar)', () => {

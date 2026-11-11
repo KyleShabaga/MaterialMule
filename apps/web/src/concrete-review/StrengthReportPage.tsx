@@ -8,6 +8,7 @@ import {
   type ConcreteExceptionNote,
   type ConcreteReportAction,
   type ConcreteReportVersionList,
+  type ConcreteStrengthAgeLine,
   type ConcreteStrengthReportDetail,
   type ConcreteStrengthReportSnapshot,
   type ConcreteStrengthResultRow,
@@ -16,8 +17,17 @@ import {
 import { useEffect, useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { listActiveStaff } from '../api/projects';
-import { ErrorState, PageHeader, StatusBadge, TableScroll } from '../components/ui';
+import {
+  ErrorState,
+  Notice,
+  PageHeader,
+  SidePanel,
+  StatusBadge,
+  TableScroll,
+} from '../components/ui';
+import { FactCells, SpecimenId } from '../concrete/ledger';
 import { shortDateTime } from '../dashboard/format';
+import { ContextRow } from '../layout/ContextRow';
 import { useMe } from '../session/context';
 import { ActionButton, CommentDialog, Labelled } from './ReviewReportPage';
 import {
@@ -39,6 +49,9 @@ import './review.css';
 // MM-V2-C24: strength, area, the per-age average and the advisory assessment come from the
 // provisional method P1 (the method line shows which); a strength reviewer can exclude a specimen
 // from its strength test, with a reason, before the report is submitted.
+// Field Ledger (ConcreteStrength board): version, workflow, specified strength and method as four
+// fact cells, then one framed table per test age with its average and assessment; an issued
+// version's results are marked locked.
 
 const dash = (value: string | number | null | undefined) =>
   value === null || value === undefined || value === '' ? '—' : String(value);
@@ -46,12 +59,12 @@ const dash = (value: string | number | null | undefined) =>
 export function StrengthStateBadge({ state }: { state: ConcreteStrengthReportDetail['state'] }) {
   const tone =
     state === 'issued'
-      ? 'success'
+      ? 'storage'
       : state === 'returned'
         ? 'danger'
         : state === 'submitted' || state === 'reviewed'
-          ? 'warning'
-          : 'neutral';
+          ? 'waiting'
+          : 'closed';
   return <StatusBadge tone={tone}>{CONCRETE_STRENGTH_REPORT_STATE_LABEL[state]}</StatusBadge>;
 }
 
@@ -74,16 +87,101 @@ function resultStatus(row: ConcreteStrengthResultRow): string {
 
 const mpa = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} MPa`);
 
+/** The specified strength as the set block holds it ("32 MPa at 28 d"), or "—". */
+function specifiedText(set: ConcreteStrengthReportSnapshot['set']): string {
+  if (set.specifiedStrengthMpa === null) return '—';
+  return `${set.specifiedStrengthMpa} MPa${set.specifiedStrengthAgeDays ? ` at ${set.specifiedStrengthAgeDays} d` : ''}`;
+}
+
+/** The specimen's set part and letter, for the ledger identity (set ID + letter in a square). */
+function specimenParts(row: ConcreteStrengthResultRow): { set: string; letter: string | null } {
+  return row.letter && row.specimenLabel.endsWith(row.letter)
+    ? { set: row.specimenLabel.slice(0, -row.letter.length), letter: row.letter }
+    : { set: row.specimenLabel, letter: null };
+}
+
+type AgeGroup = {
+  key: string;
+  title: string;
+  age: ConcreteStrengthAgeLine | null;
+  rows: ConcreteStrengthResultRow[];
+};
+
+/** One group per test age (in the report's age order), then held and unassigned specimens. */
+function ageGroups(snapshot: ConcreteStrengthReportSnapshot): AgeGroup[] {
+  const groups: AgeGroup[] = snapshot.ages.map((age) => ({
+    key: `age-${age.ageDays}`,
+    title: `${age.ageDays} days`,
+    age,
+    rows: snapshot.results.filter((row) => row.assignedAge === age.ageDays),
+  }));
+  const known = new Set(snapshot.ages.map((age) => age.ageDays));
+  for (const row of snapshot.results) {
+    if (typeof row.assignedAge !== 'number' || known.has(row.assignedAge)) continue;
+    known.add(row.assignedAge);
+    groups.push({
+      key: `age-${row.assignedAge}`,
+      title: `${row.assignedAge} days`,
+      age: null,
+      rows: snapshot.results.filter((r) => r.assignedAge === row.assignedAge),
+    });
+  }
+  const held = snapshot.results.filter((row) => row.assignedAge === 'HOLD');
+  if (held.length > 0) groups.push({ key: 'hold', title: 'On hold', age: null, rows: held });
+  const unassigned = snapshot.results.filter((row) => row.assignedAge === null);
+  if (unassigned.length > 0) {
+    groups.push({ key: 'none', title: 'No age assigned', age: null, rows: unassigned });
+  }
+  return groups.filter((group) => group.rows.length > 0 || group.age !== null);
+}
+
+function AgeHead({ group, locked }: { group: AgeGroup; locked: boolean }) {
+  const { age } = group;
+  return (
+    <div className="crv-age-head">
+      <h3 id={`crv-${group.key}`}>{group.title}</h3>
+      {age ? (
+        <>
+          <span className="mono crv-age-average">
+            Average strength {mpa(age.averageStrength)}
+            {age.single ? ' (single specimen)' : ''}
+          </span>
+          <span className="crv-age-count">
+            {age.testedCount} of {age.specimenCount} tested{age.complete ? '' : ' (incomplete)'}
+          </span>
+          <span className="crv-age-assessment">
+            <span className="field-label">Assessment</span>{' '}
+            {age.assessment ? (
+              <StatusBadge tone={age.failed ? 'danger' : 'closed'}>
+                {CONCRETE_STRENGTH_ASSESSMENT_LABEL[age.assessment]}
+              </StatusBadge>
+            ) : (
+              '—'
+            )}
+          </span>
+          {age.runningAverage !== null ? (
+            <span className="mono crv-age-count">Running average {mpa(age.runningAverage)}</span>
+          ) : null}
+        </>
+      ) : null}
+      {locked ? <StatusBadge tone="closed">Locked</StatusBadge> : null}
+    </div>
+  );
+}
+
 export function StrengthReportBody({
   snapshot,
   onExclude,
   excludable,
+  locked = false,
 }: {
   snapshot: ConcreteStrengthReportSnapshot;
   /** Offered on the live preview to a strength reviewer (MM-V2-C24). */
   onExclude?: (row: ConcreteStrengthResultRow) => void;
   /** The specimens whose exclusion may change now (review fix); others show no control. */
   excludable?: readonly string[];
+  /** The shown version is issued: its results are locked (a change needs a revision). */
+  locked?: boolean;
 }) {
   const s = snapshot.set;
   const elements = [
@@ -91,25 +189,134 @@ export function StrengthReportBody({
     ...(s.structureElementOther ? [s.structureElementOther] : []),
   ];
   return (
-    <div className="review-preview">
-      <div className="review-preview-head">
+    <div className="crv-preview">
+      <div className="crv-preview-head">
         <h2>Concrete compressive strength report · Rev {snapshot.revNo}</h2>
         {snapshot.revision ? (
-          <p className="review-preview-notice">
+          <p className="crv-preview-notice">
             Rev {snapshot.revNo}, supersedes Rev {snapshot.revision.supersedesRevNo} issued{' '}
             {snapshot.revision.supersedesIssuedAt.slice(0, 10)}: {snapshot.revision.reason}
           </p>
         ) : null}
+      </div>
+      {locked ? (
+        <p className="crv-locked">
+          <StatusBadge tone="closed">Locked</StatusBadge> These results are on an issued version.
+          Changing one means starting a revision with a reason.
+        </p>
+      ) : null}
+      <section className="crv-ages" aria-label="Results">
+        {ageGroups(snapshot).map((group) => (
+          <section key={group.key} className="crv-age" aria-labelledby={`crv-${group.key}`}>
+            <AgeHead group={group} locked={locked && group.age !== null} />
+            {group.rows.length === 0 ? (
+              <p className="crv-age-empty">No specimens at this age.</p>
+            ) : (
+              <TableScroll label={`Strength results, ${group.title}`}>
+                <table className="crv-table">
+                  <caption className="visually-hidden">Strength results, {group.title}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Specimen</th>
+                      <th scope="col">Test date</th>
+                      <th scope="col">Actual age (d)</th>
+                      <th scope="col">Diameters ({snapshot.units.dimension})</th>
+                      <th scope="col">Heights ({snapshot.units.dimension})</th>
+                      <th scope="col">Area</th>
+                      <th scope="col">Max load ({snapshot.units.load})</th>
+                      <th scope="col">Strength</th>
+                      <th scope="col">Fracture</th>
+                      <th scope="col">Tested by</th>
+                      <th scope="col">Remarks</th>
+                      {onExclude ? <th scope="col">Strength test</th> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.rows.map((row) => {
+                      const parts = specimenParts(row);
+                      return (
+                        <tr key={row.specimenId}>
+                          <th scope="row">
+                            {/* Read as one ID ("26-07A"); shown as the set ID + letter square. */}
+                            <span className="visually-hidden">{row.specimenLabel}</span>
+                            <span aria-hidden="true">
+                              <SpecimenId set={parts.set} letter={parts.letter} />
+                            </span>
+                          </th>
+                          <td className="mono">
+                            {row.status === 'tested' ? dash(row.testedOn) : resultStatus(row)}
+                          </td>
+                          <td className="mono">{dash(row.actualAgeDays)}</td>
+                          <td className="mono">
+                            {row.diameterReadings.length ? row.diameterReadings.join(', ') : '—'}
+                          </td>
+                          <td className="mono">
+                            {row.heightReadings.length ? row.heightReadings.join(', ') : '—'}
+                          </td>
+                          <td className="mono">{row.area === null ? '—' : `${row.area} mm²`}</td>
+                          <td className="mono crv-strong">{dash(row.maxLoad)}</td>
+                          <td className="mono crv-strong">
+                            <span className={row.excluded ? 'crv-struck' : undefined}>
+                              {mpa(row.strength)}
+                            </span>
+                            {row.calculationMethodVersion ? (
+                              <span className="crv-muted"> ({row.calculationMethodVersion})</span>
+                            ) : null}
+                            {row.excluded ? (
+                              <span className="crv-muted crv-excluded">
+                                {' '}
+                                Excluded: {row.excluded.reason} ({row.excluded.by.name})
+                              </span>
+                            ) : null}
+                          </td>
+                          <td>{dash(row.fractureType)}</td>
+                          <td>{dash(row.testedBy?.initials ?? row.testedBy?.name)}</td>
+                          <td>
+                            {dash(row.remarks)}
+                            {row.flags.map((flag) => (
+                              <StatusBadge key={flag} tone="waiting">
+                                {CONCRETE_STRENGTH_FLAG_LABEL[flag]}
+                              </StatusBadge>
+                            ))}
+                          </td>
+                          {onExclude ? (
+                            <td>
+                              {(row.status === 'tested' || row.excluded) &&
+                              (!excludable || excludable.includes(row.specimenId)) ? (
+                                <button
+                                  type="button"
+                                  aria-label={`${row.excluded ? 'Reinstate' : 'Exclude'} ${row.specimenLabel}`}
+                                  onClick={() => onExclude(row)}
+                                >
+                                  {row.excluded ? 'Reinstate' : 'Exclude'}
+                                </button>
+                              ) : null}
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </TableScroll>
+            )}
+          </section>
+        ))}
         {snapshot.calculation.method ? (
-          <p className="review-preview-notice">
-            <strong>{snapshot.calculation.method.line}</strong>
+          <p className="crv-advisory">
+            The assessment is advisory, for the reviewer: never acceptance. Only the reference age
+            is assessed; other ages are information only.
           </p>
         ) : null}
-        <p className="review-preview-notice">{snapshot.calculation.note}</p>
-      </div>
-      <section className="review-preview-section" aria-label="Set">
+        <p className="field-hint">
+          {snapshot.standardsLine} Units as entered ({snapshot.units.load},{' '}
+          {snapshot.units.dimension}
+          {snapshot.units.provisional ? ', provisional' : ''}).
+        </p>
+      </section>
+      <section className="crv-preview-section" aria-label="Set">
         <h3>Set</h3>
-        <dl className="review-fields">
+        <dl className="crv-fields">
           <Labelled label="Project">
             {snapshot.projectNumber} · {snapshot.projectName}
           </Labelled>
@@ -132,123 +339,11 @@ export function StrengthReportBody({
           <Labelled label="Location">{dash(s.location)}</Labelled>
           <Labelled label="Supplier">{dash(s.supplierName)}</Labelled>
           <Labelled label="Mix number">{dash(s.mixNumber)}</Labelled>
-          <Labelled label="Specified strength">
-            {s.specifiedStrengthMpa === null
-              ? '—'
-              : `${s.specifiedStrengthMpa} MPa${s.specifiedStrengthAgeDays ? ` at ${s.specifiedStrengthAgeDays} d` : ''}`}
-          </Labelled>
           <Labelled label="Specimen size">{dash(s.specimenSize)}</Labelled>
           <Labelled label="Received at the lab">{dash(s.receivedOn)}</Labelled>
           <Labelled label="Initial field curing">{dash(s.initialFieldCuring)}</Labelled>
           <Labelled label="Lab curing">{dash(s.labCuring)}</Labelled>
         </dl>
-      </section>
-      <section className="review-preview-section" aria-label="Results">
-        <h3>Results</h3>
-        <TableScroll label="Strength results">
-          <table className="review-table">
-            <caption className="visually-hidden">Strength results</caption>
-            <thead>
-              <tr>
-                <th scope="col">Specimen</th>
-                <th scope="col">Age (d)</th>
-                <th scope="col">Test date</th>
-                <th scope="col">Actual age (d)</th>
-                <th scope="col">Diameters ({snapshot.units.dimension})</th>
-                <th scope="col">Heights ({snapshot.units.dimension})</th>
-                <th scope="col">Area</th>
-                <th scope="col">Max load ({snapshot.units.load})</th>
-                <th scope="col">Strength</th>
-                <th scope="col">Fracture</th>
-                <th scope="col">Tested by</th>
-                <th scope="col">Remarks</th>
-                {onExclude ? <th scope="col">Strength test</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {snapshot.results.map((row) => (
-                <tr key={row.specimenId}>
-                  <th scope="row" className="mono">
-                    {row.specimenLabel}
-                  </th>
-                  <td>{dash(row.assignedAge)}</td>
-                  <td>{row.status === 'tested' ? dash(row.testedOn) : resultStatus(row)}</td>
-                  <td>{dash(row.actualAgeDays)}</td>
-                  <td>{row.diameterReadings.length ? row.diameterReadings.join(', ') : '—'}</td>
-                  <td>{row.heightReadings.length ? row.heightReadings.join(', ') : '—'}</td>
-                  <td>{row.area === null ? '—' : `${row.area} mm²`}</td>
-                  <td>{dash(row.maxLoad)}</td>
-                  <td>
-                    <span className={row.excluded ? 'review-struck' : undefined}>
-                      {mpa(row.strength)}
-                    </span>
-                    {row.calculationMethodVersion ? (
-                      <span className="review-muted"> ({row.calculationMethodVersion})</span>
-                    ) : null}
-                    {row.excluded ? (
-                      <span className="review-muted">
-                        {' '}
-                        Excluded: {row.excluded.reason} ({row.excluded.by.name})
-                      </span>
-                    ) : null}
-                  </td>
-                  <td>{dash(row.fractureType)}</td>
-                  <td>{dash(row.testedBy?.initials ?? row.testedBy?.name)}</td>
-                  <td>
-                    {dash(row.remarks)}
-                    {row.flags.map((flag) => (
-                      <StatusBadge key={flag} tone="warning">
-                        {CONCRETE_STRENGTH_FLAG_LABEL[flag]}
-                      </StatusBadge>
-                    ))}
-                  </td>
-                  {onExclude ? (
-                    <td>
-                      {(row.status === 'tested' || row.excluded) &&
-                      (!excludable || excludable.includes(row.specimenId)) ? (
-                        <button
-                          type="button"
-                          aria-label={`${row.excluded ? 'Reinstate' : 'Exclude'} ${row.specimenLabel}`}
-                          onClick={() => onExclude(row)}
-                        >
-                          {row.excluded ? 'Reinstate' : 'Exclude'}
-                        </button>
-                      ) : null}
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableScroll>
-        <ul className="review-list" aria-label="Per-age results">
-          {snapshot.ages.map((age) => (
-            <li key={age.ageDays}>
-              {age.ageDays} d: {age.testedCount} of {age.specimenCount} tested
-              {age.complete ? '' : ' (incomplete)'} · average strength {mpa(age.averageStrength)}
-              {age.single ? ' (single specimen)' : ''} · assessment{' '}
-              {age.assessment ? (
-                <StatusBadge tone={age.failed ? 'danger' : 'neutral'}>
-                  {CONCRETE_STRENGTH_ASSESSMENT_LABEL[age.assessment]}
-                </StatusBadge>
-              ) : (
-                '—'
-              )}
-              {age.runningAverage !== null ? ` · running average ${mpa(age.runningAverage)}` : ''}
-            </li>
-          ))}
-        </ul>
-        {snapshot.calculation.method ? (
-          <p className="field-hint">
-            The assessment is advisory, for the reviewer: never acceptance. Only the reference age
-            is assessed; other ages are information only.
-          </p>
-        ) : null}
-        <p className="field-hint">
-          {snapshot.standardsLine} Units as entered ({snapshot.units.load},{' '}
-          {snapshot.units.dimension}
-          {snapshot.units.provisional ? ', provisional' : ''}).
-        </p>
       </section>
     </div>
   );
@@ -266,26 +361,23 @@ function ExceptionList({
   onDocument: (code: string, field: string | null, note: string) => Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  if (snapshot.warnings.length === 0) return <p className="review-muted">No exceptions.</p>;
+  if (snapshot.warnings.length === 0) return <p className="crv-muted">No exceptions.</p>;
   return (
-    <ul className="review-checklist">
+    <ul className="crv-checklist">
       {snapshot.warnings.map((w) => {
         const key = `${w.code}|${w.field ?? ''}`;
         const note = notes.find((n) => n.code === w.code && n.field === w.field);
         return (
-          <li
-            key={key}
-            className={note ? 'review-check-item' : 'review-check-item review-check-open'}
-          >
+          <li key={key} className={note ? 'crv-check-item' : 'crv-check-item crv-check-open'}>
             <strong>{CONCRETE_EXCEPTION_LABEL[w.code]}</strong> ·{' '}
             {w.field?.replace('results.', 'Specimen ')}
             {note ? (
-              <p className="review-note">
+              <p className="crv-note">
                 Documented by {note.documentedBy.name}: {note.note}
               </p>
             ) : canDocument ? (
               <form
-                className="review-note-form"
+                className="crv-note-form"
                 onSubmit={(event) => {
                   event.preventDefault();
                   const text = (drafts[key] ?? '').trim();
@@ -372,7 +464,14 @@ export function StrengthReportPage() {
 
   if (load.state === 'loading') return <p aria-busy="true">Loading the strength report…</p>;
   if (load.state === 'error') {
-    return <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />;
+    return (
+      <div className="crv-page">
+        <ContextRow>
+          <Link to="/concrete/review">Back to the review queue</Link>
+        </ContextRow>
+        <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />
+      </div>
+    );
   }
   const { detail, frozen, notes, history } = load;
   const showLive = frozen === null || (live && detail.state === 'issued');
@@ -427,95 +526,150 @@ export function StrengthReportPage() {
   );
   const canDocument = allowed.has('review') && detail.state === 'submitted';
 
+  const shownFrozen = !showLive && frozen !== null;
   return (
-    <div className="review-page">
-      <PageHeader title={`Strength report ${label}`} />
-      <p>
+    <div className="crv-page crv-strength">
+      <ContextRow>
         <Link to="/concrete/review">Back to the review queue</Link>
-      </p>
-      <p>
-        <StrengthStateBadge state={detail.state} />{' '}
         {detail.reportNumber ? <span className="mono">{detail.reportNumber}</span> : null}
         {detail.latestVersion?.issued?.file ? (
-          <>
-            {' '}
-            <a href={`/api/concrete/report-files/${detail.latestVersion.issued.file.id}`}>
-              Download Rev {detail.latestVersion.issued.file.revisionNo} (PDF)
-            </a>
-          </>
+          <a href={`/api/concrete/report-files/${detail.latestVersion.issued.file.id}`}>
+            Download Rev {detail.latestVersion.issued.file.revisionNo} (PDF)
+          </a>
         ) : null}
         {detail.newResults && detail.state === 'issued' ? (
           <>
-            {' '}
-            <StatusBadge tone="info">New results to submit</StatusBadge>{' '}
+            <StatusBadge tone="lab">New results to submit</StatusBadge>
             <button type="button" aria-pressed={live} onClick={() => setLive((v) => !v)}>
               {live ? 'Show the issued version' : 'Show the new results'}
             </button>
           </>
         ) : null}
-      </p>
+      </ContextRow>
+      <PageHeader title={`Strength report ${label}`} />
+      <FactCells
+        label="Strength report"
+        className="crv-facts"
+        cells={[
+          {
+            key: 'version',
+            label: 'Version',
+            value: (
+              <>
+                <span className="crv-fact-value">Rev {shown.revNo}</span>
+                <span className="crv-fact-note">
+                  {shownFrozen
+                    ? `Version ${shown.versionNo} as submitted`
+                    : 'As it would be submitted now'}
+                </span>
+              </>
+            ),
+          },
+          {
+            key: 'workflow',
+            label: 'Workflow',
+            value: (
+              <>
+                <StrengthStateBadge state={detail.state} />
+                <span className="crv-fact-note">
+                  {detail.latestVersion
+                    ? `Latest: version ${detail.latestVersion.versionNo}`
+                    : 'No version submitted yet'}
+                </span>
+              </>
+            ),
+          },
+          {
+            key: 'specified',
+            label: 'Specified',
+            value: (
+              <>
+                <span className="crv-fact-value mono">{specifiedText(shown.set)}</span>
+                <span className="crv-fact-note">From the project spec on the field report</span>
+              </>
+            ),
+          },
+          {
+            key: 'method',
+            label: 'Method',
+            value: (
+              <>
+                <span className="crv-fact-value">
+                  {shown.calculation.method ? shown.calculation.method.line : 'Not calculated'}
+                </span>
+                <span className="crv-fact-note">{shown.calculation.note}</span>
+              </>
+            ),
+          },
+        ]}
+      />
       {message ? (
-        <p
-          role={message.error ? 'alert' : 'status'}
-          className={message.error ? 'review-message review-message-error' : 'review-message'}
-        >
+        <Notice tone={message.error ? 'danger' : 'success'} className="crv-message">
           {message.text}
-        </p>
+        </Notice>
       ) : null}
 
-      <section className="review-actions" aria-label="Actions">
-        {sharedStation ? (
-          <div className="form-field">
-            <label htmlFor={staffId}>Who is doing this</label>
-            <select id={staffId} value={performer} onChange={(e) => setPerformer(e.target.value)}>
-              <option value="">Choose a person</option>
-              {staff.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {formatPerson(p.initials, p.displayName)}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        <div className="review-action-row">
-          {offered.map((action) => (
-            <ActionButton
-              key={action}
-              label={ACTION_LABEL[action]!}
-              block={blockFor(action)}
-              primary={action === 'submit' || action === 'review' || action === 'issue'}
-              busy={busy}
-              onClick={() => void run(action)}
-            />
-          ))}
-          {allowed.has('return') ? (
-            <ActionButton
-              label="Return for correction"
-              block={null}
-              busy={busy}
-              onClick={() => setDialog('return')}
-            />
-          ) : null}
-          {allowed.has('revise') ? (
-            <ActionButton
-              label="Start a revision"
-              block={null}
-              busy={busy}
-              onClick={() => setDialog('revise')}
-            />
-          ) : null}
+      <div className="crv-layout">
+        <div className="crv-main">
+          <StrengthReportBody
+            snapshot={shown}
+            onExclude={detail.canExclude && showLive ? setExcluding : undefined}
+            excludable={detail.excludableSpecimenIds}
+            locked={shownFrozen && detail.state === 'issued'}
+          />
         </div>
-      </section>
-
-      <div className="review-layout">
-        <StrengthReportBody
-          snapshot={shown}
-          onExclude={detail.canExclude && showLive ? setExcluding : undefined}
-          excludable={detail.excludableSpecimenIds}
-        />
-        <div className="review-side">
-          <section aria-label="Exceptions">
-            <h2 className="review-subhead">Exceptions</h2>
+        <div className="crv-side">
+          <SidePanel title="Actions">
+            {sharedStation ? (
+              <div className="form-field">
+                <label htmlFor={staffId}>Who is doing this</label>
+                <select
+                  id={staffId}
+                  value={performer}
+                  onChange={(e) => setPerformer(e.target.value)}
+                >
+                  <option value="">Choose a person</option>
+                  {staff.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {formatPerson(p.initials, p.displayName)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="crv-action-stack">
+              {offered.map((action) => (
+                <ActionButton
+                  key={action}
+                  label={ACTION_LABEL[action]!}
+                  block={blockFor(action)}
+                  primary={action === 'submit' || action === 'review' || action === 'issue'}
+                  busy={busy}
+                  onClick={() => void run(action)}
+                />
+              ))}
+              {allowed.has('return') ? (
+                <ActionButton
+                  label="Return for correction"
+                  block={null}
+                  busy={busy}
+                  onClick={() => setDialog('return')}
+                />
+              ) : null}
+              {allowed.has('revise') ? (
+                <ActionButton
+                  label="Start a revision"
+                  block={null}
+                  busy={busy}
+                  onClick={() => setDialog('revise')}
+                />
+              ) : null}
+              {offered.length === 0 && !allowed.has('return') && !allowed.has('revise') ? (
+                <p className="crv-muted">Nothing for you to do at this stage.</p>
+              ) : null}
+            </div>
+          </SidePanel>
+          <SidePanel title="Exceptions">
             <ExceptionList
               snapshot={shown}
               notes={notes}
@@ -533,20 +687,19 @@ export function StrengthReportPage() {
                 }
               }}
             />
-          </section>
+          </SidePanel>
           {history ? (
-            <section aria-label="Versions">
-              <h2 className="review-subhead">Versions</h2>
-              <ol className="review-history">
+            <SidePanel title="Versions">
+              <ol className="crv-history">
                 {history.versions.map((v) => (
                   <li key={v.id}>
-                    v{v.versionNo} · {v.state}
+                    <span className="mono">v{v.versionNo}</span> · {v.state}
                     {v.revisionOfVersionNo ? ` (revises v${v.revisionOfVersionNo})` : ''} ·{' '}
                     {shortDateTime(v.submittedAt)}
                   </li>
                 ))}
               </ol>
-            </section>
+            </SidePanel>
           ) : null}
         </div>
       </div>

@@ -5,11 +5,12 @@ import {
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { BandedCard, ErrorState } from '../../components/ui';
+import { BandedCard, ErrorState, StatusBadge } from '../../components/ui';
 import { useMe } from '../../session/context';
 import { fetchReviewers } from '../../projects/team-api';
 import { ConcreteApiError, concreteProblem, fetchSettings, saveSettings } from './api';
 import { commaAges, parseAges } from './mix-format';
+import { TabHead } from './TabHead';
 import { useLoad } from './useLoad';
 
 // MM-V2-C30 Settings tab: the project's concrete settings (C02: default ages, HOLD days, whether
@@ -24,7 +25,7 @@ export function SettingsTab({ project }: { project: ProjectDetail }) {
     fetchSettings(project.id),
   );
   return (
-    <div className="concrete-tab concrete-settings">
+    <div className="concrete-tab concrete-settings concrete-narrow">
       {load.state === 'loading' ? <p role="status">Loading…</p> : null}
       {load.state === 'error' ? (
         <ErrorState message={concreteProblem(load.error)} onRetry={reload} />
@@ -98,79 +99,119 @@ function SettingsForm({
     }
   }
 
+  const head = (
+    <TabHead
+      id={`${id}-heading`}
+      title="Concrete settings"
+      hint="Starting values for sets created from now on; existing sets and schedules don’t change."
+    />
+  );
+  const machineTag =
+    settings.includeMachineInfo === null ? (
+      <StatusBadge tone="waiting">Not chosen yet</StatusBadge>
+    ) : null;
+
   if (!settings.canEdit) {
     return (
-      <BandedCard title="Concrete settings">
-        <dl className="concrete-facts">
-          <div>
-            <dt>Default specimen ages</dt>
-            <dd>{commaAges(settings.defaultSpecimenAges)}</dd>
-          </div>
-          <div>
-            <dt>HOLD duration</dt>
-            <dd>{settings.holdDurationDays} days from casting</dd>
-          </div>
-          <div>
-            <dt>Machine information on issued reports</dt>
-            <dd>{machineText(settings.includeMachineInfo)}</dd>
-          </div>
-        </dl>
+      <section className="concrete-settings-form" aria-labelledby={`${id}-heading`}>
+        {head}
+        <BandedCard title="Default test ages" headingLevel={3}>
+          <dl className="concrete-facts">
+            <div>
+              <dt>Default specimen ages</dt>
+              <dd className="mono">{commaAges(settings.defaultSpecimenAges)}</dd>
+            </div>
+          </dl>
+        </BandedCard>
+        <BandedCard title="Holds and reports" headingLevel={3}>
+          <dl className="concrete-facts">
+            <div>
+              <dt>HOLD duration</dt>
+              <dd>
+                <span className="mono">{settings.holdDurationDays}</span> days from casting
+              </dd>
+            </div>
+            <div>
+              <dt>Machine information on issued reports</dt>
+              <dd>{machineTag ?? machineText(settings.includeMachineInfo)}</dd>
+            </div>
+          </dl>
+        </BandedCard>
         <p className="field-hint">
           Only the project’s Lead Project Engineer or an administrator can change these settings.
         </p>
-      </BandedCard>
+      </section>
     );
   }
 
   return (
-    <BandedCard title="Concrete settings">
+    <section className="concrete-settings-form" aria-labelledby={`${id}-heading`}>
+      {head}
       <form
         className="concrete-form"
         aria-label="Concrete settings"
         onSubmit={(e) => void submit(e)}
       >
-        <label htmlFor={`${id}-ages`}>Default specimen ages</label>
-        <input
-          id={`${id}-ages`}
-          type="text"
-          value={ages}
-          autoComplete="off"
-          aria-describedby={`${id}-ages-hint`}
-          onChange={(event) => setAges(event.target.value)}
-        />
-        <p id={`${id}-ages-hint`} className="field-hint">
-          Days from casting or HOLD, one per specimen, e.g. 7, 28, 28, HOLD. A mix’s own ages win.
-        </p>
-        <label htmlFor={`${id}-hold`}>HOLD duration (days from casting)</label>
-        <input
-          id={`${id}-hold`}
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={999}
-          value={hold}
-          onChange={(event) => setHold(event.target.value)}
-        />
-        <label htmlFor={`${id}-machine`}>
-          Include testing machine information on issued reports
-        </label>
-        <select
-          id={`${id}-machine`}
-          value={machine}
-          onChange={(event) => setMachine(event.target.value)}
-        >
-          <option value="">Not chosen yet (the issuer chooses)</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
-        <label htmlFor={`${id}-reason`}>Reason (optional)</label>
-        <input
-          id={`${id}-reason`}
-          type="text"
-          value={reason}
-          maxLength={2000}
-          onChange={(event) => setReason(event.target.value)}
-        />
+        <BandedCard title="Default test ages" headingLevel={3} as="div">
+          <div className="concrete-field">
+            <label htmlFor={`${id}-ages`}>Default specimen ages</label>
+            <input
+              id={`${id}-ages`}
+              className="mono"
+              type="text"
+              value={ages}
+              autoComplete="off"
+              aria-describedby={`${id}-ages-hint`}
+              onChange={(event) => setAges(event.target.value)}
+            />
+            <p id={`${id}-ages-hint`} className="field-hint">
+              Days from casting or HOLD, one per specimen, e.g. 7, 28, 28, HOLD. A mix’s own ages
+              win.
+            </p>
+          </div>
+        </BandedCard>
+        <BandedCard title="Holds and reports" headingLevel={3} as="div">
+          <div className="concrete-fields">
+            <div className="concrete-field">
+              <label htmlFor={`${id}-hold`}>HOLD duration (days from casting)</label>
+              <input
+                id={`${id}-hold`}
+                className="mono concrete-input-short"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={999}
+                value={hold}
+                onChange={(event) => setHold(event.target.value)}
+              />
+            </div>
+            <div className="concrete-field concrete-field-wide">
+              <label htmlFor={`${id}-machine`}>
+                Include testing machine information on issued reports
+              </label>
+              <select
+                id={`${id}-machine`}
+                value={machine}
+                onChange={(event) => setMachine(event.target.value)}
+              >
+                <option value="">Not chosen yet (the issuer chooses)</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+              {machineTag ? <span className="concrete-field-tag">{machineTag}</span> : null}
+            </div>
+          </div>
+        </BandedCard>
+        <div className="concrete-field">
+          <label htmlFor={`${id}-reason`}>Reason (optional)</label>
+          <input
+            id={`${id}-reason`}
+            type="text"
+            value={reason}
+            maxLength={2000}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </div>
         {error ? (
           <p className="field-error" role="alert">
             {error}
@@ -179,13 +220,13 @@ function SettingsForm({
         <p className="notice notice-success" role="status">
           {saved}
         </p>
-        <div className="page-actions">
+        <div className="page-actions concrete-actions">
           <button type="submit" className="primary" disabled={busy}>
             Save settings
           </button>
         </div>
       </form>
-    </BandedCard>
+    </section>
   );
 }
 

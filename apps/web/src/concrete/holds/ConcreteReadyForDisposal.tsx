@@ -4,7 +4,15 @@ import {
   type ConcreteDisposalReadyRow,
 } from '@materialmule/shared';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BandedCard, DataTable, ErrorState, StatusBadge, type Column } from '../../components/ui';
+import {
+  BandedCard,
+  DataTable,
+  ErrorState,
+  Notice,
+  StatusBadge,
+  type Column,
+} from '../../components/ui';
+import { SpecimenLabel } from '../worklist/specimen';
 import { fetchConcreteReady } from './api';
 import { HoldActionDialog } from './HoldActionDialog';
 import './holds.css';
@@ -71,12 +79,20 @@ export function ConcreteReadyForDisposal({ filter }: { filter?: ReactNode }) {
           },
         ]
       : []),
-    { header: 'Specimen ID', cell: (r) => label(r) },
-    { header: 'Project', cell: (r) => r.project.projectNumber },
+    {
+      header: 'Specimen ID',
+      cell: (r) =>
+        r.identity.permanentId || r.identity.temporaryId ? (
+          <SpecimenLabel identity={r.identity} />
+        ) : (
+          <span className="mono">{label(r)}</span>
+        ),
+    },
+    { header: 'Project', cell: (r) => <span className="mono">{r.project.projectNumber}</span> },
     {
       header: 'Released from',
       cell: (r) => (
-        <StatusBadge tone={r.holdKind === 'failed' ? 'danger' : 'neutral'}>
+        <StatusBadge tone={r.holdKind === 'failed' ? 'danger' : 'closed'}>
           {CONCRETE_HOLD_KIND_LABEL[r.holdKind]}
         </StatusBadge>
       ),
@@ -105,7 +121,7 @@ export function ConcreteReadyForDisposal({ filter }: { filter?: ReactNode }) {
       {filter}
       {failed ? <ErrorState message={failed} onRetry={() => setReload((n) => n + 1)} /> : null}
       {!data && !failed ? <p className="field-hint">Loading…</p> : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {notice ? <Notice tone="success">{notice}</Notice> : null}
       {data ? (
         <>
           {data.canRecord ? (

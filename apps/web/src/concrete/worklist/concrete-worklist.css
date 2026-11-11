@@ -1,6 +1,148 @@
-/* Lab Testing → Concrete breaks (MM-V2-C22). Dense desktop table, stacks on phones (DataTable).
-   Moderate corner radii from the design tokens: never pill shapes. */
+/* Concrete → Breaks (MM-V2-C22), Field Ledger boards Concrete and PhoneConcrete. Tokens only;
+   radii 3/4/6 px (never pill shapes). Hover is global. */
 
+.concrete-worklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.concrete-worklist .page-header h1 {
+  margin: 0;
+}
+
+.concrete-dateline {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.worklist-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.worklist-project {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The view tiles are a tablist (role=tab, aria-selected); ledger.css draws them. */
+.concrete-tiles [role='tab']:focus-visible {
+  outline-offset: -4px;
+}
+
+.concrete-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.concrete-hold-due {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control);
+}
+
+.concrete-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-group .section-head h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+}
+
+.concrete-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* MM-V2-C38: a disabled Reschedule with the reason beside it ("Number this set first"). */
+.concrete-action-blocked {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.concrete-action-reason {
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+}
+
+/* Phone: one stacked card per specimen, grouped by project (board PhoneConcrete). */
+.concrete-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.concrete-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+}
+
+.concrete-card-main {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.concrete-card-main .specimen-id {
+  font-size: var(--fs-row-id);
+}
+
+.concrete-card-when {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.concrete-exceptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-exception-list {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.concrete-footnote {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.concrete-history ul {
+  padding-left: var(--space-5);
+  margin: var(--space-2) 0 0;
+}
+
+/* Still used by ConcreteReceivingPage's stage tabs, which imports this file (kept as it was). */
 .concrete-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -35,57 +177,8 @@
   text-align: center;
 }
 
-.concrete-group + .concrete-group {
-  margin-top: 1.25rem;
-}
-
-.concrete-group h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-}
-
-.concrete-group-count {
-  font-weight: 400;
-  color: var(--muted, inherit);
-}
-
-.concrete-group .data-table td,
-.concrete-group .data-table th {
-  padding-top: 0.3rem;
-  padding-bottom: 0.3rem;
-}
-
-.concrete-flags {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.concrete-notice {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius-control);
-  background: var(--accent-bg);
-}
-
-.concrete-exception-list {
-  padding-left: 1.25rem;
-}
-
-.concrete-history ul {
-  padding-left: 1.25rem;
-  margin: 0.5rem 0 0;
-}
-
-/* MM-V2-C38: a disabled Reschedule with the reason beside it ("Number this set first"). */
-.concrete-action-blocked {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-}
-
-.concrete-action-reason {
-  color: var(--muted, inherit);
-  font-size: 0.875em;
+@media (max-width: 640px) {
+  .concrete-panel {
+    gap: var(--space-5);
+  }
 }

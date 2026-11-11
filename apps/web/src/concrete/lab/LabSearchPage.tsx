@@ -89,8 +89,8 @@ function Area<T>({
 }) {
   const headingId = useId();
   return (
-    <section className="dash-panel lab-search-area" aria-labelledby={headingId} aria-busy={!result}>
-      <div className="lab-search-area-head">
+    <section className="concrete-lab-section" aria-labelledby={headingId} aria-busy={!result}>
+      <div className="section-head lab-search-area-head">
         <h2 id={headingId}>{title}</h2>
         {result?.ok ? more : null}
       </div>
@@ -141,13 +141,15 @@ export function LabSearchPage() {
                   <p className="field-hint">
                     {page.total === 1 ? '1 storage unit' : `${page.total} storage units`} match.
                   </p>
-                  <ul className="lab-search-list">
+                  <ul className="concrete-row-list">
                     {page.items.map((unit) => (
-                      <li key={unit.id}>
-                        <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
-                          {unit.readableId}
-                        </Link>{' '}
-                        <span className="field-hint">
+                      <li key={unit.id} className="concrete-row">
+                        <span className="concrete-row-id">
+                          <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
+                            {unit.readableId}
+                          </Link>
+                        </span>{' '}
+                        <span className="concrete-row-main concrete-muted">
                           {unit.project.projectNumber} {unit.project.name}
                           {unit.holes.length > 0
                             ? ` · ${unit.holes.map((h) => h.testHoleName).join(', ')}`
@@ -169,11 +171,13 @@ export function LabSearchPage() {
               list.length === 0 ? (
                 <EmptyState>No projects match.</EmptyState>
               ) : (
-                <ul className="lab-search-list">
+                <ul className="concrete-row-list">
                   {list.map((project) => (
-                    <li key={project.id}>
-                      <Link to={`/projects/${project.id}`}>{project.projectNumber}</Link>{' '}
-                      <span className="field-hint">
+                    <li key={project.id} className="concrete-row">
+                      <span className="concrete-row-id">
+                        <Link to={`/projects/${project.id}`}>{project.projectNumber}</Link>
+                      </span>{' '}
+                      <span className="concrete-row-main concrete-muted">
                         {project.name} · {project.client}
                       </span>
                     </li>

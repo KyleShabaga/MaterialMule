@@ -12,10 +12,13 @@ import {
   ErrorState,
   StatusBadge,
   TableScroll,
+  TableViewSelector,
   type BadgeTone,
 } from '../../components/ui';
+import { useTableView } from '../../components/useTableView';
 import { concreteProblem, fetchProjectSpecimens } from './api';
 import { Pager } from './Pager';
+import { TabHead } from './TabHead';
 import { useLoad } from './useLoad';
 
 // MM-V2-C30 Specimens tab: one row per specimen (ID, casting date, structure, location, age or
@@ -23,12 +26,12 @@ import { useLoad } from './useLoad';
 // test results exist (C23).
 
 const TONE: Record<ConcreteProjectSpecimenStatus, BadgeTone> = {
-  awaiting_casting: 'neutral',
-  scheduled: 'info',
-  due_today: 'warning',
+  awaiting_casting: 'waiting',
+  scheduled: 'closed',
+  due_today: 'flag',
   overdue: 'danger',
-  hold: 'neutral',
-  void: 'neutral',
+  hold: 'closed',
+  void: 'closed',
 };
 
 export function SpecimensTab({ project }: { project: ProjectDetail }) {
@@ -39,6 +42,7 @@ export function SpecimensTab({ project }: { project: ProjectDetail }) {
   const status = params.get('status') ?? '';
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
   const [text, setText] = useState(q);
+  const [view, setView] = useTableView('concrete-project-specimens');
   const { load, reload } = useLoad(`${project.id}|${q}|${status}|${page}`, () =>
     fetchProjectSpecimens(project.id, { search: q, status, page }),
   );
@@ -59,8 +63,12 @@ export function SpecimensTab({ project }: { project: ProjectDetail }) {
   }
 
   return (
-    <section className="concrete-tab" aria-label="Specimens">
-      <div className="concrete-toolbar">
+    <section className="concrete-tab" aria-labelledby={`${searchId}-heading`}>
+      <TabHead
+        id={`${searchId}-heading`}
+        title="Specimens"
+        hint="One row per specimen. A row opens its field report."
+      >
         <form role="search" className="concrete-search" onSubmit={submit}>
           <label htmlFor={searchId}>Search specimens</label>
           <div className="inline-input">
@@ -90,7 +98,8 @@ export function SpecimensTab({ project }: { project: ProjectDetail }) {
             ))}
           </select>
         </div>
-      </div>
+        <TableViewSelector value={view} onChange={setView} />
+      </TabHead>
 
       {load.state === 'loading' ? <p role="status">Loading…</p> : null}
       {load.state === 'error' ? (
@@ -103,6 +112,7 @@ export function SpecimensTab({ project }: { project: ProjectDetail }) {
               rows={load.data.items}
               rowKey={(row) => row.specimenId}
               caption="Specimens"
+              view={view}
               empty={
                 q || status
                   ? 'No specimens match these filters.'
@@ -113,7 +123,7 @@ export function SpecimensTab({ project }: { project: ProjectDetail }) {
                   header: 'Specimen',
                   cell: (row) => (
                     <Link
-                      className="nowrap"
+                      className="nowrap mono specimen-row-id"
                       to={`/concrete/review/${encodeURIComponent(row.fieldReportId)}`}
                       aria-label={`Open the field report for specimen ${row.label}`}
                     >
@@ -121,30 +131,43 @@ export function SpecimensTab({ project }: { project: ProjectDetail }) {
                     </Link>
                   ),
                 },
-                { header: 'Cast', cell: (row) => row.castingDate ?? '—' },
+                {
+                  header: 'Cast',
+                  cell: (row) => <span className="mono nowrap">{row.castingDate ?? '—'}</span>,
+                },
                 { header: 'Structure', cell: (row) => row.structure.join(', ') || '—' },
                 { header: 'Location', cell: (row) => row.location ?? '—' },
                 {
                   header: 'Age',
-                  cell: (row) =>
-                    row.assignedAge === null
-                      ? '—'
-                      : row.assignedAge === 'HOLD'
-                        ? 'HOLD'
-                        : `${row.assignedAge} d`,
+                  cell: (row) => (
+                    <span className="mono">
+                      {row.assignedAge === null
+                        ? '—'
+                        : row.assignedAge === 'HOLD'
+                          ? 'HOLD'
+                          : `${row.assignedAge} d`}
+                    </span>
+                  ),
                 },
                 {
                   header: 'Test date',
-                  cell: (row) =>
-                    row.testDate
-                      ? row.assignedAge === 'HOLD'
-                        ? `HOLD until ${row.testDate}`
-                        : row.testDate
-                      : '—',
+                  cell: (row) => (
+                    <span className="mono">
+                      {row.testDate
+                        ? row.assignedAge === 'HOLD'
+                          ? `HOLD until ${row.testDate}`
+                          : row.testDate
+                        : '—'}
+                    </span>
+                  ),
                 },
                 {
                   header: 'Strength',
-                  cell: (row) => (row.strengthMpa === null ? '—' : `${row.strengthMpa} MPa`),
+                  cell: (row) => (
+                    <span className="mono">
+                      {row.strengthMpa === null ? '—' : `${row.strengthMpa} MPa`}
+                    </span>
+                  ),
                 },
                 {
                   header: 'Status',

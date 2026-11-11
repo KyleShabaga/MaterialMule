@@ -79,10 +79,6 @@ const featureRoutes: RouteObject[] = [
           children: [
             { index: true, element: <WorklistPage /> },
             { path: 'programs', element: <ProgramsPage /> },
-            // Concrete breaks: the daily concrete lab worklist (MM-V2-C22).
-            { path: 'concrete', element: <ConcreteWorklistPage /> },
-            // HOLD management and bulk HOLD actions (MM-V2-C26).
-            { path: 'concrete/holds', element: <HoldManagementPage /> },
             { path: 'programs/new', element: <ProgramEditor draft={null} /> },
             {
               path: 'programs/:programId',
@@ -96,6 +92,11 @@ const featureRoutes: RouteObject[] = [
             },
           ],
         },
+        // Concrete breaks (MM-V2-C22) and HOLD management (MM-V2-C26) keep their URLs under
+        // /lab-testing but sit outside the Lab Testing layout: the rail's Concrete group replaces
+        // the in-page section switch (Field Ledger, docs/redesign/design.md "Shell additions").
+        { path: 'lab-testing/concrete', element: <ConcreteWorklistPage /> },
+        { path: 'lab-testing/concrete/holds', element: <HoldManagementPage /> },
       ]
     : []),
   ...(FEATURES.disposalRetention

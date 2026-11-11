@@ -223,14 +223,25 @@ describe('Strength report page', () => {
   it('prints the set block and results, with "—" for strength on a pre-C24 version, HOLD and targets', async () => {
     renderAt(() => json(200, detail()));
     expect(await screen.findByRole('heading', { name: 'Strength report 26-07' })).toBeVisible();
-    const table = screen.getByRole('table', { name: 'Strength results' });
-    const rows = within(table).getAllByRole('row');
-    expect(within(rows[1]!).getByRole('rowheader')).toHaveTextContent('26-07A');
-    expect(rows[1]).toHaveTextContent('410.2');
-    expect(rows[2]).toHaveTextContent('Not yet tested (target 2026-11-30)');
-    expect(rows[3]).toHaveTextContent('HOLD');
+    // Field Ledger: one framed table per test age, then the held specimens.
+    const row = (table: string, index: number) =>
+      within(screen.getByRole('table', { name: `Strength results, ${table}` })).getAllByRole('row')[
+        index
+      ]!;
+    expect(within(row('7 days', 1)).getByRole('rowheader')).toHaveAccessibleName('26-07A');
+    expect(row('7 days', 1)).toHaveTextContent('410.2');
+    expect(row('28 days', 1)).toHaveTextContent('Not yet tested (target 2026-11-30)');
+    expect(row('On hold', 1)).toHaveTextContent('HOLD');
     // Strength and area columns print a dash, never 0.
-    expect(within(rows[1]!).getAllByRole('cell')[8]).toHaveTextContent('—');
+    const cells = within(row('7 days', 1)).getAllByRole('cell');
+    expect(cells[4]).toHaveTextContent(/^—$/);
+    expect(cells[6]).toHaveTextContent(/^—$/);
+    // The four facts: version, workflow, specified strength and method, each its own cell.
+    const facts = document.querySelector('.fact-cells[aria-label="Strength report"]')!;
+    expect(
+      Array.from(facts.querySelectorAll('.fact-cell > dt')).map((dt) => dt.textContent),
+    ).toEqual(['Version', 'Workflow', 'Specified', 'Method']);
+    expect(facts).toHaveTextContent('Not submitted');
     expect(screen.getByText(/32 MPa at 28 d/)).toBeVisible();
     expect(screen.getByText(/to be confirmed by owner/)).toBeVisible();
   });
@@ -282,7 +293,7 @@ describe('Strength report page', () => {
       );
     });
     expect(await screen.findByText('Calculation method P1 (provisional)')).toBeVisible();
-    const table = screen.getByRole('table', { name: 'Strength results' });
+    const table = screen.getByRole('table', { name: 'Strength results, 7 days' });
     const rows = within(table).getAllByRole('row');
     expect(rows[1]).toHaveTextContent('51.9 MPa');
     expect(rows[1]).toHaveTextContent('7901 mm²');
@@ -371,9 +382,11 @@ describe('Strength report page', () => {
       );
     });
     const toggle = await screen.findByRole('button', { name: 'Show the new results' });
-    // The issued version is shown first, without exclusion controls.
+    // The issued version is shown first, without exclusion controls, its results locked.
     expect(screen.queryByRole('button', { name: /^Exclude / })).toBeNull();
+    expect(screen.getByText(/These results are on an issued version/)).toBeVisible();
     await user.click(toggle);
+    expect(screen.queryByText(/These results are on an issued version/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Exclude 26-07B' })).toBeVisible();
     // The issued specimen stays protected.
     expect(screen.queryByRole('button', { name: 'Exclude 26-07A' })).toBeNull();

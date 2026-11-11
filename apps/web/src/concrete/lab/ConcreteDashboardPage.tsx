@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
-import { ErrorState, PageHeader } from '../../components/ui';
+import { ErrorState, PageHeader, SectionHead } from '../../components/ui';
+import { ContextRow } from '../../layout/ContextRow';
+import { TileBody } from '../ledger';
 import { fetchDashboardCounts, type ConcreteDashboardCounts, type LoadResult } from './api';
 import { ConcreteSearchForm } from './ConcreteSearch';
 import './concrete-lab.css';
@@ -10,7 +12,7 @@ interface Count {
   key: keyof ConcreteDashboardCounts;
   label: string;
   to: string;
-  /** A count above zero needs attention now (shown with a marker and text, never colour alone). */
+  /** A count above zero needs attention now (shown with a flag-wash tile and text, never colour alone). */
   urgent?: boolean;
 }
 
@@ -59,8 +61,9 @@ const GROUPS: { title: string; counts: Count[] }[] = [
 
 /**
  * The Concrete dashboard (MM-V2-C31, "Daily lab briefing" confirmed by Kyle): counts readable at a
- * glance, each opening its list; New field report and Open testing table shortcuts; Concrete
- * search. Lists are lab-wide; My reports come first in pickup and receiving.
+ * glance as view tiles, each opening its list; New field report and Open testing table shortcuts
+ * in the context row; Concrete search. Lists are lab-wide; My reports come first in pickup and
+ * receiving.
  */
 export function ConcreteDashboardPage() {
   const [attempt, setAttempt] = useState(0);
@@ -82,24 +85,20 @@ export function ConcreteDashboardPage() {
 
   return (
     <div className="concrete-lab concrete-dashboard">
-      <PageHeader
-        title="Concrete"
-        actions={
-          <div className="concrete-shortcuts">
-            <span className="concrete-shortcut-disabled">
-              <button type="button" className="button" disabled aria-describedby={newReportHint}>
-                New field report
-              </button>
-              <span id={newReportHint} className="field-hint">
-                The field report form isn’t available yet.
-              </span>
-            </span>
-            <Link className="button primary" to="/concrete/testing">
-              Open testing table
-            </Link>
-          </div>
-        }
-      />
+      <ContextRow align="end">
+        <span className="concrete-shortcut-disabled">
+          <button type="button" disabled aria-describedby={newReportHint}>
+            New field report
+          </button>
+          <span id={newReportHint} className="field-hint">
+            The field report form isn’t available yet.
+          </span>
+        </span>
+        <Link className="button primary" to="/concrete/testing">
+          Open testing table
+        </Link>
+      </ContextRow>
+      <PageHeader title="Concrete" />
 
       {load && !load.ok ? (
         <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />
@@ -111,8 +110,8 @@ export function ConcreteDashboardPage() {
         ))}
       </div>
 
-      <section className="dash-panel" aria-labelledby="concrete-strength-reports">
-        <h2 id="concrete-strength-reports">Strength reports for the lab</h2>
+      <section className="concrete-lab-section" aria-labelledby="concrete-strength-reports">
+        <SectionHead id="concrete-strength-reports" title="Strength reports for the lab" />
         <p className="field-hint">
           Sets with results to submit, a returned report to correct, or a new age after an issue.
         </p>
@@ -123,9 +122,9 @@ export function ConcreteDashboardPage() {
         />
       </section>
 
-      <section className="dash-panel concrete-dashboard-search" aria-labelledby="concrete-search">
-        <h2 id="concrete-search">Find concrete records</h2>
-        <ConcreteSearchForm />
+      <section className="concrete-lab-section" aria-labelledby="concrete-search">
+        <SectionHead id="concrete-search" title="Find concrete records" />
+        <ConcreteSearchForm primary={false} />
       </section>
     </div>
   );
@@ -144,32 +143,35 @@ function CountGroup({
   const data = load?.ok ? load.data : null;
   return (
     <section className="concrete-count-group" aria-labelledby={headingId}>
-      <h2 id={headingId}>{title}</h2>
-      <ul className="concrete-counts" aria-busy={load === null}>
+      <SectionHead id={headingId} title={title} />
+      <div className="view-tiles" aria-busy={load === null}>
         {counts.map((count) => {
           const value = data ? data[count.key] : null;
-          const urgent = count.urgent && value !== null && value > 0;
+          const urgent = Boolean(count.urgent && value !== null && value > 0);
+          const shown = value ?? '–';
           return (
-            <li key={count.key}>
-              <Link
-                to={count.to}
-                className={urgent ? 'concrete-count concrete-count-urgent' : 'concrete-count'}
-              >
-                <span className="concrete-count-value">{value ?? '–'}</span>{' '}
-                <span className="concrete-count-label">
-                  {count.label}
-                  {urgent ? (
-                    <>
-                      {' '}
-                      <span className="concrete-count-flag">(needs attention)</span>
-                    </>
-                  ) : null}
-                </span>
-              </Link>
-            </li>
+            <Link
+              key={count.key}
+              to={count.to}
+              className={urgent ? 'view-tile-due' : undefined}
+              // The tile shows the count over the label; the name reads them in one line.
+              aria-label={`${shown} ${count.label}${urgent ? ' (needs attention)' : ''}`}
+            >
+              <TileBody
+                count={shown}
+                label={
+                  <>
+                    {count.label}
+                    {urgent ? (
+                      <span className="concrete-count-flag"> (needs attention)</span>
+                    ) : null}
+                  </>
+                }
+              />
+            </Link>
           );
         })}
-      </ul>
+      </div>
     </section>
   );
 }
