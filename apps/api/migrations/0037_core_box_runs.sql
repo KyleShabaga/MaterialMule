@@ -46,8 +46,10 @@ ALTER TABLE storage_unit
 
 -- A core box belongs to exactly one test hole. Checked at commit, so receiving (unit, then its
 -- summary) and a correction (summaries replaced as a set) can pass through zero inside the
--- transaction; only core boxes queue a check on the unit side. The unit row is locked first, so two transactions adding a summary to the same
--- box run one after the other and the second sees the first's row.
+-- transaction; only core boxes queue a check on the unit side. The unit row is locked first
+-- (FOR NO KEY UPDATE: it conflicts with itself, so two transactions adding a summary to the same
+-- box run one after the other and the second sees the first's row, yet it never blocks another
+-- transaction's foreign-key check on the unit).
 CREATE FUNCTION storage_unit_core_box_one_test_hole() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -67,7 +69,7 @@ BEGIN
   END IF;
   FOREACH unit_id IN ARRAY unit_ids LOOP
     SELECT su.readable_id, su.unit_type INTO unit
-    FROM storage_unit su WHERE su.id = unit_id FOR UPDATE;
+    FROM storage_unit su WHERE su.id = unit_id FOR NO KEY UPDATE;
     CONTINUE WHEN NOT FOUND OR unit.unit_type <> 'core_box';
     SELECT count(*) INTO holes FROM storage_unit_hole_summary WHERE storage_unit_id = unit_id;
     IF holes <> 1 THEN

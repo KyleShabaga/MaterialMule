@@ -134,6 +134,8 @@ export function CorrectionForm({
   const typeChanged = unitType !== unit.unitType;
   const coreBox = unitType === 'core_box';
   const runsChanged = coreBox && coreRunCount !== (unit.coreRunCount ?? null);
+  // A core box belongs to exactly one test hole: switching a mixed-hole bucket needs a choice.
+  const tooManyHolesForCoreBox = coreBox && summaries.length > 1;
   const dateChanged = receivedDate !== unit.receivedDate;
   const noteChanged = note.trim() !== (unit.note ?? '');
   const summariesChanged =
@@ -182,6 +184,10 @@ export function CorrectionForm({
     const checked = storageUnitCorrectionRequestSchema.safeParse(body);
     if (!checked.success) {
       setErrors(toFieldErrors(checked.error));
+      return;
+    }
+    if (tooManyHolesForCoreBox) {
+      setErrors([{ field: SUMMARIES_PATH, code: 'core_box_one_test_hole', message: '' }]);
       return;
     }
     if (receivedDate > todayInEdmonton()) {
@@ -355,6 +361,12 @@ export function CorrectionForm({
         </Changed>
       </div>
 
+      {!contentsFixed && tooManyHolesForCoreBox ? (
+        <p className="notice notice-warning" role="status">
+          A core box belongs to exactly one test hole. Remove the other test holes below before
+          saving.
+        </p>
+      ) : null}
       {contentsFixed || !coreBox ? null : (
         <Changed when={runsChanged}>
           <CoreRunsField

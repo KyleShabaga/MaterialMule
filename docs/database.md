@@ -169,7 +169,8 @@ Key rules enforced by the database:
   `storage_unit_core_runs_by_type_check` (a core box has a count, no other unit has one), the
   type/holder and contents checks (no own source, no bulk group), and the deferred constraint
   trigger `storage_unit_core_box_one_test_hole` (exactly one hole summary at commit, so receiving
-  and a correction can replace it inside the transaction; it locks the unit row first). The run
+  and a correction can replace it inside the transaction; it locks the unit row first with
+  `FOR NO KEY UPDATE`, which never blocks foreign-key checks on it). The run
   count is a current value, corrected like the type; a disposed box's runs are final
   (`storage_unit_disposed_core_runs_final`). Lab coverage, labels and search treat a core box as
   they treat a bucket (`hole_summary` basis; never tracked like a Shelby tube). Proven in

@@ -537,3 +537,40 @@ describe('storage unit corrections (MM-T13)', () => {
     expect(screen.getByRole('form', { name: 'Correct details' })).toBeInTheDocument();
   });
 });
+
+describe('core box corrections (Kyle, 2026-11-10)', () => {
+  it('warns that a two-hole bucket set to Core box must keep one test hole, and never saves it', async () => {
+    const twoHoles: StorageUnitDetail = {
+      ...UNIT,
+      holes: [
+        UNIT.holes[0]!,
+        {
+          ...UNIT.holes[0]!,
+          testHoleId: '00000000-0000-4000-8000-000000000302',
+          testHoleName: 'TH26-02',
+        },
+      ],
+    };
+    const patches = stubApi({
+      unit: twoHoles,
+      history: EMPTY_HISTORY,
+      patch: () => json(200, twoHoles),
+    });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    const form = screen.getByRole('form', { name: 'Correct details' });
+    await user.selectOptions(within(form).getByLabelText('Type'), 'core_box');
+    expect(
+      within(form).getByText(/A core box belongs to exactly one test hole\. Remove the other/),
+    ).toBeInTheDocument();
+    expect(within(form).getByRole('radio', { name: '3 runs · 4.56 m' })).toBeChecked();
+    await user.type(within(form).getByLabelText('Reason for the correction'), 'it is a core box');
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+    expect(
+      await within(form).findByText('A core box belongs to exactly one test hole.'),
+    ).toBeInTheDocument();
+    expect(patches).toEqual([]);
+  });
+});
