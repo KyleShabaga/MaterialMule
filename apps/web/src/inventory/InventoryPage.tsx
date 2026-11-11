@@ -57,8 +57,11 @@ export function InventoryPage() {
   const [params, setParams] = useLatestSearchParams();
   const location = useLocation();
   const me = useMe();
-  // MM-T81: this device's unsaved moves for the signed-in account only.
-  const pendingMoves = usePendingMoves(me.id);
+  // MM-T81: this device's unsaved moves for the signed-in account only. When one settles in
+  // another tab, the rows are fetched again (same filters and page) for the new location or
+  // conflict (review fix, #107).
+  const [reloads, setReloads] = useState(0);
+  const pendingMoves = usePendingMoves(me.id, { onSettled: () => setReloads((n) => n + 1) });
   const query = useMemo(() => readInventoryQuery(params), [params]);
   const [view, setView] = useState<StorageUnitTableView>(readTableView);
   const chooseView = (next: StorageUnitTableView) => {
@@ -68,7 +71,6 @@ export function InventoryPage() {
   const requestKey = inventorySearchParams(query).toString();
 
   const [result, setResult] = useState<Loaded<InventoryPageData> | null>(null);
-  const [reloads, setReloads] = useState(0);
   useEffect(() => {
     let cancelled = false;
     void fetchInventory(new URLSearchParams(requestKey)).then((response) => {

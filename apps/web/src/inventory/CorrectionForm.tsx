@@ -3,6 +3,7 @@ import {
   DEFAULT_CORE_RUN_COUNT,
   STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH,
   formatSampleIdentity,
+  formatStorageUnitHoleSummary,
   storageUnitCorrectionRequestSchema,
   storageUnitTypeLabel,
   toFieldErrors,
@@ -106,6 +107,8 @@ export function CorrectionForm({
     [unit],
   );
   const [changingSample, setChangingSample] = useState(false);
+  const [replaceConfirmed, setReplaceConfirmed] = useState(false);
+  const [replaceError, setReplaceError] = useState(false);
   const [sample, setSample] = useState<SampleDraft>(initialSample ?? emptySample());
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -158,9 +161,16 @@ export function CorrectionForm({
   const hasSample = unit.sample !== null;
   // A disposed unit's project, type and test holes are final (owner decision 2026-10-30).
   const disposed = unit.status === 'disposed';
-  const contentsFixed = hasSample || disposed;
   // MM-T82: a tube's own source is corrected here (refused once tested or disposed).
   const tubeSource = unit.unitType === 'shelby_tube' && !disposed;
+  // While a new source is being entered, type, project and test holes aren't corrected with it
+  // (the server refuses them alongside a source: one contents summary per unit).
+  const contentsFixed = hasSample || disposed || changingSample;
+  // Review fix (#108): a tube received before sources existed may still carry test-hole
+  // summaries. Its new source replaces them, so they are listed and the replacement must be
+  // confirmed before saving; keeping the current source (or cancelling) leaves them as they are.
+  const replacedSummaries = tubeSource && unit.sample === null ? unit.holes : [];
+  const replacing = changingSample && replacedSummaries.length > 0;
 
   function request(): StorageUnitCorrectionRequestInput {
     const changes: StorageUnitCorrectionRequestInput['changes'] = {};
@@ -188,6 +198,10 @@ export function CorrectionForm({
     }
     if (tooManyHolesForCoreBox) {
       setErrors([{ field: SUMMARIES_PATH, code: 'core_box_one_test_hole', message: '' }]);
+      return;
+    }
+    if (replacing && sampleChanged && !replaceConfirmed) {
+      setReplaceError(true);
       return;
     }
     if (receivedDate > todayInEdmonton()) {
@@ -288,11 +302,56 @@ export function CorrectionForm({
                   required={false}
                   referencePlaceholder="T5"
                 />
+                {replacing ? (
+                  <div
+                    className="notice notice-warning"
+                    role="region"
+                    aria-label="Test-hole summaries this source replaces"
+                  >
+                    <p>
+                      The new source becomes this tube’s only contents summary. Saving removes its{' '}
+                      {replacedSummaries.length} test-hole{' '}
+                      {replacedSummaries.length === 1 ? 'summary' : 'summaries'} (the history keeps
+                      them):
+                    </p>
+                    <ul>
+                      {replacedSummaries.map((hole) => (
+                        <li key={hole.testHoleId}>
+                          {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
+                          {hole.note ? ` · note: ${hole.note}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={replaceConfirmed}
+                        onChange={(event) => {
+                          setReplaceConfirmed(event.target.checked);
+                          setReplaceError(false);
+                        }}
+                      />{' '}
+                      Replace{' '}
+                      {replacedSummaries.length === 1
+                        ? 'this summary'
+                        : `these ${replacedSummaries.length} summaries`}{' '}
+                      with the new source
+                    </label>
+                    {replaceError ? (
+                      <p className="field-error" role="alert">
+                        Confirm that the new source replaces these summaries, or keep the current
+                        source.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => {
                     setChangingSample(false);
                     setSample(initialSample ?? emptySample());
+                    setReplaceConfirmed(false);
+                    setReplaceError(false);
                   }}
                 >
                   Keep the current source
@@ -301,7 +360,15 @@ export function CorrectionForm({
             ) : (
               <div className="correction-project">
                 <p>{unit.sample ? formatSampleIdentity(unit.sample) : 'None recorded'}</p>
-                <button type="button" onClick={() => setChangingSample(true)}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Edits to type, project or test holes don't go with a new source.
+                    setUnitType(unit.unitType);
+                    keepProject();
+                    setChangingSample(true);
+                  }}
+                >
                   Change sampling source
                 </button>
               </div>

@@ -366,6 +366,113 @@ describe('storage unit corrections (MM-T13)', () => {
     expect(patches).toEqual([sent, sent]);
   });
 
+  it('review fix (#108): lists the legacy summaries a new source replaces, and saves only once confirmed', async () => {
+    const legacy: StorageUnitDetail = {
+      ...UNIT,
+      unitType: 'shelby_tube',
+      sample: null,
+      holes: [
+        {
+          ...UNIT.holes[0]!,
+          type: 'sample_range',
+          sampleFrom: 'G1',
+          sampleTo: 'G3',
+          note: 'Wet at the base',
+        },
+        {
+          ...UNIT.holes[0]!,
+          testHoleId: '00000000-0000-4000-8000-000000000302',
+          testHoleName: 'TH26-02',
+          type: 'depth_range',
+          depthFrom: 0,
+          depthTo: 1.5,
+          depthUnit: 'm',
+        },
+      ],
+    };
+    const replaced = {
+      ...legacy,
+      version: 2,
+      holes: [],
+      sample: {
+        source: { type: 'standalone_location' as const, locationReference: 'Pit 4' },
+        sampleReference: 'T5',
+        depthFrom: null,
+        depthTo: null,
+        depthUnit: null,
+      },
+    };
+    const patches = stubApi({
+      unit: legacy,
+      history: EMPTY_HISTORY,
+      patch: () => json(200, replaced),
+    });
+    const user = userEvent.setup();
+    renderUnit();
+
+    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    const form = screen.getByRole('form', { name: 'Correct details' });
+    const source = within(form).getByRole('group', { name: 'Sampling source' });
+    expect(within(source).getByText('None recorded')).toBeInTheDocument();
+    const summaryCount = () => form.querySelectorAll('#correction-holeSummaries').length;
+    expect(summaryCount()).toBe(1);
+
+    const chooseSource = async () => {
+      await user.click(within(source).getByRole('button', { name: 'Change sampling source' }));
+      await user.click(within(source).getByRole('radio', { name: 'Standalone sampling location' }));
+      await user.type(within(source).getByLabelText('Location reference'), 'Pit 4');
+      await user.type(within(source).getByLabelText('Sample reference (optional)'), 'T5');
+    };
+    await chooseSource();
+    // Before saving, both summaries the source replaces are listed, and they can't be edited.
+    const replacing = within(form).getByRole('region', {
+      name: 'Test-hole summaries this source replaces',
+    });
+    expect(
+      within(replacing)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['TH26-01: G1–G3 · note: Wet at the base', 'TH26-02: 0–1.5 m']);
+    expect(summaryCount()).toBe(0);
+    expect(within(form).queryByLabelText('Type')).not.toBeInTheDocument();
+    await user.type(within(form).getByLabelText('Reason for the correction'), 'tag misread');
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+    expect(within(replacing).getByRole('alert')).toHaveTextContent(/Confirm that the new source/);
+    expect(patches).toEqual([]);
+
+    // Keeping the current source leaves both summaries as they were.
+    await user.click(within(source).getByRole('button', { name: 'Keep the current source' }));
+    expect(
+      within(form).queryByRole('region', { name: 'Test-hole summaries this source replaces' }),
+    ).not.toBeInTheDocument();
+    expect(summaryCount()).toBe(1);
+    expect(within(form).getByText('Nothing changed yet')).toBeInTheDocument();
+
+    await chooseSource();
+    await user.click(
+      within(form).getByRole('checkbox', { name: 'Replace these 2 summaries with the new source' }),
+    );
+    await user.click(within(form).getByRole('button', { name: 'Save correction' }));
+    expect(await screen.findByText('Details corrected.')).toBeInTheDocument();
+    // Only the source is sent: the server replaces the listed summaries with it.
+    expect(patches).toEqual([
+      {
+        version: 1,
+        reason: 'tag misread',
+        changes: {
+          sample: {
+            sourceType: 'standalone_location',
+            sourceLocationReference: 'Pit 4',
+            sampleReference: 'T5',
+            depthFrom: null,
+            depthTo: null,
+            depthUnit: null,
+          },
+        },
+      },
+    ]);
+  });
+
   it('AC2: LAB sees no Correct action and an explanation', async () => {
     stubApi({ unit: UNIT, history: EMPTY_HISTORY, patch: () => json(403, {}) });
     renderUnit(
