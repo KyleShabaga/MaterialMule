@@ -1,7 +1,8 @@
 import { LAB_USERNAME, signInLockedResponseSchema } from '@materialmule/shared';
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '../api/client';
-import { FormField, StatusBadge } from '../components/ui';
+import { FormField } from '../components/ui';
+import { AuthStrip } from './AuthLayout';
 
 interface SignInFailure {
   message: string;
@@ -82,50 +83,55 @@ export function LabSignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> 
   return (
     <section className="auth-card lab-sign-in" aria-labelledby="lab-sign-in">
       <div className="auth-card-head">
-        <div>
-          <h2 id="lab-sign-in">Shared receiving station (LAB)</h2>
-          <p className="field-hint">{LAB_HINT}</p>
-        </div>
-        {error?.paused ? <StatusBadge tone="warning">Paused</StatusBadge> : null}
+        <h2 id="lab-sign-in">Shared receiving station (LAB)</h2>
       </div>
-      <form onSubmit={(event) => void submit(event)} noValidate>
-        <FormField label="Username">
-          {(props) => (
-            <input
-              {...props}
-              name="username"
-              autoComplete="username"
-              autoCapitalize="characters"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              required
-            />
-          )}
-        </FormField>
-        <FormField label="Password" error={error && !error.paused ? error.message : null}>
-          {(props) => (
-            <input
-              {...props}
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          )}
-        </FormField>
+      <div className="auth-card-body">
+        <p className="auth-hint">{LAB_HINT}</p>
+        {error && !error.paused ? (
+          <AuthStrip tag="Wrong" tone="danger" live="alert">
+            {error.message}
+          </AuthStrip>
+        ) : null}
         {error?.paused ? (
-          <div className="notice notice-warning" role="alert">
+          <AuthStrip tag="Paused" tone="waiting" live="alert">
             <p>{error.message}</p>
             <p>{PAUSED_HELP}</p>
-          </div>
+          </AuthStrip>
         ) : null}
-        <button type="submit" className="primary" disabled={busy || !password}>
-          {busy ? 'Signing in…' : 'Sign in as LAB'}
-        </button>
-      </form>
-      <p className="field-hint">Forgot password? Ask an administrator.</p>
+        <form onSubmit={(event) => void submit(event)} noValidate>
+          <FormField label="Username">
+            {(props) => (
+              <input
+                {...props}
+                className="mono"
+                name="username"
+                autoComplete="username"
+                autoCapitalize="characters"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                required
+              />
+            )}
+          </FormField>
+          <FormField label="Password">
+            {(props) => (
+              <input
+                {...props}
+                type="password"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            )}
+          </FormField>
+          <button type="submit" disabled={busy || !password}>
+            {busy ? 'Signing in…' : 'Sign in as LAB'}
+          </button>
+        </form>
+        <p className="auth-hint">Forgot password? Ask an administrator.</p>
+      </div>
     </section>
   );
 }

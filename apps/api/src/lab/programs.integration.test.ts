@@ -721,3 +721,42 @@ describe.runIf(testDatabaseUrl)('lab program list paging (BUG-002)', () => {
     expect(other).toEqual({ total: 0, items: [] });
   });
 });
+
+describe.runIf(testDatabaseUrl)('lab program list search (Field Ledger top-bar search)', () => {
+  let h: LabHarness;
+
+  beforeAll(async () => {
+    h = await createLabHarness();
+  });
+
+  afterAll(async () => {
+    await h?.close();
+  });
+
+  it('matches the project number or name, ignoring case, and treats wildcards literally', async () => {
+    for (const projectId of [h.projects.a, h.projects.b]) {
+      const response = await h.send(
+        'post',
+        '/api/lab-programs',
+        { projectId, idempotencyKey: newKey(), lines: [] },
+        'tech',
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+    }
+    const search = async (q: string) =>
+      labProgramListSchema.parse(
+        (await h.get(`/api/lab-programs?search=${encodeURIComponent(q)}`, 'tech')).body,
+      );
+    const a = await search('demo-2601');
+    expect(a.total).toBe(1);
+    expect(a.items[0]!.project.projectNumber).toBe('DEMO-2601');
+    expect((await search('DEMO-260')).total).toBe(2);
+    expect((await search('%')).total).toBe(0);
+    expect((await search('DEMO_2601')).total).toBe(0);
+    // Drafts stay private when searching too.
+    const other = labProgramListSchema.parse(
+      (await h.get('/api/lab-programs?search=DEMO', 'pe')).body,
+    );
+    expect(other.total).toBe(0);
+  });
+});

@@ -1,3 +1,4 @@
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import {
   Link,
   NavLink,
@@ -5,43 +6,92 @@ import {
   Outlet,
   isRouteErrorResponse,
   useLocation,
+  useNavigate,
   useRouteError,
 } from 'react-router';
 import { ROLE_LABELS } from '@materialmule/shared';
-import { EmptyState, PageHeader, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, PageHeader, StatusBadge } from '../components/ui';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { PHONE_QUERY } from '../components/useTableView';
+import { usePageTitle } from '../layout/page-title';
 import '../settings/settings.css';
 import { useMe, useSession } from '../session/context';
 import { AuthPage } from './AuthLayout';
+import './entry-pages.css';
 
-/** Signed in but not yet approved: no app data, only a way out (App Idea §8). */
+/** How often Access pending asks again whether the account has been approved. */
+export const ACCESS_PENDING_POLL_MS = 60_000;
+
+/**
+ * Signed in but not yet approved: no app data, only who approves and a way out (App Idea §8).
+ * The page asks again every minute and on Check again; once approved, the session turns active
+ * and the page opens the app by itself.
+ */
 export function AccessPendingPage() {
-  const { session, signOut } = useSession();
+  const { session, signOut, refresh } = useSession();
+  const [checking, setChecking] = useState(false);
+  const pending = session.status === 'pending';
+
+  useEffect(() => {
+    if (!pending) return;
+    const timer = window.setInterval(() => void refresh(), ACCESS_PENDING_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [pending, refresh]);
+
   if (session.status === 'active') {
     return <Navigate to="/" replace />;
   }
   if (session.status !== 'pending') {
     return <Navigate to="/sign-in" replace />;
   }
+
+  async function checkAgain() {
+    setChecking(true);
+    try {
+      await refresh();
+    } finally {
+      setChecking(false);
+    }
+  }
+
   return (
-    <AuthPage wide>
-      <section className="auth-card" aria-labelledby="access-pending-title">
-        <div className="auth-card-head">
-          <h1 id="access-pending-title">Access pending</h1>
-          <StatusBadge tone="warning">Waiting for approval</StatusBadge>
+    <AuthPage
+      wide
+      headerAction={
+        <button type="button" onClick={() => void signOut()}>
+          Sign out
+        </button>
+      }
+    >
+      <span className="auth-pending-tag">
+        <StatusBadge tone="waiting">Waiting for approval</StatusBadge>
+      </span>
+      <h1>You are signed in, but not set up yet.</h1>
+      <p className="auth-lead-line">
+        An administrator needs to approve your account and give you a role before you can see any
+        records.
+      </p>
+      <dl className="auth-facts">
+        <div>
+          <dt>Signed in as</dt>
+          <dd>{session.me.displayName}</dd>
         </div>
-        <p className="auth-callout">
-          You’re signed in as <strong>{session.me.displayName}</strong>, but an administrator still
-          needs to approve your access. You’ll be able to use Material Mule once they do.
-        </p>
-        <div className="auth-actions">
-          <button type="button" onClick={() => void signOut()}>
-            Sign out
-          </button>
+        <div>
+          <dt>Who approves</dt>
+          <dd>An administrator, in Settings, Staff and access</dd>
         </div>
-      </section>
-      <p className="field-hint">Need access sooner? Ask an administrator.</p>
+      </dl>
+      <div className="auth-actions">
+        <button
+          type="button"
+          className="primary"
+          disabled={checking}
+          onClick={() => void checkAgain()}
+        >
+          {checking ? 'Checking…' : 'Check again'}
+        </button>
+        <span className="auth-hint">This page opens the app by itself once you are approved.</span>
+      </div>
     </AuthPage>
   );
 }
@@ -203,32 +253,84 @@ export function SettingsLayout() {
   );
 }
 
+/**
+ * Page not found (Field Ledger "NotFound"): one sentence, a field that looks for the record on
+ * the search page, and three ways out. The tab title stays "Page not found".
+ */
 export function NotFoundPage() {
-  const location = useLocation();
+  const navigate = useNavigate();
+  const [text, setText] = useState('');
+  const fieldId = useId();
+  usePageTitle('Page not found');
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const q = text.trim();
+    if (q) void navigate(`/search?q=${encodeURIComponent(q)}`);
+  }
+
   return (
-    <>
-      <PageHeader title="Page not found" />
-      <p>
-        Nothing lives at <code>{location.pathname}</code>. <Link to="/">Go to the dashboard</Link>.
+    <div className="not-found">
+      <span className="not-found-tag">
+        <StatusBadge tone="closed">Not found</StatusBadge>
+      </span>
+      <h1 className="not-found-title">Nothing is at this address.</h1>
+      <p className="not-found-line">
+        The link may be old, or the ID may be mistyped. Unit IDs look like{' '}
+        <span className="mono">BKT-2026-000142</span>. No record has been changed.
       </p>
-    </>
+      <form className="not-found-search" role="search" aria-label="Look for it" onSubmit={submit}>
+        <label htmlFor={fieldId} className="field-label">
+          Look for it
+        </label>
+        <div className="not-found-search-row">
+          <input
+            id={fieldId}
+            type="text"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            maxLength={100}
+            placeholder="Unit ID, project, test hole or shelf"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <button type="submit" className="primary">
+            Search
+          </button>
+        </div>
+      </form>
+      <div className="not-found-ways">
+        <Link className="button" to="/">
+          Go to Today
+        </Link>
+        <Link className="button" to="/sample-storage">
+          Go to Inventory
+        </Link>
+        <button type="button" onClick={() => void navigate(-1)}>
+          Go back
+        </button>
+      </div>
+    </div>
   );
 }
 
-/** Router-level error boundary: a readable message instead of a blank page. */
+/** Router-level error boundary (States, "Could not load"): what happened and one way on. */
 export function ErrorPage() {
   const error = useRouteError();
   const message =
     isRouteErrorResponse(error) && error.status === 404
-      ? 'This page doesn’t exist. Check the address, or go back to the dashboard.'
-      : 'Something went wrong while showing this page. Reload to try again.';
+      ? 'This page doesn’t exist. Check the address, or go back to Today.'
+      : 'Something went wrong while showing this page.';
   return (
-    <main className="shell" role="alert">
-      <h1>Something went wrong</h1>
-      <p>{message}</p>
-      <p>
-        <a href="/">Reload Material Mule</a>
-      </p>
+    <main className="shell error-page">
+      <ErrorState
+        tag="Not shown"
+        message={message}
+        detail="Nothing was changed. Reload Material Mule to try again."
+        retryLabel="Reload Material Mule"
+        onRetry={() => window.location.assign('/')}
+      />
     </main>
   );
 }

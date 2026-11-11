@@ -64,8 +64,8 @@ import { StrengthReportPage } from './concrete-review/StrengthReportPage';
 import { ConcreteDashboardPage } from './concrete/lab/ConcreteDashboardPage';
 import { ConcreteReceivingPage } from './concrete/lab/ConcreteReceivingPage';
 import { ConcreteSearchPage, SpecimenLookupPage } from './concrete/lab/ConcreteSearchPage';
-import { LabSearchPage } from './concrete/lab/LabSearchPage';
 import { SetLookupPage } from './concrete/lab/SetLookupPage';
+import { SearchPage } from './search/SearchPage';
 import { TestingTablePage } from './concrete/testing/TestingTablePage';
 
 const featureRoutes: RouteObject[] = [
@@ -128,7 +128,6 @@ const featureRoutes: RouteObject[] = [
         { path: 'concrete/specimens/:setId', element: <SetLookupPage /> },
         // MM-V2-C23: the daily testing table (direct entry of today's breaks).
         { path: 'concrete/testing', element: <TestingTablePage /> },
-        { path: 'search', element: <LabSearchPage /> },
       ]
     : []),
 ];
@@ -177,6 +176,8 @@ export const routes: RouteObject[] = [
               { path: 'notifications', element: <NotificationsPage /> },
               // Field Ledger rail footer: Help & Feedback (placeholder until lane A builds it).
               { path: 'help', element: <HelpPage /> },
+              // Field Ledger search across units, samples, projects and programs (top bar, Find).
+              { path: 'search', element: <SearchPage /> },
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },

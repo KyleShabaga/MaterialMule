@@ -431,12 +431,15 @@ describe('Lab search (top bar)', () => {
     });
     const box = await screen.findByRole('textbox', { name: 'Search' });
     await user.type(box, 'DEMO-2601{Enter}');
-    expect(router.state.location.pathname + router.state.location.search).toBe(
-      '/search?q=DEMO-2601',
+    // Field Ledger search (lane A): not an exact unit ID, so it lands on /search.
+    await vi.waitFor(() =>
+      expect(router.state.location.pathname + router.state.location.search).toBe(
+        '/search?q=DEMO-2601',
+      ),
     );
-    expect(await screen.findByText('No storage units match.')).toBeVisible();
-    const projects = screen.getByRole('region', { name: 'Projects' });
-    expect(await within(projects).findByRole('link', { name: 'DEMO-2601' })).toBeVisible();
+    const projects = await screen.findByRole('region', { name: 'Projects' });
+    expect(await within(projects).findByRole('link', { name: /DEMO-2601/ })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Storage units' })).toBeNull();
     const concrete = screen.getByRole('region', { name: 'Concrete' });
     await vi.waitFor(() => expect(concrete).toHaveTextContent('Matched on Project'), {
       timeout: 3000,

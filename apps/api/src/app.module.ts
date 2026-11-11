@@ -26,6 +26,8 @@ import { TestAuthController, testAuthEnabled } from './auth/test-provider/test-a
 import { APP_CONFIG } from './config/config.constants.js';
 import type { AppConfig } from './config/env.js';
 import { DatabaseService } from './database/database.service.js';
+import { FeedbackController } from './feedback/feedback.controller.js';
+import { FeedbackService } from './feedback/feedback.service.js';
 import { HealthController } from './health/health.controller.js';
 import { InventoryController } from './inventory/inventory.controller.js';
 import { InventoryService } from './inventory/inventory.service.js';
@@ -155,6 +157,7 @@ export class AppModule {
         MicrosoftAuthController,
         ProfileController,
         ActivityController,
+        FeedbackController,
         PrintingController,
         ProjectsController,
         ProjectAccessController,
@@ -220,6 +223,7 @@ export class AppModule {
         MicrosoftSignInService,
         MicrosoftSignInRateLimit,
         ProfileService,
+        FeedbackService,
         UsersService,
         StaffService,
         PrintWorkerService,

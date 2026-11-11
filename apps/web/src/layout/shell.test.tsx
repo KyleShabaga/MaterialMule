@@ -243,7 +243,9 @@ describe('route guard', () => {
       status: 'pending',
       me: me({ status: 'pending', permissions: [] }),
     });
-    expect(await screen.findByRole('heading', { name: 'Access pending' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'You are signed in, but not set up yet.' }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/access-pending');
     expect(screen.getByText('Waiting for approval')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
@@ -291,7 +293,7 @@ describe('dashboard', () => {
   it('MTR-136: a menu link moves focus to the new page heading, not the old link', async () => {
     const user = userEvent.setup();
     renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    await screen.findByText('No activity yet. Receive the first storage unit.');
+    await screen.findByText('Nothing recorded in the last 24 hours.');
     // The first page load keeps the browser's own focus.
     expect(screen.getByRole('heading', { level: 1 })).not.toHaveFocus();
     const link = screen.getByRole('link', { name: 'Projects' });
@@ -318,7 +320,7 @@ describe('dashboard', () => {
       }
       return original(input, init);
     });
-    await screen.findByText('No activity yet. Receive the first storage unit.');
+    await screen.findByText('Nothing recorded in the last 24 hours.');
     return { router, release };
   }
 
@@ -350,21 +352,21 @@ describe('dashboard', () => {
 
   it('shows the empty state when nothing has happened yet', async () => {
     renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    expect(
-      await screen.findByText('No activity yet. Receive the first storage unit.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Nothing recorded in the last 24 hours.')).toBeInTheDocument();
   });
 
   it('shows a retryable error when activity fails to load', async () => {
     renderAt('/', { status: 'active', me: me() });
-    expect(await screen.findByText(/Recent activity couldn't load/)).toBeInTheDocument();
-    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await screen.findByText(/The ledger couldn't load/)).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'Ledger' });
     expect(within(activity).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('shows a not-found page for unknown paths inside the app', async () => {
     renderAt('/nowhere', { status: 'active', me: me() });
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Nothing is at this address.' }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -21,7 +21,9 @@ test('an admin assigns initials and a position; the person sees the initials but
 
   // Onboarding: no position step (MISC-06); the new starter waits for approval.
   await signInWithMicrosoft(page, name);
-  await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'You are signed in, but not set up yet.' }),
+  ).toBeVisible();
 
   // The admin approves them, assigns official initials and sets the position.
   await signInAs(page, 'admin');

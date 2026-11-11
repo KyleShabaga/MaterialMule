@@ -229,7 +229,8 @@ test('MM-T91: the bell and Pending actions have 44 px targets and distinct names
 test('MM-T91: LAB has no Notifications control or center', async ({ page }) => {
   await signInAsLabStation(page);
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+  // Today (Field Ledger): its queue heading, on desktop and phone.
+  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Pending actions/ })).toHaveCount(0);
   for (const path of ['/api/notifications', '/api/notifications/count']) {

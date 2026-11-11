@@ -3,12 +3,13 @@ import {
   profileResponseSchema,
   type ProfileResponse,
 } from '@materialmule/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NotificationPreferencesCard } from '../action-requests/NotificationPreferencesCard';
 import { apiFetch } from '../api/client';
-import { BandedCard, ErrorState } from '../components/ui';
+import { ErrorState } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useSession } from '../session/context';
+import './profile.css';
 
 type Load =
   { state: 'loading' } | { state: 'error' } | { state: 'ready'; profile: ProfileResponse };
@@ -31,7 +32,35 @@ const SOURCE_LABELS: Record<NonNullable<ProfileResponse['source']>, string> = {
 
 const RETRY_START = '/api/auth/microsoft/start?returnTo=%2Fsettings%2Fprofile';
 
-/** Settings → My profile (MM-T05): imported fields, their source and freshness, and Retry. */
+/** One read-only field cell: mono caps label, the value, and where it comes from. */
+function Field({
+  label,
+  hint,
+  mono = false,
+  wide = false,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  mono?: boolean;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={wide ? 'profile-field profile-field-wide' : 'profile-field'}>
+      <dt>{label}</dt>
+      <dd className={mono ? 'mono' : undefined}>{children}</dd>
+      {hint ? <p className="profile-field-hint">{hint}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * Settings → My profile (MM-T05; Field Ledger "SettingsProfile"): the imported fields as
+ * read-only cells, their source and freshness, Refresh from Microsoft, and (personal accounts)
+ * notification preferences. Nothing here is edited by the person: Microsoft supplies the name
+ * and email, and an administrator sets official initials.
+ */
 export function ProfilePage() {
   const { session, refresh: refreshSession } = useSession();
   const canReadActionItems =
@@ -89,7 +118,8 @@ export function ProfilePage() {
     );
   }
   const p = load.profile;
-  const field = (value: string | null) => value ?? <span className="field-hint">Not provided</span>;
+  const missing = (value: string | null) =>
+    value ?? <span className="field-hint">Not provided</span>;
 
   const initials =
     (p.officialInitials && p.initialsConfirmed ? p.officialInitials : null) ??
@@ -100,11 +130,10 @@ export function ProfilePage() {
       .slice(0, 3)
       .toUpperCase();
 
-  // Canvas layout (MM-T55): who is signed in beside the banded profile card.
   return (
     <div className="profile-page">
       {p.refreshFailedAt ? (
-        <div className="notice profile-warning" role="alert">
+        <div className="notice notice-warning profile-warning" role="alert">
           <p>
             Your Microsoft profile couldn’t be refreshed ({formatExpiry(p.refreshFailedAt)}). These
             are your last known details.
@@ -117,81 +146,71 @@ export function ProfilePage() {
         </div>
       ) : null}
       {notice ? <p role="status">{notice}</p> : null}
-      <div className="profile-layout">
-        <section className="profile-who" aria-label="Signed in as">
-          <span className="profile-initials" aria-hidden="true">
+      <section className="profile-section" aria-labelledby="profile-title">
+        <div className="profile-head">
+          <span className="profile-avatar" aria-hidden="true">
             {initials}
           </span>
-          <div>
-            <p className="profile-name">{p.displayName}</p>
-            {p.workEmail ? <p className="profile-email">{p.workEmail}</p> : null}
+          <div className="profile-head-text">
+            <h2 id="profile-title">My profile</h2>
+            <p>How your name appears on records, and how the app behaves for you.</p>
           </div>
           {p.canRefresh && !p.refreshFailedAt ? (
             <button type="button" onClick={() => void retry()} disabled={retrying}>
               {retrying ? 'Refreshing…' : 'Refresh from Microsoft'}
             </button>
           ) : null}
-        </section>
-        <BandedCard
-          className="profile-card"
-          title="My profile"
-          subtitle="From your Microsoft 365 profile. Official initials are set by an administrator."
-        >
-          <dl className="profile-fields">
-            <dt>Name</dt>
-            <dd>{p.displayName}</dd>
-            <dt>Given name</dt>
-            <dd>{field(p.givenName)}</dd>
-            <dt>Surname</dt>
-            <dd>{field(p.surname)}</dd>
-            <dt>Work email</dt>
-            <dd>
-              {p.workEmail ?? <span className="field-hint">No mailbox address from Microsoft</span>}
-            </dd>
-            <dt>Sign-in username</dt>
-            <dd>{field(p.signInUsername)}</dd>
-            <dt>Job title</dt>
-            <dd>
-              {p.effectiveJobTitle ? (
-                <>
-                  <span>{p.effectiveJobTitle.value}</span>{' '}
-                  <span className="field-hint">
-                    ({JOB_TITLE_SOURCE_LABEL[p.effectiveJobTitle.source]})
-                  </span>
-                </>
-              ) : (
-                field(null)
-              )}
-            </dd>
-            {p.jobTitleOverride ? (
+        </div>
+        <dl className="profile-grid">
+          <Field label="Name" hint="Comes from your Microsoft account.">
+            {p.displayName}
+          </Field>
+          <Field label="Official initials" hint="Set by an administrator." mono>
+            {p.officialInitials && p.initialsConfirmed ? (
+              p.officialInitials
+            ) : (
+              <span className="profile-unconfirmed">
+                Not confirmed yet: an administrator sets these
+              </span>
+            )}
+          </Field>
+          <Field label="Given name">{missing(p.givenName)}</Field>
+          <Field label="Surname">{missing(p.surname)}</Field>
+          <Field label="Work email" hint="Comes from your Microsoft account.">
+            {p.workEmail ?? <span className="field-hint">No mailbox address from Microsoft</span>}
+          </Field>
+          <Field label="Sign-in username" mono>
+            {missing(p.signInUsername)}
+          </Field>
+          <Field label="Job title">
+            {p.effectiveJobTitle ? (
               <>
-                <dt>Job title (from Microsoft)</dt>
-                <dd>{field(p.jobTitle)}</dd>
-              </>
-            ) : null}
-            <dt>Department</dt>
-            <dd>{field(p.department)}</dd>
-            <dt>Office</dt>
-            <dd>{field(p.officeLocation)}</dd>
-            <dt>Official initials</dt>
-            <dd>
-              {p.officialInitials && p.initialsConfirmed ? (
-                p.officialInitials
-              ) : (
-                <span className="profile-unconfirmed">
-                  Not confirmed yet: an administrator sets these
+                <span>{p.effectiveJobTitle.value}</span>{' '}
+                <span className="field-hint">
+                  ({JOB_TITLE_SOURCE_LABEL[p.effectiveJobTitle.source]})
                 </span>
-              )}
-            </dd>
-            <dt>Profile source</dt>
-            <dd>{p.source ? SOURCE_LABELS[p.source] : field(null)}</dd>
-            <dt>Last refreshed</dt>
-            <dd>{p.refreshedAt ? formatExpiry(p.refreshedAt) : field(null)}</dd>
-          </dl>
-        </BandedCard>
-        {/* MTR-2: LAB has no notification preferences of its own. */}
-        {canReadActionItems ? <NotificationPreferencesCard /> : null}
-      </div>
+              </>
+            ) : (
+              missing(null)
+            )}
+          </Field>
+          {p.jobTitleOverride ? (
+            <Field label="Job title (from Microsoft)">{missing(p.jobTitle)}</Field>
+          ) : null}
+          <Field label="Department">{missing(p.department)}</Field>
+          <Field label="Office">{missing(p.officeLocation)}</Field>
+          <Field label="Profile source">{p.source ? SOURCE_LABELS[p.source] : missing(null)}</Field>
+          <Field label="Last refreshed" mono>
+            {p.refreshedAt ? formatExpiry(p.refreshedAt) : missing(null)}
+          </Field>
+        </dl>
+        <p className="profile-note">
+          A change to your name does not change records you already signed; they keep the name you
+          had then.
+        </p>
+      </section>
+      {/* MTR-2: LAB has no notification preferences of its own. */}
+      {canReadActionItems ? <NotificationPreferencesCard /> : null}
     </div>
   );
 }
