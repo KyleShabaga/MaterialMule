@@ -873,7 +873,7 @@ owns which fields: [concrete.md](concrete.md).
   an issued report could lose the pointer to its last issue. Proven in
   `apps/api/src/db/schema-concrete.test.ts`.
 
-## Printer contact on print jobs (review fixes, `0038_print_job_printer_contact.sql`)
+## Printer contact on print jobs (review fixes, `0036_print_job_printer_contact.sql`)
 
 - `print_job.last_contact_at` / `last_contact_result` (`sent`, `not_sent`, `uncertain`) /
   `last_contact_error` / `last_contact_printer_message`: the job's latest attempt that actually
@@ -884,7 +884,8 @@ owns which fields: [concrete.md](concrete.md).
   measures a printer's failure period from it, never from when the job was queued (#119).
 - `print_job_last_contact_shape`: a contact has a time and a result or neither, a successful
   contact carries no error or printer message, and the first failed contact is no later than the
-  last. Existing jobs are backfilled from what the old summary counted as an attempt. Proven in
+  last (the worker writes the last contact as `greatest(now(), first_failed_contact_at)`, so a
+  clock stepped back between retries can't make a save fail). Existing jobs are backfilled from what the old summary counted as an attempt. Proven in
   `apps/api/src/db/schema-print-contact.test.ts`.
 
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)

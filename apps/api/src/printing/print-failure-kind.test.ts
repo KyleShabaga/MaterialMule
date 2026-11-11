@@ -273,4 +273,59 @@ describe.runIf(testDatabaseUrl)('print failure kinds (MTR-45)', () => {
     expect(summary!.lastAttempt).toMatchObject({ outcome: 'ok', error: null });
     expect(summary!.failingSince).toBeNull();
   });
+
+  describe('review fix: a clock that steps back between attempts never blocks the queue', () => {
+    /** The job's first failure as recorded while the clock ran an hour ahead. */
+    const aheadFailure = (jobId: string) =>
+      db.pool.query(
+        `UPDATE print_job
+            SET attempts = 1, last_contact_at = now() + interval '1 hour',
+                last_contact_result = 'not_sent', last_contact_error = 'Printer refused the connection',
+                first_failed_contact_at = now() + interval '1 hour'
+          WHERE id = $1`,
+        [jobId],
+      );
+    const contact = async (jobId: string) =>
+      (
+        await db.pool.query<{ ok: boolean; result: string }>(
+          `SELECT last_contact_at >= first_failed_contact_at AS ok, last_contact_result AS result
+             FROM print_job WHERE id = $1`,
+          [jobId],
+        )
+      ).rows[0]!;
+
+    it('a failed retry still settles and the next job prints', async () => {
+      transport.next = {
+        result: 'not_sent',
+        error: "Printer didn't respond",
+        printerMessage: null,
+      };
+      const first = await enqueue([await bucket()]);
+      await aheadFailure(first.id);
+      const next = await enqueue([await bucket()]);
+      await worker().drain();
+      expect(await getPrintJob(db.pool, first.id)).toMatchObject({ status: 'failed', attempts: 3 });
+      expect(await contact(first.id)).toEqual({ ok: true, result: 'not_sent' });
+      // The queue moved on to the next job.
+      expect(await getPrintJob(db.pool, next.id)).toMatchObject({ status: 'failed' });
+    });
+
+    it('a successful retry still settles', async () => {
+      transport.next = { result: 'sent' };
+      const job = await enqueue([await bucket()]);
+      await aheadFailure(job.id);
+      await worker().drain();
+      expect(await getPrintJob(db.pool, job.id)).toMatchObject({ status: 'sent', attempts: 2 });
+      expect(await contact(job.id)).toEqual({ ok: true, result: 'sent' });
+    });
+
+    it('restart recovery still marks an interrupted send uncertain', async () => {
+      const job = await enqueue([await bucket()]);
+      await aheadFailure(job.id);
+      await db.pool.query(`UPDATE print_job SET status = 'sending' WHERE id = $1`, [job.id]);
+      expect(await worker().recoverInterrupted()).toBe(1);
+      expect(await getPrintJob(db.pool, job.id)).toMatchObject({ status: 'uncertain' });
+      expect(await contact(job.id)).toEqual({ ok: true, result: 'uncertain' });
+    });
+  });
 });

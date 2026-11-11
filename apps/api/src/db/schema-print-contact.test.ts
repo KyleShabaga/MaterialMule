@@ -8,7 +8,7 @@ import {
 import { PG, insertUser } from '../test-support/fixtures.js';
 import { migrate, readMigrations } from './migrator.js';
 
-// Review fixes #119/#124 (migration 0038): a print job keeps its latest printer contact apart
+// Review fixes #119/#124 (migration 0036): a print job keeps its latest printer contact apart
 // from how the job ended. Each rule proven in the database. Fictional data only.
 
 const REJECT = { code: PG.checkViolation };
@@ -21,7 +21,7 @@ async function addPrinter(db: TestSchema): Promise<string> {
   return insertUser(db.pool, 'PC');
 }
 
-describe.runIf(testDatabaseUrl)('print job printer contact (0038)', () => {
+describe.runIf(testDatabaseUrl)('print job printer contact (0036)', () => {
   let db: TestSchema;
   let fresh: TestSchema | undefined;
   let user: string;
@@ -98,7 +98,7 @@ describe.runIf(testDatabaseUrl)('print job printer contact (0038)', () => {
     const all = await readMigrations();
     await migrate(
       fresh.pool,
-      all.filter((m) => m.version < '0038'),
+      all.filter((m) => m.version < '0036'),
     );
     const owner = await addPrinter(fresh);
     const job = async (status: string, attempts: number, error: string | null) =>
@@ -135,10 +135,10 @@ describe.runIf(testDatabaseUrl)('print job printer contact (0038)', () => {
       (
         await migrate(
           fresh.pool,
-          all.filter((m) => m.version <= '0038'),
+          all.filter((m) => m.version <= '0036'),
         )
       ).applied,
-    ).toEqual(['0038_print_job_printer_contact']);
+    ).toEqual(['0036_print_job_printer_contact']);
 
     const { rows } = await fresh.pool.query<{
       id: string;

@@ -175,8 +175,11 @@ export class PrintWorker {
       const { rows } = await client.query<{ id: string; attempts: number }>(
         `UPDATE print_job
          SET status = 'uncertain', last_error = $1, updated_at = now(),
-             -- The interrupted send may have reached the printer: it counts as a contact.
-             last_contact_at = now(), last_contact_result = 'uncertain',
+             -- The interrupted send may have reached the printer: it counts as a contact. Never
+             -- before the job's first failed contact, even if the clock has stepped back
+             -- (print_job_last_contact_shape would refuse the save).
+             last_contact_at = greatest(now(), first_failed_contact_at),
+             last_contact_result = 'uncertain',
              last_contact_error = $1, last_contact_printer_message = NULL,
              first_failed_contact_at = coalesce(first_failed_contact_at, now())
          WHERE status = 'sending'
@@ -442,7 +445,11 @@ export class PrintWorker {
              sent_at = CASE WHEN $2 = 'sent' THEN now() END,
              next_attempt_at = now() + ($5::int * interval '1 millisecond'),
              updated_at = now(),
-             last_contact_at = CASE WHEN $6::text IS NULL THEN last_contact_at ELSE now() END,
+             -- Never before the job's first failed contact, even after the clock stepped back:
+             -- print_job_last_contact_shape would refuse the save, and settleOrKeep would then
+             -- retry it forever and hold this printer's queue.
+             last_contact_at = CASE WHEN $6::text IS NULL THEN last_contact_at
+                                    ELSE greatest(now(), first_failed_contact_at) END,
              last_contact_result = coalesce($6::text, last_contact_result),
              last_contact_error = CASE WHEN $6::text IS NULL THEN last_contact_error ELSE $3 END,
              last_contact_printer_message =
