@@ -64,11 +64,7 @@ export function encodeCursor(cursor: Cursor): string {
 /** The cursor a previous page returned, or 400 `invalid_cursor` for anything else. */
 export function decodeCursor(text: string): Cursor {
   const match = CURSOR_TEXT.exec(Buffer.from(text, 'base64url').toString('utf8'));
-  if (
-    !match ||
-    !notificationIdSchema.safeParse(match[2]).success ||
-    !isRealTimestamp(match[1]!)
-  ) {
+  if (!match || !notificationIdSchema.safeParse(match[2]).success || !isRealTimestamp(match[1]!)) {
     throw new BadRequestException({ code: 'invalid_cursor' });
   }
   return { at: match[1]!, id: match[2]! };

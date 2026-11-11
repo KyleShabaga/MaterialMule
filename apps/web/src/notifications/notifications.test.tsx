@@ -573,7 +573,7 @@ describe('Notification center paging (MM-T91 review)', () => {
     const user = userEvent.setup();
     const dismissal = deferred();
     let dismissed = false;
-    const fetchMock = renderAt('/notifications', me(), (url, init) => {
+    const fetchMock = renderAt('/notifications', me(), (url) => {
       if (url === '/api/notifications/n-t/dismiss') {
         dismissed = true;
         return dismissal.promise;
