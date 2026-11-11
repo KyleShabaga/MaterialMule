@@ -76,9 +76,15 @@ export function toActivityItem(event: AuditEvent): ActivityItem {
     case 'label.print_requested':
     case 'label.reprint_requested':
       if (d.target === 'location') {
-        // MM-T79: a location label names its location and opens Settings → Locations.
-        const verb = event.action === 'label.reprint_requested' ? 'reprinted' : 'printed';
-        summary = `${who} ${verb} the location label for ${d.locationCode ?? 'a location'}${forReceiver}`;
+        // MM-T79: a location label names its location and opens Settings → Locations. These
+        // events record the request (the job is queued); the printer may not have received it
+        // yet, or ever, so the line says what was asked for, not that it printed (review fix,
+        // #109). Completion and physical confirmation are separate events, shown on the location.
+        const label = `the location label for ${d.locationCode ?? 'a location'}`;
+        summary =
+          event.action === 'label.reprint_requested'
+            ? `${who} requested a reprint of ${label}${forReceiver}`
+            : `${who} requested ${label}${forReceiver}`;
         href = '/settings/locations';
         break;
       }

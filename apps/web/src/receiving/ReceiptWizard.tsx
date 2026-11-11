@@ -1,11 +1,12 @@
 import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@materialmule/shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listActiveStaff, listBulkGroups } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { BandedCard, ConfirmDialog, FormField } from '../components/ui';
 import { useOnline } from '../lib/online';
 import { LAB_EXPIRED_MESSAGE } from '../pages/SignInPage';
 import { useSession } from '../session/context';
+import { useExpiryClaim } from '../session/expiry-claim';
 import { confirmReceipt } from './api';
 import {
   describeErrors,
@@ -93,6 +94,11 @@ export function ReceiptWizard({
     resumed && initial.owner.type === 'lab' && initial.data.receiver ? 'ask' : 'kept',
   );
   const [sessionExpired, setSessionExpired] = useState(false);
+  const markExpired = useCallback(() => setSessionExpired(true), []);
+  // A session that ends in the background (window focus re-check, another request) shows the
+  // saved-draft sign-in below instead of leaving the draft at once; confirming still needs a
+  // session on the server. Once confirmed (labels), there is no draft left to keep.
+  useExpiryClaim(step !== 'labels', markExpired);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
   const autoResent = useRef(false);
@@ -269,6 +275,15 @@ export function ReceiptWizard({
     await refresh();
   }
 
+  const expiredNotice = sessionExpired ? (
+    <div className="notice offline-notice" role="alert">
+      <p>{me.accountType === 'shared_lab' ? LAB_EXPIRED_MESSAGE : PERSONAL_EXPIRED_MESSAGE}</p>
+      <button type="button" className="primary" onClick={() => void signIn()}>
+        Sign in
+      </button>
+    </div>
+  ) : null;
+
   async function discard() {
     setDiscardOpen(false);
     try {
@@ -367,6 +382,7 @@ export function ReceiptWizard({
               Offline: your entries are kept here. Connect to add a project or test hole.
             </p>
           ) : null}
+          {expiredNotice}
           <ErrorSummary problems={shown} attempt={attempts} />
 
           <BandedCard title="Details" className="wizard-details">
@@ -537,16 +553,7 @@ export function ReceiptWizard({
               {confirmError}
             </p>
           ) : null}
-          {sessionExpired ? (
-            <div className="notice offline-notice" role="alert">
-              <p>
-                {me.accountType === 'shared_lab' ? LAB_EXPIRED_MESSAGE : PERSONAL_EXPIRED_MESSAGE}
-              </p>
-              <button type="button" className="primary" onClick={() => void signIn()}>
-                Sign in
-              </button>
-            </div>
-          ) : null}
+          {expiredNotice}
           <div className="wizard-actions">
             <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
             <span className="wizard-actions-spacer" />

@@ -10,6 +10,7 @@ import {
   type SampleTagSheet,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useParams } from 'react-router';
 import { EmptyState, ErrorState, StatusBadge } from '../components/ui';
 import { fetchSampleTags, type SampleTagsResult } from './api';
@@ -188,7 +189,18 @@ export function SampleTagsPage() {
   const [start, setStart] = useState(1);
   const [outlines, setOutlines] = useState(false);
   const [nudge, setNudge] = useState<Nudge>(readNudge);
-  const date = useMemo(() => formatTagDate(new Date()), []);
+  // Review fix (#103): a tab left open past midnight must not print yesterday's date, so the
+  // date is refreshed when printing starts, from the button and from the browser's own print
+  // command (beforeprint). flushSync puts the new date in the DOM before print layout is taken.
+  const [date, setDate] = useState(() => formatTagDate(new Date()));
+  const refreshDate = useCallback(() => {
+    const today = formatTagDate(new Date());
+    flushSync(() => setDate(today));
+  }, []);
+  useEffect(() => {
+    window.addEventListener('beforeprint', refreshDate);
+    return () => window.removeEventListener('beforeprint', refreshDate);
+  }, [refreshDate]);
   const loadId = `${programId}:${reloads}`;
 
   useEffect(() => {
@@ -214,7 +226,7 @@ export function SampleTagsPage() {
   const chosen = tags.filter((tag) => !notSelected.has(tag.key));
   const sheets = layoutTagSheets(chosen.length, start);
   const previewRef = useRef<HTMLDivElement>(null);
-  const overflowing = useFitText(previewRef, [chosen.map((tag) => tag.key).join('|'), start]);
+  const overflowing = useFitText(previewRef, [chosen.map((tag) => tag.key).join('|'), start, date]);
 
   const toggle = useCallback(
     (key: string) => {
@@ -370,7 +382,10 @@ export function SampleTagsPage() {
                   type="button"
                   className="primary"
                   disabled={chosen.length === 0}
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    refreshDate();
+                    window.print();
+                  }}
                 >
                   Print / Save as PDF
                 </button>

@@ -17,7 +17,7 @@ import {
   type ConcreteReportFile,
   type ConcreteReportHeader,
   type ConcreteNumberedReportKind,
-  type ConcreteStrengthReportSnapshot,
+  concreteStrengthReportSnapshotSchema,
   type ConcreteSummaryAgeCell,
   type ConcreteSummaryFilters,
   type ConcreteSummaryReport,
@@ -331,7 +331,7 @@ export class ConcreteReportOutputService {
     user: AuthUser,
   ): Promise<ConcreteReportFile> {
     const { rows } = await client.query<{
-      snapshot: ConcreteStrengthReportSnapshot;
+      snapshot: unknown;
       issued_at: Date;
       issued_by_user_id: string;
       reviewed_by_user_id: string | null;
@@ -344,7 +344,13 @@ export class ConcreteReportOutputService {
        FROM concrete_report_version WHERE id = $1 AND report_kind = 'strength'`,
       [versionId],
     );
-    const version = rows[0]!;
+    // Review fix: parse the frozen JSON so a version frozen before a widening (e.g. a pre-0033
+    // row without `flags`) renders with the schema's defaults. The stored JSON and its hash stay
+    // as they are; only the render reads the parsed copy.
+    const version = {
+      ...rows[0]!,
+      snapshot: concreteStrengthReportSnapshotSchema.parse(rows[0]!.snapshot),
+    };
     const project = await projectHeader(client, report.project_id);
     const names = await displayNames(client, [
       version.issued_by_user_id,

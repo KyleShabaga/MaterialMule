@@ -43,6 +43,7 @@ import {
   type CalcSql,
   type MethodRow,
 } from './concrete-strength.calc.js';
+import { exclusionsOf } from './concrete-strength-tests.read.js';
 
 type Db = Pool | PoolClient;
 
@@ -257,6 +258,17 @@ export class ConcreteTestResultsService {
             input.testerUserId === null
               ? null
               : activeStaff(standing, input.testerUserId, enteredBy);
+        }
+
+        // Review fix: a reviewer's exclusion never carries over to a result they test or enter.
+        // The exclusion was refused on a result they owned; a later entry, a new attempt or a
+        // tester change that would make them its owner waits until it is reinstated.
+        const exclusion = (await exclusionsOf(client, [specimen.id])).get(specimen.id) ?? null;
+        if (
+          exclusion &&
+          (exclusion.by.userId === enteredBy.userId || exclusion.by.userId === tester?.userId)
+        ) {
+          throw new ConflictException({ code: 'own_exclusion' });
         }
 
         const proposed: Partial<ConcreteTestResultValues> = {

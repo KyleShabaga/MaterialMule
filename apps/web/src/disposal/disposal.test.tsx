@@ -380,3 +380,129 @@ describe('Ready for disposal (MISC-13)', () => {
     expect(readyCalls).toBe(2);
   });
 });
+
+describe('Disposal approvals follow the route project (review fix, PR #120)', () => {
+  const summary = (id: string, projectNumber: string) => ({
+    id,
+    projectNumber,
+    name: `Fictional ${projectNumber}`,
+    client: 'Fictional client',
+    leadProjectEngineer: null,
+  });
+  const forProject = (projectId: string, unitId: string): DisposalCandidates => ({
+    ...candidates,
+    projectId,
+    total: 1,
+    units: [unit(unitId)],
+  });
+
+  /** Renders with a router the test can drive, and B's eligible list held until released. */
+  function setup(path: string) {
+    let releaseB: (() => void) | null = null;
+    const bHeld = new Promise<void>((resolve) => {
+      releaseB = resolve;
+    });
+    const posts: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith('/api/disposal/ready')) {
+          return json(
+            200,
+            ready([
+              readyUnit('9', {
+                project: { id: 'p2', projectNumber: 'DEMO-2602', name: 'Fictional B' },
+              }),
+            ]),
+          );
+        }
+        if (url.startsWith('/api/disposal/eligible?projectId=p1')) {
+          return json(200, forProject('p1', '1'));
+        }
+        if (url.startsWith('/api/disposal/eligible?projectId=p2')) {
+          await bHeld;
+          return json(200, forProject('p2', '9'));
+        }
+        if (url === '/api/projects/p1') return json(200, summary('p1', 'DEMO-2601'));
+        if (url === '/api/projects/p2') return json(200, summary('p2', 'DEMO-2602'));
+        if (url === '/api/disposal/approvals' && init?.method === 'POST') {
+          posts.push(JSON.parse(String(init.body)));
+          return json(201, { batchId: 'b1', approvals: [] });
+        }
+        return json(200, { open: 0 });
+      }),
+    );
+    const router = createMemoryRouter(routes, { initialEntries: [path] });
+    render(
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me: me() },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <RouterProvider router={router} />
+      </SessionContext.Provider>,
+    );
+    return { router, posts, releaseB: () => releaseB!() };
+  }
+
+  async function approveOne(user: ReturnType<typeof userEvent.setup>) {
+    const eligible = await screen.findByRole('region', { name: 'Eligible for disposal' });
+    await user.click(within(eligible).getByRole('checkbox'));
+    await user.click(within(eligible).getByRole('button', { name: 'Approve 1 for disposal' }));
+    const dialog = document.querySelector<HTMLElement>('dialog.confirm-dialog')!;
+    await user.click(within(dialog).getByRole('button', { name: 'Approve', hidden: true }));
+  }
+
+  it("never submits A's checked units after following a link to B, and posts only B's", async () => {
+    const user = userEvent.setup();
+    const { posts, releaseB } = setup('/disposal-retention?projectId=p1');
+    const eligibleA = await screen.findByRole('region', { name: 'Eligible for disposal' });
+    expect(await screen.findByText(/DEMO-2601 · Fictional DEMO-2601/)).toBeVisible();
+    await user.click(within(eligibleA).getByRole('checkbox'));
+    await user.click(within(eligibleA).getByRole('button', { name: 'Approve 1 for disposal' }));
+    // The dialog is open for A when the operator follows the ready-list link to B.
+    const card = screen.getByRole('region', { name: 'Ready for disposal' });
+    await user.click(within(card).getByRole('link', { name: 'Approve in project' }));
+    // While B loads: A's units are hidden, nothing can be approved, the dialog is closed.
+    expect(screen.queryByRole('region', { name: 'Eligible for disposal' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Approve \d* ?for disposal/ })).toBeNull();
+    expect(document.querySelector('dialog.confirm-dialog')).not.toHaveAttribute('open');
+    expect(await screen.findByText(/DEMO-2602 · Fictional DEMO-2602/)).toBeVisible();
+    expect(screen.queryByText(/DEMO-2601 · Fictional DEMO-2601/)).toBeNull();
+    expect(posts).toEqual([]);
+    releaseB();
+    expect(await screen.findByRole('link', { name: 'BKT-2026-000009' })).toBeVisible();
+    const eligibleB = screen.getByRole('region', { name: 'Eligible for disposal' });
+    expect(within(eligibleB).getByRole('checkbox')).not.toBeChecked();
+    await approveOne(user);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ unitIds: ['9'] });
+  });
+
+  it('clears selections on Back and shows the right project on a direct B URL', async () => {
+    const user = userEvent.setup();
+    const { router, posts, releaseB } = setup('/disposal-retention?projectId=p2');
+    // A direct link resolves the picker label from the route's project instead of "Loading…".
+    expect(await screen.findByText(/DEMO-2602 · Fictional DEMO-2602/)).toBeVisible();
+    releaseB();
+    const eligibleB = await screen.findByRole('region', { name: 'Eligible for disposal' });
+    await user.click(within(eligibleB).getByRole('checkbox'));
+    await router.navigate('/disposal-retention?projectId=p1');
+    expect(await screen.findByRole('link', { name: 'BKT-2026-000001' })).toBeVisible();
+    // B's check didn't follow the route to A.
+    const eligibleA = screen.getByRole('region', { name: 'Eligible for disposal' });
+    expect(within(eligibleA).getByRole('checkbox')).not.toBeChecked();
+    expect(within(eligibleA).getByRole('button', { name: /for disposal/ })).toBeDisabled();
+    await user.click(within(eligibleA).getByRole('checkbox'));
+    await router.navigate(-1);
+    expect(await screen.findByRole('link', { name: 'BKT-2026-000009' })).toBeVisible();
+    expect(
+      within(screen.getByRole('region', { name: 'Eligible for disposal' })).getByRole('checkbox'),
+    ).not.toBeChecked();
+    await approveOne(user);
+    expect(posts).toEqual([expect.objectContaining({ unitIds: ['9'] })]);
+  });
+});
