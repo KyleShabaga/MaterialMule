@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone: field report, specimens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 15px; line-height: 1.4; overflow: hidden">
+
+  <header style="padding: 8px 16px 12px; border-bottom: 2px solid #14140F; background: #E8E9E2; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+      <a href="PhoneConcrete.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: #14140F">Save and close</a>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 3px; background: #FBEBC2; color: #7A4E00">DRAFT · SAVED ON DEVICE</span>
+    </div>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1">Specimens</h1>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">DEMO-2616 · TICKET 004452</span>
+    </div>
+    <ol aria-label="Steps" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; border: 2px solid #14140F; border-radius: 4px; overflow: hidden; font-weight: 700; font-size: 13px">
+      <li style="display: flex"><a href="PhoneFieldLoad.dc.html" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; background: #FFFFFF; color: #14140F; text-decoration: none; border-right: 1px solid #14140F">1 Load</a></li>
+      <li style="display: flex"><a href="PhoneFieldTests.dc.html" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; background: #FFFFFF; color: #14140F; text-decoration: none; border-right: 1px solid #14140F">2 Tests</a></li>
+      <li aria-current="step" style="display: flex"><a href="PhoneFieldSpecimens.dc.html" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; background: #14140F; color: #F4F4EF; text-decoration: none">3 Specimens</a></li>
+    </ol>
+  </header>
+
+  <div style="flex: 1 1 0; min-height: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: end">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div id="cast-q" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">SPECIMENS CAST?</div>
+        <div role="group" aria-labelledby="cast-q" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 2px solid #14140F; border-radius: 4px; overflow: hidden">
+          <button type="button" aria-pressed="true" style="min-height: 44px; border: 0; border-right: 1px solid #14140F; font-family: inherit; font-weight: 700; font-size: 15px; background: #14140F; color: #F4F4EF">Yes</button>
+          <button type="button" aria-pressed="false" style="min-height: 44px; border: 0; font-family: inherit; font-weight: 700; font-size: 15px; background: #FFFFFF; color: #14140F">No</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="cast" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">CAST AT</label>
+        <input id="cast" type="text" value="11:05" style="height: 48px; box-sizing: border-box; min-width: 0; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: #14140F">
+      </div>
+    </div>
+
+    <section style="background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: #14140F; color: #F4F4EF">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">TMP-D1-0009</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">TEMPORARY ID</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #CFCFC4">
+        <span style="font-weight: 600">Cylinders in this set</span>
+        <div style="display: flex; align-items: center; gap: 0; border: 2px solid #14140F; border-radius: 4px; overflow: hidden">
+          <button type="button" aria-label="One fewer" onClick="{{less}}" style="width: 44px; height: 44px; border: 0; border-right: 1px solid #14140F; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: #14140F">−</button>
+          <span aria-live="polite" style="width: 44px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">{{count}}</span>
+          <button type="button" aria-label="One more" onClick="{{more}}" style="width: 44px; height: 44px; border: 0; border-left: 1px solid #14140F; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: #14140F">+</button>
+        </div>
+      </div>
+      <sc-for list="{{specimens}}" as="s" hint-placeholder-count="4">
+        <div style="display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #CFCFC4">
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; background: #14140F; color: #F4F4EF; border-radius: 3px">{{s.letter}}</span>
+          <select aria-label="{{s.aAge}}" style="height: 44px; min-width: 0; padding: 0 8px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F"><option>{{s.age}}</option><option>7 days</option><option>28 days</option><option>56 days</option><option>HOLD</option></select>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #45463E; text-align: right">{{s.target}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="background: #FFFFFF; border: 1px solid #CFCFC4; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #0B5D4B">NOTHING MISSING</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #7A4E00">1 WARNING · DOES NOT BLOCK</div>
+      <div style="font-size: 14px">Air was above the project spec on the first reading.</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-top: 2px solid #14140F; background: #FFFFFF">
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px">
+      <a href="PhoneFieldTests.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 56px; border: 2px solid #14140F; border-radius: 6px; background: #FFFFFF; font-weight: 700; font-size: 16px; color: #14140F; text-decoration: none">Back</a>
+      <a href="PhoneConcrete.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 56px; border: 2px solid #14140F; border-radius: 6px; background: #FF5A1F; font-weight: 800; font-size: 18px; color: #14140F; text-decoration: none">Ready to submit</a>
+    </div>
+    <div style="font-size: 13px; color: #45463E; text-align: center">Goes to Jo Fixture for review once this phone is on the office network.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { count: 4 };
+  }
+  renderVals() {
+    const n = this.state.count;
+    const plan = [['7 days', 'Target 17 Nov'], ['28 days', 'Target 08 Dec'], ['28 days', 'Target 08 Dec'], ['HOLD', 'Until 05 Jan'], ['HOLD', 'Until 05 Jan'], ['HOLD', 'Until 05 Jan']];
+    return {
+      count: n,
+      less: () => this.setState({ count: Math.max(1, n - 1) }),
+      more: () => this.setState({ count: Math.min(6, n + 1) }),
+      specimens: plan.slice(0, n).map(([age, target], i) => ({ letter: 'ABCDEF'[i], age, target, aAge: 'Age for specimen ' + 'ABCDEF'[i] }))
+    };
+  }
+}
+</script>
+</body>
+</html>

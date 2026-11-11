@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>User flows</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+/* hover */
+a,button,select,summary,label:has(input[type="checkbox"]),label:has(input[type="radio"]),input[type="checkbox"],input[type="radio"]{cursor:pointer}
+button:disabled,[aria-disabled="true"]{cursor:not-allowed}
+button:not(:disabled):hover,a[style*="display:"]:not([aria-disabled="true"]):hover{background-image:linear-gradient(rgba(20,20,15,.1),rgba(20,20,15,.1)) !important}
+button:not(:disabled)[style*="background: #14140F"]:hover,button:not(:disabled)[style*="background: rgb(20, 20, 15)"]:hover,a[style*="background: #14140F"]:hover,a[style*="background: rgb(20, 20, 15)"]:hover{background-image:linear-gradient(rgba(244,244,239,.2),rgba(244,244,239,.2)) !important}
+a:not([style*="display:"]):hover{text-decoration:underline !important;text-decoration-thickness:2px !important;text-underline-offset:3px}
+input:not([type="checkbox"]):not([type="radio"]):not(:disabled):hover,select:not(:disabled):hover,textarea:not(:disabled):hover{box-shadow:0 0 0 3px #CFCFC4 !important}
+input[type="checkbox"]:hover,input[type="radio"]:hover{outline:3px solid #CFCFC4;outline-offset:1px}
+tbody tr:hover>*{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+[data-row]:hover{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+</style>
+</helmet>
+<div style="width: 2200px; height: 1240px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 22px; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 15px; line-height: 1.35">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; border-bottom: 2px solid #14140F; padding-bottom: 16px">
+    <h1 style="margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1">User flows</h1>
+    <p style="margin: 0; max-width: 760px">Five jobs, left to right. Each card is one step on one screen; the mono line names the screen. The black card is where the job ends. Notes under a row are the branches.</p>
+  </div>
+
+  <sc-for list="{{flows}}" as="f" hint-placeholder-count="5">
+    <section style="flex: 1 1 0; min-height: 0; display: flex; gap: 20px; align-items: stretch">
+      <div style="width: 230px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; border-top: 2px solid #14140F; padding-top: 10px">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #45463E">{{f.no}} · {{f.who}}</div>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.1">{{f.name}}</h2>
+        <div style="font-size: 13px; color: #45463E">{{f.branch}}</div>
+      </div>
+      <div style="flex: 1 1 0; min-width: 0; display: flex; gap: 8px; align-items: stretch">
+        <sc-for list="{{f.steps}}" as="s" hint-placeholder-count="6">
+          <div style="flex: 1 1 0; min-width: 0; display: flex; gap: 8px; align-items: center">
+            <div style="flex: 1 1 0; min-width: 0; align-self: stretch; box-sizing: border-box; border: 2px solid #14140F; border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: {{s.bg}}; color: {{s.fg}}">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: {{s.sub}}">{{s.n}} · {{s.screen}}</div>
+              <div style="font-size: 16px; font-weight: 700; line-height: 1.2">{{s.title}}</div>
+              <div style="font-size: 13px; color: {{s.sub}}">{{s.note}}</div>
+            </div>
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#14140F" stroke-width="2.5" style="flex-shrink: 0; visibility: {{s.chev}}"><path d="M6 3l6 6-6 6"></path></svg>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2200,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const flow = (no, who, name, branch, steps) => ({
+      no, who, name, branch,
+      steps: steps.map(([screen, title, note], i) => {
+        const last = i === steps.length - 1;
+        return { n: String(i + 1), screen, title, note, bg: last ? '#14140F' : '#FFFFFF', fg: last ? '#F4F4EF' : '#14140F', sub: last ? '#CFCFC4' : '#45463E', chev: last ? 'hidden' : 'visible' };
+      })
+    });
+    return {
+      flows: [
+        flow('A', 'RECEIVING', 'Receive a delivery', 'Leave at any step: the draft is saved and shows on Today. Printer offline: IDs are still issued and the labels wait.', [
+          ['RECEIVE · DELIVERY', 'Start a delivery', 'Project, date, who delivered it.'],
+          ['RECEIVE · UNITS', 'Add each storage unit', 'Holder type, one samples and depth summary per test hole.'],
+          ['RECEIVE · CONFIRM', 'Confirm the delivery', 'Permanent IDs are issued here and never change.'],
+          ['RECEIPT CONFIRMED', 'Print and stick labels', 'One label per unit from the Zebra printer.'],
+          ['MOVE UNITS', 'Scan units, then the shelf', 'Puts the whole delivery away in one go.'],
+          ['INVENTORY', 'In storage', 'Every unit has an ID, a label and a shelf.']
+        ]),
+        flow('B', 'ANYONE', 'Find and move a unit', 'Unknown label: say so and offer Find. Shelf is full or retired: pick another before confirming.', [
+          ['ANY SCREEN', 'Scan a label or use Find', 'Phone camera or a typed ID, project, hole or shelf.'],
+          ['SEARCH RESULTS', 'Pick the unit', 'Skipped when a scan matches exactly one unit.'],
+          ['STORAGE UNIT', 'Check the label block', 'ID, project, hole summary, where it is now.'],
+          ['MOVE UNITS', 'Scan the new shelf', 'Add more units first to move them together.'],
+          ['STORAGE UNIT', 'Moved', 'The move is in the unit history with who and when.']
+        ]),
+        flow('C', 'ENGINEER, THEN LAB', 'Request lab testing', 'Individual samples are listed only here, never at receiving. The program shows progress, not results.', [
+          ['PROJECT', 'Start a lab program', 'From the project, with its units listed.'],
+          ['NEW LAB PROGRAM', 'Pick units, list samples and tests', 'One line per sample and test.'],
+          ['TODAY', 'Lab sees units to pull', 'A "Needs you" item with the shelves to visit.'],
+          ['STORAGE UNIT', 'Scan and check out to lab', 'Status changes to In lab.'],
+          ['LAB PROGRAM', 'Mark tests done', 'Cells fill as tests finish.'],
+          ['MOVE UNITS', 'Back on the shelf', 'Unit returns to storage when testing is finished.']
+        ]),
+        flow('D', 'LAB MANAGER', 'Retention and disposal', 'Extend instead: the unit leaves the list until the new date. Unit still in a lab program: it cannot be disposed of yet.', [
+          ['TODAY', 'Retention is due', 'A count and a "Needs you" item this month.'],
+          ['RETENTION', 'Review the three bands', 'Overdue, this month, next 90 days.'],
+          ['RETENTION', 'Extend, or add to the disposal list', 'Per unit; the list builds at the side.'],
+          ['RETENTION', 'Record disposal with a reason', 'One action for the whole list.'],
+          ['STORAGE UNIT', 'Disposed', 'The record closes. ID and history are kept.']
+        ]),
+        flow('E', 'TECHNICIAN, LAB, REVIEWER', 'Concrete report to review', 'Returned: the technician fixes the report and submits again. Unnumbered set: number it before rescheduling.', [
+          ['FIELD REPORT', 'Write the report draft', 'Load, readings, specimen set and ages.'],
+          ['CONCRETE BREAKS', 'Specimens show on their target day', 'Target is casting date plus age.'],
+          ['TESTING TABLE', 'Break and enter results', 'One row per specimen.'],
+          ['FIELD REPORT', 'Mark ready and submit', 'Missing fields block; warnings do not.'],
+          ['REVIEW A REPORT', 'Reviewer checks it', 'Never the person who wrote it.'],
+          ['REVIEW', 'Reviewed', 'Waits there to be issued.']
+        ])
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
