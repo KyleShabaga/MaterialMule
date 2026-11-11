@@ -394,6 +394,7 @@ export function InventoryPage() {
               navigate('/lab-testing/programs/new', {
                 state: {
                   projectId: selectedItems[0]!.project.id,
+                  projectLabel: `${selectedItems[0]!.project.projectNumber} · ${selectedItems[0]!.project.name}`,
                   storageUnitIds: selectedItems.map((item) => item.id),
                 },
               })

@@ -76,7 +76,7 @@ async function attempt(body: string): Promise<ConfirmOutcome | 'retry'> {
     return {
       kind: 'failed',
       message:
-        'This receipt was already confirmed with different details. Check the Receiving Log before receiving these units again.',
+        'This receipt was already confirmed with different details. Check the Receiving log before receiving these units again.',
     };
   }
   if (response.status === 403) {

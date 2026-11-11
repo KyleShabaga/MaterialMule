@@ -87,7 +87,7 @@ for (const colorScheme of ['dark', 'light'] as const) {
       {
         path: '/receiving-log',
         ready: () =>
-          expect(page.getByRole('heading', { level: 1, name: 'Receiving Log' })).toBeVisible(),
+          expect(page.getByRole('heading', { level: 1, name: 'Receiving log' })).toBeVisible(),
       },
     ];
 

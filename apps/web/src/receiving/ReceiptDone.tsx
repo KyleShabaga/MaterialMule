@@ -8,6 +8,7 @@ import { PrintJobStatus } from '../printing/PrintJobStatus';
 import { PrintLabelsPanel } from '../printing/PrintLabelsPanel';
 import { receiptPrintPath } from '../printing/print-paths';
 import { usePrintJob } from '../printing/usePrintJob';
+import type { MoveLinkState } from '../moves/move-link';
 import { VerifyLabelsPanel } from '../scanning/VerifyLabelsPanel';
 import { UNIT_TYPE_LABEL, unitContentLines, type ReceiptDraft } from './draft';
 
@@ -125,7 +126,12 @@ export function ReceiptDone({
           </li>
         </ol>
         <div className="receive-side-actions">
-          <Link className="button primary receive-big" to="/sample-storage/move">
+          <Link
+            className="button primary receive-big"
+            to="/sample-storage/move"
+            // The units just received wait on Move units for their shelf (lane C's batch).
+            state={{ units: result.units.map((u) => u.suNumber) } satisfies MoveLinkState}
+          >
             {count === 1 ? 'Put this unit away' : `Put these ${count} away`}
           </Link>
           {autoPrint ? (

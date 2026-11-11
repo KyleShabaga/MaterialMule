@@ -48,7 +48,7 @@ import {
   withFilters,
 } from './url-state';
 
-/** Where the receipt page's "Back to Receiving Log" link returns to. */
+/** Where the receipt page's "Back to Receiving log" link returns to. */
 export interface ReceiptLinkState {
   from?: string;
 }
@@ -66,7 +66,7 @@ function countLabel(total: number): string {
  * stay on the computer that saved them, and have no storage unit IDs.
  */
 export function ReceivingLogPage() {
-  usePageTitle('Receiving Log');
+  usePageTitle('Receiving log');
   const [view, setView] = useTableView('receiving-log');
   const [params, setParams] = useLatestSearchParams();
   const location = useLocation();

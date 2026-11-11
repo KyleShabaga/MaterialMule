@@ -345,7 +345,7 @@ test('MM-T80 T2: a queued LAB move of a tube removed after testing (real MM-T36 
   }
 });
 
-test('Lookup mode stays read-only and tells a location label apart from a unit', async ({
+test('Lookup mode stays read-only: a location label opens that shelf, not a move', async ({
   page,
 }) => {
   const c1 = await addLocation('C1', 'Warehouse');
@@ -354,6 +354,6 @@ test('Lookup mode stays read-only and tells a location label apart from a unit',
   await expect(page.getByRole('textbox', { name: 'Scan a storage unit label' })).toBeFocused();
   await page.keyboard.type(`LOC-${c1.code}`);
   await page.keyboard.press('Enter');
-  await expect(page.getByText(`LOC-${c1.code} is a location label`)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Move units' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/sample-storage/locations/${c1.code}$`));
+  await expect(page.getByRole('heading', { level: 1, name: c1.name })).toBeVisible();
 });

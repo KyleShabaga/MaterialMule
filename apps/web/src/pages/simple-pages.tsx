@@ -229,7 +229,9 @@ export function SettingsLayout() {
                 <p className="settings-nav-group-name" aria-hidden="true">
                   Help
                 </p>
-                <Link to="/help">Help &amp; Feedback</Link>
+                <Link to="/help" state={{ from: location.pathname }}>
+                  Help &amp; Feedback
+                </Link>
                 <button
                   type="button"
                   className="settings-nav-signout"

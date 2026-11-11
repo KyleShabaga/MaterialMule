@@ -142,31 +142,6 @@
   margin: var(--space-2) 0 0;
 }
 
-/* Still used by ConcreteReceivingPage's stage tabs, which imports this file (kept as it was). */
-.concrete-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin: 0.75rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.concrete-tabs [role='tab'] {
-  border: 1px solid var(--line);
-  border-bottom: none;
-  border-radius: var(--radius-control) var(--radius-control) 0 0;
-  background: var(--surface, transparent);
-  padding: 0.4rem 0.75rem;
-  min-height: 2.75rem;
-}
-
-.concrete-tabs [role='tab'][aria-selected='true'] {
-  font-weight: 600;
-  background: var(--accent-bg);
-  border-color: var(--accent-line);
-  color: var(--accent-ink);
-}
-
 .concrete-tab-count {
   display: inline-block;
   min-width: 1.5em;

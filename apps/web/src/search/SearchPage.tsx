@@ -191,7 +191,7 @@ export function SearchPage() {
         tag: location.active
           ? { label: 'Shelf', tone: 'storage' }
           : { label: 'Retired', tone: 'closed' },
-        href: `/sample-storage?locationId=${encodeURIComponent(location.id)}`,
+        href: `/sample-storage/locations/${encodeURIComponent(location.code)}`,
       })),
     });
   }

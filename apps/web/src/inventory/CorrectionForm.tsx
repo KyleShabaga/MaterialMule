@@ -605,7 +605,7 @@ export function CorrectionForm({
           <p>{approvalLive.message}</p>
           <p>
             <Link to={`/disposal-retention?projectId=${approvalLive.projectId}`}>
-              Open Disposal &amp; Retention
+              Open Retention
             </Link>
           </p>
         </div>

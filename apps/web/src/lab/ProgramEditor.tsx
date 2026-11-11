@@ -24,6 +24,7 @@ import {
   fetchCatalogue,
   fetchReview,
   fetchSources,
+  fetchSourceUnits,
   fetchTemplates,
   saveProgram,
   submitProgram,
@@ -54,6 +55,49 @@ function fromProgram(program: LabProgram): LineDraft[] {
     unitIds: line.unitIds,
     acknowledgedDepths: line.acknowledgedDepths,
   }));
+}
+
+/** Units chosen on Inventory ("Add to lab request"): one project, its units' record IDs. */
+interface ChosenUnits {
+  projectId: string;
+  projectLabel: string;
+  storageUnitIds: string[];
+}
+
+function chosenUnits(state: unknown): ChosenUnits | null {
+  if (!state || typeof state !== 'object') return null;
+  const { projectId, projectLabel, storageUnitIds } = state as Record<string, unknown>;
+  if (typeof projectId !== 'string' || !Array.isArray(storageUnitIds)) return null;
+  const ids = storageUnitIds.filter((id): id is string => typeof id === 'string');
+  if (ids.length === 0) return null;
+  return {
+    projectId,
+    projectLabel: typeof projectLabel === 'string' ? projectLabel : 'Chosen project',
+    storageUnitIds: ids,
+  };
+}
+
+/**
+ * One Specific-sample line per sampling source that holds a chosen unit, with those units ticked
+ * as the physical units holding the sample. The person still names the sample and its tests.
+ */
+async function linesForChosenUnits(
+  projectId: string,
+  sources: LabSource[],
+  unitIds: string[],
+): Promise<{ lines: LineDraft[]; placed: number }> {
+  const wanted = new Set(unitIds);
+  const lines: LineDraft[] = [];
+  for (const source of sources) {
+    if (wanted.size === 0) break;
+    const ref = { kind: source.kind, id: source.id };
+    const units = await fetchSourceUnits(projectId, ref);
+    const here = units.map((u) => u.storageUnitId).filter((id) => wanted.has(id));
+    if (here.length === 0) continue;
+    here.forEach((id) => wanted.delete(id));
+    lines.push({ ...emptyLine(), source: ref, scope: 'specific', unitIds: here });
+  }
+  return { lines, placed: unitIds.length - wanted.size };
 }
 
 function personOption(program: LabProgram): ReceiverOption {
@@ -104,13 +148,17 @@ export function ProgramEditor({
   const navigate = useNavigate();
   const location = useLocation();
   const shared = me.accountType === 'shared_lab';
+  // Inventory's "Add to lab request" opens a new program on that project with the units waiting.
+  const [chosen, setChosen] = useState(() => (draft ? null : chosenUnits(location.state)));
   const [programId, setProgramId] = useState(draft?.id ?? null);
   const [version, setVersion] = useState(draft?.version ?? 0);
   const [createKey] = useState(newKey);
   const [project, setProject] = useState<{ id: string; label: string } | null>(
     draft
       ? { id: draft.project.id, label: `${draft.project.projectNumber} · ${draft.project.name}` }
-      : null,
+      : chosen
+        ? { id: chosen.projectId, label: chosen.projectLabel }
+        : null,
   );
   const [requestedBy, setRequestedBy] = useState<ReceiverOption | null>(
     draft && shared ? personOption(draft) : null,
@@ -145,6 +193,34 @@ export function ProgramEditor({
     if (!project) return;
     fetchSources(project.id).then(setSources, () => setLoadError(true));
   }, [project]);
+  useEffect(() => {
+    if (!chosen || !project || project.id !== chosen.projectId || sources.length === 0) return;
+    let current = true;
+    void linesForChosenUnits(chosen.projectId, sources, chosen.storageUnitIds).then(
+      ({ lines: prepared, placed }) => {
+        if (!current) return;
+        setChosen(null);
+        if (prepared.length > 0) setLines(prepared);
+        const total = chosen.storageUnitIds.length;
+        const unit = (n: number) => `${n} unit${n === 1 ? '' : 's'}`;
+        setMessage({
+          tone: placed === total ? 'success' : 'warning',
+          text:
+            placed === total
+              ? `${unit(total)} from Inventory ${total === 1 ? 'is' : 'are'} ticked on ${prepared.length} line${prepared.length === 1 ? '' : 's'}. Name each sample and choose its tests.`
+              : `${unit(placed)} of the ${unit(total)} chosen on Inventory could be ticked; the others aren’t in storage for this project now.`,
+        });
+      },
+      () => {
+        if (!current) return;
+        setChosen(null);
+        setMessage({ tone: 'warning', text: 'The units chosen on Inventory couldn’t be loaded.' });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [chosen, project, sources]);
 
   const openReviewOnArrival = Boolean(
     (location.state as { openReview?: boolean } | null)?.openReview,

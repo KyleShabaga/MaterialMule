@@ -16,8 +16,8 @@ export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
   const canEnter = me.permissions.includes('lab_program.manage');
   // The editor (/programs/new) and a program page (a draft opens in the editor).
   const onRecord = /^\/lab-testing\/programs\/[^/]+\/?$/.test(location.pathname);
-  // Concrete breaks and HOLD live here too but belong to the Concrete destination.
-  const onConcrete = location.pathname.startsWith('/lab-testing/concrete');
+  // Concrete breaks and holds keep their /lab-testing URLs but sit outside this layout: the
+  // rail's Concrete group links them (routes.tsx).
 
   if (onRecord) {
     return (
@@ -33,7 +33,7 @@ export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
   }
   return (
     <div className="lab-area">
-      {canEnter && !onConcrete ? (
+      {canEnter ? (
         <ContextRow align="end">
           <Link className="button primary" to="/lab-testing/programs/new">
             New lab program
@@ -41,20 +41,16 @@ export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
         </ContextRow>
       ) : null}
       <div className="lab-title">
-        <h1>{onConcrete ? 'Concrete' : 'Lab programs'}</h1>
-        {onConcrete ? null : <span className="lab-title-meta">Progress only, no results</span>}
+        <h1>Lab programs</h1>
+        <span className="lab-title-meta">Progress only, no results</span>
       </div>
-      <nav className="sub-nav" aria-label="Lab Testing">
+      <nav className="sub-nav" aria-label="Lab programs">
         {worklist ? (
           <NavLink to="/lab-testing" end>
             Worklist
           </NavLink>
         ) : null}
         <NavLink to="/lab-testing/programs">Programs</NavLink>
-        <NavLink to="/lab-testing/concrete" end>
-          Concrete breaks
-        </NavLink>
-        <NavLink to="/lab-testing/concrete/holds">HOLD</NavLink>
       </nav>
       <Outlet />
     </div>

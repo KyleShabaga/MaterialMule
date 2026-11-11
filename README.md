@@ -206,13 +206,13 @@ step), then **Print / Save as PDF** and print or save at 100% / Actual size: eac
 true-size 3.5 × 1.5 in label. Saving a PDF is not a label print and creates no print job (MM-T39).
 
 Need a unit to print? Receive one: sign in as `at` (or `lab`), open **Receive samples**, choose
-project **DEMO-2601**, add a bucket with a summary for test hole **TH26-01**, review and confirm.
-The labels step then prints (or previews) its labels.
+project **DEMO-2601**, add a bucket with a summary for test hole **TH26-01** and confirm. The confirmation screen then
+prints (or previews) its labels.
 
 ## Scanning without a handheld scanner
 
 The Zebra DS3678-XR (MM-T16) is a USB keyboard that types the label's ID and then Enter, so you
-can try scanning by typing. Open **Sample Storage → Scan labels** (`/sample-storage/scan`), type
+can try scanning by typing. Open **Scan** (`/sample-storage/scan`; the phone bar's centre button, or Inventory → Scan labels), type
 an ID such as `BKT-2024-000001` (from the dev seed) into the focused scan field and press Enter. Scanner setup and the
 hardware test sheet: [docs/hardware/ds3678-xr.md](docs/hardware/ds3678-xr.md).
 
@@ -220,9 +220,9 @@ Phones scan with **Scan with camera** (MM-T17). The camera only works on HTTPS p
 `http://127.0.0.1` on the PC itself, so test it from a phone through the host's HTTPS address
 (MM-T20). Details and the device test sheet: [docs/hardware/phone-camera.md](docs/hardware/phone-camera.md).
 
-## Receiving Log
+## Receiving log
 
-**Receiving Log** (`/receiving-log`, MM-T51) lists confirmed receipts, one row per receipt,
+**Receiving log** (`/receiving-log`, the rail's **Receive**, MM-T51) lists confirmed receipts, one row per receipt,
 newest confirmation first: received date, project, received by (initials and name), number of
 storage units and when and from which account (e.g. LAB) it was confirmed. Search by project
 number or name, received-by name or initials, or an exact storage unit ID, and filter by project,

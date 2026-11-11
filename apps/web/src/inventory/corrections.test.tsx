@@ -636,7 +636,7 @@ describe('storage unit corrections (MM-T13)', () => {
 
     const alert = await screen.findByText(message);
     expect(alert).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Open Disposal & Retention' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open Retention' })).toHaveAttribute(
       'href',
       '/disposal-retention?projectId=p-demo-2601',
     );

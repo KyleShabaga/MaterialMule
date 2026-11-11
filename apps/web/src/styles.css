@@ -56,7 +56,6 @@
   --accent-bg: #fff0e8;
   --accent-line: #ff5a1f;
   --primary: #ff5a1f;
-  --primary-active: #e5511c;
   --on-primary: #14140f;
   --focus: #14140f;
   /* Picker options (MM-T78): the keyboard highlight is a solid fill with a bar in its own ink,
@@ -74,18 +73,13 @@
   --warning-panel: #fbebc2;
   --warning-panel-ink: #7a4e00;
   --danger: #a3201a;
-  --danger-bg: #f9dfdc;
   --danger-line: #a3201a;
   --danger-panel: #f9dfdc;
   --danger-panel-ink: #a3201a;
   --info: #4a2d8f;
   --info-bg: #e9e3f7;
   --info-line: #4a2d8f;
-  --neutral: #55564e;
-  --neutral-bg: #e6e6de;
-  --neutral-line: #55564e;
   --label-paper: #ffffff;
-  --label-ink: #000000;
   --scrim: rgb(20 20 15 / 50%);
   /* Hover (desktop only): one tint over any fill; ink fills lighten instead */
   --tint-hover: rgb(20 20 15 / 10%);
@@ -141,8 +135,6 @@
   --fs-big-count: 2.5rem;
 
   font-family: var(--font-sans);
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
   color: var(--ink);
   background: var(--page);
 }
@@ -194,7 +186,6 @@
     --accent-bg: #3b2417;
     --accent-line: #ff5a1f;
     --primary: #ff5a1f;
-    --primary-active: #e5511c;
     --on-primary: #14140f;
     --focus: #f4f4ef;
     --option-active: #f4f4ef;
@@ -209,16 +200,12 @@
     --warning-panel: #3d2f0a;
     --warning-panel-ink: #f2c866;
     --danger: #f7a79e;
-    --danger-bg: #4a1915;
     --danger-line: #f7a79e;
     --danger-panel: #4a1915;
     --danger-panel-ink: #f7a79e;
     --info: #cdbdf5;
     --info-bg: #2d2450;
     --info-line: #cdbdf5;
-    --neutral: #c2c2b6;
-    --neutral-bg: #2f2f28;
-    --neutral-line: #c2c2b6;
     --scrim: rgb(0 0 0 / 60%);
     --tint-hover: rgb(244 244 239 / 10%);
     --tint-row: rgb(244 244 239 / 5%);
@@ -270,7 +257,6 @@
   --accent-bg: #3b2417;
   --accent-line: #ff5a1f;
   --primary: #ff5a1f;
-  --primary-active: #e5511c;
   --on-primary: #14140f;
   --focus: #f4f4ef;
   --option-active: #f4f4ef;
@@ -285,16 +271,12 @@
   --warning-panel: #3d2f0a;
   --warning-panel-ink: #f2c866;
   --danger: #f7a79e;
-  --danger-bg: #4a1915;
   --danger-line: #f7a79e;
   --danger-panel: #4a1915;
   --danger-panel-ink: #f7a79e;
   --info: #cdbdf5;
   --info-bg: #2d2450;
   --info-line: #cdbdf5;
-  --neutral: #c2c2b6;
-  --neutral-bg: #2f2f28;
-  --neutral-line: #c2c2b6;
   --scrim: rgb(0 0 0 / 60%);
   --tint-hover: rgb(244 244 239 / 10%);
   --tint-row: rgb(244 244 239 / 5%);
@@ -307,8 +289,12 @@
   color-scheme: light;
 }
 
+/* Body text is 15 px on a 16 px root, so every rem token (label 12, small 13, body 15) is the size
+   design.md names; setting it on :root made 1rem 15 px and shrank them all. */
 body {
   margin: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   background: var(--page);
 }
 
@@ -700,11 +686,6 @@ button:disabled,
   }
 }
 
-.receive-button {
-  font-size: 1.1rem;
-  min-height: var(--target);
-}
-
 /* ---- Dashboard activity ---- */
 
 .activity {
@@ -713,17 +694,6 @@ button:disabled,
   padding: 0;
   display: grid;
   gap: 0.5rem;
-}
-
-.activity-time {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.activity.skeleton li {
-  height: 1.2rem;
-  border-radius: var(--radius-tag);
-  background: var(--card-head);
 }
 
 /* Empty: a dashed 2 px frame on paper; one bold sentence, one line, at most one action. */
@@ -783,24 +753,6 @@ button:disabled,
 .status dd {
   margin: 0;
   font-weight: 600;
-}
-
-/* A dt/dd pair wrapped for a React key; keeps the two-column grid. */
-.status-row {
-  display: contents;
-}
-
-.status-ok dd:first-of-type {
-  color: var(--success);
-}
-
-.status-warning dd:first-of-type {
-  color: var(--warning);
-}
-
-.status-error {
-  display: block;
-  color: var(--danger);
 }
 
 /* ---- Badges: text first, 2px corners ---- */
@@ -918,7 +870,6 @@ button:disabled,
 
 .printer-form input:not([type='checkbox']) {
   width: 100%;
-  max-width: 24rem;
 }
 
 /* Label printing status (MM-T15) */
@@ -1219,12 +1170,12 @@ input[type='email'],
 input[type='password'],
 input[type='number'],
 input[type='date'],
+input[type='datetime-local'],
+input[type='time'],
+input[type='tel'],
 input:not([type]),
 select,
-textarea,
-.receipt-draft input,
-.receipt-draft select,
-.receipt-draft textarea {
+textarea {
   min-height: var(--control);
   font: inherit;
   font-size: 1rem;
@@ -1461,12 +1412,6 @@ textarea {
 }
 
 /* ---- Receiving: project and test-hole pickers (MM-T08) ---- */
-
-.receipt-draft input[readonly] {
-  background: var(--card-head);
-  border-color: var(--line);
-}
-
 .picker {
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -1478,7 +1423,7 @@ textarea {
 
 .picker legend {
   padding: 0 0.375rem;
-  font: 600 0.6875rem/1.4 var(--font-mono);
+  font: 600 var(--fs-label) / 1.4 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -1608,72 +1553,6 @@ textarea {
   margin: 0 0 0.5rem;
 }
 
-/* ---- Receiving wizard (MM-T10; canvas layout MM-T55) ---- */
-
-.wizard-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1.25rem;
-  margin-bottom: 1.25rem;
-}
-
-.wizard-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 0.75rem;
-}
-
-.wizard-title h1 {
-  margin: 0;
-}
-
-.wizard-step-tag {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.wizard-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.625rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.wizard-steps li {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--inset);
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
-
-.wizard-steps li[aria-current='step'] {
-  border-color: var(--info-line);
-  background: var(--accent-bg);
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-
-.wizard-steps li.done {
-  border-color: var(--success-line);
-  color: var(--ink-soft);
-}
-
-.wizard-steps li.done::after {
-  content: ' ✓';
-  color: var(--success);
-}
-
 /* Square step numbers (no circles or pills). */
 .step-number {
   display: inline-grid;
@@ -1684,11 +1563,6 @@ textarea {
   background: var(--card-head);
   font-size: 0.75rem;
   font-weight: 700;
-}
-
-.wizard-steps li[aria-current='step'] .step-number {
-  background: var(--primary);
-  color: var(--on-primary);
 }
 
 .wizard-step .card,
@@ -1736,53 +1610,6 @@ textarea {
   margin-bottom: 0.75rem;
 }
 
-/* Each storage unit is a banded card: name, summaries and actions in the band; holes, summaries
-   and note stacked in one column below at every width (MM-T54: no crushed side column). */
-.unit-card {
-  margin-top: 0;
-  min-width: 0;
-}
-
-.unit-card .unit-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
-}
-
-/* MM-T54: fieldsets default to their content's width; let bucket fields shrink to the card. */
-.unit-card fieldset {
-  min-width: 0;
-}
-
-.unit-card input,
-.unit-card select,
-.unit-card textarea {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.unit-card .hole-summary {
-  margin: 0;
-}
-
-.unit-headline {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  overflow-wrap: anywhere;
-}
-
-.wizard-details {
-  margin-top: 0;
-}
-
-.wizard-units > .section-header {
-  margin-bottom: 0.25rem;
-}
-
-.wizard-units > .section-header h2 {
-  margin: 0;
-}
-
 .unit-body {
   min-width: 0;
 }
@@ -1798,7 +1625,7 @@ textarea {
 
 .hole-summary legend {
   padding: 0 0.375rem;
-  font: 600 0.6875rem/1.4 var(--font-mono);
+  font: 600 var(--fs-label) / 1.4 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -1871,47 +1698,6 @@ textarea {
   font-family: var(--font-mono);
 }
 
-.wizard-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--gap-button) var(--gap-group);
-  margin: 1rem 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-}
-
-/* Steps 1 and 2: the action bar stays at the bottom of the main column while the page scrolls. */
-.wizard-step > .wizard-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 4;
-  margin: 1rem 0 0;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--line-shell);
-  border-radius: var(--radius-control);
-  background: var(--card-head);
-}
-
-.wizard-step > .wizard-actions .draft-status {
-  margin: 0;
-}
-
-.wizard-actions-spacer {
-  flex: 1 1 auto;
-}
-
-/* The bar's buttons wrap together, as one row, below the draft status when space runs out
-   (MM-T66 UI-07: at 770–870px Discard and Next stacked one above the other). */
-.wizard-actions-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--gap-button);
-  margin-left: auto;
-}
-
 .wizard-problems {
   font-weight: 600;
   color: var(--danger);
@@ -1923,7 +1709,7 @@ textarea {
 }
 
 .link-button {
-  min-height: 36px;
+  min-height: var(--control);
   border: none;
   background: none;
   color: var(--accent);
@@ -2018,23 +1804,6 @@ textarea {
   }
 }
 
-.issued-units {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.issued-unit h3 {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 1.375rem;
-  letter-spacing: 0.02em;
-}
-
-.issued-unit p {
-  overflow-wrap: anywhere;
-}
-
 .issued-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2043,129 +1812,14 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  /* Phone: the action bar spans the screen; buttons are full width and 44px tall. */
-  .wizard-actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 4;
-    margin: 0 -1rem;
-    padding: 0.75rem 1rem;
-    background: var(--shell);
-    border-top: 1px solid var(--line-shell);
-  }
-
-  .wizard-step > .wizard-actions {
-    margin: 1rem -1rem 0;
-    border-width: 1px 0 0;
-    border-radius: 0;
-    background: var(--shell);
-  }
-
-  .wizard-step > .wizard-actions {
-    justify-content: flex-start;
-    gap: 0.5rem 0.75rem;
-  }
-
-  .wizard-step > .wizard-actions button {
-    flex: 1 1 0;
-    min-height: 44px;
-  }
-
   /* Status text on its own row(s); the buttons share the last row. */
-  .wizard-step > .wizard-actions .draft-status,
   .wizard-problems {
     flex: 1 1 100%;
     min-width: 0;
   }
 
-  .wizard-actions-spacer {
-    display: none;
-  }
-
-  .wizard-actions-buttons {
-    flex: 1 1 100%;
-    margin-left: 0;
-  }
-
   .wizard-problems + .draft-status::before {
     content: none;
-  }
-}
-
-/* ---- Review receipt above 1280px (MM-T66 UI-08, UI-11) ---- */
-
-/* Units table (rendered only above 1280px): one row per unit; long summaries wrap to a second
-   line rather than widen the page, and the table scrolls sideways inside its card if it must. */
-.review-units .banded-card-body {
-  padding: 0;
-}
-
-.review-units-scroll {
-  overflow-x: auto;
-}
-
-.review-units-table {
-  border: none;
-}
-
-/* The unit name heads its row but reads as body text, not as a column header. */
-.review-units-table th[scope='row'] {
-  background: none;
-  color: var(--ink);
-  font: 600 0.9375rem/1.25rem var(--font-sans);
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-}
-
-.review-units-table td,
-.review-units-table th {
-  padding: 0.4375rem 0.75rem;
-  vertical-align: middle;
-}
-
-.review-units-table td:nth-child(2) {
-  white-space: nowrap;
-}
-
-.review-summaries {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.125rem 1rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.review-hole {
-  font: 600 0.8125rem/1.25rem var(--font-mono);
-}
-
-.review-unit-action {
-  width: 1%;
-  text-align: right;
-}
-
-@media (width > 1280px) {
-  /* Details: labels on one line, values on the next, like a table row. A long value is cut at
-     two lines; it is still read in full by screen readers and shown in full on hover (title). */
-  .review-details .details {
-    grid-template-columns:
-      minmax(0, 2fr) max-content minmax(0, 1.2fr) minmax(0, 2fr)
-      max-content;
-    grid-template-rows: auto auto;
-    grid-auto-flow: column;
-    gap: 0.25rem 1.5rem;
-  }
-
-  .review-details .details dd {
-    align-self: start;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
   }
 }
 
@@ -2222,16 +1876,12 @@ textarea {
     min-height: var(--target);
   }
 
-  /* MTR-94: the rest of what a phone user taps gets the 44px target too. The receive step's
-     inputs and selects have a more specific base rule (.receipt-draft), so they are named here. */
-  input[type='date'],
-  .receipt-draft select,
-  .receipt-draft input:not([type='checkbox'], [type='radio']) {
+  /* MTR-94: the rest of what a phone user taps gets the 44px target too. */
+  input[type='date'] {
     min-height: var(--target);
   }
 
-  .action-bell,
-  .dash-filters button {
+  .action-bell {
     min-width: var(--target);
     min-height: var(--target);
   }
@@ -2400,7 +2050,7 @@ textarea {
 }
 
 .stat-tiles dt {
-  font: 600 0.6875rem/1rem var(--font-mono);
+  font: 600 var(--fs-label) / 1rem var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -2481,86 +2131,8 @@ textarea {
   margin: 0;
 }
 
-.profile-layout {
-  display: grid;
-  grid-template-columns: 18.75rem minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
-  margin-top: 1rem;
-}
-
-.profile-layout > .banded-card {
-  margin-top: 0;
-}
-
-.profile-who {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
-}
-
-.profile-initials {
-  display: inline-grid;
-  place-items: center;
-  width: 4rem;
-  height: 4rem;
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-tag);
-  background: var(--card-head);
-  font: 700 1.5rem/1 var(--font-mono);
-  color: var(--accent-ink);
-}
-
-.profile-name {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.profile-email {
-  margin: 0.125rem 0 0;
-  font: 400 0.8125rem/1.125rem var(--font-mono);
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
 .profile-card .banded-card-body {
   padding: 0;
-}
-
-.profile-fields {
-  margin: 0;
-}
-
-/* One striped row per field: label left, value right; stacked on phones. */
-.profile-fields dt,
-.profile-fields dd {
-  margin: 0;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.profile-fields {
-  display: grid;
-  grid-template-columns: 13.75rem minmax(0, 1fr);
-}
-
-.profile-fields dt {
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.profile-fields dd {
-  overflow-wrap: anywhere;
-}
-
-.profile-fields dt:nth-of-type(even),
-.profile-fields dd:nth-of-type(even) {
-  background: var(--inset);
 }
 
 .profile-unconfirmed {
@@ -2617,10 +2189,6 @@ textarea {
   gap: 0.25rem;
 }
 
-.printer-form input:not([type='checkbox']) {
-  max-width: none;
-}
-
 .field-pair-port {
   grid-template-columns: minmax(0, 1fr) 7.5rem;
 }
@@ -2630,14 +2198,6 @@ textarea {
   padding: 0.5rem 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-}
-
-/* System status */
-.status-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
 }
 
 .disk-list {
@@ -2676,9 +2236,7 @@ textarea {
 }
 
 @media (max-width: 1024px) {
-  .profile-layout,
-  .printers-layout,
-  .status-columns {
+  .printers-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -2691,78 +2249,8 @@ textarea {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .profile-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .profile-fields dt {
-    padding-bottom: 0;
-    border-bottom: 0;
-  }
-
-  .profile-fields dd {
-    padding-top: 0.25rem;
-  }
-
   .lab-actions button {
     flex: 1 1 100%;
-  }
-}
-
-.action-requests-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  margin: 1rem 0;
-}
-
-.action-request-list {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.action-request {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--line-control);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-control);
-  background: var(--card);
-}
-
-.action-request-title,
-.action-request-meta {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.action-request-meta {
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
-
-.action-request-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: start;
-}
-
-.action-request-reassign {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 0.5rem;
-  max-width: 32rem;
-}
-
-@media (max-width: 640px) {
-  .action-request {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -2884,8 +2372,6 @@ textarea {
    chip, segment, tab and menu item looked the same. The selected one is drawn in the system
    Highlight colours, with a thicker edge and an underline as cues that need no colour. */
 @media (forced-colors: active) {
-  .dash-filters button[aria-pressed='true'],
-  .view-switch button[aria-pressed='true'],
   .sub-nav a[aria-current='page'],
   .sub-nav a.active,
   .listbox li[aria-selected='true'],
@@ -2946,4 +2432,17 @@ html:has(.app-phone) {
   scroll-padding-bottom: calc(
     var(--target-primary-phone) + var(--rule-width) + var(--space-4) + env(safe-area-inset-bottom)
   );
+}
+
+/* A text field with its button on one line (search, add test hole, scan or type an ID). Shared by
+   Inventory, Projects, Receiving log, concrete tabs, the camera scanner and disposal scan. */
+.inline-input {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.inline-input input {
+  flex: 1 1 auto;
+  min-width: 0;
 }

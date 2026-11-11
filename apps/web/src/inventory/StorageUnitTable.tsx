@@ -47,8 +47,11 @@ export function StorageUnitTable({
   view = 'comfortable',
   pendingMoves,
   selection,
+  caption = 'Storage units',
 }: {
   items: InventoryItem[];
+  /** The table's accessible name (visually hidden caption). */
+  caption?: string;
   linkState?: StorageUnitLinkState;
   showProject?: boolean;
   view?: TableView;
@@ -70,7 +73,7 @@ export function StorageUnitTable({
       }
     >
       <table className={compact ? 'data-table is-compact' : 'data-table'}>
-        <caption className="visually-hidden">Storage units</caption>
+        <caption className="visually-hidden">{caption}</caption>
         <thead>
           <tr>
             {selection ? (

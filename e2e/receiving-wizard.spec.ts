@@ -131,8 +131,14 @@ test('T3/AC1: two buckets for TH26-01, confirmed with two BKT IDs', async ({ pag
   // Print labels was ticked, so confirming sent them through the T15 queue.
   await expect(labels.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });
   await expect(labels.getByRole('link', { name: 'Put these 2 away' })).toBeVisible();
-  await page.getByRole('link', { name: `Open ${ids[1]}` }).click();
-  await expect(page.getByRole('heading', { name: ids[1]! })).toBeVisible();
+  await expect(page.getByRole('link', { name: `Open ${ids[1]}` })).toHaveAttribute(
+    'href',
+    `/sample-storage/${ids[1]}`,
+  );
+  // "Put these 2 away" opens Move units with both units waiting for their shelf.
+  await labels.getByRole('link', { name: 'Put these 2 away' }).click();
+  const chosen = page.getByRole('region', { name: 'Chosen to move' });
+  for (const id of ids) await expect(chosen.getByText(id)).toBeVisible();
 });
 
 test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank description', async ({

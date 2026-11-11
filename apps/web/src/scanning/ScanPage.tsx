@@ -7,7 +7,7 @@ import {
   type StorageUnitDetail,
 } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { PageHeader } from '../components/ui';
 import { fetchStorageUnit } from '../inventory/api';
 import { ContextRow } from '../layout/ContextRow';
@@ -20,12 +20,21 @@ import { ScanInput, type ScanStatusView } from './ScanInput';
 import { useScanLookup, type ScanLookupState } from './useScanLookup';
 
 /**
- * Sample Storage → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage
+ * Inventory → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage
  * unit here; the next scan replaces it. Scanning only reads: it never moves or disposes anything.
  */
 export function ScanPage() {
   const sound = useScanSound();
-  const lookup = useScanLookup((_code, result) => {
+  const navigate = useNavigate();
+  const lookup = useScanLookup((code, result) => {
+    // A shelf (location) label opens that shelf's page (Field Ledger "Shelf"). The page itself
+    // says when no location has the code; scanning still never moves anything (MM-T28).
+    const parsed = parseScanPayload(code);
+    if (parsed.type === 'location') {
+      if (sound.on) playScanTone('success');
+      void navigate(`/sample-storage/locations/${encodeURIComponent(parsed.code)}`);
+      return;
+    }
     if (sound.on) playScanTone(result.kind === 'found' ? 'success' : 'failure');
   });
   const { state } = lookup;
@@ -35,7 +44,7 @@ export function ScanPage() {
     <div className="scan-screen">
       <ContextRow className="scan-context">
         <Link className="back-link" to="/sample-storage">
-          ← Back to Sample Storage
+          ← Back to inventory
         </Link>
       </ContextRow>
       <PageHeader title="Scan labels" />
