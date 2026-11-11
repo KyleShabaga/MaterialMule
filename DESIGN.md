@@ -262,7 +262,7 @@ stay readable on a phone in a dim storage room.
 ### Desktop (1024 px and wider)
 
 - **Rail** (`Sidebar`), 248 px, `sidebar` gray: logo, then the destinations as 44 px rows (8 px
-  radius) with a 20 px lucide icon and a label. The current one is `sidebar-accent` with
+  radius) with a 16 px Lucide icon and a label. The current one is `sidebar-accent` with
   `sidebar-accent-foreground` text and a filled icon. Destinations with sub-pages expand under the
   parent (Concrete, Retention), indented, with a chevron button. The rail collapses to icons
   (`collapsible="icon"`, labels as tooltips); the choice is remembered per browser.
@@ -437,7 +437,14 @@ Navigation labels are the seven destinations above.
   schemas in `packages/shared` instead of new validation.
 - **Fonts:** add `@fontsource/atkinson-hyperlegible-next` and `@fontsource/atkinson-hyperlegible-mono`
   (both 5.3.0, OFL-1.1); remove Archivo and IBM Plex Mono when no page uses them.
-- **Icons:** `lucide-react` (shadcn's default, ISC), 20 px, 1.75 px stroke, imported per icon.
+- **Icons:** Lucide only (https://lucide.dev/icons/, Kyle 2026-11-11): `lucide-react` in the app, the
+  exact Lucide SVGs on the canvas (currently lucide-static 1.72.0), never hand-drawn look-alikes.
+  Lucide's default 2 px stroke; 16 px in the sidebar and menus, 20 px elsewhere. Names in use:
+  `house` Today, `inbox` Inbox, `square-check-big` My requests, `folder` Projects,
+  `arrow-down-to-line` Receive, `package` Inventory, `flask-conical` Lab programs, `hourglass`
+  Retention, `cylinder` Concrete, `search`, `scan-line`, `square-pen` New, `bell`, `settings`,
+  `circle-question-mark` Help, `bug` Feedback & bugs, `log-out` Sign out, `chevrons-up-down`,
+  `chevron-down`, `chevron-right`, `arrow-right`, `check`, `lock`, `clock`, `circle-alert`, `pause`.
 - **Checks:** `npm run check:bundle` and `npm run verify` stay the gate; no new runtime network
   requests (the office host has no internet assumption).
 
@@ -477,7 +484,8 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 
 Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private).
 Every board has a Dark tweak; the dark boards are the same boards with it on. The boards are
-drawn as markup in shadcn's look (not live shadcn components). Drafts for review, not approved.
+drawn as HTML markup that imitates shadcn/ui (its variables, sizes and component structure); no real
+shadcn components run on the canvas. The icons are the real Lucide SVGs. Drafts for review, not approved.
 
 ### Today (boards: desktop, nothing needs you, dark)
 
