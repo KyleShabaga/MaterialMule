@@ -155,8 +155,8 @@ export function ProjectDetailPage() {
         {notice}
       </p>
 
-      <Section title="Project details">
-        <dl className="stat-tiles project-tiles">
+      <Section title="Project details" flush>
+        <dl className="fact-list project-facts">
           <Detail term="Client">{project.client}</Detail>
           <Detail term="Lead Project Engineer">
             {project.leadProjectEngineer ? (
@@ -169,7 +169,7 @@ export function ProjectDetailPage() {
             <strong>{plural(project.inStockUnitCount, 'unit', 'units')}</strong> in stock of{' '}
             {plural(project.unitCount, 'unit', 'units')} received
           </Detail>
-          <Detail term="Server folder" wide>
+          <Detail term="Server folder">
             {project.serverFolderPath ? <FolderPath path={project.serverFolderPath} /> : 'Not set'}
           </Detail>
         </dl>
@@ -188,7 +188,7 @@ export function ProjectDetailPage() {
       ) : null}
 
       <div className="project-columns">
-        <Section title="Test holes">
+        <Section title="Test holes" flush>
           {project.testHoles.length === 0 ? (
             <EmptyState>No test holes yet.</EmptyState>
           ) : (
@@ -218,7 +218,7 @@ export function ProjectDetailPage() {
           ) : null}
         </Section>
 
-        <Section title="Receipts">
+        <Section title="Receipts" flush>
           {project.receipts.length === 0 ? (
             <EmptyState>Nothing received for this project yet.</EmptyState>
           ) : (
@@ -296,23 +296,30 @@ export function ProjectDetailPage() {
 function Section({
   title,
   actions,
+  flush,
   children,
 }: {
   title: string;
   actions?: ReactNode;
+  /** Rows run edge to edge inside the frame (fact lists, hole rows, the receipts table). */
+  flush?: boolean;
   children: ReactNode;
 }) {
   return (
-    <BandedCard className="project-section" title={title} aside={actions}>
+    <BandedCard
+      className={flush ? 'project-section project-section-flush' : 'project-section'}
+      title={title}
+      aside={actions}
+    >
       {children}
     </BandedCard>
   );
 }
 
-/** One stat tile; `wide` spans the whole row (the server folder path and its Copy button). */
-function Detail({ term, wide, children }: { term: string; wide?: boolean; children: ReactNode }) {
+/** One fact row: mono caps key on the left, the value on the right. */
+function Detail({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <div className={wide ? 'project-tile-wide' : undefined}>
+    <div data-row>
       <dt>{term}</dt>
       <dd>{children}</dd>
     </div>

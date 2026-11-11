@@ -58,6 +58,12 @@
   margin-top: 0;
 }
 
+/* On the unit page the two cards are sections in the page's own rhythm. */
+.unit-below .labels-dual {
+  gap: var(--space-7);
+  margin-top: 0;
+}
+
 .labels-dual .label-preview {
   display: flex;
   flex-direction: column;

@@ -366,17 +366,38 @@
   margin: 0;
 }
 
-.project-tiles > .project-tile-wide {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.75rem;
+/* Flush sections: rows run edge to edge inside the frame, on hairlines (canvas "Project"). */
+.project-section-flush .banded-card-body {
+  padding: 0;
 }
 
-.project-tile-wide dd {
+.project-section-flush .banded-card-body > :is(.empty-state, .field-hint, p) {
   margin: 0;
-  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.project-facts > div {
+  align-items: center;
+}
+
+.project-section-flush .project-holes {
+  margin: 0;
+}
+
+.project-section-flush .project-holes li {
+  align-items: center;
+  padding: 10px var(--space-4);
+}
+
+.project-section-flush .add-hole {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.project-section-flush .data-table,
+.project-section-flush .table-scroll {
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
 
 .project-columns {
@@ -404,10 +425,6 @@
 
 .hole-name {
   font-weight: 600;
-}
-
-.project-section .data-table {
-  border: 1px solid var(--line);
 }
 
 .folder-path {

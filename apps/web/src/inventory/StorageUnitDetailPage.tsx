@@ -478,17 +478,19 @@ function StorageUnitDetail() {
         </div>
       </div>
 
-      {/* Groups, not regions: the "Label" region (T15) stays the only landmark named Label. */}
-      <LabelPreviewPanel
-        // A correction (T13) bumps the version; the label shows the corrected details.
-        key={`label-preview-${unit.version}`}
-        layout="dual"
-        id="label-preview"
-        storageUnit={unit.readableId}
-        receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
-      />
+      <div className="unit-below">
+        {/* Groups, not regions: the "Label" region (T15) stays the only landmark named Label. */}
+        <LabelPreviewPanel
+          // A correction (T13) bumps the version; the label shows the corrected details.
+          key={`label-preview-${unit.version}`}
+          layout="dual"
+          id="label-preview"
+          storageUnit={unit.readableId}
+          receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
+        />
 
-      <StorageUnitLabelsSection readableId={unit.readableId} disposed={disposed} />
+        <StorageUnitLabelsSection readableId={unit.readableId} disposed={disposed} />
+      </div>
     </>
   );
 }

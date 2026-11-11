@@ -101,31 +101,37 @@ export function BulkSampleSection({
       aside={<BulkBadge sample={sample} membership={group} />}
     >
       <dl className="details">
-        <dt>Bulk sample</dt>
-        <dd>{formatSampleIdentity(sample)}</dd>
-        <dt>Description</dt>
-        <dd>{group.description ?? 'None'}</dd>
-        <dt>Buckets</dt>
-        <dd>
-          {/* Each bucket is its own storage unit: own ID, receipt, location and history. */}
-          <ol className="bulk-members" aria-label="Buckets of this bulk sample">
-            {group.members.map((member) => (
-              <li key={member.id}>
-                {member.id === unit.id ? (
-                  <strong aria-current="true">{member.readableId} (this bucket)</strong>
-                ) : (
-                  <Link to={`/sample-storage/${encodeURIComponent(member.readableId)}`}>
-                    {member.readableId}
-                  </Link>
-                )}{' '}
-                <span className="muted">
-                  · {storageUnitStatusLabel(member.status)} · {currentLocationName(member)} ·
-                  received {member.receivedDate}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </dd>
+        <div>
+          <dt>Bulk sample</dt>
+          <dd>{formatSampleIdentity(sample)}</dd>
+        </div>
+        <div>
+          <dt>Description</dt>
+          <dd>{group.description ?? 'None'}</dd>
+        </div>
+        <div>
+          <dt>Buckets</dt>
+          <dd>
+            {/* Each bucket is its own storage unit: own ID, receipt, location and history. */}
+            <ol className="bulk-members" aria-label="Buckets of this bulk sample">
+              {group.members.map((member) => (
+                <li key={member.id}>
+                  {member.id === unit.id ? (
+                    <strong aria-current="true">{member.readableId} (this bucket)</strong>
+                  ) : (
+                    <Link to={`/sample-storage/${encodeURIComponent(member.readableId)}`}>
+                      {member.readableId}
+                    </Link>
+                  )}{' '}
+                  <span className="muted">
+                    · {storageUnitStatusLabel(member.status)} · {currentLocationName(member)} ·
+                    received {member.receivedDate}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </dd>
+        </div>
       </dl>
       <p className="field-hint">
         The sample reference is the field label, not a storage unit ID. Bucket numbers follow the
