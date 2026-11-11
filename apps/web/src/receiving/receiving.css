@@ -1,0 +1,618 @@
+/* ---- Receiving (MM-T10/T11, Field Ledger "Receive", "ReceiveDelivery", "ReceiveUnit",
+   "ReceiptDone", "PhoneReceive"). Tokens only; hover is global. ---- */
+
+.receive-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Context row: DRAFT tag, saved note, step control. */
+.receive-context {
+  gap: var(--space-3);
+}
+
+.receive-context-note {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--ink-soft);
+}
+
+.receive-context-note .draft-status {
+  margin: 0;
+}
+
+.receive-steps {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  font-size: var(--fs-small);
+  font-weight: 700;
+}
+
+.receive-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 10px 14px;
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+.receive-steps li + li {
+  border-left: var(--rule-width) solid var(--rule);
+}
+
+.receive-steps li[aria-current='step'] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.receive-steps .step-number {
+  display: inline;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+/* Title and its mono meta line. */
+.receive-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.receive-title h1 {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  line-height: var(--lh-page-title);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.receive-title-meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* 3:1 split that wraps to one column. */
+.receive-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-7);
+}
+
+.receive-main {
+  display: flex;
+  flex: 3 1 34rem;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.receive-side {
+  flex: 1 1 300px;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.receive-side .side-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.receive-side .side-panel-body > p {
+  margin: 0;
+}
+
+.receive-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.receive-side-actions > .button,
+.receive-side-actions > button,
+.receive-side-actions .print-panel > button {
+  width: 100%;
+}
+
+.receive-side-link {
+  align-self: center;
+  padding: var(--space-2);
+  font-weight: 700;
+}
+
+.receive-big {
+  min-height: 52px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.receive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Delivery fields. */
+.receive-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.receive-main textarea {
+  font: inherit;
+}
+
+/* Units: the delivery's facts as one framed strip. */
+.receive-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.receive-facts dl {
+  display: grid;
+  flex: 1 1 28rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+}
+
+.receive-facts dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  min-width: 0;
+}
+
+.receive-facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.receive-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.receive-facts > button {
+  align-self: center;
+  margin: var(--space-3) var(--space-4);
+}
+
+/* One storage unit: prefix block, one line per test hole, where it goes, actions. */
+.receive-units {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.receive-unit {
+  background: var(--sheet);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.receive-unit.is-open {
+  border: var(--rule-width) solid var(--rule);
+}
+
+.receive-unit-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.receive-unit-prefix {
+  display: flex;
+  flex: 0 0 92px;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  padding: 14px var(--space-3);
+  background: var(--inverse);
+  color: var(--on-inverse);
+}
+
+.receive-unit-prefix-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-section);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.receive-unit-prefix-type {
+  font-size: var(--fs-label);
+}
+
+.receive-unit-main {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.receive-unit-name {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.receive-unit-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receive-unit-lines li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+}
+
+.receive-unit-hole {
+  min-width: 76px;
+  font-weight: 600;
+}
+
+.receive-unit-target {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.receive-unit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.receive-unit-body {
+  padding: var(--space-4);
+  border-top: 1px solid var(--hairline);
+}
+
+.receive-unit-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.receive-unit-editor .unit-kind {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+
+.receive-unit-editor .unit-kind > .form-field {
+  flex: none;
+  width: 100%;
+}
+
+.receive-unit-editor fieldset {
+  min-width: 0;
+}
+
+/* Holder choice: one prefix block per holder, the chosen one ink-filled (aria-pressed). */
+.receive-holders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.receive-holders button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 72px;
+  padding: 10px 14px;
+  border-radius: var(--radius-card);
+  text-align: left;
+}
+
+.receive-holder-prefix {
+  font-family: var(--font-mono);
+  font-size: var(--fs-section);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.receive-holder-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.receive-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.receive-add-button {
+  width: 100%;
+  min-height: 52px;
+  border-style: dashed;
+  background: transparent;
+  font-weight: 700;
+}
+
+.receive-add .field-hint {
+  margin: 0;
+}
+
+/* On confirm. */
+.receive-issue {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.receive-issue li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+  font-size: var(--fs-small);
+}
+
+.receive-issue li + li {
+  border-top: 1px solid var(--hairline);
+}
+
+.receive-issue .mono {
+  font-weight: 600;
+}
+
+.receive-print {
+  align-items: flex-start;
+}
+
+.receive-print > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.receive-print .field-hint {
+  margin: 0;
+}
+
+/* Receipt confirmed. */
+.receive-done-status {
+  margin: 0;
+}
+
+.receive-done-units {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receive-done-unit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.receive-done-unit .unit-label-id {
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.receive-done-unit .issued-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* One flag action per screen ("Put these N away"): the print buttons stay secondary. */
+.receive-done-unit .print-panel button.primary,
+.receive-side .print-panel button.primary {
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+.receive-checklist {
+  margin: calc(-1 * var(--space-4)) -18px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receive-checklist li {
+  display: flex;
+  gap: var(--space-3);
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.receive-checklist li > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.receive-checklist .field-hint {
+  margin: 0;
+}
+
+.receive-check-state {
+  flex: 0 0 44px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.receive-check-done {
+  color: var(--tag-storage-fg);
+}
+
+.receive-check-later {
+  color: var(--ink-soft);
+}
+
+/* Drafts on this computer: dashed, because nothing about them is final yet. */
+.receive-drafts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.receive-drafts h2 {
+  margin: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: var(--rule-width) solid var(--rule);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+}
+
+.receive-drafts .draft-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receive-draft-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 14px var(--space-4);
+  background: var(--sheet);
+  border: var(--rule-width) dashed var(--rule);
+  border-radius: var(--radius-card);
+}
+
+.receive-draft-row p {
+  margin: 0;
+}
+
+.receive-draft-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-row-id);
+  font-weight: 600;
+}
+
+/* Phone (Field Ledger "PhoneReceive"): one column, 48 px fields, 60 px primary actions. */
+@media (max-width: 640px) {
+  .receive-wizard {
+    gap: var(--space-4);
+  }
+
+  .receive-title h1 {
+    font-size: var(--fs-phone-title);
+    line-height: var(--fs-phone-title);
+  }
+
+  .receive-columns {
+    gap: var(--space-4);
+  }
+
+  .receive-main {
+    flex-basis: 100%;
+  }
+
+  .receive-steps {
+    width: 100%;
+  }
+
+  .receive-steps li {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 10px var(--space-2);
+  }
+
+  .receive-holders {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .receive-holders button {
+    min-height: 64px;
+  }
+
+  .receive-unit-prefix {
+    flex: 1 1 100%;
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .receive-unit-actions {
+    flex: 1 1 100%;
+    padding-top: 0;
+  }
+
+  .receive-unit-actions > button {
+    flex: 1 1 auto;
+  }
+
+  .receive-big {
+    min-height: var(--target-primary-phone);
+    width: 100%;
+  }
+
+  .receive-actions > button {
+    flex: 1 1 100%;
+    min-height: var(--control-phone);
+  }
+
+  .receive-facts > button {
+    flex: 1 1 100%;
+  }
+}

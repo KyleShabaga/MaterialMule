@@ -162,10 +162,10 @@ test('AC3: dashboard counts match the lists they open, and My reports come first
   await expect(page.getByRole('checkbox', { name: /Only HOLDs due for review/ })).toBeChecked();
 });
 
-test('Lab search in the top bar covers projects and concrete records', async ({ page }) => {
+test('Search in the top bar covers projects and concrete records', async ({ page }) => {
   const data = await castTwoProjects(page);
   await page.goto('/');
-  // Phone: the bottom bar's Find slot opens Lab search, with the field in the header.
+  // Phone: the bottom bar's Find slot opens Search, with the field in the header.
   if (isPhoneLayout(page)) {
     await mainNav(page).getByRole('link', { name: 'Find', exact: true }).click();
   }
@@ -173,15 +173,16 @@ test('Lab search in the top bar covers projects and concrete records', async ({ 
   await box.fill(data.projects[1]!.number);
   await box.press('Enter');
   await expect(page).toHaveURL(/\/search\?q=/);
-  await expect(page.getByRole('heading', { name: 'Lab search', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^\d+ results?$/, level: 1 })).toBeVisible();
   const projects = page.getByRole('region', { name: 'Projects' });
-  await expect(projects.getByRole('link', { name: data.projects[1]!.number })).toBeVisible();
+  await expect(
+    projects.getByRole('link', { name: new RegExp(`^${data.projects[1]!.number} `) }),
+  ).toBeVisible();
   const concrete = page.getByRole('region', { name: 'Concrete' });
   await expect(concrete.getByText('Matched on Project')).toBeVisible();
   await expect(
     concrete.getByRole('list', { name: `Specimen sets, ${data.projects[1]!.number}` }),
   ).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Storage units' })).toBeVisible();
 
   // Concrete search from the dashboard finds the ticket-less report by its set number too.
   await page.goto('/concrete');

@@ -26,14 +26,16 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
   await expect(page.getByLabel('Lead Project Engineer')).toHaveValue('Pat Example');
 
-  // Existing hole.
+  // Existing hole, on the Units step.
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
   const holes = page.getByRole('combobox', { name: 'Find or add a test hole' });
   await holes.fill('th26-0');
   await page.getByRole('option', { name: 'TH26-01', exact: true }).click();
   const chips = page.getByRole('list', { name: 'Selected test holes' });
   await expect(chips).toContainText('TH26-01');
 
-  // A new project, added inline from the typed number.
+  // A new project, added inline from the typed number, back on Delivery.
+  await page.getByRole('button', { name: 'Edit delivery' }).click();
   await page.getByRole('button', { name: 'Change project' }).click();
   await page.getByRole('combobox', { name: /Find project/ }).fill(projectNumber);
   await expect(page.getByRole('option', { name: 'No matching project' })).toBeVisible();
@@ -58,11 +60,13 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   );
 
   // A new hole in the new project.
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
   await holes.fill('TH26-03');
   await page.getByRole('option', { name: 'Add TH26-03' }).click();
   await expect(chips).toContainText('TH26-03');
 
   // AC7: nothing else in the draft was cleared.
+  await page.getByRole('button', { name: 'Edit delivery' }).click();
   await expect(receiver).toHaveValue('AT · Alex Tester');
   await expect(page.getByLabel('Description (optional)')).toHaveValue(
     'Four buckets from the drill crew',

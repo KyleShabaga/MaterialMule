@@ -111,21 +111,17 @@ function renderWizard(extra: Record<string, Handler> = {}) {
 }
 
 /** matchMedia answering `wide` for exactly the "> 1280px" query (the review layout switch). */
-function stubWidth(wide: boolean) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: wide && query === '(width > 1280px)',
-    media: query,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  }));
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 type User = ReturnType<typeof userEvent.setup>;
 const region = (name: string) => screen.getByRole('region', { name });
+
+async function toUnits(user: User) {
+  await chooseProject(user);
+  await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
+}
 
 async function chooseProject(user: User) {
   await user.type(await screen.findByRole('combobox', { name: /Find project/ }), 'river');
@@ -146,7 +142,7 @@ async function pickSourceHole(user: User, unit: HTMLElement, name: string) {
  * Shelby tube from TH26-21 (T5); unit 4: a Shelby tube from a standalone location at 10–12 ft.
  */
 async function fillMixedReceipt(user: User) {
-  await chooseProject(user);
+  await toUnits(user);
   const b1 = region('Bucket 1');
   await user.click(within(b1).getByRole('checkbox', { name: 'Bulk soil sample' }));
   expect(within(b1).getByText(/commonly fills one or two buckets/)).toBeInTheDocument();
@@ -164,20 +160,14 @@ async function fillMixedReceipt(user: User) {
     'Same as Bucket 1: TH26-21: B1 at 1.5–2 m',
   );
 
-  await user.click(screen.getByRole('button', { name: 'Add bucket' }));
-  await user.selectOptions(
-    within(region('Bucket 3')).getByLabelText('Physical holder'),
-    'shelby_tube',
-  );
+  await user.click(screen.getByRole('button', { name: 'Add a storage unit' }));
+  await user.click(within(region('Bucket 3')).getByRole('button', { name: 'ST Shelby tube' }));
   const tube3 = region('Shelby tube 3');
   await pickSourceHole(user, tube3, 'TH26-21');
   await user.type(within(tube3).getByLabelText(/^Sample reference/), 'T5');
 
-  await user.click(screen.getByRole('button', { name: 'Add bucket' }));
-  await user.selectOptions(
-    within(region('Bucket 4')).getByLabelText('Physical holder'),
-    'shelby_tube',
-  );
+  await user.click(screen.getByRole('button', { name: 'Add a storage unit' }));
+  await user.click(within(region('Bucket 4')).getByRole('button', { name: 'ST Shelby tube' }));
   const tube4 = region('Shelby tube 4');
   await user.click(within(tube4).getByRole('radio', { name: 'Standalone sampling location' }));
   await user.type(
@@ -192,8 +182,7 @@ async function fillMixedReceipt(user: User) {
 // Each test drives a whole multi-unit receipt by keyboard and mouse, so it gets more time than
 // the 5 s default when the full suite runs in parallel.
 describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
-  it('receives bulk buckets and Shelby tubes; review above 1280px shows sources and groups (T6, T8)', async () => {
-    stubWidth(true);
+  it('receives bulk buckets and Shelby tubes; the unit rows show sources and bulk positions (T6, T8)', async () => {
     const user = userEvent.setup();
     const posts: unknown[] = [];
     renderWizard({
@@ -211,24 +200,22 @@ describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
       },
     });
     await fillMixedReceipt(user);
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
 
-    const table = await screen.findByRole('table', { name: 'Storage units in this receipt' });
-    const rows = within(table).getAllByRole('row').slice(1);
-    expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining('Bucket · Bulk soil sample'),
-      expect.stringContaining('bucket 2 of 2 in this receipt'),
-      expect.stringContaining('Shelby tube'),
-      expect.stringContaining('Embankment Location 03: 10–12 ft'),
-    ]);
-    expect(rows[0]).toHaveTextContent('TH26-21: B1 at 1.5–2 m · bucket 1 of 2 in this receipt');
-    expect(rows[2]).toHaveTextContent('Sampling source TH26-21: T5');
-    const bulk = screen.getByRole('table', { name: 'Bulk samples in this receipt' });
-    expect(within(bulk).getAllByRole('row')[1]).toHaveTextContent(
-      'TH26-21: B1 at 1.5–2 m (new bulk sample)2 bucketsBucket 1, Bucket 2',
+    const contents = (name: string) =>
+      within(region(name)).getByRole('list', { name: `${name} contents` });
+    expect(contents('Bucket 1')).toHaveTextContent(
+      'Bulk sampleTH26-21: B1 at 1.5–2 m · bucket 1 of 2 in this receipt',
     );
+    expect(contents('Bucket 2')).toHaveTextContent('bucket 2 of 2 in this receipt');
+    expect(contents('Shelby tube 3')).toHaveTextContent('TH26-21T5');
+    expect(contents('Shelby tube 4')).toHaveTextContent('Embankment Location 0310–12 ft');
+    const onConfirm = region('On confirm');
+    expect(within(onConfirm).getByText('2 buckets')).toBeVisible();
+    expect(within(onConfirm).getByText('2 Shelby tubes')).toBeVisible();
+    expect(within(onConfirm).getByText(/^ST-\d{4}-······$/)).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Confirm receipt' }));
+    await user.click(within(onConfirm).getByRole('checkbox', { name: /Print 4 labels/ }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and issue IDs' }));
     expect(await screen.findByRole('heading', { name: 'ST-2026-000002' })).toBeInTheDocument();
     const body = posts[0] as {
       bulkGroups: { key: string }[];
@@ -250,24 +237,6 @@ describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
     expect(body.units[3]!.sample).not.toHaveProperty('testHoleId');
   });
 
-  it('shows the same information in cards at 1280px and below', async () => {
-    stubWidth(false);
-    const user = userEvent.setup();
-    renderWizard();
-    await fillMixedReceipt(user);
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    expect(screen.queryByRole('table', { name: 'Storage units in this receipt' })).toBeNull();
-    const first = await screen.findByRole('region', { name: 'Bucket 1' });
-    expect(first).toHaveTextContent('TypeBucket · Bulk soil sample');
-    expect(first).toHaveTextContent('Bulk sampleTH26-21: B1 at 1.5–2 m · bucket 1 of 2');
-    expect(region('Shelby tube 4')).toHaveTextContent(
-      'Sampling sourceEmbankment Location 03: 10–12 ft',
-    );
-    expect(region('Bulk samples in this receipt')).toHaveTextContent(
-      '2 buckets (new bulk sample): Bucket 1, Bucket 2',
-    );
-  });
-
   it('a later bucket joins an existing bulk sample shown by source, reference and depth (AC2)', async () => {
     const user = userEvent.setup();
     const posts: unknown[] = [];
@@ -277,7 +246,7 @@ describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
         return json(500, {});
       },
     });
-    await chooseProject(user);
+    await toUnits(user);
     const b1 = region('Bucket 1');
     await user.click(within(b1).getByRole('checkbox', { name: 'Bulk soil sample' }));
     const choice = within(b1).getByLabelText('Bulk sample');
@@ -285,19 +254,16 @@ describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
     await user.selectOptions(choice, `existing:${stockpileB1.id}`);
     // Joining inherits the identity: nothing about the sample is typed again.
     expect(within(b1).queryByLabelText(/^Sample reference/)).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Bucket 1' }).closest('section')).toHaveTextContent(
-      'Bulk soil sample · Stockpile 2 · B1 · 0.5 m',
+    expect(within(b1).getByRole('list', { name: 'Bucket 1 contents' })).toHaveTextContent(
+      'Bulk sampleStockpile 2 · B1 · 0.5 m',
     );
   });
 
   it('the sampling source picker keeps the Enter/close/blur contract and holds one hole', async () => {
     const user = userEvent.setup();
     renderWizard();
-    await chooseProject(user);
-    await user.selectOptions(
-      within(region('Bucket 1')).getByLabelText('Physical holder'),
-      'shelby_tube',
-    );
+    await toUnits(user);
+    await user.click(within(region('Bucket 1')).getByRole('button', { name: 'ST Shelby tube' }));
     const tube = region('Shelby tube 1');
     await pickSourceHole(user, tube, 'TH26-21');
     const search = within(tube).getByRole('combobox', { name: 'Change the test hole' });
@@ -318,7 +284,7 @@ describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
   it('Alt+N still adds a bucket and goes to its test hole search, past the new holder controls', async () => {
     const user = userEvent.setup();
     renderWizard();
-    await chooseProject(user);
+    await toUnits(user);
     await user.click(
       within(region('Bucket 1')).getByRole('checkbox', { name: 'Bulk soil sample' }),
     );
@@ -326,7 +292,10 @@ describe('MM-T36 receiving wizard', { timeout: 30_000 }, () => {
     const second = region('Bucket 2');
     expect(within(second).getByRole('combobox', { name: 'Find or add a test hole' })).toHaveFocus();
     // The holder select and Bulk soil sample box come before it (one Shift+Tab away).
-    expect(within(second).getByLabelText('Physical holder')).toHaveValue('bucket');
+    expect(within(second).getByRole('button', { name: 'BKT Bucket' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(within(second).getByRole('checkbox', { name: 'Bulk soil sample' })).not.toBeChecked();
   });
 });

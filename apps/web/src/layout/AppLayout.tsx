@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useMediaQuery } from '../components/useMediaQuery';
-import { LabSearchBox } from '../concrete/lab/LabSearchPage';
+import { useMoreCounts, type MoreCounts } from '../dashboard/more-counts';
+import { SearchBox } from '../search/SearchBox';
 import { NotificationsBell } from '../notifications/NotificationsBell';
 import { useMe } from '../session/context';
 import { DonkeyMark } from './DonkeyMark';
 import {
   activeDestination,
   activeSubPage,
-  canUseLabSearch,
+  canUseSearch,
   destinationsFor,
   type Destination,
 } from './nav';
@@ -60,10 +61,13 @@ function DestinationList({
   destinations,
   idPrefix,
   onNavigate,
+  counts,
 }: {
   destinations: Destination[];
   idPrefix: string;
   onNavigate?: () => void;
+  /** Phone More sheet only (canvas PhoneMore): a count per destination; the rail has none. */
+  counts?: MoreCounts;
 }) {
   const { pathname } = useLocation();
   const active = activeDestination(pathname);
@@ -76,6 +80,8 @@ function DestinationList({
         const sub = item.children.length > 0 ? activeSubPage(pathname, item.children) : null;
         const open = item.children.length > 0 && (toggled[item.key] ?? current);
         const groupId = `${idPrefix}-${item.key}`;
+        const count = counts?.[item.key];
+        const countId = `${idPrefix}-${item.key}-count`;
         return (
           <li key={item.key} className="rail-item">
             <div className={current ? 'rail-row is-current' : 'rail-row'}>
@@ -84,9 +90,16 @@ function DestinationList({
                 className="rail-link"
                 // The destination is the current page unless one of its sub-pages is marked.
                 aria-current={current ? (sub ? 'true' : 'page') : undefined}
+                aria-describedby={count !== undefined ? countId : undefined}
                 onClick={onNavigate}
               >
                 {item.label}
+                {count !== undefined ? (
+                  // Out of the link's name (it stays "Inventory"); read as its description.
+                  <span id={countId} className="more-count" aria-hidden="true">
+                    {count}
+                  </span>
+                ) : null}
               </Link>
               {item.children.length > 0 ? (
                 <button
@@ -167,9 +180,10 @@ export function AppLayout() {
 
   const destinations = destinationsFor(me);
   const active = activeDestination(pathname);
-  // MM-V2-C31: Lab search for every session that can read lab records (LAB included).
-  const search = canUseLabSearch(me);
+  // Field Ledger search for every session that can read storage units (LAB included).
+  const search = canUseSearch(me);
   const sheetOpen = phone && moreOpen;
+  const moreCounts = useMoreCounts(sheetOpen, me);
 
   // Any navigation, or widening past phone width, closes the More sheet.
   const [shownAt, setShownAt] = useState(pathname);
@@ -249,12 +263,12 @@ export function AppLayout() {
               <Brand />
               <Bell inert={sheetOpen} />
             </div>
-            {/* Find: Lab search sits in the header on its results page (MM-V2-C31). */}
-            {search && pathname === '/search' ? <LabSearchBox /> : null}
+            {/* Find: the search field sits in the header on its results page (PhoneFind). */}
+            {search && pathname === '/search' ? <SearchBox /> : null}
           </header>
         ) : (
           <header className="top-bar">
-            {search ? <LabSearchBox /> : <span className="top-bar-spacer" />}
+            {search ? <SearchBox /> : <span className="top-bar-spacer" />}
             <Bell />
           </header>
         )}
@@ -271,6 +285,7 @@ export function AppLayout() {
                 destinations={destinations.filter((d) => !BAR_DESTINATIONS.has(d.key))}
                 idPrefix="more-group"
                 onNavigate={close}
+                counts={moreCounts}
               />
               <SidebarFooter onNavigate={close} />
             </div>

@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res } from 
 import {
   createLabProgramRequestSchema,
   discardLabProgramRequestSchema,
+  LAB_PROGRAM_SEARCH_MAX,
   labSourceRefSchema,
   submitLabProgramRequestSchema,
   updateLabProgramRequestSchema,
@@ -36,11 +37,15 @@ export class LabProgramsController {
     @Query('status') status?: string,
     @Query('projectId') projectId?: string,
     @Query('page') page?: string,
+    @Query('search') search?: string,
   ): Promise<LabProgramList> {
     const pageNumber = Number(page);
     return this.programs.list(user, {
       status,
       projectId,
+      // Field Ledger top-bar search: program number, project number or project name.
+      search:
+        typeof search === 'string' ? search.trim().slice(0, LAB_PROGRAM_SEARCH_MAX) : undefined,
       page: Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1,
     });
   }

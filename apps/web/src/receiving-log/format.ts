@@ -25,6 +25,20 @@ export function formatAccount(account: ReceiptLogItem['account']): string {
   return account.initials ? `${account.initials} · ${account.name}` : account.name;
 }
 
+/**
+ * "4 units · TH26-01, TH26-02": a local draft's units count and the test holes named so far.
+ * Takes only what it reads, so it never depends on a draft's other fields.
+ */
+export function draftContents(
+  units: readonly { summaries: readonly { testHole: { name: string } }[] }[],
+): string {
+  const holes = [
+    ...new Set(units.flatMap((unit) => unit.summaries.map((summary) => summary.testHole.name))),
+  ];
+  const count = `${units.length} ${units.length === 1 ? 'unit' : 'units'}`;
+  return holes.length > 0 ? `${count} · ${holes.join(', ')}` : count;
+}
+
 export function unitCount(quantity: number): string {
   return `${quantity} storage ${quantity === 1 ? 'unit' : 'units'}`;
 }

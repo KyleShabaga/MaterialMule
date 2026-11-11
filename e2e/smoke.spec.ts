@@ -1,17 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// The dashboard no longer shows API/database health (approved design, 2026-10-27); admins see
-// it under Settings → System status (system-status.spec.ts). Here: the app loads data at all.
-test('dashboard loads data from the API and database', async ({ page }) => {
+// Today shows no API/database health; admins see it under Settings → System status
+// (system-status.spec.ts). Here: the app loads data at all.
+test('Today loads data from the API and database', async ({ page }) => {
   await signInAs(page, 'at');
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-  const recent = page.getByRole('region', { name: 'Recently received' });
-  await expect(recent.getByRole('link', { name: 'See all in Sample Storage →' })).toBeVisible();
-  await expect(recent.getByText(/this week$/)).toBeVisible();
-  await expect(recent.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
+  const ledger = page.getByRole('region', { name: 'Ledger' });
+  await expect(ledger.getByText('LAST 24 H')).toBeVisible();
+  await expect(ledger.getByText('Loading the ledger…')).toHaveCount(0);
+  await expect(ledger.getByRole('alert')).toHaveCount(0);
+  await expect(page).toHaveTitle('Today · Material Mule');
 });
 
 test('health endpoint is reachable through the web origin', async ({ request }) => {

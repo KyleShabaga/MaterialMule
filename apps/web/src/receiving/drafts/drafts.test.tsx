@@ -145,6 +145,7 @@ describe('Receiving drafts (MM-T11)', () => {
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), 'river');
     await user.click(await screen.findByRole('option', { name: /DEMO-2601/ }));
     await user.type(screen.getByLabelText('Description (optional)'), 'Two buckets');
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     const bucket = screen.getByRole('region', { name: 'Bucket 1' });
     await user.type(within(bucket).getByLabelText('Bucket 1 note (optional)'), 'Lid taped');
     // Saved about 1 s after the last change, with the time and receiver shown.
@@ -157,16 +158,19 @@ describe('Receiving drafts (MM-T11)', () => {
     const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
     expect(within(list).getByRole('heading', { name: 'DEMO-2601 · Riverbank investigation' }));
     expect(within(list).getByText(/1 storage unit · Receiver: AT · Last saved/)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Start new receipt' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start a delivery' })).toBeVisible();
 
     await user.click(within(list).getByRole('button', { name: /Resume draft DEMO-2601/ }));
-    expect(screen.getByLabelText('Description (optional)')).toHaveValue('Two buckets');
-    expect(screen.getByLabelText('Project number')).toHaveValue('DEMO-2601');
+    // It opens on the step it was left at: Units.
     expect(screen.getByLabelText('Bucket 1 note (optional)')).toHaveValue('Lid taped');
-    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
+    expect(screen.getByText('Two buckets')).toBeInTheDocument();
     expect(screen.getByText(/Draft saved/)).toHaveTextContent(
       /^Draft saved \d{2}:\d{2} · Receiver: AT$/,
     );
+    await user.click(screen.getByRole('button', { name: 'Edit delivery' }));
+    expect(screen.getByLabelText('Description (optional)')).toHaveValue('Two buckets');
+    expect(screen.getByLabelText('Project number')).toHaveValue('DEMO-2601');
+    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
   });
 
   it('a new receipt that was never changed leaves no draft behind', async () => {
@@ -255,7 +259,7 @@ describe('Receiving drafts (MM-T11)', () => {
       { 'POST /api/receipts': () => json(401, { code: 'unauthenticated' }) },
       `/receiving-log/new?draft=${record.draftId}`,
     );
-    await user.click(await screen.findByRole('button', { name: 'Confirm receipt' }));
+    await user.click(await screen.findByRole('button', { name: 'Confirm and issue IDs' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
       'Your session has expired. Your draft is saved. Sign in to confirm.',
@@ -532,7 +536,7 @@ describe('Draft auto-delete on Receive samples (MM-T45)', () => {
       '1 draft older than 90 days was deleted from this computer',
     );
     expect(within(list).getByText('No drafts on this computer.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start new receipt' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start a delivery' })).toBeVisible();
   });
 
   it('AC7: deletes nothing when the setting cannot be loaded', async () => {

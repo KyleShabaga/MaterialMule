@@ -1,8 +1,18 @@
-import type { ConfirmReceiptResponse, MeResponse, StaffOption } from '@materialmule/shared';
+import {
+  formatReceiver,
+  projectLabel,
+  type ConfirmReceiptResponse,
+  type InventoryLocation,
+  type MeResponse,
+  type StaffOption,
+} from '@materialmule/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { listActiveStaff, listBulkGroups } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { BandedCard, ConfirmDialog, FormField } from '../components/ui';
+import { ConfirmDialog, FormField, SectionHead, SidePanel, StatusBadge } from '../components/ui';
+import { fetchLocations } from '../inventory/api';
+import { ContextRow } from '../layout/ContextRow';
 import { useOnline } from '../lib/online';
 import { LAB_EXPIRED_MESSAGE } from '../pages/SignInPage';
 import { useSession } from '../session/context';
@@ -10,10 +20,15 @@ import { useExpiryClaim } from '../session/expiry-claim';
 import { confirmReceipt } from './api';
 import {
   describeErrors,
+  draftHoleNames,
   duplicateUnit,
   fieldId,
   formatUnitCount,
+  isDeliveryField,
+  issuePlan,
   newUnit,
+  normalizeUnit,
+  problemUnitIndex,
   toConfirmRequest,
   validateDraft,
   type DraftProblem,
@@ -22,26 +37,28 @@ import {
 } from './draft';
 import { DraftStatusLine } from './drafts/DraftStatusLine';
 import { ReceiverHandover } from './drafts/ReceiverHandover';
-import type { StoredDraft } from './drafts/record';
+import { openingStep, type StoredDraft } from './drafts/record';
 import { ErrorSummary } from './ErrorSummary';
 import { focusField } from './focus';
-import { LabelsStep } from './LabelsStep';
 import { ProjectPicker } from './ProjectPicker';
-import { ReceiptReview } from './ReviewStep';
+import { ReceiptDone } from './ReceiptDone';
+import './receiving.css';
 import { UnitEditor, type BulkGroupsState } from './UnitEditor';
+import { UnitRow } from './UnitRow';
 import { useReceiptDraft } from './useReceiptDraft';
 
-// Receiving wizard (MM-T10): Details and storage units → Review receipt → Labels and finish.
-// One SAMPLE#/DEPTH summary per test hole per storage unit; never an individual sample list.
-// The draft is autosaved on this workstation and survives reloads, crashes and an expired
-// session (MM-T11); it is deleted once the receipt is confirmed or the user discards it.
+// Receiving (MM-T10, Field Ledger): a draft you finish in three steps, Delivery → Units →
+// Confirm and label. Each unit is one row (holder prefix, one SAMPLE#/DEPTH summary per test hole,
+// where it will go); never an individual sample list. The draft is autosaved on this workstation
+// and survives reloads, crashes and an expired session (MM-T11); it can be left at any step and
+// continued from the receiving log. IDs are issued only on confirm, never for a draft.
 
-type Step = 'details' | 'review' | 'labels';
+type Step = 'delivery' | 'units' | 'labels';
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: 'details', label: 'Details and storage units' },
-  { key: 'review', label: 'Review receipt' },
-  { key: 'labels', label: 'Labels and finish' },
+  { key: 'delivery', label: 'Delivery' },
+  { key: 'units', label: 'Units' },
+  { key: 'labels', label: 'Confirm and label' },
 ];
 
 const ADD_UNIT_SHORTCUT = 'Alt+N';
@@ -54,8 +71,27 @@ const PERSONAL_EXPIRED_MESSAGE =
 const RESUMED_CONFIRMING_MESSAGE =
   "This receipt was being confirmed when Material Mule closed. Confirming again sends the same receipt and won't create duplicates.";
 
+/** Rows that start open: those with something still to fill in. */
+function rowsWithProblems(draft: ReceiptDraft, problems: DraftProblem[]): Set<string> {
+  const open = new Set<string>();
+  for (const problem of problems) {
+    const index = problemUnitIndex(problem.field);
+    const unit = index === null ? undefined : draft.units[index];
+    if (unit) open.add(unit.clientRowId);
+  }
+  return open;
+}
+
+/** Drafts saved before a unit field existed open with it filled in (e.g. where it will go). */
+function normalized(record: StoredDraft): StoredDraft {
+  return {
+    ...record,
+    data: { ...record.data, units: record.data.units.map((unit) => normalizeUnit(unit)) },
+  };
+}
+
 export function ReceiptWizard({
-  initial,
+  initial: saved,
   persisted,
   resumed,
   me,
@@ -71,11 +107,14 @@ export function ReceiptWizard({
   onStartNew: () => void;
   onDiscarded: () => void;
 }) {
+  const [initial] = useState(() => normalized(saved));
   const { refresh } = useSession();
+  const navigate = useNavigate();
   const online = useOnline();
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [staffError, setStaffError] = useState(false);
   const [staffLoaded, setStaffLoaded] = useState(false);
+  const locations = useActiveLocations();
   const {
     draft,
     record,
@@ -87,7 +126,7 @@ export function ReceiptWizard({
     remove: removeDraft,
   } = useReceiptDraft(initial, { accountId: me.id, persisted });
   const [step, setStep] = useState<Step>(() =>
-    resumed ? (initial.status === 'confirming' ? 'review' : initial.step) : 'details',
+    resumed ? (initial.status === 'confirming' ? 'units' : openingStep(initial)) : 'delivery',
   );
   /** LAB handover (MM-T11): the receiver stays until someone explicitly picks another. */
   const [handover, setHandover] = useState<'ask' | 'changed' | 'kept'>(() =>
@@ -102,12 +141,19 @@ export function ReceiptWizard({
   const [discardOpen, setDiscardOpen] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
   const autoResent = useRef(false);
-  /** Problems are shown once the user tries to move on, then kept live as they fix them. */
-  const [attempts, setAttempts] = useState(0);
+  /** Problems show once the user tries to move on, then stay live as they fix them. */
+  const [deliveryAttempts, setDeliveryAttempts] = useState(0);
+  const [unitAttempts, setUnitAttempts] = useState(0);
   const [serverProblems, setServerProblems] = useState<DraftProblem[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [result, setResult] = useState<ConfirmReceiptResponse | null>(null);
+  const [printOnConfirm, setPrintOnConfirm] = useState(true);
+  const [leaveError, setLeaveError] = useState(false);
+  /** Unit rows whose editor is open. New and unfinished units start open. */
+  const [openRows, setOpenRows] = useState<Set<string>>(() =>
+    rowsWithProblems(initial.data, validateDraft(initial.data)),
+  );
   /** Element id to focus after the next render (a unit heading, the step heading, a field). */
   const focusTarget = useRef<string | null>(null);
   const bulkGroups = useProjectBulkGroups(
@@ -142,16 +188,28 @@ export function ReceiptWizard({
   });
 
   const problems = useMemo(() => validateDraft(draft), [draft]);
-  const shown = useMemo(
-    () => (attempts > 0 ? [...problems, ...serverProblems] : serverProblems),
-    [attempts, problems, serverProblems],
+  const deliveryShown = useMemo(
+    () =>
+      [...(deliveryAttempts > 0 ? problems : []), ...serverProblems].filter((p) =>
+        isDeliveryField(p.field),
+      ),
+    [deliveryAttempts, problems, serverProblems],
+  );
+  const unitsShown = useMemo(
+    () =>
+      [...(unitAttempts > 0 ? problems : []), ...serverProblems].filter(
+        (p) => !isDeliveryField(p.field),
+      ),
+    [unitAttempts, problems, serverProblems],
   );
   const errorByField = useMemo(() => {
     const map = new Map<string, string>();
-    for (const problem of shown)
+    for (const problem of [...deliveryShown, ...unitsShown])
       if (!map.has(problem.field)) map.set(problem.field, problem.message);
     return map;
-  }, [shown]);
+  }, [deliveryShown, unitsShown]);
+  // A row with a problem on show stays open, so the error summary's links reach its fields.
+  const forcedOpen = useMemo(() => rowsWithProblems(draft, unitsShown), [draft, unitsShown]);
 
   // Any edit invalidates what the server said about the previous payload.
   function change(recipe: (current: ReceiptDraft) => ReceiptDraft) {
@@ -164,6 +222,7 @@ export function ReceiptWizard({
       ...current,
       units: current.units.map((u) => (u.clientRowId === clientRowId ? recipe(u) : u)),
     }));
+  const openRow = (clientRowId: string) => setOpenRows((rows) => new Set(rows).add(clientRowId));
 
   /**
    * Adds a unit and focuses its heading; with `toHoles` (the Alt+N shortcut, MM-T66 UI-05) its
@@ -174,6 +233,7 @@ export function ReceiptWizard({
     const unit = newUnit();
     const index = draft.units.length;
     change((current) => ({ ...current, units: [...current.units, unit] }));
+    openRow(unit.clientRowId);
     focusTarget.current =
       toHoles && draft.project
         ? fieldId(`units.${index}.holeSummaries`)
@@ -190,10 +250,11 @@ export function ReceiptWizard({
       units.splice(index + 1, 0, copy);
       return { ...current, units };
     });
+    openRow(copy.clientRowId);
     focusTarget.current = `unit-${copy.clientRowId}-heading`;
   }
 
-  /** Removes a unit; focus goes to the bucket before it, or Add bucket (MTR-136). */
+  /** Removes a unit; focus goes to the unit before it, or Add a storage unit (MTR-136). */
   function remove(clientRowId: string) {
     const index = draft.units.findIndex((u) => u.clientRowId === clientRowId);
     const previous = index > 0 ? draft.units[index - 1] : undefined;
@@ -204,16 +265,38 @@ export function ReceiptWizard({
     focusTarget.current = previous ? `unit-${previous.clientRowId}-heading` : 'wizard-add-unit';
   }
 
+  function toggleRow(clientRowId: string) {
+    setOpenRows((rows) => {
+      const next = new Set(rows);
+      if (next.has(clientRowId)) next.delete(clientRowId);
+      else next.add(clientRowId);
+      return next;
+    });
+  }
+
   function goToStep(next: Step, focus = 'wizard-step-heading') {
     setStep(next);
     if (next !== 'labels') void saveStep(next);
     focusTarget.current = focus;
   }
 
+  /** Delivery → Units, once the delivery's own fields are right. */
   function next() {
-    setAttempts((n) => n + 1);
-    if (problems.length > 0 || serverProblems.length > 0) return;
-    goToStep('review');
+    setDeliveryAttempts((n) => n + 1);
+    if ([...problems, ...serverProblems].some((p) => isDeliveryField(p.field))) return;
+    goToStep('units');
+  }
+
+  /** Sends the user to the problems: Delivery's on Delivery, the units' open on Units. */
+  function showProblems(found: DraftProblem[]) {
+    const atDelivery = found.some((p) => isDeliveryField(p.field));
+    setOpenRows((rows) => new Set([...rows, ...rowsWithProblems(draft, found)]));
+    setUnitAttempts((n) => n + 1);
+    if (atDelivery) {
+      setDeliveryAttempts((n) => n + 1);
+      setStep('delivery');
+      void saveStep('delivery');
+    }
   }
 
   async function confirm() {
@@ -221,10 +304,8 @@ export function ReceiptWizard({
     setConfirmError(null);
     setSessionExpired(false);
     if (problems.length > 0) {
-      // The error summary takes focus on the details step.
-      setAttempts((n) => n + 1);
-      setStep('details');
-      void saveStep('details');
+      // The error summary takes focus on the step that holds the first problem.
+      showProblems(problems);
       return;
     }
     setConfirming(true);
@@ -240,13 +321,13 @@ export function ReceiptWizard({
         // If this fails the draft stays listed; resuming it returns these same IDs.
         await removeDraft().catch(() => undefined);
         break;
-      case 'invalid':
+      case 'invalid': {
         void setStatus('editing');
-        setServerProblems(describeErrors(draft, outcome.errors));
-        setAttempts((n) => n + 1);
-        setStep('details');
-        void saveStep('details');
+        const refused = describeErrors(draft, outcome.errors);
+        setServerProblems(refused);
+        showProblems(refused);
         break;
+      }
       case 'unauthenticated':
         void setStatus('editing');
         setSessionExpired(true);
@@ -275,6 +356,13 @@ export function ReceiptWizard({
     await refresh();
   }
 
+  /** Saves now and goes to the receiving log, where the draft is offered back with Continue. */
+  async function leave() {
+    setLeaveError(false);
+    if (await flush()) navigate('/receiving-log');
+    else setLeaveError(true);
+  }
+
   const expiredNotice = sessionExpired ? (
     <div className="notice offline-notice" role="alert">
       <p>{me.accountType === 'shared_lab' ? LAB_EXPIRED_MESSAGE : PERSONAL_EXPIRED_MESSAGE}</p>
@@ -294,16 +382,16 @@ export function ReceiptWizard({
     }
   }
 
-  // Add unit shortcut (shown next to the button), on the whole page while Details is open, so it
+  // Add unit shortcut (shown next to the button), on the whole page while Units is open, so it
   // still works after Enter has left a test hole search (MM-T66 UI-06 leaves focus on the page).
   // Never while a dialog is open. Enter never submits the receipt: there is no form, and only
-  // Next moves on.
+  // the step buttons move on.
   const addUnitByShortcut = useRef<() => void>(() => undefined);
   useEffect(() => {
     addUnitByShortcut.current = () => addUnit(true);
   });
   useEffect(() => {
-    if (step !== 'details') return;
+    if (step !== 'units') return;
     function onKeyDown(event: KeyboardEvent) {
       if (!event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== 'n')
         return;
@@ -327,18 +415,46 @@ export function ReceiptWizard({
       Discard draft
     </button>
   );
+  const leaveButton = (
+    <button type="button" onClick={() => void leave()} disabled={confirming}>
+      Save draft and leave
+    </button>
+  );
+  const projectNumber = draft.project?.projectNumber ?? null;
+  const holes = draftHoleNames(draft);
+  const plan = issuePlan(draft);
+  const unitCount = draft.units.length;
+  const labelsText = unitCount === 1 ? 'Print 1 label' : `Print ${unitCount} labels`;
+  const meta =
+    step === 'delivery'
+      ? 'Step 1 of 3 · Nothing is in inventory yet'
+      : `${projectNumber ?? 'No project'} · Received ${draft.receivedDate}`;
+  const title =
+    step === 'labels' && result
+      ? result.units.length === 1
+        ? '1 ID issued'
+        : `${result.units.length} IDs issued`
+      : 'Receive samples';
 
   return (
-    <div onBlur={() => void flush()}>
-      <div className="wizard-header">
-        <div className="wizard-title">
-          <h1>Receive samples</h1>
-          {/* The visually hidden step heading below announces the same thing. */}
-          <span className="wizard-step-tag" aria-hidden="true">
-            Step {stepIndex + 1} of 3
-          </span>
+    <div className="receive-wizard" onBlur={() => void flush()}>
+      <ContextRow className="receive-context">
+        {step === 'labels' ? (
+          <StatusBadge tone="storage">CONFIRMED</StatusBadge>
+        ) : (
+          <StatusBadge tone="waiting">DRAFT</StatusBadge>
+        )}
+        <div className="receive-context-note">
+          {step === 'labels' ? (
+            'These units are now in inventory.'
+          ) : (
+            <>
+              <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
+              <span>Nothing is in inventory until you confirm.</span>
+            </>
+          )}
         </div>
-        <ol className="wizard-steps" aria-label="Receiving steps">
+        <ol className="receive-steps" aria-label="Receiving steps">
           {STEPS.map((s, index) => (
             <li
               key={s.key}
@@ -349,10 +465,19 @@ export function ReceiptWizard({
             </li>
           ))}
         </ol>
+      </ContextRow>
+      <div className="receive-title">
+        <h1>{title}</h1>
+        <p className="receive-title-meta">{meta}</p>
       </div>
       {discardError ? (
         <p className="field-error" role="alert">
           {discardError}
+        </p>
+      ) : null}
+      {leaveError ? (
+        <p className="field-error" role="alert">
+          The draft couldn&apos;t be saved on this computer, so it stays open. Try again.
         </p>
       ) : null}
       {handover === 'ask' && draft.receiver && step !== 'labels' ? (
@@ -375,18 +500,21 @@ export function ReceiptWizard({
         Step {stepIndex + 1} of 3: {STEPS[stepIndex]!.label}
       </h2>
 
-      {step === 'details' ? (
-        <div className="receipt-draft wizard-step">
-          {!online ? (
-            <p className="badge badge-warning" role="status">
-              Offline: your entries are kept here. Connect to add a project or test hole.
-            </p>
-          ) : null}
-          {expiredNotice}
-          <ErrorSummary problems={shown} attempt={attempts} />
+      {step === 'delivery' ? (
+        <div className="receive-columns wizard-step">
+          <section className="receive-main" aria-labelledby="delivery-heading">
+            <h2 id="delivery-heading" className="visually-hidden">
+              Delivery
+            </h2>
+            {!online ? (
+              <p className="badge badge-warning" role="status">
+                Offline: your entries are kept here. Connect to add a project or test hole.
+              </p>
+            ) : null}
+            {expiredNotice}
+            <ErrorSummary problems={deliveryShown} attempt={deliveryAttempts} />
 
-          <BandedCard title="Details" className="wizard-details">
-            <div id={fieldId('projectId')}>
+            <div id={fieldId('projectId')} className="receive-project">
               <ProjectPicker
                 value={draft.project}
                 query={draft.projectQuery}
@@ -416,32 +544,35 @@ export function ReceiptWizard({
               ) : null}
             </div>
 
-            <FormField
-              id={fieldId('receivedDate')}
-              label="Received date"
-              error={errorByField.get('receivedDate')}
-              required
-            >
-              {(props) => (
-                <input
-                  {...props}
-                  type="date"
-                  required
-                  value={draft.receivedDate}
-                  onChange={(e) => set({ receivedDate: e.target.value })}
-                />
-              )}
-            </FormField>
-
-            <div id={fieldId('receiverUserId')}>
-              <ReceiverSelect
-                label="Received by"
+            <div className="receive-fields">
+              <FormField
+                id={fieldId('receivedDate')}
+                label="Received date"
+                error={errorByField.get('receivedDate')}
                 required
-                value={draft.receiver}
-                onChange={(receiver) => set({ receiver })}
-                error={errorByField.get('receiverUserId')}
-              />
-              {staffError ? <p className="field-error">The staff list couldn't load.</p> : null}
+              >
+                {(props) => (
+                  <input
+                    {...props}
+                    type="date"
+                    className="mono"
+                    required
+                    value={draft.receivedDate}
+                    onChange={(e) => set({ receivedDate: e.target.value })}
+                  />
+                )}
+              </FormField>
+
+              <div id={fieldId('receiverUserId')}>
+                <ReceiverSelect
+                  label="Received by"
+                  required
+                  value={draft.receiver}
+                  onChange={(receiver) => set({ receiver })}
+                  error={errorByField.get('receiverUserId')}
+                />
+                {staffError ? <p className="field-error">The staff list couldn't load.</p> : null}
+              </div>
             </div>
 
             <FormField
@@ -453,118 +584,201 @@ export function ReceiptWizard({
               {(props) => (
                 <textarea
                   {...props}
-                  rows={2}
+                  rows={3}
                   maxLength={2000}
                   value={draft.description}
                   onChange={(e) => set({ description: e.target.value })}
                 />
               )}
             </FormField>
-          </BandedCard>
 
-          <section className="wizard-units" aria-labelledby="units-heading">
-            <div className="section-header">
-              <h2 id="units-heading">Storage units</h2>
-              <p className="quantity" aria-live="polite">
-                {formatUnitCount(draft.units.length)}
-              </p>
+            <div className="receive-actions">
+              <button type="button" className="primary receive-big" onClick={next}>
+                Next: add the units
+              </button>
+              {leaveButton}
+              {discardButton}
+              {deliveryShown.length > 0 ? (
+                <span className="wizard-problems">{formatProblemCount(deliveryShown.length)}</span>
+              ) : null}
             </div>
-            <p className="field-hint">
-              Each physical bucket or Shelby tube is one storage unit with its own ID. A bucket
-              holds samples summarised per test hole (ALL, sample range, depth range or custom) or
-              one bulk soil sample; a Shelby tube has its own sampling source. Individual samples
-              are listed later, in lab requests.
+          </section>
+
+          <SidePanel title="About this delivery" className="receive-side">
+            <p>
+              Nothing is in inventory until the delivery is confirmed. IDs are issued then, one per
+              storage unit, and never change.
             </p>
-            <div className="unit-list">
-              {draft.units.map((unit, index) => (
-                <UnitEditor
-                  key={unit.clientRowId}
-                  unit={unit}
-                  index={index}
-                  draft={draft}
-                  bulkGroups={bulkGroups}
-                  projectId={draft.project?.id ?? null}
-                  projectNumber={draft.project?.projectNumber ?? null}
-                  receiverUserId={draft.receiver?.id ?? null}
-                  online={online}
-                  errors={errorByField}
-                  onChange={(recipe) => changeUnit(unit.clientRowId, recipe)}
-                  onDuplicate={() => duplicate(unit.clientRowId)}
-                  onRemove={() => remove(unit.clientRowId)}
-                />
-              ))}
+            <p className="field-hint">
+              “Received by” is the person who took the delivery.
+              {me.accountType === 'shared_lab'
+                ? ' On the shared LAB station it is chosen here, not taken from the sign-in.'
+                : ' It starts as you; change it if someone else took it.'}
+            </p>
+            <p className="field-hint">
+              You can leave this draft at any step. It is kept on this computer and listed in the
+              receiving log with Continue.
+            </p>
+          </SidePanel>
+        </div>
+      ) : null}
+
+      {step === 'units' ? (
+        <div className="receive-columns wizard-step">
+          <section className="receive-main" aria-labelledby="units-heading">
+            {!online ? (
+              <p className="badge badge-warning" role="status">
+                Offline: your entries are kept here. Connect to add a project or test hole.
+              </p>
+            ) : null}
+            <ErrorSummary problems={unitsShown} attempt={unitAttempts} />
+            {resumed && initial.status === 'confirming' ? (
+              <p className="notice" role="status">
+                {RESUMED_CONFIRMING_MESSAGE}
+              </p>
+            ) : null}
+
+            <div className="receive-facts" role="group" aria-label="Delivery">
+              <dl>
+                <div>
+                  <dt>Project</dt>
+                  <dd title={draft.project ? projectLabel(draft.project) : undefined}>
+                    {projectNumber ?? '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Received</dt>
+                  <dd className="mono">{draft.receivedDate || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Received by</dt>
+                  <dd>{draft.receiver ? formatReceiver(draft.receiver) : '—'}</dd>
+                </div>
+                <div>
+                  <dt>Description</dt>
+                  <dd>{draft.description.trim() || 'None'}</dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                onClick={() => goToStep('delivery', fieldId('projectId'))}
+                disabled={confirming}
+              >
+                Edit delivery
+              </button>
             </div>
-            <div id={fieldId('units')}>
+
+            <SectionHead
+              id="units-heading"
+              title="Storage units in this delivery"
+              meta={
+                <>
+                  <span aria-live="polite">{formatUnitCount(unitCount)}</span>
+                  {' · '}
+                  <span>{holes.length === 1 ? '1 test hole' : `${holes.length} test holes`}</span>
+                </>
+              }
+            />
+            <div className="unit-list receive-units">
+              {draft.units.map((unit, index) => {
+                const forced = forcedOpen.has(unit.clientRowId);
+                const open = forced || openRows.has(unit.clientRowId);
+                return (
+                  <UnitRow
+                    key={unit.clientRowId}
+                    unit={unit}
+                    index={index}
+                    draft={draft}
+                    open={open}
+                    canClose={!forced}
+                    onToggle={() => toggleRow(unit.clientRowId)}
+                    onDuplicate={() => duplicate(unit.clientRowId)}
+                    onRemove={() => remove(unit.clientRowId)}
+                  >
+                    <UnitEditor
+                      unit={unit}
+                      index={index}
+                      draft={draft}
+                      bulkGroups={bulkGroups}
+                      locations={locations}
+                      projectId={draft.project?.id ?? null}
+                      projectNumber={projectNumber}
+                      receiverUserId={draft.receiver?.id ?? null}
+                      online={online}
+                      errors={errorByField}
+                      onChange={(recipe) => changeUnit(unit.clientRowId, recipe)}
+                    />
+                  </UnitRow>
+                );
+              })}
+            </div>
+            <div id={fieldId('units')} className="receive-add">
               {errorByField.get('units') ? (
                 <p className="field-error">{errorByField.get('units')}</p>
               ) : null}
               <button
                 type="button"
                 id="wizard-add-unit"
+                className="receive-add-button"
                 onClick={() => addUnit()}
                 aria-keyshortcuts={ADD_UNIT_SHORTCUT}
               >
-                Add bucket
-              </button>{' '}
-              {/* Alt+N (MM-T66 UI-05) still lands in the new bucket's test-hole search: the
+                Add a storage unit
+              </button>
+              {/* Alt+N (MM-T66 UI-05) still lands in the new unit's test-hole search: the
                   holder and Bulk soil sample controls above it are a Shift+Tab away (MM-T36). */}
-              <span className="field-hint">
-                Shortcut: {ADD_UNIT_SHORTCUT} (adds a bucket and goes to its test-hole search)
-              </span>
+              <p className="field-hint">
+                One samples and depth summary per test hole. Individual samples are only listed
+                later, in lab requests. Shortcut: {ADD_UNIT_SHORTCUT} adds a bucket and goes to its
+                test-hole search.
+              </p>
             </div>
           </section>
 
-          <div className="wizard-actions">
-            {shown.length > 0 ? (
-              <span className="wizard-problems">{formatProblemCount(shown.length)}</span>
+          <SidePanel title="On confirm" className="receive-side">
+            <p>
+              {unitCount === 1
+                ? 'One permanent ID is issued.'
+                : `${unitCount} permanent IDs are issued.`}{' '}
+              They never change, even if a type, date or project is corrected later.
+            </p>
+            <ul className="receive-issue" aria-label="IDs to be issued">
+              {plan.map((row) => (
+                <li key={row.prefix}>
+                  <span className="mono">{row.masked}</span>
+                  <span>{row.text}</span>
+                </li>
+              ))}
+            </ul>
+            <label className="checkbox receive-print">
+              <input
+                type="checkbox"
+                checked={printOnConfirm}
+                onChange={(e) => setPrintOnConfirm(e.target.checked)}
+              />
+              <span>
+                <strong>{labelsText}</strong>
+                <span className="field-hint">Sent to the label printer when you confirm.</span>
+              </span>
+            </label>
+            {!online ? (
+              <p className="notice offline-notice" role="status">
+                {OFFLINE_CONFIRM_MESSAGE}
+              </p>
             ) : null}
-            <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
-            <span className="wizard-actions-spacer" />
-            <div className="wizard-actions-buttons">
-              {discardButton}
-              <button type="button" className="primary" onClick={next}>
-                Next: Review
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {step === 'review' ? (
-        <div className="wizard-step">
-          <ErrorSummary problems={serverProblems} attempt={0} />
-          {resumed && initial.status === 'confirming' ? (
-            <p className="notice" role="status">
-              {RESUMED_CONFIRMING_MESSAGE}
-            </p>
-          ) : null}
-          <ReceiptReview
-            draft={draft}
-            onEditDetails={() => goToStep('details', fieldId('projectId'))}
-            onEditUnit={(clientRowId) => goToStep('details', `unit-${clientRowId}-heading`)}
-          />
-          {!online ? (
-            <p className="notice offline-notice" role="status">
-              {OFFLINE_CONFIRM_MESSAGE}
-            </p>
-          ) : null}
-          {confirmError ? (
-            <p className="field-error" role="alert">
-              {confirmError}
-            </p>
-          ) : null}
-          {expiredNotice}
-          <div className="wizard-actions">
-            <DraftStatusLine saveState={saveState} receiver={draft.receiver} />
-            <span className="wizard-actions-spacer" />
-            <div className="wizard-actions-buttons">
-              {discardButton}
-              <button type="button" onClick={() => goToStep('details')} disabled={confirming}>
-                Back
-              </button>
+            {confirmError ? (
+              <p className="field-error" role="alert">
+                {confirmError}
+              </p>
+            ) : null}
+            {expiredNotice}
+            {unitsShown.length > 0 ? (
+              <p className="wizard-problems">{formatProblemCount(unitsShown.length)}</p>
+            ) : null}
+            <div className="receive-side-actions">
               <button
                 type="button"
-                className="primary"
+                className="primary receive-big"
                 onClick={() => void confirm()}
                 disabled={!online || confirming}
                 aria-busy={confirming}
@@ -574,17 +788,27 @@ export function ReceiptWizard({
                     <span className="spinner" aria-hidden="true" /> Confirming…
                   </>
                 ) : (
-                  'Confirm receipt'
+                  'Confirm and issue IDs'
                 )}
               </button>
+              {leaveButton}
+              <button type="button" onClick={() => goToStep('delivery')} disabled={confirming}>
+                Back
+              </button>
+              {discardButton}
             </div>
-          </div>
+          </SidePanel>
         </div>
       ) : null}
 
       {step === 'labels' && result ? (
         <div className="wizard-step">
-          <LabelsStep draft={draft} result={result} onReceiveAnother={onStartNew} />
+          <ReceiptDone
+            draft={draft}
+            result={result}
+            autoPrint={printOnConfirm}
+            onReceiveAnother={onStartNew}
+          />
         </div>
       ) : null}
 
@@ -605,6 +829,21 @@ export function ReceiptWizard({
       </ConfirmDialog>
     </div>
   );
+}
+
+/** Active storage locations for "Where it will go"; none (free text only) if they can't load. */
+function useActiveLocations(): InventoryLocation[] {
+  const [locations, setLocations] = useState<InventoryLocation[]>([]);
+  useEffect(() => {
+    let current = true;
+    void fetchLocations().then((result) => {
+      if (current && result.ok) setLocations(result.data.filter((l) => l.active));
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
+  return locations;
 }
 
 /**
