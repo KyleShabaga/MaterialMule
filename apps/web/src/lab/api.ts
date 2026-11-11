@@ -15,6 +15,8 @@ import {
   testCatalogueSchema,
   testTemplateListSchema,
   worklistSchema,
+  unitsToPullSchema,
+  type UnitsToPull,
   type AcceptanceDelegates,
   type AddCommentRequestInput,
   type ReviewDecisionRequestInput,
@@ -235,6 +237,10 @@ export const fetchWorklist = (query: {
   if (query.page && query.page > 1) params.set('page', String(query.page));
   return getJson(`/api/worklist?${params.toString()}`, (b) => worklistSchema.parse(b));
 };
+
+/** Field Ledger: units still to pull for open tests (read-only). */
+export const fetchUnitsToPull = (): Promise<UnitsToPull> =>
+  getJson('/api/worklist/units-to-pull', (b) => unitsToPullSchema.parse(b));
 
 export const fetchWork = (programId: string): Promise<ProgramWork> =>
   getJson(`/api/lab-programs/${encodeURIComponent(programId)}/work`, (b) =>
