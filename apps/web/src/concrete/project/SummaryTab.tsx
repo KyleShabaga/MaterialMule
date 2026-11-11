@@ -5,7 +5,7 @@ import {
   type ProjectDetail,
 } from '@materialmule/shared';
 import { useId, useState } from 'react';
-import { BandedCard, ConfirmDialog, DataTable, ErrorState, TableScroll } from '../../components/ui';
+import { ConfirmDialog, DataTable, ErrorState, TableScroll } from '../../components/ui';
 import { shortDateTime } from '../../dashboard/format';
 import {
   concreteProblem,
@@ -14,6 +14,7 @@ import {
   issueSummaryReport,
   summaryPreviewUrl,
 } from './api';
+import { TabHead } from './TabHead';
 import { useLoad } from './useLoad';
 
 // MM-V2-C30 Summary tab, completed by MM-V2-C32 (provisional design section 5): a date range
@@ -58,8 +59,13 @@ export function SummaryTab({ project }: { project: ProjectDetail }) {
   const canIssue = load.state === 'ready' && load.data.canIssue;
 
   return (
-    <div className="concrete-tab">
-      <BandedCard title="Summary report">
+    <div className="concrete-tab concrete-summary">
+      <section className="concrete-summary-build" aria-labelledby={`${id}-heading`}>
+        <TabHead
+          id={`${id}-heading`}
+          title="Summary report"
+          hint="One document for the project’s specimen sets, by cast date."
+        />
         <fieldset className="concrete-range">
           <legend>Date range (cast date)</legend>
           <label>
@@ -81,45 +87,57 @@ export function SummaryTab({ project }: { project: ProjectDetail }) {
             Between dates
           </label>
           {range === 'between' ? (
-            <div className="concrete-range-dates">
-              <label htmlFor={`${id}-from`}>From</label>
-              <input
-                id={`${id}-from`}
-                type="date"
-                value={from}
-                onChange={(event) => setFrom(event.target.value)}
-              />
-              <label htmlFor={`${id}-to`}>To</label>
-              <input
-                id={`${id}-to`}
-                type="date"
-                value={to}
-                min={from || undefined}
-                onChange={(event) => setTo(event.target.value)}
-              />
+            <div className="concrete-fields">
+              <div className="concrete-field">
+                <label htmlFor={`${id}-from`}>From</label>
+                <input
+                  id={`${id}-from`}
+                  type="date"
+                  value={from}
+                  onChange={(event) => setFrom(event.target.value)}
+                />
+              </div>
+              <div className="concrete-field">
+                <label htmlFor={`${id}-to`}>To</label>
+                <input
+                  id={`${id}-to`}
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  onChange={(event) => setTo(event.target.value)}
+                />
+              </div>
             </div>
           ) : null}
         </fieldset>
-        <div className="concrete-range-dates concrete-summary-filters">
-          <label htmlFor={`${id}-element`}>Structure / element</label>
-          <input
-            id={`${id}-element`}
-            value={element}
-            maxLength={100}
-            placeholder="All"
-            onChange={(event) => setElement(event.target.value)}
-          />
-          <label htmlFor={`${id}-mix`}>Mix</label>
-          <select id={`${id}-mix`} value={mixId} onChange={(event) => setMixId(event.target.value)}>
-            <option value="">All mixes</option>
-            {mixes.load.state === 'ready'
-              ? mixes.load.data.items.map((mix) => (
-                  <option key={mix.id} value={mix.id}>
-                    {mix.supplierName} {mix.mixNumber}
-                  </option>
-                ))
-              : null}
-          </select>
+        <div className="concrete-fields">
+          <div className="concrete-field">
+            <label htmlFor={`${id}-element`}>Structure / element</label>
+            <input
+              id={`${id}-element`}
+              value={element}
+              maxLength={100}
+              placeholder="All"
+              onChange={(event) => setElement(event.target.value)}
+            />
+          </div>
+          <div className="concrete-field">
+            <label htmlFor={`${id}-mix`}>Mix</label>
+            <select
+              id={`${id}-mix`}
+              value={mixId}
+              onChange={(event) => setMixId(event.target.value)}
+            >
+              <option value="">All mixes</option>
+              {mixes.load.state === 'ready'
+                ? mixes.load.data.items.map((mix) => (
+                    <option key={mix.id} value={mix.id}>
+                      {mix.supplierName} {mix.mixNumber}
+                    </option>
+                  ))
+                : null}
+            </select>
+          </div>
         </div>
         {rangeInvalid ? (
           <p className="field-error" role="alert">
@@ -168,9 +186,10 @@ export function SummaryTab({ project }: { project: ProjectDetail }) {
             {message.text}
           </p>
         ) : null}
-      </BandedCard>
+      </section>
 
-      <BandedCard title="Issued summary reports">
+      <section aria-labelledby={`${id}-issued`}>
+        <TabHead id={`${id}-issued`} title="Issued summary reports" />
         {load.state === 'loading' ? <p role="status">Loading…</p> : null}
         {load.state === 'error' ? (
           <ErrorState message={concreteProblem(load.error)} onRetry={reload} />
@@ -190,6 +209,7 @@ export function SummaryTab({ project }: { project: ProjectDetail }) {
                       href={concreteReportFileUrl(r.file.id)}
                       target="_blank"
                       rel="noopener"
+                      className="mono"
                       aria-label={`Open ${r.reportNumber} (PDF)`}
                     >
                       {r.reportNumber}
@@ -212,7 +232,7 @@ export function SummaryTab({ project }: { project: ProjectDetail }) {
             />
           </TableScroll>
         ) : null}
-      </BandedCard>
+      </section>
 
       <ConfirmDialog
         open={confirming}

@@ -7,58 +7,97 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { DataTable, EmptyState, ErrorState, PageHeader, StatusBadge } from '../../components/ui';
+import {
+  DataTable,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  SectionHead,
+  StatusBadge,
+  type Column,
+} from '../../components/ui';
+import { LetterCells, type LedgerTone } from '../ledger';
 import { fetchReceivingQueue, type LoadResult } from './api';
-import { labDateTime, setLabel, setLookupPath, workflowLabel } from './format';
-import '../worklist/concrete-worklist.css';
+import { labDateTime, setLabel, setLookupPath, workflowLabel, workflowTone } from './format';
 import './concrete-lab.css';
 
 const isStage = (value: string | null): value is ConcreteReceivingStage =>
   (CONCRETE_RECEIVING_STAGES as readonly string[]).includes(value ?? '');
 
-const COLUMNS = [
-  {
-    header: 'Set',
-    cell: (row: ConcreteReceivingQueueRow) => (
-      <>
-        <Link to={setLookupPath(row.setId)}>{setLabel(row.identity)}</Link>
-        {row.identity.permanentId && row.identity.temporaryId ? (
-          <span className="concrete-alias"> also {row.identity.temporaryId}</span>
-        ) : null}
-      </>
-    ),
-  },
-  {
-    header: 'Project',
-    cell: (row: ConcreteReceivingQueueRow) => (
-      <>
-        <strong>{row.projectNumber}</strong>{' '}
-        <span className="concrete-result-project-name">{row.projectName}</span>
-      </>
-    ),
-  },
-  {
-    header: 'Specimens',
-    cell: (row: ConcreteReceivingQueueRow) =>
-      `${row.letters.join(', ')} (${row.letters.length} of ${row.specimenCount})`,
-  },
-  { header: 'Cast', cell: (row: ConcreteReceivingQueueRow) => labDateTime(row.castAt) },
-  {
-    header: 'Field technician',
-    cell: (row: ConcreteReceivingQueueRow) => row.technician?.name ?? 'Not recorded',
-  },
-  {
-    header: 'Report',
-    cell: (row: ConcreteReceivingQueueRow) => (
-      <StatusBadge>{workflowLabel(row.reportState)}</StatusBadge>
-    ),
-  },
-];
+const STAGE_TONE: Record<ConcreteReceivingStage, LedgerTone> = {
+  awaiting_pickup: 'waiting',
+  awaiting_receiving: 'lab',
+};
+
+const setsLabel = (n: number) => `${n} ${n === 1 ? 'set' : 'sets'}`;
+
+function columnsFor(stage: ConcreteReceivingStage): Column<ConcreteReceivingQueueRow>[] {
+  const state = CONCRETE_RECEIVING_STAGE_LABEL[stage];
+  return [
+    {
+      header: 'Set',
+      cell: (row) => (
+        <span className="concrete-cell-stack">
+          <Link className="concrete-set-link" to={setLookupPath(row.setId)}>
+            {setLabel(row.identity)}
+          </Link>
+          {row.identity.permanentId && row.identity.temporaryId ? (
+            <span className="concrete-alias">also {row.identity.temporaryId}</span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      header: 'Project',
+      cell: (row) => (
+        <span className="concrete-cell-stack">
+          <span className="mono concrete-strong">{row.projectNumber}</span>
+          <span className="concrete-muted">{row.projectName}</span>
+        </span>
+      ),
+    },
+    {
+      header: 'Specimens',
+      cell: (row) => (
+        <span className="concrete-cell-stack">
+          <LetterCells
+            label={`Specimens ${state.toLowerCase()}`}
+            cells={row.letters.map((letter) => ({
+              letter,
+              state: state.toLowerCase(),
+              tone: STAGE_TONE[stage],
+            }))}
+          />
+          <span className="concrete-muted">
+            {row.letters.length} of {row.specimenCount}
+          </span>
+        </span>
+      ),
+    },
+    {
+      header: 'Cast',
+      cell: (row) => <span className="mono concrete-nowrap">{labDateTime(row.castAt)}</span>,
+    },
+    {
+      header: 'Field technician',
+      cell: (row) => row.technician?.name ?? 'Not recorded',
+    },
+    {
+      header: 'Report',
+      cell: (row) => (
+        <StatusBadge tone={workflowTone(row.reportState)}>
+          {workflowLabel(row.reportState)}
+        </StatusBadge>
+      ),
+    },
+  ];
+}
 
 /**
- * Concrete Lab → Receiving (MM-V2-C31): sets with specimens awaiting pickup or awaiting receiving,
+ * Concrete → Receiving (MM-V2-C31): sets with specimens awaiting pickup or awaiting receiving,
  * lab-wide. Personalization (confirmed by Kyle): the caller's own field tests are listed first
- * under My reports, clearly separated; everyone else's work stays listed below.
+ * under My reports, clearly separated; everyone else's work stays listed below. Read-only: the
+ * per-set receive screen (mass entry, marker check, exceptions) is not built here.
  */
 export function ConcreteReceivingPage() {
   const [params, setParams] = useSearchParams();
@@ -121,15 +160,16 @@ export function ConcreteReceivingPage() {
   const others = queue?.items.filter((r) => !r.mine) ?? [];
   const pages = queue ? Math.max(1, Math.ceil(queue.total / queue.pageSize)) : 1;
   const panelId = 'concrete-receiving-panel';
+  const columns = columnsFor(stage);
 
   return (
     <div className="concrete-lab">
       <PageHeader title="Specimen receiving" />
-      <p className="page-intro">
+      <p className="concrete-intro">
         Specimens still to collect from site, and collected specimens still to receive in the lab.
         Your own field tests are listed first. Open a set to see its pickup and receipt records.
       </p>
-      <div className="concrete-tabs" role="tablist" aria-label="Receiving stage">
+      <div className="concrete-stage-tabs" role="tablist" aria-label="Receiving stage">
         {CONCRETE_RECEIVING_STAGES.map((s) => (
           <button
             key={s}
@@ -142,7 +182,6 @@ export function ConcreteReceivingPage() {
             aria-selected={s === stage}
             aria-controls={panelId}
             tabIndex={s === stage ? 0 : -1}
-            className={s === stage ? 'concrete-tab concrete-tab-active' : 'concrete-tab'}
             onClick={() => choose(s)}
             onKeyDown={onTabKey}
           >
@@ -154,6 +193,7 @@ export function ConcreteReceivingPage() {
       <div
         id={panelId}
         role="tabpanel"
+        className="concrete-lab-section"
         aria-labelledby={`concrete-receiving-tab-${stage}`}
         aria-busy={load === null}
       >
@@ -165,13 +205,15 @@ export function ConcreteReceivingPage() {
           <EmptyState>Nothing is {CONCRETE_RECEIVING_STAGE_LABEL[stage].toLowerCase()}.</EmptyState>
         ) : queue ? (
           <>
-            <section className="concrete-receiving-group" aria-labelledby="receiving-mine">
-              <h2 id="receiving-mine">
-                My reports <span className="concrete-tab-count">({queue.mineTotal})</span>
-              </h2>
+            <section className="concrete-lab-section" aria-labelledby="receiving-mine">
+              <SectionHead
+                id="receiving-mine"
+                title="My reports"
+                meta={setsLabel(queue.mineTotal)}
+              />
               <DataTable
                 rows={mine}
-                columns={COLUMNS}
+                columns={columns}
                 rowKey={(row) => row.setId}
                 caption={`My reports, ${CONCRETE_RECEIVING_STAGE_LABEL[stage]}`}
                 empty={
@@ -181,14 +223,15 @@ export function ConcreteReceivingPage() {
                 }
               />
             </section>
-            <section className="concrete-receiving-group" aria-labelledby="receiving-others">
-              <h2 id="receiving-others">
-                Other reports{' '}
-                <span className="concrete-tab-count">({queue.total - queue.mineTotal})</span>
-              </h2>
+            <section className="concrete-lab-section" aria-labelledby="receiving-others">
+              <SectionHead
+                id="receiving-others"
+                title="Other reports"
+                meta={setsLabel(queue.total - queue.mineTotal)}
+              />
               <DataTable
                 rows={others}
-                columns={COLUMNS}
+                columns={columns}
                 rowKey={(row) => row.setId}
                 caption={`Other reports, ${CONCRETE_RECEIVING_STAGE_LABEL[stage]}`}
                 empty={
@@ -207,7 +250,7 @@ export function ConcreteReceivingPage() {
                 >
                   Previous
                 </button>
-                <span>
+                <span className="mono">
                   Page {page} of {pages}
                 </span>
                 <button
