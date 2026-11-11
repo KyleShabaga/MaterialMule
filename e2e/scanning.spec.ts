@@ -194,11 +194,13 @@ test('T4/AC6: Verify labels marks matches and warns about a third unit’s label
   await page
     .getByRole('option', { name: 'DEMO-2601 · Riverbank investigation · Example Client' })
     .click();
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
   await addRange(bucket(page, 1), 'G1', 'S12');
-  await page.getByRole('button', { name: 'Add bucket' }).click();
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
   await addRange(bucket(page, 2), 'G13', 'S32');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  // No print job: everything after confirming must only read.
+  await page.getByRole('checkbox', { name: /Print 2 labels/ }).uncheck();
+  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
   const list = page.getByRole('list', { name: 'New storage units' });
   await expect(list).toBeVisible();
   const ids = await list.getByRole('heading').allTextContents();

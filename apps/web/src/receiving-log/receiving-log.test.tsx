@@ -9,6 +9,8 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DRAFT_RECORD_VERSION, type StoredDraft } from '../receiving/drafts/record';
+import { indexedDbDraftStore } from '../receiving/drafts/store';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { readReceiptLogQuery, receiptLogSearchParams, withFilters } from './url-state';
@@ -194,18 +196,95 @@ describe('Receiving Log list (MM-T51)', () => {
         name: 'Open receipt: DEMO-2601, received 2026-01-15 by JS · Jordan Smith',
       }),
     ).toHaveAttribute('href', `/receiving-log/${RECEIPT_ID}`);
-    // Receive samples and the local drafts flow are separate entries; drafts aren't listed.
-    expect(screen.getByRole('link', { name: 'Drafts on this computer' })).toHaveAttribute(
+    // Start a delivery always opens a new draft; Scan label opens the scanner.
+    expect(screen.getByRole('link', { name: 'Start a delivery' })).toHaveAttribute(
       'href',
-      '/receiving-log/new',
+      '/receiving-log/new?new=1',
     );
+    expect(screen.getByRole('link', { name: 'Scan label' })).toHaveAttribute(
+      'href',
+      '/sample-storage/scan',
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Receiving log' })).toBeInTheDocument();
+    // No drafts on this computer: no draft section.
+    expect(screen.queryByRole('region', { name: 'Not confirmed yet' })).not.toBeInTheDocument();
   });
 
-  it('shows "No receipts yet" with Receive samples when nothing has been confirmed', async () => {
+  it('lists drafts on this computer above the receipts, dashed, with Continue and no ID', async () => {
+    stubApi((url) =>
+      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
+    );
+    const hole = (name: string) => ({ id: `th-${name}`, projectId: PROJECT.id, name });
+    const summary = (name: string) => ({ testHole: hole(name) });
+    const record = (
+      draftId: string,
+      owner: { accountId: string; type: 'lab' | 'personal' },
+      units: unknown[],
+      project: typeof PROJECT | null,
+    ) => ({
+      version: DRAFT_RECORD_VERSION,
+      draftId,
+      idempotencyKey: '00000000-0000-4000-8000-000000000999',
+      owner,
+      receiver: { staffId: 'u1', initials: 'AT', displayName: 'Alex Tester' },
+      data: { units, project },
+      step: 'details',
+      status: 'editing',
+      createdAt: '2026-01-15T16:00:00.000Z',
+      lastSavedAt: '2026-01-15T16:51:00.000Z',
+      history: [],
+    });
+    await indexedDbDraftStore.put(
+      record(
+        'draft-mine',
+        { accountId: 'u1', type: 'personal' },
+        [
+          { summaries: [summary('TH26-01')] },
+          { summaries: [summary('TH26-01'), summary('TH26-02')] },
+        ],
+        PROJECT,
+      ) as unknown as StoredDraft,
+    );
+    // Someone else's personal draft is never shown.
+    await indexedDbDraftStore.put(
+      record(
+        'draft-other',
+        { accountId: 'u2', type: 'personal' },
+        [{ summaries: [] }],
+        null,
+      ) as unknown as StoredDraft,
+    );
+    renderAt('/receiving-log');
+    const drafts = await screen.findByRole('region', { name: 'Not confirmed yet' });
+    expect(within(drafts).getByText('1 delivery · No IDs issued')).toBeInTheDocument();
+    expect(within(drafts).getByText('DEMO-2601')).toBeInTheDocument();
+    expect(within(drafts).getByText('2 units · TH26-01, TH26-02')).toBeInTheDocument();
+    expect(within(drafts).getByText('AT · Alex Tester')).toBeInTheDocument();
+    expect(
+      within(drafts).getByRole('link', { name: 'Continue draft for DEMO-2601' }),
+    ).toHaveAttribute('href', '/receiving-log/new?draft=draft-mine');
+    expect(within(drafts).queryByText(/BKT-|ST-|CRE-|CT-/)).not.toBeInTheDocument();
+    expect(within(drafts).getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('shows "No receipts yet" with Start a delivery when nothing has been confirmed', async () => {
     stubApi((url) => (url.pathname === '/api/receipts' ? json(200, page([], 0)) : undefined));
     renderAt('/receiving-log');
     expect(await screen.findByText('No receipts yet.')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Receive samples' })).toHaveLength(2);
+    expect(screen.getAllByRole('link', { name: 'Start a delivery' })).toHaveLength(2);
+  });
+
+  it('remembers the compact table view per table', async () => {
+    stubApi((url) =>
+      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
+    );
+    renderAt('/receiving-log');
+    const table = await screen.findByRole('table', { name: 'Confirmed receipts' });
+    expect(table).not.toHaveClass('is-compact');
+    await userEvent.click(screen.getByRole('button', { name: 'Compact rows' }));
+    expect(screen.getByRole('table', { name: 'Confirmed receipts' })).toHaveClass('is-compact');
+    expect(window.localStorage.getItem('materialmule:table-view:receiving-log')).toBe('compact');
+    window.localStorage.removeItem('materialmule:table-view:receiving-log');
   });
 
   it('shows "No receipts match these filters" with Clear filters', async () => {

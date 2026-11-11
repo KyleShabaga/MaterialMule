@@ -20,10 +20,12 @@ import { DraftList } from './drafts/DraftList';
 import { newRecord, visibleTo, type StoredDraft } from './drafts/record';
 import { indexedDbDraftStore, toStorageError } from './drafts/store';
 import { ReceiptWizard } from './ReceiptWizard';
+import './receiving.css';
 
-// Receiving landing (MM-T11): "Drafts on this computer" above "Start new receipt". With no
-// drafts to show it goes straight to a new receipt. The open draft's ID is kept in the URL
-// (?draft=…) so signing in again after an expired session comes back to the same draft.
+// Receiving landing (MM-T11): "Drafts on this computer" above "Start a delivery". With no
+// drafts to show, or with ?new=1 (the receiving log's Start a delivery), it goes straight to a
+// new draft. The open draft's ID is kept in the URL (?draft=…, the receiving log's Continue) so
+// signing in again after an expired session comes back to the same draft.
 // On opening, draft auto-delete (MM-T45) runs first: only with the setting loaded from the
 // server and switched on; if it can't load, nothing is deleted.
 
@@ -55,6 +57,7 @@ export function ReceiveSamplesPage() {
   const me = useMe();
   const [params, setParams] = useSearchParams();
   const requested = params.get('draft');
+  const startRequested = params.get('new') === '1';
   const [listing, setListing] = useState<Listing>({ state: 'loading' });
   const [open, setOpen] = useState<OpenDraft | null>(null);
   const [autoDelete, setAutoDelete] = useState<DraftAutoDelete | null>(null);
@@ -131,7 +134,9 @@ export function ReceiveSamplesPage() {
       decided.current = true;
       const drafts = result.state === 'ready' ? result.drafts : [];
       const linked = drafts.find((d) => d.draftId === requested);
-      if (linked) show({ record: linked, persisted: true });
+      // "Start a delivery" in the receiving log always starts a new draft (?new=1).
+      if (startRequested) startNew();
+      else if (linked) show({ record: linked, persisted: true });
       // After a clean-up, stay on the list so its notice is seen.
       else if (result.state === 'ready' && drafts.length === 0 && !cleaned) startNew();
       else if (requested) setParams({}, { replace: true });
@@ -180,9 +185,9 @@ export function ReceiveSamplesPage() {
         />
       ) : null}
       {listing.state !== 'loading' ? (
-        <div className="wizard-actions">
-          <button type="button" className="primary" onClick={startNew}>
-            Start new receipt
+        <div className="receive-actions">
+          <button type="button" className="primary receive-big" onClick={startNew}>
+            Start a delivery
           </button>
         </div>
       ) : null}

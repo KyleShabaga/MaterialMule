@@ -104,7 +104,9 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   expect(await printJobCount()).toBe(printJobs);
 });
 
-test('T8: a local draft is not a receipt and stays in the drafts flow', async ({ page }) => {
+test('T8: a local draft is not a receipt and is listed as a draft to continue', async ({
+  page,
+}) => {
   const projectNumber = uniqueTag('E2E').toUpperCase();
   await signInAs(page, 'at');
   await createProjectThroughApi(page, projectNumber, 'TH26-01');
@@ -115,10 +117,12 @@ test('T8: a local draft is not a receipt and stays in the drafts flow', async ({
 
   await page.goto(`/receiving-log?search=${encodeURIComponent(projectNumber)}`);
   await expect(page.getByText('No receipts match these filters.')).toBeVisible();
-  await page.getByRole('link', { name: 'Drafts on this computer' }).click();
-  const drafts = page.getByRole('region', { name: 'Drafts on this computer' });
+  // The draft is listed above the receipts, with no ID, and opens again with Continue.
+  const drafts = page.getByRole('region', { name: 'Not confirmed yet' });
   await expect(drafts).toBeVisible();
-  await expect(drafts.getByText(projectNumber)).toBeVisible();
+  await expect(drafts.getByText(projectNumber, { exact: true })).toBeVisible();
+  await drafts.getByRole('link', { name: `Continue draft for ${projectNumber}` }).click();
+  await expect(page).toHaveURL(/\/receiving-log\/new\?draft=/);
 });
 
 test('AC4: receivers sharing initials are filtered by person, and told apart', async ({ page }) => {

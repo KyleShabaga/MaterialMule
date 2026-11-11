@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '../components/ui';
 import { fetchStorageUnit } from '../inventory/api';
+import { ContextRow } from '../layout/ContextRow';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
 import '../inventory/inventory.css';
 import { CameraScanButton } from './CameraScanButton';
@@ -31,37 +32,65 @@ export function ScanPage() {
   const found = state.kind === 'done' && state.result.kind === 'found' ? state.result.unit : null;
 
   return (
-    <>
-      <p className="back-link">
-        <Link to="/sample-storage">← Back to Sample Storage</Link>
-      </p>
+    <div className="scan-screen">
+      <ContextRow className="scan-context">
+        <Link className="back-link" to="/sample-storage">
+          ← Back to Sample Storage
+        </Link>
+      </ContextRow>
       <PageHeader title="Scan labels" />
       <p className="scan-intro">
         Pull the scanner&apos;s trigger on a storage unit label (Code 128 or QR). Scanning only
         opens the record; it never moves or disposes anything. On a phone, use{' '}
         <strong>Scan with camera</strong>.
       </p>
-      <CameraScanButton />
-      <ScanInput
-        scanner={lookup.scanner}
-        label="Scan a storage unit label"
-        status={statusView(state, lookup.notice)}
-        lastScanned={lookup.lastScanned}
-        sound={sound}
-        actions={
-          state.kind === 'done' && state.result.kind === 'unavailable' ? (
-            <button type="button" onClick={lookup.retry}>
-              Retry
-            </button>
-          ) : state.kind === 'done' && parseScanPayload(state.code).type === 'location' ? (
-            <Link className="button" to="/sample-storage/move">
-              Move units
-            </Link>
-          ) : null
-        }
-      />
-      {found ? <ScannedUnit key={found.id} readableId={found.readableId} /> : null}
-    </>
+      {/* Phone: the one dark screen (Field Ledger "PhoneScan"): an instruction, the viewfinder
+          frame with the camera action inside it, and what a label opens. */}
+      <div className="scan-camera-area">
+        <p className="scan-point">Point at a unit or shelf label</p>
+        <div className="scan-viewfinder">
+          <span className="scan-corner scan-corner-tl" aria-hidden="true" />
+          <span className="scan-corner scan-corner-tr" aria-hidden="true" />
+          <span className="scan-corner scan-corner-bl" aria-hidden="true" />
+          <span className="scan-corner scan-corner-br" aria-hidden="true" />
+          <CameraScanButton />
+        </div>
+        <p className="scan-helper">
+          A unit label opens the unit. A shelf label shows what is on that shelf.
+        </p>
+      </div>
+      <div className="scan-paper">
+        <ScanInput
+          scanner={lookup.scanner}
+          label="Scan a storage unit label"
+          status={statusView(state, lookup.notice)}
+          lastScanned={lookup.lastScanned}
+          sound={sound}
+          actions={
+            state.kind === 'done' && state.result.kind === 'unavailable' ? (
+              <button type="button" onClick={lookup.retry}>
+                Retry
+              </button>
+            ) : state.kind === 'done' && parseScanPayload(state.code).type === 'location' ? (
+              <Link className="button" to="/sample-storage/move">
+                Move units
+              </Link>
+            ) : null
+          }
+        />
+        {found ? (
+          <div className="scan-last-unit">
+            <p className="field-label scan-last-label" aria-hidden="true">
+              Last scanned
+            </p>
+            <ScannedUnit key={found.id} readableId={found.readableId} />
+          </div>
+        ) : null}
+        <button type="button" className="scan-type-instead" onClick={lookup.scanner.resume}>
+          Type an ID instead
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -111,7 +140,9 @@ function ScannedUnit({ readableId }: { readableId: string }) {
 
   return (
     <section className="card scanned-unit" aria-labelledby="scanned-unit-heading">
-      <h2 id="scanned-unit-heading">{readableId}</h2>
+      <h2 id="scanned-unit-heading" className="scanned-unit-id">
+        {readableId}
+      </h2>
       {detail ? (
         <dl className="scanned-unit-facts">
           <dt>Type</dt>

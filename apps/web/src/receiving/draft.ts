@@ -88,6 +88,12 @@ export interface UnitDraft {
   bulkChoice: BulkChoice;
   /** Shelby tubes only. */
   tube: SampleDraft;
+  /**
+   * Where the unit will be put away (Field Ledger "target shelf"), as typed, scanned or picked.
+   * A plan kept in this draft only: it is never sent with the receipt, and confirmed units are
+   * still recorded at Receiving until someone moves them (decisions.md, lane B).
+   */
+  targetLocation: string;
 }
 
 export interface ReceiptDraft {
@@ -183,6 +189,7 @@ export function newUnit(): UnitDraft {
     bulk: false,
     bulkChoice: newBulkChoice(),
     tube: emptySample(),
+    targetLocation: '',
   };
 }
 
@@ -230,6 +237,7 @@ export function normalizeUnit(unit: Partial<UnitDraft> & { clientRowId: string }
           ? choice
           : blank.bulkChoice,
     tube: sample(unit.tube),
+    targetLocation: typeof unit.targetLocation === 'string' ? unit.targetLocation : '',
   };
 }
 
@@ -425,6 +433,107 @@ export function formatSummaryValue(summary: SummaryDraft): string {
     default:
       return 'summary not chosen';
   }
+}
+
+/** The storage unit ID prefix confirmation issues for each holder (CLAUDE.md). */
+export const UNIT_PREFIX: Record<UnitDraft['unitType'], string> = {
+  bucket: 'BKT',
+  shelby_tube: 'ST',
+  core_box: 'CRE',
+};
+
+/**
+ * A unit's contents as one line per test hole (Field Ledger unit row): hole, then the samples
+ * summary with its depth as text. A Shelby tube shows its sampling source and a bulk soil bucket
+ * its bulk sample; a core box adds its runs. Never a list of individual samples.
+ */
+export function unitContentLines(
+  draft: Pick<ReceiptDraft, 'units'>,
+  unit: UnitDraft,
+): { hole: string; text: string }[] {
+  if (unit.unitType === 'shelby_tube') {
+    const text = formatSampleDraft(unit.tube);
+    const [source, ...rest] = text.split(': ');
+    return [{ hole: source!, text: rest.join(': ') || 'no sample details yet' }];
+  }
+  if (unit.bulk) {
+    // Where this bucket sits among the receipt's buckets of the same bulk sample.
+    const group = bulkSamplesInDraft(draft).find((g) => g.rows.some((r) => r.unit === unit));
+    const position = group
+      ? ` · bucket ${group.rows.findIndex((r) => r.unit === unit) + 1} of ${group.rows.length} in this receipt`
+      : '';
+    return [{ hole: 'Bulk sample', text: `${bulkChoiceText(draft, unit)}${position}` }];
+  }
+  const lines = unit.summaries.map((summary) => {
+    const note = summary.note.trim();
+    return {
+      hole: summary.testHole.name,
+      text: `${formatSummaryValue(summary)}${note ? ` (note: ${note})` : ''}`,
+    };
+  });
+  if (lines.length === 0) {
+    lines.push({
+      hole: '—',
+      text: unit.unitType === 'core_box' ? 'no test hole yet' : 'no test holes yet',
+    });
+  }
+  if (unit.unitType === 'core_box')
+    lines.push({ hole: 'Runs', text: formatCoreRuns(unit.coreRunCount) });
+  return lines;
+}
+
+const HOLDER_COUNT: Record<UnitDraft['unitType'], [string, string]> = {
+  bucket: ['bucket', 'buckets'],
+  shelby_tube: ['Shelby tube', 'Shelby tubes'],
+  core_box: ['core box', 'core boxes'],
+};
+
+/**
+ * What confirming issues ("On confirm"): one row per prefix with the year and masked digits,
+ * e.g. `BKT-2026-······ · 2 buckets`. The real numbers exist only after confirmation.
+ */
+export function issuePlan(
+  draft: Pick<ReceiptDraft, 'units' | 'receivedDate'>,
+  now = new Date(),
+): { prefix: string; masked: string; count: number; text: string }[] {
+  // The ID year is the confirmation date in Edmonton, which is today, not the received date.
+  const year = todayInEdmonton(now).slice(0, 4);
+  const order: UnitDraft['unitType'][] = ['bucket', 'shelby_tube', 'core_box'];
+  return order
+    .map((type) => {
+      const count = draft.units.filter((unit) => unit.unitType === type).length;
+      const [one, many] = HOLDER_COUNT[type];
+      return {
+        prefix: UNIT_PREFIX[type],
+        masked: `${UNIT_PREFIX[type]}-${year}-······`,
+        count,
+        text: `${count} ${count === 1 ? one : many}`,
+      };
+    })
+    .filter((row) => row.count > 0);
+}
+
+/** Distinct test holes named in a draft, in the order they first appear. */
+export function draftHoleNames(draft: Pick<ReceiptDraft, 'units'>): string[] {
+  const names = new Set<string>();
+  for (const unit of draft.units) {
+    for (const summary of unit.summaries) names.add(summary.testHole.name);
+    if (unit.unitType === 'shelby_tube' && unit.tube.testHole) names.add(unit.tube.testHole.name);
+  }
+  return [...names];
+}
+
+/** Request paths entered on the Delivery step; everything else belongs to Units. */
+const DELIVERY_FIELDS = new Set(['projectId', 'receivedDate', 'receiverUserId', 'description']);
+
+export function isDeliveryField(field: string): boolean {
+  return DELIVERY_FIELDS.has(field);
+}
+
+/** The unit row a problem path points into (`units.2.holeSummaries` → 2), if any. */
+export function problemUnitIndex(field: string): number | null {
+  const match = /^units\.(\d+)(\.|$)/.exec(field);
+  return match ? Number(match[1]) : null;
 }
 
 export function unitName(index: number, unit: UnitDraft): string {
