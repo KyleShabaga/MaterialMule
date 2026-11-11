@@ -272,7 +272,8 @@ stay readable on a phone in a dim storage room.
   left; at the right, on every page, the quick actions button (`zap`, a `DropdownMenu`: Receive
   storage units, Request lab testing, New concrete field report, Move storage units, then Scan a
   label) and, always last, the notification bell (`bell`, a `Popover` listing recent notifications
-  with Mark all read and Open Inbox; a primary dot when any are unread). Both are 44 px outline icon
+  with Mark all read and Open Inbox; when any are unread, a 20 px `primary` count badge on the bell's top-right corner, e.g. "2",
+  "9+" past nine). Both are 44 px outline icon
   buttons (border, `background` fill, `shadow-xs`), 8 px apart. Search lives in the sidebar.
 - **Page head:** a context row (back link, record tags, step control) above the page title, with
   the page's actions at the right of the title. One primary action at most.
