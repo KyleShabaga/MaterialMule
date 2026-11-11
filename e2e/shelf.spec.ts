@@ -44,7 +44,7 @@ test('Inventory selection → Move units here → the shelf page shows the arriv
 
   await page.goto(`/sample-storage/locations/${shelf.code}`);
   await expect(page.getByRole('heading', { level: 1, name: shelf.name })).toBeVisible();
-  const units = page.getByRole('region', { name: 'On this shelf' });
+  const units = page.getByRole('region', { name: 'On this shelf', exact: true });
   await expect(units.getByRole('link', { name: first.readableId })).toBeVisible();
   await expect(units.getByRole('link', { name: second.readableId })).toBeVisible();
   await expect(
