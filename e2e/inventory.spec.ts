@@ -11,7 +11,7 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   const data = await insertInventoryFixture();
   await signInAs(page, 'at');
   await page.goto('/sample-storage');
-  await expect(page.getByRole('heading', { level: 1, name: 'Sample Storage' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
 
   // AC1: every word must match somewhere; the disposed unit stays out of Current stock.
   await page.getByRole('searchbox', { name: 'Search' }).fill(`TH26-01 warehouse ${data.tag}`);
@@ -26,7 +26,10 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   await page.getByRole('searchbox', { name: 'Project' }).fill(data.projectA);
   await page.getByRole('button', { name: new RegExp(`^${data.projectA} ·`) }).click();
   await expect(count).toHaveText('1 storage unit');
-  await page.getByRole('combobox', { name: 'Status' }).selectOption('all');
+  await page
+    .getByRole('group', { name: 'Status' })
+    .getByRole('button', { name: 'All', exact: true })
+    .click();
   await expect(count).toHaveText('2 storage units');
   await expect(table.getByText(data.aDisposed)).toBeVisible();
   await expect(table.getByText('Disposed')).toBeVisible();
@@ -44,9 +47,7 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   // Open the detail page from the row.
   await page.getByRole('link', { name: data.a1, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
-    data.warehouse,
-  );
+  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(data.warehouse);
   const receipt = page.getByRole('region', { name: 'Receipt' });
   await expect(receipt).toContainText('AT · Alex Tester');
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
@@ -199,7 +200,7 @@ test('the dashboard receipt activity opens Sample Storage showing exactly that r
   await page.goto('/');
   await page.getByRole('link', { name: new RegExp(`received ${first} and 1 more`) }).click();
   await expect(page).toHaveURL(/\/sample-storage\?receiptId=[\w-]+&status=all$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Sample Storage' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
   const count = page.getByRole('status').filter({ hasText: 'storage unit' });
   await expect(count).toHaveText('2 storage units');
   const table = page.getByRole('table', { name: 'Storage units' });

@@ -121,9 +121,7 @@ test('T4/AC2: approve → hold placed after approval blocks the scan → release
   );
 
   // MISC-12: the page shows no current location; the database keeps the last saved one.
-  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
-    'No location',
-  );
+  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('No location');
   const kept = await withDatabase((client) =>
     client.query<{ code: string }>(
       `SELECT l.code_normalized AS code FROM storage_unit su

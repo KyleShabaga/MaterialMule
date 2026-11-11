@@ -17,7 +17,8 @@ export type StorageUnitStatus = (typeof STORAGE_UNIT_STATUSES)[number];
 export const INVENTORY_STATUS_FILTERS = ['current', 'all', ...STORAGE_UNIT_STATUSES] as const;
 export type InventoryStatusFilter = (typeof INVENTORY_STATUS_FILTERS)[number];
 
-export const INVENTORY_SORTS = ['received', 'id'] as const;
+/** `retain_until`: effective retain-until date, earliest first by default (Retention bands). */
+export const INVENTORY_SORTS = ['received', 'id', 'retain_until'] as const;
 export type InventorySort = (typeof INVENTORY_SORTS)[number];
 export const INVENTORY_SORT_DIRECTIONS = ['asc', 'desc'] as const;
 export type InventorySortDirection = (typeof INVENTORY_SORT_DIRECTIONS)[number];
@@ -174,9 +175,15 @@ export const inventoryQuerySchema = z.object({
   conflict: optionalParam(
     z.enum(INVENTORY_CONFLICT_FILTERS, { error: 'is not a conflict filter' }),
   ),
+  /**
+   * Field Ledger Retention bands: units whose effective retain-until date falls in this range
+   * (inclusive). Tested units (retention doesn't apply) never match.
+   */
+  retainUntilFrom: optionalParam(z.iso.date({ error: 'must be a date (YYYY-MM-DD)' })),
+  retainUntilTo: optionalParam(z.iso.date({ error: 'must be a date (YYYY-MM-DD)' })),
   sort: z.preprocess(
     blankToUndefined,
-    z.enum(INVENTORY_SORTS, { error: 'must be received or id' }).default('received'),
+    z.enum(INVENTORY_SORTS, { error: 'must be received, id or retain_until' }).default('received'),
   ),
   /** Defaults to newest first for received date and A–Z for storage unit ID. */
   dir: optionalParam(z.enum(INVENTORY_SORT_DIRECTIONS, { error: 'must be asc or desc' })),
@@ -391,6 +398,28 @@ export const storageUnitHistoryPageSchema = z.object({
   pageSize: z.number(),
 });
 export type StorageUnitHistoryPage = z.infer<typeof storageUnitHistoryPageSchema>;
+
+/**
+ * `GET /api/storage-units/:id/lab-programs` (Field Ledger unit page): every submitted or closed
+ * lab program whose frozen coverage includes this unit, with its tests on the covering lines
+ * counted by state. Progress only: no results. Cancelled tests are left out.
+ */
+export const storageUnitLabProgramSchema = z.object({
+  id: z.string(),
+  programNumber: z.string().nullable(),
+  status: z.enum(['submitted', 'closed']),
+  /** Tests not started yet (requested). */
+  notStarted: z.number().int(),
+  inProgress: z.number().int(),
+  /** Completed, in review or accepted. */
+  done: z.number().int(),
+});
+export type StorageUnitLabProgram = z.infer<typeof storageUnitLabProgramSchema>;
+
+export const storageUnitLabProgramsSchema = z.object({
+  programs: z.array(storageUnitLabProgramSchema),
+});
+export type StorageUnitLabPrograms = z.infer<typeof storageUnitLabProgramsSchema>;
 
 /** Plain-language name of a storage unit history event. */
 export function storageUnitHistoryActionLabel(

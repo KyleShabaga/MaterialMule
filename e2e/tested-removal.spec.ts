@@ -227,7 +227,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   // A personal account confirms the physical removal (the hold doesn't block it).
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${tubeA!.readableId}`);
-  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(
     'Not applicable — tested Shelby tube',
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
@@ -285,7 +285,7 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
 
   await page.goto(`/sample-storage/${bucketA!.readableId}`);
   const section = page.getByRole('region', { name: 'Testing and removal' });
-  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(
     'Not applicable — tested bulk sample',
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();

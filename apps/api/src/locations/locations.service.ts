@@ -5,8 +5,11 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  LOCATION_ACTIVITY_DAYS,
+  LOCATION_ACTIVITY_LIMIT,
   LOCATION_LIST_LIMIT,
   parseScanPayload,
+  type LocationActivity,
   type LocationDetail,
   type LocationEvent,
   type LocationLabelPreview,
@@ -99,6 +102,76 @@ export async function getLocation(db: Queryable, id: string): Promise<StorageLoc
   if (!UUID_PATTERN.test(id)) return null;
   const { rows } = await db.query<LocationRow>(`${SELECT_LOCATION} WHERE l.id = $1`, [id]);
   return rows[0] ? toLocation(rows[0]) : null;
+}
+
+/**
+ * Saved moves (and conflict resolutions) into or out of a location in the last
+ * LOCATION_ACTIVITY_DAYS days, newest first, and when each unit saved here now arrived. Contested
+ * attempts changed nothing, so they are not comings or goings.
+ */
+export async function getLocationActivity(
+  db: Queryable,
+  locationId: string,
+): Promise<LocationActivity> {
+  const [movements, arrivals] = await Promise.all([
+    db.query<{
+      id: string;
+      saved_at: Date;
+      direction: 'in' | 'out';
+      unit_id: string;
+      readable_id: string;
+      other_id: string;
+      other_code: string;
+      other_name: string;
+      actor_initials: string | null;
+      actor_name: string;
+      mover_initials: string | null;
+      mover_name: string | null;
+    }>(
+      `SELECT m.id, m.saved_at,
+              CASE WHEN m.to_location_id = $1 THEN 'in' ELSE 'out' END AS direction,
+              u.id AS unit_id, u.readable_id,
+              o.id AS other_id, o.code AS other_code, o.name AS other_name,
+              m.actor_initials_snapshot AS actor_initials, m.actor_name_snapshot AS actor_name,
+              m.mover_initials_snapshot AS mover_initials, m.mover_name_snapshot AS mover_name
+       FROM movement_event m
+       JOIN storage_unit u ON u.id = m.storage_unit_id
+       JOIN location o
+         ON o.id = CASE WHEN m.to_location_id = $1 THEN m.from_location_id ELSE m.to_location_id END
+       WHERE (m.to_location_id = $1 OR m.from_location_id = $1)
+         AND m.from_location_id <> m.to_location_id
+         AND m.kind IN ('move', 'resolution')
+         AND m.saved_at >= now() - make_interval(days => $2::int)
+       ORDER BY m.saved_at DESC, m.id DESC
+       LIMIT $3`,
+      [locationId, LOCATION_ACTIVITY_DAYS, LOCATION_ACTIVITY_LIMIT],
+    ),
+    db.query<{ storage_unit_id: string; arrived_at: Date }>(
+      `SELECT DISTINCT ON (u.id) u.id AS storage_unit_id, m.saved_at AS arrived_at
+       FROM storage_unit u
+       JOIN movement_event m
+         ON m.storage_unit_id = u.id AND m.to_location_id = $1 AND m.kind IN ('move', 'resolution')
+       WHERE u.current_location_id = $1 AND u.status <> 'disposed'
+       ORDER BY u.id, m.saved_at DESC`,
+      [locationId],
+    ),
+  ]);
+  return {
+    movements: movements.rows.map((row) => ({
+      id: row.id,
+      occurredAt: row.saved_at.toISOString(),
+      direction: row.direction,
+      storageUnit: { id: row.unit_id, readableId: row.readable_id },
+      otherLocation: { id: row.other_id, code: row.other_code, name: row.other_name },
+      actor: { initials: row.actor_initials, name: row.actor_name },
+      mover:
+        row.mover_name === null ? null : { initials: row.mover_initials, name: row.mover_name },
+    })),
+    arrivals: arrivals.rows.map((row) => ({
+      storageUnitId: row.storage_unit_id,
+      arrivedAt: row.arrived_at.toISOString(),
+    })),
+  };
 }
 
 /**
@@ -228,6 +301,13 @@ export class LocationsService {
       getLocationPrintJobs(this.database.pool, id),
     ]);
     return { location, events, printJobs };
+  }
+
+  /** Comings and goings for the shelf page; see `locationActivitySchema`. */
+  async activity(id: string): Promise<LocationActivity> {
+    const location = await getLocation(this.database.pool, id);
+    if (!location) throw new NotFoundException({ code: 'location_not_found' });
+    return getLocationActivity(this.database.pool, location.id);
   }
 
   /** The label as the ZD621 would print it now. Read-only: no job, no audit, no code lock. */
