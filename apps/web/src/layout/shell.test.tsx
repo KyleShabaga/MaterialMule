@@ -352,9 +352,7 @@ describe('dashboard', () => {
 
   it('shows the empty state when nothing has happened yet', async () => {
     renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    expect(
-      await screen.findByText('Nothing recorded in the last 24 hours.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Nothing recorded in the last 24 hours.')).toBeInTheDocument();
   });
 
   it('shows a retryable error when activity fails to load', async () => {
