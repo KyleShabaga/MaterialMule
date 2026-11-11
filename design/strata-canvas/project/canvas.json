@@ -15,12 +15,12 @@
       "y": 0,
       "w": 1440,
       "h": 5300,
-      "title": "Components — real shadcn/ui (Dark tweak)",
+      "title": "Components — light (Dark tweak)",
       "expand": "fill",
       "is_interactive": true
     },
     "SidebarLive.dc.html": {
-      "x": 1520,
+      "x": 3040,
       "y": 0,
       "w": 1280,
       "h": 800,
@@ -28,22 +28,32 @@
       "is_interactive": true
     },
     "SidebarVariants.dc.html": {
-      "x": 1520,
+      "x": 3040,
       "y": 920,
       "w": 1320,
       "h": 1040,
       "title": "Sidebar — mock variants"
     },
     "SidebarNav.dc.html": {
-      "x": 2920,
+      "x": 4440,
       "y": 920,
       "w": 256,
       "h": 900,
       "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)"
+    },
+    "MainDark.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 5300,
+      "title": "Components — dark",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "order": [
     "Main.dc.html",
+    "MainDark.dc.html",
     "SidebarLive.dc.html",
     "SidebarVariants.dc.html",
     "SidebarNav.dc.html"
@@ -54,31 +64,31 @@
       "y": -300,
       "text": "Components",
       "kind": "title1",
-      "maxW": 1440
+      "maxW": 2960
     },
     "rowSidebar": {
-      "x": 1520,
+      "x": 3040,
       "y": -300,
       "text": "Sidebar",
       "kind": "title1",
       "maxW": 1656
     },
     "liveNotes": {
-      "x": 2880,
+      "x": 4400,
       "y": 0,
       "w": 400,
       "fill": "green",
       "text": "Real shadcn/ui, not a drawing: SidebarProvider, Sidebar (collapsible icon), SidebarMenu, Collapsible, DropdownMenu, Tooltip and Kbd from shadcn 4.23 on Radix, styled by Tailwind v4 with the Strata variables, icons from lucide-react 1.72. Press Play: collapse with the trigger or Ctrl+B, hover icons for tooltips, fold Lab, open Concrete and Retention, open the account menu. Bundle: strata-ui/strata-ui.js and .css."
     },
     "sidebarNotes": {
-      "x": 3256,
+      "x": 4776,
       "y": 920,
       "w": 400,
       "fill": "yellow",
       "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number."
     },
     "about": {
-      "x": 3360,
+      "x": 4880,
       "y": 0,
       "w": 380,
       "fill": "blue",
