@@ -215,7 +215,11 @@ export const ROUTED_PEOPLE = `
  * requests and has a work email. Runs inside the transaction that created or reassigned the item;
  * the unique (item, recipient) key means a retry or second call adds nothing.
  */
-async function enqueueActionItemEmails(client: PoolClient, actionItemId: string): Promise<number> {
+async function enqueueActionItemEmails(
+  client: PoolClient,
+  actionItemId: string,
+  onlyUserId: string | null = null,
+): Promise<number> {
   const [row] = await loadItemRows(client, 'a.id = $1', [actionItemId], '');
   if (!row || row.status !== 'open') return 0;
   const title = titleOf(row);
@@ -237,8 +241,9 @@ async function enqueueActionItemEmails(client: PoolClient, actionItemId: string)
      FROM (${ROUTED_PEOPLE}) routed
      JOIN notification_preference np ON np.user_id = routed.id AND np.email_action_requests
      WHERE routed.work_email IS NOT NULL AND length(routed.work_email) >= 3
+       AND ($4::uuid IS NULL OR routed.id = $4)
      ON CONFLICT ON CONSTRAINT email_outbox_one_per_recipient DO NOTHING`,
-    [actionItemId, subject, body],
+    [actionItemId, subject, body, onlyUserId],
   );
   return rowCount ?? 0;
 }
@@ -249,15 +254,19 @@ async function enqueueActionItemEmails(client: PoolClient, actionItemId: string)
  * sending is enabled. The unique (recipient, event key) means at most one per item per person:
  * a retry, a second call, or the item coming back to someone after a reroute adds nothing.
  */
-export async function notifyActionItem(client: PoolClient, actionItemId: string): Promise<number> {
+export async function notifyActionItem(
+  client: PoolClient,
+  actionItemId: string,
+  onlyUserId: string | null = null,
+): Promise<number> {
   const { rowCount } = await client.query(
     `INSERT INTO notification (recipient_user_id, kind, action_item_id, event_key)
      SELECT routed.id, 'action_request.opened', a.id, 'action_item:' || a.id::text || ':opened'
      FROM action_item a
      CROSS JOIN LATERAL (${ROUTED_PEOPLE}) routed
-     WHERE a.id = $1 AND a.status = 'open'
+     WHERE a.id = $1 AND a.status = 'open' AND ($2::uuid IS NULL OR routed.id = $2)
      ON CONFLICT ON CONSTRAINT notification_one_per_event DO NOTHING`,
-    [actionItemId],
+    [actionItemId, onlyUserId],
   );
   return rowCount ?? 0;
 }
@@ -266,11 +275,14 @@ export async function notifyActionItem(client: PoolClient, actionItemId: string)
  * Tells the people an item is routed to now: an in-app notification for each, and an outbox
  * email for those who opted in. Call it inside the transaction that created, reassigned or
  * rerouted the item. Returns the number of emails queued (as enqueueActionItemEmails does).
+ * `onlyUserId` limits it to that one person (still only if the item is routed to them), for
+ * someone who just became eligible: the item's other recipients are left as they were.
  */
 export async function announceActionItem(
   client: PoolClient,
   actionItemId: string,
+  onlyUserId: string | null = null,
 ): Promise<number> {
-  await notifyActionItem(client, actionItemId);
-  return enqueueActionItemEmails(client, actionItemId);
+  await notifyActionItem(client, actionItemId, onlyUserId);
+  return enqueueActionItemEmails(client, actionItemId, onlyUserId);
 }

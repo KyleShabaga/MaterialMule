@@ -7,6 +7,7 @@ import {
   type ProgramWork,
   type SameSourceUnits,
   type Worklist,
+  WORKLIST_MAX_PAGE,
 } from '@materialmule/shared';
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
@@ -41,7 +42,11 @@ export class LabWorkController {
       projectId,
       openOnly: open === 'true',
       testTypeId,
-      page: Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1,
+      // Not a positive integer: page 1. Beyond the last supported page: that page (empty).
+      page:
+        Number.isInteger(pageNumber) && pageNumber > 0
+          ? Math.min(pageNumber, WORKLIST_MAX_PAGE)
+          : 1,
     });
   }
 

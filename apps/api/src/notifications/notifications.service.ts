@@ -43,6 +43,20 @@ interface Cursor {
 
 const CURSOR_TEXT = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z)\|([0-9a-f-]{36})$/;
 
+/**
+ * True for a real UTC instant: every calendar and clock field in range (Date.parse would roll
+ * 2026-02-30 over to March 2, while PostgreSQL rejects it). Years 1–9999 only.
+ */
+function isRealTimestamp(text: string): boolean {
+  const [y, mo, d, h, mi, sec] = [0, 5, 8, 11, 14, 17].map((at, i) =>
+    Number(text.slice(at, at + (i === 0 ? 4 : 2))),
+  ) as [number, number, number, number, number, number];
+  if (y < 1 || mo < 1 || mo > 12 || h > 23 || mi > 59 || sec > 59) return false;
+  const date = new Date(0);
+  date.setUTCFullYear(y, mo - 1, d);
+  return d >= 1 && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
+}
+
 export function encodeCursor(cursor: Cursor): string {
   return Buffer.from(`${cursor.at}|${cursor.id}`, 'utf8').toString('base64url');
 }
@@ -53,7 +67,7 @@ export function decodeCursor(text: string): Cursor {
   if (
     !match ||
     !notificationIdSchema.safeParse(match[2]).success ||
-    Number.isNaN(Date.parse(match[1]!))
+    !isRealTimestamp(match[1]!)
   ) {
     throw new BadRequestException({ code: 'invalid_cursor' });
   }

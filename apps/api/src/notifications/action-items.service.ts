@@ -63,7 +63,11 @@ export class ActionItemsService {
     const mine =
       status === 'open'
         ? 'action_item_routed_to(a.id, $2)'
-        : '(action_item_routed_to(a.id, $2) OR a.resolved_by_user_id = $2)';
+        : // Resolved history follows the record, not today's eligibility: an explicitly assigned
+          // item stays with its assignee (even after they lose the role) and the resolver keeps it.
+          `(CASE WHEN a.assigned_user_id IS NOT NULL THEN a.assigned_user_id = $2
+                 ELSE action_item_routed_to(a.id, $2) END
+            OR a.resolved_by_user_id = $2)`;
     // D10 (MM-AO07): the unresolved queue is the open items nobody can act on now.
     const filter =
       scope === 'all'
