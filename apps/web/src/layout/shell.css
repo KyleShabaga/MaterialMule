@@ -1,0 +1,512 @@
+/* Shell: rail, top bar, context row, phone bottom bar (Field Ledger, docs/redesign/design.md).
+   Moved out of styles.css in wave 0; owned by layout/. */
+
+/* moved: app layout */
+/* ---- App layout ---- */
+
+.app {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'header header'
+    'nav main';
+  min-height: 100vh;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+}
+
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.app-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line-shell);
+  background: var(--shell);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.app-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-tag);
+  background: var(--card-head);
+  /* The donkey mark is drawn in currentColor: cyan in dark, blue in light. */
+  color: var(--accent);
+}
+
+.app-name {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.identity {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.identity-name {
+  font-weight: 500;
+}
+
+.identity-initials,
+.identity-expiry {
+  color: var(--muted);
+}
+
+.identity button {
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border-color: var(--line-shell);
+  border-radius: var(--radius-tag);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.menu-toggle {
+  display: none;
+}
+
+.side-nav {
+  grid-area: nav;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line-shell);
+  background: var(--shell);
+  padding: 0.75rem 0.5rem 0;
+}
+
+/* MISC-09: theme switch and server health stay in view at the bottom of the menu. */
+.side-nav-footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+  border-top: 1px solid var(--line-shell);
+  background: var(--shell);
+}
+
+.theme-switch {
+  justify-content: flex-start;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 0.625rem;
+  border-color: var(--line-shell);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.theme-switch-label {
+  margin-right: auto;
+}
+
+.theme-switch-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-tag);
+  background: var(--inset);
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-tag);
+  background: var(--muted);
+}
+
+.theme-switch[aria-checked='true'] .theme-switch-track {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.theme-switch[aria-checked='true'] .theme-switch-thumb {
+  left: 16px;
+  background: var(--accent);
+}
+
+.theme-switch-state {
+  min-width: 1.75rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.server-health {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 0.375rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.server-health-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-tag);
+  background: var(--muted);
+}
+
+.server-health-ok .server-health-dot {
+  background: var(--success);
+}
+
+.server-health-degraded .server-health-dot {
+  background: var(--warning);
+}
+
+.server-health-unreachable .server-health-dot {
+  background: var(--danger);
+}
+
+.nav-heading {
+  margin: 0;
+  padding: 0.45rem 0.25rem 0.6rem;
+  font: 700 0.625rem/1.5 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.side-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.side-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 0.5rem 0.625rem;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-tag);
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.side-nav a:hover {
+  color: var(--ink);
+}
+
+.side-nav a.active {
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-icon {
+  display: flex;
+  justify-content: center;
+  width: 22px;
+  flex: 0 0 auto;
+}
+
+.app-main {
+  grid-area: main;
+  padding: 1.5rem 2rem 3rem;
+  min-width: 0;
+}
+
+/* moved: phone shell rules (were inside @media (max-width: 640px)) */
+@media (max-width: 640px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'header'
+      'main';
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .side-nav {
+    display: none;
+    position: fixed;
+    inset: 3.5rem 0 0 0;
+    z-index: 5;
+    border-right: none;
+  }
+
+  .app.menu-open .side-nav {
+    display: flex;
+    overflow-y: auto;
+  }
+
+  .theme-switch {
+    min-height: var(--target);
+  }
+
+  .side-nav a {
+    min-height: 48px;
+    font-size: 0.9375rem;
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
+
+  /* The header wraps rather than widen the page on the narrowest phones. */
+  .app-header {
+    flex-wrap: wrap;
+  }
+
+  .identity {
+    min-width: 0;
+    font-size: 0.875rem;
+  }
+}
+
+/* moved: header bells */
+/* Action requests (MM-T27): header bell, inbox list and reassignment. */
+.action-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--line-shell);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--ink-soft);
+}
+
+.action-bell-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+button.action-bell {
+  padding: 0;
+}
+
+.action-bell[aria-expanded='true'] {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* MISC-10: preview of the newest open requests, anchored under the bell. */
+.action-bell-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(22rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid var(--line-shell);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.action-bell-heading {
+  margin: 0 0 0.5rem;
+  font: 700 0.625rem/1.5 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.action-bell-state {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.action-bell-state p {
+  margin: 0 0 0.5rem;
+}
+
+.action-bell-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.action-bell-item,
+.action-bell-all {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.125rem;
+  min-height: var(--target);
+  box-sizing: border-box;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-tag);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.action-bell-item:hover,
+.action-bell-all:hover {
+  background: var(--inset);
+}
+
+.action-bell-item-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.action-bell-all {
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .action-bell {
+    min-width: var(--target);
+    min-height: var(--target);
+  }
+
+  /* The header wraps on phones, so the preview spans the screen under it instead. */
+  .app-header {
+    position: relative;
+  }
+
+  .action-bell-wrap {
+    position: static;
+  }
+
+  .action-bell-panel {
+    top: 100%;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+  }
+}
+
+.action-bell-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--radius-tag);
+  background: var(--accent);
+  color: var(--shell);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* moved: header alerts */
+/* MM-T91: Pending actions and Notifications, two separately labelled header controls. */
+.header-alerts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+a.action-bell {
+  text-decoration: none;
+}
+
+.notifications-bell[aria-current='page'] {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* moved: forced colours, rail */
+@media (forced-colors: active) {
+  .side-nav a[aria-current='page'] {
+    border-left-width: 4px;
+  }
+}
+
+@media (forced-colors: active) {
+  /* Only the current item keeps its bar; the others' transparent bars would show as lines. */
+  .side-nav a:not([aria-current='page']) {
+    border-left-color: Canvas;
+  }
+}
+
+@media (forced-colors: active) {
+  .theme-switch-track,
+  .theme-switch-thumb {
+    forced-color-adjust: none;
+  }
+
+  .theme-switch-track {
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .theme-switch-thumb {
+    background: CanvasText;
+  }
+
+  .theme-switch[aria-checked='true'] .theme-switch-track {
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  .theme-switch[aria-checked='true'] .theme-switch-thumb {
+    background: HighlightText;
+  }
+}

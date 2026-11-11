@@ -12,6 +12,7 @@ import { accountBadge, navGroupsFor, type NavItem } from './nav';
 import { NavIcon } from './NavIcon';
 import { SidebarFooter } from './SidebarFooter';
 import { useFocusPageHeading } from './useFocusPageHeading';
+import './shell.css';
 
 export function AppLayout() {
   const me = useMe();
