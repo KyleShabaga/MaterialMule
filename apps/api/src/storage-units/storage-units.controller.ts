@@ -2,6 +2,7 @@ import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common
 import type {
   StorageUnitDetail,
   StorageUnitHistoryPage,
+  StorageUnitLabPrograms,
   StorageUnitLookupResponse,
 } from '@materialmule/shared';
 import { z } from 'zod';
@@ -51,5 +52,12 @@ export class StorageUnitsController {
   async history(@Param('id') id: string, @Query() query: unknown): Promise<StorageUnitHistoryPage> {
     const { page } = parseBody(historyQuerySchema, query);
     return found(await this.storageUnits.history(id, page));
+  }
+
+  /** Lab programs covering this unit, with test progress counts (Field Ledger unit page). */
+  @Get(':id/lab-programs')
+  @RequirePermission('lab_program.read')
+  async labPrograms(@Param('id') id: string): Promise<StorageUnitLabPrograms> {
+    return found(await this.storageUnits.labPrograms(id));
   }
 }

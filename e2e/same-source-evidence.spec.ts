@@ -187,7 +187,7 @@ test('T3: Specific line tube outside coverage — LAB records it with a same-sou
   await noHorizontalScroll(page);
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
   await section.getByRole('button', { name: 'Confirm removal after testing' }).click();
-  await expect(page.locator('.unit-meta')).toContainText('Disposed after testing');
+  await expect(page.locator('.unit-status-tags')).toContainText('Disposed after testing');
 
   // Removal never changes the test.
   await page.goto(`/lab-testing/programs/${program.id}`);

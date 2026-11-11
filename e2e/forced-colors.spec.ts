@@ -62,12 +62,12 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
   );
 
   await page.goto('/sample-storage?status=all');
-  const standard = page.getByRole('button', { name: 'Standard', exact: true });
+  const standard = page.getByRole('button', { name: 'Comfortable rows', exact: true });
   await standard.click();
   await expect(standard).toHaveAttribute('aria-pressed', 'true');
   await expectDifferent(
     standard,
-    page.getByRole('button', { name: 'Compact', exact: true }),
+    page.getByRole('button', { name: 'Compact rows', exact: true }),
     'Standard/Compact segment',
   );
 

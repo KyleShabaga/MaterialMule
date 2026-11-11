@@ -1162,6 +1162,8 @@ No new route or permission. C08 proves the package 1 rules end to end and closes
 | `GET /api/locations?search=&includeRetired=`       | `inventory.read` (every active session, LAB included) |
 | `GET /api/locations/:id`                           | `inventory.read`                                      |
 | `GET /api/locations/:id/label/preview`             | `inventory.read` (read-only: no job, no code lock)    |
+| `GET /api/locations/:id/activity` (shelf page)     | `inventory.read` (moves in and out, last 30 days)     |
+| `GET /api/storage-units/:id/lab-programs`          | `lab_program.read` (progress counts only)             |
 | `POST /api/locations`                              | `location.manage` (Lab Manager and admin, no LAB)     |
 | `PATCH /api/locations/:id`                         | `location.manage`                                     |
 | `POST /api/locations/:id/retire {reason, version}` | `location.manage`                                     |

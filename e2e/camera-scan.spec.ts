@@ -30,7 +30,7 @@ for (const symbol of ['code128', 'qr'] as const) {
     });
 
     await page.goto('/sample-storage?decoder=zxing');
-    await expect(page.getByRole('heading', { level: 1, name: 'Sample Storage' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
     // AC2: nothing has asked for the camera yet.
     expect((await cameraState(page)).calls).toBe(0);
 

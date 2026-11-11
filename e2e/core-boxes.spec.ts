@@ -41,7 +41,8 @@ test('a core box is received at 3 runs on one test hole, then corrected to 2 run
 
   await page.goto(`/sample-storage/${ids[0]}`);
   await expect(page.getByRole('heading', { level: 1, name: ids[0]! })).toBeVisible();
-  await expect(page.getByText('3 runs · 4.56 m')).toBeVisible();
+  // On the label block and in the facts list.
+  await expect(page.getByText('3 runs · 4.56 m').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Correct details' }).click();
   const form = page.getByRole('form', { name: 'Correct details' });

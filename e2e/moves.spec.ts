@@ -60,7 +60,7 @@ async function scan(page: Page, payload: string) {
 
 async function openMove(page: Page, mover?: RegExp) {
   await page.goto('/sample-storage/move');
-  await expect(page.getByRole('heading', { level: 1, name: 'Move storage units' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
   if (mover) {
     const field = page.getByRole('combobox', { name: /Moved by/ });
     await field.fill(mover.source.split(' ')[0]!);
@@ -139,7 +139,7 @@ test('T5/AC2: offline scans stay Pending (saved location unchanged) and sync onc
   // A second tab of the same browser profile shares the queue (P21: one drains).
   const second = await context.newPage();
   await second.goto('/sample-storage/move');
-  await expect(second.getByRole('heading', { level: 1, name: 'Move storage units' })).toBeVisible();
+  await expect(second.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
 
   await context.setOffline(true);
   await setDestination(page, c2);

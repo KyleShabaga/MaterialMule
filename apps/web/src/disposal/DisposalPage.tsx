@@ -1,8 +1,29 @@
-import type { DisposalCandidate, DisposalCandidates, ProjectSummary } from '@materialmule/shared';
+import type {
+  DisposalCandidate,
+  DisposalCandidates,
+  InventoryItem,
+  ProjectSummary,
+} from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { BandedCard, ConfirmDialog, EmptyState, PageHeader, StatusBadge } from '../components/ui';
+import {
+  BandedCard,
+  ConfirmDialog,
+  EmptyState,
+  PageHeader,
+  SectionHead,
+  Segmented,
+  SidePanel,
+  StatusBadge,
+} from '../components/ui';
+import { useMediaQuery } from '../components/useMediaQuery';
+import { PHONE_QUERY } from '../components/useTableView';
+import { ContextRow } from '../layout/ContextRow';
 import { formatExpiry } from '../lib/format';
+import { businessToday, retentionBands, type BandKey } from '../retention/bands';
+import { RetentionBand } from '../retention/RetentionBands';
+import { useMe } from '../session/context';
+import './disposal.css';
 import { ProjectFilter } from '../inventory/ProjectFilter';
 import { fetchProject } from '../inventory/api';
 import { approveUnits, fetchCandidates, revokeApproval } from './api';
@@ -48,6 +69,27 @@ export function DisposalPage() {
   }, [projectId, selectedProject]);
   const [notice, setNotice] = useState<string | null>(null);
   const [key, setKey] = useState(() => crypto.randomUUID());
+  // Field Ledger Retention: the three bands and the disposal list at the side. Approval is a
+  // personal account's act (the server checks the project's Lead or a Lab Manager), never LAB.
+  const me = useMe();
+  const canList = me.accountType !== 'shared_lab';
+  const [today] = useState(() => businessToday());
+  const bands = retentionBands(today);
+  const [listed, setListed] = useState<ReadonlyMap<string, InventoryItem>>(new Map());
+  const [confirmingList, setConfirmingList] = useState(false);
+  const [listKey, setListKey] = useState(() => crypto.randomUUID());
+  const phone = useMediaQuery(PHONE_QUERY);
+  const [phoneBand, setPhoneBand] = useState<BandKey>('overdue');
+  const [bandTotals, setBandTotals] = useState<Partial<Record<BandKey, number>>>({});
+  const [recordTotal] = useState(
+    () =>
+      Object.fromEntries(
+        (['overdue', 'month', 'later'] as const).map((key) => [
+          key,
+          (total: number) => setBandTotals((current) => ({ ...current, [key]: total })),
+        ]),
+      ) as Record<BandKey, (total: number) => void>,
+  );
   // MM-V2-C26 (owner decision 2026-11-08): concrete specimens join Ready for disposal behind a
   // type filter; storage units stay the default and behave as before.
   const [readyType, setReadyType] = useState<'storage_unit' | 'concrete_specimen'>(
@@ -116,22 +158,134 @@ export function DisposalPage() {
     reload();
   }
 
+  const listedItems = [...listed.values()];
+
+  async function approveListed() {
+    setConfirmingList(false);
+    if (listedItems.length === 0) return;
+    const outcome = await approveUnits(
+      listedItems.map((item) => item.id),
+      listKey,
+    );
+    setListKey(crypto.randomUUID());
+    if (outcome.ok) {
+      setNotice(`${listedItems.length} approved for disposal. Scan them out to dispose of them.`);
+      setListed(new Map());
+    } else {
+      setNotice(outcome.message);
+    }
+    reload();
+  }
+
   return (
     <div className="disposal-page">
-      <PageHeader
-        title="Disposal & Retention"
-        actions={
-          <Link className="button" to="/disposal-retention/scan">
-            Disposal scan
-          </Link>
-        }
-      />
+      <ContextRow align="end">
+        <Link className="button" to="/disposal-retention/scan">
+          Disposal scan
+        </Link>
+      </ContextRow>
+      <div className="retention-title">
+        <PageHeader title="Retention" />
+        <span className="section-meta">Keep, extend or dispose · as of {today}</span>
+      </div>
       <p className="field-hint">
         Approving marks units for disposal; it doesn’t dispose them. Approved units are scanned out
         in Disposal scan mode, which checks holds and programs again at that moment. Tested Shelby
         tubes and bulk samples use “Confirm removal after testing” on their own page instead.
       </p>
-      {notice ? <p role="status">{notice}</p> : null}
+      {notice ? (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      <div className="retention-layout">
+        <div className="retention-bands">
+          {phone ? (
+            <Segmented
+              label="Retention band"
+              className="retention-phone-tabs"
+              value={phoneBand}
+              onChange={setPhoneBand}
+              options={bands.map((band) => ({
+                value: band.key,
+                label: (
+                  <>
+                    <span className="retention-phone-tab-count">{bandTotals[band.key] ?? '…'}</span>
+                    <span>{band.tag}</span>
+                  </>
+                ),
+              }))}
+            />
+          ) : null}
+          {bands.map((band) => (
+            <RetentionBand
+              key={band.key}
+              band={band}
+              hidden={phone && band.key !== phoneBand}
+              onTotal={recordTotal[band.key]}
+              refresh={tick}
+              listed={new Set(listed.keys())}
+              canList={canList}
+              onToggle={(item) =>
+                setListed((current) => {
+                  const next = new Map(current);
+                  if (next.has(item.id)) next.delete(item.id);
+                  else next.set(item.id, item);
+                  return next;
+                })
+              }
+            />
+          ))}
+          {phone ? (
+            <Link className="button primary retention-scan-out" to="/disposal-retention/scan">
+              Scan out for disposal
+            </Link>
+          ) : null}
+        </div>
+        {canList ? (
+          <SidePanel
+            className="disposal-list-panel"
+            title="Disposal list"
+            aside={
+              <span className="section-meta">
+                {listedItems.length} {listedItems.length === 1 ? 'unit' : 'units'}
+              </span>
+            }
+          >
+            {listedItems.length === 0 ? (
+              <p className="field-hint">
+                Add overdue units with “Add to disposal”, then approve them together.
+              </p>
+            ) : (
+              <ul className="disposal-list-items" aria-label="Units on the disposal list">
+                {listedItems.map((item) => (
+                  <li key={item.id} data-row>
+                    <span className="mono">{item.readableId}</span>
+                    <span className="field-hint">{item.location.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="field-hint">
+              Approval records who approved and when; the units are disposed of when they are
+              scanned out. Disposed units keep their ID and full history. An ID is never reused.
+            </p>
+            {listedItems.length > 0 ? (
+              <>
+                <button type="button" className="primary" onClick={() => setConfirmingList(true)}>
+                  Approve the {listedItems.length} listed for disposal
+                </button>
+                <button type="button" onClick={() => setListed(new Map())}>
+                  Clear the list
+                </button>
+              </>
+            ) : null}
+          </SidePanel>
+        ) : null}
+      </div>
+
+      <SectionHead title="Ready for disposal and approvals by project" />
       {readyType === 'storage_unit' ? (
         <ReadyForDisposal refresh={tick} filter={typeFilter} />
       ) : (
@@ -288,6 +442,26 @@ export function DisposalPage() {
           {selected.map((unit) => (
             <li key={unit.storageUnitId}>
               {unit.readableId} · retain until {unit.effectiveRetainUntil}
+            </li>
+          ))}
+        </ul>
+        <p>Approval doesn’t dispose anything; the units stay in stock until scanned out.</p>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirmingList && listedItems.length > 0}
+        title={`Approve ${listedItems.length} for disposal?`}
+        confirmLabel="Approve"
+        onCancel={() => setConfirmingList(false)}
+        onConfirm={() => void approveListed()}
+      >
+        <p>
+          Material Mule checks each one again: retain-until reached, no hold, every covering program
+          closed, and that you may approve for its project.
+        </p>
+        <ul>
+          {listedItems.map((item) => (
+            <li key={item.id}>
+              {item.readableId} · retain until {item.retention?.effectiveRetainUntil ?? '—'}
             </li>
           ))}
         </ul>

@@ -24,7 +24,7 @@ async function pageOverflow(page: Page): Promise<number> {
  * column can be seen. Returns how far the table scrolls sideways.
  */
 async function expectNothingPastCard(page: Page, what: string): Promise<number> {
-  const { scrolls, past } = await page.locator('.table-card').evaluate((card) => {
+  const { scrolls, past } = await page.locator('.inventory-results').evaluate((card) => {
     const scroller = card.querySelector<HTMLElement>('.table-scroll')!;
     scroller.scrollLeft = scroller.scrollWidth;
     const right = card.getBoundingClientRect().right;
@@ -86,9 +86,10 @@ test('MTR-58: Standard view scrolls inside its card or wraps; nothing is clipped
       await page.goto(
         `/sample-storage?status=all&pageSize=50&search=${encodeURIComponent(search)}`,
       );
-      await page.getByRole('button', { name: 'Standard' }).click();
       const units = page.getByRole('table', { name: 'Storage units' });
       await expect(units.getByText(shows).first()).toBeVisible();
+      // Phones have no view selector: they always use comfortable rows.
+      if (width > 640) await page.getByRole('button', { name: 'Comfortable rows' }).click();
       const what = `${search} at ${width}px`;
 
       expect(await pageOverflow(page), what).toBeLessThanOrEqual(0);

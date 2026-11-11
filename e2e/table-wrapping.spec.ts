@@ -53,7 +53,8 @@ test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', 
     await expectOneLine(units.locator('.nowrap'), `received date at ${width}px`);
     // Stacked cards (narrow content box) hide the header row; a visible one stays on one line.
     if (await units.locator('thead').isVisible()) {
-      await expectOneLine(units.locator('th'), `header at ${width}px`);
+      // The select-all column holds a checkbox, not words.
+      await expectOneLine(units.locator('th:not(.select-cell)'), `header at ${width}px`);
     }
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 

@@ -35,6 +35,9 @@ async function scan(page: Page, payload: string) {
   await page.keyboard.press('Enter');
 }
 
+/** The phone project (390 px): no table view selector there (PHONE_QUERY, max-width 640px). */
+const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) <= 640;
+
 const inventoryRow = (page: Page, unit: TestUnit) =>
   page.getByRole('row').filter({ has: page.getByRole('link', { name: unit.readableId }) });
 
@@ -49,7 +52,7 @@ test('T2/AC2/AC3: an offline move shows Pending beside the saved location on thi
   await signInAs(page, 'at');
   // Online once, so this computer knows the unit and the locations.
   await page.goto('/sample-storage/move');
-  await expect(page.getByRole('heading', { level: 1, name: 'Move storage units' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
   await scan(page, `LOC-${staging.code}`);
   await expect(page.getByTestId('move-destination')).toContainText(staging.name);
   await scan(page, u1.readableId);
@@ -74,18 +77,23 @@ test('T2/AC2/AC3: an offline move shows Pending beside the saved location on thi
   await expect(marker).toHaveText('Pending');
   await expect(marker).toHaveAttribute('title', new RegExp(c1.name));
 
-  // T3: the compact row keeps the marker and stays on one line, on the phone viewport too.
-  await page
-    .getByRole('group', { name: 'Table view' })
-    .getByRole('button', { name: 'Compact' })
-    .click();
-  const compactRow = inventoryRow(page, u1).and(page.locator('.inventory-table-compact tr'));
-  await expect(compactRow.getByTestId('pending-move')).toBeVisible();
-  expect((await compactRow.boundingBox())!.height).toBeLessThan(48);
-  await page
-    .getByRole('group', { name: 'Table view' })
-    .getByRole('button', { name: 'Standard' })
-    .click();
+  // T3: the compact row keeps the marker and stays on one line. Field Ledger: compact is a
+  // desktop (mouse) view; phones always use comfortable rows and have no view selector.
+  if (!isPhone(page)) {
+    await page
+      .getByRole('group', { name: 'Table view' })
+      .getByRole('button', { name: 'Compact rows' })
+      .click();
+    const compactRow = inventoryRow(page, u1).and(page.locator('.inventory-table-compact tr'));
+    await expect(compactRow.getByTestId('pending-move')).toBeVisible();
+    expect((await compactRow.boundingBox())!.height).toBeLessThan(48);
+    await page
+      .getByRole('group', { name: 'Table view' })
+      .getByRole('button', { name: 'Comfortable rows' })
+      .click();
+  } else {
+    await expect(page.getByRole('group', { name: 'Table view' })).toHaveCount(0);
+  }
 
   // Another device (its own browser profile) signed in as the same person sees no marker.
   const other = await browser.newContext();
@@ -115,10 +123,12 @@ test('T1/AC1/T3: a unit with an open conflict shows Conflict, appears under the 
   await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Conflict: Open');
   const row = inventoryRow(page, conflicted);
   await expect(row.getByText('Conflict', { exact: true })).toBeVisible();
+  // Compact rows are desktop only (Field Ledger); phones keep comfortable rows.
+  if (isPhone(page)) return;
 
   await page
     .getByRole('group', { name: 'Table view' })
-    .getByRole('button', { name: 'Compact' })
+    .getByRole('button', { name: 'Compact rows' })
     .click();
   const compact = page.locator('.inventory-table-compact');
   await expect(compact).toBeVisible();
@@ -130,6 +140,6 @@ test('T1/AC1/T3: a unit with an open conflict shows Conflict, appears under the 
   expect((await compactRow.boundingBox())!.height).toBeLessThan(48);
   await page
     .getByRole('group', { name: 'Table view' })
-    .getByRole('button', { name: 'Standard' })
+    .getByRole('button', { name: 'Comfortable rows' })
     .click();
 });

@@ -5,6 +5,7 @@ import {
   normalizeStorageUnitCode,
   type StorageUnitDetail,
   type StorageUnitHistoryPage,
+  type StorageUnitLabPrograms,
   type StorageUnitLookupResponse,
 } from '@materialmule/shared';
 import type { Pool } from 'pg';
@@ -301,9 +302,57 @@ export async function getStorageUnitHistory(
   };
 }
 
+/**
+ * Lab programs that cover this unit (its frozen coverage at submission), newest first, with the
+ * tests on the covering lines counted by state. Drafts have no coverage yet; cancelled tests are
+ * resolved and left out. Progress only.
+ */
+export async function getStorageUnitLabPrograms(
+  pool: Pool,
+  idOrCode: string,
+): Promise<StorageUnitLabPrograms | null> {
+  const unit = await findUnit(pool, idOrCode);
+  if (!unit) return null;
+  const { rows } = await pool.query<{
+    id: string;
+    program_number: string | null;
+    status: 'submitted' | 'closed';
+    not_started: number;
+    in_progress: number;
+    done: number;
+  }>(
+    `SELECT p.id, p.program_number, p.status,
+            count(*) FILTER (WHERE tr.status = 'requested')::int AS not_started,
+            count(*) FILTER (WHERE tr.status = 'in_progress')::int AS in_progress,
+            count(*) FILTER (WHERE tr.status IN ('completed', 'review', 'accepted'))::int AS done
+     FROM program_scope_snapshot s
+     JOIN lab_program p ON p.id = s.program_id
+     JOIN test_request tr ON tr.program_id = s.program_id AND tr.line_id = s.line_id
+     WHERE s.storage_unit_id = $1 AND s.included
+       AND p.status IN ('submitted', 'closed') AND tr.status <> 'cancelled'
+     GROUP BY p.id, p.program_number, p.status, p.submitted_at
+     ORDER BY p.submitted_at DESC NULLS LAST, p.program_number DESC`,
+    [unit.id],
+  );
+  return {
+    programs: rows.map((row) => ({
+      id: row.id,
+      programNumber: row.program_number,
+      status: row.status,
+      notStarted: row.not_started,
+      inProgress: row.in_progress,
+      done: row.done,
+    })),
+  };
+}
+
 @Injectable()
 export class StorageUnitsService {
   constructor(private readonly database: DatabaseService) {}
+
+  labPrograms(idOrCode: string) {
+    return getStorageUnitLabPrograms(this.database.pool, idOrCode);
+  }
 
   lookup(code: string) {
     return lookupStorageUnit(this.database.pool, code);

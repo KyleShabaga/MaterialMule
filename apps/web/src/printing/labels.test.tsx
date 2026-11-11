@@ -288,7 +288,7 @@ describe('LabelPrintPage', () => {
     );
     renderRoute('/labels/print/receipt/r1?from=BKT-2026-000099');
     expect(await screen.findByRole('heading', { name: 'Label BKT-2026-000014' })).toBeVisible();
-    expect(screen.getByRole('link', { name: '← Back to Sample Storage' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '← Back to inventory' })).toHaveAttribute(
       'href',
       '/sample-storage',
     );

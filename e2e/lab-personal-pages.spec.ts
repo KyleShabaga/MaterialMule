@@ -45,7 +45,9 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
   await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
 
   await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}`);
-  await expect(page.getByRole('heading', { name: 'Disposal & Retention' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Retention', exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel('Units shown')).toBeVisible();
 
   // Let in-flight requests settle before the check: the last page's loads must be finished.

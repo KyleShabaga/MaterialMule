@@ -189,7 +189,7 @@ test.describe('wide screens (> 1280px)', () => {
     await expect(page.getByText('3 storage units', { exact: true })).toBeVisible();
     await page
       .getByRole('group', { name: 'Table view' })
-      .getByRole('button', { name: 'Compact' })
+      .getByRole('button', { name: 'Compact rows' })
       .click();
     const compact = page.locator('.inventory-table-compact');
     await expect(compact).toBeVisible();
@@ -202,7 +202,7 @@ test.describe('wide screens (> 1280px)', () => {
     await expect(compact.getByTitle(`Pit ${tag}: B1 at 1.5–2 m · bucket 2 of 2`)).toBeVisible();
     await page
       .getByRole('group', { name: 'Table view' })
-      .getByRole('button', { name: 'Standard' })
+      .getByRole('button', { name: 'Comfortable rows' })
       .click();
   });
 });
