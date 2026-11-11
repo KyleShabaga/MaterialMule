@@ -2,8 +2,36 @@
    (MM-V2-C31) in the Field Ledger design. Tokens only; radii 3 / 4 / 6, never pill shapes.
    Hover is global (styles.css). Phone layouts stack; wide tables scroll inside their frame. */
 
-/* The top-bar Lab search box (LabSearchBox) is styled by layout/shell.css (.top-bar and
-   .phone-header), the only places it is rendered. */
+/* The top-bar Lab search box (LabSearchBox): colours and borders come from layout/shell.css
+   (.top-bar and .phone-header). Its layout stays here: on a phone the header wraps and the search
+   takes its own full-width row, so it never overlaps the page. */
+.lab-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 14rem;
+  max-width: 26rem;
+  margin: 0;
+}
+
+.lab-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .lab-search {
+    order: 10;
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .lab-search input,
+  .lab-search-button {
+    min-height: 44px;
+  }
+}
 
 /* ---- Shared ------------------------------------------------------------------------------- */
 
