@@ -146,6 +146,12 @@ function NotificationCenter() {
   useEffect(() => {
     latest.current = load;
   }, [load]);
+  // The filter on screen now. A change started under one filter can finish after the person has
+  // switched to another: it is applied to (and refills) the list shown then, never the old one.
+  const currentFilter = useRef<NotificationFilter>(filter);
+  useEffect(() => {
+    currentFilter.current = filter;
+  }, [filter]);
 
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => {
@@ -183,33 +189,28 @@ function NotificationCenter() {
   }, []);
 
   /** The next, older page for the current list. A failure keeps the rows and offers a retry. */
-  const loadMore = useCallback(
-    (cursor: string) => {
-      const id = generation.current;
-      setLoad((current) => (current.state === 'ready' ? { ...current, more: 'loading' } : current));
-      fetchNotifications(filter, cursor)
-        .then((list) => {
-          if (id !== generation.current) return;
-          setLoad((current) => {
-            if (current.state !== 'ready') return current;
-            const seen = new Set(current.items.map((item) => item.id));
-            return {
-              state: 'ready',
-              items: [...current.items, ...list.items.filter((item) => !seen.has(item.id))],
-              nextCursor: list.nextCursor,
-              more: 'idle',
-            };
-          });
-        })
-        .catch(() => {
-          if (id !== generation.current) return;
-          setLoad((current) =>
-            current.state === 'ready' ? { ...current, more: 'error' } : current,
-          );
+  const loadMore = useCallback((cursor: string) => {
+    const id = generation.current;
+    setLoad((current) => (current.state === 'ready' ? { ...current, more: 'loading' } : current));
+    fetchNotifications(currentFilter.current, cursor)
+      .then((list) => {
+        if (id !== generation.current) return;
+        setLoad((current) => {
+          if (current.state !== 'ready') return current;
+          const seen = new Set(current.items.map((item) => item.id));
+          return {
+            state: 'ready',
+            items: [...current.items, ...list.items.filter((item) => !seen.has(item.id))],
+            nextCursor: list.nextCursor,
+            more: 'idle',
+          };
         });
-    },
-    [filter],
-  );
+      })
+      .catch(() => {
+        if (id !== generation.current) return;
+        setLoad((current) => (current.state === 'ready' ? { ...current, more: 'error' } : current));
+      });
+  }, []);
 
   /**
    * Applies a successful change to the rows on screen; rows the filter no longer shows go. When
@@ -218,6 +219,7 @@ function NotificationCenter() {
    * is skipped.
    */
   const apply = (id: string, action: NotificationAction) => {
+    const filter = currentFilter.current;
     const update = (current: Load): Load =>
       current.state !== 'ready'
         ? current
@@ -298,6 +300,7 @@ function NotificationCenter() {
               if (filter === value) return;
               setLoad({ state: 'loading' });
               setMessage(null);
+              currentFilter.current = value;
               setFilter(value);
             }}
           >
@@ -324,7 +327,8 @@ function NotificationCenter() {
               now={now}
               onChanged={(action, unread) => {
                 if (unread !== null) apply(item.id, action);
-                const gone = unread !== null && !shown(changed(item, action), filter);
+                const gone =
+                  unread !== null && !shown(changed(item, action), currentFilter.current);
                 if (unread === null) {
                   announce('This notification couldn’t be updated. Try again.', false);
                 } else if (action !== 'read' || gone) {
