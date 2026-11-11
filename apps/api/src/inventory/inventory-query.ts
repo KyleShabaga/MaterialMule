@@ -11,6 +11,8 @@ export interface InventorySql {
   /** FROM … WHERE …, shared by the count and the page query. */
   fromWhere: string;
   orderBy: string;
+  /** Joins the outer page query needs so it can repeat `orderBy` (retain-until sort). */
+  orderJoin: string;
   params: unknown[];
   limit: number;
   offset: number;
@@ -127,6 +129,8 @@ export function buildInventoryQuery(
   return {
     fromWhere,
     orderBy,
+    orderJoin:
+      query.sort === 'retain_until' ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
     params,
     limit: query.pageSize,
     offset: (query.page - 1) * query.pageSize,

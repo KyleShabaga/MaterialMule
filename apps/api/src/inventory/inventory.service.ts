@@ -56,6 +56,7 @@ export async function queryInventory(
      JOIN project p ON p.id = su.project_id
      JOIN location l ON l.id = su.current_location_id
      LEFT JOIN tested_unit_removal tr ON tr.storage_unit_id = su.id
+     ${sql.orderJoin}
      ORDER BY ${sql.orderBy}`,
     [...sql.params, sql.limit, sql.offset],
   );

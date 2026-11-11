@@ -71,6 +71,24 @@ describe.runIf(testDatabaseUrl)('shelf activity and unit lab progress (Field Led
     expect(activity.arrivals.map((a) => a.storageUnitId)).toEqual([stays.id]);
   });
 
+  it('Retention bands: the inventory filters by a retain-until range and sorts by it', async () => {
+    const early = await h.bucket({ hole: h.holes.a1, receivedDate: '2025-02-01' });
+    const late = await h.bucket({ hole: h.holes.a1, receivedDate: '2025-03-01' });
+    const response = await h.get(
+      `/api/inventory?status=current&sort=retain_until&retainUntilFrom=2026-01-15&retainUntilTo=2026-03-15&pageSize=100`,
+      'tech',
+    );
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const ids = (response.body.items as { id: string }[]).map((item) => item.id);
+    expect(ids.indexOf(early.id)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(early.id)).toBeLessThan(ids.indexOf(late.id));
+    const dates = (response.body.items as { retention: { effectiveRetainUntil: string } }[]).map(
+      (item) => item.retention.effectiveRetainUntil,
+    );
+    expect(dates).toEqual([...dates].sort());
+    expect(dates.every((d) => d >= '2026-01-15' && d <= '2026-03-15')).toBe(true);
+  });
+
   it('answers 404 for an unknown location', async () => {
     const response = await h.get(`/api/locations/${randomUUID()}/activity`, 'tech');
     expect(response.status).toBe(404);
