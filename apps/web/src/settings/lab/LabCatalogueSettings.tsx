@@ -25,6 +25,7 @@ import {
 import { catalogueWrite, fetchCatalogue, fetchTemplates, type WriteResult } from '../../lab/api';
 import { TestPicker } from '../../lab/TestPicker';
 import { useMe } from '../../session/context';
+import { SettingsHead } from '../SettingsHead';
 
 // Settings → Tests and Settings → Templates (MM-T23). Only Lab Managers and administrators
 // (`test_catalog.manage`) see them (MISC-04); they add, edit, retire and restore. Nothing is deleted:
@@ -80,7 +81,11 @@ function TestsSettings() {
   const tests = searchTests(catalogue.tests, query);
   return (
     <section aria-labelledby="tests-heading">
-      <h2 id="tests-heading">Tests</h2>
+      <SettingsHead
+        id="tests-heading"
+        title="Tests"
+        who="The lab test catalogue, one table per group. Lab Managers and administrators change it."
+      />
       <p className="field-hint">
         Each test keeps its exact code and full description. Soils and Advanced Soils only; no costs
         are stored.{allowed ? '' : ` ${NOT_ALLOWED_TEXT}`}
@@ -179,6 +184,7 @@ function TestsSettings() {
                         </button>
                         <button
                           type="button"
+                          className={test.active ? 'danger' : undefined}
                           onClick={() =>
                             void act(
                               catalogueWrite(
@@ -469,7 +475,11 @@ function TemplatesSettings() {
 
   return (
     <section aria-labelledby="templates-heading">
-      <h2 id="templates-heading">Templates</h2>
+      <SettingsHead
+        id="templates-heading"
+        title="Templates"
+        who="Named sets of tests. Lab Managers and administrators change them."
+      />
       <p className="field-hint">
         Named sets of tests that fill a testing line in one step.
         {allowed ? '' : ` ${NOT_ALLOWED_TEXT}`}
@@ -610,7 +620,7 @@ function TemplateCard({
         ) : template.items.length === 0 ? (
           <p className="field-hint">No tests yet.</p>
         ) : (
-          <ul>
+          <ul className="test-chips" aria-label={`Tests in ${template.name}`}>
             {template.items.map((item) => (
               <li key={item.testTypeId}>
                 <span className="mono">{item.code}</span> {item.displayName}
@@ -635,7 +645,7 @@ function CatalogueGate({ title, children }: { title: string; children: ReactNode
   const id = `${title.toLowerCase()}-heading`;
   return (
     <section aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
+      <SettingsHead id={id} title={title} />
       <EmptyState>{REFUSED_TEXT}</EmptyState>
     </section>
   );

@@ -107,7 +107,7 @@ test('T1–T4: tags group by the catalogue, preview and position on the sheet, a
   await expect(list.getByRole('listitem').nth(0)).toContainText('Atterberg Limits');
   await expect(list.getByRole('listitem').nth(1)).toContainText('Hydrometer');
   await expect(list.getByRole('listitem').nth(1)).toContainText('Sieve');
-  await page.getByText(/^Not tagged: 2 items$/).click();
+  await expect(page.getByRole('heading', { name: 'No tag needed' })).toBeVisible();
   await expect(page.getByText(/G13 · 10\.0 m: Moisture Content/)).toBeVisible();
   await expect(page.getByText(/Line 2 · ALL · TH26-01: Atterberg Limits/)).toBeVisible();
 

@@ -51,20 +51,24 @@ export function ReasonDialog({
       }}
     >
       {children}
-      <label htmlFor={id}>Reason</label>
-      <textarea
-        id={id}
-        value={reason}
-        maxLength={2000}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(event) => setReason(event.target.value)}
-      />
-      {error ? (
-        <p id={`${id}-error`} className="field-error">
-          {error}
-        </p>
-      ) : null}
+      {/* Field Ledger dialog field: mono caps label over the 2 px input (canvas Dialogs). */}
+      <div className="form-field">
+        <label htmlFor={id}>Reason</label>
+        <textarea
+          id={id}
+          value={reason}
+          maxLength={2000}
+          rows={3}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
+          onChange={(event) => setReason(event.target.value)}
+        />
+        {error ? (
+          <p id={`${id}-error`} className="field-error">
+            {error}
+          </p>
+        ) : null}
+      </div>
     </ConfirmDialog>
   );
 }

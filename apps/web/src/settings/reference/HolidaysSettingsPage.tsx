@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
 import { createHoliday, fetchHolidays, removeHoliday, renameHoliday, type SaveResult } from './api';
+import { SettingsHead } from '../SettingsHead';
 import './reference-settings.css';
 
 // Settings → Holidays (MM-V2-C37, owner decision 2026-11-08): the company holiday calendar,
@@ -273,14 +274,25 @@ export function HolidaysSettingsPage() {
       <p role="status" className="field-hint">
         {notice ?? ''}
       </p>
-      <section className="card" aria-labelledby="holidays-heading">
-        <div className="section-header">
-          <h2 id="holidays-heading">Holiday calendar</h2>
-          {canManage && mode === null ? (
-            <button type="button" onClick={() => setMode({ kind: 'add' })}>
-              Add a holiday
-            </button>
-          ) : null}
+      <section className="settings-page" aria-labelledby="holidays-heading">
+        <SettingsHead
+          id="holidays-heading"
+          title="Holiday calendar"
+          who="Used to flag concrete break dates. Everyone can read it; administrators change it."
+          actions={
+            canManage && mode === null ? (
+              <button type="button" className="primary" onClick={() => setMode({ kind: 'add' })}>
+                Add a holiday
+              </button>
+            ) : null
+          }
+        />
+        <div className="flag-only-note">
+          <StatusBadge tone="waiting">Flag only</StatusBadge>
+          <span>
+            A break that lands on a holiday is flagged, the same way a weekend is. Its date is never
+            moved for you.
+          </span>
         </div>
         <p className="field-hint">
           A concrete specimen whose target lands on one of these dates keeps its target and is

@@ -5,18 +5,21 @@ import {
   formatLineDepth,
   formatPerson,
   programLabel,
+  testProgress,
   type LabComment,
   type LabLine,
   type LabProgram,
   type ProgramWork,
   type ReceiverOption,
   type SameSourceUnits,
+  type TestProgress,
   type TestRequest,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { ErrorState, StatusBadge } from '../components/ui';
+import { CountedCells, ErrorState, SectionHead, SidePanel, StatusBadge } from '../components/ui';
+import { progressCells, progressLabel } from './format';
 import { shortDateTime, shortTime } from '../dashboard/format';
 import { useMe } from '../session/context';
 import {
@@ -631,12 +634,19 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
     refresh();
   };
 
+  const statusOf = (request: TestRequest) =>
+    work?.requests.find((r) => r.testRequestId === request.id)?.status ?? request.status;
+  const counts: Partial<Record<TestRequest['status'], number>> = {};
+  for (const request of program.lines.flatMap((line) => line.requests)) {
+    const status = statusOf(request);
+    counts[status] = (counts[status] ?? 0) + 1;
+  }
+  const progress = testProgress(counts);
+
   return (
-    <article aria-labelledby="program-heading">
-      <h2 id="program-heading" className="mono">
-        {programLabel(program)}
-      </h2>
-      <ProgramSummary program={program} />
+    <article aria-labelledby="program-heading" className="lab-program">
+      <ProgramHead program={program} />
+      <ProgressStrip progress={progress} />
       <SampleTagsPrompt program={program} />
       {failed ? <ErrorState message="Progress couldn’t be loaded." onRetry={refresh} /> : null}
       {message ? (
@@ -644,103 +654,227 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
           {message}
         </p>
       ) : null}
-      {work ? (
-        <>
-          <ProgramLifecycle program={program} work={work} onDone={after} />
-          <AmendProgram
-            program={program}
-            work={work}
-            onDone={after}
-            onRefresh={() => {
-              reload();
-              refresh();
-            }}
-          />
-          <PriorityControl program={program} work={work} onChanged={after} />
-          {program.lines.map((line) => (
-            <FrozenLine
-              key={line.id}
-              line={line}
-              statusOf={(request) =>
-                work.requests.find((r) => r.testRequestId === request.id)?.status ?? request.status
-              }
-              testActions={(request) => {
-                const changed = lastChange(work, request.id);
-                const tested = work.testedUnits.filter((unit) => unit.testRequestId === request.id);
-                return (
-                  <>
-                    {changed ? <span className="field-hint">{changed}</span> : null}
-                    {request.identity ? (
-                      <span className="field-hint">
-                        Sample now {request.identity.sampleLabel} at{' '}
-                        {formatLineDepth(request.identity)}
-                      </span>
-                    ) : null}
-                    {request.amendmentId ? (
-                      <span className="field-hint">Added by amendment</span>
-                    ) : null}
-                    {tested.length > 0 ? (
-                      <StatusBadge tone="info">
-                        Used:{' '}
-                        {tested.map((unit, index) => (
-                          // The unit's page shows its evidence and, for a personal account, the
-                          // separate removal after testing (MM-T36).
-                          <span key={unit.storageUnitId}>
-                            {index > 0 ? ', ' : null}
-                            <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
-                              {unit.readableId}
-                            </Link>
-                          </span>
-                        ))}
-                      </StatusBadge>
-                    ) : null}
-                    {tested
-                      .filter((unit) => unit.confirmation !== null)
-                      .map((unit) => (
-                        <span key={`${unit.storageUnitId}-confirmed`} className="field-hint">
-                          {unit.readableId} was outside this line’s coverage: same source confirmed
-                          by{' '}
-                          {formatPerson(
-                            unit.confirmation!.person.initials,
-                            unit.confirmation!.person.name,
-                          )}
-                          , {shortDateTime(unit.confirmation!.confirmedAt)}
-                        </span>
-                      ))}
-                    <StatusAction request={request} line={line} work={work} onDone={after} />
-                    <ReviewControls testRequestId={request.id} work={work} onDone={after} />
-                    <RequestLifecycle
-                      request={request}
-                      program={program}
-                      work={work}
-                      onDone={after}
-                    />
-                    <ChangeAcceptedTest request={request} line={line} work={work} onDone={after} />
-                  </>
-                );
-              }}
-            >
-              <Comments
-                programId={program.id}
-                lineId={line.id}
-                comments={work.comments}
-                onChanged={after}
+      <div className="lab-split">
+        <div className="lab-split-main">
+          {work ? (
+            <>
+              <ProgramLifecycle program={program} work={work} onDone={after} />
+              <AmendProgram
+                program={program}
+                work={work}
+                onDone={after}
+                onRefresh={() => {
+                  reload();
+                  refresh();
+                }}
               />
-            </FrozenLine>
-          ))}
-          <section aria-labelledby="program-comments" className="program-comments">
-            <h3 id="program-comments">Program comments</h3>
-            <Comments
-              programId={program.id}
-              lineId={null}
-              comments={work.comments}
-              onChanged={after}
-            />
-          </section>
-        </>
-      ) : failed ? null : (
-        <p aria-busy="true">Loading progress…</p>
-      )}
+              <PriorityControl program={program} work={work} onChanged={after} />
+              <SectionHead title="Samples and tests" meta="Progress only · no results" />
+              {program.lines.map((line) => (
+                <FrozenLine
+                  key={line.id}
+                  line={line}
+                  statusOf={(request) =>
+                    work.requests.find((r) => r.testRequestId === request.id)?.status ??
+                    request.status
+                  }
+                  testActions={(request) => {
+                    const changed = lastChange(work, request.id);
+                    const tested = work.testedUnits.filter(
+                      (unit) => unit.testRequestId === request.id,
+                    );
+                    return (
+                      <>
+                        {changed ? <span className="field-hint">{changed}</span> : null}
+                        {request.identity ? (
+                          <span className="field-hint">
+                            Sample now {request.identity.sampleLabel} at{' '}
+                            {formatLineDepth(request.identity)}
+                          </span>
+                        ) : null}
+                        {request.amendmentId ? (
+                          <span className="field-hint">Added by amendment</span>
+                        ) : null}
+                        {tested.length > 0 ? (
+                          <StatusBadge tone="info">
+                            Used:{' '}
+                            {tested.map((unit, index) => (
+                              // The unit's page shows its evidence and, for a personal account, the
+                              // separate removal after testing (MM-T36).
+                              <span key={unit.storageUnitId}>
+                                {index > 0 ? ', ' : null}
+                                <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
+                                  {unit.readableId}
+                                </Link>
+                              </span>
+                            ))}
+                          </StatusBadge>
+                        ) : null}
+                        {tested
+                          .filter((unit) => unit.confirmation !== null)
+                          .map((unit) => (
+                            <span key={`${unit.storageUnitId}-confirmed`} className="field-hint">
+                              {unit.readableId} was outside this line’s coverage: same source
+                              confirmed by{' '}
+                              {formatPerson(
+                                unit.confirmation!.person.initials,
+                                unit.confirmation!.person.name,
+                              )}
+                              , {shortDateTime(unit.confirmation!.confirmedAt)}
+                            </span>
+                          ))}
+                        <StatusAction request={request} line={line} work={work} onDone={after} />
+                        <ReviewControls testRequestId={request.id} work={work} onDone={after} />
+                        <RequestLifecycle
+                          request={request}
+                          program={program}
+                          work={work}
+                          onDone={after}
+                        />
+                        <ChangeAcceptedTest
+                          request={request}
+                          line={line}
+                          work={work}
+                          onDone={after}
+                        />
+                      </>
+                    );
+                  }}
+                >
+                  <Comments
+                    programId={program.id}
+                    lineId={line.id}
+                    comments={work.comments}
+                    onChanged={after}
+                  />
+                </FrozenLine>
+              ))}
+              <section aria-labelledby="program-comments" className="program-comments">
+                <h3 id="program-comments">Program comments</h3>
+                <Comments
+                  programId={program.id}
+                  lineId={null}
+                  comments={work.comments}
+                  onChanged={after}
+                />
+              </section>
+            </>
+          ) : failed ? null : (
+            <p aria-busy="true">Loading progress…</p>
+          )}
+        </div>
+        <div className="lab-split-side">
+          <SidePanel title="Program details">
+            <ProgramSummary program={program} />
+          </SidePanel>
+          <ProgramUnits program={program} work={work} />
+        </div>
+      </div>
     </article>
+  );
+}
+
+/** Mono eyebrow (program, project, who asked), the program number as the page title, its state. */
+export function ProgramHead({ program }: { program: LabProgram }) {
+  const requester = program.submittedFor ?? program.requestedBy;
+  return (
+    <header className="lab-program-head">
+      <p className="lab-eyebrow">
+        Lab program ·{' '}
+        <Link to={`/projects/${program.project.id}`}>{program.project.projectNumber}</Link> ·
+        Requested by {requester.name}
+        {program.submittedAt ? `, ${shortDateTime(program.submittedAt)}` : ''}
+      </p>
+      <div className="lab-program-title">
+        {/* Open / Closed is in the lifecycle panel and priority in the details, each once. */}
+        <h1 id="program-heading" className="mono">
+          {programLabel(program)}
+        </h1>
+      </div>
+      <p className="lab-program-project">{program.project.name}</p>
+    </header>
+  );
+}
+
+/** Tests done of total, one counted cell per test, and the progress-only note. */
+function ProgressStrip({ progress }: { progress: TestProgress }) {
+  const total = progress.done + progress.inProgress + progress.notStarted;
+  return (
+    <div className="lab-strip">
+      <div className="lab-strip-cell">
+        <span className="field-label">Tests done</span>
+        <span className="lab-strip-count">
+          {progress.done}
+          <span className="lab-strip-of"> of {total}</span>
+        </span>
+        {progress.cancelled > 0 ? (
+          <span className="lab-strip-note">{progress.cancelled} cancelled, not counted</span>
+        ) : null}
+      </div>
+      <div className="lab-strip-cell lab-strip-cells">
+        {total > 0 ? (
+          <CountedCells cells={progressCells(progress)} label={progressLabel(progress)} />
+        ) : (
+          <span className="lab-strip-note">No tests to count.</span>
+        )}
+        <span className="lab-strip-note">
+          Black is done, orange is in progress, white is not started.
+        </span>
+      </div>
+      <div className="lab-strip-cell">
+        <span className="field-label">Shows progress only</span>
+        <span>Results are not recorded here.</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The storage units in this program's frozen coverage (potential material, not a record of what
+ * was tested), each linking to its unit page, where it is moved or checked out.
+ */
+function ProgramUnits({ program, work }: { program: LabProgram; work: ProgramWork | null }) {
+  const units = new Map<string, { readableId: string; contents: string | null; lines: number[] }>();
+  for (const line of program.lines) {
+    for (const unit of line.coverage.filter((u) => u.included)) {
+      const known = units.get(unit.storageUnitId);
+      if (known) known.lines.push(line.lineNumber);
+      else
+        units.set(unit.storageUnitId, {
+          readableId: unit.readableId,
+          contents: unit.contents,
+          lines: [line.lineNumber],
+        });
+    }
+  }
+  const tested = new Set((work?.testedUnits ?? []).map((unit) => unit.storageUnitId));
+  return (
+    <SidePanel title="Units for this program">
+      {units.size === 0 ? (
+        <p className="field-hint">No storage unit is linked to this program.</p>
+      ) : (
+        <ul className="lab-units">
+          {[...units].map(([id, unit]) => (
+            <li key={id} data-row>
+              <span className="lab-units-head">
+                <Link
+                  className="mono"
+                  to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}
+                >
+                  {unit.readableId}
+                </Link>
+                {tested.has(id) ? <StatusBadge tone="lab">Used in a test</StatusBadge> : null}
+              </span>
+              <span className="lab-units-sub">
+                {unit.contents ? `${unit.contents} · ` : ''}Line {unit.lines.join(', ')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="field-hint">
+        Covered material is what the lab may use, not a record of what was tested.
+      </p>
+    </SidePanel>
   );
 }
