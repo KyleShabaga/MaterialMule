@@ -161,7 +161,7 @@
 
 .testing-table input[type='text'] {
   width: 7.5rem;
-  min-height: var(--control-compact);
+  min-height: var(--control);
   box-sizing: border-box;
   padding: 0 var(--space-1);
   border: var(--rule-width) solid var(--rule);
@@ -215,7 +215,7 @@
 }
 
 .testing-retry {
-  min-height: var(--control-compact);
+  min-height: var(--control);
   margin-top: var(--space-1);
   padding: 0 10px;
 }

@@ -135,8 +135,6 @@
   --fs-big-count: 2.5rem;
 
   font-family: var(--font-sans);
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
   color: var(--ink);
   background: var(--page);
 }
@@ -291,8 +289,12 @@
   color-scheme: light;
 }
 
+/* Body text is 15 px on a 16 px root, so every rem token (label 12, small 13, body 15) is the size
+   design.md names; setting it on :root made 1rem 15 px and shrank them all. */
 body {
   margin: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   background: var(--page);
 }
 
@@ -1168,6 +1170,9 @@ input[type='email'],
 input[type='password'],
 input[type='number'],
 input[type='date'],
+input[type='datetime-local'],
+input[type='time'],
+input[type='tel'],
 input:not([type]),
 select,
 textarea {
@@ -1418,7 +1423,7 @@ textarea {
 
 .picker legend {
   padding: 0 0.375rem;
-  font: 600 0.6875rem/1.4 var(--font-mono);
+  font: 600 var(--fs-label) / 1.4 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -1620,7 +1625,7 @@ textarea {
 
 .hole-summary legend {
   padding: 0 0.375rem;
-  font: 600 0.6875rem/1.4 var(--font-mono);
+  font: 600 var(--fs-label) / 1.4 var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -1704,7 +1709,7 @@ textarea {
 }
 
 .link-button {
-  min-height: 36px;
+  min-height: var(--control);
   border: none;
   background: none;
   color: var(--accent);
@@ -2045,7 +2050,7 @@ textarea {
 }
 
 .stat-tiles dt {
-  font: 600 0.6875rem/1rem var(--font-mono);
+  font: 600 var(--fs-label) / 1rem var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);

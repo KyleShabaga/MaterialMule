@@ -1,5 +1,6 @@
 import {
   formatPerson,
+  type InventoryItem,
   type InventoryPage,
   type ProjectDetail,
   type StaffOption,
@@ -476,14 +477,20 @@ function ProjectUnits({
     from: `?${new URLSearchParams({ projectId, status: 'all' }).toString()}`,
   };
   const items = result.data.items;
+  // A unit's test holes: its hole summaries, or a Shelby tube's or bulk sample's own source.
+  const holeIds = (item: InventoryItem) => {
+    const ids = item.holes.map((h) => h.testHoleId);
+    if (item.sample?.source.type === 'test_hole') ids.push(item.sample.source.testHoleId);
+    return ids;
+  };
   const groups = holes
     .map((hole) => ({
       key: hole.id,
       name: hole.name,
-      units: items.filter((item) => item.holes.some((h) => h.testHoleId === hole.id)),
+      units: items.filter((item) => holeIds(item).includes(hole.id)),
     }))
     .filter((group) => group.units.length > 0);
-  const other = items.filter((item) => item.holes.length === 0);
+  const other = items.filter((item) => holeIds(item).length === 0);
   if (other.length > 0) {
     groups.push({ key: 'other', name: 'Not from a test hole', units: other });
   }

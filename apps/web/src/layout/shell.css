@@ -219,7 +219,7 @@
   background: var(--flag);
   color: var(--on-flag);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   line-height: 16px;
   text-align: center;
@@ -497,7 +497,7 @@ a.notifications-bell[aria-current='page']:hover {
   background: var(--flag);
   color: var(--on-flag);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   line-height: 16px;
   text-align: center;
