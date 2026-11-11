@@ -2,197 +2,530 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Today — desktop</title>
+<title>Strata components</title>
 <script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
 </head>
 <body>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
 <style>
 body{margin:0}
 </style>
 </helmet>
-<div style="{{theme}} font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: var(--foreground); background: var(--background); display: flex; flex-wrap: wrap; min-height: 1240px; font-size: 15px; line-height: 22px;">
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
+<div class="bg-background text-foreground font-sans min-h-[5300px] w-full">
+<main class="mx-auto flex max-w-[1360px] flex-col gap-10 px-8 py-10">
 
-<!-- Rail -->
-<nav aria-label="Main" style="flex: 1 1 248px; box-sizing: border-box; background: var(--sidebar); padding: 20px 16px; display: flex; flex-direction: column; gap: 24px;">
-<a href="#" aria-label="Material Mule, Today" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--foreground); padding: 0 4px;">
-<span style="width: 40px; height: 40px; border-radius: 12px; background: var(--primary); color: var(--primary-foreground); display: flex; align-items: center; justify-content: center; flex: none;">
-<svg width="28" height="22" viewBox="150 230 960 760" aria-hidden="true"><defs><mask id="mmdk-main" maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760"><rect x="150" y="230" width="960" height="760" fill="#fff"></rect><g fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path></g></mask></defs><g fill="currentColor"><g mask="url(#mmdk-main)"><path d="M350,690 C360,730 380,745 395,765 C380,790 350,805 320,825 C290,850 272,880 268,920 C272,935 285,950 292,970 L232,970 L232,955 C238,945 230,930 240,915 C260,880 280,840 300,800 C320,780 340,760 350,690 Z"></path><path d="M715,700 L770,720 C760,770 740,800 725,840 C710,880 700,910 715,970 L655,970 C660,950 648,935 650,915 C665,870 690,820 705,780 C712,760 712,730 715,700 Z"></path></g><path d="M352,595 C335,615 320,640 300,665 C285,680 275,700 262,720 C240,752 200,768 165,772 C180,755 185,735 200,710 C220,680 250,660 280,655 C300,640 315,600 340,575 Z"></path><path d="M340,580 C365,535 425,503 500,500 C580,497 640,520 700,505 C760,490 805,465 845,435 C885,405 912,390 938,390 L1000,405 C1025,430 1042,452 1047,472 C1060,510 1080,545 1087,577 C1092,605 1074,628 1050,628 C1030,628 1018,614 1014,600 C980,582 945,568 925,540 C902,578 878,612 862,632 L850,700 L745,690 C700,715 640,728 590,722 C550,716 522,702 505,690 L495,700 C470,745 420,745 395,735 C355,690 330,640 340,580 Z"></path><path d="M765,490 C785,478 805,474 822,468 L812,490 Z"></path><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path><path d="M935,412 C928,360 945,300 995,255 C1002,300 992,360 975,405 Z"></path><path d="M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z"></path></g></svg>
-</span>
-<span style="font-weight: 700; font-size: 17px;">Material Mule</span>
-</a>
-
-<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;">
-<li><a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; background: var(--accent); color: var(--accent-foreground); font-weight: 700; text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Today</a></li>
-<li><a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>Projects</a></li>
-<li><a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Receive</a></li>
-<li><a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg>Inventory</a></li>
-<li><a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"></path><path d="M6.453 15h11.094"></path><path d="M8.5 2h7"></path></svg>Lab programs</a></li>
-<li style="display: flex; align-items: center;"><a href="#" style="flex: 1; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 22h14"></path><path d="M5 2h14"></path><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path></svg>Retention</a><button type="button" aria-label="Show Retention pages" aria-expanded="false" style="width: 44px; height: 44px; border: 0; border-radius: 999px; background: transparent; color: var(--muted-foreground); display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></li>
-<li style="display: flex; align-items: center;"><a href="#" style="flex: 1; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14a9 3 0 0 0 18 0V5"></path></svg>Concrete</a><button type="button" aria-label="Show Concrete pages" aria-expanded="false" style="width: 44px; height: 44px; border: 0; border-radius: 999px; background: transparent; color: var(--muted-foreground); display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></li>
-</ul>
-
-<div style="margin-top: auto; display: flex; flex-direction: column; gap: 2px;">
-<a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>Settings</a>
-<a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 8px; color: var(--foreground); text-decoration: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 9.5a3 2.5 0 016 0c0 2-2 2-3 3.5"></path><path d="M12 17h.01"></path></svg>Help &amp; Feedback</a>
-<div role="group" aria-label="Signed in user" style="margin-top: 10px; padding: 12px 4px 0; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px;">
-<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 50%; background: var(--card); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-weight: 700; font-size: 14px; flex: none;">{{initials}}</span>
-<sc-if value="{{busy}}" hint-placeholder-val="{{ true }}"><span style="display: flex; flex-direction: column; min-width: 0; flex: 1;"><span style="font-weight: 700;">Alex Tester</span><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Technician</span></span></sc-if>
-<sc-if value="{{clear}}" hint-placeholder-val="{{ false }}"><span style="display: flex; flex-direction: column; min-width: 0; flex: 1;"><span style="font-weight: 700;">LAB</span><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Shared receiving station</span></span></sc-if>
-<button type="button" aria-label="Sign out" style="width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg></button>
-</div>
-<sc-if value="{{clear}}" hint-placeholder-val="{{ false }}"><div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 0;"><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Session ends 11 Dec</span><a href="#" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1.5px solid var(--input); box-sizing: border-box; background: var(--card); color: var(--foreground); font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center;">Switch user</a></div></sc-if>
-</div>
-</nav>
-
-<!-- Content -->
-<div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column;">
-<header style="height: 64px; box-sizing: border-box; padding: 10px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-<div role="search" style="flex: 0 1 560px; min-width: 0; height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 16px; border-radius: 999px; background: var(--card); border: 1.5px solid var(--input);">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
-<label for="mm-search-main" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</label>
-<input id="mm-search-main" type="text" placeholder="Search or scan a label" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: var(--foreground);">
-<kbd style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); background: var(--muted); border-radius: 6px; padding: 1px 7px;">Ctrl K</kbd>
-<button type="button" aria-label="Scan a label" style="width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-foreground); display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><path d="M7 12h10"></path></svg></button>
-</div>
-<a href="#" aria-label="Notifications, 3 unread" style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--border); color: var(--foreground); display: flex; align-items: center; justify-content: center; flex: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg><span aria-hidden="true" style="position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--danger-mark); color: var(--card); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center;">3</span></a>
+<header class="flex flex-col gap-2">
+<p class="text-muted-foreground text-sm font-medium">Material Mule · Strata</p>
+<h1 class="text-3xl font-bold tracking-tight">Components</h1>
+<p class="text-muted-foreground max-w-[760px]">Real shadcn/ui components (4.23, Radix, Tailwind v4) with the Strata theme: Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls, Lucide icons. Press Play to use them. Every one here is planned for the web app; the sidebar has its own board.</p>
 </header>
 
-<main style="box-sizing: border-box; width: 100%; max-width: 1280px; padding: 8px 32px 48px; display: flex; flex-direction: column; gap: 24px;">
+<!-- ============ Actions ============ -->
+<h2 class="border-b pb-2 text-xl font-bold">Actions</h2>
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
 
-<!-- Greeting -->
-<section aria-labelledby="mm-greet" style="background: var(--primary); color: var(--primary-foreground); border-radius: 20px; padding: 28px 32px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px;">
-<div style="flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
-<p style="margin: 0; font-size: 15px; font-weight: 600; opacity: .88;">Wednesday 11 November · Receiving lab</p>
-<sc-if value="{{busy}}" hint-placeholder-val="{{ true }}"><h1 id="mm-greet" style="margin: 0; font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.015em; max-width: 640px;">Good morning, Alex. Five things need you today.</h1></sc-if>
-<sc-if value="{{clear}}" hint-placeholder-val="{{ false }}"><h1 id="mm-greet" style="margin: 0; font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.015em; max-width: 640px;">Good afternoon. Nothing needs you today.</h1><p style="margin: 0; font-size: 16px; line-height: 24px; opacity: .88; max-width: 620px;">This is the shared LAB station, so it isn't greeted by name. Each receipt still records who received it.</p></sc-if>
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Button</h3><p class="text-muted-foreground text-sm">One primary per screen; outline for other actions; destructive opens an alert dialog.</p></div>
+<div class="flex flex-wrap items-center gap-3">
+<x-import component-from-global-scope="Strata.Button">Confirm receipt</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Print labels</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="secondary">Save draft</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost">Cancel</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="link">View history</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="destructive">Record disposal</x-import>
 </div>
-<sc-if value="{{busy}}" hint-placeholder-val="{{ true }}">
-<div style="flex: 0 1 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
-<a href="#" style="height: 48px; padding: 0 24px; border-radius: 8px; background: var(--card); color: var(--accent-foreground); font-weight: 700; font-size: 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">Finish the draft receipt<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></a>
-<span style="font-size: 13px; line-height: 18px; opacity: .88;">First because no ID is issued until you confirm.</span>
+<div class="flex flex-wrap items-center gap-3">
+<x-import component-from-global-scope="Strata.Button" size="sm" variant="outline">Small</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline">Default</x-import>
+<x-import component-from-global-scope="Strata.Button" size="lg">Large</x-import>
+<x-import component-from-global-scope="Strata.Button" size="icon" variant="outline" aria-label="Scan a label"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" disabled="{{yes}}">Disabled</x-import>
+<x-import component-from-global-scope="Strata.Button" disabled="{{yes}}"><x-import component-from-global-scope="Strata.Spinner"></x-import>Sending to printer…</x-import>
 </div>
-</sc-if>
-<sc-if value="{{clear}}" hint-placeholder-val="{{ false }}"><a href="#" style="height: 48px; padding: 0 24px; border-radius: 8px; background: var(--card); color: var(--accent-foreground); font-weight: 700; font-size: 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">Receive a delivery</a></sc-if>
 </section>
 
-<!-- Counters -->
-<ul aria-label="Counts" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-<li><a href="#" style="display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--foreground); text-decoration: none;"><span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted-foreground);"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: var(--draft-mark);"></span>Draft receipts</span><span style="font-size: 32px; line-height: 36px; font-weight: 700;">{{c.drafts}}</span><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">On this computer</span></a></li>
-<li><a href="#" style="display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--foreground); text-decoration: none;"><span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted-foreground);"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: var(--due-mark);"></span>Labels to check</span><span style="font-size: 32px; line-height: 36px; font-weight: 700;">{{c.labels}}</span><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Not confirmed as printed</span></a></li>
-<li><a href="#" style="display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--foreground); text-decoration: none;"><span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted-foreground);"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: var(--lab-mark);"></span>Open lab programs</span><span style="font-size: 32px; line-height: 36px; font-weight: 700;">{{c.programs}}</span><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">With tests to do</span></a></li>
-<li><a href="#" style="display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--foreground); text-decoration: none;"><span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted-foreground);"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: var(--danger-mark);"></span>Retention due</span><span style="font-size: 32px; line-height: 36px; font-weight: 700;">{{c.retention}}</span><span style="font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Past the retain-until date</span></a></li>
-</ul>
-
-<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
-
-<!-- Needs you -->
-<section aria-labelledby="mm-needs" style="flex: 2 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
-<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
-<h2 id="mm-needs" style="margin: 0; font-size: 19px; line-height: 26px; font-weight: 700;">Needs you</h2>
-<span style="font-size: 13px; color: var(--muted-foreground);">{{needsMeta}}</span>
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Button group and Dropdown menu</h3><p class="text-muted-foreground text-sm">Split actions and row menus.</p></div>
+<div class="flex flex-wrap items-center gap-4">
+<x-import component-from-global-scope="Strata.ButtonGroup">
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="chevron-left"></x-import>Previous</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline">Next<x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" class-name="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium shadow-xs">Actions<x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" align="start" class-name="w-56">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel">BKT-2026-000019</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="move"></x-import>Move</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Print label</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="pencil"></x-import>Correct details</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem" variant="destructive"><x-import component-from-global-scope="Strata.Icon" name="trash-2"></x-import>Add to disposal list</x-import>
+</x-import>
+</x-import>
 </div>
-
-<sc-if value="{{busy}}" hint-placeholder-val="{{ true }}">
-<h3 style="margin: 4px 0 -6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--muted-foreground);">Receiving and labels</h3>
-<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
-<li style="position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px 16px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;"><span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--draft-mark);"></span>
-<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--draft-bg); color: var(--draft-fg); font-size: 13px; font-weight: 600; flex: none;"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>Draft</span>
-<div style="flex: 1 1 280px; min-width: 0;"><p style="margin: 0; font-weight: 600;">A receipt for <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">DEMO-2601</span> is waiting to be confirmed</p><p style="margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">3 storage units · on this computer · IDs issue when you confirm</p></div>
-<a href="#" style="height: 44px; padding: 0 20px; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; flex: none;">Continue</a>
-</li>
-<li style="position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px 16px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;"><span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--due-mark);"></span>
-<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--due-bg); color: var(--due-fg); font-size: 13px; font-weight: 600; flex: none;"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>Print</span>
-<div style="flex: 1 1 280px; min-width: 0;"><p style="margin: 0; font-weight: 600;">2 labels to check</p><p style="margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Sent to the printer; nobody has confirmed they came out · <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">BKT-2026-000019</span> first</p></div>
-<a href="#" style="height: 44px; padding: 0 20px; border-radius: 8px; background: var(--card); border: 1.5px solid var(--input); box-sizing: border-box; color: var(--foreground); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; flex: none;">Check</a>
-</li>
-</ul>
-
-<h3 style="margin: 4px 0 -6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--muted-foreground);">Inventory</h3>
-<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
-<li style="position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px 16px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;"><span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--due-mark);"></span>
-<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--due-bg); color: var(--due-fg); font-size: 13px; font-weight: 600; flex: none;"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>Location</span>
-<div style="flex: 1 1 280px; min-width: 0;"><p style="margin: 0; font-weight: 600;">1 storage unit needs its location confirmed</p><p style="margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Two moves disagree about where <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">ST-2024-000001</span> is</p></div>
-<a href="#" style="height: 44px; padding: 0 20px; border-radius: 8px; background: var(--card); border: 1.5px solid var(--input); box-sizing: border-box; color: var(--foreground); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; flex: none;">Confirm</a>
-</li>
-</ul>
-
-<h3 style="margin: 4px 0 -6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--muted-foreground);">Retention</h3>
-<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
-<li style="position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px 16px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;"><span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--danger-mark);"></span>
-<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--danger-bg); color: var(--danger-fg); font-size: 13px; font-weight: 600; flex: none;"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>Overdue</span>
-<div style="flex: 1 1 280px; min-width: 0;"><p style="margin: 0; font-weight: 600;">4 storage units have reached the end of retention</p><p style="margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);"><span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">DEMO-2612, DEMO-2613</span> · keep longer or add to a disposal list</p></div>
-<a href="#" style="height: 44px; padding: 0 20px; border-radius: 8px; background: var(--card); border: 1.5px solid var(--input); box-sizing: border-box; color: var(--foreground); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; flex: none;">Decide</a>
-</li>
-</ul>
-
-<h3 style="margin: 4px 0 -6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--muted-foreground);">Lab</h3>
-<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
-<li style="position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px 16px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;"><span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--lab-mark);"></span>
-<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--lab-bg); color: var(--lab-fg); font-size: 13px; font-weight: 600; flex: none;"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>In lab</span>
-<div style="flex: 1 1 280px; min-width: 0;"><p style="margin: 0; font-weight: 600;">3 lab programs have open tests</p><p style="margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">11 open tests · <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">DEMO-2610, DEMO-2611</span> and 1 more · oldest open test 6 days old</p></div>
-<a href="#" style="height: 44px; padding: 0 20px; border-radius: 8px; background: var(--card); border: 1.5px solid var(--input); box-sizing: border-box; color: var(--foreground); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; flex: none;">Open</a>
-</li>
-</ul>
-</sc-if>
-<sc-if value="{{clear}}" hint-placeholder-val="{{ false }}">
-<div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 40px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 14px;"><span aria-hidden="true" style="width: 56px; height: 56px; border-radius: 50%; background: var(--storage-bg); color: var(--storage-fg); display: flex; align-items: center; justify-content: center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><p style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700;">Nothing needs you.</p><p style="margin: 0; max-width: 420px; color: var(--muted-foreground);">No drafts to confirm, no labels waiting, nothing due. New work shows up here.</p></div>
-</sc-if>
 </section>
 
-<!-- Side column -->
-<div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 24px;">
-
-<section aria-labelledby="mm-last24" style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px;">
-<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
-<h2 id="mm-last24" style="margin: 0; font-size: 19px; line-height: 26px; font-weight: 700;">Last 24 hours</h2>
-<a href="#" style="font-size: 13px; color: var(--link); font-weight: 600;">All activity</a>
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6 xl:col-span-2">
+<div><h3 class="font-semibold">Toggle and Toggle group</h3><p class="text-muted-foreground text-sm">List filters, the comfortable / compact table view, and pinning.</p></div>
+<div class="flex flex-wrap items-center gap-4">
+<x-import component-from-global-scope="Strata.ToggleGroup" type="single" variant="outline" default-value="mine">
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="mine" class-name="px-4">Mine</x-import>
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="active" class-name="px-4">All active</x-import>
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="closed" class-name="px-4">Closed</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.ToggleGroup" type="single" variant="outline" default-value="comfortable">
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="comfortable" aria-label="Comfortable rows"><x-import component-from-global-scope="Strata.Icon" name="rows-3"></x-import></x-import>
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="compact" aria-label="Compact rows"><x-import component-from-global-scope="Strata.Icon" name="rows-4"></x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Toggle" variant="outline" aria-label="Pin this project" default-pressed="{{yes}}"><x-import component-from-global-scope="Strata.Icon" name="pin"></x-import>Pinned</x-import>
 </div>
-<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;">
-<li style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); column-gap: 10px; padding-bottom: 14px;"><time style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); padding-top: 1px;">09:42</time><span aria-hidden="true" style="position: relative; display: flex; justify-content: center;"><span style="width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--storage-mark);"></span></span><div><p style="margin: 0; font-size: 14px; line-height: 20px;">Received 3 storage units for <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">DEMO-2601</span></p><p style="margin: 0; font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">BKT-2026-000017 … 000019</p></div></li>
-<li style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); column-gap: 10px; padding-bottom: 14px;"><time style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); padding-top: 1px;">09:40</time><span aria-hidden="true" style="display: flex; justify-content: center;"><span style="width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--due-mark);"></span></span><div><p style="margin: 0; font-size: 14px; line-height: 20px;">Sent 3 labels to the receiving printer</p><p style="margin: 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">1 confirmed as printed</p></div></li>
-<li style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); column-gap: 10px; padding-bottom: 14px;"><time style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); padding-top: 1px;">Yest.</time><span aria-hidden="true" style="display: flex; justify-content: center;"><span style="width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--storage-mark);"></span></span><div><p style="margin: 0; font-size: 14px; line-height: 20px;">Moved <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">BKT-2024-000002</span> to Warehouse A · Bay 2 · Shelf 3</p></div></li>
-<li style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); column-gap: 10px; padding-bottom: 14px;"><time style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); padding-top: 1px;">Yest.</time><span aria-hidden="true" style="display: flex; justify-content: center;"><span style="width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--lab-mark);"></span></span><div><p style="margin: 0; font-size: 14px; line-height: 20px;">Marked 2 tests done on a <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">DEMO-2610</span> lab program</p></div></li>
-<li style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); column-gap: 10px;"><time style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); padding-top: 1px;">Yest.</time><span aria-hidden="true" style="display: flex; justify-content: center;"><span style="width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--closed-mark);"></span></span><div><p style="margin: 0; font-size: 14px; line-height: 20px;">Disposed of <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">BKT-2025-000041</span></p><p style="margin: 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Retention ended · <span style="font-family: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;">DEMO-2613</span></p></div></li>
-</ol>
+</section>
+</div>
+
+<!-- ============ Display ============ -->
+<h2 class="border-b pb-2 text-xl font-bold">Display</h2>
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Badge (stage tags)</h3><p class="text-muted-foreground text-sm">One per lifecycle stage, always with the word. Plus shadcn's own variants.</p></div>
+<div class="flex flex-wrap items-center gap-2">
+<x-import component-from-global-scope="Strata.Badge" variant="draft"><span class="bg-stage-draft-mark size-1.5 rounded-full"></span>Draft</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>In storage</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="lab"><span class="bg-stage-lab-mark size-1.5 rounded-full"></span>In lab</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Retention due</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Overdue</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="closed"><span class="bg-stage-closed-mark size-1.5 rounded-full"></span>Disposed</x-import>
+</div>
+<div class="flex flex-wrap items-center gap-2">
+<x-import component-from-global-scope="Strata.Badge">Default</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="secondary">Secondary</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="outline">Outline</x-import>
+<x-import component-from-global-scope="Strata.Badge" variant="destructive">Destructive</x-import>
+</div>
 </section>
 
-<section aria-labelledby="mm-room" style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px;">
-<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
-<h2 id="mm-room" style="margin: 0; font-size: 19px; line-height: 26px; font-weight: 700;">Storage room</h2>
-<a href="#" style="font-size: 13px; color: var(--link); font-weight: 600;">Inventory</a>
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Avatar, Hover card and Tooltip</h3><p class="text-muted-foreground text-sm">Initials only. Hover a name to see who; hover an icon button for its name.</p></div>
+<div class="flex flex-wrap items-center gap-6">
+<div class="flex -space-x-2">
+<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-accent text-accent-foreground font-mono text-xs font-bold">AT</x-import></x-import>
+<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-stage-storage-bg text-stage-storage-fg font-mono text-xs font-bold">PE</x-import></x-import>
+<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-stage-lab-bg text-stage-lab-fg font-mono text-xs font-bold">TB</x-import></x-import>
 </div>
-<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px;">
-<li style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 20px;"><span style="font-weight: 600;">Warehouse A</span><span style="color: var(--muted-foreground);">{{roomA}}</span></div><div role="img" aria-label="{{roomALabel}}" style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--muted);"><span style="width: 73%; background: var(--storage-mark);"></span><span style="width: {{roomDue}}; background: var(--danger-mark);"></span></div></li>
-<li style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 20px;"><span style="font-weight: 600;">Core library</span><span style="color: var(--muted-foreground);">20 units</span></div><div role="img" aria-label="Core library: 20 units in storage" style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--muted);"><span style="width: 62%; background: var(--storage-mark);"></span></div></li>
-<li style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 20px;"><span style="font-weight: 600;">Lab bench 1</span><span style="color: var(--muted-foreground);">6 units in the lab</span></div><div role="img" aria-label="Lab bench 1: 6 units checked out to the lab" style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--muted);"><span style="width: 40%; background: var(--lab-mark);"></span></div></li>
-<li style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 20px;"><span style="font-weight: 600;">Receiving</span><span style="color: var(--muted-foreground);">3 units to put away</span></div><div role="img" aria-label="Receiving: 3 units waiting to be put away" style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--muted);"><span style="width: 25%; background: var(--draft-mark);"></span></div></li>
-</ul>
-<p style="margin: 14px 0 0; font-size: 13px; line-height: 18px; color: var(--muted-foreground);">Bars show how full each place is. Counts are written beside them.</p>
+<x-import component-from-global-scope="Strata.HoverCard">
+<x-import component-from-global-scope="Strata.HoverCardTrigger" href="#" class-name="text-link text-sm font-medium underline-offset-4 hover:underline">Received by Alex Tester</x-import>
+<x-import component-from-global-scope="Strata.HoverCardContent" class-name="w-72">
+<div class="flex gap-3"><span class="bg-accent text-accent-foreground flex size-10 items-center justify-center rounded-full font-mono text-sm font-bold">AT</span><div class="flex flex-col gap-1"><p class="text-sm font-semibold">Alex Tester</p><p class="text-muted-foreground text-sm">Technician · Receiving lab</p><p class="text-muted-foreground text-xs">Confirmed receipt 11 Nov 2026, 09:42 on LAB</p></div></div>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Tooltip">
+<x-import component-from-global-scope="Strata.TooltipTrigger" aria-label="Print labels" class-name="border-input bg-background hover:bg-accent inline-flex size-11 items-center justify-center rounded-md border shadow-xs"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import></x-import>
+<x-import component-from-global-scope="Strata.TooltipContent">Print labels</x-import>
+</x-import>
+</div>
 </section>
 
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Card</h3><p class="text-muted-foreground text-sm">Records, counters and panels.</p></div>
+<x-import component-from-global-scope="Strata.Card">
+<x-import component-from-global-scope="Strata.CardHeader">
+<x-import component-from-global-scope="Strata.CardTitle" class-name="font-mono text-lg">BKT-2026-000019</x-import>
+<x-import component-from-global-scope="Strata.CardDescription">DEMO-2601 Riverbank investigation · TH26-01</x-import>
+<x-import component-from-global-scope="Strata.CardAction"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>In storage</x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.CardContent" class-name="grid grid-cols-2 gap-3 text-sm">
+<div><p class="text-muted-foreground">Samples</p><p class="font-mono">SS1–SS6</p></div>
+<div><p class="text-muted-foreground">Depth</p><p class="font-mono">0.8–5.4 m</p></div>
+<div><p class="text-muted-foreground">Location</p><p>Warehouse A · Bay 2 · Shelf 3</p></div>
+<div><p class="text-muted-foreground">Retain until</p><p class="font-mono">2027-11-11</p></div>
+</x-import>
+<x-import component-from-global-scope="Strata.CardFooter" class-name="gap-2">
+<x-import component-from-global-scope="Strata.Button" variant="outline">Move</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline">Print label</x-import>
+</x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Item</h3><p class="text-muted-foreground text-sm">Rows in Needs you, notifications and search results.</p></div>
+<x-import component-from-global-scope="Strata.ItemGroup" class-name="gap-3">
+<x-import component-from-global-scope="Strata.Item" variant="outline">
+<x-import component-from-global-scope="Strata.ItemMedia" variant="icon" class-name="bg-stage-draft-bg text-stage-draft-mark"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">A receipt for DEMO-2601 is waiting to be confirmed</x-import><x-import component-from-global-scope="Strata.ItemDescription">3 storage units · on this computer · IDs issue when you confirm</x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" size="sm">Continue</x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Item" variant="outline">
+<x-import component-from-global-scope="Strata.ItemMedia" variant="icon" class-name="bg-stage-danger-bg text-stage-danger-mark"><x-import component-from-global-scope="Strata.Icon" name="hourglass"></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">4 storage units have reached the end of retention</x-import><x-import component-from-global-scope="Strata.ItemDescription">DEMO-2612, DEMO-2613</x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" size="sm" variant="outline">Decide</x-import></x-import>
+</x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6 xl:col-span-2">
+<div><h3 class="font-semibold">Table, Checkbox and Pagination</h3><p class="text-muted-foreground text-sm">Inventory and every list. IDs in mono; the stage is a tag; rows can be selected.</p></div>
+<div class="overflow-hidden rounded-lg border">
+<x-import component-from-global-scope="Strata.Table">
+<x-import component-from-global-scope="Strata.TableHeader" class-name="bg-muted">
+<x-import component-from-global-scope="Strata.TableRow">
+<x-import component-from-global-scope="Strata.TableHead" class-name="w-10"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select all"></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableHead">Storage unit</x-import>
+<x-import component-from-global-scope="Strata.TableHead">Project</x-import>
+<x-import component-from-global-scope="Strata.TableHead">Test hole</x-import>
+<x-import component-from-global-scope="Strata.TableHead">Location</x-import>
+<x-import component-from-global-scope="Strata.TableHead">Stage</x-import>
+<x-import component-from-global-scope="Strata.TableHead" class-name="text-right">Received</x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.TableBody">
+<x-import component-from-global-scope="Strata.TableRow" data-state="selected">
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Checkbox" default-checked="{{yes}}" aria-label="Select BKT-2026-000019"></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono font-semibold">BKT-2026-000019</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">DEMO-2601</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">TH26-01</x-import>
+<x-import component-from-global-scope="Strata.TableCell">Warehouse A · Bay 2 · Shelf 3</x-import>
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>In storage</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="text-right font-mono">2026-11-11</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.TableRow">
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select ST-2024-000001"></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono font-semibold">ST-2024-000001</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">DEMO-2601</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">TH26-02</x-import>
+<x-import component-from-global-scope="Strata.TableCell">Lab bench 1</x-import>
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Badge" variant="lab"><span class="bg-stage-lab-mark size-1.5 rounded-full"></span>In lab</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="text-right font-mono">2024-06-03</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.TableRow">
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select CRE-2025-000110"></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono font-semibold">CRE-2025-000110</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">DEMO-2611</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">TH25-04</x-import>
+<x-import component-from-global-scope="Strata.TableCell">Core library · Rack C</x-import>
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Retention due</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="text-right font-mono">2025-01-20</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.TableRow">
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select BKT-2025-000041"></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono font-semibold">BKT-2025-000041</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">DEMO-2613</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">TH25-01</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="text-muted-foreground">—</x-import>
+<x-import component-from-global-scope="Strata.TableCell"><x-import component-from-global-scope="Strata.Badge" variant="closed"><span class="bg-stage-closed-mark size-1.5 rounded-full"></span>Disposed</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="text-right font-mono">2025-03-14</x-import>
+</x-import>
+</x-import>
+</x-import>
 </div>
+<div class="flex items-center justify-between gap-4">
+<p class="text-muted-foreground text-sm">1 selected · 4 of 60 storage units</p>
+<x-import component-from-global-scope="Strata.Pagination" class-name="mx-0 w-auto">
+<x-import component-from-global-scope="Strata.PaginationContent">
+<x-import component-from-global-scope="Strata.PaginationItem"><x-import component-from-global-scope="Strata.PaginationPrevious" href="#"></x-import></x-import>
+<x-import component-from-global-scope="Strata.PaginationItem"><x-import component-from-global-scope="Strata.PaginationLink" href="#" is-active="{{yes}}">1</x-import></x-import>
+<x-import component-from-global-scope="Strata.PaginationItem"><x-import component-from-global-scope="Strata.PaginationLink" href="#">2</x-import></x-import>
+<x-import component-from-global-scope="Strata.PaginationItem"><x-import component-from-global-scope="Strata.PaginationEllipsis"></x-import></x-import>
+<x-import component-from-global-scope="Strata.PaginationItem"><x-import component-from-global-scope="Strata.PaginationNext" href="#"></x-import></x-import>
+</x-import>
+</x-import>
 </div>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Progress, Spinner, Skeleton and Kbd</h3><p class="text-muted-foreground text-sm">Lab progress as "n of m"; loading states; keyboard hints.</p></div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between text-sm"><span>LP-2026-0007 · DEMO-2610</span><span class="text-muted-foreground">7 of 11 tests done</span></div>
+<x-import component-from-global-scope="Strata.Progress" value="{{progress}}" aria-label="7 of 11 tests done"></x-import>
+</div>
+<div class="text-muted-foreground flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Spinner"></x-import>Sending 3 labels to the receiving printer…</div>
+<div class="flex items-center gap-3"><x-import component-from-global-scope="Strata.Skeleton" class-name="size-10 rounded-full"></x-import><div class="flex flex-1 flex-col gap-2"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-3/4"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-1/2"></x-import></div></div>
+<div class="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">Search <x-import component-from-global-scope="Strata.Kbd">Ctrl K</x-import><x-import component-from-global-scope="Strata.Separator" orientation="vertical" class-name="h-4"></x-import>Settings <x-import component-from-global-scope="Strata.Kbd">G</x-import> then <x-import component-from-global-scope="Strata.Kbd">S</x-import></div>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Empty</h3><p class="text-muted-foreground text-sm">Nothing to do, no matches, or first use. One action at most.</p></div>
+<x-import component-from-global-scope="Strata.Empty" class-name="border border-dashed">
+<x-import component-from-global-scope="Strata.EmptyHeader">
+<x-import component-from-global-scope="Strata.EmptyMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="package-search"></x-import></x-import>
+<x-import component-from-global-scope="Strata.EmptyTitle">No storage units match</x-import>
+<x-import component-from-global-scope="Strata.EmptyDescription">Nothing on DEMO-2601 is in the lab right now. Clear the filters to see every unit.</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.EmptyContent"><x-import component-from-global-scope="Strata.Button" variant="outline">Clear filters</x-import></x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Accordion and Collapsible</h3><p class="text-muted-foreground text-sm">Help answers; "show more" inside records.</p></div>
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}" default-value="ids">
+<x-import component-from-global-scope="Strata.AccordionItem" value="ids"><x-import component-from-global-scope="Strata.AccordionTrigger">When does a storage unit get its ID?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">When the receipt is confirmed. Drafts never show an ID, and an issued ID never changes.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="label"><x-import component-from-global-scope="Strata.AccordionTrigger">The label didn't print</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">The ID is still issued. Open the unit and choose Print label once the printer is back.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="dispose"><x-import component-from-global-scope="Strata.AccordionTrigger">Who can record a disposal?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">The Lab Manager, for units on an approved disposal list.</x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Collapsible" class-name="flex flex-col gap-2">
+<div class="flex items-center justify-between text-sm"><span class="font-medium">TH26-01 · 3 storage units</span><x-import component-from-global-scope="Strata.CollapsibleTrigger" class-name="text-link text-sm font-medium">Show units</x-import></div>
+<x-import component-from-global-scope="Strata.CollapsibleContent" class-name="flex flex-col gap-1 font-mono text-sm"><span>BKT-2026-000017</span><span>BKT-2026-000018</span><span>BKT-2026-000019</span></x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Scroll area</h3><p class="text-muted-foreground text-sm">Long lists inside a fixed panel, e.g. picking a shelf.</p></div>
+<x-import component-from-global-scope="Strata.ScrollArea" class-name="h-48 rounded-md border">
+<div class="flex flex-col p-3 text-sm">
+<span class="border-b py-2">Warehouse A · Bay 1 · Shelf 1</span><span class="border-b py-2">Warehouse A · Bay 1 · Shelf 2</span><span class="border-b py-2">Warehouse A · Bay 1 · Shelf 3</span><span class="border-b py-2">Warehouse A · Bay 2 · Shelf 1</span><span class="border-b py-2">Warehouse A · Bay 2 · Shelf 2</span><span class="border-b py-2">Warehouse A · Bay 2 · Shelf 3</span><span class="border-b py-2">Warehouse B · Bay 1 · Shelf 1</span><span class="border-b py-2">Warehouse B · Bay 1 · Shelf 2</span><span class="border-b py-2">Core library · Rack A</span><span class="border-b py-2">Core library · Rack B</span><span class="border-b py-2">Core library · Rack C</span><span class="py-2">Cold room · Shelf 1</span>
+</div>
+</x-import>
+</section>
+</div>
+
+<!-- ============ Forms ============ -->
+<h2 class="border-b pb-2 text-xl font-bold">Forms</h2>
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Field, Input, Textarea</h3><p class="text-muted-foreground text-sm">Label above, hint below, error in red with the field marked invalid.</p></div>
+<x-import component-from-global-scope="Strata.FieldGroup">
+<x-import component-from-global-scope="Strata.Field">
+<x-import component-from-global-scope="Strata.FieldLabel" html-for="f-hole">Test hole</x-import>
+<x-import component-from-global-scope="Strata.Input" id="f-hole" class-name="font-mono" default-value="TH26-01"></x-import>
+<x-import component-from-global-scope="Strata.FieldDescription">As written on the field log, e.g. TH26-01.</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Field" data-invalid="true">
+<x-import component-from-global-scope="Strata.FieldLabel" html-for="f-depth">Depth to (m)</x-import>
+<x-import component-from-global-scope="Strata.Input" id="f-depth" class-name="font-mono" default-value="0.8" aria-invalid="true" aria-describedby="f-depth-error"></x-import>
+<x-import component-from-global-scope="Strata.FieldError" id="f-depth-error">Depth to must be deeper than depth from (5.4 m).</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Field">
+<x-import component-from-global-scope="Strata.FieldLabel" html-for="f-reason">Reason for the correction</x-import>
+<x-import component-from-global-scope="Strata.Textarea" id="f-reason" placeholder="What was wrong and how you know"></x-import>
+</x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Input group</h3><p class="text-muted-foreground text-sm">Search and scan, units after a number, a button inside a field.</p></div>
+<x-import component-from-global-scope="Strata.InputGroup">
+<x-import component-from-global-scope="Strata.InputGroupAddon"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import></x-import>
+<x-import component-from-global-scope="Strata.InputGroupInput" placeholder="Search or scan a label" aria-label="Search"></x-import>
+<x-import component-from-global-scope="Strata.InputGroupAddon" align="inline-end"><x-import component-from-global-scope="Strata.Kbd">Ctrl K</x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.InputGroup">
+<x-import component-from-global-scope="Strata.InputGroupInput" class-name="font-mono" default-value="5.4" aria-label="Depth"></x-import>
+<x-import component-from-global-scope="Strata.InputGroupAddon" align="inline-end"><x-import component-from-global-scope="Strata.InputGroupText">m</x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.InputGroup">
+<x-import component-from-global-scope="Strata.InputGroupInput" class-name="font-mono" placeholder="Shelf label, e.g. LOC-A2-3" aria-label="Destination shelf"></x-import>
+<x-import component-from-global-scope="Strata.InputGroupAddon" align="inline-end"><x-import component-from-global-scope="Strata.InputGroupButton" variant="secondary"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import>Scan</x-import></x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Select and Combobox</h3><p class="text-muted-foreground text-sm">Select for short fixed lists; combobox (Popover + Command) to search a long one.</p></div>
+<x-import component-from-global-scope="Strata.Field">
+<x-import component-from-global-scope="Strata.FieldLabel">Receiving lab</x-import>
+<x-import component-from-global-scope="Strata.Select" default-value="receiving">
+<x-import component-from-global-scope="Strata.SelectTrigger" class-name="w-full"><x-import component-from-global-scope="Strata.SelectValue" placeholder="Choose a lab"></x-import></x-import>
+<x-import component-from-global-scope="Strata.SelectContent">
+<x-import component-from-global-scope="Strata.SelectItem" value="receiving">Receiving lab</x-import>
+<x-import component-from-global-scope="Strata.SelectItem" value="concrete">Concrete lab</x-import>
+<x-import component-from-global-scope="Strata.SelectItem" value="soils">Soils lab</x-import>
+</x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Field">
+<x-import component-from-global-scope="Strata.FieldLabel">Project</x-import>
+<x-import component-from-global-scope="Strata.Popover">
+<x-import component-from-global-scope="Strata.PopoverTrigger" role="combobox" class-name="border-input bg-background hover:bg-accent flex h-11 w-full items-center justify-between gap-2 rounded-md border px-3 text-sm shadow-xs"><span class="font-mono">DEMO-2601</span><span class="text-muted-foreground flex-1 truncate text-left">Riverbank investigation</span><x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="text-muted-foreground"></x-import></x-import>
+<x-import component-from-global-scope="Strata.PopoverContent" align="start" class-name="w-[360px] p-0">
+<x-import component-from-global-scope="Strata.Command">
+<x-import component-from-global-scope="Strata.CommandInput" placeholder="Search projects"></x-import>
+<x-import component-from-global-scope="Strata.CommandList">
+<x-import component-from-global-scope="Strata.CommandEmpty">No project found.</x-import>
+<x-import component-from-global-scope="Strata.CommandGroup">
+<x-import component-from-global-scope="Strata.CommandItem" value="DEMO-2601 Riverbank investigation"><span class="font-mono">DEMO-2601</span>Riverbank investigation<x-import component-from-global-scope="Strata.Icon" name="check" class-name="ml-auto"></x-import></x-import>
+<x-import component-from-global-scope="Strata.CommandItem" value="DEMO-2602 Hillside bridge"><span class="font-mono">DEMO-2602</span>Hillside bridge</x-import>
+<x-import component-from-global-scope="Strata.CommandItem" value="DEMO-2616 Riverside apartments"><span class="font-mono">DEMO-2616</span>Riverside apartments</x-import>
+</x-import>
+</x-import>
+</x-import>
+</x-import>
+</x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Checkbox, Radio group, Switch</h3><p class="text-muted-foreground text-sm">Options on a form; switches only for settings that apply at once.</p></div>
+<x-import component-from-global-scope="Strata.Field" orientation="horizontal">
+<x-import component-from-global-scope="Strata.Checkbox" id="f-print" default-checked="{{yes}}"></x-import>
+<x-import component-from-global-scope="Strata.FieldLabel" html-for="f-print" class-name="font-normal">Print labels when I confirm</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.FieldSet">
+<x-import component-from-global-scope="Strata.FieldLegend" variant="label">Holder</x-import>
+<x-import component-from-global-scope="Strata.RadioGroup" default-value="BKT" class-name="grid-cols-2">
+<x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="BKT" id="h-bkt"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="h-bkt" class-name="font-normal">Bucket (BKT)</x-import></x-import>
+<x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="ST" id="h-st"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="h-st" class-name="font-normal">Shelby tube (ST)</x-import></x-import>
+<x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="CRE" id="h-cre"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="h-cre" class-name="font-normal">Core box (CRE)</x-import></x-import>
+<x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="CT" id="h-ct"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="h-ct" class-name="font-normal">Other container (CT)</x-import></x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Field" orientation="horizontal" class-name="justify-between">
+<x-import component-from-global-scope="Strata.FieldContent"><x-import component-from-global-scope="Strata.FieldLabel" html-for="f-auto">Delete drafts automatically</x-import><x-import component-from-global-scope="Strata.FieldDescription">After 90 days without changes, on each computer.</x-import></x-import>
+<x-import component-from-global-scope="Strata.Switch" id="f-auto"></x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6 xl:col-span-2">
+<div><h3 class="font-semibold">Calendar and Date picker</h3><p class="text-muted-foreground text-sm">Received dates, retain-until dates and break dates. The picker is a Popover holding the Calendar.</p></div>
+<div class="flex flex-wrap items-start gap-8">
+<x-import component-from-global-scope="Strata.Calendar" mode="single" selected="{{today}}" default-month="{{today}}" class-name="rounded-lg border"></x-import>
+<x-import component-from-global-scope="Strata.Field" class-name="w-72">
+<x-import component-from-global-scope="Strata.FieldLabel">Received</x-import>
+<x-import component-from-global-scope="Strata.Popover">
+<x-import component-from-global-scope="Strata.PopoverTrigger" class-name="border-input bg-background hover:bg-accent flex h-11 w-full items-center gap-2 rounded-md border px-3 text-sm shadow-xs"><x-import component-from-global-scope="Strata.Icon" name="calendar" class-name="text-muted-foreground"></x-import><span class="font-mono">2026-11-11</span></x-import>
+<x-import component-from-global-scope="Strata.PopoverContent" align="start" class-name="w-auto p-0"><x-import component-from-global-scope="Strata.Calendar" mode="single" selected="{{today}}" default-month="{{today}}"></x-import></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.FieldDescription">The day the samples arrived, not the day you confirm.</x-import>
+</x-import>
+</div>
+</section>
+</div>
+
+<!-- ============ Navigation ============ -->
+<h2 class="border-b pb-2 text-xl font-bold">Navigation</h2>
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Breadcrumb and Tabs</h3><p class="text-muted-foreground text-sm">Where a record sits; sections of a record page.</p></div>
+<x-import component-from-global-scope="Strata.Breadcrumb">
+<x-import component-from-global-scope="Strata.BreadcrumbList">
+<x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#">Projects</x-import></x-import>
+<x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import>
+<x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#" class-name="font-mono">DEMO-2601</x-import></x-import>
+<x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import>
+<x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbPage" class-name="font-mono">BKT-2026-000019</x-import></x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Tabs" default-value="overview">
+<x-import component-from-global-scope="Strata.TabsList">
+<x-import component-from-global-scope="Strata.TabsTrigger" value="overview">Overview</x-import>
+<x-import component-from-global-scope="Strata.TabsTrigger" value="units">Units</x-import>
+<x-import component-from-global-scope="Strata.TabsTrigger" value="lab">Lab programs</x-import>
+<x-import component-from-global-scope="Strata.TabsTrigger" value="history">History</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.TabsContent" value="overview" class-name="text-muted-foreground pt-2 text-sm">Riverbank investigation · Lead: Pat Example · 2 test holes · 5 storage units.</x-import>
+<x-import component-from-global-scope="Strata.TabsContent" value="units" class-name="text-muted-foreground pt-2 text-sm">Units grouped by test hole.</x-import>
+<x-import component-from-global-scope="Strata.TabsContent" value="lab" class-name="text-muted-foreground pt-2 text-sm">1 open lab program.</x-import>
+<x-import component-from-global-scope="Strata.TabsContent" value="history" class-name="text-muted-foreground pt-2 text-sm">Newest first.</x-import>
+</x-import>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Command</h3><p class="text-muted-foreground text-sm">The Ctrl K palette: find anything, run an action. Shown inline here; in the app it opens in a dialog.</p></div>
+<x-import component-from-global-scope="Strata.Command" class-name="rounded-lg border shadow-md">
+<x-import component-from-global-scope="Strata.CommandInput" placeholder="Search or scan a label"></x-import>
+<x-import component-from-global-scope="Strata.CommandList">
+<x-import component-from-global-scope="Strata.CommandEmpty">No results.</x-import>
+<x-import component-from-global-scope="Strata.CommandGroup" heading="Storage units">
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span class="font-mono">BKT-2026-000019</span><span class="text-muted-foreground">DEMO-2601 · TH26-01</span></x-import>
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span class="font-mono">ST-2024-000001</span><span class="text-muted-foreground">DEMO-2601 · TH26-02</span></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.CommandSeparator"></x-import>
+<x-import component-from-global-scope="Strata.CommandGroup" heading="Actions">
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receive a delivery<x-import component-from-global-scope="Strata.CommandShortcut">N</x-import></x-import>
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="move"></x-import>Move units</x-import>
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="settings"></x-import>Settings<x-import component-from-global-scope="Strata.CommandShortcut">G S</x-import></x-import>
+</x-import>
+</x-import>
+</x-import>
+</section>
+</div>
+
+<!-- ============ Overlays and feedback ============ -->
+<h2 class="border-b pb-2 text-xl font-bold">Overlays and feedback</h2>
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Dialog, Alert dialog, Sheet, Popover</h3><p class="text-muted-foreground text-sm">Press Play and open each. Alert dialog is only for things that can't be undone.</p></div>
+<div class="flex flex-wrap gap-3">
+<x-import component-from-global-scope="Strata.Dialog">
+<x-import component-from-global-scope="Strata.DialogTrigger" class-name="border-input bg-background hover:bg-accent inline-flex h-11 items-center rounded-md border px-5 text-sm font-medium shadow-xs">Extend retention</x-import>
+<x-import component-from-global-scope="Strata.DialogContent">
+<x-import component-from-global-scope="Strata.DialogHeader"><x-import component-from-global-scope="Strata.DialogTitle">Extend retention for <span class="font-mono">BKT-2026-000019</span></x-import><x-import component-from-global-scope="Strata.DialogDescription">It will be kept until the new date. The reason is recorded in its history.</x-import></x-import>
+<x-import component-from-global-scope="Strata.Field"><x-import component-from-global-scope="Strata.FieldLabel" html-for="d-reason">Reason</x-import><x-import component-from-global-scope="Strata.Textarea" id="d-reason" placeholder="Why it needs to be kept longer"></x-import></x-import>
+<x-import component-from-global-scope="Strata.DialogFooter"><x-import component-from-global-scope="Strata.DialogClose" class-name="border-input bg-background hover:bg-accent inline-flex h-11 items-center rounded-md border px-5 text-sm font-medium">Cancel</x-import><x-import component-from-global-scope="Strata.Button">Extend retention</x-import></x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.AlertDialog">
+<x-import component-from-global-scope="Strata.AlertDialogTrigger" class-name="bg-destructive hover:bg-destructive/90 inline-flex h-11 items-center rounded-md px-5 text-sm font-medium text-white">Record disposal</x-import>
+<x-import component-from-global-scope="Strata.AlertDialogContent">
+<x-import component-from-global-scope="Strata.AlertDialogHeader"><x-import component-from-global-scope="Strata.AlertDialogTitle">Record disposal of 3 storage units?</x-import><x-import component-from-global-scope="Strata.AlertDialogDescription">This can't be undone. The units keep their IDs and history, but they can't be moved, tested or printed again.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AlertDialogFooter"><x-import component-from-global-scope="Strata.AlertDialogCancel">Cancel</x-import><x-import component-from-global-scope="Strata.AlertDialogAction" class-name="bg-destructive hover:bg-destructive/90 text-white">Record disposal</x-import></x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Sheet">
+<x-import component-from-global-scope="Strata.SheetTrigger" class-name="border-input bg-background hover:bg-accent inline-flex h-11 items-center rounded-md border px-5 text-sm font-medium shadow-xs">Open in a side sheet</x-import>
+<x-import component-from-global-scope="Strata.SheetContent" class-name="sm:max-w-[520px]">
+<x-import component-from-global-scope="Strata.SheetHeader"><x-import component-from-global-scope="Strata.SheetTitle" class-name="font-mono">BKT-2026-000019</x-import><x-import component-from-global-scope="Strata.SheetDescription">DEMO-2601 · TH26-01 · Warehouse A · Bay 2 · Shelf 3</x-import></x-import>
+<div class="flex flex-col gap-3 px-4 text-sm"><x-import component-from-global-scope="Strata.Badge" variant="storage" class-name="w-fit"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>In storage</x-import><p>Samples SS1–SS6 · 0.8–5.4 m</p><p class="text-muted-foreground">Received 2026-11-11 by Alex Tester</p></div>
+<x-import component-from-global-scope="Strata.SheetFooter"><x-import component-from-global-scope="Strata.Button">Open full page</x-import></x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Popover">
+<x-import component-from-global-scope="Strata.PopoverTrigger" class-name="border-input bg-background hover:bg-accent inline-flex h-11 items-center gap-2 rounded-md border px-5 text-sm font-medium shadow-xs"><x-import component-from-global-scope="Strata.Icon" name="map-pin"></x-import>Bay 2 · Shelf 3</x-import>
+<x-import component-from-global-scope="Strata.PopoverContent" class-name="w-72">
+<x-import component-from-global-scope="Strata.PopoverHeader"><x-import component-from-global-scope="Strata.PopoverTitle">Warehouse A · Bay 2 · Shelf 3</x-import><x-import component-from-global-scope="Strata.PopoverDescription">9 of 12 places used · 1 unit past retention</x-import></x-import>
+</x-import>
+</x-import>
+</div>
+</section>
+
+<section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
+<div><h3 class="font-semibold">Alert and Sonner (toast)</h3><p class="text-muted-foreground text-sm">Banners on a page; toasts with Undo after reversible actions. Press Play and move the unit.</p></div>
+<x-import component-from-global-scope="Strata.Alert" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3">
+<x-import component-from-global-scope="Strata.Icon" name="info" class-name="translate-y-0.5"></x-import>
+<x-import component-from-global-scope="Strata.AlertTitle">Labels print when you confirm</x-import>
+<x-import component-from-global-scope="Strata.AlertDescription">IDs are issued at the same moment. Drafts stay on this computer until then.</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Alert" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3 border-stage-due-mark/40 bg-stage-due-bg text-stage-due-fg">
+<x-import component-from-global-scope="Strata.Icon" name="triangle-alert" class-name="translate-y-0.5"></x-import>
+<x-import component-from-global-scope="Strata.AlertTitle">IDs issued, labels not printed</x-import>
+<x-import component-from-global-scope="Strata.AlertDescription" class-name="text-stage-due-fg">The 3 storage units have their IDs. The printer didn't answer; print the labels when it's back.</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3">
+<x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import>
+<x-import component-from-global-scope="Strata.AlertTitle">The move wasn't saved</x-import>
+<x-import component-from-global-scope="Strata.AlertDescription">Pat Example moved this unit at 09:40. Show the latest and try again.</x-import>
+</x-import>
+<div><x-import component-from-global-scope="Strata.Button" variant="outline" onClick="{{showToast}}"><x-import component-from-global-scope="Strata.Icon" name="move"></x-import>Move BKT-2026-000019</x-import></div>
+</section>
+</div>
+
+<p class="text-muted-foreground pb-8 text-sm">Not used in the web app, so not shown: AI elements, Carousel, Chart, Drawer, Input OTP, Menubar, Navigation menu, Resizable, Slider, Aspect ratio, Context menu, Native select, Typography. Sidebar: see the live sidebar board.</p>
 </main>
+<x-import component-from-global-scope="Strata.Toaster" position="bottom-left" theme="{{toastTheme}}"></x-import>
 </div>
-</div>
+</x-import>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"variant":{"editor":"enum","options":["busy","clear"],"default":"busy"},"$preview":{"width":1440,"height":1240}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":5300}}'>
 class Component extends DCLogic {
   renderVals() {
-    var light = {
-      'background': '#FFFFFF', 'card': '#FFFFFF', 'muted': '#EFF0F3', 'sidebar': '#F9F9FB', 'foreground': '#1E1F24', 'muted-foreground': '#62636C', 'border': '#D8D9E0', 'input': '#8B8D98', 'primary': '#21206D', 'primary-foreground': '#FFFFFF', 'accent': '#EEF1FF', 'accent-foreground': '#242471', 'link': '#5159BD', 'ring': '#21206D', 'draft-bg': '#FFF7C2', 'draft-fg': '#4F3422', 'draft-mark': '#AB6400', 'storage-bg': '#E9F6E9', 'storage-fg': '#2A7E3B', 'storage-mark': '#2A7E3B', 'lab-bg': '#DEF7F9', 'lab-fg': '#0D3C48', 'lab-mark': '#107D98', 'due-bg': '#FFEFD6', 'due-fg': '#582D1D', 'due-mark': '#CC4E00', 'danger-bg': '#FEEBEC', 'danger-fg': '#CE2C31', 'danger-mark': '#CE2C31', 'closed-bg': '#EFF0F3', 'closed-fg': '#62636C', 'closed-mark': '#62636C'
+    var dark = !!this.props.dark;
+    return {
+      dark: dark,
+      yes: true,
+      progress: 64,
+      today: new Date(2026, 10, 11),
+      toastTheme: dark ? 'dark' : 'light',
+      showToast: function () {
+        var S = window.Strata;
+        if (S && S.toast) S.toast('Moved BKT-2026-000019 to Warehouse A · Bay 2 · Shelf 3', { action: { label: 'Undo', onClick: function () {} } });
+      }
     };
-    var dark = {
-      'background': '#111113', 'card': '#19191B', 'muted': '#222325', 'sidebar': '#19191B', 'foreground': '#EEEEF0', 'muted-foreground': '#B2B3BD', 'border': '#393A40', 'input': '#797B86', 'primary': '#555BDC', 'primary-foreground': '#FFFFFF', 'accent': '#1D2050', 'accent-foreground': '#D8E0FF', 'link': '#9EADFF', 'ring': '#9EADFF', 'draft-bg': '#302008', 'draft-fg': '#FFCA16', 'draft-mark': '#FFCA16', 'storage-bg': '#1B2A1E', 'storage-fg': '#71D083', 'storage-mark': '#71D083', 'lab-bg': '#082C36', 'lab-fg': '#4CCCE6', 'lab-mark': '#4CCCE6', 'due-bg': '#331E0B', 'due-fg': '#FFA057', 'due-mark': '#FFA057', 'danger-bg': '#3B1219', 'danger-fg': '#FF9592', 'danger-mark': '#FF9592', 'closed-bg': '#222325', 'closed-fg': '#B2B3BD', 'closed-mark': '#B2B3BD'
-    };
-    var t = this.props.dark ? dark : light;
-    var theme = Object.keys(t).map(function (k) { return '--' + k + ': ' + t[k] + ';'; }).join(' ');
-    var clear = this.props.variant === 'clear';
-    return { theme: theme, busy: !clear, clear: clear, initials: clear ? 'LAB' : 'AT', roomA: clear ? '24 units' : '24 units · 2 due', roomDue: clear ? '0%' : '7%', roomALabel: clear ? 'Warehouse A: 24 units in storage' : 'Warehouse A: 22 units in storage, 2 past retention', needsMeta: clear ? 'Nothing waiting' : '5 items, most urgent first', c: clear ? { drafts: 0, labels: 0, programs: 0, retention: 0 } : { drafts: 1, labels: 2, programs: 3, retention: 4 } };
   }
 }
 </script>

@@ -482,41 +482,35 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 
 ## Screens
 
-Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private).
-Every board has a Dark tweak; the dark boards are the same boards with it on. The boards are
-drawn as HTML markup that imitates shadcn/ui (its variables, sizes and component structure), except
-the "Sidebar, real shadcn/ui" board, which mounts real shadcn components from the Strata UI bundle
-(`design/strata-ui`, README there). The icons are the real Lucide SVGs. Drafts for review, not approved.
+Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private). Every
+board has a Dark tweak. Drafts for review, not approved.
 
-### Today (boards: desktop, nothing needs you, dark)
+### Components (board: Components) — real shadcn/ui
 
-- **Greeting block:** a 20 px-radius indigo panel. Date and lab line, the 40 px greeting
-  ("Good morning, Alex. Five things need you today."), and at the right one white button for the
-  most urgent item ("Finish the draft receipt") with a line saying why it is first.
-- **Counters:** four linked cards (Draft receipts, Labels to check, Open lab programs, Retention
-  due), each with its stage dot, the count and a one-line meaning.
-- **Needs you:** stage-striped cards grouped under small headings (Receiving and labels,
-  Inventory, Retention, Lab), most urgent first. Each card: stage tag, a sentence, a detail line
-  with IDs in mono, one action. The first card's action is the primary; the rest are outline.
-- **Side column:** "Last 24 hours" as a short timeline (mono time, stage dot, sentence) with an
-  "All activity" link, and "Storage room" as one row per place with a written count and a thin
-  stage-coloured fill bar.
-- **Nothing needs you (LAB station):** the shared LAB account is greeted without a name, the
-  greeting offers "Receive a delivery", counters read 0, Needs you is the empty state, and the rail
-  foot shows "Session ends" and Switch user.
+Every shadcn/ui component the web app will use, mounted for real from the Strata UI bundle
+(`design/strata-ui`) so they can be adjusted in one place. Grouped as:
 
-### Sign in (boards: desktop, states, dark)
+- **Actions:** Button (all variants and sizes, icon, disabled, loading), Button group, Dropdown menu,
+  Toggle and Toggle group.
+- **Display:** Badge (the six stage tags plus shadcn's variants), Avatar, Hover card, Tooltip, Card,
+  Item, Table with Checkbox and Pagination, Progress, Spinner, Skeleton, Kbd, Separator, Empty,
+  Accordion, Collapsible, Scroll area.
+- **Forms:** Field (label, hint, error), Input, Textarea, Input group, Select, Combobox (Popover +
+  Command), Checkbox, Radio group, Switch, Calendar, Date picker (Popover + Calendar).
+- **Navigation:** Breadcrumb, Tabs, Command (the Ctrl K palette); Sidebar on its own board.
+- **Overlays and feedback:** Dialog, Alert dialog, Sheet, Popover, Alert (info, partial success,
+  error), Sonner toasts with Undo.
 
-- **Desktop:** split screen. An indigo brand panel (donkey tile, wordmark, "Every bucket, tube and
-  core box, where the record says it is.", the five lifecycle stages as round tags, "Office
-  network only") beside the form: "Sign in", the 56 px Microsoft button with the hint about
-  working under your own name, an "or" rule, the LAB card (username, password, "Sign in as LAB",
-  forgot-password line), and the development-only test link with a closed-stage tag.
-- **States:** session ended and LAB session expired (due banners), wrong password (field error),
-  paused after failed attempts (danger banner, help text, LAB button disabled), options could not
-  load (Try again), and no sign-in method set up. Wording is the app's current wording.
+Not used, so not on the board: AI elements, Carousel, Chart, Drawer, Input OTP, Menubar,
+Navigation menu, Resizable, Slider, Aspect ratio, Context menu, Native select, Typography.
 
-### Sidebar (boards: variants, component) — quick mock for revision
+Strata changes to shadcn's source: 44 px default height for Button, Input, Select, Input group
+and Toggle (36 px small); Badge variants `draft`, `storage`, `lab`, `due`, `danger`, `closed`.
+
+Today and Sign in were taken off the canvas for now (Kyle, 2026-11-11); their descriptions are in
+this file's history (commit b43c23a) and will be redrawn from these components.
+
+### Sidebar (boards: real shadcn/ui, mock variants, mock component)
 
 shadcn `Sidebar` with ideas from Linear and Notion. Header: lab switcher (logo tile, "Material Mule",
 the lab, up/down chevron) and a New button; a search field with `Ctrl K` under it. Then Today,

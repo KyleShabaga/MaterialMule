@@ -17,6 +17,12 @@ const badgeVariants = cva(
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
+        draft: "rounded-full border-transparent bg-stage-draft-bg text-stage-draft-fg",
+        storage: "rounded-full border-transparent bg-stage-storage-bg text-stage-storage-fg",
+        lab: "rounded-full border-transparent bg-stage-lab-bg text-stage-lab-fg",
+        due: "rounded-full border-transparent bg-stage-due-bg text-stage-due-fg",
+        danger: "rounded-full border-transparent bg-stage-danger-bg text-stage-danger-fg",
+        closed: "rounded-full border-transparent bg-stage-closed-bg text-stage-closed-fg",
       },
     },
     defaultVariants: {

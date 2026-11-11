@@ -13,6 +13,34 @@ the redesign's wave 0. Not an npm workspace; excluded from ESLint and Prettier.
   `Strata.DropdownMenu`, …), plus `Strata.Icon` (any Lucide icon by its lucide.dev name) and
   `Strata.Theme` (sets the `dark` class on the page root so menus and tooltips follow it).
 
+## Writing boards that mount these components
+
+- Pass styling to a mounted component as `class-name="…"`, never `class="…"`. The canvas applies
+  a `class` on `<x-import>` straight to the element and wipes out the component's own classes;
+  `class-name` reaches the component as its `className` prop and merges with its styles.
+- The canvas wraps each mounted component in a `display: contents` div. Layout is unaffected,
+  but shadcn rules that look for a direct child (`[&>svg]:size-4`, `has-[>svg]:…`) don't match.
+  `Strata.Icon` is 16 px by default for that reason. `Alert` with an icon needs
+  `class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"`.
+- Triggers (`DropdownMenuTrigger`, `PopoverTrigger`, `DialogTrigger`, …) are used without
+  `asChild`, styled with `class-name`, because a wrapped child can't be their anchor.
+- A `style` attribute may hold only one `{{…}}` hole; with two, the runtime drops the style.
+- Wrap each board in `Strata.Theme` (dark mode, and the TooltipProvider that Tooltip needs).
+- New Tailwind classes in a board only exist after a rebuild (`npm run build`).
+
+## Previewing a board locally
+
+The canvas's own runtime can render boards outside claude.ai. Read
+`artifact-type/dc-runtime.js` from the canvas with the Artifact tool, copy the canvas's
+`project/` folder (boards and `strata-ui/`) into a scratch folder, save the runtime there as
+`support.js`, then serve it:
+
+```bash
+node design/strata-ui/serve.cjs <that folder> 4792
+```
+
+and open `http://127.0.0.1:4792/Main.dc.html`. This is how the components board was checked.
+
 ## Two fixes for the canvas
 
 1. **React 18 refs.** Current shadcn passes `ref` as a normal prop, which only React 19 supports.
