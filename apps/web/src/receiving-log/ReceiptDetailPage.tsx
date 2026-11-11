@@ -17,6 +17,7 @@ import {
 } from '../components/ui';
 import '../inventory/inventory.css';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
+import { ContextRow } from '../layout/ContextRow';
 import { UnitContentsList } from '../inventory/UnitContents';
 import { PrintLabelsPanel } from '../printing/PrintLabelsPanel';
 import { receiptPrintPath, unitPrintPath } from '../printing/print-paths';
@@ -54,11 +55,12 @@ export function ReceiptDetailPage() {
     };
   }, [receiptId, reloads]);
 
-  const back = (
-    <p className="back-link">
-      <Link to={`/receiving-log${from}`}>← Back to Receiving Log</Link>
-    </p>
+  const backLink = (
+    <Link className="back-link" to={`/receiving-log${from}`}>
+      ← Back to Receiving Log
+    </Link>
   );
+  const back = <ContextRow className="receipt-context">{backLink}</ContextRow>;
 
   if (!loaded || loaded.key !== receiptId) {
     return (
@@ -91,8 +93,11 @@ export function ReceiptDetailPage() {
   const receipt = result.data;
   const printable = receipt.units.filter((unit) => unit.status !== 'disposed');
   return (
-    <>
-      {back}
+    <div className="receipt-detail">
+      <ContextRow className="receipt-context">
+        {backLink}
+        <StatusBadge tone="storage">CONFIRMED</StatusBadge>
+      </ContextRow>
       <PageHeader title={`Receipt ${receipt.project.projectNumber} · ${receipt.receivedDate}`} />
 
       <section className="card" aria-labelledby="receipt-heading">
@@ -166,7 +171,7 @@ export function ReceiptDetailPage() {
           <UnitTable receipt={receipt} />
         </TableScroll>
       </section>
-    </>
+    </div>
   );
 }
 

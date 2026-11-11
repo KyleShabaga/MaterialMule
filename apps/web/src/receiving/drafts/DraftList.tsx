@@ -53,7 +53,7 @@ export function DraftList({
           by an administrator).
         </p>
       ) : null}
-      <section className="card" aria-labelledby="drafts-heading">
+      <section className="receive-drafts" aria-labelledby="drafts-heading">
         <h2 id="drafts-heading">Drafts on this computer</h2>
         {notice ? (
           <p className="draft-cleanup-notice" role="status">
@@ -68,8 +68,9 @@ export function DraftList({
               const title = draftTitle(record);
               const daysLeft = autoDeleteOn ? daysUntilAutoDelete(record, autoDeleteOn) : null;
               return (
-                <li key={record.draftId} className="draft-item">
-                  <h3>{title}</h3>
+                <li key={record.draftId} className="draft-item receive-draft-row">
+                  <StatusBadge tone="waiting">DRAFT</StatusBadge>
+                  <h3 className="receive-draft-title">{title}</h3>
                   <p className="draft-facts">
                     {formatUnitCount(record.data.units.length)} · {receiverText(record.receiver)} ·
                     Last saved {formatSavedDateTime(record.lastSavedAt)}

@@ -15,7 +15,17 @@ export const DRAFT_RECORD_VERSION = 3;
 export const STALE_AFTER_DAYS = 30;
 
 export type DraftStatus = 'editing' | 'confirming';
-export type DraftStep = 'details' | 'review';
+/**
+ * Field Ledger steps: Delivery, then Units (the third, Confirm and label, has no draft left).
+ * `details` and `review` are what drafts saved before the redesign hold; they open on Units.
+ */
+export type DraftStep = 'delivery' | 'units' | 'details' | 'review';
+
+/** The step a saved draft opens on: Delivery until a project is chosen, otherwise as saved. */
+export function openingStep(record: Pick<StoredDraft, 'step' | 'data'>): 'delivery' | 'units' {
+  if (!record.data.project) return 'delivery';
+  return record.step === 'delivery' ? 'delivery' : 'units';
+}
 
 /** "lab" drafts belong to the shared LAB station; "personal" ones to one signed-in person. */
 export type DraftOwnerType = 'lab' | 'personal';
@@ -80,7 +90,7 @@ export function newRecord(
     owner: { accountId: me.id, type: ownerTypeOf(me) },
     receiver,
     data,
-    step: 'details',
+    step: 'delivery',
     status: 'editing',
     createdAt: at,
     lastSavedAt: at,

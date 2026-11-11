@@ -9,19 +9,36 @@ import {
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { DataTable, ErrorState, PageHeader, TableScroll, type Column } from '../components/ui';
+import {
+  DataTable,
+  EmptyState,
+  ErrorState,
+  SectionHead,
+  StatusBadge,
+  TableScroll,
+  TableViewSelector,
+  type Column,
+  type TableView,
+} from '../components/ui';
+import { useTableView } from '../components/useTableView';
 import { fetchProject } from '../inventory/api';
 import '../inventory/inventory.css';
 import { ProjectFilter } from '../inventory/ProjectFilter';
 import { useLatestSearchParams } from '../inventory/useLatestSearchParams';
+import { ContextRow } from '../layout/ContextRow';
+import { usePageTitle } from '../layout/page-title';
 import { useOnline } from '../lib/online';
+import { visibleTo, type StoredDraft } from '../receiving/drafts/record';
+import { indexedDbDraftStore } from '../receiving/drafts/store';
+import { useMe } from '../session/context';
 import {
   RECEIPT_RECEIVERS_PATH,
   fetchReceiptLog,
   fetchReceiptReceiver,
   type ReceiptLogResult,
 } from './api';
-import { formatAccount, formatConfirmedAt, formatReceiver } from './format';
+import { draftContents, formatAccount, formatConfirmedAt, formatReceiver } from './format';
+import { continueDraftPath, START_DELIVERY_PATH } from './paths';
 import './receiving-log.css';
 import {
   clearedReceiptLogQuery,
@@ -43,11 +60,14 @@ function countLabel(total: number): string {
 }
 
 /**
- * Receiving Log (MM-T51): confirmed receipts, one row per receipt, newest confirmation first.
- * Search, filters and page live in the URL. Local drafts are not receipts; they stay on the
- * computer that holds them and open from Receive samples.
+ * Receiving log (MM-T51, Field Ledger "ReceivingLog"): the drafts on this computer that are not
+ * confirmed yet (dashed, Continue), then confirmed receipts, one row per receipt, newest
+ * confirmation first. Search, filters and page live in the URL. Drafts are not receipts: they
+ * stay on the computer that saved them, and have no storage unit IDs.
  */
 export function ReceivingLogPage() {
+  usePageTitle('Receiving Log');
+  const [view, setView] = useTableView('receiving-log');
   const [params, setParams] = useLatestSearchParams();
   const location = useLocation();
   const online = useOnline();
@@ -122,25 +142,97 @@ export function ReceivingLogPage() {
   const linkState: ReceiptLinkState = { from: location.search };
 
   return (
-    <>
-      <PageHeader
-        title="Receiving Log"
-        actions={
-          <>
-            <Link className="button primary" to="/receiving-log/new">
-              Receive samples
-            </Link>
-            <Link className="button" to="/receiving-log/new">
-              Drafts on this computer
-            </Link>
-          </>
-        }
-      />
-      <p className="field-hint">
-        Confirmed receipts, newest first. Drafts that aren’t confirmed stay on the computer that
-        saved them and aren’t listed here.
-      </p>
+    <div className="receiving-log">
+      <ContextRow align="end">
+        <Link className="button" to="/sample-storage/scan">
+          Scan label
+        </Link>
+        <Link className="button primary" to={START_DELIVERY_PATH}>
+          Start a delivery
+        </Link>
+      </ContextRow>
+      <div className="receiving-log-title">
+        <h1>Receiving log</h1>
+        <span className="section-meta">Every delivery, newest first</span>
+      </div>
 
+      <LocalDrafts />
+
+      <section className="receiving-log-section" aria-labelledby="receiving-log-received">
+        <div className="receiving-log-head">
+          <StatusBadge tone="storage">CONFIRMED</StatusBadge>
+          <SectionHead id="receiving-log-received" title="Received" meta="Newest first" />
+          <TableViewSelector value={view} onChange={setView} />
+        </div>
+        <ReceivedSection
+          query={query}
+          ignored={ignored}
+          chips={chips}
+          update={update}
+          clearFilters={clearFilters}
+          turnPage={turnPage}
+          selectedProject={selectedProject}
+          setProject={setProject}
+          selectedReceiver={selectedReceiver}
+          setReceiver={setReceiver}
+          loading={loading}
+          failed={failed}
+          online={online}
+          shown={shown}
+          filtered={filtered}
+          totalPages={totalPages}
+          linkState={linkState}
+          view={view}
+          retry={() => setReloads((n) => n + 1)}
+        />
+      </section>
+    </div>
+  );
+}
+
+function ReceivedSection({
+  query,
+  ignored,
+  chips,
+  update,
+  clearFilters,
+  turnPage,
+  selectedProject,
+  setProject,
+  selectedReceiver,
+  setReceiver,
+  loading,
+  failed,
+  online,
+  shown,
+  filtered,
+  totalPages,
+  linkState,
+  view,
+  retry,
+}: {
+  query: ReceiptLogQuery;
+  ignored: string[];
+  chips: Chip[];
+  update: (changes: Partial<ReceiptLogQuery>) => void;
+  clearFilters: () => void;
+  turnPage: (by: number) => void;
+  selectedProject: ProjectSummary | null;
+  setProject: (project: ProjectSummary) => void;
+  selectedReceiver: ReceiverOption | null;
+  setReceiver: (receiver: ReceiverOption) => void;
+  loading: boolean;
+  failed: Extract<ReceiptLogResult<ReceiptLogPageData>, { ok: false }> | null;
+  online: boolean;
+  shown: ReceiptLogPageData | null;
+  filtered: boolean;
+  totalPages: number;
+  linkState: ReceiptLinkState;
+  view: TableView;
+  retry: () => void;
+}) {
+  return (
+    <>
       <SearchForm
         initial={query.search ?? ''}
         onSearch={(search) => update({ search: search || undefined })}
@@ -229,37 +321,43 @@ export function ReceivingLogPage() {
         <ErrorState
           message={
             failed.kind === 'offline' && !online
-              ? 'You’re offline. The Receiving Log needs a connection to Material Mule. Drafts on this computer still open from Receive samples.'
+              ? 'You’re offline. The Receiving log needs a connection to Material Mule. Drafts on this computer still open from the list above.'
               : failed.message
           }
-          onRetry={failed.kind === 'unauthenticated' ? undefined : () => setReloads((n) => n + 1)}
+          onRetry={failed.kind === 'unauthenticated' ? undefined : retry}
         />
       ) : null}
 
       {!failed && shown ? (
         shown.total === 0 ? (
           filtered ? (
-            <div className="empty-state receiving-log-empty">
-              <p>No receipts match these filters.</p>
-              <button type="button" onClick={clearFilters}>
-                Clear filters
-              </button>
-            </div>
+            <EmptyState
+              title="No receipts match these filters."
+              action={
+                <button type="button" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              }
+            />
           ) : (
-            <div className="empty-state receiving-log-empty">
-              <p>No receipts yet.</p>
-              <Link className="button primary" to="/receiving-log/new">
-                Receive samples
-              </Link>
-            </div>
+            <EmptyState
+              title="No receipts yet."
+              action={
+                <Link className="button primary" to={START_DELIVERY_PATH}>
+                  Start a delivery
+                </Link>
+              }
+            >
+              Confirmed deliveries are listed here, newest first.
+            </EmptyState>
           )
         ) : (
           <TableScroll
             label="Receipt table"
-            className="receiving-log-table table-stack"
+            className="receiving-log-table table-frame table-stack"
             aria-busy={loading}
           >
-            <ReceiptTable items={shown.items} linkState={linkState} />
+            <ReceiptTable items={shown.items} linkState={linkState} view={view} />
           </TableScroll>
         )
       ) : null}
@@ -284,9 +382,11 @@ export function ReceivingLogPage() {
 function ReceiptTable({
   items,
   linkState,
+  view,
 }: {
   items: ReceiptLogItem[];
   linkState: ReceiptLinkState;
+  view: TableView;
 }) {
   const columns: Column<ReceiptLogItem>[] = [
     {
@@ -297,7 +397,7 @@ function ReceiptTable({
           state={linkState}
           aria-label={`Open receipt: ${item.project.projectNumber}, received ${item.receivedDate} by ${formatReceiver(item.receiver)}`}
         >
-          <span className="receipt-date">{item.receivedDate}</span>
+          <span className="receipt-date mono">{item.receivedDate}</span>
         </Link>
       ),
     },
@@ -305,31 +405,123 @@ function ReceiptTable({
       header: 'Project',
       cell: (item) => (
         <span className="unit-cell">
-          <span>{item.project.projectNumber}</span>
-          <span>{item.project.name}</span>
+          <span className="mono receipt-project">{item.project.projectNumber}</span>
+          <span className="receipt-secondary">{item.project.name}</span>
         </span>
       ),
     },
     { header: 'Received by', cell: (item) => formatReceiver(item.receiver) },
-    { header: 'Storage units', cell: (item) => item.quantity },
+    {
+      header: 'Storage units',
+      cell: (item) => <span className="mono">{item.quantity}</span>,
+    },
     {
       header: 'Confirmed',
       cell: (item) => (
         <span className="unit-cell">
-          <time dateTime={item.confirmedAt}>{formatConfirmedAt(item.confirmedAt)}</time>
-          <span className="field-hint">by {formatAccount(item.account)}</span>
+          <time className="mono" dateTime={item.confirmedAt}>
+            {formatConfirmedAt(item.confirmedAt)}
+          </time>
+          <span className="field-hint receipt-secondary">by {formatAccount(item.account)}</span>
         </span>
       ),
     },
   ];
   return (
     <DataTable
+      view={view}
       rows={items}
       rowKey={(item) => item.id}
       caption="Confirmed receipts"
       empty="No receipts."
       columns={columns}
     />
+  );
+}
+
+type DraftListing =
+  { state: 'loading' } | { state: 'ready'; drafts: StoredDraft[] } | { state: 'error' };
+
+/**
+ * Drafts on this computer that the signed-in person may open (MM-T11 visibility), newest saved
+ * first. A draft never shows a storage unit ID: IDs are issued only at confirmation.
+ */
+function LocalDrafts() {
+  const me = useMe();
+  const [listing, setListing] = useState<DraftListing>({ state: 'loading' });
+  useEffect(() => {
+    let current = true;
+    indexedDbDraftStore.list().then(
+      ({ drafts }) => {
+        if (!current) return;
+        const visible = drafts
+          .filter((draft) => visibleTo(draft, me))
+          .sort((a, b) => b.lastSavedAt.localeCompare(a.lastSavedAt));
+        setListing({ state: 'ready', drafts: visible });
+      },
+      () => current && setListing({ state: 'error' }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [me]);
+
+  if (listing.state === 'loading') return null;
+  if (listing.state === 'error') {
+    return (
+      <p className="notice notice-warning" role="status">
+        Drafts on this computer couldn’t be read. They are still kept; open Receive samples to try
+        again.
+      </p>
+    );
+  }
+  if (listing.drafts.length === 0) return null;
+  const count = listing.drafts.length;
+  return (
+    <section className="receiving-log-section" aria-labelledby="receiving-log-drafts">
+      <div className="receiving-log-head">
+        <StatusBadge tone="waiting">DRAFT</StatusBadge>
+        <SectionHead
+          id="receiving-log-drafts"
+          title="Not confirmed yet"
+          meta={`${count} ${count === 1 ? 'delivery' : 'deliveries'} · No IDs issued`}
+        />
+      </div>
+      <ul className="receiving-log-drafts">
+        {listing.drafts.map((draft) => {
+          const project = draft.data.project?.projectNumber ?? null;
+          return (
+            <li key={draft.draftId} className="receiving-log-draft" data-row>
+              <div className="receiving-log-draft-main">
+                <span className="mono receiving-log-draft-project">
+                  {project ?? 'No project yet'}
+                </span>
+                <span className="receipt-secondary">{draftContents(draft.data.units)}</span>
+              </div>
+              <div className="receiving-log-draft-fact">
+                <span className="field-label">Started by</span>
+                <span>
+                  {draft.receiver
+                    ? `${draft.receiver.initials} · ${draft.receiver.displayName}`
+                    : 'Not chosen'}
+                </span>
+              </div>
+              <div className="receiving-log-draft-fact">
+                <span className="field-label">Last saved</span>
+                <time dateTime={draft.lastSavedAt}>{formatConfirmedAt(draft.lastSavedAt)}</time>
+              </div>
+              <Link
+                className="button primary"
+                to={continueDraftPath(draft.draftId)}
+                aria-label={`Continue draft for ${project ?? 'a delivery with no project yet'}`}
+              >
+                Continue
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
