@@ -133,9 +133,24 @@ For hands-on testing, `npm run db:seed:demo` adds a fuller fictional dataset thr
 - "Ready for disposal" examples on DEMO-2612 (MISC-13), dated from the seed day: two buckets and
   an untested Shelby tube past retention, with a bucket on hold, one extended a year and one
   received 120 days ago next to them for contrast
+- Concrete (V2) on DEMO-2616 "Riverside apartments" (lead Pat): the report header, a supplier,
+  two holidays, a calibrated air meter (AM-07, Alex) and testing machine, approved mix ER-32-20
+  (32 MPa), and six pours dated back from today, each with a 7 / 28 / 28 / HOLD cylinder set:
+  - two with field and strength reports issued (CF, CS numbers), one meeting 32 MPa at 28 days
+    and one below it;
+  - one with its 7-day break entered and the strength report waiting for Pat's review;
+  - one received in the lab with its 7-day break due today (worklist, testing table);
+  - one field report waiting for review, its cylinders picked up but not yet received;
+  - today's draft, still with Alex;
+  - and an issued project summary report (CSR).
 
-If a run stops partway, run it again: it picks up where it left off. Once complete it refuses to
-run again; start over with `npm run db:rebuild:dev -- --disposable <database>`. How the seed sets
+If a run stops partway, run it again: it picks up where it left off (except partway through the
+concrete pours: issued reports can't be undone, so rebuild the database). On a complete
+dataset, a run adds only what is missing (the concrete project, on a database seeded
+before it existed). Start over with `npm run db:rebuild:dev -- --disposable <database>`.
+Concrete sets get their permanent numbers (26-01 …) from an allocator that isn't built yet
+(MM-V2-C18), so the seeder attaches them directly in the database named by the API's env file:
+`apps/api/.env`, or pass `-- --env-file <file>` when the API runs with another one. How the seed sets
 differ and which one to change: [docs/database.md](docs/database.md#seed-data).
 
 ### The shared LAB account
@@ -255,7 +270,8 @@ as new versions. Offline field entry on phones is not built yet: it waits on the
 device spike.
 
 `lt` (Taylor Bench) and `lab` can enter results; `pe` (Pat Example) is the Lead of DEMO-2601 for
-mixes and review. `npm run db:seed:demo` has no concrete data yet.
+mixes and review. `npm run db:seed:demo` adds a concrete project, DEMO-2616, with pours in every
+stage (see [Demo data](#demo-data)).
 
 ## Checks
 

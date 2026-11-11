@@ -26,7 +26,7 @@ numbers, invented people and clients) and none of it can be loaded in production
 | -------------- | -------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Reference data | `apps/api/seed/reference.sql`    | `db:migrate`, `db:seed`                  | every environment        | What production needs to start: the Receiving lab, the shared LAB account, the Soils / Advanced Soils groups, the starter template and the Alberta general holidays (MM-V2-C37; add the next year each year). Idempotent. |
 | Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2, 3 DEMO test types. Fixed UUIDs; re-runnable.                                                       |
-| Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal. Created through the real API, so it is fully audited.                                                         |
+| Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal; DEMO-2616 with concrete pours in every stage. Created through the real API, so it is fully audited.           |
 | Benchmark data | `apps/api/src/bench/generate.ts` | `bench:seed`                             | a bench or test database | Ten-year and 5x stress volumes for MM-T19 ([performance/README.md](performance/README.md)). Deterministic; never loaded into dev.                                                                                         |
 
 Which one to change:
@@ -51,7 +51,10 @@ npm run db:seed:demo -- --url http://127.0.0.1:3100   # an API on another port
 It needs the dev fixtures (it signs in as them) and test sign-in, which never exists in
 production. Received dates count back from today, so retention and "recently received" always
 have something to show. A run that stops partway picks up where it left off when run again;
-once the dataset is complete it refuses to load twice. To start over:
+on a complete dataset it adds only what is missing (the concrete project, DEMO-2616, on a
+database seeded before it existed). One concrete step goes straight to the database: set
+permanent numbers, until the MM-V2-C18 allocator exists; it uses `DATABASE_URL` from the API's
+env file (`apps/api/.env`, or `-- --env-file <file>`) and refuses a production one. To start over:
 `npm run db:rebuild:dev -- --disposable materialmule_dev`, then `npm run db:seed:demo`.
 
 ## Migration rules
