@@ -4,8 +4,15 @@ import {
   type StorageUnitDetail,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
-import { PageHeader, StatusBadge } from '../components/ui';
+import { Link, useLocation, useSearchParams } from 'react-router';
+import {
+  CountedCells,
+  PageHeader,
+  SectionHead,
+  StatusBadge,
+  type CountedCellState,
+} from '../components/ui';
+import { ContextRow } from '../layout/ContextRow';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { useOnline } from '../lib/online';
 import { CameraScanner } from '../scanning/CameraScanner';
@@ -25,6 +32,7 @@ import {
   type BatchState,
 } from './batch';
 import { isoWithOffset, moveStatus } from './format';
+import { readMoveLinkState } from './move-link';
 import { predecessorFor } from './queue';
 import {
   indexedDbMoveStore,
@@ -61,10 +69,15 @@ function queueLine(status: QueueStatus, online: boolean, waiting: number): strin
 }
 
 /**
- * Sample Storage → Move (MM-T28). Scan a destination label (LOC-…), then storage units: each
+ * Inventory → Move units (MM-T28). Scan a destination label (LOC-…), then storage units: each
  * becomes a move to that destination until another destination is scanned or it is cleared.
  * Every scan is stored on this computer before it is sent, so a dropped connection never loses
  * it; until the server saves it, it shows as Pending and never replaces the saved location.
+ *
+ * Field Ledger: the units on the left, the destination shelf on the right with its cells after
+ * the move (ink there now, flag arriving). Units chosen on Inventory or a unit's page wait in
+ * the list until a destination is scanned and the person confirms "Move N units here"; a shelf
+ * page opens this with its destination already looked up (`?to=CODE`).
  */
 export function MovePage() {
   const me = useMe();
@@ -73,6 +86,14 @@ export function MovePage() {
   const sound = useScanSound();
   const station = useMemo(() => stationId(), []);
   const isLab = me.accountType === 'shared_lab';
+  const routerLocation = useLocation();
+  const [searchParams] = useSearchParams();
+  /** Units chosen elsewhere (Inventory selection, a unit's Move unit), not yet queued. */
+  const [waitingUnits, setWaitingUnits] = useState<string[]>(() =>
+    readMoveLinkState(routerLocation.state),
+  );
+  /** Units saved at each location (Current stock), for the shelf preview. */
+  const [stockCounts, setStockCounts] = useState<ReadonlyMap<string, number>>(new Map());
   const [batch, setBatchState] = useState<BatchState>(() => loadBatch(me.id));
   const [status, setStatus] = useState<ScanStatusView>({
     tone: 'ready',
@@ -126,10 +147,13 @@ export function MovePage() {
   });
 
   // Keep this computer's location list current while online, so offline destination scans work.
+  // Saved moves refresh it too, so the shelf preview counts what the server now has there.
+  const savedCount = queue.moves.filter((move) => move.state === 'saved').length;
   useEffect(() => {
     if (!online) return;
     void fetchAllLocations().then((result) => {
       if (result.kind !== 'ok') return;
+      setStockCounts(new Map(result.data.map((l) => [l.id, l.inStockCount])));
       const cachedAt = new Date().toISOString();
       void store
         .putLocations(
@@ -143,7 +167,7 @@ export function MovePage() {
         )
         .catch(() => undefined);
     });
-  }, [online, store]);
+  }, [online, store, savedCount]);
 
   const byId = useMemo(
     () => new Map(queue.moves.map((move) => [move.clientMoveId, move])),
@@ -407,6 +431,29 @@ export function MovePage() {
     },
   });
 
+  // A shelf page's "Move units here": look its destination up once, like scanning its label.
+  const destinationCode = searchParams.get('to');
+  const lookedUpTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!destinationCode || lookedUpTo.current === destinationCode) return;
+    lookedUpTo.current = destinationCode;
+    if (batchRef.current.destination?.code === destinationCode) return;
+    onScan(`LOC-${destinationCode}`);
+    // onScan only chains the scan; it is safe to call once per code.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destinationCode]);
+
+  /** Queues the units chosen elsewhere, one by one, as if each had been scanned. */
+  function moveWaiting() {
+    const units = waitingUnits;
+    setWaitingUnits([]);
+    chain.current = chain.current
+      .then(async () => {
+        for (const readableId of units) await addUnit(readableId);
+      })
+      .catch(() => undefined);
+  }
+
   async function lookUp(item: Extract<BatchItem, { kind: 'lookup' }>) {
     const found = await findUnit(item.readableId);
     if (typeof found === 'string' || found.fromCache) {
@@ -440,12 +487,33 @@ export function MovePage() {
     setBatch((current) => ({ ...current, items: current.items.filter((i) => i.key !== key) }));
   }
 
+  // The shelf after this move: units saved there now (ink), then the ones on their way (flag):
+  // this batch's unsaved moves there and the chosen units still waiting for confirmation.
+  const destination = batch.destination;
+  const thereNow = destination ? (stockCounts.get(destination.id) ?? 0) : 0;
+  const unsavedHere = destination
+    ? batch.items.filter((item) => {
+        if (item.kind !== 'move' || item.destination.id !== destination.id) return false;
+        const state = byId.get(item.clientMoveId)?.state;
+        return state === 'pending' || state === 'waiting';
+      }).length
+    : 0;
+  const arriving = unsavedHere + waitingUnits.length;
+  const shelfCells: CountedCellState[] = [
+    ...Array<CountedCellState>(thereNow).fill('done'),
+    ...Array<CountedCellState>(arriving).fill('current'),
+  ];
+  const movedInBatch = batch.items.filter((item) => item.kind === 'move').length;
+
   return (
     <>
-      <p className="back-link">
-        <Link to="/sample-storage">← Back to Sample Storage</Link>
-      </p>
-      <PageHeader title="Move storage units" />
+      <ContextRow>
+        <Link to="/sample-storage">← Back to inventory</Link>
+      </ContextRow>
+      <div className="move-title">
+        <PageHeader title="Move units" />
+        <span className="section-meta">Scan the shelf, then the units</span>
+      </div>
       <p className="scan-intro">
         Scan the destination&apos;s location label, then each storage unit you put there. Moves are
         kept on this computer until Material Mule saves them. To only look a unit up, use{' '}
@@ -500,127 +568,197 @@ export function MovePage() {
         </div>
       ) : null}
 
-      <section className="move-destination card" aria-labelledby="move-destination-heading">
-        <h2 id="move-destination-heading" className="visually-hidden">
-          Destination
-        </h2>
-        {batch.destination ? (
-          <>
-            <p className="move-destination-label">Moving to</p>
-            <p className="move-destination-name" data-testid="move-destination">
-              {batch.destination.name}{' '}
-              <span className="move-destination-code">{batch.destination.code}</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setBatch((current) => ({ ...current, destination: null }));
-                setStatus({ tone: 'ready', message: 'Scan a destination label' });
-                scanner.resume();
-              }}
-            >
-              Clear destination
+      <div className="move-layout">
+        <div className="move-units">
+          <div className="move-scan">
+            <ScanInput
+              scanner={scanner}
+              label={batch.destination ? 'Scan a storage unit label' : 'Scan the destination label'}
+              status={status}
+              lastScanned={lastScanned}
+              sound={sound}
+            />
+            <button type="button" className="camera-scan-button" onClick={() => setCamera(true)}>
+              Scan with camera
             </button>
-          </>
-        ) : (
-          <p className="move-destination-empty">
-            No destination yet: scan a location label (LOC-…).
-          </p>
-        )}
-      </section>
+            {camera ? (
+              <CameraScanner
+                decoderPreference={readDecoderPreference(window.location.search)}
+                onClose={() => setCamera(false)}
+                onFound={() => setCamera(false)}
+                onDecoded={(code) => {
+                  setCamera(false);
+                  onScan(code);
+                }}
+              />
+            ) : null}
+          </div>
 
-      <button type="button" className="camera-scan-button" onClick={() => setCamera(true)}>
-        Scan with camera
-      </button>
-      {camera ? (
-        <CameraScanner
-          decoderPreference={readDecoderPreference(window.location.search)}
-          onClose={() => setCamera(false)}
-          onFound={() => setCamera(false)}
-          onDecoded={(code) => {
-            setCamera(false);
-            onScan(code);
-          }}
-        />
-      ) : null}
-      <ScanInput
-        scanner={scanner}
-        label={batch.destination ? 'Scan a storage unit label' : 'Scan the destination label'}
-        status={status}
-        lastScanned={lastScanned}
-        sound={sound}
-      />
+          {waitingUnits.length > 0 ? (
+            <section className="move-batch" aria-labelledby="move-waiting-heading">
+              <SectionHead
+                id="move-waiting-heading"
+                title="Chosen to move"
+                meta={`${waitingUnits.length} waiting for a destination`}
+              />
+              <ul className="move-list">
+                {waitingUnits.map((readableId) => (
+                  <li key={readableId} className="move-row" data-row>
+                    <span className="move-unit">{readableId}</span>
+                    <StatusBadge tone="waiting">Not moved yet</StatusBadge>
+                    <span className="move-row-actions">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setWaitingUnits((current) => current.filter((id) => id !== readableId))
+                        }
+                      >
+                        Take off
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-      <section className="move-batch" aria-labelledby="move-batch-heading">
-        <div className="move-batch-header">
-          <h2 id="move-batch-heading">This batch</h2>
-          {batch.items.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setBatch((current) => ({
-                  ...EMPTY_BATCH,
-                  destination: current.destination,
-                  mover: current.mover,
-                }));
-                scanner.resume();
-              }}
-            >
-              Start a new batch
-            </button>
+          <section className="move-batch" aria-labelledby="move-batch-heading">
+            <div className="move-batch-header">
+              <SectionHead
+                id="move-batch-heading"
+                title="This batch"
+                meta={movedInBatch === 1 ? '1 unit scanned' : `${movedInBatch} units scanned`}
+              />
+              {batch.items.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBatch((current) => ({
+                      ...EMPTY_BATCH,
+                      destination: current.destination,
+                      mover: current.mover,
+                    }));
+                    scanner.resume();
+                  }}
+                >
+                  Start a new batch
+                </button>
+              ) : null}
+            </div>
+            {batch.items.length === 0 ? (
+              <p className="empty-state">Nothing scanned in this batch yet.</p>
+            ) : (
+              <ul className="move-list">
+                {batch.items.map((item) =>
+                  item.kind === 'move' ? (
+                    <MoveRow
+                      key={item.key}
+                      readableId={item.readableId}
+                      destination={item.destination}
+                      move={byId.get(item.clientMoveId)}
+                      syncingId={syncingId}
+                      onDismiss={(id) => void queue.dismiss(id)}
+                    />
+                  ) : (
+                    <li key={item.key} className="move-row" data-testid="move-row">
+                      <span className="move-unit">{item.readableId}</span>
+                      <span>→ {item.destination.name}</span>
+                      <StatusBadge tone="warning">Needs online lookup</StatusBadge>
+                      <span className="move-row-actions">
+                        <button type="button" disabled={!online} onClick={() => void lookUp(item)}>
+                          Look up and move
+                        </button>
+                        <button type="button" onClick={() => removeItem(item.key)}>
+                          Remove
+                        </button>
+                      </span>
+                    </li>
+                  ),
+                )}
+              </ul>
+            )}
+          </section>
+
+          {earlier.length > 0 ? (
+            <section className="move-batch" aria-labelledby="move-earlier-heading">
+              <SectionHead id="move-earlier-heading" title="Queued earlier on this computer" />
+              <ul className="move-list">
+                {earlier.map((move) => (
+                  <MoveRow
+                    key={move.clientMoveId}
+                    readableId={move.unit.readableId}
+                    destination={move.destination}
+                    move={move}
+                    syncingId={syncingId}
+                    onDismiss={(id) => void queue.dismiss(id)}
+                  />
+                ))}
+              </ul>
+            </section>
           ) : null}
         </div>
-        {batch.items.length === 0 ? (
-          <p className="empty-state">Nothing scanned in this batch yet.</p>
-        ) : (
-          <ul className="move-list">
-            {batch.items.map((item) =>
-              item.kind === 'move' ? (
-                <MoveRow
-                  key={item.key}
-                  readableId={item.readableId}
-                  destination={item.destination}
-                  move={byId.get(item.clientMoveId)}
-                  syncingId={syncingId}
-                  onDismiss={(id) => void queue.dismiss(id)}
-                />
-              ) : (
-                <li key={item.key} className="move-row" data-testid="move-row">
-                  <span className="move-unit">{item.readableId}</span>
-                  <span>→ {item.destination.name}</span>
-                  <StatusBadge tone="warning">Needs online lookup</StatusBadge>
-                  <span className="move-row-actions">
-                    <button type="button" disabled={!online} onClick={() => void lookUp(item)}>
-                      Look up and move
-                    </button>
-                    <button type="button" onClick={() => removeItem(item.key)}>
-                      Remove
-                    </button>
-                  </span>
-                </li>
-              ),
-            )}
-          </ul>
-        )}
-      </section>
 
-      {earlier.length > 0 ? (
-        <section className="move-batch" aria-labelledby="move-earlier-heading">
-          <h2 id="move-earlier-heading">Queued earlier on this computer</h2>
-          <ul className="move-list">
-            {earlier.map((move) => (
-              <MoveRow
-                key={move.clientMoveId}
-                readableId={move.unit.readableId}
-                destination={move.destination}
-                move={move}
-                syncingId={syncingId}
-                onDismiss={(id) => void queue.dismiss(id)}
-              />
-            ))}
-          </ul>
+        <section className="move-shelf side-panel" aria-labelledby="move-destination-heading">
+          <div className="side-panel-head">
+            <h2 id="move-destination-heading">Destination</h2>
+          </div>
+          <div className="side-panel-body">
+            {destination ? (
+              <>
+                <p className="move-destination-label field-label">Moving to</p>
+                <p className="move-destination-name" data-testid="move-destination">
+                  {destination.name}{' '}
+                  <span className="move-destination-code">{destination.code}</span>
+                </p>
+                <div className="move-shelf-fill">
+                  <div className="move-shelf-fill-head">
+                    <span className="field-label">Shelf after this move</span>
+                    <span className="mono">{thereNow + arriving}</span>
+                  </div>
+                  {thereNow + arriving > 0 ? (
+                    <CountedCells
+                      cells={shelfCells}
+                      label={`${thereNow} ${thereNow === 1 ? 'unit' : 'units'} there now, ${arriving} arriving`}
+                    />
+                  ) : null}
+                  <p className="move-shelf-key">
+                    <span>
+                      <span className="move-key move-key-done" aria-hidden="true" />
+                      There now ({thereNow})
+                    </span>
+                    <span>
+                      <span className="move-key move-key-current" aria-hidden="true" />
+                      Arriving ({arriving})
+                    </span>
+                  </p>
+                </div>
+                {waitingUnits.length > 0 ? (
+                  <button type="button" className="primary move-confirm" onClick={moveWaiting}>
+                    Move {waitingUnits.length} {waitingUnits.length === 1 ? 'unit' : 'units'} here
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBatch((current) => ({ ...current, destination: null }));
+                    setStatus({ tone: 'ready', message: 'Scan a destination label' });
+                    scanner.resume();
+                  }}
+                >
+                  Clear destination
+                </button>
+                <p className="field-hint">
+                  Each move is written to the unit&apos;s history with your name and the time.
+                </p>
+              </>
+            ) : (
+              <p className="move-destination-empty">
+                No destination yet: scan a location label (LOC-…).
+              </p>
+            )}
+          </div>
         </section>
-      ) : null}
+      </div>
     </>
   );
 }

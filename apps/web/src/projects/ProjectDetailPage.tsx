@@ -1,5 +1,6 @@
 import {
   formatPerson,
+  type InventoryItem,
   type InventoryPage,
   type ProjectDetail,
   type StaffOption,
@@ -21,9 +22,10 @@ import { ProjectSectionNav } from './ProjectSectionNav';
 import type { ProjectLinkState } from './ProjectsPage';
 import './projects.css';
 import { usePageTitle } from '../layout/page-title';
+import { ContextRow } from '../layout/ContextRow';
 
-/** Units shown on the project page; the full list is a link to Sample Storage. */
-const PROJECT_UNITS_PAGE_SIZE = 25;
+/** Units listed on the project page; the full list is a link to Inventory. */
+const PROJECT_UNITS_PAGE_SIZE = 100;
 
 function personLabel(person: StaffOption | null): string {
   if (!person) return 'None';
@@ -104,27 +106,51 @@ export function ProjectDetailPage() {
 
   return (
     <>
-      {back}
-      <div className="project-header">
-        <div>
-          <h1 className="project-number-heading">{project.projectNumber}</h1>
-          <p className="project-name">{project.name}</p>
+      {/* Field Ledger context row: back link and the Overview / Concrete / Team switch, then the
+          page's actions. */}
+      <ContextRow className="project-context">
+        <div className="project-context-start">
+          {back}
+          <ProjectSectionNav projectId={project.id} current="overview" />
         </div>
-        <div className="page-actions">
-          {me.permissions.includes('project_access.read') ? (
-            <Link className="button" to={`/projects/${encodeURIComponent(project.id)}/team`}>
-              Team &amp; Permissions
-            </Link>
-          ) : null}
-          {project.canEdit ? (
+        {project.canEdit ? (
+          <div className="page-actions">
             <button type="button" onClick={() => setEditing(true)}>
               Edit project
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
+      </ContextRow>
+      <div className="project-header">
+        <p className="project-caption">
+          Project ·{' '}
+          {project.leadProjectEngineer
+            ? `Lead ${project.leadProjectEngineer.displayName}`
+            : 'Waiting for a lead'}
+        </p>
+        <h1 className="project-title">
+          <span className="mono">{project.projectNumber}</span>{' '}
+          <span className="project-name">{project.name}</span>
+        </h1>
       </div>
-      {/* MM-V2-C30: Overview | Concrete. */}
-      <ProjectSectionNav projectId={project.id} current="overview" />
+      <dl className="project-counts" aria-label="Project counts">
+        <div>
+          <dt>Test holes</dt>
+          <dd>{project.testHoles.length}</dd>
+        </div>
+        <div>
+          <dt>Units in stock</dt>
+          <dd>{project.inStockUnitCount}</dd>
+        </div>
+        <div>
+          <dt>Units received</dt>
+          <dd>{project.unitCount}</dd>
+        </div>
+        <div>
+          <dt>Receipts</dt>
+          <dd>{project.receiptCount}</dd>
+        </div>
+      </dl>
       <p className={notice ? 'notice notice-success' : 'notice'} role="status">
         {notice}
       </p>
@@ -226,15 +252,16 @@ export function ProjectDetailPage() {
       </div>
 
       <Section
-        title="Storage units"
+        title="Units by test hole"
         actions={
-          <Link to={sampleStorageLink(project.id)} aria-label="Open in Sample Storage">
-            Open in Sample Storage →
+          <Link to={sampleStorageLink(project.id)} aria-label="Open in Inventory">
+            Open in Inventory →
           </Link>
         }
       >
         <ProjectUnits
           projectId={project.id}
+          holes={project.testHoles}
           total={project.unitCount}
           reloadKey={reloads + unitReloads}
         />
@@ -406,13 +433,19 @@ function AddTestHoleForm({
   );
 }
 
-/** The project's storage units in the shared T12 table (first page, any status). */
+/**
+ * Units by test hole (Field Ledger "Project"): the project's units in lane C's unit table, one
+ * table per test hole, in the project's hole order. A unit holding samples from two test holes is
+ * listed under both; units not from a test hole (standalone tubes, bulk samples) come last.
+ */
 function ProjectUnits({
   projectId,
+  holes,
   total,
   reloadKey,
 }: {
   projectId: string;
+  holes: ProjectDetail['testHoles'];
   total: number;
   reloadKey: number;
 }) {
@@ -443,17 +476,60 @@ function ProjectUnits({
   const linkState: StorageUnitLinkState = {
     from: `?${new URLSearchParams({ projectId, status: 'all' }).toString()}`,
   };
+  const items = result.data.items;
+  // A unit's test holes: its hole summaries, or a Shelby tube's or bulk sample's own source.
+  const holeIds = (item: InventoryItem) => {
+    const ids = item.holes.map((h) => h.testHoleId);
+    if (item.sample?.source.type === 'test_hole') ids.push(item.sample.source.testHoleId);
+    return ids;
+  };
+  const groups = holes
+    .map((hole) => ({
+      key: hole.id,
+      name: hole.name,
+      units: items.filter((item) => holeIds(item).includes(hole.id)),
+    }))
+    .filter((group) => group.units.length > 0);
+  const other = items.filter((item) => holeIds(item).length === 0);
+  if (other.length > 0) {
+    groups.push({ key: 'other', name: 'Not from a test hole', units: other });
+  }
   return (
     <>
-      <StorageUnitTable items={result.data.items} linkState={linkState} showProject={false} />
-      {result.data.total > result.data.items.length ? (
-        <p className="field-hint">
-          Showing {result.data.items.length} of {result.data.total}.{' '}
-          <Link className="see-all-link" to={sampleStorageLink(projectId)}>
-            See all in Sample Storage
-          </Link>
-        </p>
-      ) : null}
+      <div className="project-hole-groups">
+        {groups.map((group) => (
+          <section
+            key={group.key}
+            className="project-hole-group"
+            aria-labelledby={`project-hole-${group.key}`}
+          >
+            <div className="project-hole-head">
+              <h3 id={`project-hole-${group.key}`} className="mono">
+                {group.name}
+              </h3>
+              <span className="mono">{plural(group.units.length, 'unit', 'units')}</span>
+            </div>
+            <StorageUnitTable
+              items={group.units}
+              linkState={linkState}
+              showProject={false}
+              caption={`Storage units in ${group.name}`}
+            />
+          </section>
+        ))}
+      </div>
+      <p className="field-hint">
+        A unit that holds samples from two test holes appears under both.
+        {result.data.total > items.length ? (
+          <>
+            {' '}
+            Showing the first {items.length} of {result.data.total} units.{' '}
+            <Link className="see-all-link" to={sampleStorageLink(projectId)}>
+              See all in Inventory
+            </Link>
+          </>
+        ) : null}
+      </p>
     </>
   );
 }

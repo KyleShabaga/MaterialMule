@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+/* hover */
+a,button,select,summary,label:has(input[type="checkbox"]),label:has(input[type="radio"]),input[type="checkbox"],input[type="radio"]{cursor:pointer}
+button:disabled,[aria-disabled="true"]{cursor:not-allowed}
+button:not(:disabled):hover,a[style*="display:"]:not([aria-disabled="true"]):hover{background-image:linear-gradient(rgba(20,20,15,.1),rgba(20,20,15,.1)) !important}
+button:not(:disabled)[style*="background: #14140F"]:hover,button:not(:disabled)[style*="background: rgb(20, 20, 15)"]:hover,a[style*="background: #14140F"]:hover,a[style*="background: rgb(20, 20, 15)"]:hover{background-image:linear-gradient(rgba(244,244,239,.2),rgba(244,244,239,.2)) !important}
+a:not([style*="display:"]):hover{text-decoration:underline !important;text-decoration-thickness:2px !important;text-underline-offset:3px}
+input:not([type="checkbox"]):not([type="radio"]):not(:disabled):hover,select:not(:disabled):hover,textarea:not(:disabled):hover{box-shadow:0 0 0 3px #CFCFC4 !important}
+input[type="checkbox"]:hover,input[type="radio"]:hover{outline:3px solid #CFCFC4;outline-offset:1px}
+tbody tr:hover>*{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+[data-row]:hover{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; min-height: 100vh; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 15px; line-height: 1.4">
+
+  <div style="flex: 1 1 420px; box-sizing: border-box; background: #14140F; color: #F4F4EF; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 48px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div aria-hidden="true" style="width: 52px; height: 52px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: #FF5A1F; border: 2px solid #F4F4EF; border-radius: 4px"><svg aria-hidden="true" width="38" height="30" viewBox="150 230 960 760"><defs><mask id="mm-donkey-leg-gaps" maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760"><rect x="150" y="230" width="960" height="760" fill="#fff"></rect><g fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path></g></mask></defs><g fill="#14140F"><g mask="url(#mm-donkey-leg-gaps)"><path d="M350,690 C360,730 380,745 395,765 C380,790 350,805 320,825 C290,850 272,880 268,920 C272,935 285,950 292,970 L232,970 L232,955 C238,945 230,930 240,915 C260,880 280,840 300,800 C320,780 340,760 350,690 Z"></path><path d="M715,700 L770,720 C760,770 740,800 725,840 C710,880 700,910 715,970 L655,970 C660,950 648,935 650,915 C665,870 690,820 705,780 C712,760 712,730 715,700 Z"></path></g><path d="M352,595 C335,615 320,640 300,665 C285,680 275,700 262,720 C240,752 200,768 165,772 C180,755 185,735 200,710 C220,680 250,660 280,655 C300,640 315,600 340,575 Z"></path><path d="M340,580 C365,535 425,503 500,500 C580,497 640,520 700,505 C760,490 805,465 845,435 C885,405 912,390 938,390 L1000,405 C1025,430 1042,452 1047,472 C1060,510 1080,545 1087,577 C1092,605 1074,628 1050,628 C1030,628 1018,614 1014,600 C980,582 945,568 925,540 C902,578 878,612 862,632 L850,700 L745,690 C700,715 640,728 590,722 C550,716 522,702 505,690 L495,700 C470,745 420,745 395,735 C355,690 330,640 340,580 Z"></path><path d="M765,490 C785,478 805,474 822,468 L812,490 Z"></path><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path><path d="M935,412 C928,360 945,300 995,255 C1002,300 992,360 975,405 Z"></path><path d="M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z"></path></g></svg></div>
+      <div style="font-weight: 800; font-size: 20px; letter-spacing: 0.04em">MATERIAL MULE</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 20px">
+      <div style="font-size: 64px; font-weight: 800; letter-spacing: -0.03em; line-height: 0.95">Every bucket, tube and core box, where the record says it is.</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #CFCFC4">RECEIVE · LABEL · STORE · TEST · RETAIN · DISPOSE</div>
+    </div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #CFCFC4">OFFICE NETWORK ONLY</div>
+  </div>
+
+  <main style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; padding: 48px 32px; display: flex; align-items: center; justify-content: center">
+    <div style="width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 24px">
+      <h1 style="margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1">Sign in</h1>
+
+      <div role="status" style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #FBEBC2; border: 2px solid #14140F; border-radius: 6px">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #7A4E00; padding-top: 2px">ENDED</span>
+        <span>Your session has ended. Sign in to continue where you left off.</span>
+      </div>
+
+      <a href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; border: 2px solid #14140F; border-radius: 4px; background: #FF5A1F; font-weight: 800; font-size: 16px; color: #14140F; text-decoration: none">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#14140F"></rect><rect x="11" y="1" width="9" height="9" fill="#14140F"></rect><rect x="1" y="11" width="9" height="9" fill="#14140F"></rect><rect x="11" y="11" width="9" height="9" fill="#14140F"></rect></svg>
+        Sign in with Microsoft
+      </a>
+      <div style="font-size: 13px; color: #45463E">Use your own work account. What you do is recorded under your name.</div>
+
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div aria-hidden="true" style="flex: 1 1 0; height: 2px; background: #14140F"></div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">OR</span>
+        <div aria-hidden="true" style="flex: 1 1 0; height: 2px; background: #14140F"></div>
+      </div>
+
+      <form aria-labelledby="lab" style="background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden; margin: 0">
+        <div style="padding: 12px 16px; background: #E8E9E2; border-bottom: 2px solid #14140F">
+          <h2 id="lab" style="margin: 0; font-size: 18px; font-weight: 700">Shared receiving station (LAB)</h2>
+        </div>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px">
+          <div style="font-size: 13px; color: #45463E">For the shared computer at the receiving bench. You pick who received each unit on every receipt.</div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label for="user" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">USERNAME</label>
+            <input id="user" type="text" autocomplete="username" value="LAB" style="height: 48px; box-sizing: border-box; padding: 0 14px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: #14140F">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label for="pass" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">PASSWORD</label>
+            <input id="pass" type="password" autocomplete="current-password" style="height: 48px; box-sizing: border-box; padding: 0 14px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #14140F">
+          </div>
+          <button type="button" style="min-height: 48px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 15px; color: #14140F">Sign in as LAB</button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -4,7 +4,6 @@ import {
   CONCRETE_WORKLIST_FLAG_LABEL,
   CONCRETE_WORKLIST_PENDING_EXCEPTION_SOURCES,
   CONCRETE_WORKLIST_VIEWS,
-  CONCRETE_WORKLIST_VIEW_LABEL,
   concreteTargetDateFlags,
   concreteRescheduledTarget,
   type ConcreteScheduleHistory,
@@ -14,17 +13,30 @@ import {
   type ConcreteWorklistRow,
   type ConcreteWorklistView,
 } from '@materialmule/shared';
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
   ConfirmDialog,
   DataTable,
+  EmptyState,
   ErrorState,
+  Notice,
+  PageHeader,
+  SectionHead,
   StatusBadge,
   TableScroll,
+  TableViewSelector,
+  type BadgeTone,
 } from '../../components/ui';
+import { useMediaQuery } from '../../components/useMediaQuery';
+import { PHONE_QUERY, useTableView } from '../../components/useTableView';
+import { FEATURES } from '../../features';
+import { ContextRow } from '../../layout/ContextRow';
 import { fetchHolidayDates } from '../../settings/reference/api';
+import { TileBody } from '../ledger';
 import { fetchConcreteWorklist, fetchScheduleHistory, rescheduleSpecimen } from './api';
+import { SpecimenLabel } from './specimen';
+import { specimenText } from './specimen-text';
 import './concrete-worklist.css';
 
 type Load =
@@ -32,26 +44,34 @@ type Load =
   | { state: 'error'; message: string }
   | { state: 'ready'; list: ConcreteWorklist };
 
-const FLAG_TONE: Record<ConcreteWorklistFlag, 'neutral' | 'warning' | 'danger' | 'info'> = {
-  weekend_target: 'warning',
-  holiday_target: 'warning',
+const FLAG_TONE: Record<ConcreteWorklistFlag, BadgeTone> = {
+  weekend_target: 'closed',
+  holiday_target: 'closed',
   overdue: 'danger',
-  hold_review_due: 'warning',
-  rescheduled: 'info',
-  report_draft: 'neutral',
+  hold_review_due: 'waiting',
+  rescheduled: 'lab',
+  report_draft: 'waiting',
 };
 
-const specimenLabel = (row: ConcreteWorklistRow) =>
-  row.identity.permanentId ?? row.identity.temporaryId ?? `Unnumbered set, ${row.letter}`;
+/** View tile names (docs/redesign/design.md, "Concrete (V2)": Today, Overdue, Next 7 days, HOLD, Exceptions). */
+const VIEW_LABEL: Record<ConcreteWorklistView, string> = {
+  today: 'Today',
+  overdue: 'Overdue',
+  upcoming: 'Next 7 days',
+  hold: 'HOLD',
+  exceptions: 'Exceptions',
+};
+
+const specimenLabel = (row: ConcreteWorklistRow) => specimenText(row.identity, row.letter);
 
 const ageLabel = (row: ConcreteWorklistRow) =>
   row.assignedAge === CONCRETE_HOLD_AGE ? 'HOLD' : `${row.assignedAge} d`;
 
 /**
- * Lab Testing → Concrete breaks (MM-V2-C22): the daily lab worklist. Today (the default),
- * Overdue, Upcoming (7 days), HOLD and Exceptions, grouped by project with counts. Display only:
- * an overdue target is never moved, and a HOLD past its date is flagged for review, never tested
- * or disposed of. An authorized reschedule needs a reason and keeps the history.
+ * Concrete → Breaks (MM-V2-C22): the daily lab worklist. Today (the default), Overdue, Next 7
+ * days, HOLD and Exceptions as view tiles with counts, then one framed table per project. Display
+ * only: an overdue target is never moved, and a HOLD past its date is flagged for review, never
+ * tested or disposed of. An authorized reschedule needs a reason and keeps the history.
  */
 export function ConcreteWorklistPage() {
   // MM-V2-C31: the Concrete dashboard opens a view (`?view=`), and HOLDs due for review
@@ -79,6 +99,8 @@ export function ConcreteWorklistPage() {
   const [last, setLast] = useState<ConcreteWorklist | null>(null);
   const [rescheduling, setRescheduling] = useState<ConcreteWorklistRow | null>(null);
   const [notice, setNotice] = useState('');
+  const [tableView, setTableView] = useTableView('concrete-breaks');
+  const phone = useMediaQuery(PHONE_QUERY);
   const tabRefs = useRef<Partial<Record<ConcreteWorklistView, HTMLButtonElement | null>>>({});
   const baseId = useId();
 
@@ -133,18 +155,33 @@ export function ConcreteWorklistPage() {
   const counts = (list ?? last)?.counts;
   const projects = (list ?? last)?.projects ?? [];
   const totalPages = list ? Math.max(1, Math.ceil(list.total / list.pageSize)) : 1;
+  const onReschedule = (row: ConcreteWorklistRow) => {
+    setNotice('');
+    setRescheduling(row);
+  };
 
   return (
-    <section aria-labelledby="concrete-worklist-heading" className="concrete-worklist">
-      <h2 id="concrete-worklist-heading">Concrete breaks</h2>
-      <p className="field-hint">
-        {last ? <>Lab date {last.today} (America/Edmonton). </> : null}
-        Weekend targets are flagged, never moved. Holidays aren’t flagged yet: the holiday list
-        comes later.
-      </p>
+    <div className="concrete-worklist">
+      {/* The testing table is for the lab computers; on a phone the note below says so. */}
+      {FEATURES.concreteLab && !phone ? (
+        <ContextRow align="end">
+          <Link className="button primary" to="/concrete/testing">
+            Open testing table
+          </Link>
+        </ContextRow>
+      ) : null}
+      <PageHeader
+        title="Concrete breaks"
+        actions={<TableViewSelector value={tableView} onChange={setTableView} />}
+      />
+      {last ? (
+        <p className="concrete-dateline">
+          Lab date <span className="mono">{last.today}</span> (America/Edmonton)
+        </p>
+      ) : null}
       <div className="worklist-filters">
-        <label>
-          Project{' '}
+        <label className="worklist-project">
+          <span className="field-label">Project</span>
           <select
             value={projectId}
             onChange={(event) => {
@@ -161,7 +198,11 @@ export function ConcreteWorklistPage() {
           </select>
         </label>
       </div>
-      <div role="tablist" aria-label="Concrete worklist views" className="concrete-tabs">
+      <div
+        role="tablist"
+        aria-label="Concrete worklist views"
+        className="view-tiles concrete-tiles"
+      >
         {CONCRETE_WORKLIST_VIEWS.map((v) => (
           <button
             key={v}
@@ -171,14 +212,14 @@ export function ConcreteWorklistPage() {
             type="button"
             role="tab"
             id={`${baseId}-tab-${v}`}
+            aria-label={`${VIEW_LABEL[v]} ${counts ? counts[v] : '…'}`}
             aria-selected={view === v}
             aria-controls={`${baseId}-panel`}
             tabIndex={view === v ? 0 : -1}
             onClick={() => choose(v)}
             onKeyDown={onTabKey}
           >
-            {CONCRETE_WORKLIST_VIEW_LABEL[v]}{' '}
-            <span className="concrete-tab-count">{counts ? counts[v] : '…'}</span>
+            <TileBody count={counts ? counts[v] : '…'} label={VIEW_LABEL[v]} />
           </button>
         ))}
       </div>
@@ -188,12 +229,12 @@ export function ConcreteWorklistPage() {
         aria-labelledby={`${baseId}-tab-${view}`}
         className="concrete-panel"
       >
-        {notice ? (
-          <p role="status" className="concrete-notice">
-            {notice}
+        {notice ? <Notice tone="success">{notice}</Notice> : null}
+        {load.state === 'loading' ? (
+          <p className="field-hint" aria-busy="true">
+            Loading the worklist…
           </p>
         ) : null}
-        {load.state === 'loading' ? <p aria-busy="true">Loading the worklist…</p> : null}
         {load.state === 'error' ? (
           <ErrorState message={load.message} onRetry={() => setAttempt((n) => n + 1)} />
         ) : null}
@@ -213,17 +254,16 @@ export function ConcreteWorklistPage() {
         {list && view === 'exceptions' ? <Exceptions list={list} /> : null}
         {list && view !== 'exceptions' ? (
           list.groups.length === 0 ? (
-            <p className="empty-state">{EMPTY[view]}</p>
+            <EmptyState>{EMPTY[view]}</EmptyState>
           ) : (
             list.groups.map((group) => (
               <ProjectGroup
                 key={group.projectId}
                 group={group}
                 view={view}
-                onReschedule={(row) => {
-                  setNotice('');
-                  setRescheduling(row);
-                }}
+                phone={phone}
+                compact={tableView === 'compact'}
+                onReschedule={onReschedule}
               />
             ))
           )
@@ -242,6 +282,16 @@ export function ConcreteWorklistPage() {
           </nav>
         ) : null}
       </div>
+      {phone ? (
+        <p className="concrete-footnote">
+          Break results are entered at the lab computer, on the testing table.
+        </p>
+      ) : null}
+      <p className="concrete-footnote">
+        A target date is always the casting date plus the age. Weekend targets are flagged, never
+        moved. Holidays aren’t flagged yet: the holiday list comes later. Nothing on HOLD is tested,
+        released or disposed of automatically.
+      </p>
       {rescheduling ? (
         <RescheduleDialog
           row={rescheduling}
@@ -253,7 +303,7 @@ export function ConcreteWorklistPage() {
           }}
         />
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -264,98 +314,158 @@ const EMPTY: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string> = {
   hold: 'No specimens are on HOLD.',
 };
 
+/** The row's flags as status tags (an ordinary HOLD first). */
+function Flags({ row }: { row: ConcreteWorklistRow }) {
+  return (
+    <span className="concrete-flags">
+      {row.holdKind === 'ordinary' ? <StatusBadge tone="closed">Ordinary HOLD</StatusBadge> : null}
+      {row.flags.map((flag) => (
+        <StatusBadge key={flag} tone={FLAG_TONE[flag]}>
+          {CONCRETE_WORKLIST_FLAG_LABEL[flag]}
+        </StatusBadge>
+      ))}
+    </span>
+  );
+}
+
+/** Reschedule, disabled with its reason, or nothing (no authority, or HOLD / draft). */
+function RowAction({
+  row,
+  canReschedule,
+  onReschedule,
+}: {
+  row: ConcreteWorklistRow;
+  canReschedule: boolean;
+  onReschedule: (row: ConcreteWorklistRow) => void;
+}): ReactNode {
+  if (canReschedule && row.reschedulable) {
+    return (
+      <button
+        type="button"
+        aria-label={`Reschedule ${specimenLabel(row)}`}
+        onClick={() => onReschedule(row)}
+      >
+        Reschedule
+      </button>
+    );
+  }
+  if (canReschedule && needsNumber(row)) {
+    // MM-V2-C38: past draft, an unnumbered set can't be rescheduled (server 409
+    // `set_not_numbered`), so the action shows why instead of disappearing.
+    return (
+      <span className="concrete-action-blocked">
+        <button
+          type="button"
+          disabled
+          aria-label={`Reschedule ${specimenLabel(row)}`}
+          aria-describedby={`needs-number-${row.specimenId}`}
+        >
+          Reschedule
+        </button>
+        <span id={`needs-number-${row.specimenId}`} className="concrete-action-reason">
+          Number this set first
+        </span>
+      </span>
+    );
+  }
+  return null;
+}
+
 function ProjectGroup({
   group,
   view,
+  phone,
+  compact,
   onReschedule,
 }: {
   group: ConcreteWorklistGroup;
   view: Exclude<ConcreteWorklistView, 'exceptions'>;
+  phone: boolean;
+  compact: boolean;
   onReschedule: (row: ConcreteWorklistRow) => void;
 }) {
   const headingId = useId();
   const caption = `${group.projectNumber} specimens`;
+  const dateOf = (row: ConcreteWorklistRow) =>
+    view === 'hold' ? (row.holdExpiresOn ?? '—') : (row.targetDate ?? '—');
   return (
     <section aria-labelledby={headingId} className="concrete-group">
-      <h3 id={headingId}>
-        {group.projectNumber} · {group.projectName}{' '}
-        <span className="concrete-group-count">
-          {group.count} {group.count === 1 ? 'specimen' : 'specimens'}
-        </span>
-      </h3>
-      <TableScroll label={caption}>
-        <DataTable
-          caption={caption}
-          rows={group.rows}
-          rowKey={(row) => row.specimenId}
-          empty="None on this page."
-          columns={[
-            {
-              header: 'Specimen',
-              cell: (row) => <span className="mono">{specimenLabel(row)}</span>,
-            },
-            { header: 'Age', cell: ageLabel },
-            { header: 'Cast', cell: (row) => row.castingDate },
-            view === 'hold'
-              ? { header: 'Hold until', cell: (row) => row.holdExpiresOn ?? '—' }
-              : { header: 'Target', cell: (row) => row.targetDate ?? '—' },
-            ...(view === 'overdue'
-              ? [
-                  {
-                    header: 'Days late',
-                    cell: (row: ConcreteWorklistRow) => row.daysOverdue ?? '—',
-                  },
-                ]
-              : []),
-            {
-              header: 'Flags',
-              cell: (row) => (
-                <span className="concrete-flags">
-                  {row.holdKind === 'ordinary' ? <StatusBadge>Ordinary HOLD</StatusBadge> : null}
-                  {row.flags.map((flag) => (
-                    <StatusBadge key={flag} tone={FLAG_TONE[flag]}>
-                      {CONCRETE_WORKLIST_FLAG_LABEL[flag]}
-                    </StatusBadge>
-                  ))}
+      <SectionHead
+        id={headingId}
+        title={
+          <>
+            <span className="mono">{group.projectNumber}</span> · {group.projectName}
+          </>
+        }
+        meta={`${group.count} ${group.count === 1 ? 'specimen' : 'specimens'}`}
+      />
+      {phone ? (
+        // Phone (board PhoneConcrete): one stacked card per specimen.
+        <ul className="concrete-cards" aria-label={caption}>
+          {group.rows.map((row) => (
+            <li key={row.specimenId} className="concrete-card">
+              <div className="concrete-card-main">
+                <SpecimenLabel identity={row.identity} letter={row.letter} />
+                <span className="concrete-card-when">
+                  {ageLabel(row)} · cast <span className="mono">{row.castingDate}</span> ·{' '}
+                  {view === 'hold' ? 'hold until' : 'target'}{' '}
+                  <span className="mono">{dateOf(row)}</span>
+                  {view === 'overdue' && row.daysOverdue !== null ? (
+                    <> · {row.daysOverdue} days late</>
+                  ) : null}
                 </span>
-              ),
-            },
-            {
-              header: 'Actions',
-              cell: (row) =>
-                group.canReschedule && row.reschedulable ? (
-                  <button
-                    type="button"
-                    className="compact"
-                    aria-label={`Reschedule ${specimenLabel(row)}`}
-                    onClick={() => onReschedule(row)}
-                  >
-                    Reschedule
-                  </button>
-                ) : group.canReschedule && needsNumber(row) ? (
-                  // MM-V2-C38: past draft, an unnumbered set can't be rescheduled (server 409
-                  // `set_not_numbered`), so the action shows why instead of disappearing.
-                  <span className="concrete-action-blocked">
-                    <button
-                      type="button"
-                      className="compact"
-                      disabled
-                      aria-label={`Reschedule ${specimenLabel(row)}`}
-                      aria-describedby={`needs-number-${row.specimenId}`}
-                    >
-                      Reschedule
-                    </button>
-                    <span id={`needs-number-${row.specimenId}`} className="concrete-action-reason">
-                      Number this set first
-                    </span>
-                  </span>
-                ) : (
-                  '—'
-                ),
-            },
-          ]}
-        />
-      </TableScroll>
+              </div>
+              <Flags row={row} />
+              <RowAction
+                row={row}
+                canReschedule={group.canReschedule}
+                onReschedule={onReschedule}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <TableScroll label={caption} className="table-frame">
+          <DataTable
+            caption={caption}
+            rows={group.rows}
+            rowKey={(row) => row.specimenId}
+            empty="None on this page."
+            view={compact ? 'compact' : 'comfortable'}
+            columns={[
+              {
+                header: 'Specimen',
+                cell: (row) => <SpecimenLabel identity={row.identity} letter={row.letter} />,
+              },
+              { header: 'Age', cell: ageLabel },
+              { header: 'Cast', cell: (row) => <span className="mono">{row.castingDate}</span> },
+              view === 'hold'
+                ? {
+                    header: 'Hold until',
+                    cell: (row) => <span className="mono">{row.holdExpiresOn ?? '—'}</span>,
+                  }
+                : {
+                    header: 'Target',
+                    cell: (row) => <span className="mono">{row.targetDate ?? '—'}</span>,
+                  },
+              ...(view === 'overdue'
+                ? [
+                    {
+                      header: 'Days late',
+                      cell: (row: ConcreteWorklistRow) => row.daysOverdue ?? '—',
+                    },
+                  ]
+                : []),
+              { header: 'Flags', cell: (row) => <Flags row={row} /> },
+              {
+                header: 'Actions',
+                cell: (row) =>
+                  RowAction({ row, canReschedule: group.canReschedule, onReschedule }) ?? '—',
+              },
+            ]}
+          />
+        </TableScroll>
+      )}
     </section>
   );
 }
@@ -374,21 +484,26 @@ function Exceptions({ list }: { list: ConcreteWorklist }) {
   return (
     <div className="concrete-exceptions">
       {!list.testingMachineRegistered ? (
-        <p className="field-hint">No testing machine is registered (Settings → Equipment).</p>
+        <Notice tone="warning">No testing machine is registered (Settings → Equipment).</Notice>
       ) : null}
       {list.exceptions.length === 0 ? (
-        <p className="empty-state">No open exceptions from the sources checked so far.</p>
+        <EmptyState>No open exceptions from the sources checked so far.</EmptyState>
       ) : (
         <ul className="concrete-exception-list">
           {list.exceptions.map((item) => (
             <li key={`${item.kind}-${item.equipmentId}`}>
               <strong>Testing machine: {item.label}</strong>{' '}
               {item.flags.map((flag) => (
-                <StatusBadge key={flag} tone="warning">
+                <StatusBadge key={flag} tone="danger">
                   {CONCRETE_EQUIPMENT_FLAG_LABEL[flag]}
                 </StatusBadge>
               ))}
-              {item.nextDueOn ? <> Next calibration due {item.nextDueOn}.</> : null}
+              {item.nextDueOn ? (
+                <span className="field-hint">
+                  {' '}
+                  Next calibration due <span className="mono">{item.nextDueOn}</span>.
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

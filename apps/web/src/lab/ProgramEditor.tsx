@@ -3,6 +3,7 @@ import {
   MATCHING_BASIS_LABEL,
   formatPerson,
   formatReceiver,
+  testDisplayName,
   type LabProgram,
   type LabProgramReview,
   type LabSource,
@@ -11,11 +12,11 @@ import {
   type TestCatalogue,
   type TestTemplate,
 } from '@materialmule/shared';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { searchProjects } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { BandedCard, ConfirmDialog, ErrorState, StatusBadge } from '../components/ui';
+import { BandedCard, ConfirmDialog, ErrorState, SidePanel, StatusBadge } from '../components/ui';
 import { useMe } from '../session/context';
 import {
   createProgram,
@@ -23,6 +24,7 @@ import {
   fetchCatalogue,
   fetchReview,
   fetchSources,
+  fetchSourceUnits,
   fetchTemplates,
   saveProgram,
   submitProgram,
@@ -53,6 +55,49 @@ function fromProgram(program: LabProgram): LineDraft[] {
     unitIds: line.unitIds,
     acknowledgedDepths: line.acknowledgedDepths,
   }));
+}
+
+/** Units chosen on Inventory ("Add to lab request"): one project, its units' record IDs. */
+interface ChosenUnits {
+  projectId: string;
+  projectLabel: string;
+  storageUnitIds: string[];
+}
+
+function chosenUnits(state: unknown): ChosenUnits | null {
+  if (!state || typeof state !== 'object') return null;
+  const { projectId, projectLabel, storageUnitIds } = state as Record<string, unknown>;
+  if (typeof projectId !== 'string' || !Array.isArray(storageUnitIds)) return null;
+  const ids = storageUnitIds.filter((id): id is string => typeof id === 'string');
+  if (ids.length === 0) return null;
+  return {
+    projectId,
+    projectLabel: typeof projectLabel === 'string' ? projectLabel : 'Chosen project',
+    storageUnitIds: ids,
+  };
+}
+
+/**
+ * One Specific-sample line per sampling source that holds a chosen unit, with those units ticked
+ * as the physical units holding the sample. The person still names the sample and its tests.
+ */
+async function linesForChosenUnits(
+  projectId: string,
+  sources: LabSource[],
+  unitIds: string[],
+): Promise<{ lines: LineDraft[]; placed: number }> {
+  const wanted = new Set(unitIds);
+  const lines: LineDraft[] = [];
+  for (const source of sources) {
+    if (wanted.size === 0) break;
+    const ref = { kind: source.kind, id: source.id };
+    const units = await fetchSourceUnits(projectId, ref);
+    const here = units.map((u) => u.storageUnitId).filter((id) => wanted.has(id));
+    if (here.length === 0) continue;
+    here.forEach((id) => wanted.delete(id));
+    lines.push({ ...emptyLine(), source: ref, scope: 'specific', unitIds: here });
+  }
+  return { lines, placed: unitIds.length - wanted.size };
 }
 
 function personOption(program: LabProgram): ReceiverOption {
@@ -103,13 +148,17 @@ export function ProgramEditor({
   const navigate = useNavigate();
   const location = useLocation();
   const shared = me.accountType === 'shared_lab';
+  // Inventory's "Add to lab request" opens a new program on that project with the units waiting.
+  const [chosen, setChosen] = useState(() => (draft ? null : chosenUnits(location.state)));
   const [programId, setProgramId] = useState(draft?.id ?? null);
   const [version, setVersion] = useState(draft?.version ?? 0);
   const [createKey] = useState(newKey);
   const [project, setProject] = useState<{ id: string; label: string } | null>(
     draft
       ? { id: draft.project.id, label: `${draft.project.projectNumber} · ${draft.project.name}` }
-      : null,
+      : chosen
+        ? { id: chosen.projectId, label: chosen.projectLabel }
+        : null,
   );
   const [requestedBy, setRequestedBy] = useState<ReceiverOption | null>(
     draft && shared ? personOption(draft) : null,
@@ -144,6 +193,34 @@ export function ProgramEditor({
     if (!project) return;
     fetchSources(project.id).then(setSources, () => setLoadError(true));
   }, [project]);
+  useEffect(() => {
+    if (!chosen || !project || project.id !== chosen.projectId || sources.length === 0) return;
+    let current = true;
+    void linesForChosenUnits(chosen.projectId, sources, chosen.storageUnitIds).then(
+      ({ lines: prepared, placed }) => {
+        if (!current) return;
+        setChosen(null);
+        if (prepared.length > 0) setLines(prepared);
+        const total = chosen.storageUnitIds.length;
+        const unit = (n: number) => `${n} unit${n === 1 ? '' : 's'}`;
+        setMessage({
+          tone: placed === total ? 'success' : 'warning',
+          text:
+            placed === total
+              ? `${unit(total)} from Inventory ${total === 1 ? 'is' : 'are'} ticked on ${prepared.length} line${prepared.length === 1 ? '' : 's'}. Name each sample and choose its tests.`
+              : `${unit(placed)} of the ${unit(total)} chosen on Inventory could be ticked; the others aren’t in storage for this project now.`,
+        });
+      },
+      () => {
+        if (!current) return;
+        setChosen(null);
+        setMessage({ tone: 'warning', text: 'The units chosen on Inventory couldn’t be loaded.' });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [chosen, project, sources]);
 
   const openReviewOnArrival = Boolean(
     (location.state as { openReview?: boolean } | null)?.openReview,
@@ -298,123 +375,150 @@ export function ProgramEditor({
       }}
       noValidate
     >
-      <h2>{programId ? 'Draft program' : 'New program'}</h2>
-      {shared ? (
-        <div className="requested-by-station">
-          <ReceiverSelect
-            label="Requested by"
-            required
-            value={requestedBy}
-            onChange={(option) => {
-              setRequestedBy(option);
-              setReview(null);
-            }}
-            error={personMissing && message ? 'Choose who this program is requested by.' : null}
-            hint="Shared LAB station: choose the person requesting these tests. This is attribution only; it gives LAB none of their permissions."
-          />
-          <p className="requested-by-current" aria-live="polite">
-            {requestedBy
-              ? `Recorded as LAB for ${formatReceiver(requestedBy)}`
-              : 'Nobody chosen yet'}
+      <div className="lab-editor-title">
+        <h1>{programId ? 'Draft lab program' : 'New lab program'}</h1>
+        {project ? <span className="section-meta">{project.label}</span> : null}
+        {programId ? <StatusBadge tone="waiting">Draft · saved</StatusBadge> : null}
+      </div>
+      <div className="lab-split">
+        <div className="lab-split-main lab-editor-main">
+          {shared ? (
+            <div className="requested-by-station">
+              <ReceiverSelect
+                label="Requested by"
+                required
+                value={requestedBy}
+                onChange={(option) => {
+                  setRequestedBy(option);
+                  setReview(null);
+                }}
+                error={personMissing && message ? 'Choose who this program is requested by.' : null}
+                hint="Shared LAB station: choose the person requesting these tests. This is attribution only; it gives LAB none of their permissions."
+              />
+              <p className="requested-by-current" aria-live="polite">
+                {requestedBy
+                  ? `Recorded as LAB for ${formatReceiver(requestedBy)}`
+                  : 'Nobody chosen yet'}
+              </p>
+            </div>
+          ) : (
+            <p className="field-hint">
+              Requested by {formatPerson(me.initials ?? null, me.displayName)}.
+            </p>
+          )}
+
+          {draft ? (
+            <p>
+              Project <strong>{project?.label}</strong>
+            </p>
+          ) : (
+            <ProjectChooser
+              value={project}
+              onChange={(next) => {
+                setProject(next);
+                setLines([emptyLine()]);
+                setReview(null);
+              }}
+            />
+          )}
+
+          {message ? (
+            <div className={`notice notice-${message.tone}`} role="alert">
+              <p>{message.text}</p>
+              {conflict ? (
+                <button type="button" onClick={loadLatest}>
+                  Load the newer version
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {project && catalogue ? (
+            <>
+              {lines.map((line, index) => (
+                <LineEditor
+                  key={line.key}
+                  index={index}
+                  line={line}
+                  projectId={project.id}
+                  sources={sources}
+                  catalogue={catalogue}
+                  templates={templates}
+                  review={review?.lines.find((l) => l.lineId === line.id) ?? null}
+                  onChange={(change) => updateLine(line.key, change)}
+                  onRemove={
+                    lines.length > 1
+                      ? () => {
+                          setReview(null);
+                          setLines((current) => current.filter((other) => other.key !== line.key));
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => setLines((current) => [...current, emptyLine()])}
+              >
+                Add line
+              </button>
+              <div className="form-field">
+                <label htmlFor="program-notes">Notes</label>
+                <textarea
+                  id="program-notes"
+                  value={notes}
+                  maxLength={2000}
+                  onChange={(event) => setNotes(event.target.value)}
+                />
+              </div>
+            </>
+          ) : project ? (
+            <p aria-busy="true">Loading the test catalogue…</p>
+          ) : null}
+
+          {review ? <ReviewPanel review={review} lines={lines} /> : null}
+          {review && reviewStale ? (
+            <p className="field-hint" role="status">
+              You changed the program after this review. Review again before submitting.
+            </p>
+          ) : null}
+          <p className="field-hint">
+            This is the only place individual samples are named. Receiving records one summary per
+            test hole.
           </p>
         </div>
-      ) : (
-        <p className="field-hint">
-          Requested by {formatPerson(me.initials ?? null, me.displayName)}.
-        </p>
-      )}
-
-      {draft ? (
-        <p>
-          Project <strong>{project?.label}</strong>
-        </p>
-      ) : (
-        <ProjectChooser
-          value={project}
-          onChange={(next) => {
-            setProject(next);
-            setLines([emptyLine()]);
-            setReview(null);
-          }}
-        />
-      )}
-
-      {message ? (
-        <div className={`notice notice-${message.tone}`} role="alert">
-          <p>{message.text}</p>
-          {conflict ? (
-            <button type="button" onClick={loadLatest}>
-              Load the newer version
-            </button>
-          ) : null}
+        <div className="lab-split-side">
+          <LabGetsPanel
+            lines={lines}
+            catalogue={catalogue}
+            review={review && !reviewStale ? review : null}
+          >
+            <div className="form-actions program-actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || !review?.ready || reviewStale || personMissing}
+                onClick={() => void submit()}
+              >
+                Submit program
+              </button>
+              <button type="submit" disabled={busy || !project}>
+                Review
+              </button>
+              <button type="button" onClick={() => void save()} disabled={busy || !project}>
+                Save draft
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => setConfirmDiscard(true)}
+                disabled={busy}
+              >
+                Discard draft
+              </button>
+            </div>
+          </LabGetsPanel>
         </div>
-      ) : null}
-
-      {project && catalogue ? (
-        <>
-          {lines.map((line, index) => (
-            <LineEditor
-              key={line.key}
-              index={index}
-              line={line}
-              projectId={project.id}
-              sources={sources}
-              catalogue={catalogue}
-              templates={templates}
-              review={review?.lines.find((l) => l.lineId === line.id) ?? null}
-              onChange={(change) => updateLine(line.key, change)}
-              onRemove={
-                lines.length > 1
-                  ? () => {
-                      setReview(null);
-                      setLines((current) => current.filter((other) => other.key !== line.key));
-                    }
-                  : undefined
-              }
-            />
-          ))}
-          <button type="button" onClick={() => setLines((current) => [...current, emptyLine()])}>
-            Add line
-          </button>
-          <div className="form-field">
-            <label htmlFor="program-notes">Notes</label>
-            <textarea
-              id="program-notes"
-              value={notes}
-              maxLength={2000}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </div>
-        </>
-      ) : project ? (
-        <p aria-busy="true">Loading the test catalogue…</p>
-      ) : null}
-
-      {review ? <ReviewPanel review={review} lines={lines} /> : null}
-      {review && reviewStale ? (
-        <p className="field-hint" role="status">
-          You changed the program after this review. Review again before submitting.
-        </p>
-      ) : null}
-
-      <div className="form-actions program-actions">
-        <button type="button" onClick={() => setConfirmDiscard(true)} disabled={busy}>
-          Discard draft
-        </button>
-        <button type="button" onClick={() => void save()} disabled={busy || !project}>
-          Save draft
-        </button>
-        <button type="submit" disabled={busy || !project}>
-          Review
-        </button>
-        <button
-          type="button"
-          className="primary"
-          disabled={busy || !review?.ready || reviewStale || personMissing}
-          onClick={() => void submit()}
-        >
-          Submit program
-        </button>
       </div>
       <ConfirmDialog
         open={confirmDiscard}
@@ -492,6 +596,76 @@ function ProjectChooser({
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * "What the lab gets" (Field Ledger "Show the effect before confirming"): what submitting would
+ * create, counted from the lines as they stand: each test and how many times it is requested,
+ * and, once reviewed, the storage units the lab will pull. Nothing here is saved by itself.
+ */
+function LabGetsPanel({
+  lines,
+  catalogue,
+  review,
+  children,
+}: {
+  lines: LineDraft[];
+  catalogue: TestCatalogue | null;
+  /** The current review; null before one or once the program changed since. */
+  review: LabProgramReview | null;
+  children: ReactNode;
+}) {
+  const counts = new Map<string, number>();
+  for (const line of lines) {
+    for (const id of line.testTypeIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const tests = [...counts].map(([id, n]) => {
+    const test = catalogue?.tests.find((t) => t.id === id);
+    return { id, n, name: test ? `${test.code} · ${testDisplayName(test)}` : 'Test' };
+  });
+  const total = tests.reduce((sum, test) => sum + test.n, 0);
+  const units = new Map<string, string>();
+  for (const line of review?.lines ?? []) {
+    for (const unit of line.coverage.filter((u) => u.included)) {
+      units.set(unit.storageUnitId, unit.readableId);
+    }
+  }
+  return (
+    <SidePanel title="What the lab gets" className="lab-gets">
+      <p className="section-meta">
+        {lines.length} line{lines.length === 1 ? '' : 's'} · {total} test
+        {total === 1 ? '' : 's'}
+      </p>
+      {tests.length === 0 ? (
+        <p className="field-hint">No tests chosen yet.</p>
+      ) : (
+        <ul className="lab-gets-tests" aria-label="Tests the lab gets">
+          {tests.map((test) => (
+            <li key={test.id} data-row>
+              <span>{test.name}</span>
+              <span className="mono">{test.n}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {review ? (
+        units.size > 0 ? (
+          <p>
+            The lab sees {units.size} unit{units.size === 1 ? '' : 's'} to pull:{' '}
+            <span className="mono">{[...units.values()].join(', ')}</span>.
+          </p>
+        ) : (
+          <p className="field-hint">No storage unit is covered yet.</p>
+        )
+      ) : (
+        <p className="field-hint">Review the program to see which storage units the lab pulls.</p>
+      )}
+      <p className="field-hint">
+        Each test starts as Requested. The lab marks progress only; results are not recorded here.
+      </p>
+      {children}
+    </SidePanel>
   );
 }
 

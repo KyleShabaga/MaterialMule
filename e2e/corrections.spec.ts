@@ -33,9 +33,7 @@ test('T7: correct a summary from the detail page; the history shows it and the I
   await expect(form).toBeHidden();
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Details corrected.' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
-    data.warehouse,
-  );
+  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(data.warehouse);
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
     'TH26-01: G1–S10',
   );
@@ -98,7 +96,7 @@ test('MM-T70 T4: correcting the project of an approved unit is refused with a pl
     `${data.a1} is approved for disposal under ${data.projectA}. Revoke the approval on the ` +
       'Disposal & Retention page first, then correct the project.',
   );
-  await expect(form.getByRole('link', { name: 'Open Disposal & Retention' })).toHaveAttribute(
+  await expect(form.getByRole('link', { name: 'Open Retention' })).toHaveAttribute(
     'href',
     /disposal-retention[?]projectId=/,
   );

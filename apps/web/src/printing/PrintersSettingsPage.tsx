@@ -2,6 +2,7 @@ import type { Printer } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { EmptyState, ErrorState, FormField, StatusBadge } from '../components/ui';
 import { useMe } from '../session/context';
+import { SettingsHead } from '../settings/SettingsHead';
 import { fetchPrinters, savePrinters } from './api';
 
 type Load =
@@ -66,8 +67,12 @@ function PrinterForm({
         </div>
         {isNew ? null : (
           <div className="banded-card-aside">
-            {initial.enabled ? <StatusBadge tone="success">In use</StatusBadge> : null}
-            {initial.isDefault ? <StatusBadge tone="info">Default</StatusBadge> : null}
+            {initial.enabled ? (
+              <StatusBadge tone="storage">In use</StatusBadge>
+            ) : (
+              <StatusBadge tone="closed">Not in use</StatusBadge>
+            )}
+            {initial.isDefault ? <StatusBadge tone="flag">Default</StatusBadge> : null}
           </div>
         )}
       </div>
@@ -187,23 +192,48 @@ export function PrintersSettingsPage() {
     };
   }, [allowed, attempt]);
 
+  const head = (
+    <SettingsHead
+      id="printers-heading"
+      title="Printers"
+      who="The label printers and their state. Administrators change them; addresses stay on the server."
+    />
+  );
   if (!allowed) {
-    return <EmptyState>Only administrators can change printers.</EmptyState>;
+    return (
+      <section className="printers-page" aria-labelledby="printers-heading">
+        {head}
+        <EmptyState>Only administrators can change printers.</EmptyState>
+      </section>
+    );
   }
-  if (load.state === 'loading') return <p aria-busy="true">Loading printers…</p>;
+  if (load.state === 'loading') {
+    return (
+      <section className="printers-page" aria-labelledby="printers-heading">
+        {head}
+        <p aria-busy="true">Loading printers…</p>
+      </section>
+    );
+  }
   if (load.state === 'error') {
-    return <ErrorState message={load.message} onRetry={() => setAttempt((a) => a + 1)} />;
+    return (
+      <section className="printers-page" aria-labelledby="printers-heading">
+        {head}
+        <ErrorState message={load.message} onRetry={() => setAttempt((a) => a + 1)} />
+      </section>
+    );
   }
   const onSaved = (printers: Printer[]) => {
     setLoad({ state: 'ready', printers });
     setSaved(true);
   };
   return (
-    <>
+    <section className="printers-page" aria-labelledby="printers-heading">
+      {head}
       <p role="status" className={saved ? 'notice notice-success' : 'visually-hidden'}>
         {saved ? 'Printer settings saved.' : ''}
       </p>
-      {/* Canvas layout (MM-T55): printers on the left, "Add a printer" beside them. */}
+      {/* Canvas layout (SettingsPrinters): a framed block per printer, "Add a printer" beside. */}
       <div className="printers-layout">
         <div className="printers-list">
           {load.printers.length === 0 ? (
@@ -222,6 +252,6 @@ export function PrintersSettingsPage() {
         </div>
         <PrinterForm initial={BLANK} isNew onSaved={onSaved} />
       </div>
-    </>
+    </section>
   );
 }

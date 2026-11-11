@@ -309,7 +309,7 @@ describe('Scan with camera button (MM-T17)', () => {
         <RouterProvider router={router} />
       </SessionContext.Provider>,
     );
-    await screen.findByRole('heading', { level: 1, name: 'Sample Storage' });
+    await screen.findByRole('heading', { level: 1, name: 'Inventory' });
     await act(() => router.navigate('/sample-storage/scan'));
     const button = await screen.findByRole('button', { name: 'Scan with camera' });
     expect(getUserMedia).not.toHaveBeenCalled();

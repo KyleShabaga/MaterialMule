@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 
-// MM-V2-C26 T2: Lab Testing → HOLD and the Ready for disposal concrete filter, on desktop and
+// MM-V2-C26 T2: Concrete → Holds and the Ready for disposal concrete filter, on desktop and
 // phone against the real API. Each test casts its own fictional project's numbered 7/28/28/HOLD
 // sets 10 days ago (America/Edmonton); permanent numbers are attached with SQL (standing in for
 // C18) and a failed-specimen hold is inserted with SQL (standing in for C25). Fictional data only.
@@ -73,7 +73,7 @@ async function castProject(page: Page, sets: number) {
 
 async function openHolds(page: Page, projectNumber: string) {
   await page.goto('/lab-testing/concrete/holds');
-  await expect(page.getByRole('heading', { name: 'HOLD management', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Concrete holds', level: 1 })).toBeVisible();
   await page.getByLabel('Project').selectOption({ label: projectNumber });
 }
 
@@ -83,7 +83,8 @@ test('T2: the lead authorizes disposal of two HOLDs in bulk; a Lab Technician re
   const { projectNumber } = await castProject(page, 2);
   await signInAs(page, 'pe');
   await openHolds(page, projectNumber);
-  const table = page.getByRole('table', { name: 'HOLD specimens' });
+  // Every band (hold period ended, still inside it, failed-result holds, ...) sits in this region.
+  const table = page.getByRole('region', { name: 'HOLD specimens' });
   await expect(table.getByText('26-01D')).toBeVisible();
   await expect(table.getByText('26-02D')).toBeVisible();
   // HOLD expiry is casting + 56 days; nothing has happened on any date.
@@ -92,16 +93,21 @@ test('T2: the lead authorizes disposal of two HOLDs in bulk; a Lab Technician re
 
   await page.getByRole('checkbox', { name: 'Select 26-01D' }).check();
   await page.getByRole('checkbox', { name: 'Select 26-02D' }).check();
-  await page.getByRole('button', { name: 'Authorize disposal' }).click();
+  // The reason is written in the side panel; the action stays disabled until it has one.
+  const panel = page.getByRole('region', { name: 'With the selected' });
+  await expect(panel.getByText('2 selected')).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Authorize disposal' })).toBeDisabled();
+  await panel.getByLabel('Reason').fill('Spare cylinders not needed');
+  await panel.getByRole('button', { name: 'Authorize disposal' }).click();
   const dialog = page.getByRole('dialog', { name: 'Authorize disposal: 2 specimens' });
   const changes = dialog.getByRole('list', { name: 'Specimens and changes' });
   await expect(changes.getByText('HOLD → Disposal authorized')).toHaveCount(2);
-  await dialog.getByLabel('Reason').fill('Spare cylinders not needed');
+  await expect(dialog.getByText('Spare cylinders not needed')).toBeVisible();
   await dialog.getByRole('button', { name: 'Confirm authorize disposal' }).click();
   await expect(page.getByText('2 specimens authorized for disposal.')).toBeVisible();
   await expect(table.getByText('26-01D')).toHaveCount(0);
   await page.getByLabel('Status').selectOption('disposal_authorized');
-  await expect(table.getByText('Disposal authorized')).toHaveCount(2);
+  await expect(table.getByRole('row').filter({ hasText: 'Disposal authorized' })).toHaveCount(2);
 
   // A Lab Technician records the actual removal from the MISC-13 list's concrete filter.
   await signInAs(page, 'lt');
@@ -146,18 +152,20 @@ test('T2: a Lab Manager schedules a HOLD for testing but cannot release a failed
   );
   await signInAs(page, 'lab');
   await openHolds(page, projectNumber);
-  const table = page.getByRole('table', { name: 'HOLD specimens' });
+  // Every band (hold period ended, still inside it, failed-result holds, ...) sits in this region.
+  const table = page.getByRole('region', { name: 'HOLD specimens' });
   await expect(table.getByText('Failed-specimen hold')).toBeVisible();
   await expect(table.getByText('Low 28-day result')).toBeVisible();
   // No concrete grant on this project: the failed hold can't be selected.
   await expect(page.getByRole('checkbox', { name: 'Select 26-01B' })).toBeDisabled();
 
   await page.getByRole('checkbox', { name: 'Select 26-01D' }).check();
-  await page.getByRole('button', { name: 'Schedule test' }).click();
+  const panel = page.getByRole('region', { name: 'With the selected' });
+  await panel.getByLabel('Reason').fill('Engineer wants a 56-day break');
+  await panel.getByRole('button', { name: 'Schedule test' }).click();
   const dialog = page.getByRole('dialog', { name: 'Schedule test: 1 specimen' });
   await dialog.getByLabel('Test age (days)').fill('56');
   await expect(dialog.getByText(`HOLD → 56 d, target ${labDate(46)}`)).toBeVisible();
-  await dialog.getByLabel('Reason').fill('Engineer wants a 56-day break');
   await dialog.getByRole('button', { name: 'Confirm schedule test' }).click();
   await expect(page.getByText('1 specimen scheduled for testing.')).toBeVisible();
   await expect(table.getByText('26-01D')).toHaveCount(0);

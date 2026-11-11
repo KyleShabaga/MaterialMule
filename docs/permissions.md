@@ -1162,6 +1162,8 @@ No new route or permission. C08 proves the package 1 rules end to end and closes
 | `GET /api/locations?search=&includeRetired=`       | `inventory.read` (every active session, LAB included) |
 | `GET /api/locations/:id`                           | `inventory.read`                                      |
 | `GET /api/locations/:id/label/preview`             | `inventory.read` (read-only: no job, no code lock)    |
+| `GET /api/locations/:id/activity` (shelf page)     | `inventory.read` (moves in and out, last 30 days)     |
+| `GET /api/storage-units/:id/lab-programs`          | `lab_program.read` (progress counts only)             |
 | `POST /api/locations`                              | `location.manage` (Lab Manager and admin, no LAB)     |
 | `PATCH /api/locations/:id`                         | `location.manage`                                     |
 | `POST /api/locations/:id/retire {reason, version}` | `location.manage`                                     |
@@ -1238,14 +1240,15 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 
 ## Lab worklist, progress, priority and comments (MM-T24)
 
-| Route                                                      | Policy                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------- |
-| `GET /api/worklist?priority=&projectId=&open=&testTypeId=` | `lab_program.read`                                      |
-| `GET /api/lab-programs/:id/work`                           | `lab_program.read`                                      |
-| `POST /api/test-requests/:id/status`                       | `test.progress` (LAB too, with `actingStaffUserId`)     |
-| `PATCH /api/lab-programs/:id/priority`                     | active user; handler checks `program.priority.set`      |
-| `POST /api/lab-programs/:id/comments`                      | `lab_comment.write` (LAB too, with `actingStaffUserId`) |
-| `PATCH /api/comments/:id`                                  | `lab_comment.write`; only the author, within 15 minutes |
+| Route                                                       | Policy                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------- |
+| `GET /api/worklist?priority=&projectId=&open=&testTypeId=`  | `lab_program.read`                                      |
+| `GET /api/lab-programs/:id/work`                            | `lab_program.read`                                      |
+| `GET /api/worklist/units-to-pull` (Field Ledger, read-only) | `lab_program.read`                                      |
+| `POST /api/test-requests/:id/status`                        | `test.progress` (LAB too, with `actingStaffUserId`)     |
+| `PATCH /api/lab-programs/:id/priority`                      | active user; handler checks `program.priority.set`      |
+| `POST /api/lab-programs/:id/comments`                       | `lab_comment.write` (LAB too, with `actingStaffUserId`) |
+| `PATCH /api/comments/:id`                                   | `lab_comment.write`; only the author, within 15 minutes |
 
 - **Shared LAB stations** (Kyle, 2026-10-27): LAB may Start, Mark completed and Send to review,
   and add or edit its comments, naming "Who is doing this?" on every request (an active staff
@@ -1487,3 +1490,14 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   unit is refused by moves, queued-move replay and test linking, and never returns to stock.
 - **Tested units** use MM-T36's separate route, which needs no approval, scan, retention or
   program closure.
+
+## Help & Feedback (Field Ledger)
+
+| Route                                   | Policy                           |
+| --------------------------------------- | -------------------------------- |
+| `POST /api/feedback {kind, text, page}` | any active session, LAB included |
+| `GET /api/feedback`                     | `staff.manage` (admin)           |
+
+- **Stays on the host.** Each submission is an append-only audit event `feedback.submitted`
+  (actor snapshot, kind, text, optional in-app path without a query string). Nothing is emailed
+  or sent to an outside service. Administrators read the latest 50 on the Help & Feedback page.

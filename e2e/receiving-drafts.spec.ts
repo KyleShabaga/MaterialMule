@@ -25,6 +25,13 @@ async function chooseProject(page: Page) {
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
 }
 
+async function toUnits(page: Page) {
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
+  await expect(page.getByRole('heading', { name: 'Storage units in this delivery' })).toBeVisible();
+}
+
+const confirmButton = (page: Page) => page.getByRole('button', { name: 'Confirm and issue IDs' });
+
 async function addHole(unit: Locator, name: string) {
   await unit.getByRole('combobox', { name: 'Find or add a test hole' }).fill(name);
   await unit.getByRole('option', { name, exact: true }).click();
@@ -93,12 +100,13 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await expect(draftStatus(page)).toHaveText('Draft not saved yet · Receiver: AT');
   await chooseProject(page);
   await page.getByLabel('Description (optional)').fill('Two buckets from the drill crew');
+  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   const range = summaryOf(bucket(page, 1), 'TH26-01');
   await range.getByLabel('Summary type').selectOption('sample_range');
   await range.getByLabel('Sample from').fill('G1');
   await range.getByLabel('Sample to').fill('S12');
-  await page.getByRole('button', { name: 'Add bucket' }).click();
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
   await bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped');
@@ -112,21 +120,22 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
     list.getByRole('heading', { name: 'DEMO-2601 · Riverbank investigation' }),
   ).toBeVisible();
   await expect(list).toContainText('2 storage units · Receiver: AT · Last saved');
-  // The list sits above "Start new receipt".
+  // The list sits above "Start a delivery".
   const listBox = (await list.boundingBox())!;
   const startBox = (await reopened
-    .getByRole('button', { name: 'Start new receipt' })
+    .getByRole('button', { name: 'Start a delivery' })
     .boundingBox())!;
   expect(listBox.y).toBeLessThan(startBox.y);
 
   await list.getByRole('button', { name: /Resume draft DEMO-2601/ }).click();
-  await expect(reopened.getByLabel('Project number')).toHaveValue('DEMO-2601');
-  await expect(reopened.getByLabel('Description (optional)')).toHaveValue(
-    'Two buckets from the drill crew',
-  );
-  await expect(reopened.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
-    /^AT · Alex Tester/,
-  );
+  // It opens on Units, where it was left, with the finished units folded to their rows.
+  const delivery = reopened.getByRole('group', { name: 'Delivery' });
+  await expect(delivery).toContainText('DEMO-2601');
+  await expect(delivery).toContainText('Two buckets from the drill crew');
+  await expect(delivery).toContainText('AT · Alex Tester');
+  await expect(bucket(reopened, 1).getByText('G1–S12')).toBeVisible();
+  await bucket(reopened, 1).getByRole('button', { name: 'Edit Bucket 1' }).click();
+  await bucket(reopened, 2).getByRole('button', { name: 'Edit Bucket 2' }).click();
   const reopenedRange = summaryOf(bucket(reopened, 1), 'TH26-01');
   await expect(reopenedRange.getByLabel('Sample from')).toHaveValue('G1');
   await expect(reopenedRange.getByLabel('Sample to')).toHaveValue('S12');
@@ -153,6 +162,7 @@ test(
     ).toBeVisible();
     await page.getByLabel('Description (optional)').fill('Edited offline');
     const savedFirst = await savedAfter(page, new Date().toISOString());
+    await toUnits(page);
     await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
     const savedSecond = await savedAfter(page, new Date().toISOString());
     expect(savedSecond > savedFirst).toBe(true);
@@ -164,7 +174,7 @@ test(
     await draftList(reopened)
       .getByRole('button', { name: /Resume draft/ })
       .click();
-    await expect(reopened.getByLabel('Description (optional)')).toHaveValue('Edited offline');
+    await expect(reopened.getByRole('group', { name: 'Delivery' })).toContainText('Edited offline');
     await expect(bucket(reopened, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue(
       'Still offline',
     );
@@ -189,7 +199,8 @@ test(
     await expect(alert).toContainText('Receiver: AT');
     await expect(alert).toContainText('no storage space left');
     // A step change retries the save; it still fails and still says so.
-    await page.getByRole('button', { name: 'Next: Review' }).click();
+    await chooseProject(page);
+    await toUnits(page);
     await expect(alert).toBeVisible();
     await expect(page.getByText(/Draft saved/)).toHaveCount(0);
   },
@@ -205,14 +216,14 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   await expect(draftStatus(page)).toHaveText('Draft not saved yet · Receiver: not chosen');
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
+  await page.getByLabel('Description (optional)').fill('LAB expiry check');
+  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
-  await page.getByLabel('Description (optional)').fill('LAB expiry check');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
   await expect(draftStatus(page)).toContainText('Receiver: AT');
 
   await expireSession(context);
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await confirmButton(page).click();
   const expired = page.getByRole('alert').filter({ hasText: 'LAB session has expired' });
   await expect(expired).toHaveText(
     /The LAB session has expired\. Your draft is saved\. Sign in to confirm\./,
@@ -225,7 +236,7 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
     'The LAB session has expired. Your draft is saved. Sign in to confirm.',
   );
 
-  // Signing in again returns to the same draft, on the review step, receiver unchanged (AC4).
+  // Signing in again returns to the same draft, on Units, receiver unchanged (AC4).
   await signInAs(page, 'lab');
   await page.reload();
   await expect(page).toHaveURL(/\/receiving-log\/new\?draft=/);
@@ -234,7 +245,7 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   ).toBeVisible();
   await expect(page.getByText('LAB expiry check')).toBeVisible();
   const request = page.waitForRequest('**/api/receipts');
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await confirmButton(page).click();
   const ids = await issuedIds(page);
   expect(ids).toHaveLength(1);
   const { idempotencyKey } = (await request).postDataJSON() as { idempotencyKey: string };
@@ -316,12 +327,12 @@ test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns
   await signInAs(page, 'at');
   await page.goto('/receiving-log/new');
   await chooseProject(page);
+  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
-  await page.getByRole('button', { name: 'Add bucket' }).click();
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
 
   // The server confirms, but the answer never reaches the browser (and retries fail too).
   let key = '';
@@ -338,7 +349,7 @@ test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns
     }
     await route.abort('connectionreset').catch(() => undefined);
   });
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await confirmButton(page).click();
   await serverDone;
   expect(firstIds).toHaveLength(2);
   await page.close(); // the "crash"

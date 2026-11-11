@@ -22,77 +22,202 @@
   margin-bottom: 1rem;
 }
 
-.move-destination {
-  max-width: 48rem;
-  margin: 0 0 1rem;
-  padding: 1rem;
-  border-left: 8px solid var(--primary);
-  display: grid;
-  gap: 0.5rem;
-  justify-items: start;
+.move-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* The units on the left (2), the destination shelf and its cells on the right (1). */
+.move-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-7);
+  margin-top: var(--space-5);
+}
+
+.move-units {
+  flex: 2 1 480px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.move-shelf {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.move-shelf .side-panel-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.move-scan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.move-scan .camera-scan-button {
+  align-self: flex-start;
+  margin: 0;
 }
 
 .move-destination-label {
   margin: 0;
-  font-weight: 600;
-  color: var(--muted);
 }
 
 .move-destination-name {
   margin: 0;
   font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: 800;
+  line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
 .move-destination-code {
   font-family: var(--font-mono);
-  font-size: 1.1rem;
+  font-size: var(--fs-row-id);
   font-weight: 600;
 }
 
 .move-destination-empty {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+  padding: var(--space-4);
+  border: var(--rule-width) dashed var(--rule);
+  border-radius: var(--radius-card);
+  font-weight: 700;
+}
+
+.move-shelf-fill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.move-shelf-fill-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.move-shelf-fill .counted-cells {
+  display: flex;
+}
+
+.move-shelf-fill .counted-cell {
+  height: 18px;
+}
+
+.move-shelf-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.move-shelf-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.move-key {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--rule);
+}
+
+.move-key-done {
+  background: var(--selected);
+}
+
+.move-key-current {
+  background: var(--flag);
+}
+
+.move-confirm {
+  min-height: 52px;
+  font-size: var(--fs-row-id);
+  font-weight: 800;
+}
+
+.move-shelf .field-hint {
+  margin: 0;
 }
 
 .move-batch {
-  max-width: 48rem;
-  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .move-batch-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: var(--gap-group, 1rem);
+  gap: var(--space-3);
+}
+
+.move-batch-header .section-head {
+  flex: 1 1 260px;
 }
 
 .move-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
 }
 
 .move-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.move-row:last-child {
+  border-bottom: none;
 }
 
 .move-unit {
   font-family: var(--font-mono);
-  font-weight: 700;
+  font-size: var(--fs-row-id);
+  font-weight: 600;
+}
+
+/* Phone (PhoneMove): the confirm action is the 60 px primary. */
+@media (max-width: 640px) {
+  .move-layout {
+    gap: var(--space-5);
+  }
+
+  .move-confirm {
+    min-height: var(--target-primary-phone);
+  }
+
+  .move-scan .camera-scan-button {
+    align-self: stretch;
+  }
 }
 
 .move-message,
@@ -110,10 +235,6 @@
   flex-wrap: wrap;
   gap: var(--gap-button, 0.5rem);
   margin-left: auto;
-}
-
-.location-pending {
-  margin-left: 0.5rem;
 }
 
 .conflict-events {

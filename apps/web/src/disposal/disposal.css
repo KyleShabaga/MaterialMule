@@ -1,0 +1,263 @@
+/* ---- Retention and disposal (MM-T29/T30; Field Ledger layout) ---- */
+
+.disposal-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.disposal-page > .field-hint,
+.disposal-page > .notice {
+  margin: 0;
+}
+
+.retention-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* The three bands on the left (3), the disposal list at the side (1). */
+.retention-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-7);
+}
+
+.retention-bands {
+  flex: 3 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.disposal-list-panel {
+  flex: 1 1 300px;
+  min-width: 0;
+  position: sticky;
+  top: var(--space-4);
+}
+
+.disposal-list-panel .side-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.disposal-list-panel .field-hint {
+  margin: 0;
+}
+
+.disposal-list-items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.disposal-list-items li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.disposal-list-items li:last-child {
+  border-bottom: none;
+}
+
+/* One band: a tag, its title over a 2 px rule and the count; hairline rows in one frame. */
+.retention-band {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.retention-band[hidden] {
+  display: none;
+}
+
+/* Phone (PhoneRetention): the bands as three counted tabs, the scan-out action pinned. */
+.retention-phone-tabs {
+  display: flex;
+  width: 100%;
+}
+
+.retention-phone-tabs > button {
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 60px;
+  font-weight: 700;
+}
+
+.retention-phone-tab-count {
+  font: 800 var(--fs-section) / 1 var(--font-sans);
+}
+
+.retention-scan-out {
+  position: sticky;
+  bottom: var(--space-3);
+  min-height: var(--target-primary-phone);
+  font-size: var(--fs-row-id);
+  font-weight: 800;
+}
+
+.retention-band-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--rule-width) solid var(--rule);
+}
+
+.retention-band-head h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  font-weight: 700;
+}
+
+.retention-band-head .section-meta {
+  margin-left: auto;
+}
+
+.retention-band > .field-hint {
+  margin: 0;
+}
+
+.retention-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+
+.retention-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.retention-row:last-child {
+  border-bottom: none;
+}
+
+.retention-row-unit {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.retention-row-where {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.retention-row-ends {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 8rem;
+}
+
+.retention-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* ---- Disposal scan (Field Ledger DisposalScan) ---- */
+
+.disposal-scan-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-7);
+}
+
+.disposal-scan-main {
+  flex: 3 1 520px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.disposal-scan-side {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.disposal-scan-side .side-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.disposal-scan-side .field-hint,
+.disposal-scan-side p {
+  margin: 0;
+}
+
+.disposal-scan-results li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.disposal-scan-results {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+
+.disposal-scan-results li:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 640px) {
+  .retention-layout,
+  .disposal-scan-layout {
+    gap: var(--space-5);
+  }
+
+  .disposal-list-panel {
+    position: static;
+  }
+
+  .retention-row-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .retention-row-actions > .button,
+  .retention-row-actions > button {
+    flex: 1 1 auto;
+  }
+}

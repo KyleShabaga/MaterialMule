@@ -17,6 +17,8 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // Field Ledger dialogs (canvas Dialogs): a framed panel with a rail head; drawers stay drawers.
+  const framed = className.split(' ').includes('confirm-dialog');
   useEffect(() => {
     const trigger = document.activeElement;
     const dialog = ref.current;
@@ -37,13 +39,13 @@ export function Modal({
         onClose();
       }}
     >
-      <div className="drawer-header">
+      <div className={framed ? 'dialog-head settings-dialog-head' : 'drawer-header'}>
         <h2 id={titleId}>{title}</h2>
         <button type="button" onClick={onClose}>
           Close
         </button>
       </div>
-      {children}
+      {framed ? <div className="dialog-body">{children}</div> : children}
     </dialog>
   );
 }

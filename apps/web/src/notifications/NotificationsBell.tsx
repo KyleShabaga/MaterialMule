@@ -51,12 +51,12 @@ export function NotificationsBell({ inert = false }: { inert?: boolean } = {}) {
       aria-current={here ? 'page' : undefined}
       inert={inert}
     >
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
         <path
-          d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.2A1 1 0 0 0 5.3 17h13.4a1 1 0 0 0 .9-1.8L18 12.6V9a6 6 0 0 0-6-6Zm-2.5 15.5a2.5 2.5 0 0 0 5 0"
+          d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4l2-2zM10 22h4"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.6"
+          strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />

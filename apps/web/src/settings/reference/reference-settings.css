@@ -21,47 +21,8 @@
   gap: 0.25rem 1rem;
 }
 
-.mix-card {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  padding: 0.75rem 1rem;
-  margin: 0.75rem 0;
-}
-
-.mix-card header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.mix-card h3 {
-  margin: 0;
-}
-
-.mix-card dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 1rem;
-  margin: 0.5rem 0;
-}
-
-.mix-card dd {
-  margin: 0;
-}
-
 @media (max-width: 640px) {
-  .mix-card dl {
-    grid-template-columns: 1fr;
-  }
-
-  .mix-card dt {
-    font-weight: 600;
-  }
-
-  .year-switcher button,
-  .mix-card .form-actions button {
+  .year-switcher button {
     flex: 1 1 auto;
   }
 }

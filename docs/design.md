@@ -116,6 +116,9 @@ sizes:
   content-max: 896px
 ---
 
+> **Superseded.** This describes the earlier navy look. The current design is Field Ledger:
+> [docs/redesign/design.md](redesign/design.md). Kept for history; do not build from it.
+
 # Material Mule design guide
 
 Material Mule tracks laboratory sample **storage units** for a geotechnical and materials consulting

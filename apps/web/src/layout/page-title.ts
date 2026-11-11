@@ -1,32 +1,56 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
-import { NAV_ITEMS } from './nav';
 
 // MTR-134: every page gets its own browser tab title, "<page> · <section> · Material Mule",
-// e.g. "BKT-2026-000014 · Sample Storage · Material Mule" (WCAG 2.4.2). PageHeader and detail
+// e.g. "BKT-2026-000014 · Inventory · Material Mule" (WCAG 2.4.2). PageHeader and detail
 // pages name the page with usePageTitle; otherwise the route's own label below is used.
 
 const APP_NAME = 'Material Mule';
 
-const EXTRA_SECTIONS: readonly { to: string; label: string }[] = [
+// Tab-title sections use the Field Ledger rail names (nav.ts). Concrete breaks and holds live under
+// /lab-testing but belong to Concrete, so they come first.
+const SECTIONS: readonly { to: string; label: string }[] = [
+  { to: '/lab-testing/concrete', label: 'Concrete' },
+  { to: '/receiving-log', label: 'Receive' },
+  { to: '/sample-storage', label: 'Inventory' },
+  { to: '/lab-testing', label: 'Lab programs' },
+  { to: '/disposal-retention', label: 'Retention' },
+  { to: '/concrete', label: 'Concrete' },
+  { to: '/projects', label: 'Projects' },
+  { to: '/settings', label: 'Settings' },
   { to: '/action-requests', label: 'Action requests' },
   { to: '/notifications', label: 'Notifications' },
+  { to: '/help', label: 'Help & Feedback' },
 ];
 
 const ROUTE_LABELS: readonly [RegExp, string][] = [
+  [/^\/receiving-log$/, 'Receiving log'],
   [/^\/receiving-log\/new$/, 'Receive samples'],
+  [/^\/sample-storage$/, 'Inventory'],
   [/^\/sample-storage\/scan$/, 'Scan labels'],
-  [/^\/sample-storage\/move$/, 'Move storage units'],
+  [/^\/sample-storage\/move$/, 'Move units'],
   [/^\/lab-testing$/, 'Worklist'],
   [/^\/lab-testing\/programs$/, 'Programs'],
-  [/^\/lab-testing\/programs\/new$/, 'New program'],
+  [/^\/lab-testing\/programs\/new$/, 'New lab program'],
   [/^\/lab-testing\/programs\/[^/]+\/tags$/, 'Sample tags'],
+  [/^\/lab-testing\/concrete$/, 'Breaks'],
+  [/^\/lab-testing\/concrete\/holds$/, 'Holds'],
+  [/^\/disposal-retention$/, 'Retention'],
   [/^\/disposal-retention\/scan$/, 'Disposal scan'],
+  [/^\/concrete\/review$/, 'Review'],
+  [/^\/concrete\/receiving$/, 'Receiving'],
+  [/^\/concrete\/specimens$/, 'Specimens'],
+  [/^\/concrete\/testing$/, 'Testing table'],
+  [/^\/concrete\/search$/, 'Concrete search'],
   [/^\/projects\/[^/]+\/team$/, 'Team & Permissions'],
   [/^\/settings\/profile$/, 'My profile'],
   [/^\/settings\/access$/, 'My access'],
   [/^\/settings\/staff$/, 'Staff & access'],
   [/^\/settings\/locations$/, 'Locations'],
+  [/^\/settings\/equipment$/, 'Equipment'],
+  [/^\/settings\/suppliers$/, 'Suppliers'],
+  [/^\/settings\/holidays$/, 'Holidays'],
+  [/^\/settings\/report-header$/, 'Report header'],
   [/^\/settings\/tests$/, 'Tests'],
   [/^\/settings\/templates$/, 'Templates'],
   [/^\/settings\/printers$/, 'Printers'],
@@ -35,14 +59,11 @@ const ROUTE_LABELS: readonly [RegExp, string][] = [
   [/^\/labels\/print\//, 'Print labels'],
   [/^\/sign-in/, 'Sign in'],
   [/^\/access-pending$/, 'Access pending'],
-  [/^\/onboarding\/position$/, 'Welcome'],
+  [/^\/search$/, 'Search'],
 ];
-
 function sectionFor(pathname: string): string | null {
-  if (pathname === '/') return 'Dashboard';
-  const match = [...NAV_ITEMS, ...EXTRA_SECTIONS]
-    .filter((item) => item.to !== '/')
-    .find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+  if (pathname === '/') return 'Today';
+  const match = SECTIONS.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
   return match?.label ?? null;
 }
 

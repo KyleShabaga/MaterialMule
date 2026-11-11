@@ -220,13 +220,15 @@ describe('Review queue page', () => {
     expect(
       within(tabs)
         .getAllByRole('tab')
-        .map((t) => t.textContent),
+        .map((t) => t.getAttribute('aria-label')),
     ).toEqual([
       'Awaiting review (1)',
       'Returned for correction (2)',
       'Reviewed awaiting issuance (0)',
       'Issued (5)',
     ]);
+    // Field Ledger: the chosen status's reports sit in a band with its title.
+    expect(screen.getByRole('region', { name: 'Waiting for review' })).toContainElement(table);
     const row = within(table).getAllByRole('row')[1]!;
     expect(within(row).getByRole('link', { name: 'DEMO-2601' })).toHaveAttribute(
       'href',

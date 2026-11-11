@@ -6,8 +6,16 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { BandedCard, ConfirmDialog, ErrorState, PageHeader } from '../components/ui';
+import {
+  ConfirmDialog,
+  ErrorState,
+  Notice,
+  PageHeader,
+  SidePanel,
+  StatusBadge,
+} from '../components/ui';
 import { shortDateTime } from '../dashboard/format';
+import { ContextRow } from '../layout/ContextRow';
 import { useMe } from '../session/context';
 import { fetchConcreteSettings, fetchReportIssuers, problemText, sendCommand } from './api';
 import { ReportPreview } from './ReportPreview';
@@ -19,6 +27,8 @@ import './review.css';
 // MM-V2-C28: the issue view (Combined Plan "Issuance workflow"): the exact version, its reviewer
 // and date, the documented exceptions and the issuer's options; Issue report keeps that version
 // and records the issuer and time (C09). The final layout is C32's: this preview is interim.
+// Field Ledger (ConcreteIssue board): the interim preview on a paper sheet beside the issue checks
+// (documented exceptions, options, who can issue); Issue report stays disabled while blocked.
 
 export function IssueReportPage() {
   const { reportId = '' } = useParams();
@@ -68,7 +78,10 @@ export function IssueReportPage() {
   if (load.state === 'loading') return <p aria-busy="true">Loading the report…</p>;
   if (load.state === 'error' || load.state === 'empty') {
     return (
-      <>
+      <div className="crv-page">
+        <ContextRow>
+          <Link to={`/concrete/review/${reportId}`}>Back to the review</Link>
+        </ContextRow>
         <PageHeader title="Issue report" />
         <ErrorState
           message={
@@ -78,7 +91,7 @@ export function IssueReportPage() {
           }
           onRetry={load.state === 'error' ? reload : undefined}
         />
-      </>
+      </div>
     );
   }
 
@@ -92,37 +105,37 @@ export function IssueReportPage() {
   const review = version.review;
 
   return (
-    <div className="review-page">
-      <PageHeader
-        title={`Issue field report · ${detail.projectNumber}`}
-        actions={<Link to={`/concrete/review/${detail.id}`}>Back to the review</Link>}
-      />
-      <div className="review-summary">
+    <div className="crv-page">
+      <ContextRow>
+        <Link to={`/concrete/review/${detail.id}`}>Back to the review</Link>
         <StateBadge state={detail.lifecycle.state} />
-      </div>
+      </ContextRow>
+      <PageHeader title={`Issue field report · ${detail.projectNumber}`} />
       {message ? (
-        <p
-          className={
-            message.tone === 'ok' ? 'review-message' : 'review-message review-message-error'
-          }
-          role={message.tone === 'ok' ? 'status' : 'alert'}
-        >
+        <Notice tone={message.tone === 'ok' ? 'success' : 'danger'} className="crv-message">
           {message.text}
-        </p>
+        </Notice>
       ) : null}
 
-      <div className="review-layout">
-        <ReportPreview snapshot={version.snapshot} changes={[]} versionNo={version.versionNo} />
-        <aside className="review-side" aria-label="Issue">
-          <BandedCard title={issuedVersion ? 'Issued' : 'What will be issued'}>
-            <dl className="review-fields">
+      <div className="crv-layout">
+        <div className="crv-main">
+          <p className="field-label crv-paper-label">
+            {issuedVersion ? 'The version that was issued' : 'The version that will be issued'}
+          </p>
+          <div className="crv-paper">
+            <ReportPreview snapshot={version.snapshot} changes={[]} versionNo={version.versionNo} />
+          </div>
+        </div>
+        <aside className="crv-side" aria-label="Issue">
+          <SidePanel title={issuedVersion ? 'Issued' : 'What will be issued'}>
+            <dl className="crv-fields crv-fields-stack">
               <Labelled label="Version">
                 v{version.versionNo}
                 {version.revisionOfVersionNo
                   ? ` (revision of v${version.revisionOfVersionNo})`
                   : ''}
                 <br />
-                <span className="mono review-muted">
+                <span className="mono crv-muted">
                   Snapshot {version.snapshotSha256.slice(0, 12)}
                 </span>
               </Labelled>
@@ -142,7 +155,7 @@ export function IssueReportPage() {
               ) : null}
             </dl>
             {issuedVersion?.file ? (
-              <p className="review-issued-file">
+              <p className="crv-issued-file">
                 {/* MM-V2-C32: the stored file, exactly as issued (never re-rendered). */}
                 <a
                   className="button"
@@ -152,46 +165,50 @@ export function IssueReportPage() {
                 >
                   Open issued PDF (Rev {issuedVersion.file.revisionNo})
                 </a>
-                <br />
-                <span className="mono review-muted">
+                <span className="mono crv-muted">
                   {issuedVersion.file.template.name} {issuedVersion.file.template.revision}
                   {issuedVersion.file.template.provisional ? ' (provisional)' : ''} · SHA-256{' '}
                   {issuedVersion.file.sha256.slice(0, 12)}
                 </span>
               </p>
             ) : null}
-          </BandedCard>
+          </SidePanel>
 
-          <BandedCard title="Documented exceptions">
+          <SidePanel title={issuedVersion ? 'As issued' : 'Before it goes out'}>
+            <h3 className="crv-subhead">Documented exceptions</h3>
             {checklist.length === 0 ? (
               <p>None: the version was submitted without exceptions.</p>
             ) : (
-              <ul className="review-checklist">
+              <ul className="crv-checks">
                 {documented.map((item) => (
-                  <li key={item.key} className="review-check-item">
-                    <strong>{CONCRETE_EXCEPTION_LABEL[item.code]}</strong>
-                    <ul className="review-messages">
-                      {item.messages.map((m, i) => (
-                        <li key={i}>{m}</li>
-                      ))}
-                    </ul>
-                    {item.note ? (
-                      <p className="review-note">
-                        “{item.note.note}” — {item.note.documentedBy.name},{' '}
-                        {shortDateTime(item.note.documentedAt)}
-                      </p>
-                    ) : (
-                      <p className="review-muted">Resolved before review.</p>
-                    )}
+                  <li key={item.key} className="crv-check-row">
+                    <StatusBadge tone="storage">
+                      {item.status === 'resolved' ? 'Resolved' : 'Documented'}
+                    </StatusBadge>
+                    <div>
+                      <strong>{CONCRETE_EXCEPTION_LABEL[item.code]}</strong>
+                      <ul className="crv-messages">
+                        {item.messages.map((m, i) => (
+                          <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                      {item.note ? (
+                        <p className="crv-note">
+                          “{item.note.note}” — {item.note.documentedBy.name},{' '}
+                          {shortDateTime(item.note.documentedAt)}
+                        </p>
+                      ) : (
+                        <p className="crv-muted">Resolved before review.</p>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
-          </BandedCard>
 
-          <BandedCard title="Options">
+            <h3 className="crv-subhead">Options</h3>
             {issuedVersion ? (
-              <dl className="review-fields">
+              <dl className="crv-fields crv-fields-stack">
                 <Labelled label="Photos">
                   {issuedVersion.includePhotos === null
                     ? 'Not recorded'
@@ -208,21 +225,21 @@ export function IssueReportPage() {
                 </Labelled>
               </dl>
             ) : (
-              <fieldset className="review-options">
+              <fieldset className="crv-options">
                 <legend className="visually-hidden">Issue options</legend>
-                <label className="review-check review-option-disabled">
+                <label className="crv-check crv-option-disabled">
                   <input type="checkbox" checked={false} disabled aria-describedby="photos-why" />
                   Include photos
                 </label>
-                <p id="photos-why" className="review-action-reason">
+                <p id="photos-why" className="crv-reason">
                   Unavailable: no photos are recorded for concrete reports yet (they arrive with
                   attachments, C15).
                 </p>
-                <p className="review-option-label" id="machine-label">
+                <p className="field-label crv-option-label" id="machine-label">
                   Testing machine information (make, model, calibration dates)
                 </p>
-                <div role="radiogroup" aria-labelledby="machine-label" className="review-radios">
-                  <label className="review-check">
+                <div role="radiogroup" aria-labelledby="machine-label" className="crv-radios">
+                  <label className="crv-check">
                     <input
                       type="radio"
                       name="machine"
@@ -231,7 +248,7 @@ export function IssueReportPage() {
                     />
                     Include
                   </label>
-                  <label className="review-check">
+                  <label className="crv-check">
                     <input
                       type="radio"
                       name="machine"
@@ -250,23 +267,23 @@ export function IssueReportPage() {
                 </p>
               </fieldset>
             )}
-          </BandedCard>
 
-          {!issuedVersion ? (
-            <section className="review-actions" aria-label="Issue actions">
-              <p className="review-who">
-                Who can issue it: {whoCanIssue(detail, issuers)}. Never the report’s technician;
-                personal accounts only.
-              </p>
-              <ActionButton
-                label="Issue report"
-                primary
-                block={block}
-                busy={busy}
-                onClick={() => setConfirming(true)}
-              />
-            </section>
-          ) : null}
+            {!issuedVersion ? (
+              <section className="crv-issue-actions" aria-label="Issue actions">
+                <p className="crv-who">
+                  Who can issue it: {whoCanIssue(detail, issuers)}. Never the report’s technician;
+                  personal accounts only.
+                </p>
+                <ActionButton
+                  label="Issue report"
+                  primary
+                  block={block}
+                  busy={busy}
+                  onClick={() => setConfirming(true)}
+                />
+              </section>
+            ) : null}
+          </SidePanel>
         </aside>
       </div>
 

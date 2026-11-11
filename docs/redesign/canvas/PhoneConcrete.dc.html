@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone: concrete breaks</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 15px; line-height: 1.4; overflow: hidden">
+
+  <header style="padding: 12px 16px; border-bottom: 2px solid #14140F; background: #E8E9E2; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1">Concrete breaks</h1>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">TUE 10 NOV</span>
+    </div>
+    <div role="group" aria-label="View" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 2px solid #14140F; border-radius: 4px; overflow: hidden">
+      <sc-for list="{{views}}" as="v" hint-placeholder-count="4">
+        <button type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}" style="min-height: 48px; padding: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 0; border-right: 1px solid #14140F; font-family: inherit; background: {{v.bg}}; color: {{v.fg}}">
+          <span style="font-size: 16px; font-weight: 800; line-height: 1.1">{{v.n}}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">{{v.label}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </header>
+
+  <div style="flex: 1 1 0; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid #14140F; padding-bottom: 6px">
+          <h2 style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">{{g.project}}</h2>
+          <span style="font-size: 13px; color: #45463E">{{g.name}}</span>
+        </div>
+        <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #FFFFFF; border: 1px solid #CFCFC4; border-radius: 6px">
+            <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">{{r.set}}</span> <span style="display: inline-block; min-width: 22px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; background: #14140F; color: #F4F4EF; border-radius: 3px; padding: 1px 4px">{{r.letter}}</span></span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #45463E">{{r.age}} · {{r.when}}</span>
+            </div>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 3px; white-space: nowrap; background: {{r.bg}}; color: {{r.fg}}">{{r.tag}}</span>
+          </div>
+        </sc-for>
+      </section>
+    </sc-for>
+    <a href="PhoneFieldLoad.dc.html" style="margin-top: auto; display: flex; align-items: center; justify-content: center; min-height: 56px; border: 2px solid #14140F; border-radius: 6px; background: #FF5A1F; font-weight: 800; font-size: 16px; color: #14140F; text-decoration: none">New field report</a>
+    <div style="font-size: 13px; color: #45463E">Break results are entered at the lab computer, on the testing table.</div>
+  </div>
+
+  <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 2px solid #14140F; background: #FFFFFF">
+    <a href="PhoneToday.dc.html" style="display: flex; align-items: center; justify-content: center; height: 60px; font-weight: 700; font-size: 13px; color: #14140F; text-decoration: none">Today</a>
+    <a href="PhoneFind.dc.html" style="display: flex; align-items: center; justify-content: center; height: 60px; font-weight: 700; font-size: 13px; color: #14140F; text-decoration: none; border-left: 1px solid #CFCFC4">Find</a>
+    <a href="PhoneScan.dc.html" style="display: flex; align-items: center; justify-content: center; height: 60px; font-weight: 800; font-size: 14px; color: #14140F; background: #FF5A1F; text-decoration: none; border-left: 2px solid #14140F; border-right: 2px solid #14140F">Scan</a>
+    <a href="PhoneReceive.dc.html" style="display: flex; align-items: center; justify-content: center; height: 60px; font-weight: 700; font-size: 13px; color: #14140F; text-decoration: none">Receive</a>
+    <a href="PhoneMore.dc.html" aria-current="page" style="display: flex; align-items: center; justify-content: center; height: 60px; font-weight: 700; font-size: 13px; color: #F4F4EF; background: #14140F; text-decoration: none">More</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'TODAY' };
+  }
+  renderVals() {
+    const C = { due: ['#FBEBC2','#7A4E00'], bad: ['#F9DFDC','#A3201A'], n: ['#E6E6DE','#14140F'], lab: ['#E9E3F7','#4A2D8F'] };
+    const r = (set, letter, age, when, tag, c) => ({ set, letter, age, when, tag, bg: C[c][0], fg: C[c][1] });
+    const data = {
+      'TODAY': [
+        { project: 'DEMO-2616', name: 'Parkade level 2', rows: [r('26-03', 'A', '7 d', 'cast 03 Nov', 'DUE TODAY', 'due'), r('26-03', 'B', '7 d', 'cast 03 Nov', 'DUE TODAY', 'due'), r('26-01', 'C', '28 d', 'cast 13 Oct', 'RESCHEDULED', 'lab')] },
+        { project: 'DEMO-2614', name: 'Bridge abutment', rows: [r('26-07', 'A', '7 d', 'cast 03 Nov', 'REPORT DRAFT', 'due'), r('26-07', 'B', '7 d', 'cast 03 Nov', 'REPORT DRAFT', 'due')] }],
+      'OVERDUE': [
+        { project: 'DEMO-2614', name: 'Bridge abutment', rows: [r('26-05', 'A', '7 d', 'target 07 Nov', 'OVERDUE 3 DAYS', 'bad'), r('26-05', 'B', '7 d', 'target 07 Nov', 'OVERDUE 3 DAYS', 'bad')] }],
+      'NEXT 7': [
+        { project: 'DEMO-2616', name: 'Parkade level 2', rows: [r('26-04', 'A', '7 d', 'target 12 Nov', 'SCHEDULED', 'n'), r('26-04', 'B', '7 d', 'target 12 Nov', 'SCHEDULED', 'n'), r('26-02', 'C', '28 d', 'target 14 Nov', 'WEEKEND TARGET', 'n')] }],
+      'HOLD': [
+        { project: 'DEMO-2616', name: 'Parkade level 2', rows: [r('25-11', 'D', 'HOLD', 'until 09 Nov', 'REVIEW DUE', 'due'), r('26-01', 'E', 'HOLD', 'until 08 Dec', 'ON HOLD', 'n')] }]
+    };
+    const cur = this.state.view;
+    return {
+      groups: data[cur],
+      views: Object.keys(data).map((label) => ({ label, n: data[label].reduce((a, g) => a + g.rows.length, 0), on: cur === label, bg: cur === label ? '#14140F' : '#FFFFFF', fg: cur === label ? '#F4F4EF' : '#14140F', pick: () => this.setState({ view: label }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

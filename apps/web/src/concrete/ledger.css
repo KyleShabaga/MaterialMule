@@ -1,0 +1,252 @@
+/* Field Ledger pieces shared by the concrete screens (ledger.tsx). Tokens only. */
+
+/* Specimen identity: set ID in mono + the letter in a small ink square. */
+.specimen-id {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.specimen-letter {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-tag);
+  background: var(--selected);
+  color: var(--on-selected);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Fact cells: one bordered cell per fact (four status dimensions, strength report facts). */
+.fact-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0;
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.fact-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--hairline);
+  min-width: 0;
+}
+
+.fact-cell:last-child {
+  border-right: 0;
+}
+
+.fact-cell dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.fact-cell dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.fact-cell-flag {
+  background: var(--flag-wash);
+}
+
+.fact-cell-danger {
+  background: var(--tag-danger-bg);
+}
+
+.fact-cell-danger dd {
+  color: var(--tag-danger-fg);
+}
+
+.fact-cell-waiting {
+  background: var(--tag-waiting-bg);
+}
+
+.fact-cell-waiting dd {
+  color: var(--tag-waiting-fg);
+}
+
+.fact-cell-storage {
+  background: var(--tag-storage-bg);
+}
+
+.fact-cell-storage dd {
+  color: var(--tag-storage-fg);
+}
+
+.fact-cell-lab {
+  background: var(--tag-lab-bg);
+}
+
+.fact-cell-lab dd {
+  color: var(--tag-lab-fg);
+}
+
+.fact-cell-closed {
+  background: var(--tag-closed-bg);
+}
+
+.fact-cell-closed dd {
+  color: var(--tag-closed-fg);
+}
+
+/* Lettered specimen cells (sets list, set page). */
+.letter-cells {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.letter-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-tag);
+  background: var(--sheet);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+
+.letter-cell-storage {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.letter-cell-flag {
+  background: var(--flag);
+  color: var(--on-flag);
+}
+
+.letter-cell-danger {
+  background: var(--tag-danger-bg);
+  color: var(--tag-danger-fg);
+}
+
+.letter-cell-waiting {
+  background: var(--tag-waiting-bg);
+  color: var(--tag-waiting-fg);
+}
+
+.letter-cell-lab {
+  background: var(--tag-lab-bg);
+  color: var(--tag-lab-fg);
+}
+
+.letter-cell-closed {
+  background: var(--tag-closed-bg);
+  color: var(--tag-closed-fg);
+}
+
+/* View tiles: a row of big-count buttons, links or tabs joined in one 2 px frame. */
+.view-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.view-tiles > * {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 72px;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-right: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.view-tiles > *:last-child {
+  border-right: 0;
+}
+
+.view-tiles > [aria-pressed='true'],
+.view-tiles > [aria-selected='true'],
+.view-tiles > [aria-current='page'] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.view-tiles > .view-tile-due:not([aria-pressed='true'], [aria-selected='true']) {
+  background: var(--flag-wash);
+}
+
+.view-tile-count {
+  font-size: var(--fs-big-count);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.view-tile-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .view-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  }
+
+  .view-tiles > * {
+    min-height: 48px;
+    align-items: center;
+    padding: var(--space-1);
+    text-align: center;
+  }
+
+  .view-tile-count {
+    font-size: var(--fs-row-id);
+  }
+
+  .fact-cell {
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .fact-cell:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .specimen-letter,
+  .letter-cell-storage,
+  .view-tiles > [aria-pressed='true'],
+  .view-tiles > [aria-selected='true'],
+  .view-tiles > [aria-current='page'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+}

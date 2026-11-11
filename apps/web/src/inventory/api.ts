@@ -3,9 +3,13 @@ import {
   confirmTestedRemovalResponseSchema,
   inventoryLocationListSchema,
   inventoryPageSchema,
+  locationActivitySchema,
+  locationDetailSchema,
   projectSummarySchema,
+  scanResolveResponseSchema,
   storageUnitDetailSchema,
   storageUnitHistoryPageSchema,
+  storageUnitLabProgramsSchema,
   storageUnitLookupResponseSchema,
   disposalApprovalLiveResponseSchema,
   unresolvedLabLinksResponseSchema,
@@ -19,10 +23,13 @@ import {
   type InventoryLocation,
   type InventoryPage,
   type LabRequestLink,
+  type LocationActivity,
+  type LocationDetail,
   type ProjectSummary,
   type StorageUnitCorrectionRequestInput,
   type StorageUnitDetail,
   type StorageUnitHistoryPage,
+  type StorageUnitLabPrograms,
   type StorageUnitLookupResponse,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
@@ -101,6 +108,39 @@ export function fetchStorageUnitHistory(
     `/api/storage-units/${encodeURIComponent(id)}/history?page=${page}`,
     storageUnitHistoryPageSchema,
   );
+}
+
+/** Lab programs covering the unit, with progress counts (Field Ledger unit page). */
+export function fetchStorageUnitLabPrograms(
+  id: string,
+): Promise<InventoryResult<StorageUnitLabPrograms>> {
+  return get(
+    `/api/storage-units/${encodeURIComponent(id)}/lab-programs`,
+    storageUnitLabProgramsSchema,
+  );
+}
+
+/** A scanned or typed shelf code (WH-C2) to its location; null when no location has it. */
+export async function resolveLocationCode(
+  code: string,
+): Promise<InventoryResult<{ id: string; code: string } | null>> {
+  const result = await get(
+    `/api/scan/resolve?${new URLSearchParams({ payload: `LOC-${code}` }).toString()}`,
+    scanResolveResponseSchema,
+  );
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    data: result.data.type === 'location' ? { id: result.data.location.id, code } : null,
+  };
+}
+
+export function fetchLocationDetail(id: string): Promise<InventoryResult<LocationDetail>> {
+  return get(`/api/locations/${encodeURIComponent(id)}`, locationDetailSchema);
+}
+
+export function fetchLocationActivity(id: string): Promise<InventoryResult<LocationActivity>> {
+  return get(`/api/locations/${encodeURIComponent(id)}/activity`, locationActivitySchema);
 }
 
 /** Outcome of `PATCH /api/storage-units/:id` (MM-T13). */

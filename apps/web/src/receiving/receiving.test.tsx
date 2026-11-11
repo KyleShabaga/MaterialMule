@@ -351,6 +351,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     });
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), 'pine');
     await user.click(await screen.findByRole('option', { name: /67997/ }));
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
 
     const holeInput = screen.getByRole('combobox', { name: 'Find or add a test hole' });
     await user.type(holeInput, 'th26-0');

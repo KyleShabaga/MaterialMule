@@ -1,49 +1,76 @@
-import type { MeResponse } from '@materialmule/shared';
+import { ROLE_LABELS, type MeResponse } from '@materialmule/shared';
 import { FEATURES, type FeatureFlag } from '../features';
 
-export interface NavItem {
+// Field Ledger shell (docs/redesign/design.md, "Shell additions"): seven destinations as plain
+// text links, Projects second and Concrete last; Settings sits in the rail footer.
+//
+// Navigation only, never authority: what the rail shows or hides grants and refuses nothing.
+// Every permission is enforced by the server.
+
+export type DestinationKey =
+  'today' | 'projects' | 'receive' | 'inventory' | 'lab' | 'retention' | 'concrete';
+
+/** A rail sub-page. `exact` pages are current only on their own path; others also below it. */
+export interface SubPage {
   to: string;
   label: string;
-  feature?: FeatureFlag;
+  match: 'exact' | 'prefix';
 }
 
-/** Side menu in the order Kyle set on 2026-10-25 (MM-T34, decision #8). */
-export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/receiving-log', label: 'Receiving Log' },
-  { to: '/sample-storage', label: 'Sample Storage' },
-  { to: '/lab-testing', label: 'Lab Testing', feature: 'labTesting' },
-  { to: '/disposal-retention', label: 'Disposal & Retention', feature: 'disposalRetention' },
-  { to: '/concrete/review', label: 'Concrete Review', feature: 'concreteReview' },
-  // MM-V2-C31: the Concrete dashboard. Lab staff reach it from the Concrete Lab group instead.
-  { to: '/concrete', label: 'Concrete', feature: 'concreteLab' },
-  { to: '/projects', label: 'Projects' },
-  { to: '/settings', label: 'Settings' },
-];
+export interface Destination {
+  key: DestinationKey;
+  to: string;
+  label: string;
+  /** Sub-pages shown in the rail group (drop-down); only when there are two or more. */
+  children: SubPage[];
+}
 
-export function visibleNavItems(features: Record<FeatureFlag, boolean> = FEATURES): NavItem[] {
-  return NAV_ITEMS.filter((item) => !item.feature || features[item.feature]);
+type Features = Record<FeatureFlag, boolean>;
+
+/** `pathname` is `base` or below it (`/projects` and `/projects/p1`, not `/projectsx`). */
+function within(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(`${base}/`);
 }
 
 /**
- * The Concrete Lab workspace (MM-V2-C31, the plan's proposal for the two concrete lab computers):
- * Receiving, Break worklist, Testing table (MM-V2-C23), Specimen lookup and Equipment, with the
- * Concrete dashboard first.
- * Names are distinct from the main menu's so no link name contains another's.
+ * Which destination (or the footer's Settings) a path belongs to; null for pages outside every
+ * destination (notifications, action requests, search). Used instead of NavLink's own matching,
+ * because several destinations own paths outside their link's prefix.
  */
-export const CONCRETE_LAB_NAV_ITEMS: readonly NavItem[] = [
-  { to: '/concrete', label: 'Concrete home' },
-  { to: '/concrete/receiving', label: 'Specimen receiving' },
-  { to: '/lab-testing/concrete', label: 'Break worklist' },
-  // MM-V2-C23: direct entry of today's breaks.
-  { to: '/concrete/testing', label: 'Testing table' },
-  { to: '/concrete/specimens', label: 'Specimen lookup' },
-  { to: '/settings/equipment', label: 'Concrete equipment' },
-];
+export function activeDestination(pathname: string): DestinationKey | 'settings' | null {
+  if (pathname === '/') return 'today';
+  if (within(pathname, '/projects')) return 'projects';
+  if (within(pathname, '/receiving-log') || within(pathname, '/labels/print/receipt')) {
+    return 'receive';
+  }
+  if (
+    within(pathname, '/sample-storage') ||
+    within(pathname, '/inventory') ||
+    within(pathname, '/storage-units')
+  ) {
+    return 'inventory';
+  }
+  // Concrete breaks and holds live under /lab-testing but belong to Concrete.
+  if (within(pathname, '/lab-testing/concrete')) return 'concrete';
+  if (within(pathname, '/lab-testing')) return 'lab';
+  if (within(pathname, '/disposal-retention')) return 'retention';
+  if (within(pathname, '/concrete')) return 'concrete';
+  if (within(pathname, '/settings')) return 'settings';
+  return null;
+}
+
+/** The sub-page of `pages` that is current at `pathname`, as its `to`; null when none is. */
+export function activeSubPage(pathname: string, pages: readonly SubPage[]): string | null {
+  const page = pages.find((p) =>
+    p.match === 'exact' ? pathname === p.to : within(pathname, p.to),
+  );
+  return page?.to ?? null;
+}
 
 /**
  * Lab staff (MM-V2-C36): the Lab Technician role, Lab Managers and the shared LAB account. The
- * workspace is navigation only: it shows or hides nothing the server would allow or refuse.
+ * Concrete group's lab pages are navigation only: they show or hide nothing the server would
+ * allow or refuse.
  */
 export function isConcreteLabStaff(me: Pick<MeResponse, 'accountType' | 'roles'>): boolean {
   return (
@@ -53,20 +80,59 @@ export function isConcreteLabStaff(me: Pick<MeResponse, 'accountType' | 'roles'>
   );
 }
 
-/**
- * The menus a session sees: the main menu, then (lab staff) the Concrete Lab group, so the main
- * menu keeps its order and first link for everyone.
- */
-export function navGroupsFor(
+/** Concrete sub-pages in rail order, only those that exist for this session's features. */
+function concretePages(labStaff: boolean, features: Features): SubPage[] {
+  const pages: (SubPage | false)[] = [
+    features.labTesting && { to: '/lab-testing/concrete', label: 'Breaks', match: 'exact' },
+    features.concreteLab &&
+      labStaff && { to: '/concrete/receiving', label: 'Receiving', match: 'prefix' },
+    features.concreteLab &&
+      labStaff && { to: '/concrete/specimens', label: 'Specimens', match: 'prefix' },
+    features.labTesting && { to: '/lab-testing/concrete/holds', label: 'Holds', match: 'prefix' },
+    features.concreteReview && { to: '/concrete/review', label: 'Review', match: 'prefix' },
+  ];
+  return pages.filter((page): page is SubPage => page !== false);
+}
+
+/** The rail's destinations for a session, in order, with their groups. */
+export function destinationsFor(
   me: Pick<MeResponse, 'accountType' | 'roles'>,
-  features: Record<FeatureFlag, boolean> = FEATURES,
-): { concreteLab: NavItem[]; main: NavItem[] } {
-  const main = visibleNavItems(features);
-  if (!features.concreteLab || !isConcreteLabStaff(me)) return { concreteLab: [], main };
-  return {
-    concreteLab: [...CONCRETE_LAB_NAV_ITEMS],
-    main: main.filter((item) => item.to !== '/concrete'),
-  };
+  features: Features = FEATURES,
+): Destination[] {
+  const group = (pages: SubPage[]) => (pages.length > 1 ? pages : []);
+  const list: (Destination | false)[] = [
+    { key: 'today', to: '/', label: 'Today', children: [] },
+    { key: 'projects', to: '/projects', label: 'Projects', children: [] },
+    { key: 'receive', to: '/receiving-log', label: 'Receive', children: [] },
+    { key: 'inventory', to: '/sample-storage', label: 'Inventory', children: [] },
+    features.labTesting && { key: 'lab', to: '/lab-testing', label: 'Lab programs', children: [] },
+    features.disposalRetention && {
+      key: 'retention',
+      to: '/disposal-retention',
+      label: 'Retention',
+      children: group([
+        { to: '/disposal-retention', label: 'Due and overdue', match: 'exact' },
+        { to: '/disposal-retention/scan', label: 'Disposal scan', match: 'prefix' },
+      ]),
+    },
+    (features.concreteLab || features.concreteReview) && {
+      key: 'concrete',
+      // Without the Concrete dashboard, the section opens on the review queue.
+      to: features.concreteLab ? '/concrete' : '/concrete/review',
+      label: 'Concrete',
+      children: group(concretePages(isConcreteLabStaff(me), features)),
+    },
+  ];
+  return list.filter((item): item is Destination => item !== false);
+}
+
+/**
+ * Whether the top-bar search and the phone bar's Find slot open /search (Field Ledger: every
+ * session that can read storage units, LAB included); otherwise Find opens Inventory. The
+ * concrete group on the results page still follows the concreteLab flag.
+ */
+export function canUseSearch(me: Pick<MeResponse, 'permissions'>): boolean {
+  return me.permissions.includes('inventory.read');
 }
 
 export function accountBadge(me: MeResponse): { label: string; tone: 'info' | 'warning' } {
@@ -78,4 +144,29 @@ export function accountBadge(me: MeResponse): { label: string; tone: 'info' | 'w
     default:
       return { label: 'Personal', tone: 'info' };
   }
+}
+
+/** Official initials when set, else the first letters of the first and last words of the name. */
+export function accountInitials(me: Pick<MeResponse, 'initials' | 'displayName'>): string {
+  if (me.initials) return me.initials;
+  const words = me.displayName
+    .replace(/\(.*?\)/g, ' ')
+    .split(/\s+/)
+    .filter((word) => /\p{L}/u.test(word));
+  if (words.length === 0) return '?';
+  const first = words[0]!.match(/\p{L}/u)![0];
+  const last = words.length > 1 ? words[words.length - 1]!.match(/\p{L}/u)![0] : '';
+  return (first + last).toUpperCase();
+}
+
+const ACCOUNT_TYPE_LINES: Record<MeResponse['accountType'], string> = {
+  personal: 'Personal account',
+  shared_lab: 'Shared station',
+  test: 'Test account',
+};
+
+/** The account row's role line: the person's roles, else what kind of account it is. */
+export function accountRoleLine(me: Pick<MeResponse, 'roles' | 'accountType'>): string {
+  if (me.roles.length > 0) return me.roles.map((role) => ROLE_LABELS[role]).join(', ');
+  return ACCOUNT_TYPE_LINES[me.accountType];
 }

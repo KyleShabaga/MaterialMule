@@ -14,7 +14,8 @@ async function noHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-async function startReceipt(page: Page) {
+/** Delivery (DEMO-2601, optional description), then on to Units. */
+async function startReceipt(page: Page, description?: string) {
   await page.goto('/');
   await page.getByRole('link', { name: 'Receive samples' }).click();
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();
@@ -23,6 +24,8 @@ async function startReceipt(page: Page) {
     .getByRole('option', { name: 'DEMO-2601 · Riverbank investigation · Example Client' })
     .click();
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
+  if (description) await page.getByLabel('Description (optional)').fill(description);
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
 }
 
 const bucket = (page: Page, n: number) => page.getByRole('region', { name: `Bucket ${n}` });
@@ -80,29 +83,30 @@ async function summariesFor(readableIds: string[]) {
   });
 }
 
-test('T3/AC1: two buckets for TH26-01, reviewed and confirmed with two BKT IDs', async ({
-  page,
-}) => {
+test('T3/AC1: two buckets for TH26-01, confirmed with two BKT IDs', async ({ page }) => {
   await signInAs(page, 'at');
   await startReceipt(page);
 
   await addHole(bucket(page, 1), 'TH26-01');
   await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-  await page.getByRole('button', { name: 'Add bucket' }).click();
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
   await expect(page.getByText('2 storage units').first()).toBeVisible();
   await addHole(bucket(page, 2), 'TH26-01');
   await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
-  await expect(bucket(page, 2).getByText('TH26-01: G13–S32')).toBeVisible();
+  await expect(bucket(page, 2).getByText('G13–S32')).toBeVisible();
   // Receiving never asks for individual samples: one summary per hole per bucket.
   await expect(page.getByLabel(/sample (number|id)/i)).toHaveCount(0);
   await noHorizontalScroll(page);
 
-  await page.getByRole('button', { name: 'Next: Review' }).click();
+  // On confirm names what will be issued; the draft itself has no ID.
+  const onConfirm = page.getByRole('region', { name: 'On confirm' });
+  await expect(onConfirm.getByText('2 buckets')).toBeVisible();
+  await expect(page.getByText(BKT_ID)).toHaveCount(0);
+  await bucket(page, 1).getByRole('button', { name: 'Done with Bucket 1' }).click();
   await expect(bucket(page, 1).getByText('G1–S12')).toBeVisible();
-  await expect(bucket(page, 2).getByText('G13–S32')).toBeVisible();
   await noHorizontalScroll(page);
 
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
   const ids = await issuedIds(page);
   expect(ids).toHaveLength(2);
   await noHorizontalScroll(page);
@@ -120,14 +124,21 @@ test('T3/AC1: two buckets for TH26-01, reviewed and confirmed with two BKT IDs',
   await units.getByText('Preview label').first().click();
   await expect(units.getByRole('img', { name: `Label for storage unit ${ids[0]}` })).toBeVisible();
   await noHorizontalScroll(page);
-  const labels = page.getByRole('region', { name: 'Receipt confirmed' });
+  const labels = page.getByRole('region', { name: 'Next: put them away' });
   await expect(
     labels.getByRole('link', { name: 'Print / Save all labels as PDF' }),
   ).toHaveAttribute('href', /^\/labels\/print\/receipt\/[0-9a-f-]{36}$/);
-  await labels.getByRole('button', { name: 'Print all labels' }).click();
+  // Print labels was ticked, so confirming sent them through the T15 queue.
   await expect(labels.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('link', { name: `Open ${ids[1]}` }).click();
-  await expect(page.getByRole('heading', { name: ids[1]! })).toBeVisible();
+  await expect(labels.getByRole('link', { name: 'Put these 2 away' })).toBeVisible();
+  await expect(page.getByRole('link', { name: `Open ${ids[1]}` })).toHaveAttribute(
+    'href',
+    `/sample-storage/${ids[1]}`,
+  );
+  // "Put these 2 away" opens Move units with both units waiting for their shelf.
+  await labels.getByRole('link', { name: 'Put these 2 away' }).click();
+  const chosen = page.getByRole('region', { name: 'Chosen to move' });
+  for (const id of ids) await expect(chosen.getByText(id)).toBeVisible();
 });
 
 test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank description', async ({
@@ -141,12 +152,11 @@ test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank desc
   await addHole(unit, 'TH26-02');
   // All samples is the default: most buckets hold every sample of the hole (Kyle, 2026-11-10).
   await expect(summaryOf(unit, 'TH26-02').getByLabel('Summary type')).toHaveValue('all');
-  await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: All samples')).toBeVisible();
-  await expect(page.getByLabel('Description (optional)')).toHaveValue('');
-
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await expect(page.getByRole('region', { name: 'Details' }).getByText('None')).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await expect(
+    unit.getByRole('list', { name: 'Bucket 1 contents' }).getByRole('listitem'),
+  ).toHaveText(['TH26-01G1–S12', 'TH26-02All samples']);
+  await expect(page.getByRole('group', { name: 'Delivery' }).getByText('None')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
   const ids = await issuedIds(page);
   expect(ids).toHaveLength(1);
   const rows = await summariesFor(ids);
@@ -156,10 +166,12 @@ test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank desc
   ]);
 });
 
-test('T5/AC3/AC4: validation per type blocks Next; 10.5 m is saved as 10.5 m', async ({ page }) => {
+test('T5/AC3/AC4: validation per type blocks Confirm; 10.5 m is saved as 10.5 m', async ({
+  page,
+}) => {
   await signInAs(page, 'at');
   await startReceipt(page);
-  const next = page.getByRole('button', { name: 'Next: Review' });
+  const next = page.getByRole('button', { name: 'Confirm and issue IDs' });
 
   // A unit with no test hole.
   await next.click();
@@ -197,7 +209,7 @@ test('T5/AC3/AC4: validation per type blocks Next; 10.5 m is saved as 10.5 m', a
       name: 'Bucket 1 · TH26-02: Describe the samples (Custom needs text).',
     }),
   ).toBeVisible();
-  await expect(next).toBeVisible(); // still on step 1
+  await expect(next).toBeVisible(); // nothing was confirmed
 
   // Fix everything: 0–10.5 m (no conversion) and a custom description.
   await depth.getByLabel('Depth from').fill('0');
@@ -205,12 +217,14 @@ test('T5/AC3/AC4: validation per type blocks Next; 10.5 m is saved as 10.5 m', a
   await depth.getByRole('radio', { name: 'm' }).check();
   await custom.getByLabel('Custom summary').fill('Grab bags, 0–2 m');
   await expect(errors).toHaveCount(0);
+  const contents = bucket(page, 1).getByRole('list', { name: 'Bucket 1 contents' });
+  await expect(contents.getByText('0–10.5 m')).toBeVisible();
+  await expect(contents).not.toContainText(/\bft\b/);
   await next.click();
-  await expect(bucket(page, 1).getByText('0–10.5 m')).toBeVisible();
-  await expect(bucket(page, 1)).not.toContainText(/\bft\b/);
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
   const ids = await issuedIds(page);
-  await expect(page.getByText('TH26-01: 0–10.5 m')).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'New storage units' }).getByText('0–10.5 m'),
+  ).toBeVisible();
   const rows = await summariesFor(ids);
   expect(rows.map((r) => [r.hole, r.depth_from, r.depth_to, r.depth_unit, r.custom_text])).toEqual([
     ['TH26-01', '0.00', '10.50', 'm', null],
@@ -220,37 +234,36 @@ test('T5/AC3/AC4: validation per type blocks Next; 10.5 m is saved as 10.5 m', a
 
 // Also in the MM-T18 critical path (offline: confirm blocked, reconnect and confirm).
 test(
-  'T6/AC6/AC7: offline disables Confirm; Review → Step 1 → Review keeps everything',
+  'T6/AC6/AC7: offline disables Confirm; Units → Delivery → Units keeps everything',
   {
     tag: '@critical',
   },
   async ({ page, context }) => {
     await signInAs(page, 'at');
-    await startReceipt(page);
-    await page.getByLabel('Description (optional)').fill('One bucket from the drill crew');
+    await startReceipt(page, 'One bucket from the drill crew');
     const unit = bucket(page, 1);
     await addHole(unit, 'TH26-01');
     await sampleRange(unit, 'TH26-01', 'G1', 'S12');
     await unit.getByLabel('Bucket 1 note (optional)').fill('Lid taped');
-    await page.getByRole('button', { name: 'Next: Review' }).click();
+    await unit.getByRole('button', { name: 'Done with Bucket 1' }).click();
 
     await context.setOffline(true);
-    const confirm = page.getByRole('button', { name: 'Confirm receipt' });
+    const confirm = page.getByRole('button', { name: 'Confirm and issue IDs' });
     await expect(
       page.getByText("You're offline. Your draft is kept. Connect to confirm."),
     ).toBeVisible();
     await expect(confirm).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Edit Bucket 1' }).click();
-    await expect(summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Sample to')).toHaveValue('S12');
-    await expect(bucket(page, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue('Lid taped');
+    await page.getByRole('button', { name: 'Edit delivery' }).click();
     await expect(page.getByLabel('Description (optional)')).toHaveValue(
       'One bucket from the drill crew',
     );
     await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
-    await page.getByRole('button', { name: 'Next: Review' }).click();
+    await page.getByRole('button', { name: 'Next: add the units' }).click();
     await expect(bucket(page, 1).getByText('G1–S12')).toBeVisible();
-    await expect(bucket(page, 1).getByText('Lid taped')).toBeVisible();
+    await page.getByRole('button', { name: 'Edit Bucket 1' }).click();
+    await expect(summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Sample to')).toHaveValue('S12');
+    await expect(bucket(page, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue('Lid taped');
 
     await context.setOffline(false);
     await expect(confirm).toBeEnabled();
@@ -277,7 +290,7 @@ test('T8/AC5: a personal account defaults to itself; LAB starts blank and must c
   });
   await page.goto('/receiving-log/new');
   await expect(receiver).toHaveValue('');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
   await expect(
     page.getByRole('alert').getByRole('link', { name: 'Choose who received the samples.' }),
   ).toBeVisible();

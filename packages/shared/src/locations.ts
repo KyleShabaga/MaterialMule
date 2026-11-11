@@ -275,6 +275,33 @@ export const scanResolveResponseSchema = z.discriminatedUnion('type', [
 ]);
 export type ScanResolveResponse = z.infer<typeof scanResolveResponseSchema>;
 
+/** Movements a shelf page lists (Field Ledger "Comings and goings"). */
+export const LOCATION_ACTIVITY_DAYS = 30;
+export const LOCATION_ACTIVITY_LIMIT = 50;
+
+/**
+ * `GET /api/locations/:id/activity`: moves into and out of this location in the last 30 days
+ * (newest first, at most 50), and when each unit now saved here arrived. A unit that has never
+ * moved (received straight into it) has no arrival time.
+ */
+export const locationActivitySchema = z.object({
+  movements: z.array(
+    z.object({
+      id: z.string(),
+      occurredAt: z.string(),
+      direction: z.enum(['in', 'out']),
+      storageUnit: z.object({ id: z.string(), readableId: z.string() }),
+      /** Where it came from (in) or went to (out). */
+      otherLocation: z.object({ id: z.string(), code: z.string(), name: z.string() }),
+      actor: auditPerson,
+      /** Staff member credited at a LAB station, as they were at the time. */
+      mover: auditPerson.nullable(),
+    }),
+  ),
+  arrivals: z.array(z.object({ storageUnitId: z.string(), arrivedAt: z.string() })),
+});
+export type LocationActivity = z.infer<typeof locationActivitySchema>;
+
 export const scanResolveQuerySchema = z.object({
   payload: z
     .string({ error: 'payload is required' })

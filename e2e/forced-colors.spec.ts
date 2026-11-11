@@ -2,8 +2,8 @@ import { expect, test, type Locator } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-131: under a Windows contrast theme (Chromium's forced-colors emulation) the selected
-// dashboard filter, Standard/Compact segment, Settings tab, side-menu item and the dark mode
-// switch still look different from the unselected ones. Desktop only: the side menu is open there.
+// dashboard filter, Standard/Compact segment, Settings tab, rail destination, rail sub-page and the
+// dark mode switch still look different from the unselected ones. Desktop only: the rail is there.
 
 test.skip(({ isMobile }) => isMobile, 'Desktop layout');
 test.use({ forcedColors: 'active' });
@@ -32,28 +32,42 @@ async function expectDifferent(selected: Locator, other: Locator, what: string) 
 test('MTR-131: selected states stay distinguishable in forced colours', async ({ page }) => {
   await signInAs(page, 'admin');
 
-  await page.goto('/');
-  const filters = page.getByRole('button', { name: 'All', exact: true });
-  await expect(filters).toHaveAttribute('aria-pressed', 'true');
+  // Field Ledger: Today has no filter chips; the Notifications filter is the segmented control.
+  await page.goto('/notifications');
+  const filters = page.getByRole('group', { name: 'Show' });
+  const pressed = filters.getByRole('button', { name: 'Active', exact: true });
+  await expect(pressed).toHaveAttribute('aria-pressed', 'true');
   await expectDifferent(
-    filters,
-    page.getByRole('button', { name: 'Today', exact: true }),
-    'dashboard filter chip',
+    pressed,
+    filters.getByRole('button', { name: 'Unread', exact: true }),
+    'segmented filter',
   );
+  await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expectDifferent(
-    nav.getByRole('link', { name: 'Dashboard' }),
-    nav.getByRole('link', { name: 'Sample Storage' }),
-    'side-menu item',
+    nav.getByRole('link', { name: 'Today', exact: true }),
+    nav.getByRole('link', { name: 'Inventory', exact: true }),
+    'rail destination',
+  );
+
+  await page.goto('/disposal-retention/scan');
+  await expect(nav.getByRole('link', { name: 'Disposal scan' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expectDifferent(
+    nav.getByRole('link', { name: 'Disposal scan' }),
+    nav.getByRole('link', { name: 'Due and overdue' }),
+    'rail sub-page',
   );
 
   await page.goto('/sample-storage?status=all');
-  const standard = page.getByRole('button', { name: 'Standard', exact: true });
+  const standard = page.getByRole('button', { name: 'Comfortable rows', exact: true });
   await standard.click();
   await expect(standard).toHaveAttribute('aria-pressed', 'true');
   await expectDifferent(
     standard,
-    page.getByRole('button', { name: 'Compact', exact: true }),
+    page.getByRole('button', { name: 'Compact rows', exact: true }),
     'Standard/Compact segment',
   );
 

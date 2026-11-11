@@ -13,7 +13,8 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { CountedCells, EmptyState, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { SettingsHead } from '../SettingsHead';
 import { useMe } from '../../session/context';
 import {
   createLocation,
@@ -40,6 +41,38 @@ type Load =
 
 function unitsText(count: number): string {
   return count === 1 ? '1 unit' : `${count} units`;
+}
+
+/** Areas in the order they first appear in the list (the server's order), each with its units. */
+function byArea(locations: StorageLocation[]) {
+  const groups = new Map<
+    string | null,
+    { area: string | null; units: number; locations: StorageLocation[] }
+  >();
+  for (const location of locations) {
+    const group = groups.get(location.area) ?? { area: location.area, units: 0, locations: [] };
+    group.units += location.inStockCount;
+    group.locations.push(location);
+    groups.set(location.area, group);
+  }
+  return [...groups.values()];
+}
+
+/** Locations have no capacity, so a shelf shows one ink cell per unit kept there (up to 12). */
+const SHELF_CELLS_MAX = 12;
+
+function ShelfFill({ location }: { location: StorageLocation }) {
+  const count = location.inStockCount;
+  if (count === 0) return <span className="mono">0</span>;
+  const cells = Array.from({ length: Math.min(count, SHELF_CELLS_MAX) }, () => 'done' as const);
+  return (
+    <span className="shelf-fill">
+      <CountedCells cells={cells} label={`${unitsText(count)} kept here`} />
+      <Link to={inventoryLink(location)} aria-label={`${unitsText(count)} at ${location.code}`}>
+        {count}
+      </Link>
+    </span>
+  );
 }
 
 function statusBadge(location: StorageLocation) {
@@ -190,7 +223,11 @@ function LocationFormDialog({
   }
 
   return (
-    <Modal title={location ? `Edit ${location.name}` : 'Add location'} onClose={onClose}>
+    <Modal
+      title={location ? `Edit ${location.name}` : 'Add location'}
+      className="confirm-dialog settings-dialog"
+      onClose={onClose}
+    >
       <form
         ref={formRef}
         className="drawer-section"
@@ -340,7 +377,11 @@ function RetireDialog({
   }
 
   return (
-    <Modal title={`Retire ${location.name}`} onClose={onClose}>
+    <Modal
+      title={`Retire ${location.name}`}
+      className="confirm-dialog settings-dialog"
+      onClose={onClose}
+    >
       <form
         ref={formRef}
         className="drawer-section"
@@ -433,14 +474,18 @@ export function LocationsPage() {
 
   return (
     <section aria-labelledby="locations-heading" className="locations">
-      <div className="section-header">
-        <h2 id="locations-heading">Locations</h2>
-        {canManage ? (
-          <button type="button" className="primary" onClick={() => setEditing('new')}>
-            Add location
-          </button>
-        ) : null}
-      </div>
+      <SettingsHead
+        id="locations-heading"
+        title="Locations"
+        who="Where a unit can be put. Everyone can read and print this list; Lab Managers and administrators change it."
+        actions={
+          canManage ? (
+            <button type="button" className="primary" onClick={() => setEditing('new')}>
+              Add location
+            </button>
+          ) : null
+        }
+      />
       <p className="field-hint">
         Shelves, benches and staging areas where storage units are kept. Each has a code printed on
         its own label as LOC-CODE.
@@ -484,76 +529,97 @@ export function LocationsPage() {
               name or area to find the rest.
             </p>
           ) : null}
-          <DataTable
-            rows={load.locations}
-            rowKey={(location) => location.id}
-            caption="Locations"
-            empty={search.trim() ? 'No locations match this search.' : 'No locations yet.'}
-            columns={[
-              {
-                header: 'Name',
-                cell: (location) => (
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => setOpenId(location.id)}
-                  >
-                    {location.name}
-                  </button>
-                ),
-              },
-              { header: 'Code', cell: (location) => <code>{location.code}</code> },
-              { header: 'Kind', cell: (location) => locationKindLabel(location.kind) },
-              { header: 'Area', cell: (location) => location.area ?? '—' },
-              { header: 'Status', cell: statusBadge },
-              {
-                header: 'In stock',
-                cell: (location) =>
-                  location.inStockCount > 0 ? (
-                    <Link
-                      to={inventoryLink(location)}
-                      aria-label={`${unitsText(location.inStockCount)} at ${location.code}`}
-                    >
-                      {location.inStockCount}
-                    </Link>
-                  ) : (
-                    '0'
-                  ),
-              },
-              {
-                header: 'Actions',
-                cell: (location) => (
-                  <span className="row-actions">
-                    <button
-                      type="button"
-                      aria-label={`Label and history for ${location.name}`}
-                      onClick={() => setOpenId(location.id)}
-                    >
-                      Label
-                    </button>
-                    {canManage && location.active ? (
-                      <button
-                        type="button"
-                        aria-label={`Edit ${location.name}`}
-                        onClick={() => setEditing(location)}
-                      >
-                        Edit
-                      </button>
-                    ) : null}
-                    {canManage && location.active && !location.isSystem ? (
-                      <button
-                        type="button"
-                        aria-label={`Retire ${location.name}`}
-                        onClick={() => setRetiring(location)}
-                      >
-                        Retire
-                      </button>
-                    ) : null}
-                  </span>
-                ),
-              },
-            ]}
-          />
+          {load.locations.length === 0 ? (
+            <EmptyState>
+              {search.trim() ? 'No locations match this search.' : 'No locations yet.'}
+            </EmptyState>
+          ) : (
+            <div className="table-frame">
+              <table className="data-table locations-table">
+                <caption className="visually-hidden">Locations</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">In stock</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                {byArea(load.locations).map((group) => (
+                  <tbody key={group.area ?? ''}>
+                    <tr>
+                      <th scope="rowgroup" colSpan={6}>
+                        {group.area ?? 'No area'}
+                        <span className="locations-area-meta">
+                          {unitsText(group.units).toUpperCase()} ·{' '}
+                          {group.locations.length === 1
+                            ? '1 LOCATION'
+                            : `${group.locations.length} LOCATIONS`}
+                        </span>
+                      </th>
+                    </tr>
+                    {group.locations.map((location) => (
+                      <tr key={location.id}>
+                        <td data-label="Name">
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => setOpenId(location.id)}
+                          >
+                            {location.name}
+                          </button>
+                        </td>
+                        <td data-label="Code">
+                          <code>{location.code}</code>
+                        </td>
+                        <td data-label="Kind">{locationKindLabel(location.kind)}</td>
+                        <td data-label="Status">{statusBadge(location)}</td>
+                        <td data-label="In stock">
+                          <ShelfFill location={location} />
+                        </td>
+                        <td data-label="Actions">
+                          <span className="row-actions">
+                            <button
+                              type="button"
+                              aria-label={`Label and history for ${location.name}`}
+                              onClick={() => setOpenId(location.id)}
+                            >
+                              Label
+                            </button>
+                            {canManage && location.active ? (
+                              <button
+                                type="button"
+                                aria-label={`Edit ${location.name}`}
+                                onClick={() => setEditing(location)}
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+                            {canManage && location.active && !location.isSystem ? (
+                              <button
+                                type="button"
+                                className="danger"
+                                aria-label={`Retire ${location.name}`}
+                                onClick={() => setRetiring(location)}
+                              >
+                                Retire
+                              </button>
+                            ) : null}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                ))}
+              </table>
+            </div>
+          )}
+          <p className="settings-foot">
+            A retired location stays in every unit’s history. It can only be retired when it is
+            empty.
+          </p>
         </div>
       )}
 

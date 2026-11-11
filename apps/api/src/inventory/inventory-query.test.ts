@@ -30,6 +30,27 @@ describe('inventory query builder (MM-T12 T1)', () => {
     ]);
   });
 
+  it('Field Ledger retention bands: a retain-until range and sort, never tested units', () => {
+    const sql = build({
+      retainUntilFrom: '2026-11-11',
+      retainUntilTo: '2026-11-30',
+      sort: 'retain_until',
+    });
+    expect(sql.params).toEqual(['2026-11-11', '2026-11-30']);
+    expect(sql.fromWhere).toContain('JOIN unit_retention ur ON ur.storage_unit_id = su.id');
+    expect(sql.fromWhere).toContain('NOT ur.retention_exempt');
+    expect(sql.fromWhere).toContain('ur.effective_retain_until >= $1::date');
+    expect(sql.fromWhere).toContain('ur.effective_retain_until <= $2::date');
+    expect(sql.orderBy).toBe(
+      'ur.effective_retain_until ASC NULLS LAST, su.readable_id COLLATE "C" ASC',
+    );
+    // Sorting alone joins the retention view but filters nothing.
+    const sorted = build({ sort: 'retain_until' });
+    expect(sorted.fromWhere).toContain('JOIN unit_retention ur');
+    expect(sorted.fromWhere).not.toContain('retention_exempt');
+    expect(inventoryQuerySchema.safeParse({ retainUntilTo: '30 Nov' }).success).toBe(false);
+  });
+
   it('MM-T81: the open-conflict filter is a parameter-free EXISTS on open conflicts', () => {
     const sql = build({ conflict: 'open' });
     expect(sql.params).toEqual([]);

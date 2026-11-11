@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { closeMore, openMore } from './support/shell';
 import { signInAsLabStation } from './support/lab-station';
 
-// MM-T27 (card T5, T6): the header Pending actions control (the bell before MM-T91) and the
-// Action requests page, resolution through the real workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
+// MM-T27 (card T5, T6): the Pending actions control (the bell before MM-T91; a rail-footer link
+// since the Field Ledger shell) and the Action requests page, resolution through the real workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
 // Fictional data only: DEMO-2601, Lead Project Engineer Pat Example (pe), Lab Manager "Lab (test)" (lab),
 // Technician Alex Tester (at).
 
@@ -64,6 +65,11 @@ async function submittedProgram(page: Page) {
   };
 }
 
+/** The number in Pending actions' accessible name. */
+function countFrom(label: string | null): number {
+  return Number(/, (\d+) /.exec(label ?? '')?.[1] ?? 0);
+}
+
 test('T5: a closure request appears under the Lead Project Engineer’s Pending actions, opens the program, and closing resolves it', async ({
   page,
 }) => {
@@ -82,18 +88,16 @@ test('T5: a closure request appears under the Lead Project Engineer’s Pending 
 
   await signInAs(page, 'pe');
   await page.goto('/');
-  const bell = page.getByRole('button', { name: /^Pending actions, \d+ waiting on you$/ });
-  await expect(bell).toBeVisible();
-  // MISC-10: Pending actions previews the newest requests in place; Escape closes it and focus returns.
-  await bell.click();
-  const preview = page.getByRole('region', { name: 'Latest action requests' });
-  await expect(preview.getByRole('link', { name: new RegExp(programNumber) })).toBeVisible();
-  await expect(page).toHaveURL(/\/$/);
-  await page.keyboard.press('Escape');
-  await expect(preview).toHaveCount(0);
-  await expect(bell).toBeFocused();
-  await page.keyboard.press('Enter');
-  await preview.getByRole('link', { name: 'View all action requests' }).click();
+  // Field Ledger: Pending actions is a rail-footer link (the phone More sheet) to the inbox.
+  await openMore(page);
+  const pending = page.getByRole('link', { name: /^Pending actions, \d+ waiting on you$/ });
+  await expect(pending).toBeVisible();
+  expect(countFrom(await pending.getAttribute('aria-label'))).toBeGreaterThan(0);
+  await pending.click();
+  await expect(page).toHaveURL(/\/action-requests$/);
+  await openMore(page);
+  await expect(pending).toHaveAttribute('aria-current', 'page');
+  await closeMore(page);
   const row = page.getByRole('listitem', { name: `Closure requested for ${programNumber}` });
   await expect(row).toContainText(
     `Lead Project Engineer: Closure requested for ${programNumber} by AT · All tests done (E2E)`,
@@ -128,8 +132,9 @@ test('T6: LAB has no Pending actions or Notifications control, inbox or preferen
 }) => {
   await signInAsLabStation(page);
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Pending actions/ })).toHaveCount(0);
+  // Today (Field Ledger): its queue heading, on desktop and phone.
+  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Pending actions/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
   for (const path of [
     '/api/action-items',

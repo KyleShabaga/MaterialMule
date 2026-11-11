@@ -34,6 +34,13 @@ const TITLE: Record<HoldAction, string> = {
   record_disposal: 'Record disposal',
 };
 
+/** Fields this dialog shows an error beside; any other error (or none) is the alert below. */
+const SHOWN_FIELDS: Record<HoldAction, readonly string[]> = {
+  schedule_test: ['newAge'],
+  authorize_disposal: [],
+  record_disposal: ['disposedAt', 'performedByUserId'],
+};
+
 /** `datetime-local` value for now, in the browser's time zone, to the minute. */
 function localNow(): string {
   const now = new Date();
@@ -46,24 +53,28 @@ function localNow(): string {
 /**
  * The confirmation step of one HOLD action on one or more specimens (card §3: the confirmation
  * shows each specimen and its change). Nothing is sent until Confirm; the server checks every
- * specimen again and changes all or none.
+ * specimen again and changes all or none. The reason for Schedule test and Authorize disposal is
+ * written in the Holds page's side panel and shown here before it is sent.
  */
 export function HoldActionDialog({
   action,
   targets,
+  reason: givenReason = '',
   sharedStation,
   onClose,
   onDone,
 }: {
   action: HoldAction | null;
   targets: HoldTarget[];
+  /** Schedule test and Authorize disposal: the reason from the side panel. */
+  reason?: string;
   /** A shared LAB station must name who physically removed the specimens. */
   sharedStation: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
+  const reason = givenReason.trim();
   const [age, setAge] = useState('');
-  const [reason, setReason] = useState('');
   const [removedAt, setRemovedAt] = useState(localNow);
   const [performer, setPerformer] = useState<ReceiverOption | null>(null);
   const [key, setKey] = useState(() => crypto.randomUUID());
@@ -95,8 +106,8 @@ export function HoldActionDialog({
       setError({ message: 'Enter a test age of 1 to 999 days', field: 'newAge' });
       return;
     }
-    if (action !== 'record_disposal' && reason.trim() === '') {
-      setError({ message: 'A reason is required', field: 'reason' });
+    if (action !== 'record_disposal' && reason === '') {
+      setError({ message: 'A reason is required: write it in the side panel.', field: 'reason' });
       return;
     }
     if (action === 'record_disposal' && sharedStation && !performer) {
@@ -115,10 +126,10 @@ export function HoldActionDialog({
         idempotencyKey: key,
         items,
         newAge: ageNumber!,
-        reason: reason.trim(),
+        reason,
       });
     } else if (action === 'authorize_disposal') {
-      result = await authorizeDisposal({ idempotencyKey: key, items, reason: reason.trim() });
+      result = await authorizeDisposal({ idempotencyKey: key, items, reason });
     } else {
       result = await recordDisposal({
         idempotencyKey: key,
@@ -178,18 +189,10 @@ export function HoldActionDialog({
           </FormField>
         ) : null}
         {action !== 'record_disposal' ? (
-          <FormField label="Reason" required error={fieldError('reason')}>
-            {(props) => (
-              <textarea
-                {...props}
-                rows={2}
-                value={reason}
-                maxLength={2000}
-                onChange={(e) => setReason(e.target.value)}
-                required
-              />
-            )}
-          </FormField>
+          <div className="hold-dialog-reason">
+            <span className="field-label">Reason</span>
+            <p>{reason || 'None written yet.'}</p>
+          </div>
         ) : (
           <>
             <FormField label="Removed at" required error={fieldError('disposedAt')}>
@@ -230,7 +233,7 @@ export function HoldActionDialog({
             );
           })}
         </ul>
-        {error && !error.field ? (
+        {error && !SHOWN_FIELDS[action].includes(error.field ?? '') ? (
           <p className="field-error" role="alert">
             {error.message}
           </p>

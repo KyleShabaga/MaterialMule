@@ -5,7 +5,7 @@ import { ErrorState } from '../components/ui';
 import { safeReturnTo } from '../lib/return-to';
 import { useSession } from '../session/context';
 import { wasLabStation } from '../session/station';
-import { AuthBrand, AuthPage } from './AuthLayout';
+import { AuthSplit, AuthStrip } from './AuthLayout';
 import { LabSignInForm } from './LabSignInForm';
 
 export const LAB_EXPIRED_MESSAGE =
@@ -46,28 +46,33 @@ export function SignInPage() {
       : null;
 
   return (
-    <AuthPage>
-      <AuthBrand />
+    <AuthSplit>
+      <h1>Sign in</h1>
       {ended ? (
-        <p className="notice notice-warning" role="status">
+        <AuthStrip tag="Ended" tone="waiting" live="status">
           {ended}
-        </p>
+        </AuthStrip>
       ) : null}
       {providers === null ? <p>Loading sign-in options…</p> : null}
       {providers === 'error' ? <ErrorState message="Sign-in options couldn't load." /> : null}
       {providers && providers !== 'error' ? (
         <div className="sign-in-options">
           {providers.microsoft ? (
-            <a
-              className="button auth-microsoft"
-              // After "Switch user", Microsoft must ask which account (shared devices).
-              href={`/api/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}${
-                params.get('switch') ? '&switch=1' : ''
-              }`}
-            >
-              <MicrosoftLogo />
-              Sign in with Microsoft
-            </a>
+            <div className="auth-microsoft-block">
+              <a
+                className="button primary auth-microsoft"
+                // After "Switch user", Microsoft must ask which account (shared devices).
+                href={`/api/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}${
+                  params.get('switch') ? '&switch=1' : ''
+                }`}
+              >
+                <MicrosoftLogo />
+                Sign in with Microsoft
+              </a>
+              <p className="auth-hint">
+                Use your own work account. What you do is recorded under your name.
+              </p>
+            </div>
           ) : null}
           {providers.microsoft && providers.lab ? (
             <div className="auth-or" aria-hidden="true">
@@ -85,7 +90,7 @@ export function SignInPage() {
           ) : null}
         </div>
       ) : null}
-    </AuthPage>
+    </AuthSplit>
   );
 }
 

@@ -25,8 +25,20 @@ import {
 } from 'react';
 import { Link } from 'react-router';
 import { listActiveStaff } from '../../api/projects';
-import { ErrorState, PageHeader, StatusBadge } from '../../components/ui';
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  SectionHead,
+  StatusBadge,
+  type BadgeTone,
+} from '../../components/ui';
+import { FEATURES } from '../../features';
+import { ContextRow } from '../../layout/ContextRow';
 import { useMe } from '../../session/context';
+import { FactCells } from '../ledger';
+import { SpecimenLabel } from '../worklist/specimen';
+import { specimenText } from '../worklist/specimen-text';
 import { fetchTestingTable, saveTestResult } from './api';
 import {
   STATUS_LABEL,
@@ -57,20 +69,24 @@ const FIELD_COLUMN: Record<CellField, ConcreteTestingTableColumn> = {
   diameter: 'diameter',
 };
 
-const FLAG_TONE: Record<ConcreteWorklistFlag, 'neutral' | 'warning' | 'danger' | 'info'> = {
-  weekend_target: 'warning',
-  holiday_target: 'warning',
+const FLAG_TONE: Record<ConcreteWorklistFlag, BadgeTone> = {
+  weekend_target: 'closed',
+  holiday_target: 'closed',
   overdue: 'danger',
-  hold_review_due: 'warning',
-  rescheduled: 'info',
-  report_draft: 'neutral',
+  hold_review_due: 'waiting',
+  rescheduled: 'lab',
+  report_draft: 'waiting',
 };
 
 const LOAD_UNIT = CONCRETE_TEST_RESULT_LOAD_UNITS[0];
 const DIMENSION_UNIT = CONCRETE_TEST_RESULT_DIMENSION_UNITS[0];
 
-const labelOf = (row: ConcreteTestingTableRow) =>
-  row.identity.permanentId ?? row.identity.temporaryId ?? `Unnumbered set, ${row.letter}`;
+const labelOf = (row: ConcreteTestingTableRow) => specimenText(row.identity, row.letter);
+
+/** The testing table is reached from Breaks (or the Concrete dashboard when Breaks is off). */
+const BACK = FEATURES.labTesting
+  ? { to: '/lab-testing/concrete', label: 'Back to concrete breaks' }
+  : { to: '/concrete', label: 'Back to Concrete' };
 
 function readHidden(): Set<ConcreteTestingTableColumn> {
   try {
@@ -362,22 +378,14 @@ export function TestingTablePage() {
 
   return (
     <section aria-label="Testing table" className="testing-table-page">
-      <PageHeader title="Testing table" />
-      <p className="field-hint">
-        {table ? <>Lab date {table.today} (America/Edmonton). </> : null}
-        Tab moves across a row, Enter moves down a column; a row saves when you leave it. Strength
-        is calculated later (not yet confirmed). Units are provisional ({LOAD_UNIT},{' '}
-        {DIMENSION_UNIT}); separate several readings with spaces.
-      </p>
-      {!canEnter ? (
-        <p className="testing-note" role="note">
-          You can view this table. Entering results needs a Lab Technician, Lab Manager or the LAB
-          station.
-        </p>
-      ) : null}
-      <div className="testing-toolbar">
+      <ContextRow className="testing-context">
+        <Link className="testing-back" to={BACK.to}>
+          {BACK.label}
+        </Link>
         <label className="testing-tester">
-          Tested by{sharedStation ? ' (required on this station)' : ''}{' '}
+          <span className="field-label">
+            Tested by{sharedStation ? ' (required on this station)' : ''}
+          </span>
           <select
             value={pageTesterId}
             onChange={(event) => setPageTesterId(event.target.value)}
@@ -391,8 +399,64 @@ export function TestingTablePage() {
             ))}
           </select>
         </label>
-        <label>
-          Project{' '}
+      </ContextRow>
+      <PageHeader title="Testing table" />
+      {table ? (
+        <p className="testing-dateline">
+          Lab date <span className="mono">{table.today}</span> (America/Edmonton) · {all.length}{' '}
+          {all.length === 1 ? 'specimen' : 'specimens'} listed
+        </p>
+      ) : null}
+      <FactCells
+        label="Testing table status"
+        className="testing-facts"
+        cells={[
+          {
+            key: 'progress',
+            label: 'Progress',
+            value: (
+              <span className="testing-progress" aria-live="polite">
+                {table ? `${completed} of ${all.length} completed` : '…'}
+              </span>
+            ),
+          },
+          {
+            key: 'saving',
+            label: 'Saving',
+            value: (
+              <>
+                A row saves when you leave it
+                <span className="testing-sub">
+                  A change to a saved value needs a reason and keeps its history.
+                </span>
+              </>
+            ),
+          },
+          {
+            key: 'keys',
+            label: 'Keyboard',
+            value: (
+              <>
+                Tab moves across a row, Enter moves down a column
+                <span className="testing-sub">Separate several readings with spaces.</span>
+              </>
+            ),
+          },
+        ]}
+      />
+      <p className="field-hint">
+        Strength is calculated later (not yet confirmed). Units are provisional ({LOAD_UNIT},{' '}
+        {DIMENSION_UNIT}).
+      </p>
+      {!canEnter ? (
+        <p className="testing-note" role="note">
+          You can view this table. Entering results needs a Lab Technician, Lab Manager or the LAB
+          station.
+        </p>
+      ) : null}
+      <div className="testing-toolbar">
+        <label className="testing-project">
+          <span className="field-label">Project</span>
           <select
             aria-label="Project"
             value={projectId}
@@ -444,11 +508,12 @@ export function TestingTablePage() {
             ))}
           </fieldset>
         </details>
-        <p className="testing-progress" aria-live="polite">
-          {table ? `${completed} of ${all.length} completed` : null}
-        </p>
       </div>
-      {load.state === 'loading' && !table ? <p aria-busy="true">Loading today’s breaks…</p> : null}
+      {load.state === 'loading' && !table ? (
+        <p className="field-hint" aria-busy="true">
+          Loading today’s breaks…
+        </p>
+      ) : null}
       {load.state === 'error' ? (
         <ErrorState
           message={load.message}
@@ -459,9 +524,7 @@ export function TestingTablePage() {
         />
       ) : null}
       {table && all.length === 0 ? (
-        <p className="empty-state">
-          No breaks {includeOverdue ? 'due today or overdue' : 'due today'}.
-        </p>
+        <EmptyState>No breaks {includeOverdue ? 'due today or overdue' : 'due today'}.</EmptyState>
       ) : null}
       {table?.truncated ? (
         <p className="testing-note" role="note">
@@ -469,7 +532,7 @@ export function TestingTablePage() {
           Include overdue) to see the rest.
         </p>
       ) : null}
-      <div ref={containerRef}>
+      <div ref={containerRef} className="testing-groups">
         {groups.map((group) => {
           const states = group.rows
             .map((row) => rows[row.specimenId])
@@ -482,16 +545,19 @@ export function TestingTablePage() {
               className="testing-group"
               aria-labelledby={`testing-group-${group.projectId}`}
             >
-              <h2 id={`testing-group-${group.projectId}`}>
-                {group.projectNumber} · {group.projectName}{' '}
-                <span className="testing-group-count">
-                  {done}/{states.length} done
-                </span>
-              </h2>
+              <SectionHead
+                id={`testing-group-${group.projectId}`}
+                title={
+                  <>
+                    <span className="mono">{group.projectNumber}</span> · {group.projectName}
+                  </>
+                }
+                meta={`${done}/${states.length} done`}
+              />
               {shown.length === 0 ? (
-                <p className="empty-state">All completed rows are hidden.</p>
+                <EmptyState>All completed rows are hidden.</EmptyState>
               ) : (
-                <div className="testing-scroll">
+                <div className="table-frame testing-scroll">
                   <table className="testing-table">
                     <caption className="visually-hidden">Breaks for {group.projectNumber}</caption>
                     <thead>
@@ -601,16 +667,18 @@ function TestingRow({
 
   const statusText =
     status === 'saved' && !row.complete ? 'Saved · incomplete' : STATUS_LABEL[status];
-  const tone =
+  const tone: BadgeTone =
     status === 'failed' || status === 'reason'
       ? 'danger'
       : status === 'saved'
         ? row.complete
-          ? 'success'
-          : 'warning'
+          ? 'storage'
+          : 'waiting'
         : status === 'empty'
-          ? 'neutral'
-          : 'info';
+          ? 'closed'
+          : status === 'pending'
+            ? 'flag'
+            : 'lab';
 
   return (
     <tr
@@ -619,9 +687,9 @@ function TestingRow({
       onBlur={(event) => onBlur(row.specimenId, event)}
       onFocus={() => onFocus(row.specimenId)}
     >
-      {show('project') ? <td>{projectNumber}</td> : null}
-      <th scope="row" className="testing-id">
-        {label}
+      {show('project') ? <td className="mono">{projectNumber}</td> : null}
+      <th scope="row" className="testing-id" aria-label={label}>
+        <SpecimenLabel identity={row.identity} letter={row.letter} />
       </th>
       {show('age') ? (
         <td>
@@ -660,11 +728,11 @@ function TestingRow({
               </StatusBadge>
             ))}
             {(row.result?.strengthFlags ?? []).map((flag) => (
-              <StatusBadge key={flag} tone="warning">
+              <StatusBadge key={flag} tone="waiting">
                 {CONCRETE_STRENGTH_FLAG_LABEL[flag]}
               </StatusBadge>
             ))}
-            {row.result?.excluded ? <StatusBadge tone="neutral">Excluded</StatusBadge> : null}
+            {row.result?.excluded ? <StatusBadge tone="closed">Excluded</StatusBadge> : null}
             {row.flags.length > 0 ? (
               <Link to={`/concrete/specimens/${row.setId}`} aria-label={`Details for ${label}`}>
                 Details

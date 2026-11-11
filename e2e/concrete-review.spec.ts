@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { closeMore, mainNav, openMore } from './support/shell';
 
 // MM-V2-C28 T2: review, return, resubmit and issue a concrete field report against the real API,
 // on desktop and phone. Fictional data only: DEMO-2601 (lead Pat Example), technician Alex
@@ -103,13 +104,13 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   // The lead finds it in Awaiting review with its exception flags.
   await signInAs(page, 'pe');
   await page.goto('/concrete/review');
-  if (await page.getByRole('button', { name: 'Menu' }).isVisible()) {
-    await page.getByRole('button', { name: 'Menu' }).click();
-    await expect(
-      page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Concrete Review' }),
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Menu' }).click();
-  }
+  // The rail's Concrete group opens by itself here, with Review marked.
+  await openMore(page);
+  await expect(mainNav(page).getByRole('link', { name: 'Review', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await closeMore(page);
   await expect(page.getByRole('heading', { name: 'Concrete review' })).toBeVisible();
   await expect(page.getByRole('tab', { name: /Awaiting review \(\d+\)/ })).toHaveAttribute(
     'aria-selected',

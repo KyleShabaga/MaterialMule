@@ -19,7 +19,7 @@ export type ReceiptLogResult<T> =
 
 const MESSAGES: Record<FailureKind, string> = {
   offline: "Material Mule couldn't be reached. Check the connection, then try again.",
-  unauthenticated: 'Your session has ended. Sign in again to see the Receiving Log.',
+  unauthenticated: 'Your session has ended. Sign in again to see the Receiving log.',
   forbidden: "You don't have permission to see receipts.",
   not_found: 'No receipt found. It may have been typed or copied wrongly.',
   invalid: "Some filters aren't valid. Check the dates and try again.",

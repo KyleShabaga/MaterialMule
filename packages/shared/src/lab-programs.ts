@@ -372,10 +372,23 @@ export const labProgramSummarySchema = z.object({
   submittedAt: z.string().nullable(),
   lineCount: z.number().int(),
   testCount: z.number().int(),
+  /**
+   * Field Ledger list progress (one counted cell per test, progress only): done = Completed, In
+   * review or Accepted; inProgress = In progress; notStarted = Requested (every test of a
+   * draft); cancelled tests are counted apart and get no cell.
+   */
+  progress: z.object({
+    done: z.number().int(),
+    inProgress: z.number().int(),
+    notStarted: z.number().int(),
+    cancelled: z.number().int(),
+  }),
 });
 export type LabProgramSummary = z.infer<typeof labProgramSummarySchema>;
 /** Programs per page of GET /api/lab-programs (`?page=`, from 1). */
 export const LAB_PROGRAM_PAGE_SIZE = 50;
+/** Longest `?search=` the list uses (program number, project number or project name). */
+export const LAB_PROGRAM_SEARCH_MAX = 100;
 export const labProgramListSchema = z.object({
   items: z.array(labProgramSummarySchema),
   total: z.number().int(),

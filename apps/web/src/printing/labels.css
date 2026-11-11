@@ -117,7 +117,7 @@
 
 .label-page-number {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--fs-label);
   color: var(--muted);
 }
 
@@ -147,9 +147,122 @@
   margin: 0.5rem 0;
 }
 
+/* Print view screen chrome (Field Ledger "Print labels"): the title row, the labels at about
+   actual size on the left and the Print panel on the right. Screen only: the print rules in
+   LabelPrintPage (PRINT_CSS) decide the printed pages and are never restyled here. */
 .label-print {
-  padding: 1rem;
-  max-width: 48rem;
+  padding: var(--page-pad);
+  max-width: var(--content-max);
+  box-sizing: border-box;
+}
+
+@media screen {
+  .label-print {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
+    grid-template-areas:
+      'head head'
+      'sheet panel';
+    gap: var(--space-6) var(--space-7);
+    align-items: start;
+  }
+
+  .label-print-head {
+    grid-area: head;
+  }
+
+  .label-sheet {
+    grid-area: sheet;
+  }
+
+  .label-print-panel {
+    grid-area: panel;
+  }
+}
+
+.label-print-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.label-print-head > p {
+  margin: 0;
+}
+
+.label-print-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.label-print-title h1 {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  line-height: var(--lh-page-title);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.label-print-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.label-print-panel {
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.label-print-panel .side-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.label-print-panel h3 {
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-body);
+}
+
+.label-print-panel p,
+.label-print-panel .label-print-steps {
+  margin: 0;
+}
+
+.label-print-chosen {
+  font-weight: 700;
+}
+
+.label-print-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.label-print-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control);
+}
+
+.label-print-choice input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--ink);
 }
 
 .label-print-steps {
@@ -158,16 +271,36 @@
 
 .label-sheet {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 0;
 }
 
 .label-page {
   width: 3.5in;
   height: 1.5in;
-  border: 1px dashed var(--line);
+  border: var(--rule-width) solid var(--rule);
   background: var(--label-paper);
+}
+
+/* Screen only: a 3.5 in printed page is narrower than 640 px, so this must never reach print. */
+@media screen and (max-width: 640px) {
+  .label-print {
+    padding: var(--space-4);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'sheet' 'panel';
+  }
+
+  .label-print-title h1 {
+    font-size: var(--fs-phone-title);
+    line-height: var(--fs-phone-title);
+  }
+
+  .label-page,
+  .label-page img {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 .label-page img {

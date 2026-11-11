@@ -181,7 +181,7 @@ function renderAt(path: string, user = me()) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  window.localStorage.removeItem('materialmule.sampleStorage.tableView');
+  window.localStorage.removeItem('materialmule:table-view:inventory');
 });
 
 describe('MM-T36 Sample Storage', () => {
@@ -203,7 +203,7 @@ describe('MM-T36 Sample Storage', () => {
   });
 
   it('Compact view keeps each record on one line with the full text in its title', async () => {
-    window.localStorage.setItem('materialmule.sampleStorage.tableView', 'compact');
+    window.localStorage.setItem('materialmule:table-view:inventory', 'compact');
     stubApi((url) => (url.pathname === '/api/inventory' ? json(200, page(ROWS)) : undefined));
     renderAt('/sample-storage');
     expect(await screen.findByText('2 storage units')).toBeInTheDocument();

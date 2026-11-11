@@ -156,18 +156,23 @@ export async function listAuditForEntity(
   return rows.map(toEvent);
 }
 
-/** Most recent events with one of `actions`, newest first (used by the dashboard, T34). */
+/**
+ * Most recent events with one of `actions`, newest first (used by the dashboard, T34), only
+ * those at or after `since` when given (Today's 24-hour ledger).
+ */
 export async function listRecentAudit(
   pool: Pool,
   actions: string[],
   limit = 20,
+  since: Date | null = null,
 ): Promise<AuditEvent[]> {
   const { rows } = await pool.query<AuditRow>(
     `${SELECT_EVENT}
      WHERE action = ANY($1::text[])
+       AND ($3::timestamptz IS NULL OR occurred_at >= $3)
      ORDER BY occurred_at DESC, id DESC
      LIMIT $2`,
-    [actions, Math.min(limit, MAX_PAGE)],
+    [actions, Math.min(limit, MAX_PAGE), since],
   );
   return rows.map(toEvent);
 }

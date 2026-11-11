@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Concrete breaks</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+/* hover */
+a,button,select,summary,label:has(input[type="checkbox"]),label:has(input[type="radio"]),input[type="checkbox"],input[type="radio"]{cursor:pointer}
+button:disabled,[aria-disabled="true"]{cursor:not-allowed}
+button:not(:disabled):hover,a[style*="display:"]:not([aria-disabled="true"]):hover{background-image:linear-gradient(rgba(20,20,15,.1),rgba(20,20,15,.1)) !important}
+button:not(:disabled)[style*="background: #14140F"]:hover,button:not(:disabled)[style*="background: rgb(20, 20, 15)"]:hover,a[style*="background: #14140F"]:hover,a[style*="background: rgb(20, 20, 15)"]:hover{background-image:linear-gradient(rgba(244,244,239,.2),rgba(244,244,239,.2)) !important}
+a:not([style*="display:"]):hover{text-decoration:underline !important;text-decoration-thickness:2px !important;text-underline-offset:3px}
+input:not([type="checkbox"]):not([type="radio"]):not(:disabled):hover,select:not(:disabled):hover,textarea:not(:disabled):hover{box-shadow:0 0 0 3px #CFCFC4 !important}
+input[type="checkbox"]:hover,input[type="radio"]:hover{outline:3px solid #CFCFC4;outline-offset:1px}
+tbody tr:hover>*{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+[data-row]:hover{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; min-height: 100vh; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 14px; line-height: 1.4">
+
+<nav aria-label="Main" style="flex: 1 1 232px; box-sizing: border-box; background: #E8E9E2; border-right: 2px solid #14140F; padding: 20px 16px; display: flex; flex-direction: column; gap: 24px">
+  <div style="display: flex; align-items: center; gap: 10px">
+    <div aria-hidden="true" style="width: 38px; height: 38px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: #FF5A1F; border: 2px solid #14140F; border-radius: 4px"><svg aria-hidden="true" width="28" height="22" viewBox="150 230 960 760"><defs><mask id="mm-donkey-leg-gaps" maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760"><rect x="150" y="230" width="960" height="760" fill="#fff"></rect><g fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path></g></mask></defs><g fill="#14140F"><g mask="url(#mm-donkey-leg-gaps)"><path d="M350,690 C360,730 380,745 395,765 C380,790 350,805 320,825 C290,850 272,880 268,920 C272,935 285,950 292,970 L232,970 L232,955 C238,945 230,930 240,915 C260,880 280,840 300,800 C320,780 340,760 350,690 Z"></path><path d="M715,700 L770,720 C760,770 740,800 725,840 C710,880 700,910 715,970 L655,970 C660,950 648,935 650,915 C665,870 690,820 705,780 C712,760 712,730 715,700 Z"></path></g><path d="M352,595 C335,615 320,640 300,665 C285,680 275,700 262,720 C240,752 200,768 165,772 C180,755 185,735 200,710 C220,680 250,660 280,655 C300,640 315,600 340,575 Z"></path><path d="M340,580 C365,535 425,503 500,500 C580,497 640,520 700,505 C760,490 805,465 845,435 C885,405 912,390 938,390 L1000,405 C1025,430 1042,452 1047,472 C1060,510 1080,545 1087,577 C1092,605 1074,628 1050,628 C1030,628 1018,614 1014,600 C980,582 945,568 925,540 C902,578 878,612 862,632 L850,700 L745,690 C700,715 640,728 590,722 C550,716 522,702 505,690 L495,700 C470,745 420,745 395,735 C355,690 330,640 340,580 Z"></path><path d="M765,490 C785,478 805,474 822,468 L812,490 Z"></path><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path><path d="M935,412 C928,360 945,300 995,255 C1002,300 992,360 975,405 Z"></path><path d="M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z"></path></g></svg></div>
+    <div style="font-weight: 800; font-size: 16px; letter-spacing: 0.04em">MATERIAL MULE</div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="7">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <div style="display: flex; align-items: stretch; min-height: 44px; border-radius: 4px; background: {{n.bg}}">
+          <a href="{{n.href}}" style="flex: 1 1 auto; display: flex; align-items: center; padding: 11px 12px; text-decoration: none; font-weight: 600; font-size: 15px; color: {{n.fg}}">{{n.label}}</a>
+          <sc-if value="{{n.hasKids}}" hint-placeholder-val="{{false}}">
+            <button type="button" aria-expanded="{{n.open}}" aria-label="{{n.toggleLabel}}" onClick="{{n.toggle}}" style="width: 44px; padding: 0; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; color: {{n.fg}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({{n.rot}})"><path d="M6 9l6 6 6-6"></path></svg></button>
+          </sc-if>
+        </div>
+        <sc-if value="{{n.open}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 1px; margin: 0 0 6px 12px; padding-left: 10px; border-left: 2px solid #14140F">
+            <sc-for list="{{n.kids}}" as="k" hint-placeholder-count="6">
+              <a href="{{k.href}}" style="display: flex; align-items: center; min-height: 44px; padding: 0 10px; border-radius: 4px; text-decoration: none; font-size: 14px; font-weight: {{k.w}}; background: {{k.bg}}; color: #14140F">{{k.label}}</a>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 2px">
+    <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 11px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 15px; background: transparent; color: #14140F"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6.5"></circle><circle cx="12" cy="12" r="2.5"></circle><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22M4.9 4.9l2.5 2.5M16.6 16.6l2.5 2.5M4.9 19.1l2.5-2.5M16.6 7.4l2.5-2.5"></path></svg><span>Settings</span></a>
+    <a href="Help.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; box-sizing: border-box; padding: 11px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 15px; background: transparent; color: #14140F"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8"></path><path d="M12 17h.01"></path></svg><span>Help &amp; Feedback</span></a>
+    <div style="display: flex; align-items: center; gap: 10px; border-top: 2px solid #14140F; margin-top: 10px; padding-top: 14px">
+      <div aria-hidden="true" style="width: 38px; height: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #14140F; color: #F4F4EF; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600">DT</div>
+      <div style="flex: 1 1 0; min-width: 0">
+        <div style="font-weight: 700">Dana Tester</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">LAB MANAGER</div>
+      </div>
+      <a href="SignIn.dc.html" aria-label="Sign out" title="Sign out" style="width: 44px; height: 44px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; color: #14140F"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5"></path><path d="M14 8l4 4-4 4"></path><path d="M18 12H9"></path></svg></a>
+    </div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 32px; border-bottom: 1px solid #CFCFC4; background: #FFFFFF">
+    <div role="search" style="position: relative; flex: 1 1 280px; min-width: 0; max-width: 520px; margin-right: auto">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14140F" stroke-width="2.2" stroke-linecap="round" style="position: absolute; left: 13px; top: 12px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+      <input id="q" type="search" aria-label="Search" placeholder="Search units, samples, projects, programs…" style="width: 100%; height: 44px; box-sizing: border-box; padding: 0 14px 0 42px; border: 2px solid #14140F; border-radius: 4px; background: #F4F4EF; font-family: inherit; font-size: 15px; color: #14140F">
+    </div>
+    <button type="button" aria-label="Notifications, 3 unread" style="position: relative; width: 44px; height: 44px; padding: 0; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14140F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4l2-2z"></path><path d="M10 22h4"></path></svg><span style="position: absolute; top: -9px; right: -9px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 4px; background: #FF5A1F; border: 2px solid #14140F; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; line-height: 16px; color: #14140F">3</span></button>
+  </div>
+
+  <div style="padding: 32px; display: flex; flex-direction: column; gap: 22px; max-width: 1240px; width: 100%; box-sizing: border-box">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: flex-end">
+      <button type="button" style="height: 44px; padding: 0 18px; border: 2px solid #14140F; border-radius: 4px; background: #FF5A1F; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Open testing table</button>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px">
+      <h1 style="margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1">Concrete breaks</h1>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #45463E">TUE 10 NOV 2026 · WHOLE LAB</div>
+      <div role="group" aria-label="Table view" style="margin-left: auto; display: flex; border: 2px solid #14140F; border-radius: 4px; overflow: hidden">
+        <button type="button" aria-label="Comfortable rows" title="Comfortable rows" aria-pressed="{{comfOn}}" onClick="{{pickComf}}" style="width: 44px; height: 44px; padding: 0; border: 0; border-right: 1px solid #14140F; display: inline-flex; align-items: center; justify-content: center; background: {{comfBg}}; color: {{comfFg}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 5h14M3 10h14M3 15h14"></path></svg></button>
+        <button type="button" aria-label="Compact rows" title="Compact rows" aria-pressed="{{compOn}}" onClick="{{pickComp}}" style="width: 44px; height: 44px; padding: 0; border: 0; display: inline-flex; align-items: center; justify-content: center; background: {{compBg}}; color: {{compFg}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h14M3 7h14M3 10h14M3 13h14M3 16h14"></path></svg></button>
+      </div>
+    </div>
+
+    <div role="group" aria-label="View" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border: 2px solid #14140F; border-radius: 6px; overflow: hidden">
+      <sc-for list="{{views}}" as="v" hint-placeholder-count="5">
+        <button type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 16px; border: 0; border-right: 1px solid #14140F; border-bottom: 1px solid #14140F; font-family: inherit; text-align: left; background: {{v.bg}}; color: {{v.fg}}">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">{{v.label}}</span>
+          <span style="font-size: 30px; font-weight: 800; line-height: 1">{{v.n}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+      <section style="background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 12px 16px; background: #E8E9E2; border-bottom: 2px solid #14140F">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700; flex: 1 1 200px"><span style="font-family: 'IBM Plex Mono', monospace">{{g.project}}</span> · {{g.name}}</h2>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">{{g.count}}</span>
+        </div>
+        <div style="overflow-x: auto">
+          <table style="width: 100%; min-width: 760px; border-collapse: collapse">
+            <thead>
+              <tr style="text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">
+                <th scope="col" style="padding: 8px 16px; border-bottom: 1px solid #CFCFC4">SPECIMEN</th>
+                <th scope="col" style="padding: 8px 12px; border-bottom: 1px solid #CFCFC4">AGE</th>
+                <th scope="col" style="padding: 8px 12px; border-bottom: 1px solid #CFCFC4">CAST</th>
+                <th scope="col" style="padding: 8px 12px; border-bottom: 1px solid #CFCFC4">{{g.head}}</th>
+                <th scope="col" style="padding: 8px 12px; border-bottom: 1px solid #CFCFC4">FLAGS</th>
+                <th scope="col" style="padding: 8px 16px; border-bottom: 1px solid #CFCFC4"><span style="position: absolute; left: -9999px">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4">
+                <tr>
+                  <td style="padding: {{r.py}} 16px; border-bottom: 1px solid #CFCFC4"><span style="font-family: 'IBM Plex Mono', monospace; font-size: {{r.idSize}}; font-weight: 600">{{r.set}}</span> <span style="display: inline-block; min-width: 22px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; background: #14140F; color: #F4F4EF; border-radius: 3px; padding: 1px 4px">{{r.letter}}</span></td>
+                  <td style="padding: {{r.py}} 12px; border-bottom: 1px solid #CFCFC4; font-family: 'IBM Plex Mono', monospace; font-weight: 600">{{r.age}}</td>
+                  <td style="padding: {{r.py}} 12px; border-bottom: 1px solid #CFCFC4; font-family: 'IBM Plex Mono', monospace; font-size: 13px; white-space: nowrap">{{r.cast}}</td>
+                  <td style="padding: {{r.py}} 12px; border-bottom: 1px solid #CFCFC4; font-family: 'IBM Plex Mono', monospace; font-size: 13px; white-space: nowrap">{{r.target}}</td>
+                  <td style="padding: {{r.py}} 12px; border-bottom: 1px solid #CFCFC4">
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                      <sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1">
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 3px; white-space: nowrap; background: {{f.bg}}; color: {{f.fg}}">{{f.t}}</span>
+                      </sc-for>
+                    </div>
+                  </td>
+                  <td style="padding: {{r.pyA}} 16px; border-bottom: 1px solid #CFCFC4; text-align: right">
+                    <sc-if value="{{r.canMove}}" hint-placeholder-val="{{true}}">
+                      <button type="button" style="min-height: {{r.btnH}}; padding: 0 14px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: {{r.btnF}}; color: #14140F">{{r.action}}</button>
+                    </sc-if>
+                    <sc-if value="{{r.blocked}}" hint-placeholder-val="{{false}}">
+                      <span style="font-size: 13px; color: #45463E">{{r.why}}</span>
+                    </sc-if>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </sc-for>
+    <div style="font-size: 13px; color: #45463E">A target date is always casting date plus age. Rescheduling picks a new age and needs a reason. Nothing on HOLD is tested, released or disposed of automatically.</div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'TODAY', compact: false };
+  }
+  renderVals() {
+    const active = 'Concrete';
+    const nav = [['01','Today','Main.dc.html'],['00','Projects','Projects.dc.html'],['02','Receive','Receive.dc.html'],['03','Inventory','Inventory.dc.html'],['04','Lab programs','Lab.dc.html'],['05','Retention','Retention.dc.html'],['06','Concrete','Concrete.dc.html']]
+      .map(([no,label,href]) => ({ no, label, href, bg: label === active ? '#14140F' : 'transparent', fg: label === active ? '#F4F4EF' : '#14140F' }));
+    const navKids = { Concrete: [['Breaks', 'Concrete.dc.html'], ['Receiving', 'ConcreteReceiving.dc.html'], ['Specimens', 'ConcreteSpecimens.dc.html'], ['Holds', 'ConcreteHolds.dc.html'], ['Field reports', 'ConcreteReport.dc.html'], ['Review', 'ConcreteReview.dc.html']], Retention: [['Due and overdue', 'Retention.dc.html'], ['Disposal scan', 'DisposalScan.dc.html']] };
+    const navChild = 'Concrete.dc.html';
+    const navOpen = (this.state || {}).navOpen || {};
+    nav.forEach((item) => {
+      const kids = navKids[item.label] || [];
+      const open = kids.length > 0 && (navOpen[item.label] != null ? navOpen[item.label] : item.bg !== 'transparent');
+      Object.assign(item, { hasKids: kids.length > 0, open, rot: open ? '180deg' : '0deg', toggleLabel: (open ? 'Hide ' : 'Show ') + item.label + ' pages',
+        toggle: () => this.setState({ navOpen: { ...navOpen, [item.label]: !open } }),
+        kids: kids.map(([label, href]) => ({ label, href, bg: href === navChild ? '#FFF0E8' : 'transparent', w: href === navChild ? '700' : '600' })) });
+    });
+    const F = {
+      'RESCHEDULED': ['#E9E3F7','#4A2D8F'], 'REPORT DRAFT': ['#FBEBC2','#7A4E00'], 'WEEKEND TARGET': ['#E6E6DE','#14140F'],
+      'HOLD REVIEW DUE': ['#FBEBC2','#7A4E00'], 'CALIBRATION DUE': ['#F9DFDC','#A3201A']
+    };
+    const row = (set, letter, age, cast, target, flags, why) => ({
+      set, letter, age, cast, target, canMove: !why, blocked: !!why, why: why || '',
+      action: age === 'HOLD' ? 'Manage hold' : 'Reschedule',
+      flags: flags.map((t) => t.indexOf('OVERDUE') === 0 ? { t, bg: '#F9DFDC', fg: '#A3201A' } : { t, bg: F[t][0], fg: F[t][1] })
+    });
+    const data = {
+      'TODAY': { head: 'TARGET', groups: [
+        { project: 'DEMO-2616', name: 'Parkade level 2', rows: [
+          row('26-03', 'A', '7 d', '03 Nov', '10 Nov', []), row('26-03', 'B', '7 d', '03 Nov', '10 Nov', []),
+          row('26-01', 'C', '28 d', '13 Oct', '10 Nov', ['RESCHEDULED']), row('26-01', 'D', '28 d', '13 Oct', '10 Nov', [])] },
+        { project: 'DEMO-2614', name: 'Bridge abutment', rows: [
+          row('26-07', 'A', '7 d', '03 Nov', '10 Nov', ['REPORT DRAFT']),
+          row('TMP-D1-0007', 'A', '7 d', '03 Nov', '10 Nov', ['REPORT DRAFT'], 'Number this set first')] }] },
+      'OVERDUE': { head: 'TARGET', groups: [
+        { project: 'DEMO-2614', name: 'Bridge abutment', rows: [
+          row('26-05', 'A', '7 d', '31 Oct', '07 Nov', ['OVERDUE 3 DAYS', 'WEEKEND TARGET']), row('26-05', 'B', '7 d', '31 Oct', '07 Nov', ['OVERDUE 3 DAYS', 'WEEKEND TARGET'])] }] },
+      'NEXT 7 DAYS': { head: 'TARGET', groups: [
+        { project: 'DEMO-2616', name: 'Parkade level 2', rows: [
+          row('26-04', 'A', '7 d', '05 Nov', '12 Nov', []), row('26-04', 'B', '7 d', '05 Nov', '12 Nov', []), row('26-02', 'C', '28 d', '17 Oct', '14 Nov', ['WEEKEND TARGET'])] }] },
+      'HOLD': { head: 'HOLD UNTIL', groups: [
+        { project: 'DEMO-2616', name: 'Parkade level 2', rows: [
+          row('25-11', 'D', 'HOLD', '14 Sep', '09 Nov', ['HOLD REVIEW DUE']), row('26-01', 'E', 'HOLD', '13 Oct', '08 Dec', [])] }] },
+      'EXCEPTIONS': { head: 'TARGET', groups: [
+        { project: 'LAB', name: 'Testing machine', rows: [row('TM-01', '!', 'n/a', 'n/a', '10 Nov', ['CALIBRATION DUE'], 'Open in Settings, Equipment')] }] }
+    };
+    const cur = this.state.view;
+    const compact = this.state.compact;
+    const D = compact ? { py: '3px', pyA: '2px', idSize: '13px', btnH: '28px', btnF: '12px' } : { py: '10px', pyA: '6px', idSize: '16px', btnH: '44px', btnF: '14px' };
+    const count = (k) => data[k].groups.reduce((a, g) => a + g.rows.length, 0);
+    return {
+      nav,
+      comfOn: !compact, compOn: compact,
+      comfBg: compact ? '#FFFFFF' : '#14140F', comfFg: compact ? '#14140F' : '#F4F4EF',
+      compBg: compact ? '#14140F' : '#FFFFFF', compFg: compact ? '#F4F4EF' : '#14140F',
+      pickComf: () => this.setState({ compact: false }), pickComp: () => this.setState({ compact: true }),
+      views: Object.keys(data).map((label) => ({ label, n: count(label), on: cur === label, bg: cur === label ? '#14140F' : '#FFFFFF', fg: cur === label ? '#F4F4EF' : '#14140F', pick: () => this.setState({ view: label }) })),
+      groups: data[cur].groups.map((g) => ({ ...g, head: data[cur].head, rows: g.rows.map((r) => ({ ...r, ...D })), count: g.rows.length + (g.rows.length === 1 ? ' ITEM' : ' ITEMS') }))
+    };
+  }
+}
+</script>
+</body>
+</html>

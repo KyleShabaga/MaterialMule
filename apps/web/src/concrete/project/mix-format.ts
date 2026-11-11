@@ -22,9 +22,9 @@ export const ADMIXTURE_LABEL: Record<ConcreteAdmixtureKind, string> = {
 };
 
 export const MIX_STATUS: Record<ConcreteMixStatus, { label: string; tone: BadgeTone }> = {
-  unapproved: { label: 'Unapproved', tone: 'warning' },
-  approved: { label: 'Approved', tone: 'success' },
-  revision_pending: { label: 'Revision awaiting approval', tone: 'info' },
+  unapproved: { label: 'Unapproved', tone: 'closed' },
+  approved: { label: 'Approved', tone: 'storage' },
+  revision_pending: { label: 'Revision awaiting approval', tone: 'waiting' },
 };
 
 const blank = '—';

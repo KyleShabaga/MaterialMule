@@ -60,7 +60,7 @@ async function scan(page: Page, payload: string) {
 
 async function openMove(page: Page, mover?: RegExp) {
   await page.goto('/sample-storage/move');
-  await expect(page.getByRole('heading', { level: 1, name: 'Move storage units' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
   if (mover) {
     const field = page.getByRole('combobox', { name: /Moved by/ });
     await field.fill(mover.source.split(' ')[0]!);
@@ -139,7 +139,7 @@ test('T5/AC2: offline scans stay Pending (saved location unchanged) and sync onc
   // A second tab of the same browser profile shares the queue (P21: one drains).
   const second = await context.newPage();
   await second.goto('/sample-storage/move');
-  await expect(second.getByRole('heading', { level: 1, name: 'Move storage units' })).toBeVisible();
+  await expect(second.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
 
   await context.setOffline(true);
   await setDestination(page, c2);
@@ -345,7 +345,7 @@ test('MM-T80 T2: a queued LAB move of a tube removed after testing (real MM-T36 
   }
 });
 
-test('Lookup mode stays read-only and tells a location label apart from a unit', async ({
+test('Lookup mode stays read-only: a location label opens that shelf, not a move', async ({
   page,
 }) => {
   const c1 = await addLocation('C1', 'Warehouse');
@@ -354,6 +354,6 @@ test('Lookup mode stays read-only and tells a location label apart from a unit',
   await expect(page.getByRole('textbox', { name: 'Scan a storage unit label' })).toBeFocused();
   await page.keyboard.type(`LOC-${c1.code}`);
   await page.keyboard.press('Enter');
-  await expect(page.getByText(`LOC-${c1.code} is a location label`)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Move units' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/sample-storage/locations/${c1.code}$`));
+  await expect(page.getByRole('heading', { level: 1, name: c1.name })).toBeVisible();
 });

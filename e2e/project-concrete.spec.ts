@@ -186,14 +186,16 @@ test('T2: five tabs, add / copy / approve a mix, and approve only some affected 
     .getByRole('dialog', { name: 'Approve revision 2?' })
     .getByRole('button', { name: 'Approve' })
     .click();
+  await expect(page.getByRole('heading', { name: 'Update open records', level: 1 })).toBeVisible();
   await expect(
-    page.getByRole('heading', {
-      name: `Records made from earlier revisions of Example Ready-Mix ${mixNumber}`,
-    }),
+    page.getByText(`Records made from earlier revisions of Example Ready-Mix ${mixNumber}.`),
   ).toBeVisible();
-  const reportsCard = page.getByRole('region', { name: 'Field reports', exact: true });
+  // Field Ledger: the records that can change, each old value struck through beside the new one.
+  const reportsCard = page.getByRole('region', { name: 'Can be updated', exact: true });
   await expect(reportsCard.getByRole('checkbox')).toHaveCount(2);
-  await expect(reportsCard).toContainText('Slump target (mm): 80 → 100');
+  await expect(reportsCard).toContainText('Slump target (mm)');
+  await expect(reportsCard).toContainText('from 80 to 100');
+  await expect(reportsCard.locator('s').filter({ hasText: /^80$/ }).first()).toBeVisible();
 
   // AC1: approve only one report; the other stays listed and the history shows the scope.
   await reportsCard

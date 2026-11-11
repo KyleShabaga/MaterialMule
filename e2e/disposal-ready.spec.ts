@@ -123,14 +123,12 @@ test('approve from the list, scan it out, and the list no longer shows it', asyn
     page.getByRole('list', { name: 'Scan results' }).getByRole('listitem').first(),
   ).toContainText(`${unit.readableId} disposed.`);
 
-  await page.getByRole('link', { name: '← Disposal & Retention' }).click();
+  await page.getByRole('link', { name: '← Back to retention' }).click();
   await expect(readyCard(page)).toBeVisible();
   await expect(readyCard(page).getByLabel('Ready count')).toBeVisible();
   await expect(readyRow(page, unit.readableId)).toHaveCount(0);
 
   // MISC-12: the disposed unit shows no current location.
   await page.goto(`/sample-storage/${unit.readableId}`);
-  await expect(page.getByRole('region', { name: 'Location and retention' })).toContainText(
-    'No location',
-  );
+  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('No location');
 });

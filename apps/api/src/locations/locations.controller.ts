@@ -19,6 +19,7 @@ import {
   retireLocationRequestSchema,
   scanResolveQuerySchema,
   updateLocationRequestSchema,
+  type LocationActivity,
   type LocationDetail,
   type LocationLabelPreview,
   type PrintJob,
@@ -71,6 +72,13 @@ export class LocationsController {
   @RequirePermission('inventory.read')
   detail(@Param('id') id: string): Promise<LocationDetail> {
     return this.locations.detail(id);
+  }
+
+  /** Comings and goings and arrival times for the shelf page (Field Ledger). */
+  @Get('locations/:id/activity')
+  @RequirePermission('inventory.read')
+  activity(@Param('id') id: string): Promise<LocationActivity> {
+    return this.locations.activity(id);
   }
 
   @Get('locations/:id/label/preview')

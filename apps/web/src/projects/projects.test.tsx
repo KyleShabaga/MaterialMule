@@ -166,8 +166,9 @@ describe('Projects table (MM-T35)', () => {
     );
     const router = renderAt('/projects');
     expect(await screen.findByText('1 project')).toBeInTheDocument();
-    const table = screen.getByRole('table', { name: 'Projects' });
-    const row = within(table).getAllByRole('row')[1]!;
+    // Field Ledger: a grid of project cards (number and state, name and lead, three counts).
+    const cards = screen.getByRole('list', { name: 'Projects' });
+    const row = within(cards).getAllByRole('listitem')[0]!;
     expect(row).toHaveTextContent('Riverbank investigation');
     expect(row).toHaveTextContent('Example Client');
     expect(row).toHaveTextContent('PE');
@@ -202,33 +203,38 @@ describe('Projects table (MM-T35)', () => {
     expect(last.searchParams.get('dir')).toBe('desc');
   });
 
-  it('"Only mine" is remembered per user in local storage', async () => {
+  it('"Mine" is remembered per user in local storage', async () => {
     const fetchMock = stubApi((url) =>
       url.pathname === '/api/projects' ? json(200, listPage([listItem()])) : undefined,
     );
     renderAt('/projects');
     await screen.findByText('1 project');
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Only mine' }));
+    const show = screen.getByRole('group', { name: 'Show' });
+    await userEvent.click(within(show).getByRole('button', { name: 'Mine' }));
+    expect(within(show).getByRole('button', { name: 'Mine' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(readOnlyMine('u1')).toBe(true);
     expect(readOnlyMine('someone-else')).toBe(false);
     expect(callsTo(fetchMock, '/api/projects').at(-1)!.url.searchParams.get('mine')).toBe('true');
 
-    // MM-T50: the filter shows as a chip; removing it turns "Only mine" off and remembers that.
-    const chips = screen.getByRole('list', { name: 'Active filters' });
-    expect(chips).toHaveTextContent(/Only mine:/);
-    await userEvent.click(within(chips).getByRole('button', { name: 'Remove filter Only mine' }));
-    expect(screen.getByRole('checkbox', { name: 'Only mine' })).not.toBeChecked();
+    // All projects turns it off again and remembers that.
+    await userEvent.click(within(show).getByRole('button', { name: 'All projects' }));
+    expect(within(show).getByRole('button', { name: 'Mine' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     expect(readOnlyMine('u1')).toBe(false);
-    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
   });
 
-  it('hides "Only mine" from the shared LAB account', async () => {
+  it('hides "Mine" from the shared LAB account', async () => {
     stubApi((url) =>
       url.pathname === '/api/projects' ? json(200, listPage([listItem()])) : undefined,
     );
     renderAt('/projects', me({ accountType: 'shared_lab' }));
     await screen.findByText('1 project');
-    expect(screen.queryByRole('checkbox', { name: 'Only mine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Show' })).not.toBeInTheDocument();
   });
 });
 
@@ -238,7 +244,9 @@ describe('Project detail (MM-T35)', () => {
       url.pathname === `/api/projects/${PROJECT_ID}` ? json(200, detail()) : undefined,
     );
     renderAt(`/projects/${PROJECT_ID}`);
-    expect(await screen.findByRole('heading', { level: 1, name: 'DEMO-2601' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /^DEMO-2601/ }),
+    ).toBeInTheDocument();
     const details = screen.getByRole('region', { name: 'Project details' });
     expect(details).toHaveTextContent('PE · Pat Example');
     expect(within(details).getByText('P:\\Projects\\DEMO-2601')).toBeInTheDocument();
@@ -253,7 +261,8 @@ describe('Project detail (MM-T35)', () => {
     expect(holes).toHaveTextContent('TH26-02 0 units');
     const receipts = screen.getByRole('table', { name: 'Receipts' });
     expect(within(receipts).getAllByRole('row')).toHaveLength(3);
-    expect(screen.getByRole('link', { name: 'Open in Sample Storage' })).toHaveAttribute(
+    const units = screen.getByRole('region', { name: 'Units by test hole' });
+    expect(within(units).getByRole('link', { name: 'Open in Inventory' })).toHaveAttribute(
       'href',
       `/sample-storage?projectId=${PROJECT_ID}&status=all`,
     );
@@ -296,7 +305,7 @@ describe('Project detail (MM-T35)', () => {
         : undefined,
     );
     renderAt(`/projects/${PROJECT_ID}`);
-    await screen.findByRole('heading', { level: 1, name: 'DEMO-2601' });
+    await screen.findByRole('heading', { level: 1, name: /^DEMO-2601/ });
     expect(screen.queryByRole('button', { name: 'Edit project' })).not.toBeInTheDocument();
   });
 

@@ -15,6 +15,7 @@ import { WorklistPage } from './lab/WorklistPage';
 import { ConcreteWorklistPage } from './concrete/worklist/ConcreteWorklistPage';
 import { HoldManagementPage } from './concrete/holds/HoldManagementPage';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
+import { ShelfPage } from './inventory/ShelfPage';
 import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
@@ -40,6 +41,7 @@ import {
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
+import { HelpPage } from './pages/HelpPage';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
@@ -63,8 +65,8 @@ import { StrengthReportPage } from './concrete-review/StrengthReportPage';
 import { ConcreteDashboardPage } from './concrete/lab/ConcreteDashboardPage';
 import { ConcreteReceivingPage } from './concrete/lab/ConcreteReceivingPage';
 import { ConcreteSearchPage, SpecimenLookupPage } from './concrete/lab/ConcreteSearchPage';
-import { LabSearchPage } from './concrete/lab/LabSearchPage';
 import { SetLookupPage } from './concrete/lab/SetLookupPage';
+import { SearchPage } from './search/SearchPage';
 import { TestingTablePage } from './concrete/testing/TestingTablePage';
 
 const featureRoutes: RouteObject[] = [
@@ -77,10 +79,6 @@ const featureRoutes: RouteObject[] = [
           children: [
             { index: true, element: <WorklistPage /> },
             { path: 'programs', element: <ProgramsPage /> },
-            // Concrete breaks: the daily concrete lab worklist (MM-V2-C22).
-            { path: 'concrete', element: <ConcreteWorklistPage /> },
-            // HOLD management and bulk HOLD actions (MM-V2-C26).
-            { path: 'concrete/holds', element: <HoldManagementPage /> },
             { path: 'programs/new', element: <ProgramEditor draft={null} /> },
             {
               path: 'programs/:programId',
@@ -94,6 +92,11 @@ const featureRoutes: RouteObject[] = [
             },
           ],
         },
+        // Concrete breaks (MM-V2-C22) and HOLD management (MM-V2-C26) keep their URLs under
+        // /lab-testing but sit outside the Lab Testing layout: the rail's Concrete group replaces
+        // the in-page section switch (Field Ledger, docs/redesign/design.md "Shell additions").
+        { path: 'lab-testing/concrete', element: <ConcreteWorklistPage /> },
+        { path: 'lab-testing/concrete/holds', element: <HoldManagementPage /> },
       ]
     : []),
   ...(FEATURES.disposalRetention
@@ -126,7 +129,6 @@ const featureRoutes: RouteObject[] = [
         { path: 'concrete/specimens/:setId', element: <SetLookupPage /> },
         // MM-V2-C23: the daily testing table (direct entry of today's breaks).
         { path: 'concrete/testing', element: <TestingTablePage /> },
-        { path: 'search', element: <LabSearchPage /> },
       ]
     : []),
 ];
@@ -145,6 +147,8 @@ export const routes: RouteObject[] = [
           // Label print views (MM-T39): no app chrome, one 3.5 x 1.5 in label per page.
           { path: '/labels/print/unit/:id', element: <LabelPrintPage scope="unit" /> },
           { path: '/labels/print/receipt/:id', element: <LabelPrintPage scope="receipt" /> },
+          // Units chosen on Inventory (selection bar → Print labels): `?ids=` readable IDs.
+          { path: '/labels/print/units', element: <LabelPrintPage scope="units" /> },
           // Sample ID tag sheets (MM-T69): no app chrome, letter sheets of ten 2 x 4 in cards.
           ...(FEATURES.labTesting
             ? [{ path: '/lab-testing/programs/:programId/tags', element: <SampleTagsPage /> }]
@@ -165,6 +169,8 @@ export const routes: RouteObject[] = [
               { path: 'sample-storage/scan', element: <ScanPage /> },
               // Destination scans and queued moves (MM-T28); static, like scan.
               { path: 'sample-storage/move', element: <MovePage /> },
+              // Field Ledger shelf page: where a scanned shelf (location) label lands.
+              { path: 'sample-storage/locations/:code', element: <ShelfPage /> },
               { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
               { path: 'inventory', element: <InventoryRedirect /> },
               { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
@@ -173,6 +179,10 @@ export const routes: RouteObject[] = [
               // Notification center (MM-T91): personal accounts; the header Notifications control
               // links here. Separate from action requests; nothing here resolves one.
               { path: 'notifications', element: <NotificationsPage /> },
+              // Field Ledger rail footer: Help & Feedback (placeholder until lane A builds it).
+              { path: 'help', element: <HelpPage /> },
+              // Field Ledger search across units, samples, projects and programs (top bar, Find).
+              { path: 'search', element: <SearchPage /> },
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },

@@ -7,7 +7,8 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { indexedDbMoveStore, type NewMove, type QueuedMove } from '../moves/store';
 import { pendingMovesByUnit, usePendingMoves } from '../moves/usePendingMoves';
-import { StorageUnitTable, type StorageUnitTableView } from './StorageUnitTable';
+import type { TableView } from '../components/ui';
+import { StorageUnitTable } from './StorageUnitTable';
 
 // MM-T81: Conflict tag and this device's Pending marker on Sample Storage rows. Fictional data only.
 
@@ -83,11 +84,11 @@ function newMove(
 function Harness({
   accountId,
   items,
-  view = 'standard',
+  view = 'comfortable',
 }: {
   accountId: string;
   items: InventoryItem[];
-  view?: StorageUnitTableView;
+  view?: TableView;
 }) {
   const pendingMoves = usePendingMoves(accountId);
   return (
@@ -101,7 +102,7 @@ const row = (id: string) => within(screen.getByRole('link', { name: id }).closes
 
 describe('Sample Storage conflict and Pending markers (MM-T81)', () => {
   it('AC1: an open conflict shows a Conflict tag in words in both views', () => {
-    for (const view of ['standard', 'compact'] as const) {
+    for (const view of ['comfortable', 'compact'] as const) {
       const { unmount } = render(
         <MemoryRouter>
           <StorageUnitTable view={view} items={[item(U1, { openConflict: true }), item(U2)]} />

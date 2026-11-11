@@ -11,6 +11,8 @@ export interface InventorySql {
   /** FROM … WHERE …, shared by the count and the page query. */
   fromWhere: string;
   orderBy: string;
+  /** Joins the outer page query needs so it can repeat `orderBy` (retain-until sort). */
+  orderJoin: string;
   params: unknown[];
   limit: number;
   offset: number;
@@ -87,6 +89,17 @@ export function buildInventoryQuery(
     where.push(`unit_disposal_eligible(su.id, ${param(options.asOf ?? null)}::date)`);
   }
 
+  // Field Ledger Retention bands: an effective retain-until range; tested units never match.
+  const retainRange = Boolean(query.retainUntilFrom || query.retainUntilTo);
+  if (retainRange) where.push('NOT ur.retention_exempt');
+  if (query.retainUntilFrom) {
+    where.push(`ur.effective_retain_until >= ${param(query.retainUntilFrom)}::date`);
+  }
+  if (query.retainUntilTo) {
+    where.push(`ur.effective_retain_until <= ${param(query.retainUntilTo)}::date`);
+  }
+  const joinRetention = Boolean(query.retention || retainRange || query.sort === 'retain_until');
+
   // MM-T81: one open conflict per unit at most (location_conflict_one_open_idx).
   if (query.conflict === 'open') {
     where.push(
@@ -98,7 +111,7 @@ export function buildInventoryQuery(
   const fromWhere = [
     'FROM storage_unit su',
     words.length > 0 ? 'JOIN storage_unit_search s ON s.storage_unit_id = su.id' : '',
-    query.retention ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
+    joinRetention ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
     where.length > 0 ? `WHERE ${where.join('\n  AND ')}` : '',
   ]
     .filter(Boolean)
@@ -109,11 +122,15 @@ export function buildInventoryQuery(
   const orderBy =
     query.sort === 'received'
       ? `su.received_date ${dir}, su.readable_id COLLATE "C" ${dir}`
-      : `su.readable_id COLLATE "C" ${dir}`;
+      : query.sort === 'retain_until'
+        ? `ur.effective_retain_until ${dir} NULLS LAST, su.readable_id COLLATE "C" ${dir}`
+        : `su.readable_id COLLATE "C" ${dir}`;
 
   return {
     fromWhere,
     orderBy,
+    orderJoin:
+      query.sort === 'retain_until' ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
     params,
     limit: query.pageSize,
     offset: (query.page - 1) * query.pageSize,

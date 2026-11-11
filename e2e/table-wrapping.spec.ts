@@ -53,13 +53,14 @@ test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', 
     await expectOneLine(units.locator('.nowrap'), `received date at ${width}px`);
     // Stacked cards (narrow content box) hide the header row; a visible one stays on one line.
     if (await units.locator('thead').isVisible()) {
-      await expectOneLine(units.locator('th'), `header at ${width}px`);
+      // The select-all column holds a checkbox, not words.
+      await expectOneLine(units.locator('th:not(.select-cell)'), `header at ${width}px`);
     }
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
     await signInAs(page, 'pe');
     await page.goto(`/projects?search=${data.tag}`);
-    const projects = page.getByRole('table', { name: 'Projects' });
+    const projects = page.getByRole('list', { name: 'Projects' });
     await expect(
       projects.getByRole('link', { name: `Open project ${data.projectA}` }),
     ).toBeVisible();
@@ -68,7 +69,7 @@ test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', 
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
     await projects.getByRole('link', { name: `Open project ${data.projectA}` }).click();
-    const projectUnits = page.getByRole('table', { name: 'Storage units' });
+    const projectUnits = page.getByRole('table', { name: 'Storage units in TH26-01' });
     await expect(projectUnits.getByRole('link', { name: data.a1, exact: true })).toBeVisible();
     await expectOneLine(projectUnits.locator('.unit-link'), `project unit ID at ${width}px`);
     await expectOneLine(projectUnits.locator('.badge'), `project unit badge at ${width}px`);

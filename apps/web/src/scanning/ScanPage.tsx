@@ -7,9 +7,10 @@ import {
   type StorageUnitDetail,
 } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { PageHeader } from '../components/ui';
 import { fetchStorageUnit } from '../inventory/api';
+import { ContextRow } from '../layout/ContextRow';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
 import '../inventory/inventory.css';
 import { CameraScanButton } from './CameraScanButton';
@@ -19,49 +20,86 @@ import { ScanInput, type ScanStatusView } from './ScanInput';
 import { useScanLookup, type ScanLookupState } from './useScanLookup';
 
 /**
- * Sample Storage → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage
+ * Inventory → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage
  * unit here; the next scan replaces it. Scanning only reads: it never moves or disposes anything.
  */
 export function ScanPage() {
   const sound = useScanSound();
-  const lookup = useScanLookup((_code, result) => {
+  const navigate = useNavigate();
+  const lookup = useScanLookup((code, result) => {
+    // A shelf (location) label opens that shelf's page (Field Ledger "Shelf"). The page itself
+    // says when no location has the code; scanning still never moves anything (MM-T28).
+    const parsed = parseScanPayload(code);
+    if (parsed.type === 'location') {
+      if (sound.on) playScanTone('success');
+      void navigate(`/sample-storage/locations/${encodeURIComponent(parsed.code)}`);
+      return;
+    }
     if (sound.on) playScanTone(result.kind === 'found' ? 'success' : 'failure');
   });
   const { state } = lookup;
   const found = state.kind === 'done' && state.result.kind === 'found' ? state.result.unit : null;
 
   return (
-    <>
-      <p className="back-link">
-        <Link to="/sample-storage">← Back to Sample Storage</Link>
-      </p>
+    <div className="scan-screen">
+      <ContextRow className="scan-context">
+        <Link className="back-link" to="/sample-storage">
+          ← Back to inventory
+        </Link>
+      </ContextRow>
       <PageHeader title="Scan labels" />
       <p className="scan-intro">
         Pull the scanner&apos;s trigger on a storage unit label (Code 128 or QR). Scanning only
         opens the record; it never moves or disposes anything. On a phone, use{' '}
         <strong>Scan with camera</strong>.
       </p>
-      <CameraScanButton />
-      <ScanInput
-        scanner={lookup.scanner}
-        label="Scan a storage unit label"
-        status={statusView(state, lookup.notice)}
-        lastScanned={lookup.lastScanned}
-        sound={sound}
-        actions={
-          state.kind === 'done' && state.result.kind === 'unavailable' ? (
-            <button type="button" onClick={lookup.retry}>
-              Retry
-            </button>
-          ) : state.kind === 'done' && parseScanPayload(state.code).type === 'location' ? (
-            <Link className="button" to="/sample-storage/move">
-              Move units
-            </Link>
-          ) : null
-        }
-      />
-      {found ? <ScannedUnit key={found.id} readableId={found.readableId} /> : null}
-    </>
+      {/* Phone: the one dark screen (Field Ledger "PhoneScan"): an instruction, the viewfinder
+          frame with the camera action inside it, and what a label opens. */}
+      <div className="scan-camera-area">
+        <p className="scan-point">Point at a unit or shelf label</p>
+        <div className="scan-viewfinder">
+          <span className="scan-corner scan-corner-tl" aria-hidden="true" />
+          <span className="scan-corner scan-corner-tr" aria-hidden="true" />
+          <span className="scan-corner scan-corner-bl" aria-hidden="true" />
+          <span className="scan-corner scan-corner-br" aria-hidden="true" />
+          <CameraScanButton />
+        </div>
+        <p className="scan-helper">
+          A unit label opens the unit. A shelf label shows what is on that shelf.
+        </p>
+      </div>
+      <div className="scan-paper">
+        <ScanInput
+          scanner={lookup.scanner}
+          label="Scan a storage unit label"
+          status={statusView(state, lookup.notice)}
+          lastScanned={lookup.lastScanned}
+          sound={sound}
+          actions={
+            state.kind === 'done' && state.result.kind === 'unavailable' ? (
+              <button type="button" onClick={lookup.retry}>
+                Retry
+              </button>
+            ) : state.kind === 'done' && parseScanPayload(state.code).type === 'location' ? (
+              <Link className="button" to="/sample-storage/move">
+                Move units
+              </Link>
+            ) : null
+          }
+        />
+        {found ? (
+          <div className="scan-last-unit">
+            <p className="field-label scan-last-label" aria-hidden="true">
+              Last scanned
+            </p>
+            <ScannedUnit key={found.id} readableId={found.readableId} />
+          </div>
+        ) : null}
+        <button type="button" className="scan-type-instead" onClick={lookup.scanner.resume}>
+          Type an ID instead
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -111,7 +149,9 @@ function ScannedUnit({ readableId }: { readableId: string }) {
 
   return (
     <section className="card scanned-unit" aria-labelledby="scanned-unit-heading">
-      <h2 id="scanned-unit-heading">{readableId}</h2>
+      <h2 id="scanned-unit-heading" className="scanned-unit-id">
+        {readableId}
+      </h2>
       {detail ? (
         <dl className="scanned-unit-facts">
           <dt>Type</dt>

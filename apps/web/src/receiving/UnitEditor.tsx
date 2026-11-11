@@ -1,14 +1,16 @@
 import {
   BULK_GROUP_DESCRIPTION_MAX_LENGTH,
   bulkGroupOptionLabel,
+  parseScanPayload,
   type BulkGroupSummary,
+  type InventoryLocation,
 } from '@materialmule/shared';
-import { BandedCard, FormField } from '../components/ui';
+import { FormField } from '../components/ui';
 import {
   fieldId,
   formatSampleDraft,
   newBulkChoice,
-  unitHeadline,
+  UNIT_PREFIX,
   unitKindOf,
   unitName,
   withHoles,
@@ -33,7 +35,8 @@ export type BulkGroupsState =
   | { state: 'ready'; groups: BulkGroupSummary[] };
 
 /**
- * One storage unit row (MM-T10, MM-T36): its physical holder (Bucket, Shelby tube or Core box),
+ * The editor inside one storage unit row (MM-T10, MM-T36; the row itself is UnitRow): its
+ * physical holder as prefix blocks (BKT Bucket, ST Shelby tube, CRE Core box),
  * then what it holds. An ordinary bucket lists its test holes with one summary each (All samples
  * by default); a bucket marked Bulk soil sample holds one bulk sample (new, or an existing one of
  * the project) and nothing else; a Shelby tube has its own sampling source; a core box belongs to
@@ -49,9 +52,8 @@ export function UnitEditor({
   online,
   errors,
   bulkGroups = { state: 'idle' },
+  locations = [],
   onChange,
-  onDuplicate,
-  onRemove,
 }: {
   unit: UnitDraft;
   index: number;
@@ -64,190 +66,251 @@ export function UnitEditor({
   online: boolean;
   errors: ReadonlyMap<string, string>;
   bulkGroups?: BulkGroupsState;
+  /** Active storage locations, offered for "Where it will go". */
+  locations?: InventoryLocation[];
   onChange: (recipe: (unit: UnitDraft) => UnitDraft) => void;
-  onDuplicate: () => void;
-  onRemove: () => void;
 }) {
   const path = `units.${index}`;
   const name = unitName(index, unit);
-  const headingId = `unit-${unit.clientRowId}-heading`;
   const holesError = errors.get(`${path}.holeSummaries`);
   const receipt = draft ?? { units: [unit] };
   const kind = unitKindOf(unit);
   const coreBox = kind === 'core_box';
   const sampleProps = { projectId, projectNumber, receiverUserId, online, errors };
 
+  const holderLabelId = `${fieldId(`${path}.unitType`)}-label`;
+
   return (
-    <BandedCard
-      id={`unit-${unit.clientRowId}`}
-      className="unit-card"
-      headingLevel={3}
-      headingId={headingId}
-      focusableHeading
-      title={name}
-      // The heading already names the unit ("Bucket 1"); the band adds what it holds.
-      subtitle={
-        <span className="unit-headline">
-          {unitHeadline(index, unit, receipt).split(' · ').slice(1).join(' · ')}
-        </span>
-      }
-      aside={
-        <div className="row-actions">
-          <button type="button" onClick={onDuplicate} aria-label={`Duplicate ${name}`}>
-            Duplicate
-          </button>
-          <button type="button" onClick={onRemove} aria-label={`Remove ${name}`}>
-            Remove
-          </button>
-        </div>
-      }
-    >
-      <div className="unit-body">
-        <div className="unit-kind">
-          <FormField id={fieldId(`${path}.unitType`)} label="Physical holder">
-            {(props) => (
-              <select
-                {...props}
-                value={unit.unitType}
-                onChange={(e) =>
-                  onChange((current) =>
-                    withUnitKind(current, e.target.value as Exclude<UnitKind, 'bulk'>),
-                  )
-                }
+    <div className="unit-body receive-unit-editor">
+      <div className="unit-kind">
+        <div className="form-field">
+          <span className="field-label" id={holderLabelId}>
+            Physical holder
+          </span>
+          <div
+            className="receive-holders"
+            role="group"
+            aria-labelledby={holderLabelId}
+            id={fieldId(`${path}.unitType`)}
+          >
+            {HOLDERS.map((holder) => (
+              <button
+                key={holder.type}
+                type="button"
+                aria-pressed={unit.unitType === holder.type}
+                onClick={() => onChange((current) => withUnitKind(current, holder.type))}
               >
-                <option value="bucket">Bucket</option>
-                <option value="shelby_tube">Shelby tube</option>
-                <option value="core_box">Core box</option>
-              </select>
-            )}
-          </FormField>
-          {unit.unitType === 'bucket' ? (
-            <div className="form-field checkbox-field">
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={unit.bulk}
-                  aria-describedby={`${fieldId(`${path}.bulk`)}-hint`}
-                  onChange={(e) =>
-                    onChange((current) =>
-                      withUnitKind(current, e.target.checked ? 'bulk' : 'bucket'),
-                    )
-                  }
-                />
-                Bulk soil sample
-              </label>
-              <p id={`${fieldId(`${path}.bulk`)}-hint`} className="field-hint">
-                A bulk sample commonly fills one or two buckets. Each bucket gets its own BKT ID.
-              </p>
-            </div>
-          ) : null}
+                <span className="receive-holder-prefix">{UNIT_PREFIX[holder.type]}</span>{' '}
+                <span className="receive-holder-name">{holder.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
-
-        {kind === 'bucket' || coreBox ? (
-          <>
-            <div id={fieldId(`${path}.holeSummaries`)}>
-              {projectId ? (
-                <TestHolePicker
-                  key={projectId}
-                  projectId={projectId}
-                  selected={unit.summaries.map((summary) => summary.testHole)}
-                  // A core box belongs to one test hole: choosing another replaces it.
-                  onChange={(holes) =>
-                    onChange((current) => withHoles(current, coreBox ? holes.slice(-1) : holes))
-                  }
-                  query={unit.holeQuery}
-                  onQueryChange={(holeQuery) => onChange((current) => ({ ...current, holeQuery }))}
-                  receiverUserId={receiverUserId}
-                  online={online}
-                  required
-                  invalid={Boolean(holesError)}
-                  // Holes are shared project data, kept even if the draft is discarded (decided
-                  // 2026-10-27, MM-T61).
-                  addedNote={(holeName) =>
-                    `Added test hole ${holeName}${projectNumber ? ` to ${projectNumber}` : ''}. It stays on the project even if you discard this draft.`
-                  }
-                />
-              ) : (
-                <p className="field-hint">Choose the project first, then this unit’s test holes.</p>
-              )}
-              {holesError ? <p className="field-error">{holesError}</p> : null}
-            </div>
-
-            {unit.summaries.map((summary, summaryIndex) => (
-              <SummaryEditor
-                key={summary.testHole.id}
-                summary={summary}
-                path={`${path}.holeSummaries.${summaryIndex}`}
-                errors={errors}
-                onChange={(changes) =>
-                  onChange((current) => ({
-                    ...current,
-                    summaries: current.summaries.map((s) =>
-                      s.testHole.id === summary.testHole.id ? { ...s, ...changes } : s,
-                    ),
-                  }))
+        {unit.unitType === 'bucket' ? (
+          <div className="form-field checkbox-field">
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={unit.bulk}
+                aria-describedby={`${fieldId(`${path}.bulk`)}-hint`}
+                onChange={(e) =>
+                  onChange((current) => withUnitKind(current, e.target.checked ? 'bulk' : 'bucket'))
                 }
               />
-            ))}
-
-            {coreBox ? (
-              <CoreRunsField
-                id={fieldId(`${path}.coreRunCount`)}
-                value={unit.coreRunCount}
-                error={errors.get(`${path}.coreRunCount`)}
-                onChange={(coreRunCount) => onChange((current) => ({ ...current, coreRunCount }))}
-              />
-            ) : null}
-          </>
+              Bulk soil sample
+            </label>
+            <p id={`${fieldId(`${path}.bulk`)}-hint`} className="field-hint">
+              A bulk sample commonly fills one or two buckets. Each bucket gets its own BKT ID.
+            </p>
+          </div>
         ) : null}
+      </div>
 
-        {kind === 'bulk' ? (
-          <BulkSampleChoice
-            unit={unit}
-            index={index}
-            draft={receipt}
-            path={`${path}.bulkGroup`}
-            bulkGroups={projectId ? bulkGroups : { state: 'idle' }}
-            onChange={(recipe) =>
-              onChange((current) => ({ ...current, bulkChoice: recipe(current.bulkChoice) }))
+      {kind === 'bucket' || coreBox ? (
+        <>
+          <div id={fieldId(`${path}.holeSummaries`)}>
+            {projectId ? (
+              <TestHolePicker
+                key={projectId}
+                projectId={projectId}
+                selected={unit.summaries.map((summary) => summary.testHole)}
+                // A core box belongs to one test hole: choosing another replaces it.
+                onChange={(holes) =>
+                  onChange((current) => withHoles(current, coreBox ? holes.slice(-1) : holes))
+                }
+                query={unit.holeQuery}
+                onQueryChange={(holeQuery) => onChange((current) => ({ ...current, holeQuery }))}
+                receiverUserId={receiverUserId}
+                online={online}
+                required
+                invalid={Boolean(holesError)}
+                // Holes are shared project data, kept even if the draft is discarded (decided
+                // 2026-10-27, MM-T61).
+                addedNote={(holeName) =>
+                  `Added test hole ${holeName}${projectNumber ? ` to ${projectNumber}` : ''}. It stays on the project even if you discard this draft.`
+                }
+              />
+            ) : (
+              <p className="field-hint">Choose the project first, then this unit’s test holes.</p>
+            )}
+            {holesError ? <p className="field-error">{holesError}</p> : null}
+          </div>
+
+          {unit.summaries.map((summary, summaryIndex) => (
+            <SummaryEditor
+              key={summary.testHole.id}
+              summary={summary}
+              path={`${path}.holeSummaries.${summaryIndex}`}
+              errors={errors}
+              onChange={(changes) =>
+                onChange((current) => ({
+                  ...current,
+                  summaries: current.summaries.map((s) =>
+                    s.testHole.id === summary.testHole.id ? { ...s, ...changes } : s,
+                  ),
+                }))
+              }
+            />
+          ))}
+
+          {coreBox ? (
+            <CoreRunsField
+              id={fieldId(`${path}.coreRunCount`)}
+              value={unit.coreRunCount}
+              error={errors.get(`${path}.coreRunCount`)}
+              onChange={(coreRunCount) => onChange((current) => ({ ...current, coreRunCount }))}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {kind === 'bulk' ? (
+        <BulkSampleChoice
+          unit={unit}
+          index={index}
+          draft={receipt}
+          path={`${path}.bulkGroup`}
+          bulkGroups={projectId ? bulkGroups : { state: 'idle' }}
+          onChange={(recipe) =>
+            onChange((current) => ({ ...current, bulkChoice: recipe(current.bulkChoice) }))
+          }
+          {...sampleProps}
+        />
+      ) : null}
+
+      {kind === 'shelby_tube' ? (
+        <fieldset className="hole-summary">
+          <legend>{name} sample</legend>
+          <SampleFields
+            sample={unit.tube}
+            path={`${path}.sample`}
+            required={false}
+            referencePlaceholder="e.g. T5"
+            onChange={(changes: Partial<SampleDraft>) =>
+              onChange((current) => ({ ...current, tube: { ...current.tube, ...changes } }))
             }
             {...sampleProps}
           />
-        ) : null}
+        </fieldset>
+      ) : null}
 
-        {kind === 'shelby_tube' ? (
-          <fieldset className="hole-summary">
-            <legend>{name} sample</legend>
-            <SampleFields
-              sample={unit.tube}
-              path={`${path}.sample`}
-              required={false}
-              referencePlaceholder="e.g. T5"
-              onChange={(changes: Partial<SampleDraft>) =>
-                onChange((current) => ({ ...current, tube: { ...current.tube, ...changes } }))
-              }
-              {...sampleProps}
-            />
-          </fieldset>
-        ) : null}
+      <FormField
+        id={fieldId(`${path}.note`)}
+        label={`${name} note (optional)`}
+        error={errors.get(`${path}.note`)}
+      >
+        {(props) => (
+          <input
+            {...props}
+            type="text"
+            maxLength={2000}
+            value={unit.note}
+            onChange={(e) => onChange((current) => ({ ...current, note: e.target.value }))}
+          />
+        )}
+      </FormField>
 
-        <FormField
-          id={fieldId(`${path}.note`)}
-          label={`${name} note (optional)`}
-          error={errors.get(`${path}.note`)}
-        >
-          {(props) => (
-            <input
-              {...props}
-              type="text"
-              maxLength={2000}
-              value={unit.note}
-              onChange={(e) => onChange((current) => ({ ...current, note: e.target.value }))}
-            />
-          )}
-        </FormField>
-      </div>
-    </BandedCard>
+      <TargetLocationField
+        id={fieldId(`${path}.targetLocation`)}
+        name={name}
+        value={unit.targetLocation ?? ''}
+        locations={locations}
+        onChange={(targetLocation) => onChange((current) => ({ ...current, targetLocation }))}
+      />
+    </div>
+  );
+}
+
+const HOLDERS: { type: Exclude<UnitKind, 'bulk'>; label: string }[] = [
+  { type: 'bucket', label: 'Bucket' },
+  { type: 'shelby_tube', label: 'Shelby tube' },
+  { type: 'core_box', label: 'Core box' },
+];
+
+/** "WH-C1 · Warehouse C1": how a location is written in the field and on the unit row. */
+function locationText(location: Pick<InventoryLocation, 'code' | 'name'>): string {
+  return `${location.code} · ${location.name}`;
+}
+
+/**
+ * Where the unit will go (optional): typed, picked from the active locations, or scanned from a
+ * shelf label (LOC-… becomes that location). Kept in the draft as a plan only.
+ */
+function TargetLocationField({
+  id,
+  name,
+  value,
+  locations,
+  onChange,
+}: {
+  id: string;
+  name: string;
+  value: string;
+  locations: InventoryLocation[];
+  onChange: (value: string) => void;
+}) {
+  const listId = `${id}-options`;
+  /** A whole scanned shelf label (scanners end with Enter) becomes that location's name. */
+  function resolve(raw: string) {
+    const scanned = parseScanPayload(raw);
+    if (scanned.type !== 'location') return;
+    const known = locations.find((l) => l.code.toUpperCase() === scanned.code);
+    onChange(known ? locationText(known) : scanned.code);
+  }
+  return (
+    <FormField
+      id={id}
+      label={`Where ${name} will go (optional)`}
+      hint="Scan the shelf label or type it. Units stay at Receiving until they are moved."
+    >
+      {(props) => (
+        <>
+          <input
+            {...props}
+            type="text"
+            className="mono"
+            maxLength={120}
+            list={locations.length > 0 ? listId : undefined}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onBlur={(e) => resolve(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter never submits the receipt; here it ends a scan.
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              resolve(e.currentTarget.value);
+            }}
+          />
+          {locations.length > 0 ? (
+            <datalist id={listId}>
+              {locations.map((location) => (
+                <option key={location.id} value={locationText(location)} />
+              ))}
+            </datalist>
+          ) : null}
+        </>
+      )}
+    </FormField>
   );
 }
 
