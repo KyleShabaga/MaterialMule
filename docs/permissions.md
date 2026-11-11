@@ -1240,14 +1240,15 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 
 ## Lab worklist, progress, priority and comments (MM-T24)
 
-| Route                                                      | Policy                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------- |
-| `GET /api/worklist?priority=&projectId=&open=&testTypeId=` | `lab_program.read`                                      |
-| `GET /api/lab-programs/:id/work`                           | `lab_program.read`                                      |
-| `POST /api/test-requests/:id/status`                       | `test.progress` (LAB too, with `actingStaffUserId`)     |
-| `PATCH /api/lab-programs/:id/priority`                     | active user; handler checks `program.priority.set`      |
-| `POST /api/lab-programs/:id/comments`                      | `lab_comment.write` (LAB too, with `actingStaffUserId`) |
-| `PATCH /api/comments/:id`                                  | `lab_comment.write`; only the author, within 15 minutes |
+| Route                                                       | Policy                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------- |
+| `GET /api/worklist?priority=&projectId=&open=&testTypeId=`  | `lab_program.read`                                      |
+| `GET /api/lab-programs/:id/work`                            | `lab_program.read`                                      |
+| `GET /api/worklist/units-to-pull` (Field Ledger, read-only) | `lab_program.read`                                      |
+| `POST /api/test-requests/:id/status`                        | `test.progress` (LAB too, with `actingStaffUserId`)     |
+| `PATCH /api/lab-programs/:id/priority`                      | active user; handler checks `program.priority.set`      |
+| `POST /api/lab-programs/:id/comments`                       | `lab_comment.write` (LAB too, with `actingStaffUserId`) |
+| `PATCH /api/comments/:id`                                   | `lab_comment.write`; only the author, within 15 minutes |
 
 - **Shared LAB stations** (Kyle, 2026-10-27): LAB may Start, Mark completed and Send to review,
   and add or edit its comments, naming "Who is doing this?" on every request (an active staff

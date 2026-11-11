@@ -59,7 +59,7 @@ test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', 
 
     await signInAs(page, 'pe');
     await page.goto(`/projects?search=${data.tag}`);
-    const projects = page.getByRole('table', { name: 'Projects' });
+    const projects = page.getByRole('list', { name: 'Projects' });
     await expect(
       projects.getByRole('link', { name: `Open project ${data.projectA}` }),
     ).toBeVisible();

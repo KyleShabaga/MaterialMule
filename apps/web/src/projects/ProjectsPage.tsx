@@ -7,7 +7,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
-import { DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/ui';
 import '../inventory/inventory.css';
 import { useMe } from '../session/context';
 import { fetchProjects, type LoadResult } from './api';
@@ -72,7 +72,6 @@ export function ProjectsPage() {
   const page = result?.ok ? result.data : null;
   const totalPages = page ? Math.max(1, Math.ceil(page.total / page.pageSize)) : 1;
   const linkState: ProjectLinkState = { from: location.search };
-  const mineId = useId();
   const waitingId = useId();
   const sortId = useId();
 
@@ -83,9 +82,30 @@ export function ProjectsPage() {
     update({ mine });
   }
 
+  const showMine = me.accountType !== 'shared_lab';
+  const filtered = Boolean(query.search || query.mine || query.waitingForLead);
+
   return (
     <>
       <PageHeader title="Projects" />
+
+      <div className="project-filters">
+        {/* Field Ledger: Mine / All. Projects have no closed state, so there is no Closed filter. */}
+        {showMine ? (
+          <Segmented
+            label="Show"
+            value={query.mine ? 'mine' : 'all'}
+            options={[
+              { value: 'mine', label: 'Mine' },
+              { value: 'all', label: 'All projects' },
+            ]}
+            onChange={(value) => setMine(value === 'mine')}
+          />
+        ) : null}
+        <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
+          {page ? countLabel(page.total) : 'Loading…'}
+        </p>
+      </div>
 
       <div className="tool-card project-tools" role="group" aria-label="Filters">
         <SearchForm
@@ -93,19 +113,6 @@ export function ProjectsPage() {
           initial={query.search ?? ''}
           onSearch={(search) => update({ search: search || undefined })}
         />
-        {me.accountType !== 'shared_lab' ? (
-          <label className="checkbox only-mine" htmlFor={mineId}>
-            <input
-              id={mineId}
-              type="checkbox"
-              checked={query.mine}
-              onChange={(event) => {
-                setMine(event.target.checked);
-              }}
-            />
-            Only mine
-          </label>
-        ) : null}
         <label className="checkbox only-mine" htmlFor={waitingId}>
           <input
             id={waitingId}
@@ -137,51 +144,34 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      <div className="inventory-summary">
-        {query.search || query.mine || query.waitingForLead ? (
-          <ul className="chips" aria-label="Active filters">
-            {query.search ? (
-              <li>
-                Search: {query.search}
-                <button
-                  type="button"
-                  aria-label={`Remove filter Search: ${query.search}`}
-                  onClick={() => update({ search: undefined })}
-                >
-                  ×
-                </button>
-              </li>
-            ) : null}
-            {query.waitingForLead ? (
-              <li>
-                Waiting for a lead
-                <button
-                  type="button"
-                  aria-label="Remove filter Waiting for a lead"
-                  onClick={() => update({ waitingForLead: false })}
-                >
-                  ×
-                </button>
-              </li>
-            ) : null}
-            {query.mine ? (
-              <li>
-                Only mine: {me.initials ?? me.displayName}
-                <button
-                  type="button"
-                  aria-label="Remove filter Only mine"
-                  onClick={() => setMine(false)}
-                >
-                  ×
-                </button>
-              </li>
-            ) : null}
-          </ul>
-        ) : null}
-        <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
-          {page ? countLabel(page.total) : 'Loading…'}
-        </p>
-      </div>
+      {query.search || query.waitingForLead ? (
+        <ul className="chips" aria-label="Active filters">
+          {query.search ? (
+            <li>
+              Search: {query.search}
+              <button
+                type="button"
+                aria-label={`Remove filter Search: ${query.search}`}
+                onClick={() => update({ search: undefined })}
+              >
+                ×
+              </button>
+            </li>
+          ) : null}
+          {query.waitingForLead ? (
+            <li>
+              Waiting for a lead
+              <button
+                type="button"
+                aria-label="Remove filter Waiting for a lead"
+                onClick={() => update({ waitingForLead: false })}
+              >
+                ×
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
 
       {result && !result.ok ? (
         <ErrorState message={result.message} onRetry={() => setReloads((count) => count + 1)} />
@@ -189,73 +179,34 @@ export function ProjectsPage() {
 
       {page ? (
         page.total === 0 ? (
-          <EmptyState>
-            {query.search || query.mine || query.waitingForLead
+          <EmptyState
+            title={filtered ? 'No projects match.' : 'No projects yet.'}
+            action={
+              filtered ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    rememberOnlyMine(me.id, false);
+                    setRememberedMine(false);
+                    update({ mine: false, search: undefined, waitingForLead: false });
+                  }}
+                >
+                  Clear filters
+                </button>
+              ) : undefined
+            }
+          >
+            {filtered
               ? 'No projects match this search.'
-              : 'No projects yet. Projects are added while receiving samples.'}
+              : 'Projects are added while receiving samples.'}
           </EmptyState>
         ) : (
-          <div className="table-card projects-table table-stack">
-            <DataTable
-              rows={page.items}
-              rowKey={(project) => project.id}
-              caption="Projects"
-              empty="No projects."
-              columns={[
-                {
-                  header: 'Project',
-                  cell: (project) => (
-                    <Link
-                      className="project-link"
-                      to={`/projects/${project.id}`}
-                      state={linkState}
-                      aria-label={`Open project ${project.projectNumber}`}
-                    >
-                      {project.projectNumber}
-                    </Link>
-                  ),
-                },
-                {
-                  header: 'Name',
-                  cell: (project) => (
-                    <>
-                      <strong>{project.name}</strong>
-                      {/* D12 (MM-AO03): why it is one of "my" projects. Relevance only. */}
-                      {project.involvement.length > 0 ? (
-                        <span className="field-hint project-involvement">
-                          {' '}
-                          You:{' '}
-                          {project.involvement.map((i) => PROJECT_INVOLVEMENT_LABEL[i]).join(', ')}
-                        </span>
-                      ) : null}
-                    </>
-                  ),
-                },
-                { header: 'Client', cell: (project) => project.client },
-                {
-                  header: 'Lead Project Engineer',
-                  cell: (project) => <PersonInitials project={project} />,
-                },
-                {
-                  header: 'Test holes',
-                  cell: (project) => <span className="number">{project.testHoleCount}</span>,
-                },
-                {
-                  header: 'In stock',
-                  cell: (project) => (
-                    <strong className="number">
-                      {project.inStockUnitCount} {project.inStockUnitCount === 1 ? 'unit' : 'units'}
-                    </strong>
-                  ),
-                },
-                {
-                  header: 'Last receipt',
-                  cell: (project) => (
-                    <span className="number nowrap">{project.lastReceiptDate ?? '—'}</span>
-                  ),
-                },
-              ]}
-            />
+          <>
+            <ul className="project-cards" aria-label="Projects">
+              {page.items.map((project) => (
+                <ProjectCard key={project.id} project={project} linkState={linkState} />
+              ))}
+            </ul>
             {page.total > page.pageSize ? (
               <nav className="pager" aria-label="Pages">
                 <button
@@ -277,17 +228,90 @@ export function ProjectsPage() {
                 </button>
               </nav>
             ) : null}
-          </div>
+          </>
         )
       ) : null}
     </>
   );
 }
 
+/** What the card says is next, from what the list already returns. */
+function nextLine(project: ProjectListItem): string {
+  if (!project.leadProjectEngineer)
+    return 'Waiting for an admin to appoint a Lead Project Engineer.';
+  if (project.lastReceiptDate) return `Last receipt ${project.lastReceiptDate}.`;
+  return 'Nothing received yet.';
+}
+
+/**
+ * One project card (canvas Projects): number and state in the head, name and lead, three counts,
+ * one line on what is next. The number is the link; the whole card is its click target.
+ */
+function ProjectCard({
+  project,
+  linkState,
+}: {
+  project: ProjectListItem;
+  linkState: ProjectLinkState;
+}) {
+  const state = !project.leadProjectEngineer ? (
+    <StatusBadge tone="waiting">Waiting for a lead</StatusBadge>
+  ) : project.inStockUnitCount > 0 ? (
+    <StatusBadge tone="storage">In stock</StatusBadge>
+  ) : (
+    <StatusBadge tone="closed">Nothing in stock</StatusBadge>
+  );
+  return (
+    <li className="project-card">
+      <div className="project-card-head">
+        <Link
+          className="project-link"
+          to={`/projects/${project.id}`}
+          state={linkState}
+          aria-label={`Open project ${project.projectNumber}`}
+        >
+          {project.projectNumber}
+        </Link>
+        {state}
+      </div>
+      <div className="project-card-body">
+        <div>
+          <p className="project-card-name">{project.name}</p>
+          <p className="project-card-meta">
+            {project.client}
+            {' · Lead '}
+            <PersonInitials project={project} />
+          </p>
+          {/* D12 (MM-AO03): why it is one of "my" projects. Relevance only. */}
+          {project.involvement.length > 0 ? (
+            <p className="project-card-meta project-involvement">
+              You: {project.involvement.map((i) => PROJECT_INVOLVEMENT_LABEL[i]).join(', ')}
+            </p>
+          ) : null}
+        </div>
+        <dl className="project-card-counts">
+          <div>
+            <dt>In stock</dt>
+            <dd className="number">{project.inStockUnitCount}</dd>
+          </div>
+          <div>
+            <dt>Test holes</dt>
+            <dd className="number">{project.testHoleCount}</dd>
+          </div>
+          <div>
+            <dt>Last receipt</dt>
+            <dd className="number project-card-date">{project.lastReceiptDate ?? '—'}</dd>
+          </div>
+        </dl>
+        <p className="project-card-next">{nextLine(project)}</p>
+      </div>
+    </li>
+  );
+}
 function PersonInitials({ project }: { project: ProjectListItem }) {
   const lead = project.leadProjectEngineer;
   // D02 (MM-AO04): a project can wait for a lead; receiving carries on meanwhile.
-  if (!lead) return <span className="badge badge-warning">Waiting for a lead</span>;
+  if (!lead) return <>none yet</>;
   return (
     <>
       {lead.displayName}

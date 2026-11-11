@@ -10,6 +10,7 @@ import {
 } from '../../components/ui';
 import { formatAge, formatBytes, formatExpiry } from '../../lib/format';
 import { useMe } from '../../session/context';
+import { SettingsHead } from '../SettingsHead';
 
 type Load =
   | { state: 'loading' }
@@ -158,7 +159,12 @@ export function SystemStatusPage() {
   }, [allowed, attempt]);
 
   if (!allowed) {
-    return <EmptyState>Only administrators can see system status.</EmptyState>;
+    return (
+      <>
+        <SettingsHead id="system-status-heading" title="System status" who="Administrators only." />
+        <EmptyState>Only administrators can see system status.</EmptyState>
+      </>
+    );
   }
   if (load.state === 'loading') return <p aria-busy="true">Checking system status…</p>;
   if (load.state === 'error') {
@@ -166,66 +172,70 @@ export function SystemStatusPage() {
   }
   const { status } = load;
   return (
-    // Canvas layout (MM-T55): Service tiles, Backups beside Print queue, then Disk space bars.
+    // Field Ledger (canvas SettingsStatus): four framed cards (service, backups, print queue,
+    // disk space), state only.
     <>
-      <BandedCard
-        title="Service"
-        aside={
+      <SettingsHead
+        id="system-status-heading"
+        title="System status"
+        who="How the host is doing, state only. Administrators only."
+        actions={
           <button type="button" onClick={() => setAttempt((a) => a + 1)}>
             Check again
           </button>
         }
-      >
-        <dl className="stat-tiles stat-tiles-3">
-          <div>
-            <dt>Database</dt>
-            <dd>
-              <StatusBadge tone={status.database === 'up' ? 'success' : 'danger'}>
-                {status.database === 'up' ? 'Connected' : 'Unavailable'}
-              </StatusBadge>
-            </dd>
-          </div>
-          <div>
-            <dt>Version</dt>
-            <dd className="stat-mono">{status.version}</dd>
-          </div>
-          <div>
-            <dt>Checked</dt>
-            <dd className="stat-mono">{formatExpiry(status.checkedAt)}</dd>
-          </div>
-        </dl>
-      </BandedCard>
-      <div className="status-columns">
+      />
+      <div className="status-cards">
+        <BandedCard title="Service">
+          <dl className="stat-tiles stat-tiles-3">
+            <div>
+              <dt>Database</dt>
+              <dd>
+                <StatusBadge tone={status.database === 'up' ? 'success' : 'danger'}>
+                  {status.database === 'up' ? 'Connected' : 'Unavailable'}
+                </StatusBadge>
+              </dd>
+            </div>
+            <div>
+              <dt>Version</dt>
+              <dd className="stat-mono">{status.version}</dd>
+            </div>
+            <div>
+              <dt>Checked</dt>
+              <dd className="stat-mono">{formatExpiry(status.checkedAt)}</dd>
+            </div>
+          </dl>
+        </BandedCard>
         <BackupSection backup={status.backup} />
         <PrintQueueSection status={status} />
+        <BandedCard title="Disk space">
+          {status.disks.length === 0 ? (
+            <p>Not available on this server.</p>
+          ) : (
+            <ul className="disk-list">
+              {status.disks.map((disk) => {
+                const used =
+                  disk.totalBytes > 0
+                    ? Math.round(((disk.totalBytes - disk.freeBytes) / disk.totalBytes) * 100)
+                    : 0;
+                return (
+                  <li key={disk.label}>
+                    <div className="disk-label">
+                      <strong>{disk.label}</strong>
+                      <span className="stat-mono">
+                        {formatBytes(disk.freeBytes)} free of {formatBytes(disk.totalBytes)}
+                      </span>
+                    </div>
+                    <div className="disk-bar" role="img" aria-label={`${used}% used`}>
+                      <div style={{ width: `${used}%` }} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </BandedCard>
       </div>
-      <BandedCard title="Disk space">
-        {status.disks.length === 0 ? (
-          <p>Not available on this server.</p>
-        ) : (
-          <ul className="disk-list">
-            {status.disks.map((disk) => {
-              const used =
-                disk.totalBytes > 0
-                  ? Math.round(((disk.totalBytes - disk.freeBytes) / disk.totalBytes) * 100)
-                  : 0;
-              return (
-                <li key={disk.label}>
-                  <div className="disk-label">
-                    <strong>{disk.label}</strong>
-                    <span className="stat-mono">
-                      {formatBytes(disk.freeBytes)} free of {formatBytes(disk.totalBytes)}
-                    </span>
-                  </div>
-                  <div className="disk-bar" role="img" aria-label={`${used}% used`}>
-                    <div style={{ width: `${used}%` }} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </BandedCard>
     </>
   );
 }

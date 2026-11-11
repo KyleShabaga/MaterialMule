@@ -317,7 +317,7 @@ describe('Team & Permissions (MM-AO05)', () => {
     // The server's own explanation of what they can't do, and who could.
     const permissions = screen.getByRole('region', { name: 'Your permissions here' });
     expect(permissions).toHaveTextContent('You have no assignment on this project.');
-    const close = within(permissions).getByText('Close lab programs').closest('tr')!;
+    const close = within(permissions).getByText('Close lab programs').closest('li')!;
     expect(close).toHaveTextContent('No');
     expect(close).toHaveTextContent('Allowed for: Lead Project Engineer.');
 
@@ -521,7 +521,7 @@ describe('Team & Permissions (MM-AO05)', () => {
     expect(within(section).getByText('TM · Taylor Member')).toBeInTheDocument();
     const permissions = screen.getByRole('region', { name: 'Your permissions here' });
     expect(
-      within(permissions).getByText('Add or remove team members').closest('tr'),
+      within(permissions).getByText('Add or remove team members').closest('li'),
     ).toHaveTextContent('No');
   });
 

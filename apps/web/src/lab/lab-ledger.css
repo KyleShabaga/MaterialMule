@@ -1,0 +1,511 @@
+/* Field Ledger lab screens (docs/redesign/design.md; canvas Lab, LabProgram, LabRequest,
+   SampleTags, PhoneLab). Tokens only: no raw colours, no pill shapes, hover from the global
+   rules except the pull rows below. */
+
+.lab-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.lab-area > .sub-nav {
+  margin-bottom: 0;
+}
+
+.lab-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.lab-title,
+.lab-editor-title,
+.lab-program-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.lab-title h1,
+.lab-editor-title h1,
+.lab-program-title h1,
+.tag-print-title h1 {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  line-height: var(--lh-page-title);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.lab-title-meta,
+.lab-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.lab-eyebrow a {
+  color: var(--ink);
+}
+
+.lab-program-head,
+.tag-print-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lab-program-project {
+  margin: 0;
+  font-size: var(--fs-section);
+  font-weight: 700;
+}
+
+/* Lists: title, Show filter and the table view selector on one row. */
+.lab-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lab-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--rule-width) solid var(--rule);
+}
+
+.lab-list-head h2 {
+  margin: 0 auto 0 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+}
+
+.lab-list .section-meta {
+  margin: 0;
+}
+
+/* Progress: counted cells wrap onto more rows instead of widening the table. */
+.lab-progress {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 10rem;
+  max-width: 22rem;
+}
+
+.lab-progress .counted-cells,
+.lab-strip-cells .counted-cells {
+  display: flex;
+  width: 100%;
+}
+
+.lab-progress .counted-cells-row,
+.lab-strip-cells .counted-cells-row {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
+  width: 100%;
+}
+
+.lab-strip-cells .counted-cells-row {
+  grid-template-columns: repeat(auto-fill, minmax(14px, 1fr));
+}
+
+.lab-strip-cells .counted-cell {
+  height: 18px;
+}
+
+.lab-progress-text,
+.lab-progress-none {
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+}
+
+.data-table.is-compact .lab-progress {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.data-table.is-compact .lab-progress .counted-cell {
+  height: 12px;
+}
+
+.lab-progress-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.lab-progress-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lab-progress-key .counted-cell {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+}
+
+.lab-worklist-tests {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lab-worklist-statuses {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+/* Program page: the progress strip (three cells in one frame). */
+.lab-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.lab-strip-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 14px 18px;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.lab-strip-count {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.lab-strip-of {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.lab-strip-note {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+/* Two columns (3:1) that wrap to one: program page, editor, sample tags. */
+.lab-split,
+.program-editor > .lab-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6) var(--space-7);
+  align-items: flex-start;
+}
+
+.lab-split-main {
+  flex: 3 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lab-split-side {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lab-split-side > .side-panel,
+.lab-split-main > .banded-card,
+.lab-split-main > .side-panel {
+  margin-top: 0;
+}
+
+.lab-split-main > .program-lifecycle,
+.lab-split-main > .priority-control {
+  margin: 0;
+}
+
+.lab-program {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.lab-units {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.lab-units li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.lab-units-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.lab-units-head a {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.lab-units-sub {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+/* Editor: "What the lab gets". */
+.lab-editor-main > * {
+  margin-top: 0;
+}
+
+.lab-gets .side-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lab-gets p {
+  margin: 0;
+}
+
+.lab-gets-tests {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.lab-gets-tests li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-weight: 600;
+}
+
+.lab-gets-tests li:last-child {
+  border-bottom: 0;
+}
+
+.lab-gets .program-actions {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.lab-gets .program-actions .primary {
+  min-height: 52px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* Units to pull (phone lab screen; shown above the worklist on every size). */
+.lab-pull {
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.lab-pull-head {
+  margin: 0;
+  padding: var(--space-2) 14px;
+  background: var(--inverse);
+  color: var(--on-inverse);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.lab-pull-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lab-pull-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--target);
+  box-sizing: border-box;
+  padding: var(--space-2) 14px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.lab-pull-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lab-pull-id .mono {
+  font-weight: 600;
+  font-size: var(--fs-body);
+}
+
+.lab-pull-where {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.lab-pull-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+
+.lab-pull-empty {
+  margin: 0;
+  padding: var(--space-3) 14px;
+  color: var(--ink-soft);
+}
+
+.lab-pull-scan {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-3) 14px;
+}
+
+.lab-worklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+@media (hover: hover) {
+  .lab-pull-row:hover {
+    background-image: linear-gradient(var(--tint-row), var(--tint-row));
+    text-decoration: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .lab-title h1,
+  .lab-editor-title h1,
+  .lab-program-title h1,
+  .tag-print-title h1 {
+    font-size: var(--fs-phone-title);
+    line-height: var(--fs-phone-title);
+  }
+
+  .lab-split-main,
+  .lab-split-side {
+    flex-basis: 100%;
+  }
+
+  .lab-pull-scan {
+    min-height: var(--target-primary-phone);
+  }
+}
+
+/* Sample tags page: the on-screen chrome only (the printed card layout is sample-tags.css). */
+.tag-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tag-list-section .tag-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.tag-list-section .tag-list-item {
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+}
+
+.tag-list-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-label);
+}
+
+.tag-list-sample {
+  display: block;
+  margin: var(--space-1) 0;
+  font-family: var(--font-mono);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tag-list-section .tag-list-tests {
+  flex-direction: column;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-small);
+  color: var(--ink);
+}
+
+.tag-untagged {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tag-untagged-list,
+.tag-untagged-none {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  list-style: none;
+}
+
+.tag-print .lab-split-side .tag-options {
+  margin-bottom: 0;
+}

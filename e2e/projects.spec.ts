@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertInventoryFixture } from './support/inventory';
 
-// MM-T35: projects table, project detail, add test hole and edit. Each test makes its own tagged
+// MM-T35: projects list (cards), project detail, add test hole and edit. Each test makes its own tagged
 // fictional projects (via the T12 inventory fixture), so viewports never see each other's rows.
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -22,8 +22,9 @@ test('T5: projects table → detail → add test hole (duplicate rejected) → e
   await page.getByRole('searchbox', { name: 'Search' }).fill(data.tag);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'project' })).toHaveText('2 projects');
-  const table = page.getByRole('table', { name: 'Projects' });
-  const rowA = table.locator('tbody tr').filter({ hasText: data.projectA });
+  // Field Ledger: one card per project.
+  const cards = page.getByRole('list', { name: 'Projects' });
+  const rowA = cards.getByRole('listitem').filter({ hasText: data.projectA });
   // Two holes; three in-stock units (the disposed one isn't counted).
   await expect(rowA).toContainText('Inventory demo A');
   await expect(rowA).toContainText('PE');
@@ -123,11 +124,10 @@ test('T6: phone width list and detail are usable without horizontal scroll', asy
   const data = await insertInventoryFixture();
   await signInAs(page, 'pe');
   await page.goto(`/projects?search=${data.tag}`);
-  const table = page.getByRole('table', { name: 'Projects' });
-  await expect(table.locator('tbody tr')).toHaveCount(2);
-  await expect(table.locator('thead')).toBeHidden();
-  const card = table.locator('tbody tr').filter({ hasText: data.projectA });
-  await expect(card).toHaveCSS('display', 'block');
+  const cards = page.getByRole('list', { name: 'Projects' });
+  await expect(cards.getByRole('listitem')).toHaveCount(2);
+  const card = cards.getByRole('listitem').filter({ hasText: data.projectA });
+  await expect(card).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
   await card.getByRole('link', { name: `Open project ${data.projectA}` }).click();

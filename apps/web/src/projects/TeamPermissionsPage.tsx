@@ -24,6 +24,9 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { BandedCard, DataTable, EmptyState, ErrorState, StatusBadge } from '../components/ui';
+import { ContextRow } from '../layout/ContextRow';
+import { YesNoList } from '../settings/access/YesNoList';
+import { ProjectSectionNav } from './ProjectSectionNav';
 import { shortDateTime } from '../dashboard/format';
 import { useMe } from '../session/context';
 import { fetchDelegates } from '../lab/api';
@@ -265,130 +268,139 @@ function TeamPermissions({ projectId }: { projectId: string }) {
   } = page.data;
   return (
     <>
-      {back}
-      <div className="project-header">
-        <div>
-          <h1>Team &amp; Permissions</h1>
-          <p className="project-name">
-            <span className="number">{project.projectNumber}</span> · {project.name}
-          </p>
+      {/* Field Ledger context row: back link and the Overview / Concrete / Team switch. */}
+      <ContextRow className="project-context">
+        <div className="project-context-start">
+          {back}
+          <ProjectSectionNav projectId={project.id} current="team" />
         </div>
+      </ContextRow>
+      <div className="project-header">
+        <p className="project-caption">
+          <span className="number">{project.projectNumber}</span> · {project.name}
+        </p>
+        <h1 className="project-title">Team &amp; Permissions</h1>
       </div>
       <p className={notice ? `notice notice-${notice.tone}` : 'notice'} role="status">
         {notice?.text}
       </p>
 
-      <BandedCard
-        className="project-section"
-        title="Leadership"
-        tone={project.leadProjectEngineer ? 'default' : 'attention'}
-        aside={
-          project.leadProjectEngineer ? null : (
-            <StatusBadge tone="warning">Waiting for a lead</StatusBadge>
-          )
-        }
-      >
-        <dl className="stat-tiles project-tiles">
-          <div>
-            <dt>Lead Project Engineer</dt>
-            <dd>
-              {project.leadProjectEngineer
-                ? formatPerson(
-                    project.leadProjectEngineer.initials,
-                    project.leadProjectEngineer.displayName,
-                  )
-                : 'None yet'}
-            </dd>
-          </div>
-        </dl>
-        <p className="field-hint">
-          An administrator appoints or removes the lead (Edit project on the project page).
-        </p>
-      </BandedCard>
-      <LeadSection
-        projectId={project.id}
-        lead={project.leadProjectEngineer}
-        reloadKey={reloads}
-        onChanged={(message) => {
-          setNotice({ tone: 'success', text: message });
-          reload();
-        }}
-      />
+      <div className="team-layout">
+        <div className="team-main">
+          <BandedCard
+            className="project-section"
+            title="Leadership"
+            tone={project.leadProjectEngineer ? 'default' : 'attention'}
+            aside={
+              project.leadProjectEngineer ? null : (
+                <StatusBadge tone="warning">Waiting for a lead</StatusBadge>
+              )
+            }
+          >
+            <dl className="stat-tiles project-tiles">
+              <div>
+                <dt>Lead Project Engineer</dt>
+                <dd>
+                  {project.leadProjectEngineer
+                    ? formatPerson(
+                        project.leadProjectEngineer.initials,
+                        project.leadProjectEngineer.displayName,
+                      )
+                    : 'None yet'}
+                </dd>
+              </div>
+            </dl>
+            <p className="field-hint">
+              An administrator appoints or removes the lead (Edit project on the project page).
+            </p>
+          </BandedCard>
+          <LeadSection
+            projectId={project.id}
+            lead={project.leadProjectEngineer}
+            reloadKey={reloads}
+            onChanged={(message) => {
+              setNotice({ tone: 'success', text: message });
+              reload();
+            }}
+          />
 
-      {grantReviews ? (
-        <GrantReviewsSection
-          projectId={project.id}
-          data={grantReviews}
-          run={run}
-          onChange={(next) => {
-            update({ grantReviews: next });
-            // A Revoke ended a reviewer, issuer or delegate grant: reload every list that shows it.
-            reload();
-          }}
-        />
-      ) : null}
+          {grantReviews ? (
+            <GrantReviewsSection
+              projectId={project.id}
+              data={grantReviews}
+              run={run}
+              onChange={(next) => {
+                update({ grantReviews: next });
+                // A Revoke ended a reviewer, issuer or delegate grant: reload every list that shows it.
+                reload();
+              }}
+            />
+          ) : null}
 
-      <PeopleSummary
-        project={project}
-        team={team}
-        reviewers={reviewers}
-        issuers={issuers}
-        delegates={delegates}
-        people={people}
-        grantReviews={grantReviews}
-        joinRequests={joinRequests}
-      />
+          <PeopleSummary
+            project={project}
+            team={team}
+            reviewers={reviewers}
+            issuers={issuers}
+            delegates={delegates}
+            people={people}
+            grantReviews={grantReviews}
+            joinRequests={joinRequests}
+          />
 
-      {joinRequests ? (
-        <JoinRequestsSection
-          projectId={project.id}
-          data={joinRequests}
-          run={run}
-          onChange={(next) => {
-            update({ joinRequests: next });
-            // The team itself changed too (a member added or removed).
-            reload();
-          }}
-        />
-      ) : null}
+          {joinRequests ? (
+            <JoinRequestsSection
+              projectId={project.id}
+              data={joinRequests}
+              run={run}
+              onChange={(next) => {
+                update({ joinRequests: next });
+                // The team itself changed too (a member added or removed).
+                reload();
+              }}
+            />
+          ) : null}
 
-      <TeamSection
-        projectId={project.id}
-        data={team}
-        run={run}
-        onChange={(next) => update({ team: next })}
-      />
-      <ReviewersSection
-        projectId={project.id}
-        data={reviewers}
-        scopes={scopes}
-        run={run}
-        onChange={(next) => update({ reviewers: next })}
-      />
+          <TeamSection
+            projectId={project.id}
+            data={team}
+            run={run}
+            onChange={(next) => update({ team: next })}
+          />
+          <ReviewersSection
+            projectId={project.id}
+            data={reviewers}
+            scopes={scopes}
+            run={run}
+            onChange={(next) => update({ reviewers: next })}
+          />
 
-      <h2 className="section-heading">Authorizations</h2>
-      <AcceptanceDelegatesSection
-        key={reloads}
-        projectId={project.id}
-        onChanged={refreshCapabilities}
-      />
-      <IssuersSection
-        projectId={project.id}
-        data={issuers}
-        scopes={scopes}
-        run={run}
-        onChange={(next) => update({ issuers: next })}
-      />
+          <h2 className="section-heading">Authorizations</h2>
+          <AcceptanceDelegatesSection
+            key={reloads}
+            projectId={project.id}
+            onChanged={refreshCapabilities}
+          />
+          <IssuersSection
+            projectId={project.id}
+            data={issuers}
+            scopes={scopes}
+            run={run}
+            onChange={(next) => update({ issuers: next })}
+          />
 
-      <YourPermissions capabilities={capabilities} onRefresh={reload} />
-
-      <HistorySection
-        team={team}
-        reviewers={reviewers}
-        issuers={issuers}
-        delegates={delegates}
-        grantReviews={grantReviews}
-      />
+          <HistorySection
+            team={team}
+            reviewers={reviewers}
+            issuers={issuers}
+            delegates={delegates}
+            grantReviews={grantReviews}
+          />
+        </div>
+        <aside className="team-side" aria-label="Your permissions">
+          <YourPermissions capabilities={capabilities} onRefresh={reload} />
+        </aside>
+      </div>
     </>
   );
 }
@@ -589,28 +601,19 @@ function YourPermissions({
           You may issue: {capabilities.issuerScopes.map((s) => s.label).join(', ')}.
         </p>
       ) : null}
-      <DataTable
-        rows={rows}
-        rowKey={(row) => row.action}
-        caption="Your permissions on this project"
-        empty="No actions reported."
-        columns={[
-          {
-            header: 'Action',
-            cell: (row) => PROJECT_CAPABILITY_ACTION_LABEL[row.action as ProjectCapabilityAction],
-          },
-          {
-            header: 'You can',
-            cell: (row) =>
-              row.allowed ? (
-                <StatusBadge tone="success">Yes</StatusBadge>
-              ) : (
-                <StatusBadge tone="neutral">No</StatusBadge>
-              ),
-          },
-          { header: 'Why', cell: why },
-        ]}
-      />
+      {rows.length === 0 ? (
+        <EmptyState>No actions reported.</EmptyState>
+      ) : (
+        <YesNoList
+          label="Your permissions on this project"
+          items={rows.map((row) => ({
+            key: row.action,
+            yes: row.allowed,
+            what: PROJECT_CAPABILITY_ACTION_LABEL[row.action as ProjectCapabilityAction],
+            note: why(row),
+          }))}
+        />
+      )}
     </BandedCard>
   );
 }

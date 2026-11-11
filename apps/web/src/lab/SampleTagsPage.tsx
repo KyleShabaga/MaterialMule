@@ -12,8 +12,10 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useParams } from 'react-router';
-import { EmptyState, ErrorState, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, SectionHead, SidePanel, StatusBadge } from '../components/ui';
 import { fetchSampleTags, type SampleTagsResult } from './api';
+import './lab.css';
+import './lab-ledger.css';
 import './sample-tags.css';
 
 /**
@@ -283,115 +285,130 @@ export function SampleTagsPage() {
     <main className="tag-print">
       <style>{PRINT_CSS}</style>
       <section className="tag-print-controls" aria-labelledby="tags-heading">
-        <p className="back-link">{back}</p>
-        <h1 id="tags-heading">
-          Sample ID tags
-          {sheet ? <span className="mono"> · {sheet.program.programNumber}</span> : null}
-        </h1>
+        <div className="context-row">
+          <span className="back-link">{back}</span>
+        </div>
+        <div className="tag-print-title">
+          {sheet ? (
+            <p className="lab-eyebrow">
+              {sheet.program.project.projectNumber} · {sheet.program.project.name}
+            </p>
+          ) : null}
+          <h1 id="tags-heading">
+            Sample ID tags
+            {sheet ? <span className="mono"> · {sheet.program.programNumber}</span> : null}
+          </h1>
+        </div>
         {status}
         {sheet ? (
-          <>
-            <p>
-              {sheet.program.project.projectNumber} · {sheet.program.project.name}. Tags show
-              today’s date ({date}) and the program’s current tests. Printing changes nothing in the
-              program.
-            </p>
-            {tags.length === 0 ? (
-              <EmptyState>No test in this program needs a sample ID tag.</EmptyState>
-            ) : (
-              <TagTable
-                tags={tags}
-                notSelected={notSelected}
-                overflowing={overflowing}
-                onToggle={toggle}
-                onSplit={splitTag}
-                onSelectAll={(all) =>
-                  setExcluded(all ? new Set() : new Set(tags.map((tag) => tag.key)))
-                }
-              />
-            )}
-            <UntaggedNotes sheet={sheet} />
+          <div className="lab-split">
+            <div className="lab-split-main">
+              <p>
+                Tags show today’s date ({date}) and the program’s current tests. Tags name the
+                sample, not the storage unit; the unit keeps its own label. Printing changes nothing
+                in the program.
+              </p>
+              {tags.length === 0 ? (
+                <EmptyState>No test in this program needs a sample ID tag.</EmptyState>
+              ) : (
+                <TagTable
+                  tags={tags}
+                  notSelected={notSelected}
+                  overflowing={overflowing}
+                  onToggle={toggle}
+                  onSplit={splitTag}
+                  onSelectAll={(all) =>
+                    setExcluded(all ? new Set() : new Set(tags.map((tag) => tag.key)))
+                  }
+                />
+              )}
+              <UntaggedNotes sheet={sheet} />
+            </div>
             {tags.length > 0 ? (
-              <div className="tag-options">
-                <div className="form-field">
-                  <label htmlFor="tag-start">Start at card</label>
-                  <select
-                    id="tag-start"
-                    value={start}
-                    onChange={(event) => setStart(Number(event.target.value))}
-                  >
-                    {Array.from({ length: TAG_SLOTS_PER_SHEET }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                        {n === 1 ? ' (full sheet)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="field-hint">
-                    For a partly used sheet: cards are numbered left to right, top to bottom.
-                  </p>
-                </div>
-                <div className="form-field">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outlines}
-                      onChange={(event) => setOutlines(event.target.checked)}
-                    />{' '}
-                    Print card outlines (plain-paper alignment test)
-                  </label>
-                </div>
-                <fieldset className="tag-nudge">
-                  <legend>Nudge for this computer’s printer (inches)</legend>
-                  <label>
-                    Right
-                    <input
-                      type="number"
-                      step={0.01}
-                      min={-NUDGE_LIMIT_IN}
-                      max={NUDGE_LIMIT_IN}
-                      value={nudge.x}
-                      onChange={(event) => changeNudge('x', event.target.valueAsNumber)}
-                    />
-                  </label>
-                  <label>
-                    Down
-                    <input
-                      type="number"
-                      step={0.01}
-                      min={-NUDGE_LIMIT_IN}
-                      max={NUDGE_LIMIT_IN}
-                      value={nudge.y}
-                      onChange={(event) => changeNudge('y', event.target.valueAsNumber)}
-                    />
-                  </label>
-                </fieldset>
-                <TagPrintSteps />
-                {overflowing.size > 0 ? (
-                  <p className="notice notice-warning" role="alert">
-                    {overflowing.size === 1 ? 'One tag has' : `${overflowing.size} tags have`} text
-                    that doesn’t fit, marked in the list and preview. Split the tag or check the
-                    printed card.
-                  </p>
-                ) : null}
-                <p role="status">
-                  {chosen.length} of {tags.length} tag{tags.length === 1 ? '' : 's'} selected ·{' '}
-                  {sheets.length} sheet{sheets.length === 1 ? '' : 's'}
-                </p>
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={chosen.length === 0}
-                  onClick={() => {
-                    refreshDate();
-                    window.print();
-                  }}
-                >
-                  Print / Save as PDF
-                </button>
+              <div className="lab-split-side">
+                <SidePanel title="Print tags">
+                  <div className="tag-options">
+                    <div className="form-field">
+                      <label htmlFor="tag-start">Start at card</label>
+                      <select
+                        id="tag-start"
+                        value={start}
+                        onChange={(event) => setStart(Number(event.target.value))}
+                      >
+                        {Array.from({ length: TAG_SLOTS_PER_SHEET }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                            {n === 1 ? ' (full sheet)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="field-hint">
+                        For a partly used sheet: cards are numbered left to right, top to bottom.
+                      </p>
+                    </div>
+                    <div className="form-field">
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={outlines}
+                          onChange={(event) => setOutlines(event.target.checked)}
+                        />{' '}
+                        Print card outlines (plain-paper alignment test)
+                      </label>
+                    </div>
+                    <fieldset className="tag-nudge">
+                      <legend>Nudge for this computer’s printer (inches)</legend>
+                      <label>
+                        Right
+                        <input
+                          type="number"
+                          step={0.01}
+                          min={-NUDGE_LIMIT_IN}
+                          max={NUDGE_LIMIT_IN}
+                          value={nudge.x}
+                          onChange={(event) => changeNudge('x', event.target.valueAsNumber)}
+                        />
+                      </label>
+                      <label>
+                        Down
+                        <input
+                          type="number"
+                          step={0.01}
+                          min={-NUDGE_LIMIT_IN}
+                          max={NUDGE_LIMIT_IN}
+                          value={nudge.y}
+                          onChange={(event) => changeNudge('y', event.target.valueAsNumber)}
+                        />
+                      </label>
+                    </fieldset>
+                    <TagPrintSteps />
+                    {overflowing.size > 0 ? (
+                      <p className="notice notice-warning" role="alert">
+                        {overflowing.size === 1 ? 'One tag has' : `${overflowing.size} tags have`}{' '}
+                        text that doesn’t fit, marked in the list and preview. Split the tag or
+                        check the printed card.
+                      </p>
+                    ) : null}
+                    <p role="status">
+                      {chosen.length} of {tags.length} tag{tags.length === 1 ? '' : 's'} selected ·{' '}
+                      {sheets.length} sheet{sheets.length === 1 ? '' : 's'}
+                    </p>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={chosen.length === 0}
+                      onClick={() => {
+                        refreshDate();
+                        window.print();
+                      }}
+                    >
+                      Print / Save as PDF
+                    </button>
+                  </div>
+                </SidePanel>
               </div>
             ) : null}
-          </>
+          </div>
         ) : null}
       </section>
       {sheet && chosen.length > 0 ? (
@@ -455,8 +472,12 @@ function TagTable({
   onSelectAll: (all: boolean) => void;
 }) {
   return (
-    <section aria-labelledby="tag-list-heading">
-      <h2 id="tag-list-heading">Tags</h2>
+    <section aria-labelledby="tag-list-heading" className="tag-list-section">
+      <SectionHead
+        id="tag-list-heading"
+        title="Tags"
+        meta={`${tags.length} tag${tags.length === 1 ? '' : 's'} · one per sample and tag group`}
+      />
       <div className="row-actions">
         <button type="button" onClick={() => onSelectAll(true)}>
           Select all
@@ -477,15 +498,18 @@ function TagTable({
                 onChange={() => onToggle(tag.key)}
               />
               <label htmlFor={id}>
-                <strong>
+                <span className="tag-list-top">
+                  <span className="mono">{tag.source.label}</span>
+                  <span className="mono">Line {tag.lineNumbers.join(', ')}</span>
+                </span>
+                <strong className="tag-list-sample">
                   {tag.sampleLabel} · {tag.depth}
-                </strong>{' '}
-                {tag.source.label} · Line {tag.lineNumbers.join(', ')}
+                </strong>
                 <span className="tag-list-tests">
                   {tag.tests.map((test) => (
                     <span key={test.requestId}>
                       {test.name}{' '}
-                      <StatusBadge tone="info">
+                      <StatusBadge tone={test.status === 'in_progress' ? 'flag' : 'closed'}>
                         {TEST_REQUEST_STATUS_LABEL[test.status]}
                       </StatusBadge>
                     </span>
@@ -508,35 +532,33 @@ function TagTable({
   );
 }
 
-/** Tests that get no tag, listed so nothing is silently dropped. */
+/**
+ * The two "no tag" cases (Field Ledger "Sample tags"), always listed so nothing is silently
+ * dropped: tests set to need no tag in the test list, and lines that name no single sample.
+ */
 function UntaggedNotes({ sheet }: { sheet: SampleTagSheet }) {
-  if (sheet.noTagTests.length === 0 && sheet.untaggedLines.length === 0) return null;
   return (
-    <details className="tag-untagged">
-      <summary>
-        Not tagged: {sheet.noTagTests.length + sheet.untaggedLines.length} item
-        {sheet.noTagTests.length + sheet.untaggedLines.length === 1 ? '' : 's'}
-      </summary>
+    <div className="tag-untagged">
+      <SectionHead title="No tag needed" meta="Set in the test list" level={3} />
       {sheet.noTagTests.length > 0 ? (
-        <>
-          <h3>No tag needed (catalogue setting)</h3>
-          <ul>
-            {sheet.noTagTests.map((item) => (
-              <li key={item.test.requestId}>
-                Line {item.lineNumber} · {item.sampleLabel} · {item.depth}: {item.test.name}
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
+        <ul className="tag-untagged-list">
+          {sheet.noTagTests.map((item) => (
+            <li key={item.test.requestId}>
+              Line {item.lineNumber} · {item.sampleLabel} · {item.depth}: {item.test.name}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="tag-untagged-none">None on this program.</p>
+      )}
+      <SectionHead title="No individual sample" meta="Nothing to tag" level={3} />
       {sheet.untaggedLines.length > 0 ? (
         <>
-          <h3>No individual sample</h3>
           <p className="field-hint">
             {LINE_SCOPE_LABEL.all}, grabs and SPT lines name no single sample, so no tag is printed
             for them.
           </p>
-          <ul>
+          <ul className="tag-untagged-list">
             {sheet.untaggedLines.map((item) => (
               <li key={item.lineNumber}>
                 Line {item.lineNumber} · {LINE_SCOPE_LABEL[item.scope]} · {item.sourceLabel}:{' '}
@@ -545,7 +567,9 @@ function UntaggedNotes({ sheet }: { sheet: SampleTagSheet }) {
             ))}
           </ul>
         </>
-      ) : null}
-    </details>
+      ) : (
+        <p className="tag-untagged-none">None on this program.</p>
+      )}
+    </div>
   );
 }
