@@ -254,7 +254,7 @@ stay readable on a phone in a dim storage room.
 - **Empty states.** A small line drawing of the donkey or a storage unit in `muted-foreground`, one
   bold sentence, one line, at most one action. Kinds: nothing to do, no matches (Clear filters),
   first use (create the first record).
-- **Toasts** (`Sonner`). Bottom left on desktop, above the bottom bar on phone, 5 s, with Undo where
+- **Toasts** (`Sonner`). Bottom right on desktop, above the bottom bar on phone, 5 s, with Undo where
   the action allows it. Never the only place a failure is reported.
 
 ## Shell
