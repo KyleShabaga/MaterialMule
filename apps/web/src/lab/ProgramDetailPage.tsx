@@ -9,7 +9,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
-import { BandedCard, ErrorState, StatusBadge } from '../components/ui';
+import { BandedCard, ErrorState, StatusBadge, type BadgeTone } from '../components/ui';
 import { shortDateTime } from '../dashboard/format';
 import { fetchProgram } from './api';
 import { lineTitle, requestName } from './format';
@@ -21,6 +21,16 @@ type Load =
   | { state: 'error' }
   | { state: 'missing' }
   | { state: 'ready'; program: LabProgram };
+
+/** Field Ledger tag per test state: in progress is the flag fill, done states lab or storage. */
+const STATUS_TONE: Record<TestRequest['status'], BadgeTone> = {
+  requested: 'closed',
+  in_progress: 'flag',
+  completed: 'lab',
+  review: 'lab',
+  accepted: 'storage',
+  cancelled: 'closed',
+};
 
 /** A frozen line: tests with their snapshots and the coverage captured at submission. */
 export function FrozenLine({
@@ -44,7 +54,7 @@ export function FrozenLine({
         {line.requests.map((request) => (
           <li key={request.id} id={`request-${request.id}`}>
             <span title={request.description}>{requestName(request)}</span>{' '}
-            <StatusBadge tone="info">
+            <StatusBadge tone={STATUS_TONE[statusOf ? statusOf(request) : request.status]}>
               {TEST_REQUEST_STATUS_LABEL[statusOf ? statusOf(request) : request.status]}
             </StatusBadge>
             {testActions ? testActions(request) : null}
@@ -152,9 +162,9 @@ export function ProgramDetailPage({
   if (renderSubmitted) return <>{renderSubmitted(program, reload)}</>;
   return (
     <article aria-labelledby="program-heading">
-      <h2 id="program-heading" className="mono">
+      <h1 id="program-heading" className="mono">
         {programLabel(program)}
-      </h2>
+      </h1>
       <ProgramSummary program={program} />
       {program.lines.map((line) => (
         <FrozenLine key={line.id} line={line} />

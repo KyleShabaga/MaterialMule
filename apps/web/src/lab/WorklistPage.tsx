@@ -1,10 +1,24 @@
-import { TEST_REQUEST_STATUS_LABEL, type TestCatalogue, type Worklist } from '@materialmule/shared';
+import {
+  TEST_REQUEST_STATUS_LABEL,
+  testProgress,
+  type TestCatalogue,
+  type Worklist,
+} from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { DataTable, ErrorState, StatusBadge, TableScroll } from '../components/ui';
+import {
+  DataTable,
+  ErrorState,
+  StatusBadge,
+  TableScroll,
+  TableViewSelector,
+} from '../components/ui';
+import { useTableView } from '../components/useTableView';
 import { shortDateTime } from '../dashboard/format';
 import { openAge } from './format';
 import { fetchCatalogue, fetchWorklist } from './api';
+import { ProgressCells, ProgressKey } from './ProgressCells';
+import { UnitsToPull } from './UnitsToPull';
 
 type Load = { state: 'loading' } | { state: 'error' } | { state: 'ready'; list: Worklist };
 
@@ -20,6 +34,7 @@ export function WorklistPage() {
   const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [page, setPage] = useState(1);
+  const [view, setView] = useTableView('lab-worklist');
   // Every project with a matching program (BUG-006), kept while the next answer loads.
   const [projects, setProjects] = useState<Worklist['projects']>([]);
   // Each answer is kept with the request it answers; one for an earlier filter, page or retry
@@ -80,132 +95,152 @@ export function WorklistPage() {
   const first = list ? (list.page - 1) * list.pageSize + 1 : 0;
 
   return (
-    <section aria-labelledby="worklist-heading">
-      <h2 id="worklist-heading">Worklist</h2>
-      <div className="worklist-filters">
-        <label>
-          Priority{' '}
-          <select value={priority} onChange={(event) => filter(setPriority)(event.target.value)}>
-            <option value="">All</option>
-            <option value="urgent">Urgent</option>
-            <option value="normal">Normal</option>
-          </select>
-        </label>
-        <label>
-          Project{' '}
-          <select value={projectId} onChange={(event) => filter(setProjectId)(event.target.value)}>
-            <option value="">All</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.projectNumber}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Test{' '}
-          <select
-            value={testTypeId}
-            onChange={(event) => filter(setTestTypeId)(event.target.value)}
-          >
-            <option value="">All</option>
-            {(catalogue?.tests ?? []).map((test) => (
-              <option key={test.id} value={test.id}>
-                {test.code}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={open}
-            onChange={(event) => filter(setOpen)(event.target.checked)}
-          />{' '}
-          Only programs with open tests
-        </label>
-      </div>
-      {load.state === 'loading' ? <p aria-busy="true">Loading the worklist…</p> : null}
-      {load.state === 'error' ? (
-        <ErrorState
-          message="The worklist couldn’t be loaded."
-          onRetry={() => setAttempt((n) => n + 1)}
-        />
-      ) : null}
-      {list && list.total > list.pageSize && list.items.length > 0 ? (
-        <p className="field-hint" role="status">
-          Showing {first}–{first + list.items.length - 1} of {list.total} programs
-        </p>
-      ) : null}
-      {load.state === 'ready' ? (
-        <TableScroll label="Lab worklist">
-          <DataTable
-            caption="Lab worklist"
-            rows={load.list.items}
-            rowKey={(item) => item.programId}
-            empty="Nothing waiting. Submitted programs appear here."
-            columns={[
-              {
-                header: 'Priority',
-                cell: (item) =>
-                  item.priority === 'urgent' ? (
-                    <StatusBadge tone="danger">Urgent</StatusBadge>
-                  ) : (
-                    <StatusBadge>Normal</StatusBadge>
-                  ),
-              },
-              {
-                header: 'Program',
-                cell: (item) => (
-                  <Link className="mono" to={`/lab-testing/programs/${item.programId}`}>
-                    {item.programNumber}
-                  </Link>
-                ),
-              },
-              {
-                header: 'Project',
-                cell: (item) => `${item.project.projectNumber} · ${item.project.name}`,
-              },
-              { header: 'Submitted', cell: (item) => shortDateTime(item.submittedAt) },
-              {
-                header: 'Tests',
-                cell: (item) =>
-                  (
-                    Object.entries(item.counts) as [
-                      keyof typeof TEST_REQUEST_STATUS_LABEL,
-                      number,
-                    ][]
-                  )
-                    .filter(([, n]) => n > 0)
-                    .map(([status, n]) => `${n} ${TEST_REQUEST_STATUS_LABEL[status].toLowerCase()}`)
-                    .join(', '),
-              },
-              {
-                header: 'Oldest open',
-                cell: (item) =>
-                  item.oldestOpenSeconds === null ? '—' : openAge(item.oldestOpenSeconds),
-              },
-            ]}
+    <div className="lab-worklist">
+      <UnitsToPull />
+      <section aria-labelledby="worklist-heading" className="lab-list">
+        <div className="lab-list-head">
+          <h2 id="worklist-heading">Worklist</h2>
+          <TableViewSelector value={view} onChange={setView} />
+        </div>
+        <div className="worklist-filters">
+          <label>
+            Priority{' '}
+            <select value={priority} onChange={(event) => filter(setPriority)(event.target.value)}>
+              <option value="">All</option>
+              <option value="urgent">Urgent</option>
+              <option value="normal">Normal</option>
+            </select>
+          </label>
+          <label>
+            Project{' '}
+            <select
+              value={projectId}
+              onChange={(event) => filter(setProjectId)(event.target.value)}
+            >
+              <option value="">All</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.projectNumber}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Test{' '}
+            <select
+              value={testTypeId}
+              onChange={(event) => filter(setTestTypeId)(event.target.value)}
+            >
+              <option value="">All</option>
+              {(catalogue?.tests ?? []).map((test) => (
+                <option key={test.id} value={test.id}>
+                  {test.code}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={open}
+              onChange={(event) => filter(setOpen)(event.target.checked)}
+            />{' '}
+            Only programs with open tests
+          </label>
+        </div>
+        {load.state === 'loading' ? <p aria-busy="true">Loading the worklist…</p> : null}
+        {load.state === 'error' ? (
+          <ErrorState
+            message="The worklist couldn’t be loaded."
+            onRetry={() => setAttempt((n) => n + 1)}
           />
-        </TableScroll>
-      ) : null}
-      {paging && paging.total > paging.pageSize && load.state !== 'error' ? (
-        <nav className="pager" aria-label="Pages" aria-busy={busy}>
-          <button type="button" disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={busy || page >= totalPages}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
-    </section>
+        ) : null}
+        {list && list.total > list.pageSize && list.items.length > 0 ? (
+          <p className="field-hint" role="status">
+            Showing {first}–{first + list.items.length - 1} of {list.total} programs
+          </p>
+        ) : null}
+        {load.state === 'ready' ? (
+          <TableScroll label="Lab worklist">
+            <DataTable
+              caption="Lab worklist"
+              view={view}
+              rows={load.list.items}
+              rowKey={(item) => item.programId}
+              empty="Nothing waiting. Submitted programs appear here."
+              columns={[
+                {
+                  header: 'Priority',
+                  cell: (item) =>
+                    item.priority === 'urgent' ? (
+                      <StatusBadge tone="danger">Urgent</StatusBadge>
+                    ) : (
+                      <StatusBadge>Normal</StatusBadge>
+                    ),
+                },
+                {
+                  header: 'Program',
+                  cell: (item) => (
+                    <Link className="mono" to={`/lab-testing/programs/${item.programId}`}>
+                      {item.programNumber}
+                    </Link>
+                  ),
+                },
+                {
+                  header: 'Project',
+                  cell: (item) => `${item.project.projectNumber} · ${item.project.name}`,
+                },
+                { header: 'Submitted', cell: (item) => shortDateTime(item.submittedAt) },
+                {
+                  header: 'Tests',
+                  cell: (item) => (
+                    <span className="lab-worklist-tests">
+                      <ProgressCells progress={testProgress(item.counts)} />
+                      <span className="lab-worklist-statuses">
+                        {(
+                          Object.entries(item.counts) as [
+                            keyof typeof TEST_REQUEST_STATUS_LABEL,
+                            number,
+                          ][]
+                        )
+                          .filter(([, n]) => n > 0)
+                          .map(
+                            ([status, n]) =>
+                              `${n} ${TEST_REQUEST_STATUS_LABEL[status].toLowerCase()}`,
+                          )
+                          .join(', ')}
+                      </span>
+                    </span>
+                  ),
+                },
+                {
+                  header: 'Oldest open',
+                  cell: (item) =>
+                    item.oldestOpenSeconds === null ? '—' : openAge(item.oldestOpenSeconds),
+                },
+              ]}
+            />
+          </TableScroll>
+        ) : null}
+        {load.state === 'ready' && load.list.items.length > 0 ? <ProgressKey /> : null}
+        {paging && paging.total > paging.pageSize && load.state !== 'error' ? (
+          <nav className="pager" aria-label="Pages" aria-busy={busy}>
+            <button type="button" disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>
+              Previous
+            </button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={busy || page >= totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              Next
+            </button>
+          </nav>
+        ) : null}
+      </section>
+    </div>
   );
 }

@@ -302,6 +302,52 @@ export const worklistSchema = z.object({
 export type Worklist = z.infer<typeof worklistSchema>;
 
 /**
+ * Progress only (Field Ledger counted cells): a program's tests by how far the lab has got.
+ * Completed, In review and Accepted are done; cancelled tests are counted apart and get no cell.
+ */
+export interface TestProgress {
+  done: number;
+  inProgress: number;
+  notStarted: number;
+  cancelled: number;
+}
+
+export function testProgress(counts: Partial<Record<TestRequestStatus, number>>): TestProgress {
+  const n = (status: TestRequestStatus) => counts[status] ?? 0;
+  return {
+    done: n('completed') + n('review') + n('accepted'),
+    inProgress: n('in_progress'),
+    notStarted: n('requested'),
+    cancelled: n('cancelled'),
+  };
+}
+
+/** Most units `GET /api/worklist/units-to-pull` returns (the total says how many there are). */
+export const UNITS_TO_PULL_LIMIT = 50;
+
+/**
+ * `GET /api/worklist/units-to-pull` (Field Ledger phone lab screen): storage units in the frozen
+ * coverage of a submitted program line that still has a test Requested or In progress, which are
+ * in stock and not at a lab location yet. Urgent programs first, then the oldest submission.
+ * Coverage is potential material only: this is a pull list, never a record of what was tested.
+ */
+export const unitToPullSchema = z.object({
+  storageUnitId: z.string(),
+  readableId: z.string(),
+  project: z.object({ id: z.string(), projectNumber: z.string() }),
+  location: z.object({ code: z.string(), name: z.string(), area: z.string().nullable() }),
+  programs: z.array(z.object({ programId: z.string(), programNumber: z.string() })),
+  urgent: z.boolean(),
+});
+export type UnitToPull = z.infer<typeof unitToPullSchema>;
+export const unitsToPullSchema = z.object({
+  units: z.array(unitToPullSchema),
+  /** Every unit to pull, beyond the first UNITS_TO_PULL_LIMIT shown. */
+  total: z.number().int(),
+});
+export type UnitsToPull = z.infer<typeof unitsToPullSchema>;
+
+/**
  * D52 order: Urgent first, then Normal; oldest submission first within each; program ID breaks
  * ties so the order never wobbles. Ordering never changes any status.
  */

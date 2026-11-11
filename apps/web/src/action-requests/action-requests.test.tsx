@@ -93,7 +93,11 @@ describe('Action requests (MM-T27)', () => {
     expect(row).toHaveTextContent(
       'Lead Project Engineer: Closure requested for LP-2026-0001 by AT · All tests are done',
     );
-    expect(within(row).getByRole('link', { name: 'Open' })).toHaveAttribute(
+    // Field Ledger: the kind is a tag, and the one flag action names the record it opens.
+    expect(within(row).getByText('Close a program')).toHaveClass('badge');
+    expect(within(row).getByText('Asked by')).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Open the program' })).toHaveClass('primary');
+    expect(within(row).getByRole('link', { name: 'Open the program' })).toHaveAttribute(
       'href',
       '/lab-testing/programs/lp1',
     );

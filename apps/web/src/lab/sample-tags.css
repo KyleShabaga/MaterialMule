@@ -2,12 +2,22 @@
    Uline S-15619 card sheet; the @page rule lives in SampleTagsPage. Cards always print black on
    white, whatever the screen theme. */
 
+/* Screen chrome (Field Ledger): the controls use the page width and gaps; see lab-ledger.css. */
 .tag-print {
-  padding: 1rem;
+  padding: var(--page-pad);
 }
 
 .tag-print-controls {
-  max-width: 48rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: var(--content-max);
+}
+
+@media (max-width: 640px) {
+  .tag-print {
+    padding: var(--space-4);
+  }
 }
 
 .tag-list {

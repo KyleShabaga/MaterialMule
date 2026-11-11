@@ -171,7 +171,7 @@ afterEach(() => {
 });
 
 describe('Lab Testing (MM-T23)', () => {
-  it('AC11: one Lab Testing menu item opens the Worklist by default, with Programs and New program', async () => {
+  it('AC11: one Lab Testing menu item opens the Worklist by default, with Programs and New lab program', async () => {
     const user = userEvent.setup();
     const { router } = renderAt(me(), '/lab-testing');
     expect(await screen.findByRole('heading', { name: 'Worklist' })).toBeVisible();
@@ -182,7 +182,7 @@ describe('Lab Testing (MM-T23)', () => {
     const tabs = screen.getByRole('navigation', { name: 'Lab Testing' });
     await user.click(within(tabs).getByRole('link', { name: 'Programs' }));
     expect(await screen.findByRole('heading', { name: 'Programs' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'New program' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'New lab program' })).toBeVisible();
   });
 
   it('a LAB station must choose Requested by before saving, and it stays visible', async () => {
@@ -220,10 +220,57 @@ describe('Lab Testing (MM-T23)', () => {
     expect(screen.queryByLabelText(/result/i)).toBeNull();
   });
 
-  it('MISC-01: New program opens the editor; the discard dialog opens only from Discard draft', async () => {
+  it('Field Ledger: "What the lab gets" counts the tests before anything is submitted', async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = renderAt(me(), '/lab-testing/programs/new');
+    expect(await screen.findByRole('heading', { level: 1, name: 'New lab program' })).toBeVisible();
+    const panel = screen.getByRole('region', { name: 'What the lab gets' });
+    expect(within(panel).getByText('No tests chosen yet.')).toBeVisible();
+    await user.type(screen.getByLabelText('Project'), 'DEMO');
+    await user.click(await screen.findByRole('button', { name: /DEMO-2601/ }));
+    await user.selectOptions(await screen.findByLabelText('Template'), 'Demo pair (2 tests)');
+    await user.click(screen.getByRole('button', { name: 'Apply template' }));
+    const tests = within(panel).getByRole('list', { name: 'Tests the lab gets' });
+    expect(within(tests).getByText('DEMO-MC · Moisture Content')).toBeVisible();
+    expect(within(panel).getByText('1 line · 1 test')).toBeVisible();
+    expect(
+      within(panel).getByText('Review the program to see which storage units the lab pulls.'),
+    ).toBeVisible();
+    // The submit action lives in the panel and stays off until a review is ready.
+    expect(within(panel).getByRole('button', { name: 'Submit program' })).toBeDisabled();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
+  it('Field Ledger: the worklist leads with the units to pull, each linking to its unit', async () => {
+    renderAt(me(), '/lab-testing', (url) =>
+      url.startsWith('/api/worklist/units-to-pull')
+        ? json(200, {
+            total: 1,
+            units: [
+              {
+                storageUnitId: '00000000-0000-4000-8000-000000000401',
+                readableId: 'BKT-2026-000142',
+                project: { id: '00000000-0000-4000-8000-000000000201', projectNumber: 'DEMO-2601' },
+                location: { code: 'C-2', name: 'Shelf 2', area: 'Bay C' },
+                programs: [{ programId: 'lp1', programNumber: 'LP-2026-0001' }],
+                urgent: true,
+              },
+            ],
+          })
+        : null,
+    );
+    const pull = await screen.findByRole('region', { name: 'To pull now · 1 unit' });
+    const link = within(pull).getByRole('link', { name: /BKT-2026-000142/ });
+    expect(link).toHaveAttribute('href', '/sample-storage/BKT-2026-000142');
+    expect(link).toHaveTextContent('Bay C · Shelf 2');
+    expect(within(pull).getByText('Urgent')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Worklist' })).toBeVisible();
+  });
+
+  it('MISC-01: New lab program opens the editor; the discard dialog opens only from Discard draft', async () => {
     const user = userEvent.setup();
     renderAt(me(), '/lab-testing/programs');
-    await user.click(await screen.findByRole('link', { name: 'New program' }));
+    await user.click(await screen.findByRole('link', { name: 'New lab program' }));
     expect(await screen.findByLabelText('Project')).toBeVisible();
     // A closed dialog has no accessible name, so find it by its title text.
     const dialog = screen.getByRole<HTMLDialogElement>('dialog', { hidden: true });
