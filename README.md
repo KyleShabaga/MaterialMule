@@ -303,7 +303,7 @@ are missing or older than their sources.
 `main` is protected: every change goes through a pull request, and GitHub's `verify` check
 must pass on a branch that is up to date with `main` before it can merge. CI
 (`.github/workflows/ci.yml`) runs the checks of `npm run verify` and `npm run test:e2e` as parallel
-Windows jobs (quality, API, web, deploy, and E2E in two Playwright shards); `verify` passes only
+Windows jobs (quality, API in two shards, web, deploy, and E2E in three Playwright shards); `verify` passes only
 when every one of them succeeded. Draft PRs don't run CI until they're marked ready; merged branches
 are deleted automatically. CI doesn't replace the local gate: run `npm run verify` and
 `npm run test:e2e` on Windows before opening a PR.
