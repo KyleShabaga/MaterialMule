@@ -174,7 +174,11 @@ export class PrintWorker {
     const count = await withTransaction(this.pool, async (client) => {
       const { rows } = await client.query<{ id: string; attempts: number }>(
         `UPDATE print_job
-         SET status = 'uncertain', last_error = $1, updated_at = now()
+         SET status = 'uncertain', last_error = $1, updated_at = now(),
+             -- The interrupted send may have reached the printer: it counts as a contact.
+             last_contact_at = now(), last_contact_result = 'uncertain',
+             last_contact_error = $1, last_contact_printer_message = NULL,
+             first_failed_contact_at = coalesce(first_failed_contact_at, now())
          WHERE status = 'sending'
          RETURNING id, attempts`,
         ['Material Mule restarted while sending these labels'],
@@ -425,6 +429,9 @@ export class PrintWorker {
         );
     const error = outcome.result === 'sent' ? null : outcome.error;
     const printerMessage = outcome.result === 'not_sent' ? outcome.printerMessage : null;
+    // Review fixes #119/#124: only an attempt that reached for the printer is a printer contact.
+    // A local refusal (preparation) keeps the job's earlier contact as it was.
+    const contact = preparation ? null : outcome.result;
 
     await withTransaction(this.pool, async (client) => {
       const { rowCount } = await client.query(
@@ -434,9 +441,18 @@ export class PrintWorker {
              printer_message = $4,
              sent_at = CASE WHEN $2 = 'sent' THEN now() END,
              next_attempt_at = now() + ($5::int * interval '1 millisecond'),
-             updated_at = now()
+             updated_at = now(),
+             last_contact_at = CASE WHEN $6::text IS NULL THEN last_contact_at ELSE now() END,
+             last_contact_result = coalesce($6::text, last_contact_result),
+             last_contact_error = CASE WHEN $6::text IS NULL THEN last_contact_error ELSE $3 END,
+             last_contact_printer_message =
+               CASE WHEN $6::text IS NULL THEN last_contact_printer_message ELSE $4 END,
+             first_failed_contact_at =
+               CASE WHEN $6::text IS NOT NULL AND $6::text <> 'sent'
+                    THEN coalesce(first_failed_contact_at, now())
+                    ELSE first_failed_contact_at END
          WHERE id = $1 AND status = 'sending'`,
-        [job.id, next.status, error, printerMessage, next.retryInMs ?? 0],
+        [job.id, next.status, error, printerMessage, next.retryInMs ?? 0, contact],
       );
       // No row means an earlier save committed although its reply was lost (or the job was
       // already reconciled): don't write the audit entry twice.
