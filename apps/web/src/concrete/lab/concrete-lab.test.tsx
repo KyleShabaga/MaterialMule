@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isConcreteLabStaff, navGroupsFor } from '../../layout/nav';
+import { destinationsFor, isConcreteLabStaff } from '../../layout/nav';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
 
@@ -142,38 +142,36 @@ describe('Concrete Lab navigation (role-based, grants nothing)', () => {
     expect(isConcreteLabStaff({ accountType: 'personal', roles: [] })).toBe(false);
   });
 
-  it('lab staff get the Concrete Lab group; everyone else one Concrete link', () => {
-    const lab = navGroupsFor({ accountType: 'shared_lab', roles: [] });
-    expect(lab.concreteLab.map((i) => i.label)).toEqual([
-      'Concrete home',
-      'Specimen receiving',
-      'Break worklist',
-      'Testing table',
-      'Specimen lookup',
-      'Concrete equipment',
+  it('lab staff get Receiving and Specimens in the Concrete group; everyone else does not', () => {
+    const concrete = (me: Pick<MeResponse, 'accountType' | 'roles'>) =>
+      destinationsFor(me)
+        .find((d) => d.key === 'concrete')!
+        .children.map((i) => i.label);
+    expect(concrete({ accountType: 'shared_lab', roles: [] })).toEqual([
+      'Breaks',
+      'Receiving',
+      'Specimens',
+      'Holds',
+      'Review',
     ]);
-    expect(lab.main.map((i) => i.to)).not.toContain('/concrete');
-    const other = navGroupsFor({ accountType: 'personal', roles: [] });
-    expect(other.concreteLab).toEqual([]);
-    expect(other.main.map((i) => i.label)).toContain('Concrete');
+    expect(concrete({ accountType: 'personal', roles: [] })).toEqual(['Breaks', 'Holds', 'Review']);
   });
 
-  it('renders the group under the main menu for a Lab Technician', async () => {
+  it('opens the Concrete group in the rail for a Lab Technician, Specimens marked', async () => {
     renderAt('/concrete/specimens', () => undefined, { ...ME, roles: ['lab_technician'] });
-    const group = await screen.findByRole('list', { name: 'Concrete Lab' });
+    const group = await screen.findByRole('list', { name: 'Concrete pages' });
     expect(
       within(group)
         .getAllByRole('link')
         .map((a) => a.getAttribute('href')),
     ).toEqual([
-      '/concrete',
-      '/concrete/receiving',
       '/lab-testing/concrete',
-      '/concrete/testing',
+      '/concrete/receiving',
       '/concrete/specimens',
-      '/settings/equipment',
+      '/lab-testing/concrete/holds',
+      '/concrete/review',
     ]);
-    expect(within(group).getByRole('link', { name: 'Specimen lookup' })).toHaveAttribute(
+    expect(within(group).getByRole('link', { name: 'Specimens' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -404,7 +402,7 @@ describe('Lab search (top bar)', () => {
       }
       return undefined;
     });
-    const box = await screen.findByRole('textbox', { name: 'Lab search' });
+    const box = await screen.findByRole('textbox', { name: 'Search' });
     await user.type(box, 'DEMO-2601{Enter}');
     expect(router.state.location.pathname + router.state.location.search).toBe(
       '/search?q=DEMO-2601',

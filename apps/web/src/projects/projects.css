@@ -45,6 +45,8 @@
 .number {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  /* MM-T58: a count or date stays whole (IBM Plex Mono is wider than the old mono). */
+  white-space: nowrap;
 }
 
 .project-header {

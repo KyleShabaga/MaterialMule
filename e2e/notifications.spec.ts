@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { closeMore, openMore } from './support/shell';
 import { signInAsLabStation } from './support/lab-station';
 
 // MM-T91: Notifications are separate from Pending actions (action requests). Two labelled header
@@ -72,15 +73,17 @@ function countFrom(label: string | null): number {
   return !match?.[1] || match[1] === 'none' ? 0 : Number(match[1]);
 }
 
+/** The bell's unread count and Pending actions' count (in the phone More sheet, reopened). */
 async function headerCounts(page: Page): Promise<{ pending: number; unread: number }> {
-  return {
-    pending: countFrom(
-      await page.getByRole('button', { name: PENDING }).getAttribute('aria-label'),
-    ),
-    unread: countFrom(
-      await page.getByRole('link', { name: NOTIFICATIONS }).getAttribute('aria-label'),
-    ),
-  };
+  const unread = countFrom(
+    await page.getByRole('link', { name: NOTIFICATIONS }).getAttribute('aria-label'),
+  );
+  await openMore(page);
+  const pending = countFrom(
+    await page.getByRole('link', { name: PENDING }).getAttribute('aria-label'),
+  );
+  await closeMore(page);
+  return { pending, unread };
 }
 
 async function serverCounts(page: Page): Promise<{ pending: number; unread: number }> {
@@ -124,9 +127,10 @@ test('MM-T91: a notification links to its request, reading it resolves nothing, 
   await signInAs(page, 'pe');
   await page.goto('/');
   const notifications = page.getByRole('link', { name: NOTIFICATIONS });
-  const pending = page.getByRole('button', { name: PENDING });
   await expect(notifications).toBeVisible();
-  await expect(pending).toBeVisible();
+  await openMore(page);
+  await expect(page.getByRole('link', { name: PENDING })).toBeVisible();
+  await closeMore(page);
   await expectHeaderMatchesServer(page);
   const before = await headerCounts(page);
   expect(before.unread).toBeGreaterThan(0);
@@ -196,28 +200,28 @@ test('MM-T91: a notification links to its request, reading it resolves nothing, 
   await expect(decided.getByRole('button', { name: 'Dismiss' })).toBeVisible();
 });
 
-test('MM-T91: both header controls fit at phone width with 44 px targets and distinct names', async ({
+test('MM-T91: the bell and Pending actions have 44 px targets and distinct names at phone width', async ({
   page,
   isMobile,
 }) => {
   test.skip(!isMobile, 'Phone layout only');
   await signInAs(page, 'pe');
   await page.goto('/');
-  const notifications = page.getByRole('link', { name: NOTIFICATIONS });
-  const pending = page.getByRole('button', { name: PENDING });
+  // The bell sits in the phone header; Pending actions in the More sheet.
+  const notifications = page.getByRole('banner').getByRole('link', { name: NOTIFICATIONS });
   await expect(notifications).toBeVisible();
+  await openMore(page);
+  const pending = page.getByRole('link', { name: PENDING });
   await expect(pending).toBeVisible();
-  const [a, b] = [await notifications.boundingBox(), await pending.boundingBox()];
-  for (const box of [a, b]) {
+  for (const box of [await notifications.boundingBox(), await pending.boundingBox()]) {
     expect(box!.width).toBeGreaterThanOrEqual(43.5);
     expect(box!.height).toBeGreaterThanOrEqual(43.5);
   }
-  // Side by side without overlapping, and the page doesn't scroll sideways.
-  const apart = a!.x + a!.width <= b!.x || b!.x + b!.width <= a!.x || a!.y >= b!.y + b!.height;
-  expect(apart).toBe(true);
+  // The page doesn't scroll sideways.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  await closeMore(page);
   await notifications.click();
   await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
 });
@@ -227,7 +231,7 @@ test('MM-T91: LAB has no Notifications control or center', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Pending actions/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Pending actions/ })).toHaveCount(0);
   for (const path of ['/api/notifications', '/api/notifications/count']) {
     expect((await page.request.get(path)).status(), path).toBe(403);
   }

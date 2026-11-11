@@ -296,9 +296,3 @@
   padding: 0;
   list-style: none;
 }
-
-/* ---- Side menu: the Concrete Lab group under the main menu ------------------------------------ */
-
-.side-nav ul + .nav-heading {
-  margin-top: 0.75rem;
-}

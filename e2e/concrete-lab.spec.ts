@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { isPhoneLayout, mainNav, openMore } from './support/shell';
 import { withDatabase } from './support/db';
 
 // MM-V2-C31 T2: the Concrete dashboard, the Concrete Lab workspace, Specimen lookup, Concrete
@@ -72,34 +73,22 @@ async function castTwoProjects(page: Page): Promise<Fixture> {
   return { projects, setIds, setNumber, temporaryId };
 }
 
-async function openMenu(page: Page) {
-  // Wait for the shell first: on a phone the Menu button only exists once the page has rendered.
-  await expect(page.getByRole('banner').getByRole('button', { name: 'Sign out' })).toBeAttached();
-  if (await page.getByRole('button', { name: 'Menu' }).isVisible()) {
-    await page.getByRole('button', { name: 'Menu' }).click();
-  }
-}
-
 test('AC1 and AC2: Specimen lookup lists a repeated set number with both projects, and a TMP ID opens its set', async ({
   page,
 }) => {
   const data = await castTwoProjects(page);
-  // A Lab Technician on a lab computer: the Concrete Lab group sits under the main menu.
+  // A Lab Technician on a lab computer: the rail's Concrete group holds the lab pages.
   await signInAs(page, 'lt');
   await page.goto('/');
-  await openMenu(page);
-  const group = page.getByRole('list', { name: 'Concrete Lab' });
-  for (const label of [
-    'Concrete home',
-    'Specimen receiving',
-    'Break worklist',
-    'Testing table',
-    'Specimen lookup',
-    'Concrete equipment',
-  ]) {
-    await expect(group.getByRole('link', { name: label })).toBeVisible();
+  await openMore(page);
+  const nav = mainNav(page);
+  const show = nav.getByRole('button', { name: 'Show Concrete pages' });
+  await show.click();
+  const group = nav.getByRole('list', { name: 'Concrete pages' });
+  for (const label of ['Breaks', 'Receiving', 'Specimens', 'Holds', 'Review']) {
+    await expect(group.getByRole('link', { name: label, exact: true })).toBeVisible();
   }
-  await group.getByRole('link', { name: 'Specimen lookup' }).click();
+  await group.getByRole('link', { name: 'Specimens', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Specimen lookup', level: 1 })).toBeVisible();
 
   const box = page.getByRole('textbox', { name: 'Specimen or set ID' });
@@ -176,7 +165,11 @@ test('AC3: dashboard counts match the lists they open, and My reports come first
 test('Lab search in the top bar covers projects and concrete records', async ({ page }) => {
   const data = await castTwoProjects(page);
   await page.goto('/');
-  const box = page.getByRole('textbox', { name: 'Lab search' });
+  // Phone: the bottom bar's Find slot opens Lab search, with the field in the header.
+  if (isPhoneLayout(page)) {
+    await mainNav(page).getByRole('link', { name: 'Find', exact: true }).click();
+  }
+  const box = page.getByRole('search', { name: 'Search' }).getByRole('textbox', { name: 'Search' });
   await box.fill(data.projects[1]!.number);
   await box.press('Enter');
   await expect(page).toHaveURL(/\/search\?q=/);

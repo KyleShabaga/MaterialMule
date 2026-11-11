@@ -2,8 +2,8 @@ import { expect, test, type Locator } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-131: under a Windows contrast theme (Chromium's forced-colors emulation) the selected
-// dashboard filter, Standard/Compact segment, Settings tab, side-menu item and the dark mode
-// switch still look different from the unselected ones. Desktop only: the side menu is open there.
+// dashboard filter, Standard/Compact segment, Settings tab, rail destination, rail sub-page and the
+// dark mode switch still look different from the unselected ones. Desktop only: the rail is there.
 
 test.skip(({ isMobile }) => isMobile, 'Desktop layout');
 test.use({ forcedColors: 'active' });
@@ -42,9 +42,20 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
   );
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expectDifferent(
-    nav.getByRole('link', { name: 'Dashboard' }),
-    nav.getByRole('link', { name: 'Sample Storage' }),
-    'side-menu item',
+    nav.getByRole('link', { name: 'Today', exact: true }),
+    nav.getByRole('link', { name: 'Inventory', exact: true }),
+    'rail destination',
+  );
+
+  await page.goto('/disposal-retention/scan');
+  await expect(nav.getByRole('link', { name: 'Disposal scan' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expectDifferent(
+    nav.getByRole('link', { name: 'Disposal scan' }),
+    nav.getByRole('link', { name: 'Due and overdue' }),
+    'rail sub-page',
   );
 
   await page.goto('/sample-storage?status=all');

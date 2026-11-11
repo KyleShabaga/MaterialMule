@@ -14,45 +14,49 @@ import './concrete-lab.css';
 
 /**
  * Top-bar Lab search (MM-V2-C31, placement and scope confirmed by Kyle): one box in the header
- * for every lab area. A text input with a search hint (not a search box), so it never competes
- * with a page's own Search field. Results open on /search.
+ * for every lab area, labelled "Search" in the Field Ledger top bar. A text input with a search
+ * hint (not a search box), so it never competes with a page's own Search field. Results open on
+ * /search.
  */
 export function LabSearchBox({ inert }: { inert?: boolean }) {
   const navigate = useNavigate();
   const [text, setText] = useState('');
-  const id = useId();
   function submit(event: FormEvent) {
     event.preventDefault();
     const q = text.trim();
     if (q) void navigate(`/search?q=${encodeURIComponent(q)}`);
   }
+  // Field Ledger top bar: one search field with the magnifier inside; Enter submits.
   return (
-    <form
-      className="lab-search"
-      role="search"
-      aria-label="Lab search"
-      onSubmit={submit}
-      inert={inert}
-    >
-      <label htmlFor={id} className="visually-hidden">
-        Lab search
-      </label>
+    <form className="lab-search" role="search" aria-label="Search" onSubmit={submit} inert={inert}>
+      <svg
+        className="lab-search-icon"
+        aria-hidden="true"
+        focusable="false"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      >
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.5 4.5" />
+      </svg>
       <input
-        id={id}
         type="text"
+        aria-label="Search"
         inputMode="search"
         enterKeyHint="search"
         autoComplete="off"
         spellCheck={false}
         maxLength={100}
-        placeholder="Lab search"
+        placeholder="Search units, samples, projects, programs…"
         title="Storage units, projects and concrete records"
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
-      <button type="submit" className="lab-search-button">
-        Go<span className="visually-hidden"> to Lab search results</span>
-      </button>
     </form>
   );
 }

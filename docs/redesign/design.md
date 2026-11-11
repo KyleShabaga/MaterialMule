@@ -1,6 +1,6 @@
 ---
 name: Field Ledger
-status: proposal (not implemented in apps/web)
+status: approved 2026-11-10; wave 0 tokens and shell in apps/web (redesign/field-ledger)
 colors:
   paper: '#F4F4EF' # page ground
   sheet: '#FFFFFF' # cards, tables, inputs
@@ -439,7 +439,107 @@ are placeholders. The open gates in docs/concrete.md are not decided by this des
 Every route in `apps/web/src/routes.tsx` now has a screen on the canvas except the test sign-in
 and the Microsoft sign-in callback, which have no interface of their own.
 
+## Implementation map
+
+Wave 0 put these tokens in `apps/web/src/styles.css`. Feature CSS and TSX use only the variables;
+raw values live only in the three token blocks (light, OS dark, explicit dark).
+
+**New Field Ledger names:** `--paper`, `--sheet`, `--rail`, `--hairline`, `--flag`,
+`--flag-wash`, `--on-flag` (ink text on flag), `--link`, `--rule` (2 px frame and section rule),
+`--selected` / `--on-selected` (ink-filled current item, toggled-on button), `--inverse` /
+`--on-inverse` / `--on-inverse-soft` (ink panels: Today greeting, label head strip, selection
+bar), `--tag-{storage,lab,waiting,danger,closed}-{bg,fg}`, `--tint-hover` (10 % ink),
+`--tint-row` (5 % ink), `--tint-selected` (20 % paper over ink fills), `--ring-hover`,
+`--radius-card` 6 px, `--rule-width` 2 px, `--control-phone` 48 px, `--control-compact` 28 px,
+`--target-primary-phone` 60 px, `--space-1`…`--space-8` (4, 8, 12, 16, 20, 24, 32, 48),
+`--rail-width` 232 px, `--content-max` 1240 px, `--page-pad` 32 px, and the type scale `--fs-*` /
+`--lh-*` (page-title 44/44, phone-title 36, section 20/28, body 15/21, small 13/18, row-id 16,
+unit-id 30/33, data 13, label 12, big-count 40).
+
+**Kept names, new meaning:**
+
+| Old variable                                        | Now                                          |
+| --------------------------------------------------- | -------------------------------------------- |
+| `--page`, `--inset`                                 | paper                                        |
+| `--card`                                            | sheet                                        |
+| `--shell`, `--card-head`                            | rail                                         |
+| `--line`                                            | hairline                                     |
+| `--line-control`, `--line-shell`                    | ink (the 2 px rule)                          |
+| `--ink`, `--ink-soft`, `--muted`                    | ink, ink-soft, ink-soft                      |
+| `--accent`                                          | link                                         |
+| `--accent-ink`                                      | ink (link hover)                             |
+| `--accent-bg`, `--accent-line`                      | flag-wash, flag                              |
+| `--primary`, `--on-primary`                         | flag, ink                                    |
+| `--focus`, `--option-active`                        | ink (`--on-option-active` paper)             |
+| `--option-hover`                                    | flag-wash                                    |
+| `--success*`, `--info*`, `--warning*`, `--neutral*` | storage, lab, waiting, closed tag colours    |
+| `--danger*`                                         | danger tag colours                           |
+| `--radius-tag`, `--radius-control`                  | 3 px, 4 px                                   |
+| `--control`                                         | 44 px (was 40)                               |
+| `--font-sans`, `--font-mono`                        | Archivo, IBM Plex Mono (bundled @fontsource) |
+
+**Classes and components** (`components/ui.tsx`, base rules in `styles.css`):
+
+- Buttons: `button` / `.button` (secondary, sheet fill), `.primary` (flag), `.ink` or
+  `aria-pressed="true"` (selected), `.danger` (borderless destructive), `.icon-button` (44 px
+  square, needs `aria-label`).
+- Tags: `StatusBadge` with tones `storage`, `lab`, `waiting`, `danger`, `closed`, `flag` (old
+  `success`, `info`, `warning`, `neutral` still work); classes `.badge .badge-<tone>`.
+- Fields: `FormField` (mono caps label, 44 px input, 48 on phone, danger label and 3 px edge when
+  `aria-invalid`); `.field-label` for a standalone mono caps label.
+- `Segmented` (`.segmented`), `SectionHead` (`.section-head`, `.section-meta`), `SidePanel`
+  (`.side-panel`, `.side-panel-head`, `.side-panel-body`), `BandedCard` (same frame),
+  `SelectionBar` (`.selection-bar`), `Notice` (`.notice`, `.notice-{info,success,warning,danger}`),
+  `EmptyState` (title, line, one action), `ErrorState` (tag, message, detail, retry),
+  `ConfirmDialog` (`.dialog-head`, `.dialog-body`, `.dialog-actions`).
+- Tables: `DataTable` with `view`; `useTableView(tableKey)` remembers comfortable / compact per
+  table (`materialmule:table-view:<key>`, phones always comfortable) and `TableViewSelector`
+  sits at the right of the table's filter or title row. `.data-table.is-compact`,
+  `tr[aria-selected='true']` or `tr.is-selected` for flag-wash rows, `.table-frame` for a table
+  that scrolls inside its own frame.
+- `CountedCells` (`.counted-cell-{done,current,empty}`, always with `label` and a written count),
+  `UnitLabel` (`.unit-label`, `.unit-label-closed` for disposed units), `.unit-id` / `.mono` for
+  record text.
+- Hover is global (desktop only, `@media (hover: hover)`): buttons get `--tint-hover`, ink fills
+  `--tint-selected`, table rows and `[data-row]` get `--tint-row`, fields get the 3 px ring.
+
+## Dark variant (proposed)
+
+Owner decision 2026-11-10: derive a dark variant so the theme switch keeps working; Kyle reviews it
+once. Derived from Field Ledger: ink ground, paper text, flag unchanged, tag fills darkened, rules
+softened from paper to a light grey so a 2 px frame does not glare. Ink-filled controls invert
+(paper fill, ink text) and hover tints flip (paper tint over fills, ink tint over selected).
+
+| Token                         | Light                 | Dark                  |
+| ----------------------------- | --------------------- | --------------------- |
+| paper (page ground)           | `#F4F4EF`             | `#14140F`             |
+| sheet (cards, tables, inputs) | `#FFFFFF`             | `#1D1D17`             |
+| rail (nav, table heads)       | `#E8E9E2`             | `#26261F`             |
+| ink (text)                    | `#14140F`             | `#F4F4EF`             |
+| ink-soft                      | `#45463E`             | `#C9C9BE`             |
+| hairline                      | `#CFCFC4`             | `#4A4B42`             |
+| rule (2 px frames)            | `#14140F`             | `#D9D9CF`             |
+| flag                          | `#FF5A1F`             | `#FF5A1F`             |
+| on-flag (text on flag)        | `#14140F`             | `#14140F`             |
+| flag-wash                     | `#FFF0E8`             | `#3B2417`             |
+| link                          | `#A8340A`             | `#FF9466`             |
+| selected fill / text          | `#14140F` / `#F4F4EF` | `#F4F4EF` / `#14140F` |
+| inverse panel                 | `#14140F`             | `#000000`             |
+| storage tag                   | `#DDEFE8` / `#0B5D4B` | `#14382F` / `#8FD9C2` |
+| lab tag                       | `#E9E3F7` / `#4A2D8F` | `#2D2450` / `#CDBDF5` |
+| waiting tag                   | `#FBEBC2` / `#7A4E00` | `#3D2F0A` / `#F2C866` |
+| danger tag                    | `#F9DFDC` / `#A3201A` | `#4A1915` / `#F7A79E` |
+| closed tag                    | `#E6E6DE` / `#55564E` | `#2F2F28` / `#C2C2B6` |
+| disabled text                 | `#6B6C63`             | `#9A9B90`             |
+
+Contrast, dark (WCAG ratio): ink on paper 16.7, on sheet 15.3, on rail 13.8; ink-soft on rail 9.1
+(the lowest text pairing); link on paper 8.5, on sheet 7.8, on flag-wash 6.7; ink on flag 5.9;
+selected text 16.7; tags 7.5–8.2; disabled on sheet 6.0; flag against paper 5.9 (non-text). Light
+pairings are unchanged from the canvas (lowest: ink-soft on rail 7.8, ink on flag 5.9). The
+picker highlight (`--option-active` on `--card-head`) is 13.8:1 in dark and 15.1:1 in light.
+
 ## Not designed yet
 
-A lab-wide activity log, export or print of a list, a dark variant, and tablet layouts. Placeholders
-on the concrete screens (units, strength method, report layout, who issues) wait on the open gates.
+A lab-wide activity log, export or print of a list, and tablet layouts. Placeholders on the
+concrete screens (units, strength method, report layout, who issues) wait on the open gates. The
+dark variant above is a proposal awaiting Kyle's review.

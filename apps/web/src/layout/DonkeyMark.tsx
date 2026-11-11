@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 // The Material Mule mark: a walking donkey from the design system (Logos, adopted 2026-10-26),
 // paths unchanged. One-colour silhouette in currentColor; the mask cuts the gaps between the near
 // and far legs so it sits on any ground. Decorative: the header always shows the name beside it.
@@ -21,18 +23,20 @@ const BODY = [
   'M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z',
 ];
 
-export function DonkeyMark() {
+/** Width and height default to the 38 px rail tile's 28 × 22 donkey. */
+export function DonkeyMark({ width = 28, height = 22 }: { width?: number; height?: number }) {
+  // A per-instance mask id, so two marks on one page never share (or lose) the leg gaps.
+  const maskId = `mm-donkey-leg-gaps-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
-    <svg width={26} height={21} viewBox="150 230 960 760" aria-hidden="true" focusable="false">
+    <svg
+      width={width}
+      height={height}
+      viewBox="150 230 960 760"
+      aria-hidden="true"
+      focusable="false"
+    >
       <defs>
-        <mask
-          id="mm-donkey-leg-gaps"
-          maskUnits="userSpaceOnUse"
-          x="150"
-          y="230"
-          width="960"
-          height="760"
-        >
+        <mask id={maskId} maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760">
           <rect x="150" y="230" width="960" height="760" fill="#fff" />
           <g fill="#000" stroke="#000" strokeWidth={16} strokeLinejoin="round">
             {LEG_GAPS.map((d) => (
@@ -42,7 +46,7 @@ export function DonkeyMark() {
         </mask>
       </defs>
       <g fill="currentColor">
-        <g mask="url(#mm-donkey-leg-gaps)">
+        <g mask={`url(#${maskId})`}>
           {FAR_LEGS.map((d) => (
             <path key={d} d={d} />
           ))}

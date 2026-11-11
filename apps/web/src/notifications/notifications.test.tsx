@@ -102,7 +102,7 @@ describe('Header controls (MM-T91)', () => {
       return json(404, {});
     });
     const notifications = await screen.findByRole('link', { name: 'Notifications, 3 unread' });
-    const pending = await screen.findByRole('button', {
+    const pending = await screen.findByRole('link', {
       name: 'Pending actions, 2 waiting on you',
     });
     expect(notifications).toHaveAttribute('href', '/notifications');
@@ -110,10 +110,9 @@ describe('Header controls (MM-T91)', () => {
     expect(pending).toHaveTextContent('2');
     // Never added together.
     expect(screen.queryByText('5')).toBeNull();
-    // Both sit to the right of the user area.
-    const identity = screen.getByLabelText('Signed in user');
-    expect(identity.nextElementSibling).toContainElement(notifications);
-    expect(identity.nextElementSibling).toContainElement(pending);
+    // Field Ledger: the bell sits in the top bar, Pending actions in the rail footer.
+    expect(screen.getByRole('banner')).toContainElement(notifications);
+    expect(screen.getByRole('navigation', { name: 'Main' })).toContainElement(pending);
   });
 
   it('says none unread at 0 and refreshes when notifications change', async () => {
@@ -130,7 +129,7 @@ describe('Header controls (MM-T91)', () => {
     act(() => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT)));
     expect(await screen.findByRole('link', { name: 'Notifications, 4 unread' })).toBeVisible();
     // The pending count is its own.
-    expect(screen.getByRole('button', { name: 'Pending actions, 1 waiting on you' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Pending actions, 1 waiting on you' })).toBeVisible();
   });
 
   it('shows each control only with its own permission', async () => {
@@ -140,7 +139,7 @@ describe('Header controls (MM-T91)', () => {
       return json(404, {});
     });
     expect(
-      await screen.findByRole('button', { name: 'Pending actions, 1 waiting on you' }),
+      await screen.findByRole('link', { name: 'Pending actions, 1 waiting on you' }),
     ).toBeVisible();
     expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
   });
@@ -156,7 +155,7 @@ describe('Header controls (MM-T91)', () => {
     );
     expect(await screen.findByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
     expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Pending actions/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Pending actions/ })).toBeNull();
     expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/notifications'))).toBe(
       false,
     );

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { mainNav, openMore } from './support/shell';
 import { openWizard } from './support/receiving';
 
 // MTR-136: keyboard focus never falls to the page body after picking a project, removing a
@@ -69,13 +70,9 @@ test('MTR-136: a menu link moves focus to the new page heading', async ({ page }
   await signInAs(page, 'at');
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  // Phone width: the side menu opens from the header first.
-  const menu = page.getByRole('button', { name: 'Menu' });
-  if (await menu.isVisible()) await menu.click();
-  await page
-    .getByRole('navigation', { name: 'Main' })
-    .getByRole('link', { name: 'Projects' })
-    .focus();
+  // Phone width: Projects sits in the More sheet above the bottom bar.
+  await openMore(page);
+  await mainNav(page).getByRole('link', { name: 'Projects', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeFocused();
 });
