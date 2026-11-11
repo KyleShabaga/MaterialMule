@@ -124,3 +124,4 @@ D38, IT/pilot D39). Those are never chosen for Kyle: build up to the gate and li
 | 2026-11-10 | lane D  | Action request flag action                            | Named for the record it opens ("Open the program", "Open retention", "Open the project", "Open the team"); flag only while open                                                                                              | Canvas; "a request closes when the real action is done"                                                               | `KIND` in `ActionRequestsPage.tsx`                      |
 
 > > > > > > > origin/redesign/field-ledger
+> > > > > > > | 2026-11-11 | lane B | Fixed phone bar covered scrolled-to controls | Appended `scroll-padding-bottom` for `.app-phone` pages in `styles.css` (pure addition) | Controls scrolled or focused into view landed under the bottom bar (CI: lab-amendments on phone) | Remove the rule at the end of `styles.css` |

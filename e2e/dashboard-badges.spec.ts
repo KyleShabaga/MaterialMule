@@ -11,7 +11,11 @@ test.skip(({ isMobile }) => isMobile, 'Sets its own width');
 test('MTR-92: Recently received badges stay on one line at 820 px', async ({ page }) => {
   await signInAs(page, 'at');
   // Its own unit: receipts confirmed in the wizard print their labels on confirm (lane B).
-  const [unit] = await receiveThroughApi(page);
+  // Received today, so it sorts among the newest rows.
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Edmonton' }).format(
+    new Date(),
+  );
+  const [unit] = await receiveThroughApi(page, { receivedDate: today });
   await page.setViewportSize({ width: 820, height: 1024 });
   await page.goto('/');
   const region = page.getByRole('region', { name: 'Recent unit table' });
