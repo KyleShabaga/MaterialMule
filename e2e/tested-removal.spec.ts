@@ -233,7 +233,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
   await section.getByRole('button', { name: 'Confirm removal after testing' }).click();
   await expect(page.getByText(/recorded as disposed after testing/)).toBeVisible();
-  await expect(page.locator('.unit-meta')).toContainText('Disposed after testing');
+  await expect(page.locator('.unit-status-tags')).toContainText('Disposed after testing');
   await expect(section).toContainText('last location Receiving lab');
   await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText(
     'Disposed after testing',
@@ -290,7 +290,7 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
   await section.getByRole('button', { name: 'Confirm removal after testing' }).click();
-  await expect(page.locator('.unit-meta')).toContainText('Disposed after testing');
+  await expect(page.locator('.unit-status-tags')).toContainText('Disposed after testing');
 
   expect(
     (await unitState([bucketA!.readableId, bucketB!.readableId])).map((u) => [
@@ -304,7 +304,7 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
     ].sort((x, y) => x[0]!.localeCompare(y[0]!)),
   );
   await page.goto(`/sample-storage/${bucketB!.readableId}`);
-  await expect(page.locator('.unit-meta')).toContainText('In stock');
+  await expect(page.locator('.unit-status-tags')).toContainText('In stock');
   await expect(page.getByRole('region', { name: 'Testing and removal' })).toContainText(
     'No completed test has recorded this exact unit',
   );

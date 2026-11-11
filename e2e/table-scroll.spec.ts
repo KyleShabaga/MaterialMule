@@ -24,7 +24,7 @@ async function pageOverflow(page: Page): Promise<number> {
  * column can be seen. Returns how far the table scrolls sideways.
  */
 async function expectNothingPastCard(page: Page, what: string): Promise<number> {
-  const { scrolls, past } = await page.locator('.table-card').evaluate((card) => {
+  const { scrolls, past } = await page.locator('.inventory-results').evaluate((card) => {
     const scroller = card.querySelector<HTMLElement>('.table-scroll')!;
     scroller.scrollLeft = scroller.scrollWidth;
     const right = card.getBoundingClientRect().right;

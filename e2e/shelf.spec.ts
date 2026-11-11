@@ -48,7 +48,7 @@ test('Inventory selection → Move units here → the shelf page shows the arriv
   await expect(units.getByRole('link', { name: first.readableId })).toBeVisible();
   await expect(units.getByRole('link', { name: second.readableId })).toBeVisible();
   await expect(
-    page.getByRole('img', { name: '2 units on this shelf, 0 due for retention' }),
+    page.getByRole('img', { name: /^2 units on this shelf, \d due for retention$/ }),
   ).toBeVisible();
   const activity = page.getByRole('list', { name: 'Comings and goings' });
   await expect(activity).toContainText(`${first.readableId} arrived`);

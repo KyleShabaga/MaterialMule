@@ -414,7 +414,11 @@ export function InventoryPage() {
       {page ? (
         page.total === 0 ? (
           <EmptyState
-            title={filtered ? 'No storage units match.' : 'No storage units yet.'}
+            title={
+              filtered
+                ? 'No storage units match this search and these filters.'
+                : 'No storage units yet.'
+            }
             action={
               filtered ? undefined : (
                 <Link className="button primary" to="/receiving-log/new">
@@ -423,7 +427,9 @@ export function InventoryPage() {
               )
             }
           >
-            No storage units match {filtered ? 'this search and these filters' : 'yet'}.
+            {filtered
+              ? 'Change the search, or clear the filters to see everything in stock.'
+              : 'Receive samples to add the first.'}
           </EmptyState>
         ) : (
           <div className="inventory-results">

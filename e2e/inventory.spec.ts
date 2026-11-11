@@ -241,7 +241,8 @@ test('MM-T46 T2: with a search active, two quick filter picks are both kept (5 r
         select.dispatchEvent(new Event('change', { bubbles: true }));
       };
       pick('Location', (option) => option.text === warehouse);
-      pick('Status', (option) => option.value === 'all');
+      const status = document.querySelector('[role="group"][aria-label="Status"]')!;
+      [...status.querySelectorAll('button')].find((b) => b.textContent === 'All')!.click();
     }, data.warehouse);
 
     await expect(chips).toContainText(`Search: ${data.tag}`);
