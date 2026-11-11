@@ -104,6 +104,16 @@ describe('concreteStrengthP1 (one specimen)', () => {
     expect(calc.strength).toBe(24.4);
   });
 
+  it('review fix: exactly 2% with decimal readings is not flagged; just above is', () => {
+    const flags = (diameterReadings: number[]) =>
+      concreteStrengthP1({ maxLoad: 300, diameterReadings, heightReadings: [190] })!.flags;
+    // 96.9 − 95.0 = 1.9 mm = exactly 2% of 95.0 (binary subtraction gives 1.9000000000000057).
+    expect(flags([95.0, 96.9])).not.toContain('diameter_spread');
+    expect(flags([96.9, 95.0, 96.0])).not.toContain('diameter_spread');
+    // 96.91 − 95.0 = 1.91 mm > 2%.
+    expect(flags([95.0, 96.91])).toContain('diameter_spread');
+  });
+
   it('the 2% diameter flag: more than 2% flags, exactly 2% does not; values never change', () => {
     // 153.1 − 150 = 3.1 mm = 2.07% of 150 → flagged.
     const flagged = concreteStrengthP1({
@@ -248,6 +258,16 @@ describe('concreteStrengthAssessment (advisory)', () => {
     expect(at(21.5)).toBe('below_specified'); // exactly f′c − 3.5 is not below it
     expect(at(24.9)).toBe('below_specified');
     expect(at(25)).toBe('meets_specified');
+  });
+
+  it('review fix: the f′c − 3.5 threshold keeps the specification’s precision', () => {
+    const at = (specifiedMpa: number, average: number) =>
+      concreteStrengthAssessment({ ...base, specifiedMpa, ageDays: 28, average })!.assessment;
+    // 25.54 − 3.5 = 22.04: a 22.0 test is more than 3.5 below (never rounded to 22.0).
+    expect(at(25.54, 22.0)).toBe('below_specified_minus_3_5');
+    // 25.50 − 3.5 = 22.0: the same test is exactly 3.5 below, so only below f′c.
+    expect(at(25.5, 22.0)).toBe('below_specified');
+    expect(at(25.54, 22.1)).toBe('below_specified');
   });
 
   it('running average of three, only once three exist', () => {

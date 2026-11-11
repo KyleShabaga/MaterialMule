@@ -162,6 +162,8 @@ function calendarDate(text: string): string | null {
   const parts = DATE.exec(text);
   if (!parts) return null;
   const [year, month, day] = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
+  // PostgreSQL has no year 0 (1 BC is year 0 to JavaScript); such text is searched as text only.
+  if (year < 1) return null;
   const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCFullYear(year);
   return date.getUTCFullYear() === year &&

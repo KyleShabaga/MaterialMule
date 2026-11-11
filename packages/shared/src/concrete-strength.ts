@@ -169,8 +169,12 @@ export function concreteStrengthP1(
   const flags: ConcreteStrengthSpecimenFlag[] = [];
   const largest = Math.max(...input.diameterReadings);
   const smallest = Math.min(...input.diameterReadings);
-  // (largest − smallest) / smallest > 2%, compared without division.
-  if ((largest - smallest) * 100 > 2 * smallest) flags.push('diameter_spread');
+  // (largest − smallest) / smallest > 2%, compared without division and at a fixed decimal
+  // precision, so a difference of exactly 2% (95.0 / 96.9) stays out (review fix: binary
+  // subtraction put 96.9 − 95.0 just above 1.9).
+  if (roundHalfUp((largest - smallest) * 100, 6) > roundHalfUp(2 * smallest, 6)) {
+    flags.push('diameter_spread');
+  }
   // The range check on the ratio rounded to 0.01 would hide e.g. 2.204; compare unrounded.
   if (ldRatio < 1) flags.push('ld_below_minimum');
   if (ldRatio < 1 || ldRatio > 2.2) flags.push('ld_out_of_range');
@@ -292,6 +296,16 @@ export interface ConcreteStrengthAssessmentResult {
 }
 
 /**
+ * The decimal places a value was given with (at least 1, at most 6), so a threshold derived from
+ * it keeps that precision: f′c 25.54 − 3.5 is 22.04, never 22.0 (review fix).
+ */
+function decimalPlaces(value: number): number {
+  let places = 1;
+  while (places < 6 && roundHalfUp(value, places) !== value) places += 1;
+  return places;
+}
+
+/**
  * The advisory assessment of a strength test (never acceptance). Only at the reference age: any
  * other age is "Information only" (AC3: a 7-day result is never assessed against 28 days). Null
  * when there is no test or the specification lacks the reference age or (at that age) f′c.
@@ -314,7 +328,7 @@ export function concreteStrengthAssessment(
       ? roundHalfUp((input.average + input.previous[0]! + input.previous[1]!) / 3, 1)
       : null;
   const assessment: ConcreteStrengthAssessment =
-    input.average < roundHalfUp(fc - 3.5, 1)
+    input.average < roundHalfUp(fc - 3.5, decimalPlaces(fc))
       ? 'below_specified_minus_3_5'
       : input.average < fc
         ? 'below_specified'
@@ -419,7 +433,11 @@ export const concreteStrengthTestLineSchema = z.object({
 });
 export type ConcreteStrengthTestLine = z.infer<typeof concreteStrengthTestLineSchema>;
 
-/** `GET /api/concrete/strength-tests?setId=…|projectId=…[&failed=true]` (`inventory.read`). */
+/**
+ * `GET /api/concrete/strength-tests?setId=…|projectId=…[&failed=true][&after=…]`
+ * (`inventory.read`). A project-wide read is paged by set: `after` is the previous page's
+ * `nextCursor` (review fix: a failure beyond the first page was unreachable).
+ */
 export const concreteStrengthTestsQuerySchema = z
   .strictObject({
     setId: z.uuid({ error: 'must be an ID' }).optional(),
@@ -428,19 +446,30 @@ export const concreteStrengthTestsQuerySchema = z
       .enum(['true', 'false'], { error: 'Use true or false' })
       .transform((value) => value === 'true')
       .default(false),
+    after: z.uuid({ error: 'must be a cursor from a previous page' }).optional(),
   })
   .refine((q) => q.setId !== undefined || q.projectId !== undefined, {
     error: 'Choose a set or a project',
     path: ['setId'],
+  })
+  .refine((q) => q.after === undefined || q.setId === undefined, {
+    error: 'A cursor pages a project, not a set',
+    path: ['after'],
   });
 export type ConcreteStrengthTestsQuery = z.output<typeof concreteStrengthTestsQuerySchema>;
 
-/** Sets per project-wide response; the response says when there are more. */
+/** Sets per project-wide page; the response says when there are more. */
 export const CONCRETE_STRENGTH_TESTS_MAX_SETS = 500;
 
 export const concreteStrengthTestsSchema = z.object({
   method: concreteCalculationMethodSchema.nullable(),
+  /** More sets follow this page (read them with `after: nextCursor`). */
   truncated: z.boolean(),
+  /**
+   * The cursor of the next page, or null on the last. With `failed=true` a page may hold no
+   * failures and still have a next page: keep reading until it is null.
+   */
+  nextCursor: z.string().nullable().default(null),
   tests: z.array(concreteStrengthTestLineSchema),
 });
 export type ConcreteStrengthTests = z.infer<typeof concreteStrengthTestsSchema>;
