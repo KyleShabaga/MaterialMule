@@ -33,6 +33,62 @@ export const APPEND_ONLY_TRIGGER_FUNCTIONS = [
   'lab_append_only',
 ];
 
+export type ProtectedEvent = 'UPDATE' | 'DELETE' | 'TRUNCATE';
+
+export interface AppendOnlyTable {
+  table: string;
+  /** The triggers that must exist and be enabled, the function each runs and what it refuses. */
+  triggers: { name: string; function: string; events: ProtectedEvent[] }[];
+}
+
+const rowGuard = (table: string, fn: string): AppendOnlyTable => ({
+  table,
+  triggers: [{ name: `${table}_append_only`, function: fn, events: ['UPDATE', 'DELETE'] }],
+});
+
+/**
+ * The append-only tables, listed independently of the database (review fix #102). Setup and the
+ * security check used to find them only through their triggers, so a dropped trigger also hid
+ * its table: setup granted the app role UPDATE and DELETE again and the check still passed. This
+ * list never depends on the triggers; a migration that adds an append-only table adds it here
+ * (security-check.test.ts compares it with a freshly migrated schema).
+ */
+export const APPEND_ONLY_TABLES: AppendOnlyTable[] = [
+  {
+    table: 'audit_event',
+    triggers: [
+      {
+        name: 'audit_event_no_update_delete',
+        function: 'audit_event_is_append_only',
+        events: ['UPDATE', 'DELETE'],
+      },
+      {
+        name: 'audit_event_no_truncate',
+        function: 'audit_event_is_append_only',
+        events: ['TRUNCATE'],
+      },
+    ],
+  },
+  rowGuard('movement_event', 'movement_history_is_append_only'),
+  rowGuard('move_action', 'movement_history_is_append_only'),
+  ...[
+    'action_item_assignment',
+    'disposal_removal',
+    'lab_comment_revision',
+    'program_amendment',
+    'program_lifecycle_event',
+    'program_priority_history',
+    'retention_extension_unit',
+    'retention_hold_unit',
+    'retention_request_unit',
+    'test_request_identity_revision',
+    'test_request_review_event',
+    'test_request_status_history',
+    'test_request_unit_link',
+    'tested_unit_removal',
+  ].map((table) => rowGuard(table, 'lab_append_only')),
+];
+
 export function assertRoleName(name: string, label: string): void {
   if (!ROLE_NAME.test(name)) {
     throw new Error(`${label} must be lowercase letters, digits and underscores (max 63)`);
@@ -131,7 +187,14 @@ export async function setUpDatabaseRoles(pool: Pool, names: DatabaseRoleNames): 
         );
       }
     }
-    for (const table of await appendOnlyTables(client, schema)) {
+    // The independent inventory plus anything else a trigger marks append-only, so a dropped
+    // trigger never brings back UPDATE or DELETE (#102). Inventory tables not created yet are
+    // skipped; setup runs again after the migration, as the runbook says.
+    const appendOnly = new Set(await appendOnlyTables(client, schema));
+    for (const { table } of APPEND_ONLY_TABLES) {
+      if (await tableExists(client, schema, table)) appendOnly.add(table);
+    }
+    for (const table of [...appendOnly].sort()) {
       await run(
         `REVOKE UPDATE, DELETE, TRUNCATE ON ${schemaId}.${escapeIdentifier(table)} FROM ${app}`,
         `${table}: append-only for the app role`,
@@ -183,7 +246,11 @@ async function grantReadOnly(
   );
 }
 
-/** Tables in `schema` with a row trigger running one of the append-only functions, by name. */
+/**
+ * Tables in `schema` with a row trigger running one of the append-only functions, by name. Only a
+ * cross-check: what must be protected comes from APPEND_ONLY_TABLES, which can't drift with the
+ * database.
+ */
 export async function appendOnlyTables(
   client: Pick<PoolClient, 'query'>,
   schema: string,

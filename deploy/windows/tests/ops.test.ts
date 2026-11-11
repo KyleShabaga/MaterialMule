@@ -357,6 +357,139 @@ describe.runIf(isWindows)('folder permissions for the backup account (MM-T21)', 
   });
 });
 
+// Review fix #101: rotating BackupAccount on the backup-only path (-Skip Permissions) used to add
+// the new account's read rules and leave the old account's in place. These run the real ACL code
+// against a temp folder (no elevation needed: the test user owns it). Built-in groups stand in for
+// the two backup accounts because ACLs need identities Windows can resolve.
+describe.runIf(isWindows)('backup account rotation (#101)', () => {
+  const A = { name: 'BUILTIN\\Backup Operators', sid: 'S-1-5-32-551' };
+  const B = { name: 'BUILTIN\\Event Log Readers', sid: 'S-1-5-32-573' };
+  const OTHER = { name: 'BUILTIN\\Performance Log Users', sid: 'S-1-5-32-559' };
+  let work: string;
+  let root: string;
+  let hostConfig: string;
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'materialmule-101-acl-'));
+    root = join(work, 'install-root');
+    for (const dir of ['config\\admin', 'current']) mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root, 'current', 'release.json'), '{}');
+    writeFileSync(join(root, 'config', 'materialmule.env'), 'PORT=443\n');
+    writeFileSync(join(root, 'config', 'admin', 'migrate.env'), 'DATABASE_URL=\n');
+    hostConfig = join(work, 'host.config.psd1');
+    writePsd1(hostConfig, {
+      InstallRoot: root,
+      HealthUrl: 'https://materialmule.example.internal/api/health',
+      ServiceAccount: 'NT SERVICE\\MaterialMuleT101Test',
+    });
+    // As the Permissions step leaves it: config\admin inherits nothing (here the test user keeps
+    // full control in place of Administrators, so the fixture can be cleaned up).
+    psJson(`
+      $acl = [System.Security.AccessControl.DirectorySecurity]::new()
+      $acl.SetAccessRuleProtection($true, $false)
+      foreach ($who in 'BUILTIN\\Administrators', 'NT AUTHORITY\\SYSTEM', [Security.Principal.WindowsIdentity]::GetCurrent().Name) {
+        $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($who, 'FullControl', 'ContainerInherit, ObjectInherit', 'None', 'Allow'))
+      }
+      Set-Acl -LiteralPath ${psString(join(root, 'config', 'admin'))} -AclObject $acl
+      '1'
+    `);
+  });
+  afterAll(() => rmSync(work, { recursive: true, force: true }));
+
+  const paths = {
+    root: '',
+    release: 'current\\release.json',
+    config: 'config',
+    serviceEnv: 'config\\materialmule.env',
+    admin: 'config\\admin',
+    migrationEnv: 'config\\admin\\migrate.env',
+  };
+
+  /** Per path: the SIDs with an Allow rule that can read, explicit or inherited. */
+  function readers(): Record<keyof typeof paths, string[]> {
+    return psJson(`
+      $out = [ordered]@{}
+      ${Object.entries(paths)
+        .map(
+          ([key, relative]) => `
+      $acl = Get-Acl -LiteralPath ${psString(join(root, relative))}
+      $out[${psString(key)}] = @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) |
+        Where-Object { $_.AccessControlType -eq 'Allow' -and ([int]$_.FileSystemRights -band 1) } |
+        ForEach-Object { $_.IdentityReference.Value } | Sort-Object -Unique)`,
+        )
+        .join('\n')}
+      ConvertTo-Json -Compress $out
+    `);
+  }
+
+  function rotate(account: string, previous?: string): string[] {
+    const extra = previous ? ` -PreviousBackupAccount ${psString(previous)}` : '';
+    return psJson<string[]>(`
+      $config = Get-MaterialMuleHostConfig -Path ${psString(hostConfig)}
+      $warnings = Update-MaterialMuleBackupAccountAccess -Config $config -BackupAccount ${psString(account)}${extra}
+      ConvertTo-Json -Compress -InputObject @($warnings)
+    `);
+  }
+
+  function expectOnlyBackupReader(current: { sid: string }, former: { sid: string }) {
+    const access = readers();
+    for (const key of ['root', 'release', 'config', 'serviceEnv'] as const) {
+      expect(access[key], key).toContain(current.sid);
+      expect(access[key], key).not.toContain(former.sid);
+    }
+    // Protected admin configuration: neither account, before or after the rotation.
+    for (const key of ['admin', 'migrationEnv'] as const) {
+      expect(access[key], key).not.toContain(current.sid);
+      expect(access[key], key).not.toContain(former.sid);
+    }
+  }
+
+  it('removes the former account on rotation, keeps unrelated rules, and rotates back', () => {
+    expect(rotate(A.name)).toEqual([]);
+    expectOnlyBackupReader(A, B);
+    // Unrelated permissions an administrator set: one for A itself, one for another identity.
+    psJson(`
+      $acl = Get-Acl -LiteralPath ${psString(root)}
+      $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(${psString(A.name)}, 'WriteAttributes', 'None', 'None', 'Allow'))
+      $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(${psString(OTHER.name)}, 'Write', 'None', 'None', 'Allow'))
+      Set-Acl -LiteralPath ${psString(root)} -AclObject $acl
+      '1'
+    `);
+
+    // A -> B with no -PreviousBackupAccount: the record in config\admin names A.
+    expect(rotate(B.name)).toEqual([]);
+    expectOnlyBackupReader(B, A);
+    const explicit = psJson<{ sid: string; rights: string }[]>(`
+      ConvertTo-Json -Compress @((Get-Acl -LiteralPath ${psString(root)}).GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]) |
+        ForEach-Object { [ordered]@{ sid = $_.IdentityReference.Value; rights = [string]$_.FileSystemRights } })
+    `);
+    // (Synchronize goes with the removed read rule; the unrelated right itself stays.)
+    expect(
+      explicit.some((rule) => rule.sid === A.sid && rule.rights.includes('WriteAttributes')),
+    ).toBe(true);
+    expect(explicit.some((rule) => rule.sid === OTHER.sid)).toBe(true);
+
+    // And back again: B is now the recorded account.
+    expect(rotate(A.name)).toEqual([]);
+    expectOnlyBackupReader(A, B);
+  });
+
+  it('reports, never removes, an unrecorded former account until it is named', () => {
+    // A host set up before the record existed: A has the rules, nothing records it.
+    expect(rotate(A.name)).toEqual([]);
+    rmSync(join(root, 'config', 'admin', 'backup-account.txt'));
+
+    const warnings = rotate(B.name);
+    expect(warnings.join('\n')).toContain(
+      `still has the backup account's read permission; if it is a former backup account, re-run with -PreviousBackupAccount '${A.name}'`,
+    );
+    expect(readers().serviceEnv).toContain(A.sid);
+
+    expect(rotate(B.name, A.name)).toEqual([]);
+    expectOnlyBackupReader(B, A);
+  });
+});
+
 describe.runIf(isWindows)('ops helpers (MM-T21)', () => {
   it('keeps the last 24 h plus the newest backup per day, ISO week and month', () => {
     // Every 6 hours for 120 days back from 2026-10-26 12:00 UTC.

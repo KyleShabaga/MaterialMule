@@ -6,14 +6,14 @@ runner in `apps/api/src/db/migrator.ts` (MM-T02).
 
 ## Commands
 
-| Command                                             | What it does                                                                                                      |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `npm run db:migrate`                                | Apply pending migrations, then load reference data (Receiving lab)                                                |
-| `npm run db:seed:dev`                               | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod         |
-| `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                   |
-| `npm run db:seed:demo`                              | Load demo data through the running dev API (needs `ENABLE_TEST_AUTH=true`); see README "Demo data"                |
-| `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only) |
-| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test, database name containing `test`)               |
+| Command                                             | What it does                                                                                                                     |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate`                                | Apply pending migrations, then load reference data (Receiving lab)                                                               |
+| `npm run db:seed:dev`                               | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod                        |
+| `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                                  |
+| `npm run db:seed:demo`                              | Load demo data through the running dev API (needs `ENABLE_TEST_AUTH=true`); see README "Demo data"                               |
+| `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only)                |
+| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test, database `materialmule_test` or `materialmule_test_<suffix>`) |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
 
@@ -112,9 +112,16 @@ it is not permission to reset a deployed database, and forward-only migrations r
   it is idempotent. Proven in `apps/api/src/db/roles.test.ts` (runs where the test database user
   is a superuser, as in CI). Steps: [operations runbook](operations/runbook.md).
 - The app role is denied `UPDATE`, `DELETE` and `TRUNCATE` on every append-only history table,
-  not only `audit_event`: each table with a row trigger running `audit_event_is_append_only`,
-  `movement_history_is_append_only` or `lab_append_only` (found when `setup-roles` runs). The
-  triggers already block those changes; the grants are a second layer.
+  not only `audit_event`. The tables come from a fixed inventory in the code
+  (`APPEND_ONLY_TABLES` in `apps/api/src/db/roles.ts`), not only from their triggers, so a dropped
+  or disabled trigger never brings back `UPDATE` or `DELETE` when `setup-roles` runs again (review
+  fix #102); any other table with a row trigger running `audit_event_is_append_only`,
+  `movement_history_is_append_only` or `lab_append_only` is covered too. The triggers block those
+  changes; the grants are a second layer. A migration that adds an append-only table adds it to
+  the inventory (`security-check.test.ts` compares the two). The security check's
+  `append-only-triggers` line fails, per table, when an expected trigger is missing, disabled,
+  replica-only, runs another function or no longer covers `UPDATE`/`DELETE` (`TRUNCATE` for
+  `audit_event_no_truncate`).
   `node apps/api/dist/db/cli.js security-check --app-role <name> --migration-role <name>
 [--backup-role <name>]` (read-only, connected as the app role) reports the roles, privileges and
   server settings; see the runbook's [Security check](operations/runbook.md#security-check).

@@ -74,7 +74,8 @@ resets the database it runs against. Playwright never reuses a server already on
 `E2E_REUSE_SERVER=1` is set. If the database role can't create databases, worktrees share
 `materialmule_test`: integration tests are safe (random schemas), but only one E2E run at a time.
 Before copying `.env.test` into a worktree, check which database it names: `db:reset:test` (and
-so E2E) refuses any database whose name doesn't contain `test`. The API timeouts and phone-spec stalls seen on the dev
+so E2E) refuses any database not named `materialmule_test` or `materialmule_test_<suffix>`
+(lowercase letters and digits, e.g. `materialmule_test_c3`). The API timeouts and phone-spec stalls seen on the dev
 PC came from several lanes sharing one PC and PostgreSQL, not from the specs (MM-T85: the full suite
 and the phone project pass with 2 workers when run alone). Under that load, rerun failing API files
 alone before treating them as failures.

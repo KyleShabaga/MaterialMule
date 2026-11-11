@@ -4,7 +4,7 @@ import {
   testDatabaseUrl,
   type TestSchema,
 } from '../test-support/database.js';
-import { appendOnlyTables } from './roles.js';
+import { APPEND_ONLY_TABLES, appendOnlyTables } from './roles.js';
 import {
   checkDatabaseSecurity,
   evaluateServerSettings,
@@ -122,7 +122,55 @@ describe.runIf(testDatabaseUrl)('database security check (MM-T68)', () => {
       [db.schema],
     );
     expect(rows.map((row) => row.table).filter((table) => !tables.includes(table))).toEqual([]);
+    // #102: the independent inventory is exactly what the migrations protect, trigger by trigger.
+    expect(APPEND_ONLY_TABLES.map((entry) => entry.table).sort()).toEqual([...tables].sort());
   });
+
+  it('#102: passes the trigger check on a freshly migrated schema', async () => {
+    const results = byCheck(
+      await checkDatabaseSecurity(db.pool, { appRole: me, migrationRole: me, schema: db.schema }),
+    );
+    expect(results['append-only-triggers']).toMatchObject({ status: 'pass' });
+  });
+
+  it('#102: reports missing or disabled protection by table, and still checks those tables', async () => {
+    // A separate schema, so the drift never reaches the other tests in this file.
+    const drifted = await createMigratedSchema();
+    try {
+      const id = (table: string) => `${drifted.schema}.${table}`;
+      await drifted.pool.query(`DROP TRIGGER audit_event_no_update_delete ON ${id('audit_event')}`);
+      await drifted.pool.query(`DROP TRIGGER audit_event_no_truncate ON ${id('audit_event')}`);
+      await drifted.pool.query(
+        `ALTER TABLE ${id('movement_event')} DISABLE TRIGGER movement_event_append_only`,
+      );
+      await drifted.pool.query(
+        `ALTER TABLE ${id('disposal_removal')} ENABLE REPLICA TRIGGER disposal_removal_append_only`,
+      );
+      // Nothing finds audit_event through its triggers any more.
+      expect(await appendOnlyTables(drifted.pool, drifted.schema)).not.toContain('audit_event');
+
+      const results = byCheck(
+        await checkDatabaseSecurity(drifted.pool, {
+          appRole: me,
+          migrationRole: me,
+          schema: drifted.schema,
+        }),
+      );
+      expect(results['append-only-triggers']).toMatchObject({ status: 'fail' });
+      expect(results['append-only-triggers']!.detail.split('; ')).toEqual([
+        'audit_event: trigger audit_event_no_update_delete is missing, ' +
+          'trigger audit_event_no_truncate is missing',
+        'movement_event: trigger movement_event_append_only is disabled',
+        'disposal_removal: trigger disposal_removal_append_only is disabled',
+      ]);
+      // The privilege check still covers audit_event (this login owns it, so it fails here).
+      expect(results['append-only-tables']!.detail).toContain(
+        `${me} has UPDATE, DELETE, TRUNCATE on audit_event`,
+      );
+    } finally {
+      await drifted.drop();
+    }
+  }, 60_000);
 
   it('reports a login that owns everything as failing the role checks', async () => {
     const results = byCheck(

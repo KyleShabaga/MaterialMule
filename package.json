@@ -26,7 +26,7 @@
     "check:bundle": "node scripts/check-bundle-secrets.mjs",
     "release:pack": "node scripts/pack-release.mjs",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundle",
-    "test:e2e": "npm run build:shared && playwright test",
+    "test:e2e": "node scripts/run-e2e.mjs",
     "db:migrate": "npm run db:migrate -w @materialmule/api",
     "db:seed:dev": "npm run db:seed:dev -w @materialmule/api",
     "db:reset:test": "npm run db:reset:test -w @materialmule/api",
