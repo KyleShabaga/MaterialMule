@@ -180,3 +180,116 @@ describe('SessionProvider keeps roles current', () => {
     expect(await tabs()).toContain('Printers');
   });
 });
+
+// Review card (#113): a different account found by the focus re-check (a sign-in in another
+// tab on a shared browser) is a session boundary. No page may keep the previous account's data.
+describe('SessionProvider when the signed-in account changes', () => {
+  const person = (id: string, name: string, initials: string): MeResponse => ({
+    id,
+    displayName: name,
+    initials,
+    accountType: 'test',
+    status: 'active',
+    roles: [],
+    permissions: ['inventory.read'],
+    sessionExpiresAt: '2026-11-26T16:00:00.000Z',
+    profileRefreshFailed: false,
+  });
+  const A = person('acct-a', 'Avery Example', 'AE');
+  const B = person('acct-b', 'Blair Example', 'BE');
+  const profileOf = (who: MeResponse, department: string) => ({
+    displayName: who.displayName,
+    givenName: null,
+    surname: null,
+    workEmail: null,
+    signInUsername: `${who.id}@example.test`,
+    jobTitle: null,
+    jobTitleOverride: null,
+    effectiveJobTitle: null,
+    department,
+    officeLocation: null,
+    officialInitials: null,
+    initialsConfirmed: false,
+    source: 'seed',
+    refreshedAt: null,
+    refreshFailedAt: null,
+    canRefresh: false,
+  });
+
+  /** /api/me answers `current`; /api/me/profile answers for whoever was signed in when asked. */
+  function stubAccounts(holdFirstProfile = false) {
+    const state = { current: A };
+    let releaseFirst = () => undefined as void;
+    const firstHeld = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let profileCalls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        const asked = state.current;
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        if (url.pathname === '/api/me') return respond(asked);
+        if (url.pathname === '/api/me/profile') {
+          profileCalls += 1;
+          if (holdFirstProfile && profileCalls === 1) await firstHeld;
+          return respond(profileOf(asked, asked === A ? 'Dept of Avery' : 'Dept of Blair'));
+        }
+        return new Response('{}', { status: 404 });
+      }),
+    );
+    return { state, releaseFirst };
+  }
+
+  const identity = () => screen.getByLabelText('Signed in user');
+
+  it('clears the previous account’s profile when focus finds another account', async () => {
+    const { state } = stubAccounts();
+    renderApp('/settings/profile');
+    expect(await screen.findByText('Dept of Avery')).toBeInTheDocument();
+    expect(identity()).toHaveTextContent('Avery Example');
+
+    state.current = B;
+    fireEvent.focus(window);
+
+    await waitFor(() => expect(identity()).toHaveTextContent('Blair Example'));
+    // In the same render that shows B, nothing of A's page is left.
+    expect(screen.queryByText('Dept of Avery')).not.toBeInTheDocument();
+    expect(await screen.findByText('Dept of Blair')).toBeInTheDocument();
+    expect(screen.queryByText('Dept of Avery')).not.toBeInTheDocument();
+  });
+
+  it('never shows a late answer to the previous account’s request', async () => {
+    const { state, releaseFirst } = stubAccounts(true);
+    renderApp('/settings/profile');
+    await waitFor(() => expect(identity()).toHaveTextContent('Avery Example'));
+
+    state.current = B;
+    fireEvent.focus(window);
+    await waitFor(() => expect(identity()).toHaveTextContent('Blair Example'));
+    expect(await screen.findByText('Dept of Blair')).toBeInTheDocument();
+
+    releaseFirst();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText('Dept of Avery')).not.toBeInTheDocument();
+    expect(screen.getByText('Dept of Blair')).toBeInTheDocument();
+  });
+
+  it('keeps the page (and its state) when the same account’s roles refresh', async () => {
+    const { state } = stubAccounts();
+    renderApp('/settings/profile');
+    const department = await screen.findByText('Dept of Avery');
+
+    state.current = { ...A, permissions: ['inventory.read', 'printer.manage'] };
+    fireEvent.focus(window);
+
+    await screen.findByRole('link', { name: 'Printers' });
+    // The same element: the page wasn't remounted.
+    expect(screen.getByText('Dept of Avery')).toBe(department);
+  });
+});

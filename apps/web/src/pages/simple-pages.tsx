@@ -159,5 +159,8 @@ export function RequireActiveSession() {
   if (session.status === 'pending') {
     return <Navigate to="/access-pending" replace />;
   }
-  return <Outlet />;
+  // A different account is a session boundary (shared browsers, a sign-in in another tab found
+  // by the focus re-check): remount everything under the guard so no page keeps the previous
+  // account's data, form state or late answers. The same account refreshing its roles keeps it.
+  return <Outlet key={session.me.id} />;
 }
