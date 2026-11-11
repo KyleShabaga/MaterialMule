@@ -59,10 +59,17 @@
 }
 
 .select-cell input {
+  display: block;
   width: 22px;
   height: 22px;
   margin: 0;
   accent-color: var(--ink);
+}
+
+/* The select-all box fits the mono caps head line, so the head row stays one line tall. */
+th.select-cell input {
+  width: 16px;
+  height: 16px;
 }
 
 .inventory-results {
