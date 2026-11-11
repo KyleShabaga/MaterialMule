@@ -16,7 +16,7 @@ import {
   type TestTemplate,
   type TestType,
 } from '@materialmule/shared';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { shortDateTime } from '../dashboard/format';
 import {
   amendProgram,
@@ -54,10 +54,13 @@ export function AmendProgram({
   program,
   work,
   onDone,
+  onRefresh,
 }: {
   program: LabProgram;
   work: ProgramWork;
   onDone: (message: string | null) => void;
+  /** Reloads the program and its lifecycle (version) without closing anything open here. */
+  onRefresh?: () => void;
 }) {
   const id = useId();
   const life = work.lifecycle;
@@ -183,6 +186,7 @@ export function AmendProgram({
         program={program}
         version={life.version}
         reason={reason}
+        onRefresh={onRefresh}
         onDone={(message) => {
           if (message === null) {
             setOpen(false);
@@ -305,11 +309,13 @@ function AddTestingLine({
   version,
   reason,
   onDone,
+  onRefresh,
 }: {
   program: LabProgram;
   version: number;
   reason: string;
   onDone: (message: string | null) => void;
+  onRefresh?: () => void;
 }) {
   const id = useId();
   const [adding, setAdding] = useState(false);
@@ -317,8 +323,21 @@ function AddTestingLine({
   const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
   const [templates, setTemplates] = useState<TestTemplate[]>([]);
   const [sources, setSources] = useState<LabSource[]>([]);
+  // Review fix (#106): each change that can alter coverage starts a new draft revision. A
+  // preview belongs to the revision and program version it was asked for: a late answer for an
+  // earlier draft is ignored, and a preview is shown (and can be confirmed) only while both match.
+  const [revision, setRevision] = useState(0);
+  const revisionRef = useRef(0);
   // What the line would freeze (ALL/Grabs/SPT, from the server); [] for a Specific line.
-  const [preview, setPreview] = useState<CoverageUnit[] | null>(null);
+  const [stored, setStored] = useState<{
+    revision: number;
+    version: number;
+    units: CoverageUnit[];
+  } | null>(null);
+  const preview =
+    stored && stored.revision === revision && stored.version === version ? stored.units : null;
+  const setPreview = (units: CoverageUnit[] | null, forRevision = revisionRef.current) =>
+    setStored(units === null ? null : { revision: forRevision, version, units });
   const [discrepancy, setDiscrepancy] = useState<DepthDiscrepancy | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [key, setKey] = useState(newKey);
@@ -385,11 +404,18 @@ function AddTestingLine({
       onDone(problemText(result));
       return;
     }
-    setProblem(
-      result.kind === 'conflict'
-        ? 'This program changed since you opened it. Close the amendment and open it again.'
-        : problemText(result),
-    );
+    if (result.kind === 'conflict') {
+      // Review fix (#106): the program moved on (another amendment, a close). Load its current
+      // state through the parent so the next attempt sends the new version; the draft stays and
+      // any preview made against the old version is dropped.
+      setPreview(null);
+      onRefresh?.();
+      setProblem(
+        'This program changed since you opened it. Its latest version has been loaded: check the line and preview it again.',
+      );
+      return;
+    }
+    setProblem(problemText(result));
   }
 
   async function showPreview() {
@@ -398,14 +424,17 @@ function AddTestingLine({
       setPreview([]);
       return;
     }
+    const draft = revisionRef.current;
     const result = await send([PREVIEW_PROBE_UNIT_ID]);
-    if (!result.ok && result.kind === 'conflict' && result.coverageChanged) {
-      setPreview(result.coverageChanged[0]?.coverage ?? []);
-      return;
-    }
     if (result.ok) {
       reset();
       onDone(null);
+      return;
+    }
+    // The line changed while the preview was on its way: this answer is for an earlier draft.
+    if (revisionRef.current !== draft) return;
+    if (result.kind === 'conflict' && result.coverageChanged) {
+      setPreview(result.coverageChanged[0]?.coverage ?? [], draft);
       return;
     }
     refused(result);
@@ -413,14 +442,16 @@ function AddTestingLine({
 
   async function confirm() {
     if (preview === null) return;
+    const draft = revisionRef.current;
     const result = await send(preview.filter((u) => u.included).map((u) => u.storageUnitId));
     if (result.ok) {
       reset();
       onDone(null);
       return;
     }
+    if (revisionRef.current !== draft) return;
     if (result.kind === 'conflict' && result.coverageChanged) {
-      setPreview(result.coverageChanged[0]?.coverage ?? []);
+      setPreview(result.coverageChanged[0]?.coverage ?? [], draft);
       setProblem(
         'The material for this line changed since the preview (for example a new receipt or a disposal). Check the updated coverage and add the line again.',
       );
@@ -452,7 +483,9 @@ function AddTestingLine({
           onChange={(change) => {
             // Acknowledging a depth keeps the preview; any other change needs a fresh one.
             if (Object.keys(change).some((field) => field !== 'acknowledgedDepths')) {
-              setPreview(null);
+              revisionRef.current += 1;
+              setRevision(revisionRef.current);
+              setStored(null);
               setDiscrepancy(null);
             }
             setLine((current) => ({ ...current, ...change }));

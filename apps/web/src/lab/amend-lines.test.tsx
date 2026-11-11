@@ -10,6 +10,8 @@ import { AmendProgram } from './AmendmentControls';
 
 const PROJECT = '00000000-0000-4000-8000-000000000201';
 const HOLE = '00000000-0000-4000-8000-000000000301';
+const HOLE_B = '00000000-0000-4000-8000-000000000302';
+const B_UNIT = '00000000-0000-4000-8000-000000000501';
 const TICKED = '00000000-0000-4000-8000-000000000401';
 const UNTICKED = '00000000-0000-4000-8000-000000000402';
 const LATER = '00000000-0000-4000-8000-000000000403';
@@ -73,18 +75,24 @@ function json(status: number, body: unknown): Response {
 }
 
 /** `amend` answers each POST in turn; everything else is the catalogue and TH26-01's units. */
-function stubFetch(amend: Response[]) {
+function stubFetch(amend: (Response | Promise<Response>)[]) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/amend') && init?.method === 'POST') return amend.shift()!;
     if (url.startsWith('/api/test-catalogue')) return json(200, catalogue);
     if (url.startsWith('/api/test-templates')) return json(200, []);
+    if (url.includes(HOLE_B) && url.endsWith('/units')) {
+      return json(200, [unit(B_UNIT, 'BKT-2026-000201')]);
+    }
     if (url.endsWith('/units')) {
       // The server offers only available units: a destroyed or disposed tube is never listed.
       return json(200, [unit(TICKED, 'BKT-2026-000101'), unit(UNTICKED, 'BKT-2026-000102')]);
     }
     if (url.includes('/lab-sources')) {
-      return json(200, [{ kind: 'test_hole', id: HOLE, label: 'TH26-01', unitCount: 2 }]);
+      return json(200, [
+        { kind: 'test_hole', id: HOLE, label: 'TH26-01', unitCount: 2 },
+        { kind: 'test_hole', id: HOLE_B, label: 'TH26-02', unitCount: 1 },
+      ]);
     }
     return json(404, {});
   });
@@ -198,5 +206,86 @@ describe('Add a testing line (MM-T83)', () => {
     await user.click(screen.getByRole('checkbox', { name: /BKT-2026-000102/ }));
     expect(screen.queryByRole('region', { name: 'Preview of new line 2' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Preview line' })).toBeEnabled();
+  });
+});
+
+describe('Add a testing line: stale versions and previews (review fixes, PR #106)', () => {
+  const coverageOf = (...units: ReturnType<typeof covered>[]) =>
+    json(409, { code: 'coverage_changed', lines: [{ index: 0, coverage: units }] });
+
+  it('refreshes the program on a version conflict, and the retry sends the new version', async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    let version = 4;
+    const view = (onRefresh: () => void) => (
+      <AmendProgram
+        program={program}
+        work={
+          {
+            lifecycle: { canAmend: true, version, amendments: [], identityRevisions: [] },
+          } as unknown as ProgramWork
+        }
+        onDone={onDone}
+        onRefresh={onRefresh}
+      />
+    );
+    // Another tab amended the program: version 4 is stale, the refresh loads version 5.
+    const onRefresh = vi.fn(() => {
+      version = 5;
+      rerender(view(onRefresh));
+    });
+    const fetchMock = stubFetch([
+      json(409, { code: 'version_conflict' }),
+      coverageOf(covered(TICKED, 'BKT-2026-000101', true)),
+      json(201, { programId: program.id, amendmentId: 'a2', version: 6 }),
+    ]);
+    const { rerender } = render(view(onRefresh));
+    await fillGrabsLine(user);
+    await user.click(screen.getByRole('button', { name: 'Preview line' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/latest version has been loaded/);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    // The draft is kept: preview it again and add it without closing anything.
+    await user.click(screen.getByRole('button', { name: 'Preview line' }));
+    await screen.findByRole('region', { name: 'Preview of new line 2' });
+    await user.click(screen.getByRole('button', { name: 'Add line 2' }));
+    expect(onDone).toHaveBeenCalledWith(null);
+    expect(amendBodies(fetchMock).map((body) => body.version)).toEqual([4, 5, 5]);
+  });
+
+  it("ignores a late preview for an earlier draft: A's units never appear under B", async () => {
+    const user = userEvent.setup();
+    let answerA: (response: Response) => void = () => undefined;
+    const fetchMock = stubFetch([
+      new Promise<Response>((resolve) => {
+        answerA = resolve;
+      }),
+      coverageOf(covered(B_UNIT, 'BKT-2026-000201', true)),
+      json(201, { programId: program.id, amendmentId: 'a3', version: 5 }),
+    ]);
+    render(<AmendProgram program={program} work={work(true)} onDone={vi.fn()} />);
+    await fillGrabsLine(user);
+    await user.click(screen.getByRole('button', { name: 'Preview line' }));
+    // While A's preview is on its way, the line moves to source B.
+    const card = screen.getByRole('region', { name: 'New line 2' });
+    await user.selectOptions(within(card).getByLabelText('Sampling source'), 'TH26-02 — 1 unit');
+    answerA(coverageOf(covered(TICKED, 'BKT-2026-000101', true)));
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Preview line' })).toBeEnabled(),
+    );
+    expect(screen.queryByRole('region', { name: 'Preview of new line 2' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/BKT-2026-000101 received so far/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add line 2' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Preview line' }));
+    const preview = await screen.findByRole('region', { name: 'Preview of new line 2' });
+    expect(preview).toHaveTextContent('Covers BKT-2026-000201 received so far.');
+    expect(preview).not.toHaveTextContent('BKT-2026-000101');
+    await user.click(screen.getByRole('button', { name: 'Add line 2' }));
+    const [, probeB, confirmed] = amendBodies(fetchMock);
+    expect(probeB.addLines[0].source).toMatchObject({ id: HOLE_B });
+    expect(confirmed.addLines[0]).toMatchObject({
+      source: { kind: 'test_hole', id: HOLE_B },
+      reviewedCoverageUnitIds: [B_UNIT],
+    });
   });
 });
