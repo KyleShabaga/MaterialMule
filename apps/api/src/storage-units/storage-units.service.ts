@@ -61,6 +61,7 @@ interface DetailRow {
   id: string;
   readable_id: string;
   unit_type: StorageUnitDetail['unitType'];
+  core_run_count: number | null;
   status: StorageUnitDetail['status'];
   note: string | null;
   received_date: string;
@@ -94,7 +95,7 @@ export async function getStorageUnitDetail(
   const unit = await findUnit(pool, idOrCode);
   if (!unit) return null;
   const { rows } = await pool.query<DetailRow>(
-    `SELECT su.id, su.readable_id, su.unit_type, su.status, su.note,
+    `SELECT su.id, su.readable_id, su.unit_type, su.core_run_count, su.status, su.note,
             su.received_date::text AS received_date, su.version,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
@@ -121,6 +122,7 @@ export async function getStorageUnitDetail(
     id: row.id,
     readableId: row.readable_id,
     unitType: row.unit_type,
+    coreRunCount: row.core_run_count,
     status: row.status,
     note: row.note,
     receivedDate: row.received_date,
@@ -186,7 +188,8 @@ interface HistoryRow {
  * Audit history of a unit, newest first and paged: its own events, its receipt's confirmation
  * and, for a bulk soil bucket, its current group's creation and identity corrections (MM-T36).
  * MTR-59 adds the retention holds and extensions that cover it (its own units-scope ones and
- * its project's project-wide ones: placed, extended, released) and the lab programs and test
+ * its project's project-wide ones still in force when it entered inventory or placed later:
+ * placed, extended, released) and the lab programs and test
  * requests that cover it (frozen program scope, or a completion linked to it).
  * Print jobs have their own section (print history, MM-T15).
  *
@@ -206,12 +209,18 @@ export async function getStorageUnitHistory(
       SELECT 'storage_unit', $1::uuid
       UNION SELECT 'receipt', $2::uuid
       UNION SELECT 'bulk_group', $3::uuid WHERE $3::uuid IS NOT NULL
+      -- A project-wide hold or extension covers the unit only if it was still in force when the
+      -- unit entered inventory (or came later); one released before then never applied to it.
       UNION SELECT 'retention_hold', h.id FROM retention_hold h
             WHERE h.project_id = $4 AND h.scope = 'project'
+              AND (h.released_at IS NULL
+                   OR h.released_at >= (SELECT su.created_at FROM storage_unit su WHERE su.id = $1))
       UNION SELECT 'retention_hold', hu.hold_id FROM retention_hold_unit hu
             WHERE hu.storage_unit_id = $1
       UNION SELECT 'retention_extension', x.id FROM retention_extension x
             WHERE x.project_id = $4 AND x.scope = 'project'
+              AND (x.released_at IS NULL
+                   OR x.released_at >= (SELECT su.created_at FROM storage_unit su WHERE su.id = $1))
       UNION SELECT 'retention_extension', xu.extension_id FROM retention_extension_unit xu
             WHERE xu.storage_unit_id = $1
       UNION SELECT 'lab_program', s.program_id FROM program_scope_snapshot s

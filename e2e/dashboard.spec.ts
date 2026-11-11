@@ -35,7 +35,7 @@ test('shows a unit just received, opens it by ID, and fits the screen', async ({
   const table = recent.getByRole('table', { name: 'Recently received storage units' });
   const row = table.locator('tbody tr').filter({ hasText: id });
   await expect(row).toBeVisible();
-  for (const text of ['DEMO-2601', 'TH26-01: ALL', 'Receiving lab', 'by AT']) {
+  for (const text of ['DEMO-2601', 'TH26-01: All samples', 'Receiving lab', 'by AT']) {
     await expect(row).toContainText(text);
   }
   await expect(page.getByRole('region', { name: 'Recent activity' })).toBeVisible();
@@ -70,7 +70,7 @@ test('admins see the label printer card from system status', async ({ page }) =>
   // one drops a job on purpose, so only the shape is fixed here; the states are unit tested.
   await expect(
     printer.getByText(
-      /^(Printer OK|Printer not responding|Check the printer|Not used yet|Printer off|No default printer)$/,
+      /^(Printer OK|Printer not responding|Printer needs attention|Check the printer|Not used yet|Printer off|No default printer)$/,
     ),
   ).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);

@@ -9,6 +9,7 @@ import {
   formatSampleDraft,
   newBulkChoice,
   unitHeadline,
+  unitKindOf,
   unitName,
   withHoles,
   withUnitKind,
@@ -17,7 +18,9 @@ import {
   type ReceiptDraft,
   type SampleDraft,
   type UnitDraft,
+  type UnitKind,
 } from './draft';
+import { CoreRunsField } from './CoreRunsField';
 import { SampleFields } from './SampleFields';
 import { SummaryEditor } from './SummaryEditor';
 import { TestHolePicker } from './TestHolePicker';
@@ -30,10 +33,11 @@ export type BulkGroupsState =
   | { state: 'ready'; groups: BulkGroupSummary[] };
 
 /**
- * One storage unit row (MM-T10, MM-T36): its physical holder (Bucket or Shelby tube), then what
- * it holds. An ordinary bucket lists its test holes with one summary each; a bucket marked Bulk
- * soil sample holds one bulk sample (new, or an existing one of the project) and nothing else; a
- * Shelby tube has its own sampling source. Never asks for individual samples.
+ * One storage unit row (MM-T10, MM-T36): its physical holder (Bucket, Shelby tube or Core box),
+ * then what it holds. An ordinary bucket lists its test holes with one summary each (All samples
+ * by default); a bucket marked Bulk soil sample holds one bulk sample (new, or an existing one of
+ * the project) and nothing else; a Shelby tube has its own sampling source; a core box belongs to
+ * one test hole and holds 1–3 runs (3 by default). Never asks for individual samples.
  */
 export function UnitEditor({
   unit,
@@ -69,7 +73,8 @@ export function UnitEditor({
   const headingId = `unit-${unit.clientRowId}-heading`;
   const holesError = errors.get(`${path}.holeSummaries`);
   const receipt = draft ?? { units: [unit] };
-  const kind = unit.unitType === 'shelby_tube' ? 'shelby_tube' : unit.bulk ? 'bulk' : 'bucket';
+  const kind = unitKindOf(unit);
+  const coreBox = kind === 'core_box';
   const sampleProps = { projectId, projectNumber, receiverUserId, online, errors };
 
   return (
@@ -106,15 +111,13 @@ export function UnitEditor({
                 value={unit.unitType}
                 onChange={(e) =>
                   onChange((current) =>
-                    withUnitKind(
-                      current,
-                      e.target.value === 'shelby_tube' ? 'shelby_tube' : 'bucket',
-                    ),
+                    withUnitKind(current, e.target.value as Exclude<UnitKind, 'bulk'>),
                   )
                 }
               >
                 <option value="bucket">Bucket</option>
                 <option value="shelby_tube">Shelby tube</option>
+                <option value="core_box">Core box</option>
               </select>
             )}
           </FormField>
@@ -140,7 +143,7 @@ export function UnitEditor({
           ) : null}
         </div>
 
-        {kind === 'bucket' ? (
+        {kind === 'bucket' || coreBox ? (
           <>
             <div id={fieldId(`${path}.holeSummaries`)}>
               {projectId ? (
@@ -148,7 +151,10 @@ export function UnitEditor({
                   key={projectId}
                   projectId={projectId}
                   selected={unit.summaries.map((summary) => summary.testHole)}
-                  onChange={(holes) => onChange((current) => withHoles(current, holes))}
+                  // A core box belongs to one test hole: choosing another replaces it.
+                  onChange={(holes) =>
+                    onChange((current) => withHoles(current, coreBox ? holes.slice(-1) : holes))
+                  }
                   query={unit.holeQuery}
                   onQueryChange={(holeQuery) => onChange((current) => ({ ...current, holeQuery }))}
                   receiverUserId={receiverUserId}
@@ -183,6 +189,15 @@ export function UnitEditor({
                 }
               />
             ))}
+
+            {coreBox ? (
+              <CoreRunsField
+                id={fieldId(`${path}.coreRunCount`)}
+                value={unit.coreRunCount}
+                error={errors.get(`${path}.coreRunCount`)}
+                onChange={(coreRunCount) => onChange((current) => ({ ...current, coreRunCount }))}
+              />
+            ) : null}
           </>
         ) : null}
 

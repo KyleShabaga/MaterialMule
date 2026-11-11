@@ -89,6 +89,39 @@ describe.runIf(testDatabaseUrl)('team self-join with lead acceptance (MISC-07)',
     expect(requested.map((e) => e.action)).toEqual(['project_team_join_request.requested']);
   });
 
+  it('review fix (#118): a key replays only on its own project; reusing it on another is 409', async () => {
+    const a = await insertProject(h.db.pool, 'MISC07-118A', h.users.pe);
+    const b = await insertProject(h.db.pool, 'MISC07-118B', h.users.pe);
+    const to = (project: string, key: string) =>
+      h.send('post', `/api/projects/${project}/team-join-requests`, { idempotencyKey: key }, 'js');
+    const requests = async (project: string) =>
+      (
+        await h.db.pool.query<{ request_idempotency_key: string; status: string }>(
+          `SELECT request_idempotency_key, status FROM project_team_join_request
+           WHERE project_id = $1 AND user_id = $2`,
+          [project, h.users.js],
+        )
+      ).rows;
+    const key = newKey();
+    expect((await to(a, key)).status).toBe(201);
+    const replay = await to(a, key);
+    expect(replay.status).toBe(201);
+    expect(projectTeamJoinRequestsSchema.parse(replay.body).mine).toMatchObject({
+      status: 'pending',
+    });
+    const reused = await to(b, key);
+    expect(reused.status, JSON.stringify(reused.body)).toBe(409);
+    expect(reused.body.code).toBe('idempotency_key_reused');
+    // B is unchanged and A keeps its one original request.
+    expect(await requests(b)).toEqual([]);
+    const { rows: onB } = await h.db.pool.query(
+      'SELECT 1 FROM project_team_member WHERE project_id = $1 AND user_id = $2',
+      [b, h.users.js],
+    );
+    expect(onB).toEqual([]);
+    expect(await requests(a)).toEqual([{ request_idempotency_key: key, status: 'pending' }]);
+  });
+
   it('LAB, the lead and anyone not active cannot ask', async () => {
     expect((await join('lab')).status).toBe(403);
     expect((await join('disabled')).status).toBe(401);

@@ -6,14 +6,14 @@ runner in `apps/api/src/db/migrator.ts` (MM-T02).
 
 ## Commands
 
-| Command                                             | What it does                                                                                                      |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `npm run db:migrate`                                | Apply pending migrations, then load reference data (Receiving lab)                                                |
-| `npm run db:seed:dev`                               | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod         |
-| `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                   |
-| `npm run db:seed:demo`                              | Load demo data through the running dev API (needs `ENABLE_TEST_AUTH=true`); see README "Demo data"                |
-| `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only) |
-| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test, database name containing `test`)               |
+| Command                                             | What it does                                                                                                                     |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate`                                | Apply pending migrations, then load reference data (Receiving lab)                                                               |
+| `npm run db:seed:dev`                               | Load fictional fixtures (DEMO-2601, TH26-01/02, 7 test identities, 2 pending applicants). Refused in prod                        |
+| `npm run db:reset:dev`                              | Re-apply the dev fixtures without changing IDs or audit (same as `db:seed:dev`)                                                  |
+| `npm run db:seed:demo`                              | Load demo data through the running dev API (needs `ENABLE_TEST_AUTH=true`); see README "Demo data"                               |
+| `npm run db:rebuild:dev -- --disposable <database>` | Drop and rebuild a disposable development database: baseline, reference data, fixtures (APP_ENV=development only)                |
+| `npm run db:reset:test`                             | Drop and rebuild the test database from `.env.test` (APP_ENV=test, database `materialmule_test` or `materialmule_test_<suffix>`) |
 
 In production, run the compiled CLI instead: `node apps/api/dist/db/cli.js migrate`.
 
@@ -112,9 +112,16 @@ it is not permission to reset a deployed database, and forward-only migrations r
   it is idempotent. Proven in `apps/api/src/db/roles.test.ts` (runs where the test database user
   is a superuser, as in CI). Steps: [operations runbook](operations/runbook.md).
 - The app role is denied `UPDATE`, `DELETE` and `TRUNCATE` on every append-only history table,
-  not only `audit_event`: each table with a row trigger running `audit_event_is_append_only`,
-  `movement_history_is_append_only` or `lab_append_only` (found when `setup-roles` runs). The
-  triggers already block those changes; the grants are a second layer.
+  not only `audit_event`. The tables come from a fixed inventory in the code
+  (`APPEND_ONLY_TABLES` in `apps/api/src/db/roles.ts`), not only from their triggers, so a dropped
+  or disabled trigger never brings back `UPDATE` or `DELETE` when `setup-roles` runs again (review
+  fix #102); any other table with a row trigger running `audit_event_is_append_only`,
+  `movement_history_is_append_only` or `lab_append_only` is covered too. The triggers block those
+  changes; the grants are a second layer. A migration that adds an append-only table adds it to
+  the inventory (`security-check.test.ts` compares the two). The security check's
+  `append-only-triggers` line fails, per table, when an expected trigger is missing, disabled,
+  replica-only, runs another function or no longer covers `UPDATE`/`DELETE` (`TRUNCATE` for
+  `audit_event_no_truncate`).
   `node apps/api/dist/db/cli.js security-check --app-role <name> --migration-role <name>
 [--backup-role <name>]` (read-only, connected as the app role) reports the roles, privileges and
   server settings; see the runbook's [Security check](operations/runbook.md#security-check).
@@ -155,9 +162,26 @@ Key rules enforced by the database:
 - **One project per storage unit (D12).** `storage_unit_hole_summary` references both
   `storage_unit (project_id, id)` and `test_hole (project_id, id)` with the same `project_id`, so a
   summary can't join a unit to another project's test hole.
-- **One summary per test hole per unit**, each shaped by type: ALL (no fields), sample range
-  (from + to), depth range (from ≤ to, both ≥ 0, unit `ft` or `m`, stored as `numeric(8,2)`),
-  Custom (non-blank text).
+- **One summary per test hole per unit**, each shaped by type: All samples (`all`, no fields),
+  sample range (from + to), depth range (from ≤ to, both ≥ 0, unit `ft` or `m`, stored as
+  `numeric(8,2)`), Custom (non-blank text). About 95% of buckets hold all of a hole's samples
+  (Kyle, 2026-11-10), so receiving and corrections start every newly chosen hole at All samples;
+  a range or Custom text is the exception. Stored values never changed for it: `all` has always
+  existed, only its default and its label ("All samples", formerly "ALL") are new.
+- **Core boxes (migration 0037, Kyle 2026-11-10).** `unit_type = 'core_box'` in a `core_box`
+  holder, issued a `CRE-` ID when received as one. A core box belongs to exactly one test hole
+  (its one ordinary hole summary, All samples by default) and holds `core_run_count` runs of
+  1.52 m: 1, 2 or 3 (1.52, 3.04 or 4.56 m). A full box is 3 runs, the default; usually only a
+  hole's last box holds fewer. Checks: `storage_unit_core_run_count_check` (1–3),
+  `storage_unit_core_runs_by_type_check` (a core box has a count, no other unit has one), the
+  type/holder and contents checks (no own source, no bulk group), and the deferred constraint
+  trigger `storage_unit_core_box_one_test_hole` (exactly one hole summary at commit, so receiving
+  and a correction can replace it inside the transaction; it locks the unit row first with
+  `FOR NO KEY UPDATE`, which never blocks foreign-key checks on it). The run
+  count is a current value, corrected like the type; a disposed box's runs are final
+  (`storage_unit_disposed_core_runs_final`). Lab coverage, labels and search treat a core box as
+  they treat a bucket (`hole_summary` basis; never tracked like a Shelby tube). Proven in
+  `apps/api/src/db/schema-core-box.test.ts`. No existing row changed: no unit had the type.
 - **Storage unit IDs** match `^(CT|BKT|ST|CRE)-YYYY-NNNNNN$`. The prefix must match the physical
   holder at issue (`BKT` bucket, `ST` Shelby tube, `CRE` core box, `CT` generic), and the year
   must match `issued_year`. A trigger makes `readable_id`, `id_prefix`, `issued_year` and
@@ -256,8 +280,9 @@ Key rules enforced by the database:
 3. Insert the receipt with `ON CONFLICT (idempotency_key) DO NOTHING`. A concurrent request with
    the same key waits on the unique index until the first commits, then finds its row and replays.
 4. Allocate typed IDs (`allocateStorageUnitIds`, one block per holder kind, in submitted order),
-   insert units at Receiving lab (`in_stock`) and their hole summaries, and audit
-   `receipt.confirmed` plus one `storage_unit.created` per unit, all on the same client.
+   insert units at Receiving lab (`in_stock`) and their hole summaries (a core box: exactly one,
+   with its `coreRunCount`, 1–3), and audit `receipt.confirmed` plus one `storage_unit.created`
+   per unit, all on the same client.
 
 `READ COMMITTED` is enough: ID allocation serialises on the counter row lock held until commit,
 the key is a unique constraint, the rows validated (project, test hole, user) aren't changed by
@@ -296,8 +321,12 @@ sorted and paged on the server (default 25, max 100, with the total).
 ## Storage unit corrections (MM-T13)
 
 `PATCH /api/storage-units/:id` (`apps/api/src/storage-units/corrections`, readable ID or UUID)
-corrects a confirmed unit's type, received date, project, test holes and summaries, and note
-(D45–D47) with `{version, reason, changes}`. Personal and test accounts only
+corrects a confirmed unit's type, received date, project, test holes and summaries, note and a
+core box's runs (D45–D47) with `{version, reason, changes}`. Type may be set to Bucket or Core
+box: a core box needs `coreRunCount` (400 `required`) and exactly one test hole (422
+`core_box_one_test_hole`); runs on any other unit are 422 `not_a_core_box`, and a core box set
+back to Bucket loses its runs. The issued ID never changes, so a BKT- bucket corrected to a core
+box keeps its BKT- ID. Personal and test accounts only
 (`storage_unit.correct`); LAB gets 403. No migration: the schema already allows it.
 
 - **Never changed:** the readable ID, prefix, issue year and issued holder (the identity trigger
@@ -872,6 +901,21 @@ owns which fields: [concrete.md](concrete.md).
   0015's shape check compares the version with `BETWEEN`, which a NULL turns UNKNOWN (accepted), so
   an issued report could lose the pointer to its last issue. Proven in
   `apps/api/src/db/schema-concrete.test.ts`.
+
+## Printer contact on print jobs (review fixes, `0036_print_job_printer_contact.sql`)
+
+- `print_job.last_contact_at` / `last_contact_result` (`sent`, `not_sent`, `uncertain`) /
+  `last_contact_error` / `last_contact_printer_message`: the job's latest attempt that actually
+  reached for the printer (a transport send, or a send interrupted by a restart). A refusal
+  before sending (unit disposed, label not preparable) leaves them as they were, so a job's
+  local failure never hides its earlier connection refusal (#124).
+- `print_job.first_failed_contact_at`: the job's first unsuccessful contact. System status
+  measures a printer's failure period from it, never from when the job was queued (#119).
+- `print_job_last_contact_shape`: a contact has a time and a result or neither, a successful
+  contact carries no error or printer message, and the first failed contact is no later than the
+  last (the worker writes the last contact as `greatest(now(), first_failed_contact_at)`, so a
+  clock stepped back between retries can't make a save fail). Existing jobs are backfilled from what the old summary counted as an attempt. Proven in
+  `apps/api/src/db/schema-print-contact.test.ts`.
 
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 

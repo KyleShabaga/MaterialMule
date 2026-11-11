@@ -266,6 +266,89 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
     expect(receipt[0]).toEqual({ quantity: 1 });
   });
 
+  it('core boxes: CRE- IDs on one test hole with 3 or fewer runs (Kyle, 2026-11-10)', async () => {
+    const box = (clientRowId: string, coreRunCount: number) => ({
+      clientRowId,
+      unitType: 'core_box' as const,
+      coreRunCount,
+      holeSummaries: [{ testHoleId: th02, type: 'all' as const }],
+    });
+    const response = await post(twoBuckets({ units: [box('box-1', 3), box('box-2', 2)] }));
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    const result = confirmReceiptResponseSchema.parse(response.body);
+    expect(result.units.map((u) => u.suNumber)).toEqual([
+      expect.stringMatching(/^CRE-\d{4}-\d{6}$/),
+      expect.stringMatching(/^CRE-\d{4}-\d{6}$/),
+    ]);
+    const { rows } = await db.pool.query(
+      `SELECT su.unit_type, su.holder_kind, su.issued_holder_kind, su.core_run_count,
+              (SELECT count(*)::int FROM storage_unit_hole_summary h
+               WHERE h.storage_unit_id = su.id) AS holes
+       FROM storage_unit su WHERE su.id = ANY($1::uuid[]) ORDER BY su.receipt_line`,
+      [result.units.map((u) => u.storageUnitId)],
+    );
+    expect(rows).toEqual([
+      {
+        unit_type: 'core_box',
+        holder_kind: 'core_box',
+        issued_holder_kind: 'core_box',
+        core_run_count: 3,
+        holes: 1,
+      },
+      {
+        unit_type: 'core_box',
+        holder_kind: 'core_box',
+        issued_holder_kind: 'core_box',
+        core_run_count: 2,
+        holes: 1,
+      },
+    ]);
+  });
+
+  it('core boxes: refuses a box without runs, with 4 runs or on two test holes', async () => {
+    const before = await snapshot();
+    const twoHoles = {
+      clientRowId: 'box',
+      unitType: 'core_box' as const,
+      coreRunCount: 3,
+      holeSummaries: [
+        { testHoleId: th01, type: 'all' as const },
+        { testHoleId: th02, type: 'all' as const },
+      ],
+    };
+    const response = await post(
+      twoBuckets({
+        units: [
+          { ...twoHoles, clientRowId: 'no-runs', coreRunCount: undefined },
+          {
+            ...twoHoles,
+            clientRowId: 'four',
+            coreRunCount: 4,
+            holeSummaries: [twoHoles.holeSummaries[0]!],
+          },
+          twoHoles,
+          {
+            clientRowId: 'bucket-runs',
+            unitType: 'bucket',
+            coreRunCount: 3,
+            holeSummaries: [{ testHoleId: th01, type: 'all' }],
+          },
+        ],
+      }),
+    );
+    expect(response.status).toBe(400);
+    const fields = (response.body.errors as { field: string }[]).map((e) => e.field);
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        'units.0.coreRunCount',
+        'units.1.coreRunCount',
+        'units.2.holeSummaries',
+        'units.3.coreRunCount',
+      ]),
+    );
+    expect(await snapshot()).toEqual(before);
+  });
+
   it('AC2 (T4): a failure after the first unit insert leaves nothing behind', async () => {
     // Fail the second storage unit insert, i.e. after the first unit (and its summary) exist.
     await db.pool.query(`

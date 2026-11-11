@@ -36,6 +36,7 @@ export function summaryPayload(s: SummaryDraft) {
 const FIELD_LABEL: Record<string, string> = {
   reason: 'Reason',
   unitType: 'Type',
+  coreRunCount: 'Core runs',
   receivedDate: 'Received date',
   projectId: 'Project',
   note: 'Note',
@@ -72,8 +73,14 @@ export function messageFor(error: FieldError): string {
       ? 'Project not found. Choose it again.'
       : 'Choose the new project, or keep the current one.';
   }
+  if (key === 'holeSummaries' && error.code === 'core_box_one_test_hole') {
+    return 'A core box belongs to exactly one test hole.';
+  }
   if (key === 'holeSummaries') return 'Choose at least one test hole in the project.';
-  if (key === 'type') return 'Choose a summary type: ALL, Sample range, Depth range or Custom.';
+  if (key === 'coreRunCount') return 'Choose 1, 2 or 3 core runs.';
+  if (key === 'type') {
+    return 'Choose a summary type: All samples, Sample range, Depth range or Custom.';
+  }
   if (key === 'depthUnit') return 'Choose ft or m.';
   if (key === 'depthTo' && error.code === 'depth_range_reversed') {
     return 'Depth to must be greater than or equal to depth from.';

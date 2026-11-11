@@ -2,6 +2,7 @@ import {
   currentLocationName,
   SAMPLING_SOURCE_TYPE_LABEL,
   describeStorageUnitCorrection,
+  formatCoreRuns,
   formatDepth,
   formatPerson,
   formatStorageUnitHoleSummary,
@@ -323,6 +324,9 @@ function StorageUnitDetail() {
                   </ul>
                 </Detail>
               )}
+              {unit.coreRunCount ? (
+                <Detail term="Core runs">{formatCoreRuns(unit.coreRunCount)}</Detail>
+              ) : null}
               <Detail term="Storage unit note">{unit.note ?? 'None'}</Detail>
             </dl>
           </BandedCard>

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { BandedCard, ConfirmDialog, EmptyState, PageHeader, StatusBadge } from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { ProjectFilter } from '../inventory/ProjectFilter';
+import { fetchProject } from '../inventory/api';
 import { approveUnits, fetchCandidates, revokeApproval } from './api';
 import { ReadyForDisposal } from './ReadyForDisposal';
 import { ConcreteReadyForDisposal } from '../concrete/holds/ConcreteReadyForDisposal';
@@ -24,6 +25,27 @@ export function DisposalPage() {
   const [tick, setTick] = useState(0);
   const [chosen, setChosen] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
+  // Review fix (#120): the route's project can change without the picker (the "Approve in
+  // project" link, Back/Forward, a direct URL). Selections and the confirmation belong to the
+  // project they were made in, so both are dropped whenever the route's project changes.
+  const [selectionProject, setSelectionProject] = useState(projectId);
+  if (selectionProject !== projectId) {
+    setSelectionProject(projectId);
+    setChosen([]);
+    setConfirming(false);
+  }
+  // The picker label comes from the route's project identity, never from a previous pick.
+  const selectedProject = project && project.id === projectId ? project : null;
+  useEffect(() => {
+    if (!projectId || selectedProject) return;
+    let cancelled = false;
+    void fetchProject(projectId).then((response) => {
+      if (!cancelled && response.ok) setProject(response.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, selectedProject]);
   const [notice, setNotice] = useState<string | null>(null);
   const [key, setKey] = useState(() => crypto.randomUUID());
   // MM-V2-C26 (owner decision 2026-11-08): concrete specimens join Ready for disposal behind a
@@ -66,7 +88,9 @@ export function DisposalPage() {
     setChosen([]);
     setTick((n) => n + 1);
   };
-  const shown = projectId ? data : null;
+  // Only a result for the route's project is shown or approvable: while another project's load
+  // is in flight, the previous project's units are hidden and nothing can be approved.
+  const shown = projectId && data?.projectId === projectId ? data : null;
   const eligible = shown?.units.filter((u) => u.eligible) ?? [];
   const approved = shown?.units.filter((u) => u.approval) ?? [];
   const others = shown?.units.filter((u) => !u.eligible && !u.approval && !u.retentionExempt) ?? [];
@@ -82,6 +106,7 @@ export function DisposalPage() {
 
   async function approve() {
     setConfirming(false);
+    if (selected.length === 0) return;
     const outcome = await approveUnits(
       selected.map((u) => u.storageUnitId),
       key,
@@ -113,7 +138,7 @@ export function DisposalPage() {
         <ConcreteReadyForDisposal filter={typeFilter} />
       )}
       <ProjectFilter
-        selected={project}
+        selected={selectedProject}
         selectedId={projectId}
         onSelect={(next) => {
           setProject(next);
@@ -127,6 +152,7 @@ export function DisposalPage() {
           Choose a project to approve its units or see why others aren’t eligible.
         </EmptyState>
       ) : null}
+      {projectId && !shown ? <p className="field-hint">Loading…</p> : null}
       {shown ? (
         <>
           <p className="field-hint" aria-label="Units shown">
@@ -251,7 +277,7 @@ export function DisposalPage() {
         </>
       ) : null}
       <ConfirmDialog
-        open={confirming}
+        open={confirming && shown !== null && selected.length > 0}
         title={`Approve ${selected.length} for disposal?`}
         confirmLabel="Approve"
         onCancel={() => setConfirming(false)}

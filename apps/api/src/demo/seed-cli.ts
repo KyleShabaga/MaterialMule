@@ -183,7 +183,7 @@ const PROJECTS: ProjectSpec[] = [
     name: 'North Ridge subdivision',
     client: 'Example Homes Ltd',
     lead: 'pe',
-    holes: ['TH26-01', 'TH26-02', 'TH26-03', 'TH26-04'],
+    holes: ['TH26-01', 'TH26-02', 'TH26-03', 'TH26-04', 'TH26-05', 'TH26-06', 'TH26-07'],
     team: ['at', 'js-tech'],
   },
   {
@@ -191,7 +191,7 @@ const PROJECTS: ProjectSpec[] = [
     name: 'Highway 12 widening',
     client: 'Sample Roads Ltd',
     lead: 'de',
-    holes: ['BH26-01', 'BH26-02', 'BH26-03'],
+    holes: ['BH26-01', 'BH26-02', 'BH26-03', 'BH26-04'],
     team: ['at'],
   },
   {
@@ -207,7 +207,7 @@ const PROJECTS: ProjectSpec[] = [
     name: 'Downtown parkade',
     client: 'Fictional Developments Inc.',
     lead: 'pe',
-    holes: ['TH25-01', 'TH25-02', 'TH25-03'],
+    holes: ['TH25-01', 'TH25-02', 'TH25-03', 'TH25-04', 'TH25-05', 'TH25-06'],
     team: [],
   },
   {
@@ -305,19 +305,16 @@ const samples = (testHoleId: string, sampleFrom: string, sampleTo: string) => ({
   sampleFrom,
   sampleTo,
 });
-const depths = (testHoleId: string, depthFrom: number, depthTo: number, depthUnit: 'ft' | 'm') => ({
-  testHoleId,
-  type: 'depth_range',
-  depthFrom,
-  depthTo,
-  depthUnit,
-});
-const custom = (testHoleId: string, customText: string) => ({
-  testHoleId,
-  type: 'custom',
-  customText,
-});
 const bucket = (...holeSummaries: Json[]): UnitInput => ({ unitType: 'bucket', holeSummaries });
+/** A core box of one test hole: 3 runs (4.56 m) unless it is a hole's short last box. */
+const coreBox = (testHoleId: string, coreRunCount = 3): UnitInput => ({
+  unitType: 'core_box',
+  coreRunCount,
+  holeSummaries: [all(testHoleId)],
+});
+/** A hole's core boxes in order: every box full, the last one holding `lastRuns`. */
+const coreBoxes = (testHoleId: string, boxes: number, lastRuns = 3): UnitInput[] =>
+  Array.from({ length: boxes }, (_, i) => coreBox(testHoleId, i === boxes - 1 ? lastRuns : 3));
 const tube = (
   testHoleId: string,
   sampleReference: string,
@@ -377,12 +374,12 @@ async function receiveAll(as: Record<FixtureKey, Actor>, p: Record<string, Proje
   const units = {
     // Downtown parkade: received over a year ago, so retention has lapsed (disposal candidates).
     parkade: await receive(r, pk, 430, 'at', 'Parkade investigation - spring program', [
-      bucket(samples(h(pk, 'TH25-01'), 'G1', 'G8')),
-      bucket(samples(h(pk, 'TH25-01'), 'G9', 'S14')),
+      bucket(all(h(pk, 'TH25-01'))),
       bucket(all(h(pk, 'TH25-02'))),
-      bucket(depths(h(pk, 'TH25-03'), 0, 3, 'm')),
-      bucket(depths(h(pk, 'TH25-03'), 3, 6.5, 'm')),
-      bucket(custom(h(pk, 'TH25-02'), 'Fill material, east wall')),
+      bucket(all(h(pk, 'TH25-03'))),
+      bucket(all(h(pk, 'TH25-04'))),
+      bucket(all(h(pk, 'TH25-05'))),
+      bucket(all(h(pk, 'TH25-06'))),
     ]),
     parkadeTubes: await receive(r, pk, 425, 'js-tech', 'Parkade Shelby tubes', [
       tube(h(pk, 'TH25-01'), 'T1', 10, 12),
@@ -390,14 +387,15 @@ async function receiveAll(as: Record<FixtureKey, Actor>, p: Record<string, Proje
     ]),
     // North Ridge: the main active project.
     northRidge1: await receive(r, nr, 75, 'at', 'North Ridge phase 1 drilling', [
-      bucket(samples(h(nr, 'TH26-01'), 'G1', 'G6')),
-      bucket(samples(h(nr, 'TH26-01'), 'G7', 'S12'), all(h(nr, 'TH26-02'))),
-      bucket(samples(h(nr, 'TH26-02'), 'G1', 'G10')),
+      bucket(all(h(nr, 'TH26-01'))),
+      // A mixed-hole bucket: two short holes in one bucket.
+      bucket(all(h(nr, 'TH26-02')), all(h(nr, 'TH26-05'))),
+      bucket(all(h(nr, 'TH26-06'))),
       bucket(all(h(nr, 'TH26-03'))),
     ]),
     northRidge2: await receive(r, nr, 40, 'js-tech', 'North Ridge phase 2 drilling', [
-      bucket(samples(h(nr, 'TH26-04'), 'G1', 'G5')),
-      bucket(samples(h(nr, 'TH26-04'), 'G6', 'G11')),
+      bucket(all(h(nr, 'TH26-04'))),
+      bucket(all(h(nr, 'TH26-07'))),
       tube(h(nr, 'TH26-03'), 'T3', 7.5, 9.5),
       tube(h(nr, 'TH26-04'), 'T1', 5, 7),
     ]),
@@ -427,16 +425,16 @@ async function receiveAll(as: Record<FixtureKey, Actor>, p: Record<string, Proje
     ),
     // Highway 12.
     highway: await receive(r, hw, 55, 'js-tech', 'Highway 12 boreholes', [
-      bucket(depths(h(hw, 'BH26-01'), 0, 10, 'ft')),
-      bucket(depths(h(hw, 'BH26-01'), 10, 25, 'ft')),
-      bucket(depths(h(hw, 'BH26-02'), 0, 15, 'ft')),
+      bucket(all(h(hw, 'BH26-01'))),
+      bucket(all(h(hw, 'BH26-04'))),
+      bucket(all(h(hw, 'BH26-02'))),
       bucket(all(h(hw, 'BH26-03'))),
       tube(h(hw, 'BH26-02'), 'T4', 20, 22),
     ]),
     // Water treatment plant.
     wtp: await receive(r, wtp, 18, 'at', 'WTP clarifier foundation', [
-      bucket(samples(h(wtp, 'BH26-101'), 'SS1', 'SS8')),
-      bucket(samples(h(wtp, 'BH26-102'), 'SS1', 'SS6')),
+      bucket(all(h(wtp, 'BH26-101'))),
+      bucket(all(h(wtp, 'BH26-102'))),
       tube(h(wtp, 'BH26-101'), 'ST2', 12, 14),
       tube(h(wtp, 'BH26-102'), 'ST1', 8, 10),
     ]),
@@ -448,11 +446,21 @@ async function receiveAll(as: Record<FixtureKey, Actor>, p: Record<string, Proje
     ]),
     airport2: await receive(r, ap, 2, 'at', 'Apron test pits, day 2', [
       bucket(all(h(ap, 'TP26-04'))),
-      bucket(all(h(ap, 'TP26-05')), custom(h(ap, 'TP26-03'), 'Extra base course from TP26-03')),
+      bucket(all(h(ap, 'TP26-05'))),
     ]),
-    // Culvert project with no lead yet.
+    // Culvert project with no lead yet. The one bucket holding only some of a hole's samples:
+    // about 95% of buckets hold All samples of their test holes (Kyle, 2026-11-10).
     culvert: await receive(r, cv, 1, 'js-tech', 'Culvert site grab samples', [
       bucket(samples(h(cv, 'TH26-01'), 'G1', 'G4')),
+    ]),
+    // Rock core (Kyle, 2026-11-10): boxes of 3 runs (4.56 m), the last box of a hole sometimes
+    // fewer; 19 of these 20 boxes are full.
+    wtpCore: await receive(r, wtp, 16, 'js-tech', 'WTP clarifier bedrock core', [
+      ...coreBoxes(h(wtp, 'BH26-101'), 7),
+      ...coreBoxes(h(wtp, 'BH26-102'), 6, 2),
+    ]),
+    highwayCore: await receive(r, hw, 50, 'at', 'Highway 12 bridge abutment core', [
+      ...coreBoxes(h(hw, 'BH26-03'), 7),
     ]),
   };
   const count = Object.values(units).reduce((n, list) => n + list.length, 0);
@@ -563,32 +571,36 @@ async function ensureProgram(
 
 const READY_HOLE = 'BH25-201';
 const BLOCKED_HOLE = 'BH25-202';
+// One bucket per hole, as most buckets are: All samples of the hole.
+const READY_HOLE_2 = 'BH25-203';
+const RECENT_HOLE = 'BH25-204';
+const EXTENDED_HOLE = 'BH25-205';
 const READY_HOLD_REASON = 'Client dispute - keep until settled';
 const READY_EXTENSION_REASON = 'Owner asked to keep this bucket another year';
 
 /**
- * Units on DEMO-2612 (lead Jamie Song, so other engineers see them but can't approve) on two
- * holes no program covers. Dates are relative to the seed date: received 395 days ago, so their
- * one-year retention has passed (3 ready, including an untested Shelby tube, which follows the
- * normal rules), one on hold, one extended a year; and one received 120 days ago, still under
- * retention. Every step reuses what an earlier run made.
+ * Units on DEMO-2612 (lead Jamie Song, so other engineers see them but can't approve) on
+ * BH25-2xx holes no program covers, one bucket per hole. Dates are relative to the seed date:
+ * received 395 days ago, so their one-year retention has passed (3 ready, including an untested
+ * Shelby tube, which follows the normal rules), one on hold, one extended a year; and one
+ * received 120 days ago, still under retention. Every step reuses what an earlier run made.
  */
 async function seedDisposalExamples(as: Record<FixtureKey, Actor>, project: Project) {
-  for (const name of [READY_HOLE, BLOCKED_HOLE]) {
+  for (const name of [READY_HOLE, BLOCKED_HOLE, READY_HOLE_2, RECENT_HOLE, EXTENDED_HOLE]) {
     project.holes[name] ??= (await as.admin.post(`/projects/${project.id}/test-holes`, { name }))
       .id as string;
   }
   const ready = project.holes[READY_HOLE]!;
   const blocked = project.holes[BLOCKED_HOLE]!;
   const past = await receive(as.at, project, 395, 'at', 'Retention examples - past retention', [
-    bucket(samples(ready, 'G1', 'G4')),
-    bucket(samples(ready, 'G5', 'G9')),
+    bucket(all(ready)),
+    bucket(all(project.holes[READY_HOLE_2]!)),
     tube(ready, 'T1', 6, 8),
     bucket(all(blocked)),
-    bucket(custom(blocked, 'Archive bucket, client copy')),
+    bucket(all(project.holes[EXTENDED_HOLE]!)),
   ]);
   const recent = await receive(as.at, project, 120, 'js-tech', 'Retention examples - recent', [
-    bucket(samples(ready, 'G10', 'G12')),
+    bucket(all(project.holes[RECENT_HOLE]!)),
   ]);
   const retention = await as.lab.get(`/projects/${project.id}/retention`);
   if (!(retention.holds as Json[]).some((h) => h.reason === READY_HOLD_REASON)) {
@@ -664,6 +676,8 @@ async function main(): Promise<void> {
     [u.wtp.slice(0, 2), ['STG-A']],
     [u.wtp.slice(2), ['LAB-ADV']],
     [u.airport.slice(0, 1), ['STG-A']],
+    [u.wtpCore, ['WH-D1']],
+    [u.highwayCore, ['WH-C3']],
   ];
   let moved = 0;
   for (const [units, codes] of moves) {

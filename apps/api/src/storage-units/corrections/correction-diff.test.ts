@@ -22,6 +22,7 @@ const hole = (
 
 const current: CorrectableValues = {
   unitType: 'bucket',
+  coreRunCount: null,
   receivedDate: '2026-10-23',
   project: { id: 'p1', projectNumber: 'DEMO-2601' },
   sample: null,

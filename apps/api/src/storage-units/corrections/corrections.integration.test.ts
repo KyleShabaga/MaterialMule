@@ -517,4 +517,85 @@ describe.runIf(testDatabaseUrl)('storage unit corrections API (MM-T13)', () => {
     );
     expect(rows).toEqual([{ test_hole_id: holes.a1 }]);
   });
+  it('core boxes: a bucket becomes a core box with its runs; runs are corrected later', async () => {
+    const unit = await addUnit();
+    let current = await detail(unit.id);
+
+    // Without runs it can't be a core box.
+    const noRuns = await patch(unit.id, {
+      version: current.version,
+      reason: 'it is a core box',
+      changes: { unitType: 'core_box' },
+    });
+    expect(noRuns.status).toBe(400);
+    expect(noRuns.body.errors).toEqual([
+      expect.objectContaining({ field: 'changes.coreRunCount', code: 'required' }),
+    ]);
+
+    const toBox = await patch(unit.id, {
+      version: current.version,
+      reason: 'it is a core box',
+      changes: { unitType: 'core_box', coreRunCount: 3 },
+    });
+    expect(toBox.status, JSON.stringify(toBox.body)).toBe(200);
+    current = storageUnitDetailSchema.parse(toBox.body);
+    // The issued BKT- ID never changes.
+    expect(current).toMatchObject({
+      unitType: 'core_box',
+      coreRunCount: 3,
+      readableId: unit.readableId,
+    });
+
+    const twoRuns = await patch(unit.id, {
+      version: current.version,
+      reason: 'last box of the hole',
+      changes: { coreRunCount: 2 },
+    });
+    expect(twoRuns.status, JSON.stringify(twoRuns.body)).toBe(200);
+    current = storageUnitDetailSchema.parse(twoRuns.body);
+    expect(current.coreRunCount).toBe(2);
+    expect((await history(unit.id)).items[0]).toMatchObject({
+      before: { coreRunCount: 3 },
+      after: { coreRunCount: 2 },
+    });
+
+    // A core box belongs to exactly one test hole.
+    const twoHoles = await patch(unit.id, {
+      version: current.version,
+      reason: 'two holes',
+      changes: {
+        holeSummaries: [
+          { testHoleId: holes.a1, type: 'all' },
+          { testHoleId: holes.a2, type: 'all' },
+        ],
+      },
+    });
+    expect(twoHoles.status).toBe(422);
+    expect(twoHoles.body.code).toBe('core_box_one_test_hole');
+
+    // Back to a bucket: its runs go.
+    const toBucket = await patch(unit.id, {
+      version: current.version,
+      reason: 'it was a bucket after all',
+      changes: { unitType: 'bucket' },
+    });
+    expect(toBucket.status, JSON.stringify(toBucket.body)).toBe(200);
+    expect(storageUnitDetailSchema.parse(toBucket.body)).toMatchObject({
+      unitType: 'bucket',
+      coreRunCount: null,
+    });
+  });
+
+  it('core boxes: runs are refused on a unit that is not a core box', async () => {
+    const unit = await addUnit();
+    const before = await detail(unit.id);
+    const response = await patch(unit.id, {
+      version: before.version,
+      reason: 'runs on a bucket',
+      changes: { coreRunCount: 3 },
+    });
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe('not_a_core_box');
+    expect(await detail(unit.id)).toEqual(before);
+  });
 });

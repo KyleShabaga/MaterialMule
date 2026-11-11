@@ -12,6 +12,7 @@ interface InventoryRow {
   id: string;
   readable_id: string;
   unit_type: InventoryItem['unitType'];
+  core_run_count: number | null;
   status: InventoryItem['status'];
   received_date: string;
   project_id: string;
@@ -40,7 +41,7 @@ export async function queryInventory(
   const limitParam = `$${sql.params.length + 1}`;
   const offsetParam = `$${sql.params.length + 2}`;
   const { rows } = await pool.query<InventoryRow>(
-    `SELECT su.id, su.readable_id, su.unit_type, su.status, su.received_date::text AS received_date,
+    `SELECT su.id, su.readable_id, su.unit_type, su.core_run_count, su.status, su.received_date::text AS received_date,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
             tr.reason AS tested_removal_reason,
@@ -67,6 +68,7 @@ export async function queryInventory(
       id: row.id,
       readableId: row.readable_id,
       unitType: row.unit_type,
+      coreRunCount: row.core_run_count,
       status: row.status,
       receivedDate: row.received_date,
       project: {

@@ -1,6 +1,10 @@
 import {
   bulkGroupOptionLabel,
   confirmReceiptRequestSchema,
+  CORE_RUN_COUNTS,
+  DEFAULT_CORE_RUN_COUNT,
+  formatCoreRuns,
+  type CoreRunCount,
   toFieldErrors,
   type BulkGroupSummary,
   type ConfirmReceiptRequestInput,
@@ -20,7 +24,10 @@ import {
 
 export interface SummaryDraft {
   testHole: TestHole;
-  /** Empty until the receiver chooses; there is no default summary type. */
+  /**
+   * All samples (`all`) by default: most buckets hold every sample of the test hole (Kyle,
+   * 2026-11-10). Empty only in drafts saved before that default.
+   */
   type: HoleSummaryType | '';
   sampleFrom: string;
   sampleTo: string;
@@ -68,12 +75,14 @@ export type BulkChoice =
 
 export interface UnitDraft {
   clientRowId: string;
-  /** Physical holder: Bucket (default) or Shelby tube (MM-T36). */
+  /** Physical holder: Bucket (default), Shelby tube (MM-T36) or core box. */
   unitType: ReceiptUnitType;
   note: string;
   holeQuery: string;
-  /** Ordinary buckets: one SAMPLE#/DEPTH summary per test hole. */
+  /** Ordinary buckets: one SAMPLE#/DEPTH summary per test hole. Core boxes: exactly one. */
   summaries: SummaryDraft[];
+  /** Core boxes only: runs of 1.52 m, 3 (4.56 m) by default. */
+  coreRunCount: CoreRunCount;
   /** Buckets only: holds a bulk soil sample, whose identity replaces hole summaries. */
   bulk: boolean;
   bulkChoice: BulkChoice;
@@ -117,7 +126,7 @@ export function todayInEdmonton(now = new Date()): string {
 export function newSummary(testHole: TestHole): SummaryDraft {
   return {
     testHole,
-    type: '',
+    type: 'all',
     sampleFrom: '',
     sampleTo: '',
     depthFrom: '',
@@ -170,10 +179,19 @@ export function newUnit(): UnitDraft {
     note: '',
     holeQuery: '',
     summaries: [],
+    coreRunCount: DEFAULT_CORE_RUN_COUNT,
     bulk: false,
     bulkChoice: newBulkChoice(),
     tube: emptySample(),
   };
+}
+
+/** The holder and contents a row describes, as the holder picker offers them. */
+export type UnitKind = 'bucket' | 'bulk' | 'shelby_tube' | 'core_box';
+
+export function unitKindOf(unit: UnitDraft): UnitKind {
+  if (unit.unitType === 'shelby_tube' || unit.unitType === 'core_box') return unit.unitType;
+  return unit.bulk ? 'bulk' : 'bucket';
 }
 
 /**
@@ -190,11 +208,15 @@ export function normalizeUnit(unit: Partial<UnitDraft> & { clientRowId: string }
   return {
     ...blank,
     ...unit,
-    unitType: unit.unitType === 'shelby_tube' ? 'shelby_tube' : 'bucket',
+    unitType:
+      unit.unitType === 'shelby_tube' || unit.unitType === 'core_box' ? unit.unitType : 'bucket',
     note: typeof unit.note === 'string' ? unit.note : '',
     holeQuery: typeof unit.holeQuery === 'string' ? unit.holeQuery : '',
     summaries: Array.isArray(unit.summaries) ? unit.summaries : [],
-    bulk: unit.unitType !== 'shelby_tube' && unit.bulk === true,
+    coreRunCount: (CORE_RUN_COUNTS as readonly unknown[]).includes(unit.coreRunCount)
+      ? unit.coreRunCount!
+      : DEFAULT_CORE_RUN_COUNT,
+    bulk: unit.unitType === 'bucket' && unit.bulk === true,
     bulkChoice:
       choice?.kind === 'new'
         ? {
@@ -215,15 +237,20 @@ export function normalizeUnit(unit: Partial<UnitDraft> & { clientRowId: string }
  * Changes the holder or contents. What the old choice entered is dropped, never kept hidden: a
  * bulk soil bucket's identity replaces hole summaries, and a tube's source replaces both.
  */
-export function withUnitKind(unit: UnitDraft, kind: 'bucket' | 'bulk' | 'shelby_tube'): UnitDraft {
-  const current = unit.unitType === 'shelby_tube' ? 'shelby_tube' : unit.bulk ? 'bulk' : 'bucket';
+export function withUnitKind(unit: UnitDraft, kind: UnitKind): UnitDraft {
+  const current = unitKindOf(unit);
   if (current === kind) return unit;
+  // Bucket ↔ core box keep the chosen test hole (a core box keeps only one).
+  const keepHoles =
+    (current === 'bucket' || current === 'core_box') && (kind === 'bucket' || kind === 'core_box');
+  const summaries = keepHoles ? unit.summaries : [];
   return {
     ...unit,
-    unitType: kind === 'shelby_tube' ? 'shelby_tube' : 'bucket',
+    unitType: kind === 'shelby_tube' || kind === 'core_box' ? kind : 'bucket',
     bulk: kind === 'bulk',
     holeQuery: '',
-    summaries: [],
+    summaries: kind === 'core_box' ? summaries.slice(0, 1) : summaries,
+    coreRunCount: DEFAULT_CORE_RUN_COUNT,
     bulkChoice: newBulkChoice(),
     tube: emptySample(),
   };
@@ -366,6 +393,7 @@ export function formatUnitCount(count: number): string {
 export const UNIT_TYPE_LABEL: Record<UnitDraft['unitType'], string> = {
   bucket: 'Bucket',
   shelby_tube: 'Shelby tube',
+  core_box: 'Core box',
 };
 
 /** "Bucket", "Bucket · Bulk soil sample" or "Shelby tube". */
@@ -376,18 +404,18 @@ export function unitKindLabel(unit: UnitDraft): string {
 }
 
 export const SUMMARY_TYPE_LABEL: Record<HoleSummaryType, string> = {
-  all: 'ALL',
+  all: 'All samples',
   sample_range: 'Sample range',
   depth_range: 'Depth range',
   custom: 'Custom',
 };
 
-/** "G1–S12", "0–10.5 m", "ALL": depths exactly as entered, in the unit chosen. */
+/** "G1–S12", "0–10.5 m", "All samples": depths exactly as entered, in the unit chosen. */
 export function formatSummaryValue(summary: SummaryDraft): string {
   const or = (text: string) => text.trim() || '…';
   switch (summary.type) {
     case 'all':
-      return 'ALL';
+      return 'All samples';
     case 'sample_range':
       return `${or(summary.sampleFrom)}–${or(summary.sampleTo)}`;
     case 'depth_range':
@@ -404,8 +432,9 @@ export function unitName(index: number, unit: UnitDraft): string {
 }
 
 /**
- * "Bucket 1 · TH26-01: G1–S12 · TH26-02: ALL", "Shelby tube 2 · TH26-21: T5" or
- * "Bucket 3 · Bulk soil sample · TH26-21: B1 at 1.5–2 m".
+ * "Bucket 1 · TH26-01: G1–S12 · TH26-02: All samples", "Shelby tube 2 · TH26-21: T5",
+ * "Bucket 3 · Bulk soil sample · TH26-21: B1 at 1.5–2 m" or
+ * "Core box 4 · TH26-01: All samples · 3 runs · 4.56 m".
  */
 export function unitHeadline(
   index: number,
@@ -419,7 +448,9 @@ export function unitHeadline(
     parts = ['Bulk soil sample', bulkChoiceText(draft, unit)];
   } else {
     parts = unit.summaries.map((s) => `${s.testHole.name}: ${formatSummaryValue(s)}`);
-    if (parts.length === 0) parts = ['no test holes yet'];
+    if (parts.length === 0)
+      parts = [unit.unitType === 'core_box' ? 'no test hole yet' : 'no test holes yet'];
+    if (unit.unitType === 'core_box') parts.push(formatCoreRuns(unit.coreRunCount));
   }
   return [unitName(index, unit), ...parts].join(' · ');
 }
@@ -482,6 +513,7 @@ function unitContents(draft: ReceiptDraft, unit: UnitDraft) {
         : {}),
       ...(s.type === 'custom' ? { customText: s.customText } : {}),
     })),
+    ...(unit.unitType === 'core_box' ? { coreRunCount: unit.coreRunCount } : {}),
   };
 }
 
@@ -605,16 +637,21 @@ function messageFor(error: FieldError): string {
         ? 'Add at least one storage unit.'
         : `${label} ${error.message}.`;
     case 'holeSummaries':
-      return error.code === 'not_allowed'
-        ? 'This unit has a sampling source instead of test-hole summaries.'
-        : 'Choose at least one test hole.';
+      if (error.code === 'not_allowed') {
+        return 'This unit has a sampling source instead of test-hole summaries.';
+      }
+      if (error.message.includes('core box'))
+        return 'Choose the core box’s test hole (exactly one).';
+      return 'Choose at least one test hole.';
+    case 'coreRunCount':
+      return 'Choose 1, 2 or 3 core runs.';
     case 'depthFrom':
       if (error.code === 'required' && !error.field.includes('.holeSummaries.')) {
         return 'Enter the depth (or the top of the depth interval).';
       }
       break;
     case 'type':
-      return 'Choose a summary type: ALL, Sample range, Depth range or Custom.';
+      return 'Choose a summary type: All samples, Sample range, Depth range or Custom.';
     case 'depthUnit':
       return 'Choose ft or m.';
     case 'customText':

@@ -646,7 +646,105 @@ function Get-MaterialMuleFolderPermissionPlan {
     return $plan
 }
 
-# --- Database exposure checks (read-only) -------------------------------------------------------------
+function Get-MaterialMuleBackupAccountRecordPath {
+    # Admins-only (config\admin), so the backup account can't change which identity is removed.
+    param([Parameter(Mandatory)]$Config)
+    return Join-Path $Config.AdminConfigDir 'backup-account.txt'
+}
+
+function Update-MaterialMuleBackupAccountAccess {
+    <#
+    .SYNOPSIS
+    Gives the backup account its read rules on <InstallRoot> and config\ (Get-MaterialMuleBackupAccountRules)
+    and removes the same installer-managed rules of a former backup account (review fix #101).
+    .DESCRIPTION
+    The former account is the one recorded in config\admin\backup-account.txt by the last run, and
+    -PreviousBackupAccount (for hosts set up before the record existed). Only the exact rule the
+    installer added is removed (same identity, rights, inheritance and propagation); any other
+    permission, for that account or anyone else, is left alone. Explicit rules of the same shape for
+    any other identity are reported, not removed: if one is a former backup account, re-run with
+    -PreviousBackupAccount. Returns those warnings.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$BackupAccount,
+        [string]$PreviousBackupAccount
+    )
+    $warnings = [System.Collections.Generic.List[string]]::new()
+    $record = Get-MaterialMuleBackupAccountRecordPath -Config $Config
+    $newSid = ConvertTo-MaterialMuleSid $BackupAccount
+    $former = [System.Collections.Generic.List[string]]::new()
+    $candidates = @($PreviousBackupAccount)
+    if (Test-Path -LiteralPath $record -PathType Leaf) {
+        $candidates += @(Get-Content -LiteralPath $record | ForEach-Object { $_.Trim() })
+    }
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        $sid = ConvertTo-MaterialMuleSid $candidate
+        if ($sid -ne $newSid -and $sid -notin $former) { $former.Add($sid) }
+    }
+    # Identities the Permissions step itself grants: never reported as stray backup rules.
+    $planned = @('BUILTIN\Administrators', 'NT AUTHORITY\SYSTEM', [string]$Config.ServiceAccount) |
+        ForEach-Object { ConvertTo-MaterialMuleSid $_ }
+
+    $rules = Get-MaterialMuleBackupAccountRules -Config $Config -BackupAccount $BackupAccount
+    foreach ($dir in $rules.Keys) {
+        $rule = $rules[$dir]
+        $scope = if ($rule.InheritanceFlags -eq 'ObjectInherit') { 'the folder and the files directly in it' } else { 'the folder and everything in it' }
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+            if ($WhatIfPreference) {
+                $PSCmdlet.ShouldProcess($dir, "add permission ($scope) $($rule.IdentityReference): $($rule.FileSystemRights)") | Out-Null
+                continue
+            }
+            throw "$dir not found; run the Folders and Permissions steps first"
+        }
+        $info = [System.IO.DirectoryInfo]::new($dir)
+        $acl = [System.IO.FileSystemAclExtensions]::GetAccessControl($info, [System.Security.AccessControl.AccessControlSections]::Access)
+        $changed = $false
+        foreach ($sid in $former) {
+            $identity = if ($sid -match '^S-1-') { [System.Security.Principal.SecurityIdentifier]::new($sid) } else { $null }
+            if (-not $identity) {
+                $warnings.Add("Former backup account $sid could not be resolved; check $dir by hand")
+                continue
+            }
+            $old = [System.Security.AccessControl.FileSystemAccessRule]::new(
+                $identity, $rule.FileSystemRights, $rule.InheritanceFlags, $rule.PropagationFlags, 'Allow')
+            if ($PSCmdlet.ShouldProcess($dir, "remove permission ($scope) of former backup account $(Format-MaterialMuleIdentity $sid): $($rule.FileSystemRights)")) {
+                # Removes only these rights with these flags; the account's other rules stay.
+                if ($acl.RemoveAccessRule($old)) { $changed = $true }
+            }
+        }
+        if ($PSCmdlet.ShouldProcess($dir, "add permission ($scope) $($rule.IdentityReference): $($rule.FileSystemRights)")) {
+            $acl.AddAccessRule($rule)
+            $changed = $true
+        }
+        if ($changed) { [System.IO.FileSystemAclExtensions]::SetAccessControl($info, $acl) }
+
+        # Explicit rules of the managed shape for someone else: possibly an unrecorded former
+        # backup account. Reported only, so permissions IT added on purpose are never lost.
+        $expectedRights = [int]$rule.FileSystemRights
+        $synchronize = [int][System.Security.AccessControl.FileSystemRights]::Synchronize
+        $current = [System.IO.FileSystemAclExtensions]::GetAccessControl($info, [System.Security.AccessControl.AccessControlSections]::Access)
+        foreach ($existing in $current.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {
+            $sid = $existing.IdentityReference.Value
+            if ($existing.AccessControlType -ne 'Allow' -or $sid -eq $newSid -or $sid -in $planned) { continue }
+            if ($existing.InheritanceFlags -ne $rule.InheritanceFlags -or $existing.PropagationFlags -ne $rule.PropagationFlags) { continue }
+            if (([int]$existing.FileSystemRights -band -bnot $synchronize) -ne ($expectedRights -band -bnot $synchronize)) { continue }
+            $warnings.Add("$dir`: $(Format-MaterialMuleIdentity $sid) still has the backup account's read permission; if it is a former backup account, re-run with -PreviousBackupAccount '$(Format-MaterialMuleIdentity $sid)'")
+        }
+    }
+    if ($PSCmdlet.ShouldProcess($record, "record $BackupAccount as the backup account")) {
+        if (Test-Path -LiteralPath $Config.AdminConfigDir -PathType Container) {
+            Set-Content -LiteralPath $record -Value $newSid -Encoding utf8NoBOM
+        } else {
+            $warnings.Add("$($Config.AdminConfigDir) not found; the backup account was not recorded")
+        }
+    }
+    return , $warnings.ToArray()
+}
+
+# --- Database exposure checks (read-only)-------------------------------------------------------------
 
 function Test-MaterialMuleDatabaseExposure {
     <#
@@ -919,7 +1017,7 @@ function Get-MaterialMuleDatabaseUrlUser {
 Export-ModuleMember -Function Invoke-MaterialMuleLogRotation, Test-MaterialMuleDatabaseExposure, Get-MaterialMuleHostConfig, Write-DeployLog, Read-MaterialMuleRelease,
     Test-MaterialMulePgHbaAuthMethod, Get-MaterialMuleDatabaseFirewallRule, ConvertTo-MaterialMuleSid,
     Get-MaterialMuleAclRules, Test-MaterialMuleAcl, Get-MaterialMuleAclExpectation, Read-MaterialMuleEnvFile,
-    Get-MaterialMuleDatabaseUrlUser,
+    Get-MaterialMuleDatabaseUrlUser, Update-MaterialMuleBackupAccountAccess, Get-MaterialMuleBackupAccountRecordPath,
     Get-MaterialMuleCurrentVersion, Set-MaterialMuleCurrentRelease, Get-MaterialMuleDeployState,
     Save-MaterialMuleDeployState, Remove-OldMaterialMuleReleases, Stop-MaterialMuleApp, Start-MaterialMuleApp,
     Invoke-MaterialMuleMigration, Invoke-MaterialMuleBackup, Wait-MaterialMuleHealthy, Invoke-MaterialMuleDeploy,

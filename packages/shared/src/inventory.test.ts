@@ -39,7 +39,7 @@ describe('inventory query (MM-T12)', () => {
       { page: '0' },
       { projectId: 'DEMO-2601' },
       { status: 'lost' },
-      { type: 'core_box' },
+      { type: 'core_tray' },
       { receivedFrom: '2026-13-01' },
       { sort: 'project' },
     ]) {
@@ -117,7 +117,7 @@ describe('inventory query (MM-T12)', () => {
       depthUnit: null,
       customText: null,
     } as const;
-    expect(formatStorageUnitHoleSummary({ ...empty, type: 'all' })).toBe('ALL');
+    expect(formatStorageUnitHoleSummary({ ...empty, type: 'all' })).toBe('All samples');
     expect(
       formatStorageUnitHoleSummary({
         ...empty,

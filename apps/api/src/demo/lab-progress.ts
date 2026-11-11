@@ -52,7 +52,9 @@ export async function bringTo(
   let reviewState = (startedAt === 'review' ? now.reviewState : null) as ReviewState | null;
   for (const step of PROGRESS.slice(PROGRESS.indexOf(startedAt) + 1, PROGRESS.indexOf(goal) + 1)) {
     const special = (line.coverage as Json[]).find(
-      (unit) => unit.included && unit.unitType !== 'bucket',
+      // Only tracked units are named as tested: never a bucket or a core box.
+      (unit) =>
+        unit.included && (unit.unitType === 'shelby_tube' || unit.unitType === 'bulk_container'),
     );
     version = (
       await crew.tech.post(`/test-requests/${test.id as string}/status`, {

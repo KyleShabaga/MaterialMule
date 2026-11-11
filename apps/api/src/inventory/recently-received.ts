@@ -53,6 +53,7 @@ interface Row {
   id: string;
   readable_id: string;
   unit_type: RecentlyReceivedItem['unitType'];
+  core_run_count: number | null;
   status: RecentlyReceivedItem['status'];
   received_date: string;
   received_at: Date;
@@ -90,7 +91,7 @@ export async function queryRecentlyReceived(
 
   const [page, counts] = await Promise.all([
     pool.query<Row>(
-      `SELECT su.id, su.readable_id, su.unit_type, su.status,
+      `SELECT su.id, su.readable_id, su.unit_type, su.core_run_count, su.status,
               su.received_date::text AS received_date, r.confirmed_at AS received_at,
               r.receiver_initials_snapshot AS receiver_initials,
               r.receiver_name_snapshot AS receiver_name,
@@ -132,6 +133,7 @@ export async function queryRecentlyReceived(
       id: row.id,
       readableId: row.readable_id,
       unitType: row.unit_type,
+      coreRunCount: row.core_run_count,
       status: row.status,
       receivedDate: row.received_date,
       receivedAt: row.received_at.toISOString(),

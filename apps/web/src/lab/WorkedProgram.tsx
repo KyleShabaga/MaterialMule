@@ -647,7 +647,15 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
       {work ? (
         <>
           <ProgramLifecycle program={program} work={work} onDone={after} />
-          <AmendProgram program={program} work={work} onDone={after} />
+          <AmendProgram
+            program={program}
+            work={work}
+            onDone={after}
+            onRefresh={() => {
+              reload();
+              refresh();
+            }}
+          />
           <PriorityControl program={program} work={work} onChanged={after} />
           {program.lines.map((line) => (
             <FrozenLine
