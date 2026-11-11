@@ -257,7 +257,9 @@ describe('Settings → Locations (MM-T37)', () => {
     const row = within(table).getByRole('row', { name: /Warehouse C1/ });
     expect(within(row).getByText('WH-C1')).toBeTruthy();
     expect(within(row).getByText('Warehouse')).toBeTruthy();
-    expect(within(row).getByText('Warehouse C')).toBeTruthy();
+    // Field Ledger: locations are grouped under their area's head, with shelf cells beside the count.
+    expect(within(table).getByRole('rowheader', { name: /^Warehouse C/ })).toBeTruthy();
+    expect(within(row).getByRole('img', { name: '3 units kept here' })).toBeTruthy();
     expect(within(row).getByText('Active')).toBeTruthy();
     expect(within(row).getByRole('link', { name: '3 units at WH-C1' }).getAttribute('href')).toBe(
       '/sample-storage?locationId=00000000-0000-4000-8000-0000000000c1',

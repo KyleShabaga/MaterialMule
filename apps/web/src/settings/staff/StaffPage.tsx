@@ -11,7 +11,6 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  BandedCard,
   ConfirmDialog,
   DataTable,
   EmptyState,
@@ -22,6 +21,7 @@ import {
   type BadgeTone,
 } from '../../components/ui';
 import { useMe } from '../../session/context';
+import { SettingsHead, SettingsSub } from '../SettingsHead';
 import { StaffApiError, listStaff, staffApi } from './api';
 import { LabAccountCard } from './LabAccountCard';
 import {
@@ -114,7 +114,7 @@ export function StaffPage() {
   if (!me.permissions.includes('staff.manage')) {
     return (
       <section aria-labelledby="staff-heading">
-        <h2 id="staff-heading">Staff &amp; access</h2>
+        <SettingsHead id="staff-heading" title="Staff & access" who="Administrators only." />
         <EmptyState>Only administrators can manage staff and access.</EmptyState>
       </section>
     );
@@ -134,7 +134,7 @@ function StaffAccess({ currentUserId }: { currentUserId: string }) {
   if (revoked) {
     return (
       <section aria-labelledby="staff-heading" className="staff">
-        <h2 id="staff-heading">Staff &amp; access</h2>
+        <SettingsHead id="staff-heading" title="Staff & access" who="Administrators only." />
         <ErrorState
           message={REVOKED_MESSAGE}
           onRetry={() => {
@@ -200,31 +200,41 @@ function StaffDirectory({
 
   return (
     <section aria-labelledby="staff-heading" className="staff">
-      <div className="section-header">
-        <h2 id="staff-heading">Staff &amp; access</h2>
-        <button type="button" className="primary" onClick={() => setAdding(true)}>
-          Add staff
-        </button>
-      </div>
+      <SettingsHead
+        id="staff-heading"
+        title="Staff & access"
+        who="Who can sign in and what each person may do. Administrators only."
+        actions={
+          <button type="button" className="primary" onClick={() => setAdding(true)}>
+            Add staff
+          </button>
+        }
+      />
       <p role="status" className="notice">
         {notice}
       </p>
       {rowError ? <ErrorState message={rowError} /> : null}
 
       {pending.state === 'ready' && pending.data.members.length > 0 ? (
-        <BandedCard
-          className="pending-staff"
-          tone="attention"
-          headingLevel={3}
-          title={`Waiting for approval (${pending.data.members.length})`}
-          aside={<StatusBadge tone="warning">Pending</StatusBadge>}
-        >
-          <ul>
+        <section className="pending-staff access-requests" aria-labelledby="pending-staff-heading">
+          <div className="access-requests-head">
+            <StatusBadge tone="waiting">Waiting</StatusBadge>
+            <h3 id="pending-staff-heading">Waiting for approval ({pending.data.members.length})</h3>
+            <span className="section-meta">
+              {pending.data.members.length === 1
+                ? '1 person'
+                : `${pending.data.members.length} people`}
+            </span>
+          </div>
+          <ul className="ledger-rows">
             {pending.data.members.map((member) => (
-              <li key={member.id}>
-                <span>
+              <li key={member.id} className="access-request">
+                <span className="access-request-who">
                   <strong>{member.displayName}</strong>
-                  {member.signInUsername ? ` · ${member.signInUsername}` : ''}
+                  <span>
+                    {member.signInUsername ?? member.workEmail ?? ''}
+                    {member.createdAt ? ` · asked ${when(member.createdAt)}` : ''}
+                  </span>
                 </span>
                 <span className="row-actions">
                   <button
@@ -246,8 +256,19 @@ function StaffDirectory({
               </li>
             ))}
           </ul>
-        </BandedCard>
+        </section>
       ) : null}
+
+      <SettingsSub
+        title="People"
+        meta={
+          list.state === 'ready'
+            ? list.data.total === 1
+              ? '1 account'
+              : `${list.data.total} accounts`
+            : undefined
+        }
+      />
 
       <div className="filters filter-bar" role="search">
         <FormField label="Search staff">
@@ -302,10 +323,15 @@ function StaffDirectory({
                 {
                   header: 'Name',
                   cell: (m) => (
-                    <>
-                      {m.displayName}
-                      {m.id === currentUserId ? ' (you)' : ''}
-                    </>
+                    <span className="person-cell">
+                      <span className="initials-block" aria-hidden="true">
+                        {m.officialInitials ?? m.displayName.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span>
+                        {m.displayName}
+                        {m.id === currentUserId ? ' (you)' : ''}
+                      </span>
+                    </span>
                   ),
                 },
                 { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },

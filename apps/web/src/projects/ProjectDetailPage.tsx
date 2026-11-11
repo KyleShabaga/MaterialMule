@@ -21,6 +21,7 @@ import { ProjectSectionNav } from './ProjectSectionNav';
 import type { ProjectLinkState } from './ProjectsPage';
 import './projects.css';
 import { usePageTitle } from '../layout/page-title';
+import { ContextRow } from '../layout/ContextRow';
 
 /** Units shown on the project page; the full list is a link to Sample Storage. */
 const PROJECT_UNITS_PAGE_SIZE = 25;
@@ -104,27 +105,51 @@ export function ProjectDetailPage() {
 
   return (
     <>
-      {back}
-      <div className="project-header">
-        <div>
-          <h1 className="project-number-heading">{project.projectNumber}</h1>
-          <p className="project-name">{project.name}</p>
+      {/* Field Ledger context row: back link and the Overview / Concrete / Team switch, then the
+          page's actions. */}
+      <ContextRow className="project-context">
+        <div className="project-context-start">
+          {back}
+          <ProjectSectionNav projectId={project.id} current="overview" />
         </div>
-        <div className="page-actions">
-          {me.permissions.includes('project_access.read') ? (
-            <Link className="button" to={`/projects/${encodeURIComponent(project.id)}/team`}>
-              Team &amp; Permissions
-            </Link>
-          ) : null}
-          {project.canEdit ? (
+        {project.canEdit ? (
+          <div className="page-actions">
             <button type="button" onClick={() => setEditing(true)}>
               Edit project
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
+      </ContextRow>
+      <div className="project-header">
+        <p className="project-caption">
+          Project ·{' '}
+          {project.leadProjectEngineer
+            ? `Lead ${project.leadProjectEngineer.displayName}`
+            : 'Waiting for a lead'}
+        </p>
+        <h1 className="project-title">
+          <span className="mono">{project.projectNumber}</span>{' '}
+          <span className="project-name">{project.name}</span>
+        </h1>
       </div>
-      {/* MM-V2-C30: Overview | Concrete. */}
-      <ProjectSectionNav projectId={project.id} current="overview" />
+      <dl className="project-counts" aria-label="Project counts">
+        <div>
+          <dt>Test holes</dt>
+          <dd>{project.testHoles.length}</dd>
+        </div>
+        <div>
+          <dt>Units in stock</dt>
+          <dd>{project.inStockUnitCount}</dd>
+        </div>
+        <div>
+          <dt>Units received</dt>
+          <dd>{project.unitCount}</dd>
+        </div>
+        <div>
+          <dt>Receipts</dt>
+          <dd>{project.receiptCount}</dd>
+        </div>
+      </dl>
       <p className={notice ? 'notice notice-success' : 'notice'} role="status">
         {notice}
       </p>

@@ -5,7 +5,8 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../../api/client';
-import { BandedCard, ErrorState, FormField } from '../../components/ui';
+import { ErrorState, FormField } from '../../components/ui';
+import { SettingsHead } from '../SettingsHead';
 import { useMe } from '../../session/context';
 import './reference-settings.css';
 
@@ -115,65 +116,84 @@ export function ReportHeaderSettingsPage() {
   };
 
   return (
-    <BandedCard title="Report header">
+    <section className="settings-page" aria-labelledby="report-header-heading">
+      <SettingsHead
+        id="report-header-heading"
+        title="Report header"
+        who="Printed at the top of every issued concrete report. Everyone can read it; administrators change it."
+      />
       <p className="field-hint">
         Printed at the top of every issued concrete report. Reports already issued keep the header
         they were issued with.
       </p>
-      <form onSubmit={submit} className="report-header-form">
-        <FormField label="Company name" required>
-          {(props) => (
-            <input
-              {...props}
-              value={form.companyName}
-              maxLength={200}
-              required
-              disabled={!canManage}
-              onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-            />
+      <div className="report-header-layout">
+        <form onSubmit={submit} className="report-header-form">
+          <FormField label="Company name" required>
+            {(props) => (
+              <input
+                {...props}
+                value={form.companyName}
+                maxLength={200}
+                required
+                disabled={!canManage}
+                onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+              />
+            )}
+          </FormField>
+          <FormField label="Address">
+            {(props) => (
+              <textarea
+                {...props}
+                value={form.address}
+                maxLength={500}
+                rows={3}
+                disabled={!canManage}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+            )}
+          </FormField>
+          <FormField label="Phone">
+            {(props) => (
+              <input
+                {...props}
+                value={form.phone}
+                maxLength={50}
+                disabled={!canManage}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            )}
+          </FormField>
+          {canManage ? (
+            <div className="page-actions">
+              <button type="submit" className="primary" disabled={saving}>
+                Save header
+              </button>
+            </div>
+          ) : (
+            <p className="field-hint">{REPORT_HEADER_NOT_ALLOWED_TEXT}</p>
           )}
-        </FormField>
-        <FormField label="Address">
-          {(props) => (
-            <textarea
-              {...props}
-              value={form.address}
-              maxLength={500}
-              rows={3}
-              disabled={!canManage}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          )}
-        </FormField>
-        <FormField label="Phone">
-          {(props) => (
-            <input
-              {...props}
-              value={form.phone}
-              maxLength={50}
-              disabled={!canManage}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          )}
-        </FormField>
-        {canManage ? (
-          <div className="page-actions">
-            <button type="submit" className="primary" disabled={saving}>
-              Save header
-            </button>
+          {message ? (
+            <p
+              className={message.tone === 'ok' ? 'field-hint' : 'field-error'}
+              role={message.tone === 'ok' ? 'status' : 'alert'}
+            >
+              {message.text}
+            </p>
+          ) : null}
+        </form>
+        <figure className="report-header-preview" aria-label="Preview of the printed header">
+          <div className="report-header-paper">
+            <p className="report-header-company">{form.companyName || 'Company name'}</p>
+            {form.address ? <p className="report-header-line">{form.address}</p> : null}
+            {form.phone ? <p className="report-header-line">{form.phone}</p> : null}
+            <p className="report-header-rule" aria-hidden="true" />
+            <p className="report-header-line">Concrete report · placeholder layout</p>
           </div>
-        ) : (
-          <p className="field-hint">{REPORT_HEADER_NOT_ALLOWED_TEXT}</p>
-        )}
-        {message ? (
-          <p
-            className={message.tone === 'ok' ? 'field-hint' : 'field-error'}
-            role={message.tone === 'ok' ? 'status' : 'alert'}
-          >
-            {message.text}
-          </p>
-        ) : null}
-      </form>
-    </BandedCard>
+          <figcaption className="field-hint">
+            On screen only. The report layout itself waits on the report templates.
+          </figcaption>
+        </figure>
+      </div>
+    </section>
   );
 }

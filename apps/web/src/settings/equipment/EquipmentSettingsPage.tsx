@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ReceiverSelect } from '../../components/ReceiverSelect';
 import { DataTable, EmptyState, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { SettingsHead } from '../SettingsHead';
 import {
   fetchEquipment,
   fetchEquipmentList,
@@ -722,6 +723,11 @@ export function EquipmentSettingsPage() {
 
   return (
     <>
+      <SettingsHead
+        id="equipment-heading"
+        title="Equipment"
+        who="The testing machine and air meters used for concrete. Everyone can read this; Lab Managers change it."
+      />
       <p role="status" className="field-hint">
         {notice ?? ''}
       </p>

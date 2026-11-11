@@ -31,6 +31,8 @@ import {
   type SubmitLabProgramRequest,
   type TestRequest,
   type UpdateLabProgramRequest,
+  testProgress,
+  type LabProgramSummary,
 } from '@materialmule/shared';
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
@@ -137,6 +139,19 @@ function lineDepth(row: LineRow): string | null {
   });
 }
 
+/**
+ * List progress (Field Ledger counted cells): a draft's tests are all not started; a submitted or
+ * closed program's tests are grouped by status (testProgress in @materialmule/shared).
+ */
+function listProgress(
+  status: string,
+  testCount: number,
+  counts: Record<string, number> | null,
+): LabProgramSummary['progress'] {
+  if (status === 'draft') return { done: 0, inProgress: 0, notStarted: testCount, cancelled: 0 };
+  return testProgress(counts ?? {});
+}
+
 function conflict(code: string, extra: Record<string, unknown> = {}): never {
   throw new ConflictException({ code, ...extra });
 }
@@ -196,7 +211,12 @@ export class LabProgramsService {
     }
     const page = Math.max(1, query.page ?? 1);
     const { rows } = await this.database.pool.query<
-      ProgramRow & { line_count: number; test_count: number; total: number }
+      ProgramRow & {
+        line_count: number;
+        test_count: number;
+        total: number;
+        status_counts: Record<string, number> | null;
+      }
     >(
       `${SELECT_PROGRAM.replace(
         'SELECT lp.*',
@@ -206,7 +226,10 @@ export class LabProgramsService {
                  JOIN test_line_test t ON t.line_id = l.id WHERE l.program_id = lp.id
                  AND lp.status = 'draft')
                 + (SELECT count(*)::int FROM test_request r WHERE r.program_id = lp.id)
-                  AS test_count`,
+                  AS test_count,
+                (SELECT json_object_agg(s.status, s.n) FROM (
+                   SELECT r.status, count(*)::int AS n FROM test_request r
+                   WHERE r.program_id = lp.id GROUP BY r.status) s) AS status_counts`,
       )}
        WHERE ${where.join(' AND ')}
        ORDER BY (lp.status = 'draft') DESC, coalesce(lp.submitted_at, lp.updated_at) DESC, lp.id
@@ -238,6 +261,7 @@ export class LabProgramsService {
         submittedAt: row.submitted_at?.toISOString() ?? null,
         lineCount: row.line_count,
         testCount: row.test_count,
+        progress: listProgress(row.status, row.test_count, row.status_counts),
       })),
     };
   }

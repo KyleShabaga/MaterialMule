@@ -3,7 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ErrorState } from '../../components/ui';
 import { useMe } from '../../session/context';
 import { StaffApiError } from '../staff/api';
+import { SettingsHead, SettingsSub } from '../SettingsHead';
+import { GLOBAL_ABILITIES } from './abilities';
 import { AccessSummaryView } from './AccessSummaryView';
+import { YesNoList } from './YesNoList';
 import { fetchMyAccess } from './api';
 
 type State =
@@ -22,7 +25,7 @@ export function MyAccessPage() {
   if (me.accountType === 'shared_lab') {
     return (
       <section aria-labelledby="my-access-heading" className="my-access">
-        <h2 id="my-access-heading">My access</h2>
+        <SettingsHead id="my-access-heading" title="My access" />
         <p className="empty-state">{LAB_TEXT}</p>
       </section>
     );
@@ -34,6 +37,7 @@ const LAB_TEXT =
   'My access is for personal accounts. The shared LAB account has no personal access; sign in with your own account to see yours.';
 
 function MyAccess() {
+  const me = useMe();
   const [page, setPage] = useState<State>({ state: 'loading' });
   const [reloads, setReloads] = useState(0);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
@@ -65,17 +69,33 @@ function MyAccess() {
 
   return (
     <section aria-labelledby="my-access-heading" className="my-access">
-      <div className="page-header">
-        <h2 id="my-access-heading">My access</h2>
-        <div className="page-actions">
+      <SettingsHead
+        id="my-access-heading"
+        title="My access"
+        who="What your account can do, and where. Read-only; an administrator changes it."
+        actions={
           <button type="button" onClick={reload}>
             Refresh
           </button>
-        </div>
-      </div>
+        }
+      />
       <p className="field-hint">
         What you can do and why: your roles, what an administrator has granted you, and your part in
         each project. Everyone can see all projects; this lists only where you have a role.
+      </p>
+      <SettingsSub title="What you can do" meta="From your roles and grants" />
+      <YesNoList
+        label="What you can do"
+        items={GLOBAL_ABILITIES.map((ability) => ({
+          key: ability.permission,
+          yes: me.permissions.includes(ability.permission),
+          what: ability.what,
+          note: ability.note,
+        }))}
+      />
+      <p className="settings-foot">
+        Concrete authority is always per project. Being an administrator or a Lab Manager does not
+        give it by itself.
       </p>
       {page.state === 'loading' ? <p role="status">Loading…</p> : null}
       {page.state === 'error' ? (

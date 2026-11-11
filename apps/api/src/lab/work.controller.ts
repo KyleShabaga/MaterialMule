@@ -6,6 +6,7 @@ import {
   type LabComment,
   type ProgramWork,
   type SameSourceUnits,
+  type UnitsToPull,
   type Worklist,
   WORKLIST_MAX_PAGE,
 } from '@materialmule/shared';
@@ -48,6 +49,13 @@ export class LabWorkController {
           ? Math.min(pageNumber, WORKLIST_MAX_PAGE)
           : 1,
     });
+  }
+
+  /** Field Ledger phone lab screen: units still to pull for open tests (read-only). */
+  @Get('worklist/units-to-pull')
+  @RequirePermission('lab_program.read')
+  unitsToPull(): Promise<UnitsToPull> {
+    return this.work.unitsToPull();
   }
 
   @Get('lab-programs/:id/work')

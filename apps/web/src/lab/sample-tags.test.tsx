@@ -128,7 +128,6 @@ afterEach(() => {
 
 describe('sample ID tags (MM-T69)', () => {
   it('selects tags with work still to do and lists what gets no tag', async () => {
-    const user = userEvent.setup();
     const fetchMock = renderTags(ok);
     expect(
       await screen.findByRole('heading', { name: /Sample ID tags.*LP-2026-0012/ }),
@@ -136,7 +135,9 @@ describe('sample ID tags (MM-T69)', () => {
     const boxes = screen.getAllByRole('checkbox', { name: /G13|G5/ });
     expect(boxes.map((box) => (box as HTMLInputElement).checked)).toEqual([true, true, false]);
     expect(screen.getByText('2 of 3 tags selected · 1 sheet')).toBeVisible();
-    await user.click(screen.getByText(/Not tagged: 2 items/));
+    // Field Ledger: both "no tag" cases are always listed, under their own headings.
+    expect(screen.getByRole('heading', { name: 'No tag needed' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'No individual sample' })).toBeVisible();
     expect(screen.getByText(/G13 · 10.0 m: Moisture Content/)).toBeVisible();
     expect(screen.getByText(/Line 2 · ALL · TH26-02: Atterberg Limits/)).toBeVisible();
     // Reading tags only ever GETs.

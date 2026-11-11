@@ -6,6 +6,7 @@ import {
 import { useEffect, useState, type FormEvent } from 'react';
 import { ErrorState, FormField } from '../../components/ui';
 import { useMe } from '../../session/context';
+import { SettingsHead } from '../SettingsHead';
 import { fetchDraftSettings, saveDraftSettings } from './api';
 
 // Settings → Receiving (MM-T45): draft auto-delete. Everyone may look; Admin and Lab Manager
@@ -77,7 +78,11 @@ function DraftAutoDeleteForm({
       noValidate
       onSubmit={(event) => void submit(event)}
     >
-      <h2 id="draft-auto-delete-heading">Receiving drafts</h2>
+      <SettingsHead
+        id="draft-auto-delete-heading"
+        title="Receiving drafts"
+        who="The draft auto-delete rule. Lab Managers and administrators change it."
+      />
       <p>
         Drafts of receipts are kept only on the computer or phone where they were started. When
         automatic clean-up is on, each computer deletes its own drafts that haven&apos;t been saved

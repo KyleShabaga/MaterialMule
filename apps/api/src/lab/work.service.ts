@@ -10,6 +10,8 @@ import {
   COMMENT_EDIT_WINDOW_MINUTES,
   OPEN_STATUSES,
   TEST_REQUEST_STATUSES,
+  UNITS_TO_PULL_LIMIT,
+  type UnitsToPull,
   WORKLIST_MAX_PAGE,
   WORKLIST_PAGE_SIZE,
   isAllowedTransition,
@@ -218,6 +220,62 @@ export class LabWorkService {
         openCount: row.open_count,
         oldestOpenSeconds:
           row.oldest_open_seconds === null ? null : Math.round(row.oldest_open_seconds),
+      })),
+    };
+  }
+
+  /**
+   * Field Ledger "to pull now": in-stock units in the included frozen coverage of a submitted
+   * program line that still has a test Requested or In progress, and not already at a lab
+   * location. Urgent first, then the oldest submission, then the ID. Reads only; coverage is
+   * potential material, so this never says a unit was or will be tested.
+   */
+  async unitsToPull(): Promise<UnitsToPull> {
+    const { rows } = await this.database.pool.query<{
+      id: string;
+      readable_id: string;
+      project_id: string;
+      project_number: string;
+      location_code: string;
+      location_name: string;
+      location_area: string | null;
+      programs: { programId: string; programNumber: string }[];
+      urgent: boolean;
+      total: number;
+    }>(
+      `WITH wanted AS (
+         SELECT DISTINCT pss.storage_unit_id, lp.id AS program_id, lp.program_number,
+                lp.priority, lp.submitted_at
+         FROM program_scope_snapshot pss
+         JOIN lab_program lp ON lp.id = pss.program_id
+         WHERE pss.included AND lp.status = 'submitted'
+           AND EXISTS (SELECT 1 FROM test_request r
+                       WHERE r.line_id = pss.line_id AND r.status IN ('requested', 'in_progress')))
+       SELECT su.id, su.readable_id, p.id AS project_id, p.project_number,
+              l.code AS location_code, l.name AS location_name, l.area AS location_area,
+              json_agg(json_build_object('programId', w.program_id,
+                                         'programNumber', w.program_number)
+                       ORDER BY w.program_number) AS programs,
+              bool_or(w.priority = 'urgent') AS urgent,
+              count(*) OVER ()::int AS total
+       FROM wanted w
+       JOIN storage_unit su ON su.id = w.storage_unit_id
+       JOIN project p ON p.id = su.project_id
+       JOIN location l ON l.id = su.current_location_id
+       WHERE su.status = 'in_stock' AND l.kind <> 'lab'
+       GROUP BY su.id, su.readable_id, p.id, p.project_number, l.code, l.name, l.area
+       ORDER BY bool_or(w.priority = 'urgent') DESC, min(w.submitted_at), su.readable_id
+       LIMIT ${UNITS_TO_PULL_LIMIT}`,
+    );
+    return {
+      total: rows[0]?.total ?? 0,
+      units: rows.map((row) => ({
+        storageUnitId: row.id,
+        readableId: row.readable_id,
+        project: { id: row.project_id, projectNumber: row.project_number },
+        location: { code: row.location_code, name: row.location_name, area: row.location_area },
+        programs: row.programs,
+        urgent: row.urgent,
       })),
     };
   }
