@@ -175,3 +175,51 @@ describe('sample ID tags (MM-T69)', () => {
     expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
   });
 });
+
+describe('sample ID tag date at print time (review fix, PR #103)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** The Date: value on every card in the preview, as the print layout would see it. */
+  const cardDates = () =>
+    [...document.querySelectorAll('.tag-card')].map(
+      (card) =>
+        [...card.querySelectorAll('.tag-field')]
+          .find((field) => field.textContent?.startsWith('Date:'))
+          ?.querySelector('.tag-value')?.textContent,
+    );
+
+  async function openBeforeMidnight() {
+    // 23:59 on 26 Oct 2026 in America/Edmonton (MDT, UTC−6). Only Date is faked: timers stay
+    // real so the page loads normally.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-27T05:59:00Z'));
+    renderTags(ok);
+    await screen.findByRole('button', { name: 'Print / Save as PDF' });
+    expect(cardDates().length).toBeGreaterThan(0);
+    expect(new Set(cardDates())).toEqual(new Set(['26-Oct-26']));
+    // The tab stays open past midnight.
+    vi.setSystemTime(new Date('2026-10-27T06:01:00Z'));
+  }
+
+  it("prints today's date from the page button after midnight", async () => {
+    const user = userEvent.setup();
+    await openBeforeMidnight();
+    const printed: (string | null | undefined)[][] = [];
+    vi.stubGlobal('print', () => printed.push(cardDates()));
+    await user.click(screen.getByRole('button', { name: 'Print / Save as PDF' }));
+    expect(printed).toEqual([cardDates()]);
+    expect(new Set(printed[0])).toEqual(new Set(['27-Oct-26']));
+  });
+
+  it("prints today's date from the browser's print command after midnight", async () => {
+    await openBeforeMidnight();
+    // A listener added after the page's runs after it, like the browser's print layout.
+    let seen: (string | null | undefined)[] = [];
+    window.addEventListener('beforeprint', () => (seen = cardDates()), { once: true });
+    window.dispatchEvent(new Event('beforeprint'));
+    expect(seen.length).toBeGreaterThan(0);
+    expect(new Set(seen)).toEqual(new Set(['27-Oct-26']));
+  });
+});
