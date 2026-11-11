@@ -1,6 +1,7 @@
 import type { ConcreteSupplier, ConcreteSupplierList, FieldError } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { SettingsHead } from '../SettingsHead';
 import { createSupplier, fetchSuppliers, updateSupplier, type SaveResult } from './api';
 import './reference-settings.css';
 
@@ -193,15 +194,19 @@ export function SuppliersSettingsPage() {
       <p role="status" className="field-hint">
         {notice ?? ''}
       </p>
-      <section className="card" aria-labelledby="suppliers-heading">
-        <div className="section-header">
-          <h2 id="suppliers-heading">Concrete suppliers</h2>
-          {canManage && editing === null ? (
-            <button type="button" onClick={() => setEditing('new')}>
-              Add a supplier
-            </button>
-          ) : null}
-        </div>
+      <section className="settings-page" aria-labelledby="suppliers-heading">
+        <SettingsHead
+          id="suppliers-heading"
+          title="Concrete suppliers"
+          who="Concrete suppliers and their plants. Everyone can read them; Lab Managers and administrators change them."
+          actions={
+            canManage && editing === null ? (
+              <button type="button" className="primary" onClick={() => setEditing('new')}>
+                Add a supplier
+              </button>
+            ) : null
+          }
+        />
         <p className="field-hint">
           The suppliers and plants a mix can link. A mix keeps the supplier and plant names it was
           entered with, and a mix number stays unique per project and supplier.
@@ -267,6 +272,10 @@ export function SuppliersSettingsPage() {
           />
         ) : null}
         {canManage ? null : <p className="field-hint">{SUPPLIERS_NOT_ALLOWED_TEXT}</p>}
+        <p className="settings-foot">
+          An inactive supplier stays on every mix that already names it. A supplier typed by hand on
+          a mix is not added here.
+        </p>
       </section>
     </>
   );
