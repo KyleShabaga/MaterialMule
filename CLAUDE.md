@@ -148,4 +148,6 @@ and the open gates). Work items are on the Notion "Material Mule V2 — Concrete
 
 - Do not use pill-shaped (fully rounded) styling for UI components; use moderate corner radii instead.
 
+- When a decision comes up, choose the recommended option yourself, keep working until the task is complete, and record each choice in a note.
+
 <!-- end claude-reflect -->
