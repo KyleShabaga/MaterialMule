@@ -268,8 +268,12 @@ stay readable on a phone in a dim storage room.
   (`collapsible="icon"`, labels as tooltips); the choice is remembered per browser.
 - **Rail footer:** Settings, Help & Feedback, then the account row (initials avatar, name, role,
   sign-out icon button). Shared LAB stations show "Switch user" and the session end under it.
-- **Top bar**, 64 px, `background`: the search and scan field (up to 560 px) at the left and the
-  notification bell at the right. Nothing else.
+- **Top bar**, 56 px, `background`, bottom border: the sidebar toggle and the page title at the
+  left; at the right, on every page, the quick actions button (`plus`, a `DropdownMenu`: Receive
+  storage units, Request lab testing, New concrete field report, Move storage units, then Scan a
+  label) and, always last, the notification bell (`bell`, a `Popover` listing recent notifications
+  with Mark all read and Open Inbox; a primary dot when any are unread). Both are 44 px icon
+  buttons. Search lives in the sidebar.
 - **Page head:** a context row (back link, record tags, step control) above the page title, with
   the page's actions at the right of the title. One primary action at most.
 - **Content** is capped at 1280 px with 32 px padding. Two-column pages split 2:1 and wrap to one
@@ -326,7 +330,7 @@ Kyle's decisions on the Field Ledger canvas that Strata keeps:
 
 - Depth is always text, never a bar.
 - Projects is second, after Today. No counts in the rail.
-- The top bar holds only search and the bell; page tags, steps and actions sit in the page head.
+- The top bar holds only the page title, quick actions and the bell; page tags, steps and actions sit in the page head.
 - Rail drop-downs only for Concrete and Retention.
 - The donkey logo with unchanged paths; only its colour and tile change.
 - Tables offer Comfortable and Compact, remembered per table; phones are always comfortable.

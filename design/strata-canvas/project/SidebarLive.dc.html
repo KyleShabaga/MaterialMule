@@ -144,6 +144,41 @@ Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class
 <header class="flex h-14 shrink-0 items-center gap-2 border-b px-4">
 <x-import component-from-global-scope="Strata.SidebarTrigger" class-name="-ml-1"></x-import>
 <span class="text-sm font-semibold">Today</span>
+<div class="ml-auto flex items-center gap-1">
+<!-- Quick actions: start common work from any page -->
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Quick actions" title="Quick actions" class-name="text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:ring-ring/50 inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
+<x-import component-from-global-scope="Strata.Icon" name="plus" class-name="size-5"></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" align="end" side-offset="{{four}}" class-name="w-64">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel">Quick actions</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuGroup">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receive storage units</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import>Request lab testing</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import>New concrete field report</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-right-left"></x-import>Move storage units</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import>Scan a label<x-import component-from-global-scope="Strata.DropdownMenuShortcut">Ctrl K</x-import></x-import>
+</x-import>
+</x-import>
+<!-- Notifications: always the last item on the right -->
+<x-import component-from-global-scope="Strata.Popover">
+<x-import component-from-global-scope="Strata.PopoverTrigger" aria-label="Notifications, 2 unread" title="Notifications" class-name="text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
+<x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-5"></x-import>
+<span aria-hidden="true" class="bg-primary ring-background absolute top-2.5 right-2.5 size-2 rounded-full ring-2"></span>
+</x-import>
+<x-import component-from-global-scope="Strata.PopoverContent" align="end" side-offset="{{four}}" class-name="w-96 p-0">
+<div class="flex items-center justify-between border-b px-4 py-3"><span class="text-sm font-semibold">Notifications</span><button type="button" class="text-link text-sm font-medium hover:underline">Mark all read</button></div>
+<ul class="divide-y text-sm">
+<li class="flex gap-3 px-4 py-3"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><div class="grid gap-0.5"><span class="font-medium">Lab request assigned to you</span><span class="text-muted-foreground">Atterberg limits · TH26-02 · DEMO-2612</span><span class="text-muted-foreground text-xs">12 min ago</span></div></li>
+<li class="flex gap-3 px-4 py-3"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><div class="grid gap-0.5"><span class="font-medium">Break due today</span><span class="text-muted-foreground">Set 4, 28-day · DEMO-2616</span><span class="text-muted-foreground text-xs">8:00 AM</span></div></li>
+<li class="flex gap-3 px-4 py-3"><span aria-hidden="true" class="mt-1.5 size-2 shrink-0"></span><div class="grid gap-0.5"><span class="font-medium">Retention ends in 7 days</span><span class="text-muted-foreground">BKT-2026-000143 · DEMO-2610</span><span class="text-muted-foreground text-xs">Yesterday</span></div></li>
+</ul>
+<div class="border-t p-2"><button type="button" class="hover:bg-accent hover:text-accent-foreground flex h-9 w-full items-center justify-center rounded-md text-sm font-medium">Open Inbox</button></div>
+</x-import>
+</x-import>
+</div>
 </header>
 <div class="text-muted-foreground p-6 text-sm">Page content goes here. Try the sidebar: collapse it with the button above or Ctrl+B, hover an icon for its tooltip, fold the Lab group, open Concrete and Retention, and open the account menu at the bottom.</div>
 </x-import>
