@@ -1,16 +1,19 @@
-// `npm run db:seed:demo -- [--url http://127.0.0.1:3000]`
+// `npm run db:seed:demo -- [--url http://127.0.0.1:3000] [--env-file .env]`
 // Loads a richer fictional demo dataset for manual testing into a RUNNING development API: more
 // projects, test holes, locations, receipts (buckets, Shelby tubes, a bulk sample), moves, lab
 // programs in every test status, review returns, acceptance, retention holds/extensions/requests
-// and disposal. Everything goes through the real HTTP endpoints as the seeded test identities
+// and disposal, plus a concrete project (DEMO-2616, concrete-demo.ts). Everything goes through the real HTTP endpoints as the seeded test identities
 // (seed/dev.sql), so every permission, rule and audit event is the app's own.
 //
 // Needs the API started with ENABLE_TEST_AUTH=true (never available in production) and the dev
 // fixtures loaded (npm run db:seed:dev). Received dates are relative to today, so retention and
-// "recently received" always have something to show. Refuses to run twice: start over with
-// `npm run db:rebuild:dev -- --disposable <db>`.
+// "recently received" always have something to show. Running it again adds only what is missing:
+// on a database that already has the soils demo data it adds the concrete project. Start over
+// with `npm run db:rebuild:dev -- --disposable <db>`. `--env-file` is the running API's env file
+// (default ENV_FILE or .env), for the one concrete step HTTP can't do yet (concrete-demo.ts).
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from '../bench/cli-args.js';
+import { seedConcreteDemo } from './concrete-demo.js';
 
 const CSRF = { 'x-materialmule-csrf': '1' };
 
@@ -23,6 +26,7 @@ const USER = {
   de: '00000000-0000-4000-8000-000000000105', // Dana Example, engineer
   'js-tech': '00000000-0000-4000-8000-000000000106', // Jordan Smith, technologist
   'js-eng': '00000000-0000-4000-8000-000000000107', // Jamie Song, engineer
+  lt: '00000000-0000-4000-8000-000000000110', // Taylor Bench, lab technician
 } as const;
 type FixtureKey = keyof typeof USER;
 
@@ -684,13 +688,19 @@ async function main(): Promise<void> {
     as[k] = await new Actor(base, k).signIn();
   }
 
+  const envFile = args.get('env-file') ?? process.env.ENV_FILE ?? '.env';
+  const concrete = async () => {
+    log('Concrete');
+    await seedConcreteDemo(as, (number) => findProject(as.admin, number), envFile);
+  };
+
   // Every step reuses what an earlier (interrupted) run made; the last step marks completion.
   const marker = await findProject(as.admin, MARKER_PROJECT);
   if (marker && (await as.admin.get(`/projects/${marker.id}/retention`)).holds.length > 0) {
-    throw new ApiError(
-      `Demo data is already loaded (${MARKER_PROJECT} has a retention hold). To start over: ` +
-        'npm run db:rebuild:dev -- --disposable <database>, then run this again.',
-    );
+    log(`Soils demo data is already loaded (${MARKER_PROJECT} has a retention hold); skipped.`);
+    await concrete();
+    log('Done. To start over: npm run db:rebuild:dev -- --disposable <database>, then run this.');
+    return;
   }
 
   log('Locations');
@@ -874,6 +884,8 @@ async function main(): Promise<void> {
       idempotencyKey: key(),
     });
   }
+  await concrete();
+
   log('Ready for disposal examples');
   const examples = await seedDisposalExamples(as, wtp);
   for (const unit of [...examples.past, ...examples.recent]) {
@@ -891,7 +903,9 @@ async function main(): Promise<void> {
   });
   log('  1 hold, 1 extension, 1 pending request');
 
-  log('Done. Sign in as any test identity (admin, lab, at, pe, de, js-tech, js-eng) to explore.');
+  log(
+    'Done. Sign in as any test identity (admin, lab, at, pe, de, js-tech, js-eng, lt) to explore.',
+  );
 }
 
 main().catch((error: unknown) => {
