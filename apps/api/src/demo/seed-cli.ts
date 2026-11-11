@@ -14,6 +14,7 @@
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from '../bench/cli-args.js';
 import { seedConcreteDemo } from './concrete-demo.js';
+import { bringTo } from './lab-progress.js';
 
 const CSRF = { 'x-materialmule-csrf': '1' };
 
@@ -564,71 +565,6 @@ async function ensureProgram(
       unitIds: (l.coverage as Json[]).map((c) => c.storageUnitId),
     })),
   });
-}
-
-type Target = 'requested' | 'in_progress' | 'completed' | 'review' | 'returned' | 'accepted';
-const PROGRESS = ['requested', 'in_progress', 'completed', 'review'];
-
-interface Crew {
-  tech: Actor;
-  reviewer: Actor;
-  lead: Actor;
-}
-
-/**
- * Brings one test (line `lineIndex`, test `code`) from its current status to `target`, so a rerun
- * only does what is left. Completing a test that covers Shelby tubes or bulk-sample buckets names
- * the first such unit as the one tested.
- */
-async function bringTo(
-  program: Json,
-  lineIndex: number,
-  code: string,
-  target: Target,
-  crew: Crew,
-  returnComment = 'Tare weight missing on sheet 2',
-) {
-  const line = (program.lines as Json[])[lineIndex]!;
-  const test = (line.requests as Json[]).find((r) => r.code === code)!;
-  const startedAt = test.status as string;
-  if (startedAt === 'accepted' || startedAt === 'cancelled') return;
-  const goal = target === 'returned' || target === 'accepted' ? 'review' : target;
-  let version = test.version as number;
-  for (const step of PROGRESS.slice(PROGRESS.indexOf(startedAt) + 1, PROGRESS.indexOf(goal) + 1)) {
-    const special = (line.coverage as Json[]).find(
-      (unit) =>
-        unit.included && (unit.unitType === 'shelby_tube' || unit.unitType === 'bulk_container'),
-    );
-    version = (
-      await crew.tech.post(`/test-requests/${test.id}/status`, {
-        to: step,
-        version,
-        idempotencyKey: key(),
-        ...(step === 'completed' && special
-          ? { testedStorageUnitIds: [special.storageUnitId] }
-          : {}),
-      })
-    ).version as number;
-  }
-  // A test already in review before this run has had its review decision.
-  if (startedAt === 'review' || target === goal) return;
-  if (target === 'returned') {
-    await crew.reviewer.post(`/test-requests/${test.id}/review`, {
-      action: 'return',
-      comment: returnComment,
-      version,
-      idempotencyKey: key(),
-    });
-    return;
-  }
-  version = (
-    await crew.reviewer.post(`/test-requests/${test.id}/review`, {
-      action: 'complete',
-      version,
-      idempotencyKey: key(),
-    })
-  ).version as number;
-  await crew.lead.post(`/test-requests/${test.id}/accept`, { version, idempotencyKey: key() });
 }
 
 // ---- MISC-13: "Ready for disposal" examples ----------------------------------------------------
