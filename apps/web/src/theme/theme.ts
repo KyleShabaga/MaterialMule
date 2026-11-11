@@ -1,8 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 // MISC-09: light/dark choice. Without one, the OS setting applies (styles.css). The choice is
 // stored per browser and set as data-theme on <html>; index.html applies it before first paint.
 export const THEME_STORAGE_KEY = 'materialmule:theme';
+
+const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 export type Theme = 'light' | 'dark';
 
@@ -24,7 +26,7 @@ export function readStoredTheme(): Theme | null {
 export function currentTheme(): Theme {
   const explicit = document.documentElement.getAttribute('data-theme');
   if (isTheme(explicit)) return explicit;
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia?.(DARK_QUERY).matches ? 'dark' : 'light';
 }
 
 /** Re-applies the stored choice (index.html normally did so already). */
@@ -44,6 +46,15 @@ export function chooseTheme(theme: Theme): void {
 
 export function useTheme(): [Theme, (theme: Theme) => void] {
   const [theme, setTheme] = useState<Theme>(currentTheme);
+  // While no explicit choice is set, follow live OS changes so the switch matches what is shown.
+  // An explicit data-theme wins in currentTheme, so a chosen theme stays put.
+  useEffect(() => {
+    const query = window.matchMedia?.(DARK_QUERY);
+    if (!query) return;
+    const onChange = () => setTheme(currentTheme());
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
   const set = useCallback((next: Theme) => {
     chooseTheme(next);
     setTheme(next);

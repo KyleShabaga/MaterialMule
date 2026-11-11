@@ -1,5 +1,5 @@
 import type { MeResponse } from '@materialmule/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -202,6 +202,52 @@ describe('dashboard', () => {
     const heading = await screen.findByRole('heading', { level: 1, name: 'Projects' });
     await waitFor(() => expect(heading).toHaveFocus());
     expect(heading).toHaveAttribute('tabindex', '-1');
+  });
+
+  /** Dashboard first, with GET /api/projects/p1 held until the test releases it (a 404). */
+  async function dashboardWithSlowProject() {
+    let release = () => undefined as void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const router = renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
+    const stub = vi.mocked(fetch);
+    const original = stub.getMockImplementation()!;
+    stub.mockImplementation(async (input, init) => {
+      if (String(input).startsWith('/api/projects/p1')) {
+        await held;
+        return jsonResponse(404, { code: 'not_found', message: 'Project not found.' });
+      }
+      return original(input, init);
+    });
+    await screen.findByText('No activity yet. Receive the first storage unit.');
+    return { router, release };
+  }
+
+  it('card #115: focus chosen while the page heading loads stays where the user put it', async () => {
+    const { router, release } = await dashboardWithSlowProject();
+    await act(async () => {
+      await router.navigate('/projects/p1');
+    });
+    expect(await screen.findByText('Loading…')).toBeInTheDocument();
+    const settings = screen.getByRole('link', { name: 'Settings' });
+    act(() => settings.focus());
+    await act(async () => release());
+    expect(await screen.findByRole('heading', { level: 1, name: 'Project' })).toBeInTheDocument();
+    expect(settings).toHaveFocus();
+  });
+
+  it('card #115: an untouched initiating link still yields focus to the late heading', async () => {
+    const { router, release } = await dashboardWithSlowProject();
+    const link = screen.getByRole('link', { name: 'Projects' });
+    act(() => link.focus());
+    await act(async () => {
+      await router.navigate('/projects/p1');
+    });
+    expect(await screen.findByText('Loading…')).toBeInTheDocument();
+    await act(async () => release());
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Project' });
+    await waitFor(() => expect(heading).toHaveFocus());
   });
 
   it('shows the empty state when nothing has happened yet', async () => {
