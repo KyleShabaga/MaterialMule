@@ -1,18 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
-import { resolveExact } from './api';
+import { searchDestination } from './api';
 
-export const SEARCH_PLACEHOLDER = 'Search units, samples, projects, programs…';
-export const SEARCH_MAX_LENGTH = 100;
-
-/** Where a search for `q` lands: the unit itself for an exact unit ID or label, else /search. */
-export async function searchDestination(q: string): Promise<string> {
-  const exact = await resolveExact(q);
-  if (exact?.type === 'storage_unit') {
-    return `/sample-storage/${encodeURIComponent(exact.storageUnit.readableId)}`;
-  }
-  return `/search?q=${encodeURIComponent(q)}`;
-}
+const SEARCH_PLACEHOLDER = 'Search units, samples, projects, programs…';
+const SEARCH_MAX_LENGTH = 100;
 
 /**
  * Field Ledger top-bar search (docs/redesign/design.md, "Shell additions"): one field for units,

@@ -2,7 +2,7 @@ import type { ActivityItem, MeResponse, StorageLocation } from '@materialmule/sh
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchOpenCount } from '../action-requests/api';
-import { EmptyState, ErrorState, StatusBadge, type CountedCellState } from '../components/ui';
+import { EmptyState, ErrorState, StatusBadge } from '../components/ui';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { FEATURES } from '../features';
 import { PHONE_QUERY } from '../layout/AppLayout';
@@ -26,7 +26,9 @@ import {
   firstName,
   greeting,
   listNames,
+  locationCells,
   plural,
+  ROOM_LOCATIONS_MAX,
   shortTodayLine,
   todayLine,
   wholeDays,
@@ -367,18 +369,6 @@ function Ledger({ ledger, retry }: { ledger: LoadState<ActivityItem[]>; retry: (
   );
 }
 
-/** Cells drawn per location before the rest is written as "+N more". */
-export const ROOM_CELLS_MAX = 48;
-/** Locations drawn before the rest is linked. */
-export const ROOM_LOCATIONS_MAX = 12;
-
-/** One cell per unit on the location: flag for retention due, ink for the rest. */
-export function locationCells(inStock: number, due: number): CountedCellState[] {
-  const shown = Math.min(inStock, ROOM_CELLS_MAX);
-  const flagged = Math.min(due, shown);
-  return Array.from({ length: shown }, (_, i) => (i < flagged ? 'current' : 'done'));
-}
-
 function StorageRoom({ data }: { data: TodayData }) {
   const locations = data.locations;
   const retention = ready(data.retention);
@@ -506,6 +496,9 @@ export function TodayPage() {
         <Link to="/sample-storage/scan" className="today-scan">
           <span className="today-scan-title">Scan a label</span>
           <span className="today-scan-sub">Find, move or check out a unit</span>
+        </Link>
+        <Link className="button today-receive" to="/receiving-log/new">
+          Receive samples
         </Link>
         <CountStrip data={data} />
         <NeedsYou items={items} loading={loading} />

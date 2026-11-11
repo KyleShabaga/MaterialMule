@@ -358,3 +358,8 @@
   background: var(--card);
   overflow: hidden;
 }
+
+.today-receive {
+  justify-content: center;
+  min-height: var(--control-phone);
+}

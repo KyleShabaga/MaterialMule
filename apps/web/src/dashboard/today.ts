@@ -1,4 +1,4 @@
-import type { BadgeTone } from '../components/ui';
+import type { BadgeTone, CountedCellState } from '../components/ui';
 
 // Today (Field Ledger, canvas Main and PhoneToday): what the greeting block says and how the
 // "Needs you" queue is ordered. Pure, so the wording and the order are unit tested.
@@ -109,4 +109,16 @@ export function listNames(names: readonly string[], shown = 2): string {
 /** Days, rounded down, for "oldest open test" notes. */
 export function wholeDays(seconds: number): number {
   return Math.floor(seconds / 86_400);
+}
+
+/** Cells drawn per location before the rest is written as "+N more". */
+export const ROOM_CELLS_MAX = 48;
+/** Locations drawn before the rest is linked. */
+export const ROOM_LOCATIONS_MAX = 12;
+
+/** One cell per unit on the location: flag for retention due, ink for the rest. */
+export function locationCells(inStock: number, due: number): CountedCellState[] {
+  const shown = Math.min(inStock, ROOM_CELLS_MAX);
+  const flagged = Math.min(due, shown);
+  return Array.from({ length: shown }, (_, i) => (i < flagged ? 'current' : 'done'));
 }

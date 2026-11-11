@@ -132,7 +132,8 @@ test('T6: LAB has no Pending actions or Notifications control, inbox or preferen
 }) => {
   await signInAsLabStation(page);
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+  // Today (Field Ledger): its queue heading, on desktop and phone.
+  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Pending actions/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
   for (const path of [

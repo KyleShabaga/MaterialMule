@@ -19,8 +19,16 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { receivedWhen } from './format';
 import { loadMoreCounts } from './more-counts';
-import { byUrgency, firstName, greeting, listNames, todayLine, type NeedsItem } from './today';
-import { locationCells, ROOM_CELLS_MAX } from './TodayPage';
+import {
+  byUrgency,
+  firstName,
+  greeting,
+  listNames,
+  locationCells,
+  ROOM_CELLS_MAX,
+  todayLine,
+  type NeedsItem,
+} from './today';
 
 // Today (Field Ledger, canvas Main and PhoneToday). Fictional data only: DEMO-2601, TH26-01,
 // Alex Tester.

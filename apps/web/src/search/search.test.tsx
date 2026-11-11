@@ -6,7 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
-import { testHoleRows } from './SearchPage';
+import { testHoleRows } from './rows';
 
 // Field Ledger search (top bar and /search). Fictional data only: DEMO-2601, TH26-02.
 
