@@ -36,7 +36,12 @@ test('T7: a Lab Manager adds, renames, prints, confirms and retires a location',
   await add.getByRole('textbox', { name: 'Area or group (optional)' }).fill('Warehouse E2E');
   await add.getByRole('button', { name: 'Add location' }).click();
   await expect(page.getByText('E2E warehouse bay was added.')).toBeVisible();
-  await expect(row(page, code)).toContainText('Warehouse E2E');
+  // Field Ledger: locations are grouped under their area's head.
+  await expect(
+    page
+      .getByRole('table', { name: 'Locations' })
+      .getByRole('rowheader', { name: /^Warehouse E2E/ }),
+  ).toBeVisible();
 
   // Rename.
   await row(page, code).getByRole('button', { name: 'Edit E2E warehouse bay' }).click();

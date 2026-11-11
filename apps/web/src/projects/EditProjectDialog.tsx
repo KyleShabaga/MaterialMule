@@ -196,11 +196,20 @@ export function EditProjectDialog({
         requestClose();
       }}
     >
-      <div className="edit-project-head">
+      <div className="dialog-head edit-project-head">
         <h2 id={titleId}>Edit project</h2>
         <span className="project-number">{base.projectNumber}</span>
       </div>
-      <form ref={formRef} noValidate onSubmit={(event) => void submit(event)}>
+      <form
+        ref={formRef}
+        className="dialog-body"
+        noValidate
+        onSubmit={(event) => void submit(event)}
+      >
+        <p className="edit-project-lede">
+          Changes the project&apos;s details everywhere they are shown. Labels already printed keep
+          what they show.
+        </p>
         {message ? (
           <p className="notice notice-warning" role="alert">
             {message}

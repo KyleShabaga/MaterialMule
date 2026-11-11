@@ -1,12 +1,20 @@
 import {
   ACTION_REQUEST_RESOLUTION_LABEL,
   type ActionRequest,
+  type ActionRequestKind,
   type ActionRequestScope,
   type PersonSnapshot,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { EmptyState, ErrorState, PageHeader, StatusBadge } from '../components/ui';
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Segmented,
+  StatusBadge,
+  type BadgeTone,
+} from '../components/ui';
 import { formatExpiry } from '../lib/format';
 import { useMe } from '../session/context';
 import {
@@ -15,12 +23,28 @@ import {
   fetchAssignees,
   reassign,
 } from './api';
+import './action-requests.css';
 
 type Load = { state: 'loading' } | { state: 'error' } | { state: 'ready'; items: ActionRequest[] };
 
 function who(person: PersonSnapshot): string {
   return person.initials ?? person.name;
 }
+
+/**
+ * Field Ledger: each request's kind as a tag, and the one action that opens the real record
+ * (named for where it goes). Closing happens there, never here.
+ */
+const KIND: Record<ActionRequestKind, { tag: string; tone: BadgeTone; action: string }> = {
+  correction: { tag: 'Correction', tone: 'waiting', action: 'Open the program' },
+  cancellation_request: { tag: 'Cancel a test', tone: 'danger', action: 'Open the program' },
+  closure_request: { tag: 'Close a program', tone: 'lab', action: 'Open the program' },
+  retention_request: { tag: 'Retention', tone: 'waiting', action: 'Open retention' },
+  lead_appointment: { tag: 'Lead appointment', tone: 'closed', action: 'Open the project' },
+  grant_review: { tag: 'Grant review', tone: 'closed', action: 'Open the team' },
+  team_join_request: { tag: 'Team join', tone: 'closed', action: 'Open the team' },
+  review_approval_lost: { tag: 'Reviewer lost', tone: 'waiting', action: 'Open the team' },
+};
 
 /**
  * Action requests (MM-T27): requests waiting on the signed-in person, with who asked and why and a
@@ -72,26 +96,32 @@ function ActionRequestsInbox() {
 
   return (
     <div className="action-requests-page">
-      <PageHeader title="Action requests" />
-      <p className="field-hint">
-        Requests that need your decision. Ordinary activity (moves, receipts, comments and test
-        progress) stays in each record’s history and never appears here.
-      </p>
-      <div className="action-requests-filters" role="group" aria-label="Show">
-        {(['open', 'resolved'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={status === value}
-            className={status === value ? 'primary' : undefined}
-            onClick={() => {
-              setLoad({ state: 'loading' });
-              setStatus(value);
-            }}
-          >
-            {value === 'open' ? 'Open' : 'Resolved'}
-          </button>
-        ))}
+      <div className="action-requests-title">
+        <PageHeader title="Action requests" />
+        <span className="section-meta">Work someone has asked you to do</span>
+      </div>
+      <div className="action-requests-closes">
+        <span className="field-label">How it closes</span>
+        <p>
+          A request closes when someone does the real thing on the record it points to. There is no
+          approve button here. Ordinary activity (moves, receipts, comments and test progress) stays
+          in each record’s history and never appears here.
+        </p>
+      </div>
+      <div className="action-requests-filters">
+        <Segmented
+          label="Show"
+          options={[
+            { value: 'open', label: 'Open' },
+            { value: 'resolved', label: 'Resolved' },
+          ]}
+          value={status}
+          onChange={(value) => {
+            if (value === status) return;
+            setLoad({ state: 'loading' });
+            setStatus(value);
+          }}
+        />
         {canReassign ? (
           <label className="action-requests-scope">
             <input
@@ -139,21 +169,33 @@ function ActionRequestsInbox() {
           ))}
         </ul>
       ) : null}
+      <p className="field-hint">
+        Reassigning needs a reason and can only go to someone who can act on that kind of request.
+        The shared LAB station has no action requests.
+      </p>
     </div>
   );
 }
 
 function ActionRequestRow({ item, onChanged }: { item: ActionRequest; onChanged: () => void }) {
   const [reassigning, setReassigning] = useState(false);
+  const kind = KIND[item.kind];
   return (
-    <li className="action-request" aria-label={item.title}>
+    <li
+      className={item.status === 'resolved' ? 'action-request is-resolved' : 'action-request'}
+      aria-label={item.title}
+      data-row
+    >
+      <span className="action-request-kind">
+        <StatusBadge tone={kind.tone}>{kind.tag}</StatusBadge>
+      </span>
       <div className="action-request-main">
         <p className="action-request-title">
           <strong>{item.routeTag}:</strong> {item.title} by {who(item.requestedBy)}
           {item.reason ? <> · {item.reason}</> : null}
         </p>
         <p className="action-request-meta">
-          {item.projectNumber} · {item.routedTo} · requested {formatExpiry(item.createdAt)}
+          <span className="mono">{item.projectNumber}</span> · {item.routedTo}
           {item.unresolved ? (
             <>
               {' · '}
@@ -176,9 +218,15 @@ function ActionRequestRow({ item, onChanged }: { item: ActionRequest; onChanged:
           ) : null}
         </p>
       </div>
+      <div className="action-request-who">
+        <span className="field-label">Asked by</span>
+        <span>
+          {item.requestedBy.name} · {formatExpiry(item.createdAt)}
+        </span>
+      </div>
       <div className="action-request-actions">
-        <Link className="button" to={item.href}>
-          Open
+        <Link className={item.status === 'open' ? 'button primary' : 'button'} to={item.href}>
+          {kind.action}
         </Link>
         {item.canReassign && !reassigning ? (
           <button type="button" onClick={() => setReassigning(true)}>

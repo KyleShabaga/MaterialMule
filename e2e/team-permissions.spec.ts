@@ -87,7 +87,7 @@ test('the lead adds a team member who also reviews; others see it read-only', as
   );
   const mine = page.getByRole('region', { name: 'Your permissions here' });
   await expect(
-    mine.getByRole('row').filter({ hasText: 'Add or remove team members' }),
+    mine.getByRole('listitem').filter({ hasText: 'Add or remove team members' }),
   ).toContainText('As Lead Project Engineer');
 
   // A colleague with no authority here: same people, no controls, and the reason why.
@@ -103,7 +103,7 @@ test('the lead adds a team member who also reviews; others see it read-only', as
   await expect(
     page
       .getByRole('region', { name: 'Your permissions here' })
-      .getByRole('row')
+      .getByRole('listitem')
       .filter({ hasText: 'Assign or remove reviewers' }),
   ).toContainText(/Allowed for: .*Lead Project Engineer/);
 
