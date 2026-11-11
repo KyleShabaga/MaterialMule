@@ -2,6 +2,7 @@ import {
   compareWorklist,
   labProgramReviewSchema,
   labProgramSchema,
+  WORKLIST_MAX_PAGE,
   WORKLIST_PAGE_SIZE,
   worklistSchema,
   type LabProgram,
@@ -126,7 +127,7 @@ describe.runIf(testDatabaseUrl)('worklist paging (BUG-006)', () => {
     }
   }
 
-  async function page(query: string, n: number): Promise<Worklist> {
+  async function page(query: string, n: number | string): Promise<Worklist> {
     const response = await h.get(`/api/worklist?${query}${query ? '&' : ''}page=${n}`, 'lab');
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     return worklistSchema.parse(response.body);
@@ -184,5 +185,25 @@ describe.runIf(testDatabaseUrl)('worklist paging (BUG-006)', () => {
     const past = await page('', 99);
     expect(past.items).toEqual([]);
     expect(past.total).toBe(CLONES + 2);
+  });
+
+  it('review fix (#104): an unsupported page number is an empty page, never a database error', async () => {
+    // 1e308 parses as an integer; its offset would be Infinity. A page whose offset passes the
+    // largest supported one, and the largest supported page itself, are empty too.
+    for (const n of ['1e308', String(Number.MAX_SAFE_INTEGER), String(WORKLIST_MAX_PAGE + 1)]) {
+      const past = await page('', n);
+      expect(past.items).toEqual([]);
+      expect(past.page).toBe(WORKLIST_MAX_PAGE);
+      expect(past.total).toBe(CLONES + 2);
+    }
+    expect((await page('', WORKLIST_MAX_PAGE)).items).toEqual([]);
+    // Valid pages are unchanged: the first is full and the last holds the newest program.
+    const first = await page('', 1);
+    expect(first.page).toBe(1);
+    expect(first.items).toHaveLength(WORKLIST_PAGE_SIZE);
+    const lastPage = Math.ceil(first.total / first.pageSize);
+    const last = await page('', lastPage);
+    expect(last.page).toBe(lastPage);
+    expect(last.items.at(-1)!.programId).toBe(onlyB.id);
   });
 });

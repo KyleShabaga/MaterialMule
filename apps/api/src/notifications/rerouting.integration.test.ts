@@ -327,6 +327,95 @@ describe.runIf(testDatabaseUrl)('action item rerouting and the unresolved queue 
     ).toBe(false);
   });
 
+  const setRoles = async (id: string, roles: string[], reason: string) => {
+    const saved = await h
+      .http()
+      .put(`/api/staff/${id}/roles`)
+      .set('Cookie', await h.cookie('admin'))
+      .set(CSRF_HEADER, '1')
+      .send({ roles, reason });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+  };
+  const notified = async (itemId: string, userId: string) =>
+    (
+      await h.db.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM notification
+         WHERE action_item_id = $1 AND recipient_user_id = $2`,
+        [itemId, userId],
+      )
+    ).rows[0]!.n;
+  const emails = async (itemId: string, userId: string) =>
+    (await outboxFor(itemId)).filter((recipient) => recipient === userId).length;
+
+  it('review fix (#96): a role grant announces open work now routed to them, once, and leaves other assignments alone', async () => {
+    // Open, unassigned (goes to the lead and Lab Managers) and one explicitly assigned elsewhere.
+    const open = await cancelRequest((await program()).testId);
+    const elsewhere = await cancelRequest((await program()).testId);
+    expect((await reassign(elsewhere, h.users.lm, 'Lee has this one')).status).toBe(200);
+    const lmBefore = await notified(open, h.users.lm);
+
+    const gil = await person('Gil Granted', 'GG');
+    await emailOn(as(gil));
+    const opal = await person('Opal Optedout', 'OO');
+    expect(await has(as(gil), open)).toBe(false);
+
+    await setRoles(gil, ['lab_manager'], 'Appointed Lab Manager');
+    await setRoles(opal, ['lab_manager'], 'Appointed Lab Manager');
+
+    expect(await has(as(gil), open)).toBe(true);
+    expect(await notified(open, gil)).toBe(1);
+    expect(await emails(open, gil)).toBe(1);
+    // Opted out: in-app notification only.
+    expect(await has(as(opal), open)).toBe(true);
+    expect(await notified(open, opal)).toBe(1);
+    expect(await emails(open, opal)).toBe(0);
+    // Explicitly assigned to someone who can still act on it: not theirs, nothing sent.
+    expect(await has(as(gil), elsewhere)).toBe(false);
+    expect(await notified(elsewhere, gil)).toBe(0);
+    expect(await emails(elsewhere, gil)).toBe(0);
+    // Existing recipients keep what they had.
+    expect(await notified(open, h.users.lm)).toBe(lmBefore);
+
+    // Removed, then restored: back in the inbox, still one notification and one email.
+    await setRoles(gil, [], 'Covering ended');
+    expect(await has(as(gil), open)).toBe(false);
+    await setRoles(gil, ['lab_manager'], 'Covering again');
+    expect(await has(as(gil), open)).toBe(true);
+    expect(await notified(open, gil)).toBe(1);
+    expect(await emails(open, gil)).toBe(1);
+  });
+
+  it('review fix (#96): resolved history stays with the recorded assignee after they lose the role', async () => {
+    const ada = await person('Ada Assigned', 'AA', ['lab_manager']);
+    const ben = await person('Ben Bystander', 'BB', ['lab_manager']);
+    const { testId } = await program();
+    const id = await cancelRequest(testId);
+    expect((await reassign(id, ada)).status).toBe(200);
+    const version = (
+      await h.db.pool.query<{ version: number }>('SELECT version FROM test_request WHERE id = $1', [
+        testId,
+      ])
+    ).rows[0]!.version;
+    const cancelled = await h.send(
+      'post',
+      `/api/test-requests/${testId}/cancel`,
+      { reason: 'Not needed', version, idempotencyKey: newKey() },
+      'pe',
+    );
+    expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
+    const resolved = 'status=resolved';
+    expect(await has(as(ada), id, resolved)).toBe(true);
+    expect(await has(as(ben), id, resolved)).toBe(false);
+    expect(await has('pe', id, resolved)).toBe(true);
+
+    await setRoles(ada, [], 'Moved to field work');
+
+    expect(await has(as(ada), id, resolved)).toBe(true);
+    expect(await has(as(ben), id, resolved)).toBe(false);
+    // The resolver keeps it too.
+    expect(await has('pe', id, resolved)).toBe(true);
+  });
+
   it('AC4: a refused decision changes nothing and sends nothing', async () => {
     const { program: p } = await program();
     const counts = async () =>

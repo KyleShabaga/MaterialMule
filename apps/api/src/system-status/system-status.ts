@@ -136,24 +136,21 @@ export async function printQueueSummary(pool: Pool, now: Date): Promise<PrintQue
   };
 }
 
-const OUTCOME_BY_STATUS = {
-  sent: 'ok',
-  queued: 'retrying',
-  failed: 'failed',
-  uncertain: 'uncertain',
-} as const satisfies Record<string, PrinterOutcome>;
-
 /**
- * The default printer and how its newest attempt to reach it went (MTR-45), from print_job alone.
- * An attempt is a job the worker has tried (attempts > 0) and isn't sending right now. Its time is
- * when it was sent, or when the worker last saved it. Uncertain jobs a person has since confirmed
- * are left out: the confirmation moved their updated_at, so the attempt time is no longer known.
+ * The default printer and how its newest contact went (MTR-45), from print_job alone. A contact
+ * is an attempt that actually reached for the printer, as the worker records it on the job
+ * (`last_contact_*`, review fixes #119/#124): a send, successful or not, or a send a restart
+ * interrupted. Its outcome: `ok` when sent; `uncertain` when bytes may have gone out (left out
+ * once a person has confirmed the job); otherwise `retrying` while the job is still queued or
+ * sending, else `failed`. A failure period starts at the first unsuccessful contact after the
+ * printer's last success, never at when a job was queued: the queue runs one job at a time, so
+ * that is the earliest `first_failed_contact_at` among the jobs contacted since.
  *
- * A failed job counts as an attempt on the printer only when the worker recorded that the printer
- * was contacted (`failure: 'printer'` on its label.print_failed audit entry, written in the same
- * transaction as the status). Jobs refused before any byte went out (a unit disposed after the
- * request, a label that couldn't be prepared) say nothing about the printer: they are reported
- * separately as lastJobFailure, and never as the printer not responding nor as it working.
+ * A job refused before any byte went out (a unit disposed after the request, a label that
+ * couldn't be prepared) says nothing about the printer: it is reported separately as
+ * lastJobFailure (the kind from its label.print_failed entry) when it is newer than the latest
+ * contact, and never as the printer not responding nor as it working. Its earlier contacts, if
+ * any, still count as the printer's.
  */
 export async function defaultPrinterSummary(
   pool: Pool,
@@ -163,7 +160,7 @@ export async function defaultPrinterSummary(
     name: string;
     enabled: boolean;
     check_status: boolean;
-    status: keyof typeof OUTCOME_BY_STATUS | null;
+    outcome: PrinterOutcome | null;
     attempt_at: Date | null;
     last_error: string | null;
     printer_message: string | null;
@@ -174,10 +171,19 @@ export async function defaultPrinterSummary(
   }>(
     `WITH printer AS (
        SELECT key, name, enabled, check_status FROM printer WHERE is_default
-     ), attempt AS (
-       SELECT j.status, j.created_at, j.last_error, j.printer_message,
-              coalesce(j.sent_at, j.updated_at) AS attempt_at,
-              CASE WHEN j.status = 'failed' THEN coalesce(f.kind, 'unknown') END AS failure
+     ), contact AS (
+       SELECT j.last_contact_at AS at, j.last_contact_error AS error,
+              j.last_contact_printer_message AS printer_message, j.first_failed_contact_at,
+              CASE j.last_contact_result
+                WHEN 'sent' THEN 'ok'
+                WHEN 'uncertain' THEN 'uncertain'
+                ELSE CASE WHEN j.status IN ('queued', 'sending') THEN 'retrying' ELSE 'failed' END
+              END AS outcome
+         FROM print_job j JOIN printer p ON p.key = j.printer_key
+        WHERE j.last_contact_at IS NOT NULL
+          AND NOT (j.last_contact_result = 'uncertain' AND j.physically_confirmed_at IS NOT NULL)
+     ), refused AS (
+       SELECT j.updated_at AS at, j.last_error AS error, coalesce(f.kind, 'unknown') AS failure
          FROM print_job j JOIN printer p ON p.key = j.printer_key
          LEFT JOIN LATERAL (
            SELECT a.after_values->>'failure' AS kind
@@ -186,48 +192,43 @@ export async function defaultPrinterSummary(
               AND a.action = 'label.print_failed'
             ORDER BY a.occurred_at DESC
             LIMIT 1
-         ) f ON j.status = 'failed'
-        WHERE j.attempts > 0
-          AND (j.status IN ('sent', 'queued', 'failed')
-               OR (j.status = 'uncertain' AND j.physically_confirmed_at IS NULL))
-     ), reached AS (
-       SELECT * FROM attempt WHERE failure IS NULL OR failure = 'printer'
+         ) f ON true
+        WHERE j.status = 'failed' AND coalesce(f.kind, 'unknown') <> 'printer'
      ), last_ok AS (
-       SELECT max(attempt_at) AS at FROM reached WHERE status = 'sent'
+       SELECT max(at) AS at FROM contact WHERE outcome = 'ok'
      )
      SELECT p.key, p.name, p.enabled, p.check_status,
-            latest.status, latest.attempt_at, latest.last_error, latest.printer_message,
-            (SELECT min(greatest(a.created_at, coalesce(o.at, a.created_at)))
-               FROM reached a
-              WHERE a.status <> 'sent' AND a.attempt_at > coalesce(o.at, '-infinity')
+            latest.outcome, latest.at AS attempt_at, latest.error AS last_error,
+            latest.printer_message,
+            (SELECT min(greatest(c.first_failed_contact_at, coalesce(o.at, '-infinity')))
+               FROM contact c
+              WHERE c.outcome <> 'ok' AND c.at > coalesce(o.at, '-infinity')
             ) AS failing_since,
-            refused.failure AS job_failure, refused.attempt_at AS job_failure_at,
-            refused.last_error AS job_failure_error
+            job.failure AS job_failure, job.at AS job_failure_at, job.error AS job_failure_error
        FROM printer p
        CROSS JOIN last_ok o
        LEFT JOIN LATERAL (
-         SELECT * FROM reached ORDER BY attempt_at DESC LIMIT 1
+         SELECT * FROM contact ORDER BY at DESC LIMIT 1
        ) latest ON true
        LEFT JOIN LATERAL (
-         SELECT * FROM attempt
-          WHERE failure <> 'printer'
-            AND attempt_at > coalesce(latest.attempt_at, '-infinity')
-          ORDER BY attempt_at DESC
+         SELECT * FROM refused
+          WHERE at > coalesce(latest.at, '-infinity')
+          ORDER BY at DESC
           LIMIT 1
-       ) refused ON true`,
+       ) job ON true`,
   );
   const row = rows[0];
   if (!row) return null;
-  const ok = row.status === 'sent';
+  const ok = row.outcome === 'ok';
   return {
     key: row.key,
     name: row.name,
     enabled: row.enabled,
     checkStatus: row.check_status,
     lastAttempt:
-      row.status && row.attempt_at
+      row.outcome && row.attempt_at
         ? {
-            outcome: OUTCOME_BY_STATUS[row.status],
+            outcome: row.outcome,
             at: row.attempt_at.toISOString(),
             error: ok ? null : row.last_error,
             printerMessage: ok ? null : row.printer_message,

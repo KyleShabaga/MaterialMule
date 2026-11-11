@@ -71,3 +71,30 @@ export async function rerouteOpenItems(
   }
   return { lapsed, notified };
 }
+
+/**
+ * The other half of D10: after someone gains eligibility (a role grant), open items that now
+ * route to them reach their inbox at once, so they get the same in-app notification, and the
+ * same email if opted in, as a recipient at creation would have. Only this person is announced
+ * to; the item's other recipients keep what they already had. The per-person event and outbox
+ * keys mean an item that comes back to them (role removed, then restored) adds nothing. Items
+ * explicitly assigned to someone else who can still act on them are not routed to them and stay
+ * untouched. Called inside the transaction that made the change, after the change.
+ */
+export async function announceNewlyRoutedItems(
+  client: PoolClient,
+  userId: string,
+): Promise<{ notified: number }> {
+  const { rows } = await client.query<{ id: string }>(
+    `SELECT a.id FROM action_item a
+     JOIN app_user u ON u.id = $1
+     WHERE a.status = 'open'
+       AND u.status = 'active' AND u.account_type IN ('personal', 'test')
+       AND action_item_routed_to(a.id, $1)
+     ORDER BY a.created_at, a.id`,
+    [userId],
+  );
+  let notified = 0;
+  for (const row of rows) notified += await announceActionItem(client, row.id, userId);
+  return { notified };
+}

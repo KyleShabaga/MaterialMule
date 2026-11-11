@@ -182,6 +182,60 @@ describe.runIf(testDatabaseUrl)('storage unit history coverage (MTR-59)', () => 
     expect(other).not.toContain('Other project');
   });
 
+  it('review fix (#116): a project-wide hold released before the unit entered inventory is not in its history', async () => {
+    const place = async (reason: string) => {
+      const placed = await retention('holds', { projectId: h.projects.b, reason });
+      expect(placed.status, JSON.stringify(placed.body)).toBe(201);
+      return placed.body.id as string;
+    };
+    const release = async (id: string, reason: string) => {
+      const released = await h.send(
+        'post',
+        `/api/retention/holds/${id}/release`,
+        { reason, version: 1, idempotencyKey: newKey() },
+        'lm',
+      );
+      expect(released.status, JSON.stringify(released.body)).toBe(200);
+    };
+    const gone = await place('Ended before receipt');
+    await release(gone, 'Ended early');
+    const open = await place('Open at receipt');
+
+    const unit = await h.bucket({ project: 'b', hole: await newHole('b') });
+    const later = await place('Placed after receipt');
+    await release(open, 'Open one released later');
+    await release(later, 'Later one released');
+
+    // Every page, so the total and the pages agree.
+    const first = await history(unit.id);
+    const items = [...first.items];
+    for (let n = 2; n <= Math.ceil(first.total / first.pageSize); n += 1) {
+      const response = await h.get(`/api/storage-units/${unit.id}/history?page=${n}`, 'tech');
+      items.push(...storageUnitHistoryPageSchema.parse(response.body).items);
+    }
+    expect(items).toHaveLength(first.total);
+    const reasons = items.map((event) => `${event.action}: ${event.reason}`);
+    expect(reasons).not.toContain('retention.hold_placed: Ended before receipt');
+    expect(reasons).not.toContain('retention.hold_released: Ended early');
+    expect(reasons).toEqual(
+      expect.arrayContaining([
+        'retention.hold_placed: Open at receipt',
+        'retention.hold_released: Open one released later',
+        'retention.hold_placed: Placed after receipt',
+        'retention.hold_released: Later one released',
+      ]),
+    );
+    // An explicit unit link is always listed.
+    const own = await retention('holds', {
+      projectId: h.projects.b,
+      scope: 'units',
+      unitIds: [unit.id],
+      reason: 'Own unit hold',
+    });
+    expect(own.status, JSON.stringify(own.body)).toBe(201);
+    expect((await history(unit.id)).items.map((event) => event.reason)).toContain('Own unit hold');
+  });
+
   it('a unit tested by a same-source completion link outside frozen coverage lists its program, including closure and reopening', async () => {
     const hole = await newHole();
     // A Specific line with no unit chosen: the tube is outside the frozen coverage (MM-T73).

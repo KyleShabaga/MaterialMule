@@ -441,9 +441,67 @@ describe('Dashboard', () => {
       '/api/admin/system-status': () => json(200, retrying),
     });
     let card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Printer not responding')).toHaveClass('badge-warning');
-    expect(within(card).getByText(/Printer out of labels\. Trying again\.$/)).toBeInTheDocument();
+    // Review fix (#119): the printer answered with its own fault, so it is not "not responding".
+    expect(await within(card).findByText('Printer needs attention')).toHaveClass('badge-warning');
+    expect(
+      within(card).getByText(
+        /^Front bench: Printer out of labels since Oct 25, 2026 23:05\. Trying again\.$/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
     cleanup();
+
+    // Retries used up with the same fault: still the fault, now as a failure.
+    renderDashboard(admin, {
+      '/api/admin/system-status': () =>
+        json(
+          200,
+          status({
+            defaultPrinter: printer(
+              {
+                outcome: 'failed',
+                at: '2026-10-26T05:08:00.000Z',
+                error: "Printer didn't respond",
+                printerMessage: 'Printer out of labels',
+              },
+              '2026-10-26T05:05:00.000Z',
+            ),
+          }),
+        ),
+    });
+    card = await screen.findByRole('region', { name: 'Label printer' });
+    expect(await within(card).findByText('Printer needs attention')).toHaveClass('badge-danger');
+    expect(
+      within(card).getByText(/^Front bench: Printer out of labels since Oct 25, 2026 23:05\.$/),
+    ).toBeInTheDocument();
+    cleanup();
+
+    // A timeout with no printer message is still "not responding", and still retrying.
+    renderDashboard(admin, {
+      '/api/admin/system-status': () =>
+        json(
+          200,
+          status({
+            defaultPrinter: printer(
+              {
+                outcome: 'retrying',
+                at: '2026-10-26T05:06:00.000Z',
+                error: "Printer didn't respond",
+                printerMessage: null,
+              },
+              '2026-10-26T05:05:00.000Z',
+            ),
+          }),
+        ),
+    });
+    card = await screen.findByRole('region', { name: 'Label printer' });
+    expect(await within(card).findByText('Printer not responding')).toHaveClass('badge-warning');
+    expect(
+      within(card).getByText(/— Printer didn't respond\. Trying again\.$/),
+    ).toBeInTheDocument();
+    cleanup();
+
+    // After the labels are replenished and a print succeeds: OK.
 
     renderDashboard(admin, {
       '/api/admin/system-status': () =>
