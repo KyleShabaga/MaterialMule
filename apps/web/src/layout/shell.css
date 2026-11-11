@@ -759,3 +759,12 @@ a.notifications-bell[aria-current='page']:hover {
     background: HighlightText;
   }
 }
+
+/* Lane A (Field Ledger wave 1): the phone More sheet's count per destination (canvas PhoneMore). */
+.more-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-section);
+  font-weight: 600;
+}
+

@@ -1,12 +1,14 @@
 import type {
+  ActivityItem,
+  InventoryPage,
   MeResponse,
   ProjectSummary,
   RecentlyReceivedItem,
   RecentlyReceivedResponse,
-  SystemStatusResponse,
+  StorageLocation,
+  Worklist,
 } from '@materialmule/shared';
-import { cleanup, render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -16,8 +18,12 @@ import { indexedDbDraftStore } from '../receiving/drafts/store';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { receivedWhen } from './format';
+import { loadMoreCounts } from './more-counts';
+import { byUrgency, firstName, greeting, listNames, todayLine, type NeedsItem } from './today';
+import { locationCells, ROOM_CELLS_MAX } from './TodayPage';
 
-// The approved dashboard (2026-10-27). Fictional data only: DEMO-2601, TH26-01, Alex Tester.
+// Today (Field Ledger, canvas Main and PhoneToday). Fictional data only: DEMO-2601, TH26-01,
+// Alex Tester.
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   id: '00000000-0000-4000-8000-000000000102',
@@ -44,35 +50,19 @@ const project: ProjectSummary = {
   },
 };
 
+const LOCATION_ID = '00000000-0000-4000-8000-000000000701';
+
 function unit(n: number, overrides: Partial<RecentlyReceivedItem> = {}): RecentlyReceivedItem {
   return {
     id: `00000000-0000-4000-8000-0000000010${String(n).padStart(2, '0')}`,
     readableId: `BKT-2026-0000${String(n).padStart(2, '0')}`,
     unitType: 'bucket',
     status: 'in_stock',
-    project: {
-      id: project.id,
-      projectNumber: 'DEMO-2601',
-      name: project.name,
-      client: 'Example Client',
-    },
+    project: { id: project.id, projectNumber: 'DEMO-2601', name: project.name, client: 'Example' },
     sample: null,
     bulkGroup: null,
-    holes: [
-      {
-        testHoleId: '00000000-0000-4000-8000-000000000911',
-        testHoleName: 'TH26-01',
-        type: 'sample_range',
-        sampleFrom: 'G1',
-        sampleTo: 'S12',
-        depthFrom: null,
-        depthTo: null,
-        depthUnit: null,
-        customText: null,
-        note: null,
-      },
-    ],
-    location: { id: 'loc', code: 'RCV', name: 'Receiving lab' },
+    holes: [],
+    location: { id: LOCATION_ID, code: 'WH-C2', name: 'Warehouse C2' },
     receivedDate: '2026-10-20',
     receivedAt: '2026-10-20T20:32:00.000Z',
     receiver: { initials: 'JS', name: 'Jordan Smith' },
@@ -81,87 +71,32 @@ function unit(n: number, overrides: Partial<RecentlyReceivedItem> = {}): Recentl
   };
 }
 
-const recent: RecentlyReceivedResponse = {
-  items: [
-    unit(19, {
-      latestPrint: {
-        status: 'sent',
-        attempts: 1,
-        printerMessage: null,
-        physicallyConfirmedAt: null,
-      },
-    }),
-    unit(18, {
-      latestPrint: {
-        status: 'uncertain',
-        attempts: 1,
-        printerMessage: null,
-        physicallyConfirmedAt: null,
-      },
-    }),
-    unit(17, {
-      latestPrint: {
-        status: 'sent',
-        attempts: 1,
-        printerMessage: null,
-        physicallyConfirmedAt: '2026-10-20T21:00:00.000Z',
-      },
-    }),
-    unit(16),
-  ],
-  total: 12,
-  receivedThisWeek: 7,
-  labelsToCheck: 2,
+const noLabels: RecentlyReceivedResponse = {
+  items: [],
+  total: 0,
+  receivedThisWeek: 0,
+  labelsToCheck: 0,
 };
 
-type DefaultPrinter = NonNullable<SystemStatusResponse['defaultPrinter']>;
+const emptyPage: InventoryPage = { items: [], total: 0, page: 1, pageSize: 25 };
 
-function printer(
-  lastAttempt: DefaultPrinter['lastAttempt'] = null,
-  failingSince: string | null = null,
-  lastJobFailure: DefaultPrinter['lastJobFailure'] = null,
-): DefaultPrinter {
+function location(overrides: Partial<StorageLocation> = {}): StorageLocation {
   return {
-    key: 'front',
-    name: 'Front bench',
-    enabled: true,
-    checkStatus: true,
-    lastAttempt,
-    failingSince,
-    lastJobFailure,
-  };
-}
-
-function status(overrides: Partial<SystemStatusResponse> = {}): SystemStatusResponse {
-  return {
-    checkedAt: '2026-10-26T20:00:00.000Z',
-    version: '0.1.0',
-    database: 'up',
-    backup: {
-      state: 'not_configured',
-      message: 'Backups are not set up on this server yet.',
-      lastRunAt: null,
-      lastRunResult: null,
-      lastRunMessage: null,
-      lastSuccessAt: null,
-      lastSuccessFile: null,
-      lastSuccessSizeBytes: null,
-      rpoHours: null,
-      rtoHours: null,
-      owner: null,
-      alertRecipient: null,
-    },
-    printQueue: {
-      queued: 0,
-      sending: 0,
-      uncertain: 1,
-      failed: 0,
-      oldestQueuedAt: null,
-      oldestQueuedAgeSeconds: null,
-    },
-    printWorker: { running: true, lastPollAt: '2026-10-26T19:59:58.000Z' },
-    defaultPrinter: printer(),
-    disks: [],
+    id: LOCATION_ID,
+    code: 'WH-C2',
+    name: 'Warehouse C2',
+    kind: 'warehouse',
+    area: null,
+    active: true,
+    isSystem: false,
+    retiredAt: null,
+    retiredReason: null,
+    codeLocked: true,
+    labelPrintedAt: null,
+    inStockCount: 3,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    version: 1,
     ...overrides,
   };
 }
@@ -175,10 +110,13 @@ function json(statusCode: number, body: unknown): Response {
 
 type Api = Record<string, (url: URL) => Response>;
 
-function renderDashboard(session: MeResponse, api: Api = {}) {
+function renderToday(session: MeResponse, api: Api = {}) {
   const handlers: Api = {
     '/api/activity/recent': () => json(200, []),
-    '/api/inventory/recently-received': () => json(200, recent),
+    '/api/inventory/recently-received': () => json(200, noLabels),
+    '/api/inventory': () => json(200, emptyPage),
+    '/api/locations': () => json(200, []),
+    '/api/worklist': () => json(200, { items: [], total: 0, page: 1, pageSize: 25, projects: [] }),
     ...api,
   };
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -202,9 +140,11 @@ function renderDashboard(session: MeResponse, api: Api = {}) {
   return { router, fetchMock };
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  const { drafts } = await indexedDbDraftStore.list();
+  for (const draft of drafts) await indexedDbDraftStore.remove(draft.draftId);
 });
 
 describe('receivedWhen', () => {
@@ -214,389 +154,219 @@ describe('receivedWhen', () => {
     expect(receivedWhen('2026-10-26', '2026-10-26T22:00:00Z', now)).toBe('Yesterday');
     expect(receivedWhen('2026-10-22', '2026-10-22T22:00:00Z', now)).toBe('2026-10-22');
   });
+});
 
-  it('shows only the day when the receipt was entered on a later day', () => {
-    // Received today per the receipt, but the confirmation time is yesterday evening in UTC terms.
-    expect(receivedWhen('2026-10-27', '2026-10-26T20:00:00Z', now)).toBe('Today');
+describe('Today wording', () => {
+  const morning = new Date('2026-11-10T16:00:00Z'); // 09:00 in Edmonton
+  const evening = new Date('2026-11-11T02:00:00Z'); // 19:00 on Nov 10 in Edmonton
+
+  it('greets the person by first name and says how many things need them', () => {
+    expect(greeting('Dana', 5, morning)).toBe('Good morning, Dana. Five things need you today.');
+    expect(greeting('Dana', 1, morning)).toBe('Good morning, Dana. One thing needs you today.');
+    expect(greeting(null, 0, evening)).toBe('Good evening. Nothing needs you today.');
+    expect(greeting('Dana', 12, morning)).toBe('Good morning, Dana. 12 things need you today.');
+  });
+
+  it('takes the first name and writes the date line in the lab time zone', () => {
+    expect(firstName('Dana Tester (Lab)')).toBe('Dana');
+    expect(firstName('')).toBeNull();
+    expect(todayLine(morning)).toBe('TUE 10 NOV 2026');
+    expect(todayLine(evening)).toBe('TUE 10 NOV 2026');
+  });
+
+  it('orders the queue by urgency and lists names briefly', () => {
+    const item = (key: NeedsItem['key']): NeedsItem => ({
+      key,
+      tag: { label: key, tone: 'waiting' },
+      title: key,
+      sub: '',
+      action: 'Open',
+      href: '/',
+      lead: key,
+      why: key,
+    });
+    expect(
+      byUrgency([item('lab'), item('drafts'), item('labels'), item('print-queue')]).map(
+        (i) => i.key,
+      ),
+    ).toEqual(['print-queue', 'labels', 'drafts', 'lab']);
+    expect(listNames(['DEMO-2611', 'DEMO-2613', 'DEMO-2611'])).toBe('DEMO-2611 and DEMO-2613');
+    expect(listNames(['A', 'B', 'C', 'D'])).toBe('A, B and 2 more');
+  });
+
+  it('draws one cell per unit, flagged for retention due, capped', () => {
+    expect(locationCells(3, 1)).toEqual(['current', 'done', 'done']);
+    expect(locationCells(0, 0)).toEqual([]);
+    expect(locationCells(500, 2)).toHaveLength(ROOM_CELLS_MAX);
   });
 });
 
-describe('Dashboard', () => {
-  it('Receive samples card links to receiving; with no drafts there is no Resume link', async () => {
-    renderDashboard(me());
-    const card = screen.getByRole('region', { name: 'Receive samples' });
-    expect(within(card).getByRole('link', { name: 'Receive samples' })).toHaveAttribute(
+describe('Today', () => {
+  it('opens with the greeting, Receive samples and an empty queue', async () => {
+    renderToday(me());
+    const greetingBlock = await screen.findByRole('region', {
+      name: /^Good (morning|afternoon|evening), Alex\./,
+    });
+    expect(within(greetingBlock).getByRole('heading', { level: 1 })).toHaveTextContent(
+      /Nothing needs you today\.$/,
+    );
+    expect(screen.getByRole('link', { name: 'Receive samples' })).toHaveAttribute(
       'href',
       '/receiving-log/new',
     );
-    expect(await screen.findByText('No drafts on this computer.')).toBeInTheDocument();
-    expect(within(card).queryByRole('link', { name: /Resume a draft/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Scan label' })).toHaveAttribute(
+      'href',
+      '/sample-storage/scan',
+    );
+    const needs = screen.getByRole('region', { name: 'Needs you' });
+    expect(await within(needs).findByText('Nothing needs you.')).toBeInTheDocument();
   });
 
-  it('shows drafts on this computer: count, stale flag and Resume links for this person only', async () => {
+  it('lists what needs the person, most urgent first, each linking to the screen that clears it', async () => {
     const mine = newRecord({ ...newDraft(null, '2026-10-26'), project }, me());
-    const old = {
-      ...newRecord(newDraft(null, '2026-09-01'), me()),
-      lastSavedAt: '2026-09-01T16:00:00.000Z',
-    };
     const someoneElse = newRecord(newDraft(null, '2026-10-26'), me({ id: 'someone-else' }));
-    for (const record of [mine, old, someoneElse]) await indexedDbDraftStore.put(record);
-
-    renderDashboard(me());
-    const card = screen.getByRole('region', { name: 'Receive samples' });
-    expect(await within(card).findByRole('link', { name: 'Resume a draft (2)' })).toHaveAttribute(
-      'href',
-      '/receiving-log/new',
-    );
-    expect(within(card).getByText('2 drafts on this computer · 1 stale')).toBeInTheDocument();
-
-    const drafts = screen.getByRole('region', { name: 'Drafts on this computer' });
-    expect(
-      within(drafts).getByRole('link', {
-        name: 'Resume draft DEMO-2601 · Riverbank investigation',
-      }),
-    ).toHaveAttribute('href', `/receiving-log/new?draft=${mine.draftId}`);
-    expect(
-      within(drafts).getByRole('link', { name: 'Resume draft No project chosen yet' }),
-    ).toHaveAttribute('href', `/receiving-log/new?draft=${old.draftId}`);
-    expect(within(drafts).getByText('Stale')).toBeInTheDocument();
-    expect(within(drafts).getAllByRole('listitem')).toHaveLength(2);
-  });
-
-  it('looks up a storage unit ID and opens it', async () => {
-    const user = userEvent.setup();
-    const { router } = renderDashboard(me(), {
-      '/api/storage-units/lookup': (url) =>
-        url.searchParams.get('code') === 'bkt-2026-000014'
-          ? json(200, { id: 'u14', readableId: 'BKT-2026-000014' })
-          : json(404, { error: 'storage_unit_not_found' }),
+    for (const record of [mine, someoneElse]) await indexedDbDraftStore.put(record);
+    renderToday(me({ permissions: ['inventory.read', 'receipt.confirm', 'action_item.read'] }), {
+      '/api/action-items/count': () => json(200, { open: 2 }),
+      '/api/inventory/recently-received': () =>
+        json(200, { ...noLabels, items: [unit(19)], labelsToCheck: 1 }),
+      '/api/inventory': (url) =>
+        url.searchParams.get('retention') === 'eligible_by_date'
+          ? json(200, { ...emptyPage, items: [unit(7)], total: 1 })
+          : json(200, emptyPage),
     });
-    const lookup = screen.getByRole('search', { name: 'Look up a storage unit' });
-    const input = within(lookup).getByLabelText('Storage unit ID');
-    await user.type(input, 'BKT-2026-999999{Enter}');
-    expect(await within(lookup).findByRole('alert')).toHaveTextContent('No storage unit found');
-    await user.clear(input);
-    await user.type(input, 'bkt-2026-000014{Enter}');
-    await vi.waitFor(() =>
-      expect(router.state.location.pathname).toBe('/sample-storage/BKT-2026-000014'),
-    );
-  });
-
-  it('Recently received lists units with summaries, receiver and print status wording', async () => {
-    renderDashboard(me());
-    const section = screen.getByRole('region', { name: 'Recently received' });
-    const table = await within(section).findByRole('table', {
-      name: 'Recently received storage units',
-    });
-    const rows = within(table).getAllByRole('row').slice(1);
-    expect(rows).toHaveLength(4);
-    expect(within(rows[0]!).getByRole('link', { name: 'BKT-2026-000019' })).toHaveAttribute(
+    const needs = screen.getByRole('region', { name: 'Needs you' });
+    const rows = await within(needs).findAllByRole('listitem');
+    await vi.waitFor(() => expect(within(needs).getAllByRole('listitem')).toHaveLength(4));
+    expect(rows[0]).toBeDefined();
+    const titles = within(needs)
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector('.today-task-title')?.textContent);
+    expect(titles).toEqual([
+      '2 action requests wait on you',
+      '1 label to check',
+      'A receipt for DEMO-2601 is waiting to be confirmed',
+      '1 storage unit has reached the end of retention',
+    ]);
+    expect(
+      within(needs).getByRole('link', { name: 'Open: 2 action requests wait on you' }),
+    ).toHaveAttribute('href', '/action-requests');
+    expect(within(needs).getByRole('link', { name: 'Check: 1 label to check' })).toHaveAttribute(
       'href',
       '/sample-storage/BKT-2026-000019',
     );
-    expect(rows[0]).toHaveTextContent('DEMO-2601');
-    expect(rows[0]).toHaveTextContent('TH26-01: G1–S12');
-    expect(rows[0]).toHaveTextContent('Receiving lab');
-    expect(rows[0]).toHaveTextContent('by JS');
-    expect(rows[0]).toHaveTextContent('Sent to printer');
-    expect(rows[1]).toHaveTextContent('Unknown — check the printer before reprinting');
-    expect(rows[2]).toHaveTextContent('Printed (confirmed)');
-    expect(rows[3]).toHaveTextContent('No label yet');
-    expect(within(section).getByText('7 this week')).toBeInTheDocument();
     expect(
-      within(section).getByText('Showing the 4 most recent of 12 in Sample Storage'),
-    ).toBeInTheDocument();
-    expect(
-      within(section).getByRole('link', { name: 'See all in Sample Storage →' }),
-    ).toHaveAttribute('href', '/sample-storage');
-  });
+      within(needs).getByRole('link', {
+        name: 'Continue: A receipt for DEMO-2601 is waiting to be confirmed',
+      }),
+    ).toHaveAttribute('href', `/receiving-log/new?draft=${mine.draftId}`);
 
-  it('filters by Today and Labels to check', async () => {
-    const user = userEvent.setup();
-    const { fetchMock } = renderDashboard(me(), {
-      '/api/inventory/recently-received': (url) =>
-        url.searchParams.get('show') === 'labels'
-          ? json(200, { ...recent, items: recent.items.slice(0, 2), total: 2 })
-          : url.searchParams.get('show') === 'today'
-            ? json(200, { ...recent, items: [], total: 0 })
-            : json(200, recent),
-    });
-    const section = screen.getByRole('region', { name: 'Recently received' });
-    const filters = within(section).getByRole('group', { name: 'Show' });
-    expect(
-      await within(filters).findByRole('button', { name: 'Labels to check 2' }),
-    ).toBeInTheDocument();
-    expect(within(filters).getByRole('button', { name: 'All' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-
-    await user.click(within(filters).getByRole('button', { name: 'Labels to check 2' }));
-    expect(await within(section).findByText(/Showing the 2 most recent of 2/)).toBeInTheDocument();
-    expect(within(section).getAllByRole('row')).toHaveLength(3);
-
-    await user.click(within(filters).getByRole('button', { name: 'Today' }));
-    expect(await within(section).findByText('Nothing received today.')).toBeInTheDocument();
-    expect(
-      within(section).getByRole('link', { name: 'See all in Sample Storage →' }),
-    ).toHaveAttribute(
+    // The greeting counts them and flags the first one, saying why it is first.
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading).toHaveTextContent(/Four things need you today\.$/);
+    expect(screen.getByRole('link', { name: 'Start with your action requests' })).toHaveAttribute(
       'href',
-      expect.stringMatching(/^\/sample-storage\?receivedFrom=\d{4}-\d{2}-\d{2}&receivedTo=/),
+      '/action-requests',
     );
-    const shows = fetchMock.mock.calls
-      .map(([input]) => new URL(String(input), 'http://localhost'))
-      .filter((url) => url.pathname === '/api/inventory/recently-received')
-      .map((url) => url.searchParams.get('show'));
-    expect(shows).toEqual(['all', 'labels', 'today']);
+    expect(screen.getByText('ROUTED TO YOU BY NAME')).toBeInTheDocument();
+
+    // The counts link to the same screens.
+    const counts = screen.getByRole('list', { name: 'Counts' });
+    expect(within(counts).getByRole('link', { name: /^labels to check: 1/ })).toHaveAttribute(
+      'href',
+      '/sample-storage/BKT-2026-000019',
+    );
   });
 
-  it('Recently received shows a retryable error', async () => {
-    const user = userEvent.setup();
-    let calls = 0;
-    renderDashboard(me(), {
-      '/api/inventory/recently-received': () => (++calls === 1 ? json(500, {}) : json(200, recent)),
-    });
-    const section = screen.getByRole('region', { name: 'Recently received' });
+  it('shows the last 24 hours in the ledger, linking each record', async () => {
+    const item: ActivityItem = {
+      id: 'e1',
+      occurredAt: '2026-10-25T16:42:00.000Z',
+      action: 'storage_unit.moved',
+      actorInitials: 'AT',
+      actorName: 'Alex Tester',
+      summary: 'AT moved BKT-2026-000142 to Warehouse C2',
+      ref: 'BKT-2026-000142',
+      href: '/sample-storage/BKT-2026-000142',
+    };
+    const { fetchMock } = renderToday(me(), { '/api/activity/recent': () => json(200, [item]) });
+    const ledger = screen.getByRole('region', { name: 'Ledger' });
     expect(
-      await within(section).findByText("Recently received couldn't load. Try again."),
-    ).toBeInTheDocument();
-    await user.click(within(section).getByRole('button', { name: 'Retry' }));
-    expect(await within(section).findByRole('table')).toBeInTheDocument();
-  });
-
-  it('shows the label printer only to admins, from system status', async () => {
-    renderDashboard(me(), { '/api/admin/system-status': () => json(200, status()) });
-    await screen.findByRole('table');
-    expect(screen.queryByRole('region', { name: 'Label printer' })).not.toBeInTheDocument();
+      await within(ledger).findByRole('link', { name: 'AT moved BKT-2026-000142 to Warehouse C2' }),
+    ).toHaveAttribute('href', '/sample-storage/BKT-2026-000142');
+    expect(within(ledger).getByText('BKT-2026-000142')).toBeInTheDocument();
     expect(
-      vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('system-status')),
-    ).toBe(false);
-  });
-
-  it('admins see waiting / not sure counts and the worker state', async () => {
-    renderDashboard(
-      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
-      {
-        '/api/admin/system-status': () =>
-          json(200, status({ printWorker: { running: false, lastPollAt: null } })),
-      },
-    );
-    const card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Print queue stopped')).toBeInTheDocument();
-    expect(within(card).getByText('Front bench: no labels sent yet.')).toBeInTheDocument();
-    const waiting = within(card).getByText('Waiting to print').closest('div')!;
-    expect(waiting).toHaveTextContent('0');
-    const unsure = within(card).getByText('Not sure if printed').closest('div')!;
-    expect(unsure).toHaveTextContent('1');
-    expect(
-      within(card).getByRole('link', { name: 'Print queue in System status' }),
-    ).toHaveAttribute('href', '/settings/system-status');
-  });
-  it('MTR-45: a failed last attempt on the default printer shows a warning with the reason', async () => {
-    renderDashboard(
-      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
-      {
-        '/api/admin/system-status': () =>
-          json(
-            200,
-            status({
-              defaultPrinter: printer(
-                {
-                  outcome: 'failed',
-                  at: '2026-10-26T05:07:00.000Z',
-                  error: 'Printer refused the connection',
-                  printerMessage: null,
-                },
-                '2026-10-26T05:05:00.000Z',
-              ),
-            }),
-          ),
-      },
-    );
-    const card = await screen.findByRole('region', { name: 'Label printer' });
-    // The worker still runs: the queue badge says so, the printer line says the printer is down.
-    expect(await within(card).findByText('Print queue running')).toHaveClass('badge-success');
-    expect(within(card).getByText('Printer not responding')).toHaveClass('badge-danger');
-    expect(
-      within(card).getByText(
-        /^Front bench: not responding since Oct 25, 2026 23:05 — Printer refused the connection$/,
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/api/activity/recent?limit=12&hours=24'),
       ),
-    ).toBeInTheDocument();
+    ).toBe(true);
   });
 
-  it('MTR-45: a retrying printer warns with the printer message; a later success shows OK', async () => {
-    const retrying = status({
-      defaultPrinter: printer(
-        {
-          outcome: 'retrying',
-          at: '2026-10-26T05:06:00.000Z',
-          error: "Printer didn't respond",
-          printerMessage: 'Printer out of labels',
-        },
-        '2026-10-26T05:05:00.000Z',
-      ),
-    });
-    const admin = me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] });
-    renderDashboard(admin, {
-      '/api/admin/system-status': () => json(200, retrying),
-    });
-    let card = await screen.findByRole('region', { name: 'Label printer' });
-    // Review fix (#119): the printer answered with its own fault, so it is not "not responding".
-    expect(await within(card).findByText('Printer needs attention')).toHaveClass('badge-warning');
+  it('shows a retryable error when the ledger fails', async () => {
+    renderToday(me(), { '/api/activity/recent': () => json(500, {}) });
+    const ledger = screen.getByRole('region', { name: 'Ledger' });
     expect(
-      within(card).getByText(
-        /^Front bench: Printer out of labels since Oct 25, 2026 23:05\. Trying again\.$/,
-      ),
+      await within(ledger).findByText("The ledger couldn't load. Try again."),
     ).toBeInTheDocument();
-    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
-    cleanup();
-
-    // Retries used up with the same fault: still the fault, now as a failure.
-    renderDashboard(admin, {
-      '/api/admin/system-status': () =>
-        json(
-          200,
-          status({
-            defaultPrinter: printer(
-              {
-                outcome: 'failed',
-                at: '2026-10-26T05:08:00.000Z',
-                error: "Printer didn't respond",
-                printerMessage: 'Printer out of labels',
-              },
-              '2026-10-26T05:05:00.000Z',
-            ),
-          }),
-        ),
-    });
-    card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Printer needs attention')).toHaveClass('badge-danger');
-    expect(
-      within(card).getByText(/^Front bench: Printer out of labels since Oct 25, 2026 23:05\.$/),
-    ).toBeInTheDocument();
-    cleanup();
-
-    // A timeout with no printer message is still "not responding", and still retrying.
-    renderDashboard(admin, {
-      '/api/admin/system-status': () =>
-        json(
-          200,
-          status({
-            defaultPrinter: printer(
-              {
-                outcome: 'retrying',
-                at: '2026-10-26T05:06:00.000Z',
-                error: "Printer didn't respond",
-                printerMessage: null,
-              },
-              '2026-10-26T05:05:00.000Z',
-            ),
-          }),
-        ),
-    });
-    card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Printer not responding')).toHaveClass('badge-warning');
-    expect(
-      within(card).getByText(/— Printer didn't respond\. Trying again\.$/),
-    ).toBeInTheDocument();
-    cleanup();
-
-    // After the labels are replenished and a print succeeds: OK.
-
-    renderDashboard(admin, {
-      '/api/admin/system-status': () =>
-        json(
-          200,
-          status({
-            defaultPrinter: printer({
-              outcome: 'ok',
-              at: '2026-10-26T05:30:00.000Z',
-              error: null,
-              printerMessage: null,
-            }),
-          }),
-        ),
-    });
-    card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Printer OK')).toHaveClass('badge-success');
-    expect(within(card).getByText(/^Front bench: last labels printed at /)).toBeInTheDocument();
-    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
+    expect(within(ledger).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  it('MTR-45: a job refused before sending is reported as the job, not as the printer', async () => {
-    renderDashboard(
-      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
-      {
-        '/api/admin/system-status': () =>
-          json(
-            200,
-            status({
-              defaultPrinter: printer(
-                {
-                  outcome: 'ok',
-                  at: '2026-10-26T05:00:00.000Z',
-                  error: null,
-                  printerMessage: null,
-                },
-                null,
-                {
-                  kind: 'unit_disposed',
-                  at: '2026-10-26T05:07:00.000Z',
-                  error:
-                    'Not printed: BKT-2026-000024 was disposed after this label was requested. Nothing in this job was sent.',
-                },
-              ),
-            }),
-          ),
-      },
+  it('draws the storage room as one cell per unit, flagging retention due', async () => {
+    renderToday(me(), {
+      '/api/locations': () =>
+        json(200, [
+          location(),
+          location({ id: 'loc-2', name: 'Receiving lab', kind: 'receiving_lab', inStockCount: 0 }),
+        ]),
+      '/api/inventory': (url) =>
+        url.searchParams.get('retention') === 'eligible_by_date'
+          ? json(200, { ...emptyPage, items: [unit(7)], total: 1 })
+          : json(200, emptyPage),
+    });
+    const room = screen.getByRole('region', { name: 'Storage room' });
+    const cells = await within(room).findByRole('img', {
+      name: 'Warehouse C2: 3 storage units, 1 with retention due',
+    });
+    expect(cells.querySelectorAll('.counted-cell-current')).toHaveLength(1);
+    expect(cells.querySelectorAll('.counted-cell-done')).toHaveLength(2);
+    expect(within(room).getByRole('link', { name: /Warehouse C2/ })).toHaveAttribute(
+      'href',
+      `/sample-storage?locationId=${LOCATION_ID}`,
     );
-    const card = await screen.findByRole('region', { name: 'Label printer' });
-    // The printer line still reflects the printer's own last attempt.
-    expect(await within(card).findByText('Printer OK')).toHaveClass('badge-success');
-    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
-    expect(within(card).getByText('Label job not sent')).toHaveClass('badge-danger');
-    expect(
-      within(card).getByText(
-        /^At Oct 25, 2026 23:07, the last label job was not sent to the printer — Not printed: BKT-2026-000024 was disposed/,
-      ),
-    ).toBeInTheDocument();
+    expect(within(room).getByText('Empty')).toBeInTheDocument();
+    // The receiving lab names the lab on the greeting's date line.
+    expect(await screen.findByText(/· RECEIVING LAB$/)).toBeInTheDocument();
   });
+});
 
-  it('MTR-45: a label preparation failure with no printer attempt claims nothing about the printer', async () => {
-    renderDashboard(
-      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
-      {
-        '/api/admin/system-status': () =>
-          json(
-            200,
-            status({
-              defaultPrinter: printer(null, null, {
-                kind: 'label_preparation',
-                at: '2026-10-26T05:07:00.000Z',
-                error: 'The label could not be prepared',
-              }),
-            }),
-          ),
-      },
+describe('More sheet counts', () => {
+  it('reads one count per destination and leaves out what it cannot read', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/api/inventory') {
+          return json(200, {
+            ...emptyPage,
+            total: url.searchParams.get('retention') ? 9 : 212,
+          });
+        }
+        if (url.pathname === '/api/projects') {
+          return json(200, { items: [], total: 7, page: 1, pageSize: 1 });
+        }
+        if (url.pathname === '/api/worklist') {
+          const worklist: Worklist = { items: [], total: 3, page: 1, pageSize: 25, projects: [] };
+          return json(200, worklist);
+        }
+        return json(403, {});
+      }),
     );
-    const card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('Not used yet')).toHaveClass('badge-neutral');
-    expect(within(card).queryByText('Printer OK')).not.toBeInTheDocument();
-    expect(within(card).queryByText('Printer not responding')).not.toBeInTheDocument();
-    expect(within(card).getByText('Label job not sent')).toHaveClass('badge-danger');
-    expect(
-      within(card).getByText(
-        /the last label job was not sent to the printer — The label could not be prepared$/,
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('MTR-45: says when no printer is the default', async () => {
-    renderDashboard(
-      me({ roles: ['admin'], permissions: ['inventory.read', 'system.status.read'] }),
-      { '/api/admin/system-status': () => json(200, status({ defaultPrinter: null })) },
+    const counts = await loadMoreCounts(
+      me({ permissions: ['inventory.read', 'lab_program.read'] }),
     );
-    const card = await screen.findByRole('region', { name: 'Label printer' });
-    expect(await within(card).findByText('No default printer')).toHaveClass('badge-warning');
+    expect(counts.inventory).toBe(212);
+    expect(counts.projects).toBe(7);
+    expect(counts.concrete).toBeUndefined();
+    expect(counts.receive).toBe(0);
   });
 });

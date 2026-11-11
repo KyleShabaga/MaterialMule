@@ -293,7 +293,7 @@ describe('dashboard', () => {
   it('MTR-136: a menu link moves focus to the new page heading, not the old link', async () => {
     const user = userEvent.setup();
     renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    await screen.findByText('No activity yet. Receive the first storage unit.');
+    await screen.findByText('Nothing recorded in the last 24 hours.');
     // The first page load keeps the browser's own focus.
     expect(screen.getByRole('heading', { level: 1 })).not.toHaveFocus();
     const link = screen.getByRole('link', { name: 'Projects' });
@@ -320,7 +320,7 @@ describe('dashboard', () => {
       }
       return original(input, init);
     });
-    await screen.findByText('No activity yet. Receive the first storage unit.');
+    await screen.findByText('Nothing recorded in the last 24 hours.');
     return { router, release };
   }
 
@@ -353,14 +353,14 @@ describe('dashboard', () => {
   it('shows the empty state when nothing has happened yet', async () => {
     renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
     expect(
-      await screen.findByText('No activity yet. Receive the first storage unit.'),
+      await screen.findByText('Nothing recorded in the last 24 hours.'),
     ).toBeInTheDocument();
   });
 
   it('shows a retryable error when activity fails to load', async () => {
     renderAt('/', { status: 'active', me: me() });
-    expect(await screen.findByText(/Recent activity couldn't load/)).toBeInTheDocument();
-    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await screen.findByText(/The ledger couldn't load/)).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'Ledger' });
     expect(within(activity).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 

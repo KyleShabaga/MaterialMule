@@ -202,7 +202,12 @@ describe('toActivityItem (T1)', () => {
   it('Field Ledger: ref is the one record, else the project', () => {
     expect(
       toActivityItem(
-        event({ after: { readableIds: ['BKT-2026-000014', 'BKT-2026-000015'], projectNumber: 'DEMO-2601' } }),
+        event({
+          after: {
+            readableIds: ['BKT-2026-000014', 'BKT-2026-000015'],
+            projectNumber: 'DEMO-2601',
+          },
+        }),
       ).ref,
     ).toBe('DEMO-2601');
     expect(toActivityItem(event({ after: { readableIds: ['BKT-2026-000014'] } })).ref).toBe(

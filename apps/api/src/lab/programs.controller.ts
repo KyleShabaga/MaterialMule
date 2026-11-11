@@ -44,7 +44,8 @@ export class LabProgramsController {
       status,
       projectId,
       // Field Ledger top-bar search: program number, project number or project name.
-      search: typeof search === 'string' ? search.trim().slice(0, LAB_PROGRAM_SEARCH_MAX) : undefined,
+      search:
+        typeof search === 'string' ? search.trim().slice(0, LAB_PROGRAM_SEARCH_MAX) : undefined,
       page: Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1,
     });
   }

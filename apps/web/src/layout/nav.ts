@@ -127,14 +127,12 @@ export function destinationsFor(
 }
 
 /**
- * Whether the phone bar's Find slot can open Lab search (MM-V2-C31: behind the concreteLab flag
- * and `inventory.read`); otherwise Find opens Inventory.
+ * Whether the top-bar search and the phone bar's Find slot open /search (Field Ledger: every
+ * session that can read storage units, LAB included); otherwise Find opens Inventory. The
+ * concrete group on the results page still follows the concreteLab flag.
  */
-export function canUseLabSearch(
-  me: Pick<MeResponse, 'permissions'>,
-  features: Features = FEATURES,
-): boolean {
-  return features.concreteLab && me.permissions.includes('inventory.read');
+export function canUseSearch(me: Pick<MeResponse, 'permissions'>): boolean {
+  return me.permissions.includes('inventory.read');
 }
 
 export function accountBadge(me: MeResponse): { label: string; tone: 'info' | 'warning' } {
