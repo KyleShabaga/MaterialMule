@@ -1,8 +1,11 @@
-/* The project Concrete section (MM-V2-C30). Desktop tables that stack on phones (DataTable).
-   Moderate corner radii from the design tokens: never pill shapes. */
+/* The project Concrete section (MM-V2-C30) in the Field Ledger design (docs/redesign/design.md,
+   "Concrete pages"; canvas ProjectConcrete, ConcreteMix, ConcreteMixPropagation). Colours, type,
+   radii and spacing come only from the styles.css tokens. Radii 3/4/6 only: never pill shapes.
+   Hover is global (styles.css, layout/shell.css): nothing here adds a hover colour. */
 
-.project-sections,
-.concrete-section-tabs {
+/* ---- The project's Overview / Concrete switch (projects/ProjectSectionNav, lane E's) ---- */
+
+.project-sections {
   display: flex;
   flex-wrap: wrap;
   gap: var(--gap-button);
@@ -10,8 +13,7 @@
   border-bottom: 1px solid var(--line-shell);
 }
 
-.project-sections a,
-.concrete-section-tabs a {
+.project-sections a {
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
@@ -24,34 +26,146 @@
   text-decoration: none;
 }
 
-.project-sections a[aria-current='page'],
-.concrete-section-tabs a[aria-current='page'],
-.concrete-section-tabs a.active {
+.project-sections a[aria-current='page'] {
   font-weight: 600;
   background: var(--accent-bg);
   border-color: var(--accent-line, var(--line-shell));
   color: var(--accent-ink, inherit);
 }
 
-.concrete-section-tabs {
-  border-bottom-color: var(--line);
-}
+/* ---- The section switch and the five underlined tabs share one row ---- */
 
-.concrete-tab {
-  margin-top: 0.75rem;
-}
-
-.concrete-toolbar {
+.concrete-switches {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.75rem 1.25rem;
-  margin-bottom: 0.75rem;
+  gap: var(--space-3) var(--space-4);
+  margin: var(--space-4) 0 var(--space-6);
+}
+
+.concrete-switches .project-sections {
+  margin: 0;
+}
+
+.concrete-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.concrete-section-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-bottom: 3px solid transparent;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.concrete-section-tabs a[aria-current='page'],
+.concrete-section-tabs a.active {
+  border-bottom-color: var(--rule);
+  font-weight: 800;
+}
+
+/* ---- Screens reached from a row (a mix, its update step): back link, then the title ---- */
+
+.concrete-record {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.concrete-record .page-header h1 {
+  margin: 0;
+}
+
+.concrete-record-meta {
+  margin: 0;
+  font: 600 var(--fs-small) / var(--lh-small) var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* ---- A tab's title row: heading and line left, filters and actions right, over a rule ---- */
+
+.concrete-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-tab + .concrete-tab {
+  margin-top: var(--space-7);
+}
+
+.concrete-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-bottom: 10px;
+  border-bottom: var(--rule-width) solid var(--rule);
+}
+
+.concrete-head-title {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.concrete-head-title h2,
+.concrete-head-title h3 {
+  margin: 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  font-weight: 700;
+}
+
+.concrete-head-title h2 {
+  font-size: 1.5rem;
+  line-height: 1.75rem;
+}
+
+.concrete-head-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--ink-soft);
+}
+
+/* Mono caps labels above fields (design.md, "Fields"). */
+.concrete-head label,
+.concrete-field > label,
+.concrete-range legend,
+.mix-form-grid label,
+.mix-admixtures legend,
+.mix-admixtures > label {
+  font: 600 var(--fs-label) / 1rem var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.concrete-search,
+.concrete-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .concrete-search {
-  flex: 1 1 22rem;
-  max-width: 36rem;
+  flex: 1 1 20rem;
+  max-width: 32rem;
+}
+
+.concrete-search .inline-input {
+  display: flex;
+  gap: var(--gap-button);
 }
 
 .concrete-search input {
@@ -59,51 +173,59 @@
   min-width: 0;
 }
 
-.concrete-filter {
+.concrete-toolbar-action {
   display: flex;
   flex-direction: column;
+  gap: var(--space-1);
+  max-width: 20rem;
 }
 
-.concrete-toolbar-action {
-  margin-left: auto;
-  max-width: 22rem;
-}
-
-.concrete-toolbar-action .field-hint {
-  margin: 0.25rem 0 0;
-}
-
-.concrete-pager {
+.concrete-tab .concrete-pager {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--gap-button);
-  margin-top: 0.5rem;
 }
 
 .concrete-lead-only {
   margin: 0;
 }
 
-.concrete-facts {
+.mix-row-id {
+  font-size: var(--fs-row-id);
+  font-weight: 600;
+}
+
+.mix-row-revisions {
+  display: block;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--ink-soft);
+}
+
+.specimen-row-id {
+  font-weight: 600;
+}
+
+/* ---- Facts, fields and forms ---- */
+
+.concrete-settings .concrete-facts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 0.75rem 1.25rem;
+  gap: var(--space-3) var(--space-5);
   margin: 0;
 }
 
-.concrete-facts dt {
-  font-size: 0.85rem;
-  color: var(--muted);
+.concrete-settings .concrete-facts dt {
+  font: 600 var(--fs-label) / 1rem var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
-.concrete-facts dd {
-  margin: 0.15rem 0 0;
-}
-
-.mix-facts-wide {
-  grid-column: 1 / -1;
+.concrete-settings .concrete-facts dd {
+  margin: var(--space-1) 0 0;
 }
 
 .concrete-people {
@@ -111,27 +233,108 @@
   padding-left: 1.1rem;
 }
 
+.concrete-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3) var(--space-4);
+}
+
+.concrete-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.concrete-field-wide {
+  flex-basis: 20rem;
+}
+
+.concrete-field-tag {
+  align-self: flex-start;
+}
+
+.concrete-input-short {
+  width: 8rem;
+}
+
+.concrete-actions {
+  justify-content: flex-start;
+}
+
 .concrete-form {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--space-3);
   max-width: 44rem;
 }
 
-.concrete-form .page-actions {
-  margin-top: 0.75rem;
+.concrete-form .banded-card {
+  margin-top: 0;
+}
+
+.concrete-narrow {
+  max-width: 54rem;
+}
+
+.concrete-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-settings-form > .banded-card {
+  margin-top: 0;
+}
+
+.concrete-summary {
+  max-width: 48rem;
+}
+
+.concrete-summary > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-summary > section + section {
+  margin-top: var(--space-6);
+}
+
+.concrete-range {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.concrete-range legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+}
+
+.concrete-range > label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target);
+  font-weight: 600;
 }
 
 .mix-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-  gap: 0.6rem 1rem;
+  gap: var(--space-3) var(--space-4);
 }
 
 .mix-form-grid > div {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 6px;
 }
 
 .mix-form-wide {
@@ -139,73 +342,49 @@
 }
 
 .mix-admixtures {
-  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
   border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  padding: 0.5rem 0.75rem 0.75rem;
+  border-radius: var(--radius-card);
+  padding: var(--space-2) var(--space-3) var(--space-3);
 }
 
 .mix-admixture-list {
   list-style: none;
-  margin: 0.5rem 0 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: 0.4rem 1rem;
+  gap: var(--space-2) var(--space-4);
 }
 
 .mix-admixture-list li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 6px;
+}
+
+.mix-admixture-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--target);
 }
 
 .mix-admixture-list input[type='text'] {
   width: 7rem;
 }
 
-.mix-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--gap-button);
-}
-
-.mix-heading h2 {
-  margin: 0.25rem 0;
-}
-
-.mix-actions {
-  margin: 0.5rem 0;
-}
-
-.mix-revisions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-  gap: 1rem;
-}
-
-.mix-history {
-  margin: 0;
-  padding-left: 1.2rem;
-}
-
-.mix-history li + li {
-  margin-top: 0.4rem;
-}
-
-.mix-history p {
-  margin: 0.15rem 0 0;
-}
-
 .concrete-choices {
   list-style: none;
-  margin: 0.5rem 0;
+  margin: var(--space-2) 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 .concrete-choices li {
@@ -216,57 +395,298 @@
   gap: var(--gap-button);
 }
 
-.concrete-range {
-  border: none;
-  margin: 0 0 0.75rem;
-  padding: 0;
+/* ---- Two columns (3:1) that wrap to one: the mix and its update step ---- */
+
+.concrete-split {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-6) var(--space-7);
 }
 
-.concrete-range-dates {
+.concrete-split-main {
+  flex: 3 1 34rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.concrete-split-main > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-split-main > .banded-card,
+.concrete-split-main .mix-revisions .banded-card {
+  margin-top: 0;
+}
+
+.concrete-split-aside {
+  flex: 1 1 18rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.concrete-split-aside .side-panel {
+  margin-top: 0;
+}
+
+.concrete-panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concrete-panel-stack p {
+  margin: 0;
+}
+
+.concrete-panel-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.concrete-panel-actions .button,
+.concrete-panel-actions button {
+  justify-content: center;
+}
+
+/* ---- Mix: heading, the revisions side by side, history ---- */
+
+.mix-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mix-heading-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2) var(--space-4);
+}
+
+.mix-heading-title .page-header {
+  min-width: 0;
+}
+
+.mix-heading-title h1 {
+  overflow-wrap: anywhere;
+}
+
+.mix-revisions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: var(--space-4);
+}
+
+.mix-revisions .banded-card-body {
+  padding: 0;
+}
+
+.mix-spec {
+  margin: 0;
+}
+
+.mix-spec-row {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mix-spec-row:last-child {
+  border-bottom: none;
+}
+
+.mix-spec-row dt {
+  font: 600 var(--fs-label) / 1rem var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.mix-spec-row dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* A value the draft changes: flag-wash row, bold value, and the word "Changed" beside it. */
+.mix-spec-row.is-changed {
+  background: var(--flag-wash);
+}
+
+.mix-spec-row.is-changed dd .mono {
+  font-weight: 700;
+}
+
+.mix-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mix-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mix-history-when {
+  flex: 0 0 11rem;
+  font-size: var(--fs-data);
+  color: var(--ink-soft);
+}
+
+.mix-history li > div {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.mix-history-who {
+  color: var(--ink-soft);
+}
+
+.mix-history p {
+  margin: var(--space-1) 0 0;
+}
+
+/* ---- Update open records ---- */
+
+.propagation-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.propagation-call {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  max-width: 56rem;
+  padding: var(--space-3) 14px;
+  border-radius: var(--radius-control);
+  background: var(--tag-closed-bg);
+}
+
+.propagation-call .field-label {
+  flex-shrink: 0;
+  padding-top: 2px;
+  color: var(--ink);
+}
+
+.propagation-call p {
+  margin: 0;
+}
+
+.propagation-call p + p {
+  margin-top: var(--space-1);
+}
+
+.propagation-record {
+  font-weight: 600;
+}
+
+.propagation-kind {
+  display: block;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--ink-soft);
 }
 
 .propagation-changes {
+  list-style: none;
   margin: 0;
-  padding-left: 1.1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.propagation-field {
+  display: block;
+  font: 600 var(--fs-label) / 1rem var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.propagation-values s {
+  color: var(--ink-soft);
+}
+
+.propagation-values strong {
+  font-weight: 600;
 }
 
 .propagation-kept {
-  margin-top: 0.35rem;
+  margin-top: var(--space-2);
 }
 
 .propagation-kept .field-hint {
-  margin: 0;
+  margin: 0 0 var(--space-1);
+}
+
+.propagation-reason {
+  display: inline;
+}
+
+.propagation-none {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  font-weight: 700;
 }
 
 .concrete-settings {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.concrete-settings > .banded-card {
+  margin-top: 0;
 }
 
 @media (max-width: 640px) {
-  .concrete-toolbar-action {
-    margin-left: 0;
-  }
-
   .concrete-search {
     flex-basis: 100%;
+    max-width: none;
   }
 
-  .project-sections a,
+  .concrete-toolbar-action {
+    max-width: none;
+  }
+
   .concrete-section-tabs a {
-    flex: 1 1 auto;
-    justify-content: center;
+    padding: 0 10px;
+  }
+
+  .mix-history-when {
+    flex-basis: 100%;
   }
 }
 
-/* MM-V2-C32 Summary tab filters. */
-.concrete-summary-filters {
-  margin: 0 0 0.75rem;
+@media (forced-colors: active) {
+  .concrete-section-tabs a[aria-current='page'],
+  .concrete-section-tabs a.active {
+    border-bottom-color: CanvasText;
+  }
+
+  .mix-spec-row.is-changed {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
 }

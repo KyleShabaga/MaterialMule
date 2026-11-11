@@ -2,15 +2,18 @@ import {
   CONCRETE_MIX_PROPAGATION_FIELD_LABEL,
   CONCRETE_MIX_PROPAGATION_INELIGIBLE_LABEL,
   type ConcreteMixPropagationChange,
+  type ConcreteMixPropagationIneligible,
   type ConcreteMixPropagationItem,
   type ConcreteMixPropagationPreview,
 } from '@materialmule/shared';
 import { useId, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import {
-  BandedCard,
   ConfirmDialog,
   ErrorState,
+  PageHeader,
+  SectionHead,
+  SidePanel,
   StatusBadge,
   TableScroll,
 } from '../../components/ui';
@@ -25,19 +28,61 @@ import { useLoad } from './useLoad';
 // Nothing changes until the Lead approves items one by one or Approve all; ineligible records
 // (non-drafts, tested or HOLD specimens, values changed by hand) are shown with the reason and
 // never applied. Each decision is recorded in the mix's history with its scope.
+// Field Ledger (canvas "ConcreteMixPropagation", "Update open records"): the records that can
+// change, each old value struck through beside the new one, then the records left as they are
+// with the reason; the decision sits at the side.
 
 const fieldLabel = (field: string) => CONCRETE_MIX_PROPAGATION_FIELD_LABEL[field] ?? field;
+
+const KIND_LABEL: Record<ConcreteMixPropagationItem['recordType'], string> = {
+  field_report: 'Field report',
+  specimen: 'Untested specimen schedule',
+};
+
+/** The short tag beside a record that will be left alone; the reason is written beside it. */
+const LEFT_TAG: Record<ConcreteMixPropagationIneligible, string> = {
+  report_ready_to_submit: 'Not a draft',
+  report_submitted: 'Not a draft',
+  report_returned: 'Not a draft',
+  report_reviewed: 'Not a draft',
+  report_issued: 'Not a draft',
+  manually_edited: 'Kept',
+  specimen_tested: 'Tested',
+  hold_specimen: 'HOLD',
+  no_casting_time: 'No casting time',
+};
 
 function ChangeList({ changes }: { changes: ConcreteMixPropagationChange[] }) {
   return (
     <ul className="propagation-changes">
       {changes.map((change) => (
         <li key={change.field}>
-          {fieldLabel(change.field)}: {propagationValue(change.field, change.before)} →{' '}
-          <strong>{propagationValue(change.field, change.proposed)}</strong>
+          <span className="propagation-field">{fieldLabel(change.field)}</span>{' '}
+          <span className="propagation-values mono">
+            <span className="visually-hidden">from </span>
+            <s>{propagationValue(change.field, change.before)}</s>{' '}
+            <span className="visually-hidden">to </span>
+            <strong>{propagationValue(change.field, change.proposed)}</strong>
+          </span>
         </li>
       ))}
     </ul>
+  );
+}
+
+function RecordCell({ item }: { item: ConcreteMixPropagationItem }) {
+  return (
+    <>
+      <Link
+        className="mono propagation-record"
+        to={`/concrete/review/${encodeURIComponent(item.fieldReportId)}`}
+      >
+        {item.recordLabel}
+      </Link>
+      <span className="propagation-kind">
+        {KIND_LABEL[item.recordType]} · from revision {item.fromRevisionNumber ?? '—'}
+      </span>
+    </>
   );
 }
 
@@ -74,6 +119,7 @@ function PropagationReview({ projectId, mixId }: { projectId: string; mixId: str
     return <Navigate replace to={propagationPath(preview.projectId, preview.mixId)} />;
   }
   const eligible = preview.items.filter((i) => i.eligible);
+  const left = preview.items.filter((i) => !i.eligible);
   const chosen = eligible.filter((i) => selected.has(i.itemId));
 
   function decide(selection: 'items' | 'approve_all') {
@@ -111,22 +157,43 @@ function PropagationReview({ projectId, mixId }: { projectId: string; mixId: str
       .finally(() => setBusy(false));
   }
 
-  const reports = preview.items.filter((i) => i.recordType === 'field_report');
-  const specimens = preview.items.filter((i) => i.recordType === 'specimen');
+  function toggle(itemId: string, on: boolean) {
+    const next = new Set(selected);
+    if (on) next.add(itemId);
+    else next.delete(itemId);
+    setSelected(next);
+  }
+
+  const canDecide = preview.canApply && eligible.length > 0;
 
   return (
     <>
-      <h2>
-        Records made from earlier revisions of {preview.supplierName} {preview.mixNumber}
-      </h2>
-      {preview.toRevisionNumber === null ? (
-        <p>This mix has no approved revision yet, so there is nothing to update.</p>
-      ) : (
-        <p className="field-hint">
-          Revision {preview.toRevisionNumber} is in effect. Choose which records take its values.
-          Measured results, the supplier-ticket column, IDs and completed tests never change.
+      <div className="propagation-heading">
+        <PageHeader title="Update open records" documentTitle={false} />
+        <p className="concrete-record-meta">
+          {preview.supplierName} {preview.mixNumber}
+          {preview.toRevisionNumber !== null
+            ? ` · revision ${preview.toRevisionNumber} in effect`
+            : ''}
         </p>
-      )}
+      </div>
+      <div className="propagation-call">
+        <span className="field-label">Your call</span>
+        <div>
+          <p>
+            Records made from earlier revisions of {preview.supplierName} {preview.mixNumber}.
+          </p>
+          {preview.toRevisionNumber === null ? (
+            <p>This mix has no approved revision yet, so there is nothing to update.</p>
+          ) : (
+            <p>
+              Revision {preview.toRevisionNumber} is in effect. Nothing changes unless you choose it
+              here. Measured results, the supplier-ticket column, IDs and completed tests never
+              change.
+            </p>
+          )}
+        </div>
+      </div>
       <p className="notice notice-success" role="status">
         {notice}
       </p>
@@ -149,61 +216,155 @@ function PropagationReview({ projectId, mixId }: { projectId: string; mixId: str
         </p>
       ) : null}
 
-      {reports.length > 0 ? (
-        <ItemTable
-          title="Field reports"
-          items={reports}
-          preview={preview}
-          selected={selected}
-          onToggle={(itemId, on) => {
-            const next = new Set(selected);
-            if (on) next.add(itemId);
-            else next.delete(itemId);
-            setSelected(next);
-          }}
-        />
-      ) : null}
-      {specimens.length > 0 ? (
-        <ItemTable
-          title="Untested specimen schedules"
-          items={specimens}
-          preview={preview}
-          selected={selected}
-          onToggle={(itemId, on) => {
-            const next = new Set(selected);
-            if (on) next.add(itemId);
-            else next.delete(itemId);
-            setSelected(next);
-          }}
-        />
-      ) : null}
+      {preview.items.length > 0 ? (
+        <div className="concrete-split">
+          <div className="concrete-split-main">
+            {eligible.length > 0 ? (
+              <section aria-labelledby={`${id}-can`}>
+                <SectionHead
+                  id={`${id}-can`}
+                  title="Can be updated"
+                  meta={
+                    preview.canApply
+                      ? `${chosen.length} of ${eligible.length} chosen`
+                      : `${eligible.length} ${eligible.length === 1 ? 'record' : 'records'}`
+                  }
+                />
+                <TableScroll label="Records that can be updated">
+                  <table className="data-table propagation-table">
+                    <caption className="visually-hidden">Records that can be updated</caption>
+                    <thead>
+                      <tr>
+                        {preview.canApply ? <th scope="col">Update</th> : null}
+                        <th scope="col">Record</th>
+                        <th scope="col">Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eligible.map((item) => {
+                        const on = selected.has(item.itemId);
+                        return (
+                          <tr key={item.itemId} className={on ? 'is-selected' : undefined}>
+                            {preview.canApply ? (
+                              <td data-label="Update">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Update ${item.recordLabel}`}
+                                  checked={on}
+                                  onChange={(e) => toggle(item.itemId, e.target.checked)}
+                                />
+                              </td>
+                            ) : null}
+                            <td data-label="Record">
+                              <RecordCell item={item} />
+                            </td>
+                            <td data-label="Change">
+                              <ChangeList changes={item.changes} />
+                              {item.kept.length > 0 ? (
+                                <div className="propagation-kept">
+                                  <p className="field-hint">Changed by hand, kept as written:</p>
+                                  <ChangeList changes={item.kept} />
+                                </div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </TableScroll>
+              </section>
+            ) : null}
 
-      {preview.canApply && eligible.length > 0 ? (
-        <BandedCard title="Decision">
-          <div className="concrete-form">
-            <label htmlFor={`${id}-note`}>Note (optional, kept in the history)</label>
-            <input
-              id={`${id}-note`}
-              type="text"
-              maxLength={2000}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <div className="page-actions">
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || chosen.length === 0}
-                onClick={() => decide('items')}
-              >
-                Approve selected ({chosen.length})
-              </button>
-              <button type="button" disabled={busy} onClick={() => setConfirmAll(true)}>
-                Approve all ({eligible.length})
-              </button>
-            </div>
+            {left.length > 0 ? (
+              <section aria-labelledby={`${id}-left`}>
+                <SectionHead
+                  id={`${id}-left`}
+                  title="Left as they are"
+                  meta={`${left.length} ${left.length === 1 ? 'record' : 'records'}`}
+                />
+                <TableScroll label="Records left as they are">
+                  <table className="data-table propagation-table">
+                    <caption className="visually-hidden">Records left as they are</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Record</th>
+                        <th scope="col">Why it stays</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {left.map((item) => (
+                        <tr key={item.itemId}>
+                          <td data-label="Record">
+                            <RecordCell item={item} />
+                          </td>
+                          <td data-label="Why it stays">
+                            <span className="propagation-reason">
+                              {item.ineligibleReason ? (
+                                <>
+                                  <StatusBadge tone="closed">
+                                    {LEFT_TAG[item.ineligibleReason]}
+                                  </StatusBadge>{' '}
+                                  {CONCRETE_MIX_PROPAGATION_INELIGIBLE_LABEL[item.ineligibleReason]}
+                                </>
+                              ) : (
+                                <StatusBadge tone="closed">Won’t change</StatusBadge>
+                              )}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </TableScroll>
+              </section>
+            ) : null}
           </div>
-        </BandedCard>
+
+          {canDecide ? (
+            <aside className="concrete-split-aside" aria-label="Decision">
+              <SidePanel title="Apply">
+                <div className="concrete-panel-stack">
+                  <p>
+                    {chosen.length} of {eligible.length}{' '}
+                    {eligible.length === 1 ? 'record' : 'records'} chosen to take revision{' '}
+                    {preview.toRevisionNumber}’s values. The mix history records this decision.
+                  </p>
+                  <div className="concrete-field">
+                    <label htmlFor={`${id}-note`}>Note (optional, kept in the history)</label>
+                    <input
+                      id={`${id}-note`}
+                      type="text"
+                      maxLength={2000}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </div>
+                  <div className="concrete-panel-actions">
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={busy || chosen.length === 0}
+                      onClick={() => decide('items')}
+                    >
+                      Approve selected ({chosen.length})
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => setConfirmAll(true)}>
+                      Approve all ({eligible.length})
+                    </button>
+                    <Link className="propagation-none" to={mixPath(projectId, mixId)}>
+                      Change nothing
+                    </Link>
+                  </div>
+                  <p className="field-hint">
+                    If a record changes while this page is open, you are asked to look at the list
+                    again before anything is applied.
+                  </p>
+                </div>
+              </SidePanel>
+            </aside>
+          ) : null}
+        </div>
       ) : null}
 
       <ConfirmDialog
@@ -219,85 +380,5 @@ function PropagationReview({ projectId, mixId }: { projectId: string; mixId: str
         </p>
       </ConfirmDialog>
     </>
-  );
-}
-
-function ItemTable({
-  title,
-  items,
-  preview,
-  selected,
-  onToggle,
-}: {
-  title: string;
-  items: ConcreteMixPropagationItem[];
-  preview: ConcreteMixPropagationPreview;
-  selected: Set<string>;
-  onToggle: (itemId: string, on: boolean) => void;
-}) {
-  return (
-    <BandedCard title={title} subtitle={`${items.length} listed`}>
-      <TableScroll label={`${title} table`}>
-        <table className="data-table propagation-table">
-          <caption className="visually-hidden">{title}</caption>
-          <thead>
-            <tr>
-              {preview.canApply ? <th scope="col">Update</th> : null}
-              <th scope="col">Record</th>
-              <th scope="col">From revision</th>
-              <th scope="col">Proposed change</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.itemId}>
-                {preview.canApply ? (
-                  <td data-label="Update">
-                    {item.eligible ? (
-                      <input
-                        type="checkbox"
-                        aria-label={`Update ${item.recordLabel}`}
-                        checked={selected.has(item.itemId)}
-                        onChange={(e) => onToggle(item.itemId, e.target.checked)}
-                      />
-                    ) : null}
-                  </td>
-                ) : null}
-                <td data-label="Record">
-                  <Link to={`/concrete/review/${encodeURIComponent(item.fieldReportId)}`}>
-                    {item.recordLabel}
-                  </Link>
-                </td>
-                <td data-label="From revision">{item.fromRevisionNumber ?? '—'}</td>
-                <td data-label="Proposed change">
-                  <ChangeList changes={item.changes} />
-                  {item.kept.length > 0 ? (
-                    <div className="propagation-kept">
-                      <p className="field-hint">Changed by hand, kept as written:</p>
-                      <ChangeList changes={item.kept} />
-                    </div>
-                  ) : null}
-                </td>
-                <td data-label="Status">
-                  {item.eligible ? (
-                    <StatusBadge tone="info">Can update</StatusBadge>
-                  ) : (
-                    <>
-                      <StatusBadge tone="neutral">Won’t change</StatusBadge>
-                      <p className="field-hint">
-                        {item.ineligibleReason
-                          ? CONCRETE_MIX_PROPAGATION_INELIGIBLE_LABEL[item.ineligibleReason]
-                          : null}
-                      </p>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableScroll>
-    </BandedCard>
   );
 }

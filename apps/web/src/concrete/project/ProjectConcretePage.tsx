@@ -2,6 +2,7 @@ import type { ProjectDetail } from '@materialmule/shared';
 import type { ReactNode } from 'react';
 import { Link, Navigate, NavLink, useParams } from 'react-router';
 import { EmptyState, ErrorState, PageHeader } from '../../components/ui';
+import { ContextRow } from '../../layout/ContextRow';
 import { usePageTitle } from '../../layout/page-title';
 import '../../projects/projects.css';
 import { ProjectSectionNav } from '../../projects/ProjectSectionNav';
@@ -18,8 +19,14 @@ import './project-concrete.css';
 // second section ("Overview" | "Concrete") under the same project header, so storage-unit work
 // and concrete work each keep a full page. Five tabs, each its own address so a link or Back
 // lands on the same tab: Reports, Specimens, Summary, Mixes and Settings.
+// Field Ledger (docs/redesign/design.md, "Concrete pages"): the back link sits in the context
+// row above the title; the section switch and five underlined tabs share one row under it.
+// Screens reached from a row (a mix, its update step) have their own title under a back link.
 
-/** The project header and section nav around a Concrete screen. */
+/**
+ * The project around a Concrete screen. `back` given: a screen reached from a row, which renders
+ * its own title; otherwise the project header, the section switch and the children.
+ */
 export function ConcreteFrame({
   projectId,
   title,
@@ -29,6 +36,7 @@ export function ConcreteFrame({
   projectId: string;
   /** Names the browser tab, e.g. "Mixes · DEMO-2601". */
   title: string;
+  /** The back link of a screen reached from a row; that screen renders its own `<h1>`. */
   back?: ReactNode;
   children: (project: ProjectDetail) => ReactNode;
 }) {
@@ -48,16 +56,25 @@ export function ConcreteFrame({
     );
   }
   const data = project.data;
+  if (back) {
+    return (
+      <div className="concrete-record">
+        <ContextRow>{back}</ContextRow>
+        {children(data)}
+      </div>
+    );
+  }
   return (
     <>
-      <p className="back-link">{back ?? <Link to="/projects">← Back to Projects</Link>}</p>
+      <ContextRow>
+        <Link to="/projects">← Back to Projects</Link>
+      </ContextRow>
       <div className="project-header">
         <div>
           <h1 className="project-number-heading">{data.projectNumber}</h1>
           <p className="project-name">{data.name}</p>
         </div>
       </div>
-      <ProjectSectionNav projectId={data.id} current="concrete" />
       {children(data)}
     </>
   );
@@ -71,14 +88,16 @@ export function ProjectConcretePage() {
     <ConcreteFrame projectId={projectId} title={current.label}>
       {(project) => (
         <>
-          <nav className="concrete-section-tabs" aria-label="Concrete">
-            {CONCRETE_TABS.map((t) => (
-              <NavLink key={t.key} to={concreteTabPath(project.id, t.key)}>
-                {t.label}
-              </NavLink>
-            ))}
-          </nav>
-          <h2 className="visually-hidden">{current.label}</h2>
+          <div className="concrete-switches">
+            <ProjectSectionNav projectId={project.id} current="concrete" />
+            <nav className="concrete-section-tabs" aria-label="Concrete">
+              {CONCRETE_TABS.map((t) => (
+                <NavLink key={t.key} to={concreteTabPath(project.id, t.key)}>
+                  {t.label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
           {current.key === 'reports' ? <ReportsTab project={project} /> : null}
           {current.key === 'specimens' ? <SpecimensTab project={project} /> : null}
           {current.key === 'summary' ? <SummaryTab project={project} /> : null}

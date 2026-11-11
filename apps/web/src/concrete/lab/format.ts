@@ -1,4 +1,5 @@
 import { CONCRETE_HOLD_AGE, type ConcreteSpecimenAge } from '@materialmule/shared';
+import type { BadgeTone } from '../../components/ui';
 
 // Display helpers for the Concrete Lab workspace (MM-V2-C31).
 
@@ -16,6 +17,17 @@ export const setLookupPath = (setId: string, letter: string | null = null) =>
   `/concrete/specimens/${encodeURIComponent(setId)}${letter ? `?letter=${letter}` : ''}`;
 
 export const workflowLabel = (state: string) => WORKFLOW_LABEL[state] ?? state;
+
+/** Tag tone for a report's workflow state alone (never merged with the other dimensions). */
+const WORKFLOW_TONE: Record<string, BadgeTone> = {
+  draft: 'closed',
+  ready_to_submit: 'waiting',
+  submitted: 'waiting',
+  returned: 'danger',
+  reviewed: 'storage',
+  void: 'danger',
+};
+export const workflowTone = (state: string): BadgeTone => WORKFLOW_TONE[state] ?? 'closed';
 
 /** A set's readable name: the permanent ID, else the temporary ID, else "Unnumbered set". */
 export function setLabel(identity: {

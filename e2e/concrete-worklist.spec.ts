@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 
-// MM-V2-C22 T3: Lab Testing → Concrete breaks on desktop and phone against the real API. Each
+// MM-V2-C22 T3: Concrete → Breaks on desktop and phone against the real API. Each
 // test casts its own fictional project's set 28 days before today (America/Edmonton), so the two
 // 28-day specimens are due today, the 7-day one is 21 days overdue and the HOLD runs 28 more days.
 // Permanent numbers are attached with SQL, standing in for C18's allocator. Fictional data only.
@@ -67,20 +67,21 @@ async function castProjectSet(
 
 async function openFor(page: Page, projectNumber: string) {
   await page.goto('/lab-testing/concrete');
-  await expect(page.getByRole('heading', { name: 'Concrete breaks', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Concrete breaks', level: 1 })).toBeVisible();
   await page.getByLabel('Project').selectOption({ label: projectNumber });
 }
 
 test('T3: Today, Overdue and HOLD for one project; a technician reads but cannot reschedule', async ({
   page,
-}) => {
+}, testInfo) => {
   const { projectNumber } = await castProjectSet(page);
   await openFor(page, projectNumber);
-  await expect(
-    page
-      .getByRole('navigation', { name: 'Lab Testing' })
-      .getByRole('link', { name: 'Concrete breaks' }),
-  ).toBeVisible();
+  // The rail's Concrete group marks Breaks as the current page (the rail is desktop only).
+  if (testInfo.project.name.startsWith('desktop')) {
+    await expect(
+      page.getByRole('list', { name: 'Concrete pages' }).getByRole('link', { name: 'Breaks' }),
+    ).toHaveAttribute('aria-current', 'page');
+  }
 
   const tabs = page.getByRole('tablist', { name: 'Concrete worklist views' });
   await expect(tabs.getByRole('tab', { name: /Today/ })).toHaveAttribute('aria-selected', 'true');

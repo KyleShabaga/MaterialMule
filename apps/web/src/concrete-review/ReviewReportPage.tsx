@@ -6,8 +6,17 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { BandedCard, ErrorState, PageHeader, StatusBadge } from '../components/ui';
+import {
+  BandedCard,
+  ErrorState,
+  Notice,
+  PageHeader,
+  SidePanel,
+  StatusBadge,
+} from '../components/ui';
+import { FactCells } from '../concrete/ledger';
 import { shortDateTime } from '../dashboard/format';
+import { ContextRow } from '../layout/ContextRow';
 import { useMe } from '../session/context';
 import { documentException, problemText, sendCommand, type ReviewCommand } from './api';
 import { ReportPreview } from './ReportPreview';
@@ -18,6 +27,8 @@ import './review.css';
 // MM-V2-C28: the review view (Combined Plan "Review interaction"): the report preview beside a
 // checklist of its exceptions and the changes since the previous submitted version; Mark reviewed
 // once every required exception is resolved or documented; Return for correction with a comment.
+// Field Ledger (ConcreteReviewReport board): the exceptions first, then the report, with the
+// decision in the side column (after the report on a phone).
 
 const STATE_LABEL: Record<string, string> = {
   draft: 'Draft',
@@ -32,12 +43,12 @@ const STATE_LABEL: Record<string, string> = {
 export function StateBadge({ state }: { state: string }) {
   const tone =
     state === 'issued'
-      ? 'success'
+      ? 'storage'
       : state === 'returned'
         ? 'danger'
         : state === 'submitted' || state === 'reviewed'
-          ? 'warning'
-          : 'neutral';
+          ? 'waiting'
+          : 'closed';
   return <StatusBadge tone={tone}>{STATE_LABEL[state] ?? state}</StatusBadge>;
 }
 
@@ -151,7 +162,7 @@ export function ActionButton({
 }) {
   const reasonId = useId();
   return (
-    <div className="review-action">
+    <div className="crv-action">
       <button
         type="button"
         className={primary ? 'primary' : undefined}
@@ -162,7 +173,7 @@ export function ActionButton({
         {label}
       </button>
       {block ? (
-        <p id={reasonId} className="review-action-reason">
+        <p id={reasonId} className="crv-reason">
           {block}
         </p>
       ) : null}
@@ -188,28 +199,28 @@ function ChecklistEntry({
   const fieldId = useId();
   const status =
     item.status === 'documented' ? (
-      <StatusBadge tone="success">Documented</StatusBadge>
+      <StatusBadge tone="storage">Documented</StatusBadge>
     ) : item.status === 'resolved' ? (
-      <StatusBadge tone="success">Resolved</StatusBadge>
+      <StatusBadge tone="storage">Resolved</StatusBadge>
     ) : (
       <StatusBadge tone="danger">Open</StatusBadge>
     );
   return (
-    <li className={`review-check-item review-check-${item.status}`}>
-      <div className="review-check-head">
-        <strong>{CONCRETE_EXCEPTION_LABEL[item.code]}</strong> {status}
-        <span className="review-muted"> Required</span>
+    <li className={`crv-check-item crv-check-${item.status}`}>
+      <div className="crv-check-head">
+        {status} <strong>{CONCRETE_EXCEPTION_LABEL[item.code]}</strong>
+        <span className="crv-muted"> Required</span>
       </div>
-      <ul className="review-messages">
+      <ul className="crv-messages">
         {item.messages.map((m, i) => (
           <li key={i}>{m}</li>
         ))}
       </ul>
       {item.status === 'resolved' ? (
-        <p className="review-muted">No longer raised by the report as it stands now.</p>
+        <p className="crv-muted">No longer raised by the report as it stands now.</p>
       ) : null}
       {item.note ? (
-        <p className="review-note">
+        <p className="crv-note">
           “{item.note.note}” — {item.note.documentedBy.name},{' '}
           {shortDateTime(item.note.documentedAt)}
         </p>
@@ -217,7 +228,7 @@ function ChecklistEntry({
       {item.status === 'open' && canDocument ? (
         open ? (
           <form
-            className="review-note-form"
+            className="crv-note-form"
             onSubmit={async (event) => {
               event.preventDefault();
               if (note.trim() === '') {
@@ -255,7 +266,7 @@ function ChecklistEntry({
                 {error}
               </p>
             ) : null}
-            <div className="review-inline-actions">
+            <div className="crv-inline-actions">
               <button type="submit" className="primary" disabled={busy}>
                 {busy ? 'Saving…' : 'Save note'}
               </button>
@@ -271,7 +282,7 @@ function ChecklistEntry({
         )
       ) : null}
       {item.status === 'open' && !canDocument && documentReason ? (
-        <p className="review-action-reason">{documentReason}</p>
+        <p className="crv-reason">{documentReason}</p>
       ) : null}
     </li>
   );
@@ -290,9 +301,11 @@ function Checklist({
   const open = concreteReviewOpenExceptions(checklist);
   const previousVersion = versions.versions.find((v) => v.versionNo === version.versionNo - 1);
   return (
-    <aside className="review-side" aria-label="Review checklist">
+    <aside className="crv-first" aria-label="Review checklist">
       <BandedCard
         title="Exceptions"
+        className="crv-card"
+        tone={open.length > 0 ? 'attention' : 'default'}
         subtitle={
           checklist.length === 0
             ? 'None on this version'
@@ -302,7 +315,7 @@ function Checklist({
         {checklist.length === 0 ? (
           <p>This version was submitted without exceptions.</p>
         ) : (
-          <ul className="review-checklist">
+          <ul className="crv-checklist">
             {checklist.map((item) => (
               <ChecklistEntry
                 key={item.key}
@@ -314,8 +327,8 @@ function Checklist({
             ))}
           </ul>
         )}
-        <h3 className="review-subhead">Not yet checked</h3>
-        <ul className="review-messages">
+        <h3 className="crv-subhead">Not yet checked</h3>
+        <ul className="crv-messages">
           {detail.review.deferredChecks.map((c) => (
             <li key={c.code}>
               {c.code.replace(/_/g, ' ')} — arrives with {c.owner}
@@ -326,6 +339,7 @@ function Checklist({
       </BandedCard>
       <BandedCard
         title="Changes since the previous version"
+        className="crv-card"
         subtitle={previous ? `Version ${previous.versionNo} → ${version.versionNo}` : undefined}
       >
         {!previous ? (
@@ -339,7 +353,7 @@ function Checklist({
           </p>
         )}
         {previousVersion?.closed ? (
-          <p className="review-note">
+          <p className="crv-note">
             {previousVersion.closed.kind === 'returned' ? 'Returned' : 'Recalled'} by{' '}
             {previousVersion.closed.by.name}, {shortDateTime(previousVersion.closed.at)}
             {previousVersion.closed.comment ? `: “${previousVersion.closed.comment}”` : ''}
@@ -352,8 +366,8 @@ function Checklist({
 
 function History({ data }: { data: ReviewData }) {
   return (
-    <BandedCard title="History">
-      <ol className="review-history">
+    <BandedCard title="History" className="crv-card">
+      <ol className="crv-history">
         {data.versions.transitions.map((t) => (
           <li key={t.id}>
             <span className="mono">v{t.versionNo}</span> {t.action.replace(/_/g, ' ')} by{' '}
@@ -382,9 +396,15 @@ export function ReviewReportPage() {
   if (load.state === 'loading') {
     return <p aria-busy="true">Loading the report…</p>;
   }
+  const back = (
+    <ContextRow>
+      <Link to="/concrete/review">Back to the review queue</Link>
+    </ContextRow>
+  );
   if (load.state === 'error') {
     return (
-      <>
+      <div className="crv-page">
+        {back}
         <PageHeader title="Concrete review" />
         <ErrorState
           message={
@@ -392,21 +412,16 @@ export function ReviewReportPage() {
           }
           onRetry={load.status === 404 ? undefined : reload}
         />
-        <p>
-          <Link to="/concrete/review">Back to the review queue</Link>
-        </p>
-      </>
+      </div>
     );
   }
   if (load.state === 'empty') {
     return (
-      <>
+      <div className="crv-page">
+        {back}
         <PageHeader title={`Field report · ${load.detail.projectNumber}`} />
         <p>This report hasn’t been submitted for review yet.</p>
-        <p>
-          <Link to="/concrete/review">Back to the review queue</Link>
-        </p>
-      </>
+      </div>
     );
   }
 
@@ -449,130 +464,139 @@ export function ReviewReportPage() {
   };
 
   const heading = `Field report · ${detail.projectNumber} · ${detail.fields.reportDate ?? 'no date'}`;
+  const state = detail.lifecycle.state;
+  const decides = state === 'submitted' || state === 'reviewed' || state === 'issued';
   return (
-    <div className="review-page">
-      <PageHeader
-        title={heading}
-        actions={<Link to="/concrete/review">Back to the review queue</Link>}
+    <div className="crv-page">
+      <ContextRow>
+        <Link to="/concrete/review">Back to the review queue</Link>
+        <StateBadge state={state} />
+        {detail.lifecycle.revised ? <StatusBadge tone="lab">Revised</StatusBadge> : null}
+      </ContextRow>
+      <PageHeader title={heading} />
+      <FactCells
+        label="Report"
+        className="crv-facts"
+        cells={[
+          { key: 'technician', label: 'Technician', value: detail.technician?.name ?? '—' },
+          { key: 'submitted', label: 'Submitted', value: shortDateTime(version.submittedAt) },
+          ...(version.route.routedTo
+            ? [{ key: 'routed', label: 'Routed to', value: version.route.routedTo.name }]
+            : []),
+          {
+            key: 'version',
+            label: 'Version',
+            value: (
+              <select
+                className="crv-version-pick"
+                aria-label="Version"
+                value={version.versionNo}
+                onChange={(event) => setParams({ version: event.target.value }, { replace: true })}
+              >
+                {data.versions.versions.map((v) => (
+                  <option key={v.versionNo} value={v.versionNo}>
+                    v{v.versionNo} · {STATE_LABEL[v.state] ?? v.state}
+                  </option>
+                ))}
+              </select>
+            ),
+          },
+        ]}
       />
-      <div className="review-summary">
-        <StateBadge state={detail.lifecycle.state} />
-        {detail.lifecycle.revised ? <StatusBadge tone="info">Revised</StatusBadge> : null}
-        <span>
-          Technician {detail.technician?.name ?? '—'} · Submitted{' '}
-          {shortDateTime(version.submittedAt)}
-          {version.route.routedTo ? ` · Routed to ${version.route.routedTo.name}` : ''}
-        </span>
-        <label className="review-version-pick">
-          Version{' '}
-          <select
-            value={version.versionNo}
-            onChange={(event) => setParams({ version: event.target.value }, { replace: true })}
-          >
-            {data.versions.versions.map((v) => (
-              <option key={v.versionNo} value={v.versionNo}>
-                v{v.versionNo} · {STATE_LABEL[v.state] ?? v.state}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
 
       {message ? (
-        <p
-          className={
-            message.tone === 'ok' ? 'review-message' : 'review-message review-message-error'
-          }
-          role={message.tone === 'ok' ? 'status' : 'alert'}
-        >
+        <Notice tone={message.tone === 'ok' ? 'success' : 'danger'} className="crv-message">
           {message.text}
-        </p>
+        </Notice>
       ) : null}
 
-      <section className="review-actions" aria-label="Review actions">
-        {detail.lifecycle.state === 'submitted' || detail.lifecycle.state === 'reviewed' ? (
-          <p className="review-who">
-            Who can review or return it: {whoCanReview(detail)}. Never the report’s technician;
-            personal accounts only.
-          </p>
-        ) : null}
-        <div className="review-action-row">
-          {detail.lifecycle.state === 'submitted' ? (
-            <ActionButton
-              label="Mark reviewed"
-              primary
-              block={reviewReason}
-              busy={busy}
-              onClick={async () => {
-                const next = await run('review');
-                if (next) {
-                  setMessage({ tone: 'ok', text: 'Marked reviewed. It now awaits issuance.' });
-                  reload();
-                }
-              }}
-            />
-          ) : null}
-          {detail.lifecycle.state === 'submitted' || detail.lifecycle.state === 'reviewed' ? (
-            <ActionButton
-              label="Return for correction"
-              block={returnReason}
-              busy={busy}
-              onClick={() => {
-                setDialogError(null);
-                setDialog('return');
-              }}
-            />
-          ) : null}
-          {detail.lifecycle.state === 'reviewed' ? (
-            <Link className="button primary" to={`/concrete/review/${detail.id}/issue`}>
-              Go to issue
-            </Link>
-          ) : null}
-          {detail.lifecycle.state === 'issued' &&
-          detail.lifecycle.allowedActions.includes('revise') ? (
-            <ActionButton
-              label="Start a revision"
-              block={null}
-              busy={busy}
-              onClick={() => {
-                setDialogError(null);
-                setDialog('revise');
-              }}
-            />
-          ) : null}
-          {detail.lifecycle.state === 'issued' ? (
-            <Link to={`/concrete/review/${detail.id}/issue`}>What was issued</Link>
-          ) : null}
+      <div className="crv-layout">
+        <div className="crv-main">
+          <Checklist
+            data={data}
+            documentReason={documentReason}
+            onDocument={async (item, note) => {
+              try {
+                await documentException(detail.id, version.versionNo, {
+                  code: item.code,
+                  field: item.field,
+                  note,
+                });
+                setMessage({
+                  tone: 'ok',
+                  text: `${CONCRETE_EXCEPTION_LABEL[item.code]} documented.`,
+                });
+                reload();
+                return null;
+              } catch (error) {
+                return problemText(error);
+              }
+            }}
+          />
+          <ReportPreview
+            snapshot={version.snapshot}
+            changes={data.changes}
+            versionNo={version.versionNo}
+          />
         </div>
-      </section>
-
-      <div className="review-layout">
-        <ReportPreview
-          snapshot={version.snapshot}
-          changes={data.changes}
-          versionNo={version.versionNo}
-        />
-        <Checklist
-          data={data}
-          documentReason={documentReason}
-          onDocument={async (item, note) => {
-            try {
-              await documentException(detail.id, version.versionNo, {
-                code: item.code,
-                field: item.field,
-                note,
-              });
-              setMessage({
-                tone: 'ok',
-                text: `${CONCRETE_EXCEPTION_LABEL[item.code]} documented.`,
-              });
-              reload();
-              return null;
-            } catch (error) {
-              return problemText(error);
-            }
-          }}
-        />
+        {decides ? (
+          <SidePanel title="Review actions" className="crv-decision">
+            {state === 'submitted' || state === 'reviewed' ? (
+              <p className="crv-who">
+                Who can review or return it: {whoCanReview(detail)}. Never the report’s technician;
+                personal accounts only.
+              </p>
+            ) : null}
+            <div className="crv-action-stack">
+              {detail.lifecycle.state === 'submitted' ? (
+                <ActionButton
+                  label="Mark reviewed"
+                  primary
+                  block={reviewReason}
+                  busy={busy}
+                  onClick={async () => {
+                    const next = await run('review');
+                    if (next) {
+                      setMessage({ tone: 'ok', text: 'Marked reviewed. It now awaits issuance.' });
+                      reload();
+                    }
+                  }}
+                />
+              ) : null}
+              {detail.lifecycle.state === 'submitted' || detail.lifecycle.state === 'reviewed' ? (
+                <ActionButton
+                  label="Return for correction"
+                  block={returnReason}
+                  busy={busy}
+                  onClick={() => {
+                    setDialogError(null);
+                    setDialog('return');
+                  }}
+                />
+              ) : null}
+              {detail.lifecycle.state === 'reviewed' ? (
+                <Link className="button primary" to={`/concrete/review/${detail.id}/issue`}>
+                  Go to issue
+                </Link>
+              ) : null}
+              {detail.lifecycle.state === 'issued' &&
+              detail.lifecycle.allowedActions.includes('revise') ? (
+                <ActionButton
+                  label="Start a revision"
+                  block={null}
+                  busy={busy}
+                  onClick={() => {
+                    setDialogError(null);
+                    setDialog('revise');
+                  }}
+                />
+              ) : null}
+              {detail.lifecycle.state === 'issued' ? (
+                <Link to={`/concrete/review/${detail.id}/issue`}>What was issued</Link>
+              ) : null}
+            </div>
+          </SidePanel>
+        ) : null}
       </div>
       <History data={data} />
 
@@ -618,7 +642,7 @@ export function ReviewReportPage() {
 
 export function Labelled({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="review-field">
+    <div className="crv-field">
       <dt>{label}</dt>
       <dd>{children}</dd>
     </div>

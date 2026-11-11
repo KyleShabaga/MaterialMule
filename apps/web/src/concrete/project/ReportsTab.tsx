@@ -5,12 +5,14 @@ import {
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { DataTable, ErrorState, TableScroll } from '../../components/ui';
+import { DataTable, ErrorState, TableScroll, TableViewSelector } from '../../components/ui';
+import { useTableView } from '../../components/useTableView';
 import { StateBadge } from '../../concrete-review/ReviewReportPage';
 import { StrengthReportList } from '../../concrete-review/StrengthReportList';
 import { concreteProblem, fetchProjectReports } from './api';
 import { Pager } from './Pager';
 import { structureText } from './mix-format';
+import { TabHead } from './TabHead';
 import { useLoad } from './useLoad';
 
 // MM-V2-C30 Reports tab: the project's field reports (date, Field ID, type, technician, structure
@@ -41,6 +43,7 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
   const status = params.get('status') ?? '';
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
   const [text, setText] = useState(q);
+  const [view, setView] = useTableView('concrete-project-reports');
   const { load, reload } = useLoad(`${project.id}|${q}|${status}|${page}`, () =>
     fetchProjectReports(project.id, { search: q, ...filterQuery(status), page }),
   );
@@ -62,8 +65,8 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
 
   return (
     <>
-      <section className="concrete-tab" aria-label="Field reports">
-        <div className="concrete-toolbar">
+      <section className="concrete-tab" aria-labelledby={`${searchId}-heading`}>
+        <TabHead id={`${searchId}-heading`} title="Field reports">
           <form role="search" className="concrete-search" onSubmit={submit}>
             <label htmlFor={searchId}>Search reports</label>
             <div className="inline-input">
@@ -92,6 +95,7 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
               ))}
             </select>
           </div>
+          <TableViewSelector value={view} onChange={setView} />
           <div className="concrete-toolbar-action">
             <button type="button" className="primary" disabled aria-describedby={`${searchId}-new`}>
               New field report
@@ -100,7 +104,7 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
               Technicians start field reports in the field form, which arrives with a later card.
             </p>
           </div>
-        </div>
+        </TabHead>
 
         {load.state === 'loading' ? <p role="status">Loading…</p> : null}
         {load.state === 'error' ? (
@@ -113,6 +117,7 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
                 rows={load.data.items}
                 rowKey={(row) => row.id}
                 caption="Field reports"
+                view={view}
                 empty={
                   q || status
                     ? 'No field reports match these filters.'
@@ -123,7 +128,7 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
                     header: 'Date',
                     cell: (row) => (
                       <Link
-                        className="nowrap"
+                        className="nowrap mono"
                         to={`/concrete/review/${encodeURIComponent(row.id)}`}
                         aria-label={`Open field report ${row.reportDate ?? 'with no date'}`}
                       >
@@ -131,7 +136,10 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
                       </Link>
                     ),
                   },
-                  { header: 'Field ID', cell: (row) => row.paperFieldId ?? '—' },
+                  {
+                    header: 'Field ID',
+                    cell: (row) => <span className="mono">{row.paperFieldId ?? '—'}</span>,
+                  },
                   { header: 'Type', cell: () => 'Field' },
                   {
                     header: 'Technician',
@@ -167,7 +175,7 @@ export function ReportsTab({ project }: { project: ProjectDetail }) {
       </section>
       {/* MM-V2-C39: one strength report per specimen set, cumulative. */}
       <section className="concrete-tab" aria-labelledby="strength-reports-heading">
-        <h2 id="strength-reports-heading">Strength reports</h2>
+        <TabHead id="strength-reports-heading" title="Strength reports" />
         <StrengthReportList
           projectId={project.id}
           caption="Strength reports"

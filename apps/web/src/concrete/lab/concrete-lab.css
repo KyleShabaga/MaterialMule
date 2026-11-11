@@ -1,298 +1,467 @@
-/* Concrete dashboard, Concrete Lab workspace, search and Lab search (MM-V2-C31).
-   Moderate corner radii from the design tokens, never pill shapes. Phone layouts stack. */
+/* Concrete dashboard, Receiving, Specimens (lookup and set), Concrete search and Lab search
+   (MM-V2-C31) in the Field Ledger design. Tokens only; radii 3 / 4 / 6, never pill shapes.
+   Hover is global (styles.css). Phone layouts stack; wide tables scroll inside their frame. */
 
-/* ---- Top-bar Lab search ---------------------------------------------------------------- */
-
-.lab-search {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex: 1 1 14rem;
-  max-width: 26rem;
-  margin: 0;
-}
-
-.lab-search input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 36px;
-  box-sizing: border-box;
-  padding: 0 0.625rem;
-  border: 1px solid var(--line-control);
-  border-radius: var(--radius-control);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.lab-search-button {
-  min-height: 36px;
-  padding: 0 0.75rem;
-  border-radius: var(--radius-control);
-}
-
-@media (max-width: 640px) {
-  /* The header wraps: the search takes its own full-width row under the brand. */
-  .lab-search {
-    order: 10;
-    flex-basis: 100%;
-    max-width: none;
-  }
-
-  .lab-search input,
-  .lab-search-button {
-    min-height: 44px;
-  }
-}
+/* The top-bar Lab search box (LabSearchBox) is styled by layout/shell.css (.top-bar and
+   .phone-header), the only places it is rendered. */
 
 /* ---- Shared ------------------------------------------------------------------------------- */
 
 .concrete-lab {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-6);
   min-width: 0;
 }
 
-.concrete-lab h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-}
-
-.concrete-alias,
-.concrete-result-project-name,
-.concrete-set-count {
-  color: var(--muted);
-}
-
-.concrete-facts {
+.concrete-lab-section {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.5rem 1rem;
-  margin: 0;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
 }
 
-.concrete-facts dt {
-  color: var(--muted);
-  font-size: 0.8125rem;
+.concrete-intro {
+  max-width: 60rem;
+  margin: 0;
+  color: var(--ink-soft);
 }
 
-.concrete-facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
+.concrete-muted,
+.concrete-alias {
+  color: var(--ink-soft);
+}
+
+.concrete-alias {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.concrete-strong {
+  font-weight: 600;
+}
+
+.concrete-nowrap {
+  white-space: nowrap;
+}
+
+.concrete-cell-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.concrete-back {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.concrete-set-link {
+  font-family: var(--font-mono);
+  font-size: var(--fs-row-id);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
 .concrete-pager {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
-/* ---- Dashboard ------------------------------------------------------------------------------ */
-
-.concrete-shortcuts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--gap-button, 0.5rem);
-}
+/* ---- Dashboard: view tiles per group ---------------------------------------------------------- */
 
 .concrete-shortcut-disabled {
   display: inline-grid;
-  gap: 0.25rem;
+  gap: var(--space-1);
   max-width: 16rem;
 }
 
 .concrete-count-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-6);
 }
 
 .concrete-count-group {
-  padding: 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
-}
-
-.concrete-counts {
   display: grid;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
 }
 
-.concrete-count {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  min-height: 44px;
-  box-sizing: border-box;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--accent-line);
+/* ---- Receiving: stage tabs joined in one frame ------------------------------------------------- */
+
+.concrete-stage-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-self: start;
+  border: var(--rule-width) solid var(--rule);
   border-radius: var(--radius-control);
-  color: var(--ink);
-  text-decoration: none;
+  background: var(--sheet);
+  overflow: hidden;
 }
 
-.concrete-count:hover {
-  background: var(--option-hover, var(--accent-bg));
+.concrete-stage-tabs > [role='tab'] {
+  border: 0;
+  border-right: 1px solid var(--rule);
+  border-radius: 0;
 }
 
-.concrete-count-urgent {
-  border-left-color: var(--danger);
+.concrete-stage-tabs > [role='tab']:last-child {
+  border-right: 0;
 }
 
-.concrete-count-value {
-  min-width: 2.5ch;
-  font-size: 1.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
+.concrete-stage-tabs > [aria-selected='true'] {
+  background: var(--selected);
+  color: var(--on-selected);
 }
 
-.concrete-count-label {
-  font-weight: 500;
-}
-
-.concrete-count-flag {
-  color: var(--danger);
+.concrete-tab-count {
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 
-/* ---- Search -------------------------------------------------------------------------------- */
+/* ---- Search form: one large field ----------------------------------------------------------- */
 
 .concrete-search-form {
   display: grid;
-  gap: 0.25rem;
-  max-width: 40rem;
-}
-
-.concrete-search-form label {
-  font-weight: 600;
+  gap: var(--space-2);
+  max-width: 65rem;
 }
 
 .concrete-search-row {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .concrete-search-row input {
-  flex: 1 1 auto;
+  flex: 1 1 20rem;
   min-width: 0;
-}
-
-.concrete-results {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.concrete-results-summary {
-  margin: 0;
-}
-
-.concrete-result-list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.concrete-result {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
-}
-
-.concrete-result-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.concrete-result-project {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.concrete-result-matches {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.concrete-result-sets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.concrete-result-sets li {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-tag);
-}
-
-/* The searched set or specimen: a heavier edge plus visually hidden text, never colour alone. */
-.concrete-set-matched {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  border-radius: var(--radius-tag);
+  min-height: calc(var(--control) + var(--space-2));
+  border-width: calc(var(--rule-width) + 1px);
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
   font-weight: 600;
 }
 
-/* ---- Receiving and set lookup ---------------------------------------------------------------- */
-
-.concrete-receiving-group + .concrete-receiving-group {
-  margin-top: 1.25rem;
+.concrete-search-row button {
+  min-height: calc(var(--control) + var(--space-2));
 }
 
-.concrete-project-context {
+.concrete-search-form .field-hint {
   margin: 0;
-  font-size: 1.125rem;
 }
 
-.concrete-aliases {
+/* ---- Results: grouped rows ------------------------------------------------------------------ */
+
+.concrete-results {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 65rem;
+}
+
+.concrete-results-summary,
+.concrete-results-projects {
   margin: 0;
+}
+
+.concrete-results-group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.concrete-row-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.concrete-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+}
+
+/* The searched set: a 2 px ink edge, a flag-wash fill and a "Matched" tag (never colour alone). */
+.concrete-row-matched {
+  border: var(--rule-width) solid var(--rule);
+  background: var(--flag-wash);
+}
+
+.concrete-row-id {
+  display: flex;
+  flex: 0 0 10rem;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-row-id);
+  font-weight: 600;
+}
+
+.concrete-row-id a {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.concrete-row-main {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.concrete-row-sub {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.concrete-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.concrete-report-row .concrete-row-head {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+}
+
+.concrete-row-title {
+  margin: 0;
+  font-size: var(--fs-row-id);
+  font-weight: 700;
+}
+
+.concrete-row-title a {
+  color: var(--ink);
+}
+
+.concrete-facts {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: 0;
+}
+
+.concrete-facts > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.concrete-facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.concrete-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.concrete-result-matches {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+}
+
+/* ---- Set page: label-like block, facts, specimens, history ---------------------------------- */
+
+.concrete-set-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-7);
+}
+
+.concrete-set-side {
+  display: grid;
+  flex: 1 1 20rem;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.concrete-set-main {
+  display: grid;
+  flex: 3 1 32rem;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.concrete-set-label {
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.concrete-set-label-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--inverse);
+  color: var(--on-inverse);
+}
+
+.concrete-set-label-kind {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.concrete-set-label-project {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  text-transform: uppercase;
+}
+
+.concrete-set-label-project a {
+  color: var(--on-inverse);
+  font-weight: 600;
+}
+
+.concrete-set-label-body {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.concrete-set-label-id {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-big-count);
+  font-weight: 600;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.concrete-set-label-line {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+}
+
+.concrete-set-label-line strong {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+/* A Void set keeps its label, drawn grey. */
+.concrete-set-label-void .concrete-set-label-head {
+  background: var(--tag-closed-bg);
+  color: var(--tag-closed-fg);
+}
+
+.concrete-set-label-void .concrete-set-label-project a {
+  color: var(--tag-closed-fg);
+}
+
+.concrete-set-facts {
+  margin: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+}
+
+.concrete-set-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.concrete-set-facts > div:last-child {
+  border-bottom: 0;
+}
+
+.concrete-set-facts dt {
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.concrete-set-facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .concrete-history {
-  display: grid;
-  gap: 0.375rem;
   margin: 0;
-  padding-left: 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.concrete-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .concrete-history time {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  flex: 0 0 11rem;
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+
+.concrete-history span {
+  flex: 1 1 16rem;
+  min-width: 0;
 }
 
 /* ---- Lab search page ------------------------------------------------------------------------ */
 
-.lab-search-area-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+.lab-search-area-head a {
+  font-weight: 700;
 }
 
-.lab-search-list {
-  display: grid;
-  gap: 0.375rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+@media (forced-colors: active) {
+  .concrete-stage-tabs > [aria-selected='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .concrete-set-label-head {
+    border-bottom: 1px solid CanvasText;
+  }
+
+  .concrete-row-matched {
+    outline: 2px solid CanvasText;
+  }
 }

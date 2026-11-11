@@ -227,6 +227,8 @@ describe('Review queue page', () => {
       'Reviewed awaiting issuance (0)',
       'Issued (5)',
     ]);
+    // Field Ledger: the chosen status's reports sit in a band with its title.
+    expect(screen.getByRole('region', { name: 'Waiting for review' })).toContainElement(table);
     const row = within(table).getAllByRole('row')[1]!;
     expect(within(row).getByRole('link', { name: 'DEMO-2601' })).toHaveAttribute(
       'href',

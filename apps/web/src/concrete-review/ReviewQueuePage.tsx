@@ -12,13 +12,31 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { listActiveStaff, searchProjects } from '../api/projects';
-import { DataTable, ErrorState, PageHeader, StatusBadge } from '../components/ui';
+import {
+  DataTable,
+  ErrorState,
+  PageHeader,
+  StatusBadge,
+  TableViewSelector,
+  type BadgeTone,
+} from '../components/ui';
+import { useTableView } from '../components/useTableView';
 import { shortDateTime } from '../dashboard/format';
 import { fetchReviewQueue } from './api';
 import './review.css';
 
 // MM-V2-C28: one review table with the four confirmed statuses (Combined Plan "Review queue
 // structure"). Filters live in the address so a filtered view can be shared or reloaded.
+// Field Ledger (ConcreteReview board): the four statuses are big-count tiles; the chosen one's
+// reports sit in a band with its tag, title and count.
+
+/** The band over the chosen status's reports: its tag and title. */
+const BAND: Record<ConcreteReviewQueueStatus, { tag: string; tone: BadgeTone; title: string }> = {
+  awaiting_review: { tag: 'Submitted', tone: 'waiting', title: 'Waiting for review' },
+  returned: { tag: 'Returned', tone: 'danger', title: 'Sent back to the technician' },
+  reviewed_awaiting_issue: { tag: 'Reviewed', tone: 'storage', title: 'Reviewed, not yet issued' },
+  issued: { tag: 'Issued', tone: 'closed', title: 'Issued' },
+};
 
 type Load =
   { state: 'loading' } | { state: 'error' } | { state: 'ready'; queue: ConcreteReviewQueue };
@@ -27,19 +45,18 @@ const isStatus = (value: string | null): value is ConcreteReviewQueueStatus =>
   (CONCRETE_REVIEW_QUEUE_STATUSES as readonly string[]).includes(value ?? '');
 
 function exceptionFlags(row: ConcreteReviewQueueRow) {
-  if (row.exceptions.length === 0) return <span className="review-muted">None</span>;
+  if (row.exceptions.length === 0) return <span className="crv-muted">None</span>;
   const total = row.exceptions.reduce((n, e) => n + e.count, 0);
   return (
-    <span className="review-flags">
+    <span className="crv-flags">
       {row.exceptions.map((e) => (
-        <span key={e.code} className="review-flag">
-          <span aria-hidden="true">⚠ </span>
+        <StatusBadge key={e.code} tone="waiting">
           {CONCRETE_EXCEPTION_LABEL[e.code]}
           {e.count > 1 ? ` ×${e.count}` : ''}
-        </span>
+        </StatusBadge>
       ))}
       {row.status === 'awaiting_review' && row.documentedCount > 0 ? (
-        <span className="review-muted">
+        <span className="crv-muted">
           {row.documentedCount} of {total} documented
         </span>
       ) : null}
@@ -158,33 +175,47 @@ export function ReviewQueuePage() {
 
   const queue = load.state === 'ready' ? load.queue : null;
   const totalPages = queue ? Math.max(1, Math.ceil(queue.total / queue.pageSize)) : 1;
+  const [view, setView] = useTableView('concrete-review-queue');
+  const band = BAND[status];
 
   return (
-    <div className="review-queue">
+    <div className="crv-queue">
       <PageHeader title="Concrete review" />
-      <p className="field-hint">
+      <p className="crv-lede">
         Field reports submitted for review and issue. Strength reports are added once their format
         is decided.
       </p>
 
-      <div className="review-tabs" role="tablist" aria-label="Queue status">
+      {/* The label comes first in the DOM so each tab reads "Awaiting review (1)"; CSS puts the
+          count on top, as on the board. */}
+      <div className="view-tiles crv-status-tiles" role="tablist" aria-label="Queue status">
         {CONCRETE_REVIEW_QUEUE_STATUSES.map((s) => (
           <button
             key={s}
             type="button"
             role="tab"
             aria-selected={s === status}
-            className={s === status ? 'review-tab review-tab-active' : 'review-tab'}
+            className={s === 'awaiting_review' ? 'view-tile-due' : undefined}
             onClick={() => update({ status: s === 'awaiting_review' ? null : s })}
           >
-            {CONCRETE_REVIEW_QUEUE_STATUS_LABEL[s]}
-            {queue ? <span className="review-tab-count"> ({queue.counts[s]})</span> : null}
+            <span className="view-tile-label">{CONCRETE_REVIEW_QUEUE_STATUS_LABEL[s]}</span>
+            <span className="view-tile-count">
+              {queue ? (
+                <>
+                  <span className="visually-hidden"> (</span>
+                  {queue.counts[s]}
+                  <span className="visually-hidden">)</span>
+                </>
+              ) : (
+                <span aria-hidden="true">–</span>
+              )}
+            </span>
           </button>
         ))}
       </div>
 
       <form
-        className="review-filters"
+        className="crv-filters"
         aria-label="Filters"
         onSubmit={(event) => event.preventDefault()}
       >
@@ -256,7 +287,7 @@ export function ReviewQueuePage() {
             <option value="without">Without exceptions</option>
           </select>
         </label>
-        <label className="review-check">
+        <label className="crv-check">
           <input
             type="checkbox"
             checked={mine}
@@ -285,12 +316,18 @@ export function ReviewQueuePage() {
         />
       ) : null}
       {queue ? (
-        <>
-          <p className="field-hint" role="status">
-            {queue.total} {queue.total === 1 ? 'report' : 'reports'} ·{' '}
-            {CONCRETE_REVIEW_QUEUE_STATUS_LABEL[status]}
-          </p>
+        <section className="crv-band" aria-labelledby="crv-band-title">
+          <div className="crv-band-head">
+            <StatusBadge tone={band.tone}>{band.tag}</StatusBadge>
+            <h2 id="crv-band-title">{band.title}</h2>
+            <span className="section-meta" role="status">
+              {queue.total} {queue.total === 1 ? 'report' : 'reports'} ·{' '}
+              {CONCRETE_REVIEW_QUEUE_STATUS_LABEL[status]}
+            </span>
+            <TableViewSelector value={view} onChange={setView} />
+          </div>
           <DataTable
+            view={view}
             caption={`Concrete review: ${CONCRETE_REVIEW_QUEUE_STATUS_LABEL[status]}`}
             rows={queue.items}
             rowKey={(row) => row.reportId}
@@ -324,7 +361,7 @@ export function ReviewQueuePage() {
                     {row.revised ? (
                       <>
                         {' '}
-                        <StatusBadge tone="info">Revised</StatusBadge>
+                        <StatusBadge tone="lab">Revised</StatusBadge>
                       </>
                     ) : null}
                   </>
@@ -342,7 +379,7 @@ export function ReviewQueuePage() {
                     {row.canAct ? (
                       <>
                         {' '}
-                        <StatusBadge tone="warning">Your action</StatusBadge>
+                        <StatusBadge tone="flag">Your action</StatusBadge>
                       </>
                     ) : null}
                   </>
@@ -371,7 +408,7 @@ export function ReviewQueuePage() {
               </button>
             </nav>
           ) : null}
-        </>
+        </section>
       ) : null}
     </div>
   );
