@@ -277,13 +277,14 @@ stay readable on a phone in a dim storage room.
     `primary` button: bolt, "Quick actions", a divider and a `chevron-down` that turns up while
     open. The whole button opens the menu.
     Motion, plain CSS (no motion library: a hover expand needs no springs or layout animation):
-    - Hover waits 150 ms before opening, so passing the cursor over it does nothing. Keyboard
+    - Hover waits 100 ms before opening, so passing the cursor over it does nothing. Keyboard
       focus and an open menu skip the wait.
     - The width animates a grid track from `0fr` to `1fr`, so the easing runs over the label's
       real width (animating `max-width` to a guessed size made it finish early and look
-      instant). 300 ms, `cubic-bezier(0.77, 0, 0.175, 1)` (ease-in-out: the button moves on
-      screen). The fill cross-fades over 200 ms with the same 150 ms wait.
-    - The label and chevron fade in (200 ms ease-out) once the width is under way, at 270 ms.
+      instant). 250 ms, `cubic-bezier(0.77, 0, 0.175, 1)` (ease-in-out: the button moves on
+      screen). The fill cross-fades over 200 ms with the same 100 ms wait. Fully open at 350 ms
+      (was 450 ms; Kyle asked for a little faster, 2026-11-11).
+    - The label and chevron fade in (200 ms ease-out) once the width is under way, at 200 ms.
     - Leaving closes at once and faster (200 ms; text out in 100 ms).
     - No transitions under `prefers-reduced-motion`.
   - **Notifications** (`bell`, a `Popover` listing recent notifications with Mark all read and
