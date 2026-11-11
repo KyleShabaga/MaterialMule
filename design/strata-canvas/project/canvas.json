@@ -8,7 +8,16 @@
   "launch": {
     "view": "canvas"
   },
-  "pages": [],
+  "pages": [
+    {
+      "id": "shell",
+      "name": "Shell"
+    },
+    {
+      "id": "components",
+      "name": "Components"
+    }
+  ],
   "boards": {
     "Main.dc.html": {
       "x": 0,
@@ -17,29 +26,33 @@
       "h": 5300,
       "title": "Components — light (Dark tweak)",
       "expand": "fill",
-      "is_interactive": true
+      "is_interactive": true,
+      "page": "components"
     },
     "SidebarLive.dc.html": {
-      "x": 3040,
+      "x": 0,
       "y": 0,
       "w": 1280,
       "h": 800,
       "title": "Shell — real shadcn/ui (Dark and Station tweaks)",
-      "is_interactive": true
+      "is_interactive": true,
+      "page": "shell"
     },
     "SidebarVariants.dc.html": {
-      "x": 3040,
+      "x": 0,
       "y": 1840,
       "w": 1320,
       "h": 1040,
-      "title": "Sidebar — mock variants"
+      "title": "Sidebar — mock variants",
+      "page": "shell"
     },
     "SidebarNav.dc.html": {
-      "x": 4440,
+      "x": 1400,
       "y": 1840,
       "w": 256,
       "h": 900,
-      "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)"
+      "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)",
+      "page": "shell"
     },
     "MainDark.dc.html": {
       "x": 1520,
@@ -48,15 +61,17 @@
       "h": 5300,
       "title": "Components — dark",
       "expand": "fill",
-      "is_interactive": true
+      "is_interactive": true,
+      "page": "components"
     },
     "SidebarStation.dc.html": {
-      "x": 3040,
+      "x": 0,
       "y": 920,
       "w": 1280,
       "h": 800,
       "title": "Shell — shared LAB station (recording as, session end)",
-      "is_interactive": true
+      "is_interactive": true,
+      "page": "shell"
     }
   },
   "order": [
@@ -73,35 +88,40 @@
       "y": -300,
       "text": "Components",
       "kind": "title1",
-      "maxW": 2960
+      "maxW": 2960,
+      "page": "components"
     },
     "rowSidebar": {
-      "x": 3040,
+      "x": 0,
       "y": -300,
-      "text": "Sidebar",
+      "text": "Shell",
       "kind": "title1",
-      "maxW": 1656
+      "maxW": 1656,
+      "page": "shell"
     },
     "liveNotes": {
-      "x": 4400,
+      "x": 1360,
       "y": 0,
       "w": 400,
       "fill": "green",
-      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Testing: Lab programs, Concrete), 44 px rows, one 44 px search-or-scan field, Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention, Concrete and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, session end, Switch user). Press Play to try it."
+      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Testing: Lab programs, Concrete), 44 px rows, one 44 px search-or-scan field, Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention, Concrete and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, session end, Switch user). Press Play to try it.",
+      "page": "shell"
     },
     "sidebarNotes": {
-      "x": 4776,
+      "x": 1736,
       "y": 1840,
       "w": 400,
       "fill": "yellow",
-      "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number."
+      "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number.",
+      "page": "shell"
     },
     "about": {
-      "x": 4880,
+      "x": 1840,
       "y": 0,
       "w": 380,
       "fill": "blue",
-      "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional."
+      "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional.",
+      "page": "shell"
     }
   },
   "designSystems": []
