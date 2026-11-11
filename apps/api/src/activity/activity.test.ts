@@ -164,6 +164,53 @@ describe('toActivityItem (T1)', () => {
     ).toBe('AT received BKT-2026-000032 for DEMO-2601');
   });
 
+  it('Field Ledger: names moves and disposals by the unit ID the caller looked up', () => {
+    const moved = toActivityItem(
+      event({
+        action: 'storage_unit.moved',
+        entityType: 'storage_unit',
+        after: { location: { code: 'WH-C2', name: 'Warehouse C2' }, station: 'x' },
+      }),
+      'BKT-2026-000142',
+    );
+    expect(moved).toMatchObject({
+      summary: 'AT moved BKT-2026-000142 to Warehouse C2',
+      ref: 'BKT-2026-000142',
+      href: '/sample-storage/BKT-2026-000142',
+    });
+    expect(
+      toActivityItem(
+        event({
+          action: 'storage_unit.moved',
+          entityType: 'storage_unit',
+          after: { location: { code: 'WH-C2', name: 'Warehouse C2' }, confirmedInPlace: true },
+        }),
+        'BKT-2026-000142',
+      ).summary,
+    ).toBe('AT confirmed BKT-2026-000142 at Warehouse C2');
+    expect(
+      toActivityItem(
+        event({ action: 'disposal.removed', entityType: 'storage_unit', after: { route: 'x' } }),
+        'CT-2025-000208',
+      ),
+    ).toMatchObject({
+      summary: 'AT recorded the disposal of CT-2025-000208',
+      ref: 'CT-2025-000208',
+    });
+  });
+
+  it('Field Ledger: ref is the one record, else the project', () => {
+    expect(
+      toActivityItem(
+        event({ after: { readableIds: ['BKT-2026-000014', 'BKT-2026-000015'], projectNumber: 'DEMO-2601' } }),
+      ).ref,
+    ).toBe('DEMO-2601');
+    expect(toActivityItem(event({ after: { readableIds: ['BKT-2026-000014'] } })).ref).toBe(
+      'BKT-2026-000014',
+    );
+    expect(toActivityItem(event({ after: null })).ref).toBeNull();
+  });
+
   it('never exposes raw before/after values', () => {
     const item = toActivityItem(
       event({ before: { secretish: 'old-value' }, after: { unitCount: 2, other: 'x-value' } }),
@@ -251,6 +298,30 @@ describe.runIf(testDatabaseUrl)('GET /api/activity/recent and /api/auth/provider
     const items = activityResponseSchema.parse(response.body);
     expect(items.map((i) => i.action)).toEqual(['receipt.confirmed']);
     expect(items[0]!.summary).toBe('AT received 2 storage units for DEMO-2601');
+  });
+
+  it('Field Ledger: hours keeps only recent events', async () => {
+    const old = randomUUID();
+    await db.pool.query(
+      `INSERT INTO audit_event (occurred_at, action, entity_type, entity_id, actor_account_type,
+         actor_initials_snapshot, after_values)
+       VALUES (now() - interval '3 days', 'receipt.confirmed', 'receipt', $1, 'system', 'OL',
+         '{"unitCount": 1}')`,
+      [old],
+    );
+    const recent = activityResponseSchema.parse(
+      (
+        await request(app.getHttpServer())
+          .get('/api/activity/recent?hours=24')
+          .set('Cookie', activeCookie)
+      ).body,
+    );
+    expect(recent.some((item) => item.summary.startsWith('OL '))).toBe(false);
+    const all = activityResponseSchema.parse(
+      (await request(app.getHttpServer()).get('/api/activity/recent').set('Cookie', activeCookie))
+        .body,
+    );
+    expect(all.some((item) => item.summary.startsWith('OL '))).toBe(true);
   });
 
   it('bounds the limit', async () => {
