@@ -897,7 +897,12 @@ version.
   `.reinstated`. The specimen stays listed (struck through, with the reason). Refused while a
   submitted, reviewed or issued strength report version reports the specimen (trigger
   `concrete_strength_exclusion_reported`, 409 `result_on_strength_report`), as a result correction
-  is: return, recall or revise first.
+  is: return, recall or revise first. Only a specimen whose latest attempt is a complete entry
+  is excluded (409 `result_not_complete`), and while it stays excluded no result save may make the
+  excluding reviewer its tester or entrant (409 `own_exclusion`: a correction, a new attempt or a
+  tester change; reinstate first, or someone else enters it). After an issue, a later age's new
+  results may be excluded before the next submission; the strength page's "Show the new results"
+  shows them live (detail `excludableSpecimenIds`), the issued specimens staying locked.
 - **Assessment (advisory, never acceptance).** Only at the field report's reference age
   (`specifiedStrengthAgeDays`, normally 28 d); every other age is "Information only" (AC3: a 7-day
   result is never assessed against 28 days). At the reference age, in order: "Below specified −
@@ -907,7 +912,9 @@ version.
   f′c at the reference age: not assessed ("—").
 - **Failed result (for C25).** Any reference-age assessment other than "Meets specified":
   `failed` on each strength test, and `GET /api/concrete/strength-tests?projectId=…&failed=true`
-  lists them. C25's workflow (notifications, HOLD moves, schedules) is not built.
+  lists them, 500 sets per page: read on with `after=<nextCursor>` until `nextCursor` is null (a
+  page may hold no failures and still have a next one). Each page's running averages use the full
+  peer history. C25's workflow (notifications, HOLD moves, schedules) is not built.
 - **Where it shows.** Testing table (C23): the Strength (MPa) column with the method version
   ("P1 (provisional)"; area, L/D and factor in the tooltip), the strength flags in Flags, and
   "Excluded". Strength report (C39): area, strength (method version per row), the flags in

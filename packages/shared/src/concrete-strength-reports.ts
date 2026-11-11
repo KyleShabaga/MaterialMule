@@ -410,10 +410,16 @@ export const concreteStrengthReportDetailSchema = z.object({
   selfReviewUserIds: z.array(z.string()),
   /**
    * MM-V2-C24: the viewer may exclude specimens from their strength tests now (a strength
-   * reviewer, while no version is submitted, reviewed or issued). The server still refuses a
+   * reviewer, while no version is submitted or reviewed). After an issue it covers only the
+   * later-age specimens no issued version reports (review fix). The server still refuses a
    * specimen whose result the viewer tested or entered.
    */
   canExclude: z.boolean().default(false),
+  /**
+   * Review fix: the specimens whose exclusion may change now (not locked by a submitted, reviewed
+   * or issued version). Empty unless `canExclude`.
+   */
+  excludableSpecimenIds: z.array(z.string()).default([]),
   allowedActions: z.array(z.enum(CONCRETE_REPORT_ACTIONS)),
 });
 export type ConcreteStrengthReportDetail = z.infer<typeof concreteStrengthReportDetailSchema>;
