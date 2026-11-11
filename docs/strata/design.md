@@ -56,8 +56,9 @@ touch-target: 44 # minimum; primary phone actions 56
 A complete new design for Material Mule. It replaces Field Ledger's look and several of its
 patterns. Kyle asked for it on 2026-11-11 and lifted the "no pill shapes" rule the same day.
 
-This file is the foundation: the idea, tokens, components, shell and the UX changes. Screens come
-next, on a new Design canvas, and are added here as they are approved. Every choice made without
+This file is the foundation: the idea, tokens, components, shell and the UX changes. Screens are
+on the [Strata canvas](https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi) and listed under
+[Screens](#screens) as they are drawn. Every choice made without
 Kyle is listed under [Choices made in this draft](#choices-made-in-this-draft) so it can be
 overruled in one place.
 
@@ -389,12 +390,56 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 | Undo vs confirm          | Undo toasts for reversible actions; dialogs for irreversible ones     | Fewer interruptions without hiding anything permanent                                 | Confirm everything                             |
 | Logo                     | White donkey on a teal tile                                           | Teal is the brand action colour; paths unchanged as Kyle decided                      | Ink donkey on orange (Field Ledger)            |
 | Icon set                 | Lucide (proposal)                                                     | Outline style fits; ISC; per-icon imports                                             | Phosphor, or hand-drawn                        |
+| Today storage room       | One fill bar per place with the count written; cells stay for a shelf | Today summarises places, not shelf slots; the shelf page keeps countable cells        | Cells on Today too                             |
+| Needs you actions        | The first card's action is teal, the others secondary                 | One primary per screen, and it matches the greeting's choice                          | All secondary                                  |
+| Canvas tooling           | Today boards here, Sign in boards by a parallel agent, one canvas     | Kyle allowed multiple agents; separate files never overlap                            | One session draws everything                   |
+
+## Screens
+
+Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private).
+Every board has a Dark tweak; the dark boards are the same boards with it on. Drafts for review,
+not approved yet.
+
+### Today (boards: Today desktop, phone, nothing needs you, dark)
+
+- **Greeting block:** a 20 px-radius teal panel. Date and lab line, the 40 px greeting
+  ("Good morning, Alex. Five things need you today."), and at the right one white pill for the
+  most urgent item ("Finish the draft receipt") with a line saying why it is first.
+- **Counters:** four linked cards (Draft receipts, Labels to check, Open lab programs, Retention
+  due), each with its stage dot, the count and a one-line meaning.
+- **Needs you:** stage-striped cards grouped under small headings (Receiving and labels,
+  Inventory, Retention, Lab), most urgent first. Each card: stage tag, a sentence, a detail line
+  with IDs in mono, one action. The first card's action is the teal primary; the rest are
+  secondary pills.
+- **Side column:** "Last 24 hours" as a short timeline (mono time, stage dot, sentence) with an
+  "All activity" link, and "Storage room" as one row per place with a written count and a thin
+  stage-coloured fill bar.
+- **Nothing needs you (LAB station):** the shared LAB account is greeted without a name, the
+  greeting offers "Receive a delivery", counters read 0, Needs you is the empty state, and the rail
+  foot shows "Session ends" and Switch user.
+- **Phone:** header (tile, title, bell), the greeting stacked with a full-width button, counters
+  2 × 2, Needs you as stacked cards with the action at the bottom right, a shorter timeline, and
+  the five-slot bottom bar with the raised Scan circle.
+
+### Sign in (boards: desktop, phone, states, dark)
+
+- **Desktop:** split screen. A teal brand panel (donkey tile, wordmark, "Every bucket, tube and
+  core box, where the record says it is.", the five lifecycle stages as pills, "Office network
+  only") beside the form on the ground: "Sign in", the 56 px Microsoft pill with the
+  hint about working under your own name, an "or" rule, the LAB card (username, password,
+  "Sign in as LAB", forgot-password line), and the development-only test link with a closed-stage
+  tag.
+- **Phone:** the brand panel shrinks to a short teal band above the full-width form.
+- **States:** session ended and LAB session expired (due banners), wrong password (field error),
+  paused after failed attempts (danger banner, help text, LAB button disabled), options could not
+  load (Try again), and no sign-in method set up. Wording is the app's current wording.
 
 ## Next
 
-1. Kyle reviews this file (direction, pill buttons, fonts, icons, the UX changes).
-2. A new Design canvas: foundations board (tokens, type, components in both themes), then Today,
-   Receive, Inventory and the unit page, then the phone screens, then the rest of the routes in
-   `apps/web/src/routes.tsx`. Screens are recorded here as they are approved.
+1. Kyle reviews this file and the Today and Sign in boards (direction, pill buttons, fonts,
+   icons, the UX changes).
+2. More boards on the same canvas: foundations (tokens, type, components in both themes), then
+   Receive, Inventory and the unit page, then the remaining phone screens and the rest of the
+   routes in `apps/web/src/routes.tsx`. Screens are recorded here as they are approved.
 3. An implementation plan in the same shape as Field Ledger's (wave 0 tokens and shell, parallel
    lanes by folder, an integration branch, one release PR).
