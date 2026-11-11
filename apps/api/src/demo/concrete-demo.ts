@@ -6,7 +6,11 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
-import { CONCRETE_HOLD_AGE } from '@materialmule/shared';
+import {
+  CONCRETE_HOLD_AGE,
+  calibrationInEffect,
+  type CalibrationForRule,
+} from '@materialmule/shared';
 import pg from 'pg';
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -58,18 +62,44 @@ function databaseUrl(envFile: string): string {
   return env.DATABASE_URL;
 }
 
-class SetNumbers {
-  private constructor(private readonly client: pg.Client) {}
+/** The SQL the set-numbering stand-in needs; a `pg.Client` in real runs. */
+export interface DemoSql {
+  query<R extends Json = Json>(
+    text: string,
+    values?: unknown[],
+  ): Promise<{ rows: R[]; rowCount: number | null }>;
+  end(): Promise<void>;
+}
 
-  static async open(envFile: string): Promise<SetNumbers> {
-    const client = new pg.Client({ connectionString: databaseUrl(envFile) });
-    await client.connect();
-    return new SetNumbers(client);
+const MISMATCHED_DATABASE =
+  "Set numbering went to a different database than the API's: pass the API's env file " +
+  'with --env-file (default .env).';
+
+/** Opens the API's database, from its env file. */
+export async function openDemoSql(envFile: string): Promise<DemoSql> {
+  const client = new pg.Client({ connectionString: databaseUrl(envFile) });
+  await client.connect();
+  return client as unknown as DemoSql;
+}
+
+class SetNumbers {
+  constructor(private readonly sql: DemoSql) {}
+
+  /**
+   * Fails unless the SQL connection sees the project the API issued: run before the first pour,
+   * so a mismatched env file creates nothing that a corrected rerun would trip over.
+   */
+  async checkProject(projectId: string): Promise<void> {
+    const { rows } = await this.sql.query('SELECT id FROM project WHERE id = $1', [projectId]);
+    if (rows.length !== 1) throw new Error(MISMATCHED_DATABASE);
   }
 
-  /** Attaches the project's next number (YY from the cast date), unless the set has one. */
-  async number(setId: string, castDate: string): Promise<void> {
-    await this.client.query(
+  /**
+   * Attaches the project's next number (YY from the cast date), unless the set has one, and
+   * returns the set's permanent ID. Fails when the set isn't in this database.
+   */
+  async number(setId: string, castDate: string): Promise<string> {
+    await this.sql.query(
       `UPDATE concrete_specimen_set s
           SET permanent_number = n.next,
               permanent_id = $2 || '-' || lpad(n.next::text, 2, '0')
@@ -79,9 +109,16 @@ class SetNumbers {
         WHERE s.id = $1 AND s.permanent_number IS NULL`,
       [setId, castDate.slice(2, 4)],
     );
+    const { rows } = await this.sql.query<{ permanent_id: string | null }>(
+      'SELECT permanent_id FROM concrete_specimen_set WHERE id = $1',
+      [setId],
+    );
+    const permanentId = rows[0]?.permanent_id;
+    if (!permanentId) throw new Error(MISMATCHED_DATABASE);
+    return permanentId;
   }
 
-  close = () => this.client.end();
+  close = () => this.sql.end();
 }
 
 // ---- Reference data, project and mix ----------------------------------------------------------
@@ -99,14 +136,57 @@ const SPEC = {
   cementType: 'GU',
 };
 
+/** The header the demo fills in, and the migration default it replaces (0031). */
+export const DEMO_HEADER = {
+  companyName: 'Example Materials Testing Ltd',
+  address: '100 Sample Street\nExample City AB',
+  phone: '555-0100',
+};
+const DEFAULT_HEADER_NAME = 'Material Mule Testing Laboratory';
+
+const isDefaultHeader = (header: Json) =>
+  header.version === 1 &&
+  header.companyName === DEFAULT_HEADER_NAME &&
+  header.address == null &&
+  header.phone == null;
+
+/** The oldest demo date that uses equipment (the first pour). */
+const OLDEST_POUR_DAYS_AGO = 35;
+
+/**
+ * Records the demo calibration on a device unless one already covers every demo date, from the
+ * first pour to today (existing entries are kept). `route` is the device kind's manage route.
+ */
+async function ensureCalibration(
+  lab: DemoActor,
+  route: 'air-meters' | 'testing-machine',
+  id: string,
+  result: string,
+): Promise<void> {
+  const detail = await lab.get(`/concrete/equipment/${id}`);
+  const calibrations = (detail.calibrations ?? []) as CalibrationForRule[];
+  const covered = [day(-OLDEST_POUR_DAYS_AGO), day(0)].every((date) => {
+    const entry = calibrationInEffect(calibrations, date);
+    return entry !== null && entry.nextDueOn > date;
+  });
+  if (covered) return;
+  await lab.post(`/concrete/${route}/${id}/calibrations`, {
+    calibratedOn: day(-200),
+    nextDueOn: day(165),
+    performedBy: 'Example Calibration Services',
+    result,
+    idempotencyKey: key(),
+  });
+}
+
 async function referenceData(as: ConcreteCrew): Promise<string> {
+  // The header is global: fill it in only while it is still the untouched migration default,
+  // never over one someone has set (other projects' reports print it).
   const header = await as.admin.get('/concrete/report-header');
-  if (header.companyName !== 'Example Materials Testing Ltd') {
+  if (isDefaultHeader(header)) {
     await as.admin.send('PUT', '/concrete/report-header', {
       version: header.version,
-      companyName: 'Example Materials Testing Ltd',
-      address: '100 Sample Street\nExample City AB',
-      phone: '555-0100',
+      ...DEMO_HEADER,
     });
   }
 
@@ -129,43 +209,32 @@ async function referenceData(as: ConcreteCrew): Promise<string> {
     }
   }
 
-  const calibration = (result: string) => ({
-    calibratedOn: day(-200),
-    nextDueOn: day(165),
-    performedBy: 'Example Calibration Services',
-    result,
-    idempotencyKey: key(),
-  });
   const equipment = list(await as.lab.get('/concrete/equipment'));
-  let meter = equipment.find((e) => e.kind === 'air_meter' && e.identifier === 'AM-07');
-  if (!meter) {
-    meter = await as.lab.post('/concrete/air-meters', {
+  // Creating a device and recording its calibration are separate requests: resolve each device,
+  // then check its calibration on its own, so a run stopped in between finishes the job.
+  const meter =
+    equipment.find((e) => e.kind === 'air_meter' && e.identifier === 'AM-07') ??
+    (await as.lab.post('/concrete/air-meters', {
       kind: 'air_meter',
       identifier: 'AM-07',
       make: 'Example Instruments',
       model: 'Type B 7 L',
       assignedUserId: USER.at,
       idempotencyKey: key(),
-    });
-    await as.lab.post(
-      `/concrete/air-meters/${meter.id as string}/calibrations`,
-      calibration('Within tolerance'),
-    );
-  }
-  if (!equipment.some((e) => e.kind === 'testing_machine')) {
-    const machine = await as.lab.post('/concrete/testing-machine', {
+    }));
+  await ensureCalibration(as.lab, 'air-meters', meter.id as string, 'Within tolerance');
+  // One testing machine (the route is singular): the existing one, whatever its identifier.
+  const machine =
+    equipment.find((e) => e.kind === 'testing_machine') ??
+    (await as.lab.post('/concrete/testing-machine', {
       kind: 'testing_machine',
       identifier: 'CM-1',
       description: 'Compression machine, concrete lab',
       make: 'Example Test Systems',
       model: '2000 kN',
       idempotencyKey: key(),
-    });
-    await as.lab.post(
-      `/concrete/testing-machine/${machine.id as string}/calibrations`,
-      calibration('Class A'),
-    );
-  }
+    }));
+  await ensureCalibration(as.lab, 'testing-machine', machine.id as string, 'Class A');
   log('  report header, 1 supplier, 2 holidays, an air meter and the testing machine');
   return meter.id as string;
 }
@@ -200,19 +269,33 @@ async function ensureProject(as: ConcreteCrew, findProject: FindProject): Promis
   return id;
 }
 
+/**
+ * The demo mix (exact supplier and mix number), approved. Creates it when missing and finishes
+ * the approval of a draft an interrupted run created, so no pour names an unapproved mix.
+ */
 async function ensureMix(pe: DemoActor, projectId: string): Promise<string> {
-  const mixes = list(await pe.get(`/projects/${projectId}/concrete-mixes`));
-  const found = mixes.find((m) => JSON.stringify(m).includes(MIX_NUMBER));
-  if (found) return found.id as string;
-  const mix = await pe.post(`/projects/${projectId}/concrete-mixes`, {
-    idempotencyKey: key(),
-    spec: { supplierName: SUPPLIER, mixNumber: MIX_NUMBER, ...SPEC },
-  });
-  await pe.post(`/concrete-mixes/${mix.id as string}/approve`, {
-    idempotencyKey: key(),
-    version: mix.version,
-    revisionId: mix.draftRevision.id,
-  });
+  const mixes = list(
+    await pe.get(
+      `/projects/${projectId}/concrete-mixes?search=${encodeURIComponent(MIX_NUMBER)}&pageSize=100`,
+    ),
+  );
+  const found = mixes.find((m) => m.supplierName === SUPPLIER && m.mixNumber === MIX_NUMBER);
+  const mix = found
+    ? await pe.get(`/concrete-mixes/${found.id as string}`)
+    : await pe.post(`/projects/${projectId}/concrete-mixes`, {
+        idempotencyKey: key(),
+        spec: { supplierName: SUPPLIER, mixNumber: MIX_NUMBER, ...SPEC },
+      });
+  if (mix.status === 'unapproved') {
+    if (!mix.draftRevision) {
+      throw new Error(`${CONCRETE_PROJECT} mix ${MIX_NUMBER} has no draft to approve.`);
+    }
+    await pe.post(`/concrete-mixes/${mix.id as string}/approve`, {
+      idempotencyKey: key(),
+      version: mix.version,
+      revisionId: mix.draftRevision.id,
+    });
+  }
   return mix.id as string;
 }
 
@@ -422,17 +505,13 @@ async function pourOne(
   const setId = set.id as string;
   if (pour.stage === 'draft') return;
 
+  // Numbered, and the number read back, before the report is submitted.
   await numbers.number(setId, castDate);
   const report = await as.at.get(reportPath);
   await as.at.post(`${reportPath}/submit`, { idempotencyKey: key(), version: report.version });
 
   const specimens = (await as.lt.get(`/concrete/specimen-sets/${setId}`)).specimens as Json[];
-  if (!specimens[0]?.identity?.permanentId) {
-    throw new Error(
-      "Set numbering went to a different database than the API's: pass the API's env file " +
-        'with --env-file (default .env).',
-    );
-  }
+  if (!specimens[0]?.identity?.permanentId) throw new Error(MISMATCHED_DATABASE);
   // The lab technician collects the cylinders from site the next morning.
   const nextDay = day(-pour.castDaysAgo + 1);
   await as.lt.post(`/concrete/specimen-sets/${setId}/pickup`, {
@@ -480,12 +559,14 @@ async function pourOne(
 /**
  * Seeds DEMO-2616 unless a finished run already did (its summary report is the last step). A run
  * interrupted after the first field report can't be resumed: rebuild the database. `envFile` is
- * the running API's env file, for the set-numbering stand-in.
+ * the running API's env file, for the set-numbering stand-in (`openSql` opens it; tests pass a
+ * simulated client).
  */
 export async function seedConcreteDemo(
   as: ConcreteCrew,
   findProject: FindProject,
   envFile: string,
+  openSql: (envFile: string) => Promise<DemoSql> = openDemoSql,
 ): Promise<void> {
   const existing = await findProject(CONCRETE_PROJECT);
   if (existing) {
@@ -502,13 +583,15 @@ export async function seedConcreteDemo(
       );
     }
   }
-  const airMeterId = await referenceData(as);
-  const projectId = await ensureProject(as, findProject);
-  const mixId = await ensureMix(as.pe, projectId);
-  log(`  ${CONCRETE_PROJECT} Riverside apartments, approved mix ${MIX_NUMBER} (32 MPa)`);
-
-  const numbers = await SetNumbers.open(envFile);
+  const numbers = new SetNumbers(await openSql(envFile));
+  let projectId: string;
   try {
+    const airMeterId = await referenceData(as);
+    projectId = await ensureProject(as, findProject);
+    // Before any pour: a pour made against the wrong database can't be resumed.
+    await numbers.checkProject(projectId);
+    const mixId = await ensureMix(as.pe, projectId);
+    log(`  ${CONCRETE_PROJECT} Riverside apartments, approved mix ${MIX_NUMBER} (32 MPa)`);
     for (const pour of POURS) await pourOne(as, numbers, projectId, pour, mixId, airMeterId);
   } finally {
     await numbers.close();
