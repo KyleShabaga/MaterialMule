@@ -186,8 +186,8 @@ export function ReviewQueuePage() {
         is decided.
       </p>
 
-      {/* The label comes first in the DOM so each tab reads "Awaiting review (1)"; CSS puts the
-          count on top, as on the board. */}
+      {/* Each tab is named "Awaiting review (1)" by its aria-label (the stacked spans would
+          otherwise read apart); CSS puts the count on top, as on the board. */}
       <div className="view-tiles crv-status-tiles" role="tablist" aria-label="Queue status">
         {CONCRETE_REVIEW_QUEUE_STATUSES.map((s) => (
           <button
@@ -195,20 +195,17 @@ export function ReviewQueuePage() {
             type="button"
             role="tab"
             aria-selected={s === status}
+            aria-label={
+              queue
+                ? `${CONCRETE_REVIEW_QUEUE_STATUS_LABEL[s]} (${queue.counts[s]})`
+                : CONCRETE_REVIEW_QUEUE_STATUS_LABEL[s]
+            }
             className={s === 'awaiting_review' ? 'view-tile-due' : undefined}
             onClick={() => update({ status: s === 'awaiting_review' ? null : s })}
           >
             <span className="view-tile-label">{CONCRETE_REVIEW_QUEUE_STATUS_LABEL[s]}</span>
             <span className="view-tile-count">
-              {queue ? (
-                <>
-                  <span className="visually-hidden"> (</span>
-                  {queue.counts[s]}
-                  <span className="visually-hidden">)</span>
-                </>
-              ) : (
-                <span aria-hidden="true">–</span>
-              )}
+              {queue ? queue.counts[s] : <span aria-hidden="true">–</span>}
             </span>
           </button>
         ))}

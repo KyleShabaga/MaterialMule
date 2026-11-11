@@ -220,7 +220,7 @@ describe('Review queue page', () => {
     expect(
       within(tabs)
         .getAllByRole('tab')
-        .map((t) => t.textContent),
+        .map((t) => t.getAttribute('aria-label')),
     ).toEqual([
       'Awaiting review (1)',
       'Returned for correction (2)',
