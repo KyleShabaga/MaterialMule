@@ -569,6 +569,96 @@ describe('Notification center paging (MM-T91 review)', () => {
     );
   });
 
+  it('review fix (#123): a dismissal that finishes after switching to All keeps the All list', async () => {
+    const user = userEvent.setup();
+    const dismissal = deferred();
+    let dismissed = false;
+    const fetchMock = renderAt('/notifications', me(), (url) => {
+      if (url === '/api/notifications/n-t/dismiss') {
+        dismissed = true;
+        return dismissal.promise;
+      }
+      if (url.startsWith('/api/notifications/count')) return json(200, { unread: 1 });
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      const target = note({
+        id: 'n-t',
+        title: 'Target',
+        dismissedAt: dismissed ? '2026-10-31T16:00:00.000Z' : null,
+      });
+      const older = note({
+        id: 'n-old',
+        title: 'Dismissed before',
+        readAt: '2026-08-10T16:00:00.000Z',
+        dismissedAt: '2026-08-10T16:00:00.000Z',
+      });
+      if (url === '/api/notifications?filter=active') return page(dismissed ? [] : [target]);
+      if (url === '/api/notifications?filter=all') return page([target, older]);
+      return json(404, {});
+    });
+    const row = await screen.findByRole('listitem', { name: 'Target' });
+    await user.click(within(row).getByRole('button', { name: 'Dismiss' }));
+    await user.click(screen.getByRole('button', { name: 'All' }));
+    await screen.findByRole('listitem', { name: 'Dismissed before' });
+    expect(shownRows()).toEqual(['Target', 'Dismissed before']);
+    await act(async () => {
+      dismissal.release(json(200, { unread: 0 }));
+      await Promise.resolve();
+    });
+    // Both stay in All, each shown as dismissed (so each offers Restore).
+    await vi.waitFor(() =>
+      expect(
+        within(screen.getByRole('listitem', { name: 'Target' })).getByRole('button', {
+          name: 'Restore',
+        }),
+      ).toBeVisible(),
+    );
+    expect(shownRows()).toEqual(['Target', 'Dismissed before']);
+    expect(
+      within(screen.getByRole('listitem', { name: 'Dismissed before' })).getByRole('button', {
+        name: 'Restore',
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    // Active no longer lists the target.
+    await user.click(screen.getByRole('button', { name: 'Active' }));
+    expect(await screen.findByText('No notifications.')).toBeVisible();
+    expect(posts(fetchMock)).toEqual(['/api/notifications/n-t/dismiss']);
+  });
+
+  it('review fix (#123): a refill after a late change asks for the filter on screen, with its cursor', async () => {
+    const user = userEvent.setup();
+    const reading = deferred();
+    const fetchMock = renderAt('/notifications', me(), (url) => {
+      if (url === '/api/notifications/n-t/dismiss') return reading.promise;
+      if (url.startsWith('/api/notifications/count')) return json(200, { unread: 1 });
+      if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
+      const target = note({ id: 'n-t', title: 'Target' });
+      if (url === '/api/notifications?filter=unread') return page([target], 'c-unread');
+      if (url === '/api/notifications?filter=active') return page([target], 'c-active');
+      if (url === '/api/notifications?filter=active&cursor=c-active') {
+        return page([
+          note({ id: 'n-2', title: 'Older active', readAt: '2026-10-01T17:00:00.000Z' }),
+        ]);
+      }
+      return json(404, {});
+    });
+    await screen.findByRole('listitem', { name: 'Target' });
+    await user.click(screen.getByRole('button', { name: 'Unread' }));
+    const row = await screen.findByRole('listitem', { name: 'Target' });
+    await user.click(within(row).getByRole('button', { name: 'Dismiss' }));
+    await user.click(screen.getByRole('button', { name: 'Active' }));
+    await screen.findByRole('listitem', { name: 'Target' });
+    await act(async () => {
+      reading.release(json(200, { unread: 0 }));
+      await Promise.resolve();
+    });
+    // Active, emptied by the dismissal, refills from its own cursor.
+    expect(await screen.findByRole('listitem', { name: 'Older active' })).toBeVisible();
+    expect(shownRows()).toEqual(['Older active']);
+    const refills = lists(fetchMock).filter((url) => url.includes('cursor='));
+    expect(refills).toEqual(['/api/notifications?filter=active&cursor=c-active']);
+  });
+
   it('an older dismissed row, past the first page of All, can be loaded and restored', async () => {
     const user = userEvent.setup();
     const fetchMock = renderAt('/notifications', me(), (url, init) => {

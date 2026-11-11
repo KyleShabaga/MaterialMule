@@ -233,9 +233,11 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
   });
 
   /**
-   * A job the worker has tried, `minutesAgo` before now. A failed job also gets the worker's
-   * label.print_failed entry with its failure kind (`printer` unless given; null writes none, as
-   * for a job failed before kinds were recorded).
+   * A job the worker has tried, its latest save `minutesAgo` before now. A failed job also gets
+   * the worker's label.print_failed entry with its failure kind (`printer` unless given; null
+   * writes none, as for a job failed before kinds were recorded). Like the worker, it records
+   * the printer contact (last_contact_*) unless the job failed without reaching the printer;
+   * `firstFailedMinutesAgo` / `createdMinutesAgo` default to `minutesAgo`.
    */
   async function job(
     printer: string,
@@ -246,27 +248,48 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
       error?: string;
       printerMessage?: string;
       failure?: 'printer' | 'unit_disposed' | 'label_preparation' | null;
+      createdMinutesAgo?: number;
+      firstFailedMinutesAgo?: number;
     } = {},
   ): Promise<void> {
+    const failure = details.failure === undefined ? 'printer' : details.failure;
+    const attempts = details.attempts ?? 1;
+    const contacted = attempts > 0 && (status !== 'failed' || failure === 'printer');
+    const result = !contacted
+      ? null
+      : status === 'sent'
+        ? 'sent'
+        : status === 'uncertain'
+          ? 'uncertain'
+          : 'not_sent';
     const { rows } = await db.pool.query<{ id: string }>(
       `INSERT INTO print_job (kind, printer_key, template_version, requested_by_user_id,
                               requested_by_name_snapshot, status, attempts, last_error,
-                              printer_message, created_at, updated_at, sent_at)
+                              printer_message, created_at, updated_at, sent_at,
+                              last_contact_at, last_contact_result, last_contact_error,
+                              last_contact_printer_message, first_failed_contact_at)
        VALUES ('reprint', $1, 'v1', $2, 'Tech', $3, $4, $5, $6,
-               now() - make_interval(mins => $7), now() - make_interval(mins => $7),
-               CASE WHEN $3 = 'sent' THEN now() - make_interval(mins => $7) END)
+               now() - make_interval(mins => $8), now() - make_interval(mins => $7),
+               CASE WHEN $3 = 'sent' THEN now() - make_interval(mins => $7) END,
+               CASE WHEN $9::text IS NOT NULL THEN now() - make_interval(mins => $7) END,
+               $9::text,
+               CASE WHEN $9::text <> 'sent' THEN $5 END,
+               CASE WHEN $9::text <> 'sent' THEN $6 END,
+               CASE WHEN $9::text <> 'sent' THEN now() - make_interval(mins => $10) END)
        RETURNING id`,
       [
         printer,
         tech,
         status,
-        details.attempts ?? 1,
+        attempts,
         details.error ?? null,
         details.printerMessage ?? null,
         minutesAgo,
+        details.createdMinutesAgo ?? minutesAgo,
+        result,
+        details.firstFailedMinutesAgo ?? minutesAgo,
       ],
     );
-    const failure = details.failure === undefined ? 'printer' : details.failure;
     if (status === 'failed' && failure !== null) {
       await db.pool.query(
         `INSERT INTO audit_event (occurred_at, action, entity_type, entity_id, actor_account_type,
@@ -381,6 +404,39 @@ describe.runIf(testDatabaseUrl)('defaultPrinterSummary (MTR-45)', () => {
     const summary = await defaultPrinterSummary(db.pool);
     expect(summary!.lastAttempt).toBeNull();
     expect(summary!.lastJobFailure).toMatchObject({ kind: 'unknown' });
+  });
+
+  it('review fix (#119): a failure period starts at the first failed contact, not when the job was queued', async () => {
+    // Queued an hour ago, first tried (and refused) just now.
+    await job('front', 'queued', 0, {
+      attempts: 1,
+      error: 'Printer refused the connection',
+      createdMinutesAgo: 60,
+    });
+    let summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({ outcome: 'retrying' });
+    expect(Date.now() - Date.parse(summary!.failingSince!)).toBeLessThan(60_000);
+    expect(summary!.failingSince).toBe(summary!.lastAttempt!.at);
+
+    // Several retries: the period starts at the first of them, never earlier.
+    await db.pool.query('DELETE FROM print_job');
+    await job('front', 'sent', 90);
+    await job('front', 'queued', 2, {
+      attempts: 3,
+      error: "Printer didn't respond",
+      createdMinutesAgo: 60,
+      firstFailedMinutesAgo: 10,
+    });
+    summary = await defaultPrinterSummary(db.pool);
+    const since = Date.now() - Date.parse(summary!.failingSince!);
+    expect(since).toBeGreaterThanOrEqual(10 * 60_000 - 5_000);
+    expect(since).toBeLessThan(11 * 60_000);
+
+    // A later success ends it.
+    await job('front', 'sent', 1);
+    summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({ outcome: 'ok' });
+    expect(summary!.failingSince).toBeNull();
   });
 
   it('is null when no printer is the default', async () => {

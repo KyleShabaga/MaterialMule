@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { signInAs } from './auth';
+import type pg from 'pg';
 import { withDatabase, type TestUnit } from './db';
 
 // A Shelby tube tested through the real MM-T23/T24 routes (MM-T80): a fictional test type, a new
@@ -18,6 +19,58 @@ const unique = (prefix: string) => `${prefix}-${randomBytes(3).toString('hex').t
 async function ok(response: Awaited<ReturnType<Page['request']['post']>>, status: number) {
   expect(response.status(), await response.text()).toBe(status);
   return response.json();
+}
+
+/**
+ * One receipt and its one Shelby tube at the Receiving lab, in one transaction (review fix for
+ * #105): a failure never leaves the receipt behind. The ID uses issue year 2025 and a random
+ * number, so it never collides with IDs the app issues in the run; when the draw happens to hit
+ * an ID another test or viewport already has, it draws again (the database's own uniqueness rule
+ * decides). Any other error rolls everything back and is thrown. `draw` and `requestHash` are for
+ * the fixture's own test.
+ */
+export async function insertTestedTubeUnit(
+  client: pg.Client,
+  holeId: string,
+  { draw = () => randomInt(1, 999_999), requestHash = 'e2e' } = {},
+): Promise<TestUnit> {
+  await client.query('BEGIN');
+  try {
+    const receipt = await client.query<{ id: string }>(
+      `INSERT INTO receipt (project_id, received_date, receiver_user_id, receiver_initials_snapshot,
+                            receiver_name_snapshot, account_user_id, quantity, idempotency_key,
+                            request_hash)
+       VALUES ($1, CURRENT_DATE, $2, 'AT', 'Alex Tester', $2, 1, gen_random_uuid(), $3)
+       RETURNING id`,
+      [DEMO_PROJECT_ID, ALEX, requestHash],
+    );
+    for (let attempt = 1; ; attempt += 1) {
+      const readableId = `ST-2025-${String(draw()).padStart(6, '0')}`;
+      await client.query('SAVEPOINT tube');
+      try {
+        const { rows } = await client.query<{ id: string }>(
+          `INSERT INTO storage_unit (readable_id, id_prefix, issued_year, issued_holder_kind,
+                                     receipt_id, project_id, unit_type, holder_kind,
+                                     current_location_id, received_date, source_type,
+                                     source_test_hole_id, sample_reference)
+           SELECT $1, 'ST', 2025, 'shelby_tube', $2, $3, 'shelby_tube', 'shelby_tube', l.id,
+                  CURRENT_DATE, 'test_hole', $4, 'T5'
+           FROM location l WHERE l.code_normalized = 'RECEIVING' RETURNING id`,
+          [readableId, receipt.rows[0]!.id, DEMO_PROJECT_ID, holeId],
+        );
+        await client.query('COMMIT');
+        return { id: rows[0]!.id, readableId };
+      } catch (error) {
+        const collided =
+          (error as { constraint?: string }).constraint === 'storage_unit_readable_id_key';
+        if (!collided || attempt >= 5) throw error;
+        await client.query('ROLLBACK TO SAVEPOINT tube');
+      }
+    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
 }
 
 export interface TestedTube extends TestUnit {
@@ -43,28 +96,7 @@ export async function testedTube(page: Page): Promise<TestedTube> {
     }),
     201,
   );
-  const tube = await withDatabase(async (client) => {
-    const receipt = await client.query<{ id: string }>(
-      `INSERT INTO receipt (project_id, received_date, receiver_user_id, receiver_initials_snapshot,
-                            receiver_name_snapshot, account_user_id, quantity, idempotency_key,
-                            request_hash)
-       VALUES ($1, CURRENT_DATE, $2, 'AT', 'Alex Tester', $2, 1, gen_random_uuid(), 'e2e')
-       RETURNING id`,
-      [DEMO_PROJECT_ID, ALEX],
-    );
-    const readableId = `ST-2025-${String(randomInt(1, 999_999)).padStart(6, '0')}`;
-    const { rows } = await client.query<{ id: string }>(
-      `INSERT INTO storage_unit (readable_id, id_prefix, issued_year, issued_holder_kind,
-                                 receipt_id, project_id, unit_type, holder_kind,
-                                 current_location_id, received_date, source_type,
-                                 source_test_hole_id, sample_reference)
-       SELECT $1, 'ST', 2025, 'shelby_tube', $2, $3, 'shelby_tube', 'shelby_tube', l.id,
-              CURRENT_DATE, 'test_hole', $4, 'T5'
-       FROM location l WHERE l.code_normalized = 'RECEIVING' RETURNING id`,
-      [readableId, receipt.rows[0]!.id, DEMO_PROJECT_ID, hole.id],
-    );
-    return { id: rows[0]!.id, readableId };
-  });
+  const tube = await withDatabase((client) => insertTestedTubeUnit(client, hole.id));
 
   const draft = await ok(
     await page.request.post('/api/lab-programs', {

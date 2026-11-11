@@ -70,7 +70,7 @@ test('admins see the label printer card from system status', async ({ page }) =>
   // one drops a job on purpose, so only the shape is fixed here; the states are unit tested.
   await expect(
     printer.getByText(
-      /^(Printer OK|Printer not responding|Check the printer|Not used yet|Printer off|No default printer)$/,
+      /^(Printer OK|Printer not responding|Printer needs attention|Check the printer|Not used yet|Printer off|No default printer)$/,
     ),
   ).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);

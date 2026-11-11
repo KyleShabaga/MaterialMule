@@ -10,6 +10,7 @@ import {
   COMMENT_EDIT_WINDOW_MINUTES,
   OPEN_STATUSES,
   TEST_REQUEST_STATUSES,
+  WORKLIST_MAX_PAGE,
   WORKLIST_PAGE_SIZE,
   isAllowedTransition,
   type AddCommentRequest,
@@ -137,7 +138,8 @@ export class LabWorkService {
     };
     // $1: the open statuses, used by the per-program counts in the list query.
     const { params, where } = filters(true, [OPEN_STATUSES]);
-    const page = Math.max(1, query.page ?? 1);
+    // Bounded here too, so the OFFSET below is always a finite, supported number.
+    const page = Math.min(Math.max(1, Math.trunc(query.page ?? 1) || 1), WORKLIST_MAX_PAGE);
     const { rows } = await this.database.pool.query<{
       id: string;
       program_number: string;

@@ -285,6 +285,11 @@ export const worklistItemSchema = z.object({
 export type WorklistItem = z.infer<typeof worklistItemSchema>;
 /** Programs per page of GET /api/worklist (`?page=`, from 1). */
 export const WORKLIST_PAGE_SIZE = 100;
+/**
+ * The last page the worklist serves. A larger `?page=` (up to 1e308 still parses as an integer)
+ * is served as this page, which is past the end of any real list: empty, with the true total.
+ */
+export const WORKLIST_MAX_PAGE = 100_000;
 export const worklistSchema = z.object({
   items: z.array(worklistItemSchema),
   /** Programs matching every filter, across all pages. */

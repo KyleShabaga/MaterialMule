@@ -28,10 +28,15 @@ import type { PrinterTarget, PrinterTransport, SendOutcome } from './zebra-clien
 class RecordingTransport implements PrinterTransport {
   readonly calls: PrinterTarget[] = [];
   next: SendOutcome = { result: 'sent' };
+  /** Runs during a send, before it answers (e.g. a disposal landing between attempts). */
+  during: (() => Promise<unknown>) | null = null;
 
-  send(target: PrinterTarget): Promise<SendOutcome> {
+  async send(target: PrinterTarget): Promise<SendOutcome> {
     this.calls.push(target);
-    return Promise.resolve(this.next);
+    const during = this.during;
+    this.during = null;
+    if (during) await during();
+    return this.next;
   }
 }
 
@@ -221,5 +226,106 @@ describe.runIf(testDatabaseUrl)('print failure kinds (MTR-45)', () => {
     const summary = await defaultPrinterSummary(db.pool);
     expect(summary!.lastAttempt).toMatchObject({ outcome: 'uncertain' });
     expect(summary!.lastJobFailure).toBeNull();
+  });
+
+  it('review fix (#124): a connection refusal stays the printer contact when the retry is refused locally', async () => {
+    await enqueue([await bucket()]);
+    await worker().drain();
+    expect(transport.calls).toHaveLength(1);
+
+    // B's first send is refused by the printer; its unit is disposed before the retry.
+    const unit = await bucket();
+    const later = await enqueue([unit]);
+    transport.next = {
+      result: 'not_sent',
+      error: 'Printer refused the connection',
+      printerMessage: null,
+    };
+    transport.during = () => dispose(unit);
+    await worker().drain();
+
+    expect(transport.calls).toHaveLength(2);
+    expect(await getPrintJob(db.pool, later.id)).toMatchObject({ status: 'failed', attempts: 2 });
+    expect(await failureKindOf(later.id)).toBe('unit_disposed');
+    const summary = await defaultPrinterSummary(db.pool);
+    // The latest printer contact is the refusal, not A's older success...
+    expect(summary!.lastAttempt).toMatchObject({
+      outcome: 'failed',
+      error: 'Printer refused the connection',
+    });
+    expect(summary!.failingSince).not.toBeNull();
+    // ...and the disposal is reported separately, as the job's own failure.
+    expect(summary!.lastJobFailure).toMatchObject({ kind: 'unit_disposed' });
+    expect(Date.parse(summary!.lastJobFailure!.at)).toBeGreaterThanOrEqual(
+      Date.parse(summary!.lastAttempt!.at),
+    );
+  });
+
+  it('review fix (#119/#124): a later success clears the failure period', async () => {
+    transport.next = { result: 'not_sent', error: "Printer didn't respond", printerMessage: null };
+    await enqueue([await bucket()]);
+    await worker().drain();
+    expect((await defaultPrinterSummary(db.pool))!.failingSince).not.toBeNull();
+    transport.next = { result: 'sent' };
+    await enqueue([await bucket()]);
+    await worker().drain();
+    const summary = await defaultPrinterSummary(db.pool);
+    expect(summary!.lastAttempt).toMatchObject({ outcome: 'ok', error: null });
+    expect(summary!.failingSince).toBeNull();
+  });
+
+  describe('review fix: a clock that steps back between attempts never blocks the queue', () => {
+    /** The job's first failure as recorded while the clock ran an hour ahead. */
+    const aheadFailure = (jobId: string) =>
+      db.pool.query(
+        `UPDATE print_job
+            SET attempts = 1, last_contact_at = now() + interval '1 hour',
+                last_contact_result = 'not_sent', last_contact_error = 'Printer refused the connection',
+                first_failed_contact_at = now() + interval '1 hour'
+          WHERE id = $1`,
+        [jobId],
+      );
+    const contact = async (jobId: string) =>
+      (
+        await db.pool.query<{ ok: boolean; result: string }>(
+          `SELECT last_contact_at >= first_failed_contact_at AS ok, last_contact_result AS result
+             FROM print_job WHERE id = $1`,
+          [jobId],
+        )
+      ).rows[0]!;
+
+    it('a failed retry still settles and the next job prints', async () => {
+      transport.next = {
+        result: 'not_sent',
+        error: "Printer didn't respond",
+        printerMessage: null,
+      };
+      const first = await enqueue([await bucket()]);
+      await aheadFailure(first.id);
+      const next = await enqueue([await bucket()]);
+      await worker().drain();
+      expect(await getPrintJob(db.pool, first.id)).toMatchObject({ status: 'failed', attempts: 3 });
+      expect(await contact(first.id)).toEqual({ ok: true, result: 'not_sent' });
+      // The queue moved on to the next job.
+      expect(await getPrintJob(db.pool, next.id)).toMatchObject({ status: 'failed' });
+    });
+
+    it('a successful retry still settles', async () => {
+      transport.next = { result: 'sent' };
+      const job = await enqueue([await bucket()]);
+      await aheadFailure(job.id);
+      await worker().drain();
+      expect(await getPrintJob(db.pool, job.id)).toMatchObject({ status: 'sent', attempts: 2 });
+      expect(await contact(job.id)).toEqual({ ok: true, result: 'sent' });
+    });
+
+    it('restart recovery still marks an interrupted send uncertain', async () => {
+      const job = await enqueue([await bucket()]);
+      await aheadFailure(job.id);
+      await db.pool.query(`UPDATE print_job SET status = 'sending' WHERE id = $1`, [job.id]);
+      expect(await worker().recoverInterrupted()).toBe(1);
+      expect(await getPrintJob(db.pool, job.id)).toMatchObject({ status: 'uncertain' });
+      expect(await contact(job.id)).toEqual({ ok: true, result: 'uncertain' });
+    });
   });
 });
