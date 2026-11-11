@@ -512,8 +512,10 @@ drawn as markup in shadcn's look (not live shadcn components). Drafts for review
 shadcn `Sidebar` with ideas from Linear and Notion. Header: lab switcher (logo tile, "Material Mule",
 the lab, up/down chevron) and a New button; a search field with `Ctrl K` under it. Then Today,
 Inbox and My requests; a collapsible "Lab" group with the six work areas (Concrete open as a
-`SidebarMenuSub`, Retention folded); Pinned records; a folded Recent group; and the footer with
-Settings, Help & Feedback and the account menu. Rows are 32 px (desktop mouse use). Collapses to
+`SidebarMenuSub`, Retention folded); Pinned records; a folded Recent group; and a footer with only
+the account row. Clicking it opens the account menu (`DropdownMenu`, as in Notion and Linear): the
+person, their role and lab, then Settings, Help, Feedback & bugs, and Sign out (Kyle,
+2026-11-11). On the shared LAB station the menu would also hold Switch user and the session end. Rows are 32 px (desktop mouse use). Collapses to
 48 px icons.
 
 Open for Kyle: moving search from the top bar into the sidebar and Inbox replacing the bell (both
