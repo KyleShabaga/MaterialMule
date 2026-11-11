@@ -230,7 +230,8 @@ describe('Receiving layout (Field Ledger: Delivery, Units, Confirm and label)', 
     expect(within(bucket(1)).getByText('Goes to WH-C2 · Warehouse C2')).toBeVisible();
     await user.click(screen.getByRole('checkbox', { name: /Print 1 label/ }));
     await user.click(confirmButton());
-    expect(await screen.findByText('Goes to WH-C2 · Warehouse C2')).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1, name: '1 ID issued' })).toBeVisible();
+    expect(screen.getByText('Goes to WH-C2 · Warehouse C2')).toBeVisible();
     expect(JSON.stringify(posts[0])).not.toContain('WH-C2');
   });
 });

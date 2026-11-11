@@ -10,11 +10,14 @@ test.skip(({ isMobile }) => isMobile, 'Sets its own width');
 
 test('MTR-92: Recently received badges stay on one line at 820 px', async ({ page }) => {
   await signInAs(page, 'at');
-  await receiveThroughApi(page);
+  // Its own unit: receipts confirmed in the wizard print their labels on confirm (lane B).
+  const [unit] = await receiveThroughApi(page);
   await page.setViewportSize({ width: 820, height: 1024 });
   await page.goto('/');
   const region = page.getByRole('region', { name: 'Recent unit table' });
-  await expect(region.getByText('No label yet').first()).toBeVisible();
+  await expect(
+    region.getByRole('row').filter({ hasText: unit!.suNumber }).getByText('No label yet'),
+  ).toBeVisible();
   await expect(region).toHaveAttribute('tabindex', '0');
 
   const heights = await region
