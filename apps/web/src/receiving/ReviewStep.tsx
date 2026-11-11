@@ -1,4 +1,4 @@
-import { formatReceiver, projectLabel } from '@materialmule/shared';
+import { formatCoreRuns, formatReceiver, projectLabel } from '@materialmule/shared';
 import type { ReactNode } from 'react';
 import { BandedCard } from '../components/ui';
 import { useMediaQuery, WIDE_SCREEN } from '../components/useMediaQuery';
@@ -98,10 +98,14 @@ function contentLines(draft: ReceiptDraft, unit: UnitDraft): { label: string; te
       },
     ];
   }
-  return unit.summaries.map((summary) => ({
+  const lines = unit.summaries.map((summary) => ({
     label: summary.testHole.name,
     text: summaryText(summary),
   }));
+  if (unit.unitType === 'core_box') {
+    lines.push({ label: 'Core runs', text: formatCoreRuns(unit.coreRunCount) });
+  }
+  return lines;
 }
 
 /** Above 1280px: every unit in one table, one compact row each, Edit at the end (UI-08). */

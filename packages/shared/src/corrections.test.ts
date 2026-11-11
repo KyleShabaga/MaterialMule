@@ -96,7 +96,7 @@ describe('describeStorageUnitCorrection', () => {
       'type Shelby tube → Bucket',
       'received date 2026-10-23 → 2026-10-21',
       'project DEMO-2601 → DEMO-2602',
-      'test holes DEMO-2601 TH26-01: ALL → DEMO-2602 TH26-01: 0–1.5 m',
+      'test holes DEMO-2601 TH26-01: All samples → DEMO-2602 TH26-01: 0–1.5 m',
       'note none → Lid taped',
     ]);
   });
@@ -187,7 +187,7 @@ describe('MM-T82 tube source and bulk → ordinary bucket', () => {
     ).toEqual([
       'type Bulk soil sample → Bucket',
       'bulk sample TH26-01: B1 at 1 m (bucket 2 of 3) → none',
-      'test holes none → TH26-01: ALL',
+      'test holes none → TH26-01: All samples',
     ]);
   });
 });

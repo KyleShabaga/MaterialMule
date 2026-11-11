@@ -61,6 +61,7 @@ interface DetailRow {
   id: string;
   readable_id: string;
   unit_type: StorageUnitDetail['unitType'];
+  core_run_count: number | null;
   status: StorageUnitDetail['status'];
   note: string | null;
   received_date: string;
@@ -94,7 +95,7 @@ export async function getStorageUnitDetail(
   const unit = await findUnit(pool, idOrCode);
   if (!unit) return null;
   const { rows } = await pool.query<DetailRow>(
-    `SELECT su.id, su.readable_id, su.unit_type, su.status, su.note,
+    `SELECT su.id, su.readable_id, su.unit_type, su.core_run_count, su.status, su.note,
             su.received_date::text AS received_date, su.version,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
@@ -121,6 +122,7 @@ export async function getStorageUnitDetail(
     id: row.id,
     readableId: row.readable_id,
     unitType: row.unit_type,
+    coreRunCount: row.core_run_count,
     status: row.status,
     note: row.note,
     receivedDate: row.received_date,

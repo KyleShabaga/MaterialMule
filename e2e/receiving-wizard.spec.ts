@@ -139,8 +139,9 @@ test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank desc
   await addHole(unit, 'TH26-01');
   await sampleRange(unit, 'TH26-01', 'G1', 'S12');
   await addHole(unit, 'TH26-02');
-  await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
-  await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
+  // All samples is the default: most buckets hold every sample of the hole (Kyle, 2026-11-10).
+  await expect(summaryOf(unit, 'TH26-02').getByLabel('Summary type')).toHaveValue('all');
+  await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: All samples')).toBeVisible();
   await expect(page.getByLabel('Description (optional)')).toHaveValue('');
 
   await page.getByRole('button', { name: 'Next: Review' }).click();

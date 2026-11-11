@@ -104,7 +104,7 @@ test(
     await sampleRange(unit, 'TH26-01', 'G1', 'S12');
     await addHole(unit, 'TH26-02');
     await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
-    await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
+    await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: All samples')).toBeVisible();
     await page.getByRole('button', { name: 'Next: Review' }).click();
     await page.getByRole('button', { name: 'Confirm receipt' }).click();
     const [id] = await issuedIds(page);
@@ -139,7 +139,7 @@ test(
     await expect(receiptCard).toContainText('JS · Jordan Smith');
     await expect(receiptCard).toContainText('LAB');
     await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-      'TH26-02: ALL',
+      'TH26-02: All samples',
     );
   },
 );

@@ -19,8 +19,32 @@ export type HoleSummaryType = (typeof HOLE_SUMMARY_TYPES)[number];
  * sample (stored as unit type bulk_container, still a BKT- bucket); without it, it holds samples
  * summarised per test hole. Each Shelby tube is its own ST- unit with a sampling source.
  */
-export const RECEIPT_UNIT_TYPES = ['bucket', 'shelby_tube'] as const;
+export const RECEIPT_UNIT_TYPES = ['bucket', 'shelby_tube', 'core_box'] as const;
 export type ReceiptUnitType = (typeof RECEIPT_UNIT_TYPES)[number];
+
+/**
+ * Core boxes (CRE-, Kyle 2026-11-10): one test hole per box, 1 to 3 runs of 1.52 m each. Most
+ * boxes are full (3 runs, 4.56 m); usually only a hole's last box holds fewer. Also database
+ * checks (`storage_unit_core_run_count_check`, `storage_unit_core_box_one_test_hole`).
+ */
+export const CORE_RUN_COUNTS = [3, 2, 1] as const;
+export type CoreRunCount = (typeof CORE_RUN_COUNTS)[number];
+/** The run count a new core box starts with. */
+export const DEFAULT_CORE_RUN_COUNT: CoreRunCount = 3;
+/** Length of one core run, in metres. */
+export const CORE_RUN_LENGTH_M = 1.52;
+
+/** "3 runs · 4.56 m", "1 run · 1.52 m". */
+export function formatCoreRuns(runs: number): string {
+  const metres = (Math.round(runs * CORE_RUN_LENGTH_M * 100) / 100).toFixed(2);
+  return `${runs} ${runs === 1 ? 'run' : 'runs'} · ${metres} m`;
+}
+
+export const coreRunCountSchema = z
+  .number({ error: 'must be 1, 2 or 3 runs' })
+  .int({ error: 'must be 1, 2 or 3 runs' })
+  .min(1, { error: 'must be 1, 2 or 3 runs' })
+  .max(3, { error: 'must be 1, 2 or 3 runs' });
 
 /** Largest depth `numeric(8, 2)` can hold. */
 const MAX_DEPTH = 999_999.99;
@@ -112,10 +136,15 @@ export const receiptUnitInputSchema = z
       .trim()
       .min(1, { error: 'is required' })
       .max(64, { error: 'must be at most 64 characters' }),
-    unitType: z.enum(RECEIPT_UNIT_TYPES, { error: 'must be bucket or shelby_tube' }),
+    unitType: z.enum(RECEIPT_UNIT_TYPES, { error: 'must be bucket, shelby_tube or core_box' }),
     note: optionalText(2000),
-    /** Ordinary buckets only: one SAMPLE#/DEPTH summary per test hole. */
+    /**
+     * Ordinary buckets: one SAMPLE#/DEPTH summary per test hole. Core boxes: exactly one, for the
+     * box's test hole.
+     */
     holeSummaries: z.array(holeSummaryInputSchema, { error: 'is required' }).optional(),
+    /** Core boxes only: 1, 2 or 3 runs of 1.52 m. */
+    coreRunCount: coreRunCountSchema.optional(),
     /** Shelby tubes only: sampling source, sample reference and depth (MM-T36). */
     sample: shelbySampleInputSchema.optional(),
     /** Bulk soil buckets only: the bulk group the bucket belongs to (MM-T36). */
@@ -125,8 +154,29 @@ export const receiptUnitInputSchema = z
     const issue = (path: (string | number)[], code: string, message: string) =>
       ctx.addIssue({ code: 'custom', path, message, params: { code } });
     const summaryCount = unit.holeSummaries?.length ?? 0;
+    if (unit.unitType === 'core_box') {
+      if (unit.coreRunCount === undefined) {
+        issue(['coreRunCount'], 'required', 'is required for a core box (1, 2 or 3 runs)');
+      }
+    } else if (unit.coreRunCount !== undefined) {
+      issue(['coreRunCount'], 'not_allowed', 'only a core box has runs');
+    }
     // One contents summary per unit (MM-T36): hole summaries, a tube's sample or a bulk group.
-    if (unit.unitType === 'shelby_tube') {
+    if (unit.unitType === 'core_box') {
+      if (unit.sample !== undefined) {
+        issue(['sample'], 'not_allowed', 'only a Shelby tube has its own sampling source');
+      }
+      if (unit.bulkGroup !== undefined) {
+        issue(['bulkGroup'], 'not_allowed', 'only a bucket can hold a bulk soil sample');
+      }
+      if (summaryCount !== 1) {
+        issue(
+          ['holeSummaries'],
+          summaryCount === 0 ? 'too_small' : 'too_big',
+          'a core box belongs to exactly one test hole',
+        );
+      }
+    } else if (unit.unitType === 'shelby_tube') {
       if (unit.sample === undefined) issue(['sample'], 'required', 'is required for a Shelby tube');
       if (unit.bulkGroup !== undefined) {
         issue(['bulkGroup'], 'not_allowed', 'only a bucket can hold a bulk soil sample');

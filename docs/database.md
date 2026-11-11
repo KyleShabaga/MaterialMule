@@ -155,9 +155,25 @@ Key rules enforced by the database:
 - **One project per storage unit (D12).** `storage_unit_hole_summary` references both
   `storage_unit (project_id, id)` and `test_hole (project_id, id)` with the same `project_id`, so a
   summary can't join a unit to another project's test hole.
-- **One summary per test hole per unit**, each shaped by type: ALL (no fields), sample range
-  (from + to), depth range (from ≤ to, both ≥ 0, unit `ft` or `m`, stored as `numeric(8,2)`),
-  Custom (non-blank text).
+- **One summary per test hole per unit**, each shaped by type: All samples (`all`, no fields),
+  sample range (from + to), depth range (from ≤ to, both ≥ 0, unit `ft` or `m`, stored as
+  `numeric(8,2)`), Custom (non-blank text). About 95% of buckets hold all of a hole's samples
+  (Kyle, 2026-11-10), so receiving and corrections start every newly chosen hole at All samples;
+  a range or Custom text is the exception. Stored values never changed for it: `all` has always
+  existed, only its default and its label ("All samples", formerly "ALL") are new.
+- **Core boxes (migration 0039, Kyle 2026-11-10).** `unit_type = 'core_box'` in a `core_box`
+  holder, issued a `CRE-` ID when received as one. A core box belongs to exactly one test hole
+  (its one ordinary hole summary, All samples by default) and holds `core_run_count` runs of
+  1.52 m: 1, 2 or 3 (1.52, 3.04 or 4.56 m). A full box is 3 runs, the default; usually only a
+  hole's last box holds fewer. Checks: `storage_unit_core_run_count_check` (1–3),
+  `storage_unit_core_runs_by_type_check` (a core box has a count, no other unit has one), the
+  type/holder and contents checks (no own source, no bulk group), and the deferred constraint
+  trigger `storage_unit_core_box_one_test_hole` (exactly one hole summary at commit, so receiving
+  and a correction can replace it inside the transaction; it locks the unit row first). The run
+  count is a current value, corrected like the type; a disposed box's runs are final
+  (`storage_unit_disposed_core_runs_final`). Lab coverage, labels and search treat a core box as
+  they treat a bucket (`hole_summary` basis; never tracked like a Shelby tube). Proven in
+  `apps/api/src/db/schema-core-box.test.ts`. No existing row changed: no unit had the type.
 - **Storage unit IDs** match `^(CT|BKT|ST|CRE)-YYYY-NNNNNN$`. The prefix must match the physical
   holder at issue (`BKT` bucket, `ST` Shelby tube, `CRE` core box, `CT` generic), and the year
   must match `issued_year`. A trigger makes `readable_id`, `id_prefix`, `issued_year` and
@@ -256,8 +272,9 @@ Key rules enforced by the database:
 3. Insert the receipt with `ON CONFLICT (idempotency_key) DO NOTHING`. A concurrent request with
    the same key waits on the unique index until the first commits, then finds its row and replays.
 4. Allocate typed IDs (`allocateStorageUnitIds`, one block per holder kind, in submitted order),
-   insert units at Receiving lab (`in_stock`) and their hole summaries, and audit
-   `receipt.confirmed` plus one `storage_unit.created` per unit, all on the same client.
+   insert units at Receiving lab (`in_stock`) and their hole summaries (a core box: exactly one,
+   with its `coreRunCount`, 1–3), and audit `receipt.confirmed` plus one `storage_unit.created`
+   per unit, all on the same client.
 
 `READ COMMITTED` is enough: ID allocation serialises on the counter row lock held until commit,
 the key is a unique constraint, the rows validated (project, test hole, user) aren't changed by
@@ -296,8 +313,12 @@ sorted and paged on the server (default 25, max 100, with the total).
 ## Storage unit corrections (MM-T13)
 
 `PATCH /api/storage-units/:id` (`apps/api/src/storage-units/corrections`, readable ID or UUID)
-corrects a confirmed unit's type, received date, project, test holes and summaries, and note
-(D45–D47) with `{version, reason, changes}`. Personal and test accounts only
+corrects a confirmed unit's type, received date, project, test holes and summaries, note and a
+core box's runs (D45–D47) with `{version, reason, changes}`. Type may be set to Bucket or Core
+box: a core box needs `coreRunCount` (400 `required`) and exactly one test hole (422
+`core_box_one_test_hole`); runs on any other unit are 422 `not_a_core_box`, and a core box set
+back to Bucket loses its runs. The issued ID never changes, so a BKT- bucket corrected to a core
+box keeps its BKT- ID. Personal and test accounts only
 (`storage_unit.correct`); LAB gets 403. No migration: the schema already allows it.
 
 - **Never changed:** the readable ID, prefix, issue year and issued holder (the identity trigger
