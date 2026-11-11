@@ -45,11 +45,12 @@ const ROUTE_LABELS: readonly [RegExp, string][] = [
   [/^\/labels\/print\//, 'Print labels'],
   [/^\/sign-in/, 'Sign in'],
   [/^\/access-pending$/, 'Access pending'],
+  [/^\/search$/, 'Search'],
   [/^\/onboarding\/position$/, 'Welcome'],
 ];
 
 function sectionFor(pathname: string): string | null {
-  if (pathname === '/') return 'Dashboard';
+  if (pathname === '/') return 'Today';
   const match = SECTIONS.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
   return match?.label ?? null;
 }

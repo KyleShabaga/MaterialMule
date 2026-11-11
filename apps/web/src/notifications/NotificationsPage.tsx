@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { EmptyState, ErrorState, PageHeader, StatusBadge, type BadgeTone } from '../components/ui';
+import { labDate } from '../dashboard/format';
 import { formatAge, formatExpiry } from '../lib/format';
 import { useMe } from '../session/context';
 import {
@@ -19,6 +20,7 @@ import {
   updateNotification,
   type NotificationAction,
 } from './api';
+import './notifications.css';
 
 /**
  * The rows loaded so far for one filter, newest first. `nextCursor` is where the next, older page
@@ -276,37 +278,34 @@ function NotificationCenter() {
 
   return (
     <div className="notifications-page">
-      <PageHeader
-        title="Notifications"
-        actions={
-          <button type="button" disabled={!anyUnread || bulkBusy} onClick={() => void readAll()}>
-            Mark all read
-          </button>
-        }
-      />
-      <p className="field-hint">
-        Notifications tell you what happened. Reading or dismissing one never approves or resolves
-        anything: requests still waiting on you are under Pending actions, and are resolved only
-        where the decision is made.
-      </p>
-      <div className="action-requests-filters" role="group" aria-label="Show">
-        {(['active', 'unread', 'all'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={filter === value}
-            className={filter === value ? 'primary' : undefined}
-            onClick={() => {
-              if (filter === value) return;
-              setLoad({ state: 'loading' });
-              setMessage(null);
-              currentFilter.current = value;
-              setFilter(value);
-            }}
-          >
-            {FILTER_LABEL[value]}
-          </button>
-        ))}
+      <div className="notifications-title">
+        <PageHeader title="Notifications" />
+        <div className="segmented notifications-filters" role="group" aria-label="Show">
+          {(['active', 'unread', 'all'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={filter === value}
+              onClick={() => {
+                if (filter === value) return;
+                setLoad({ state: 'loading' });
+                setMessage(null);
+                currentFilter.current = value;
+                setFilter(value);
+              }}
+            >
+              {FILTER_LABEL[value]}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="notifications-read-all"
+          disabled={!anyUnread || bulkBusy}
+          onClick={() => void readAll()}
+        >
+          Mark all read
+        </button>
       </div>
       <p className="notifications-message" role="status" tabIndex={-1} ref={messageRef}>
         {message}
@@ -318,34 +317,45 @@ function NotificationCenter() {
       {load.state === 'ready' && load.items.length === 0 && load.nextCursor === null ? (
         <EmptyState>{EMPTY[filter]}</EmptyState>
       ) : null}
-      {load.state === 'ready' && load.items.length > 0 ? (
-        <ul className="action-request-list">
-          {load.items.map((item) => (
-            <NotificationRow
-              key={item.id}
-              item={item}
-              now={now}
-              onChanged={(action, unread) => {
-                if (unread !== null) apply(item.id, action);
-                const gone =
-                  unread !== null && !shown(changed(item, action), currentFilter.current);
-                if (unread === null) {
-                  announce('This notification couldn’t be updated. Try again.', false);
-                } else if (action !== 'read' || gone) {
-                  announce(
-                    action === 'dismiss'
-                      ? 'Notification dismissed. Choose All to restore it.'
-                      : action === 'restore'
-                        ? 'Notification restored.'
-                        : 'Notification marked read.',
-                    gone,
-                  );
-                }
-              }}
-            />
-          ))}
-        </ul>
-      ) : null}
+      {load.state === 'ready' && load.items.length > 0
+        ? byDay(load.items, now).map((group) => (
+            <section
+              key={group.label}
+              className="notification-group"
+              aria-labelledby={`notifications-${group.key}`}
+            >
+              <h2 id={`notifications-${group.key}`} className="notification-group-head">
+                {group.label}
+              </h2>
+              <ul className="notification-list">
+                {group.items.map((item) => (
+                  <NotificationRow
+                    key={item.id}
+                    item={item}
+                    now={now}
+                    onChanged={(action, unread) => {
+                      if (unread !== null) apply(item.id, action);
+                      const gone =
+                        unread !== null && !shown(changed(item, action), currentFilter.current);
+                      if (unread === null) {
+                        announce('This notification couldn’t be updated. Try again.', false);
+                      } else if (action !== 'read' || gone) {
+                        announce(
+                          action === 'dismiss'
+                            ? 'Notification dismissed. Choose All to restore it.'
+                            : action === 'restore'
+                              ? 'Notification restored.'
+                              : 'Notification marked read.',
+                          gone,
+                        );
+                      }
+                    }}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))
+        : null}
       {load.state === 'ready' && load.more === 'loading' ? (
         <p>Loading older notifications…</p>
       ) : null}
@@ -367,8 +377,29 @@ function NotificationCenter() {
           Load more
         </button>
       ) : null}
+      <p className="notifications-note">
+        A filled square is unread. Opening a notification takes you to the record and marks it read.
+        Reading or dismissing one never approves or resolves anything: requests still waiting on you
+        are under Pending actions, and are resolved only where the decision is made.
+      </p>
     </div>
   );
+}
+
+/** Rows split into Today and Earlier (lab time zone), newest first as loaded. */
+function byDay(
+  items: Notification[],
+  now: number,
+): { key: string; label: string; items: Notification[] }[] {
+  const today = labDate(new Date(now));
+  const groups = [
+    { key: 'today', label: 'Today', items: [] as Notification[] },
+    { key: 'earlier', label: 'Earlier', items: [] as Notification[] },
+  ];
+  for (const item of items) {
+    groups[labDate(new Date(item.createdAt)) === today ? 0 : 1]!.items.push(item);
+  }
+  return groups.filter((group) => group.items.length > 0);
 }
 
 function changed(item: Notification, action: NotificationAction): Notification {
@@ -411,14 +442,17 @@ function NotificationRow({
 
   return (
     <li
-      className={`action-request notification ${unread ? 'notification-unread' : 'notification-read'}`}
+      className={`notification ${unread ? 'notification-unread' : 'notification-read'}`}
       aria-label={item.title}
+      data-row
     >
-      <div className="action-request-main">
-        <p className="action-request-title">
+      {/* Field Ledger: a flag-filled square marks an unread row; the Unread tag says it too. */}
+      <span className="notification-square" aria-hidden="true" />
+      <div className="notification-main">
+        <p className="notification-title">
           {unread ? (
             <>
-              <StatusBadge tone="info">Unread</StatusBadge>{' '}
+              <StatusBadge tone="flag">Unread</StatusBadge>{' '}
             </>
           ) : null}
           {item.dismissedAt ? (
@@ -428,7 +462,7 @@ function NotificationRow({
           ) : null}
           <span className="notification-event">{eventText(item)}:</span> {item.title}
         </p>
-        <p className="action-request-meta">
+        <p className="notification-meta">
           {item.projectNumber ? <>{item.projectNumber} · </> : null}
           <When iso={item.createdAt} now={now} />
           {status ? (
@@ -442,7 +476,7 @@ function NotificationRow({
           ) : null}
         </p>
         {report?.by || report?.comment ? (
-          <p className="action-request-meta notification-detail">
+          <p className="notification-meta notification-detail">
             {report.by ? (
               <>
                 {report.versionNo ? `Version ${report.versionNo} · ` : null}
@@ -454,7 +488,7 @@ function NotificationRow({
           </p>
         ) : null}
       </div>
-      <div className="action-request-actions">
+      <div className="notification-actions">
         <Link
           className="button"
           to={item.href}

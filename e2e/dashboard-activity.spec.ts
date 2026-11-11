@@ -3,13 +3,14 @@ import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { receiveThroughApi, uniqueTag } from './support/receiving';
 
-// MM-T49 (MM-T34 coverage): a new receipt appears first in the dashboard's Recent activity.
+// MM-T49 (MM-T34 coverage): a new receipt appears first in Today's ledger (Field Ledger; was the
+// dashboard's Recent activity).
 // Fictional data: a DEMO-2601 bucket received by AT.
 //
 // Other workers (and the other viewport) confirm receipts at the same time, so "first" means: no
 // event listed above ours is older than ours. Run alone, ours is the very first item.
 
-test('a new receipt is the newest entry in Recent activity and links to the receipt', async ({
+test('a new receipt is the newest entry in the ledger and links to the receipt', async ({
   page,
 }) => {
   await signInAs(page, 'at');
@@ -19,7 +20,7 @@ test('a new receipt is the newest entry in Recent activity and links to the rece
   const id = unit!.suNumber;
 
   await page.goto('/');
-  const activity = page.getByRole('region', { name: 'Recent activity' });
+  const activity = page.getByRole('region', { name: 'Ledger' });
   const ours = activity
     .getByRole('listitem')
     .filter({ hasText: `AT received ${id} for DEMO-2601` });

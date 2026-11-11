@@ -9,8 +9,8 @@ import { applyPageTitle, pageTitle, usePageTitle } from './page-title';
 
 describe('pageTitle', () => {
   it.each([
-    ['/', null, 'Dashboard · Material Mule'],
-    ['/', 'Dashboard', 'Dashboard · Material Mule'],
+    ['/', null, 'Today · Material Mule'],
+    ['/', 'Today', 'Today · Material Mule'],
     ['/receiving-log', 'Receiving Log', 'Receiving Log · Material Mule'],
     ['/receiving-log/new', null, 'Receive samples · Receiving Log · Material Mule'],
     [
