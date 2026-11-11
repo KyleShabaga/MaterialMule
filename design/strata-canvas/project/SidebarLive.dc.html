@@ -147,19 +147,18 @@ Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class
 <div class="ml-auto flex items-center gap-2">
 <!-- Quick actions: start common work from any page -->
 <x-import component-from-global-scope="Strata.DropdownMenu">
-<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Quick actions" title="Quick actions" class-name="bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
-<x-import component-from-global-scope="Strata.Icon" name="zap" class-name="size-5"></x-import>
+<!-- At rest a 44 px bolt. On hover, keyboard focus or while its menu is open it widens to the left
+     (it is the right-anchored first item) into a filled "Quick actions" button with a chevron.
+     Plain CSS transitions, 200 ms ease-out; none with reduced motion. -->
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Quick actions" class-name="group bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-primary dark:hover:border-primary dark:focus-visible:bg-primary dark:data-[state=open]:bg-primary dark:data-[state=open]:border-primary border shadow-xs hover:bg-primary hover:text-primary-foreground hover:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground data-[state=open]:bg-primary data-[state=open]:text-primary-foreground data-[state=open]:border-primary focus-visible:ring-ring/50 inline-flex h-11 items-center overflow-hidden rounded-md outline-none transition-[background-color,color,border-color] duration-200 ease-out focus-visible:ring-[3px] motion-reduce:transition-none">
+<span class="flex h-full w-[42px] shrink-0 items-center justify-center"><x-import component-from-global-scope="Strata.Icon" name="zap" class-name="size-5"></x-import></span>
+<span class="max-w-0 overflow-hidden text-sm font-medium whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:max-w-32 group-hover:opacity-100 group-focus-visible:max-w-32 group-focus-visible:opacity-100 group-data-[state=open]:max-w-32 group-data-[state=open]:opacity-100 motion-reduce:transition-none">Quick actions</span>
+<span aria-hidden="true" class="flex h-full max-w-0 items-center overflow-hidden opacity-0 transition-[max-width,opacity] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:max-w-12 group-hover:opacity-100 group-focus-visible:max-w-12 group-focus-visible:opacity-100 group-data-[state=open]:max-w-12 group-data-[state=open]:opacity-100 motion-reduce:transition-none"><span class="border-primary-foreground/30 ml-3 flex h-6 items-center border-l px-2.5"><x-import component-from-global-scope="Strata.Icon" name="chevron-down" class-name="transition-transform duration-200 group-data-[state=open]:rotate-180 motion-reduce:transition-none"></x-import></span></span>
 </x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuContent" align="end" side-offset="{{four}}" class-name="w-64">
-<x-import component-from-global-scope="Strata.DropdownMenuLabel">Quick actions</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuGroup">
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receive storage units</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import>Request lab testing</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import>New concrete field report</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-right-left"></x-import>Move storage units</x-import>
-</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import>Scan a label<x-import component-from-global-scope="Strata.DropdownMenuShortcut">Ctrl K</x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" align="end" side-offset="{{four}}" class-name="w-56">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import>Scan<x-import component-from-global-scope="Strata.DropdownMenuShortcut">Ctrl K</x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receive</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="folder-plus"></x-import>New project</x-import>
 </x-import>
 </x-import>
 <!-- Notifications: always the last item on the right -->

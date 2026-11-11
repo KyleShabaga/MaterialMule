@@ -269,12 +269,18 @@ stay readable on a phone in a dim storage room.
 - **Rail footer:** Settings, Help & Feedback, then the account row (initials avatar, name, role,
   sign-out icon button). Shared LAB stations show "Switch user" and the session end under it.
 - **Top bar**, 56 px, `background`, bottom border: the sidebar toggle and the page title at the
-  left; at the right, on every page, the quick actions button (`zap`, a `DropdownMenu`: Receive
-  storage units, Request lab testing, New concrete field report, Move storage units, then Scan a
-  label) and, always last, the notification bell (`bell`, a `Popover` listing recent notifications
-  with Mark all read and Open Inbox; when any are unread, a 20 px `primary` count badge on the bell's top-right corner, e.g. "2",
-  "9+" past nine). Both are 44 px outline icon
-  buttons (border, `background` fill, `shadow-xs`), 8 px apart. Search lives in the sidebar.
+  left; at the right, on every page, the quick actions button and, always last, the notification bell, 8 px apart. Search lives in
+  the sidebar.
+  - **Quick actions** (`zap`, a `DropdownMenu`: Scan (`scan-line`, Ctrl K), Receive
+    (`arrow-down-to-line`), New project (`folder-plus`)). At rest a 44 px outline icon button.
+    On hover, keyboard focus or while its menu is open it widens to the left into a filled
+    `primary` button: bolt, "Quick actions", a divider and a `chevron-down` that turns up while
+    open. The whole button opens the menu. Plain CSS transitions (200 ms ease-out on width and
+    opacity, colour cross-fade), none under `prefers-reduced-motion`; no motion library.
+  - **Notifications** (`bell`, a `Popover` listing recent notifications with Mark all read and
+    Open Inbox): a 44 px outline icon button (border, `background` fill, `shadow-xs`). When any
+    are unread, a 20 px `primary` count badge sits on its top-right corner, e.g. "2", "9+" past
+    nine.
 - **Page head:** a context row (back link, record tags, step control) above the page title, with
   the page's actions at the right of the title. One primary action at most.
 - **Content** is capped at 1280 px with 32 px padding. Two-column pages split 2:1 and wrap to one
