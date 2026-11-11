@@ -110,12 +110,14 @@ export class TeamJoinService {
       const me = standing.get(user.userId);
       if (!isActiveStaff(me)) throw forbidden();
       const actor = asLocked(user, standing);
-      const { rows: earlier } = await client.query<{ user_id: string }>(
-        `SELECT user_id FROM project_team_join_request WHERE request_idempotency_key = $1`,
+      const { rows: earlier } = await client.query<{ user_id: string; project_id: string }>(
+        `SELECT user_id, project_id FROM project_team_join_request
+         WHERE request_idempotency_key = $1`,
         [idempotencyKey],
       );
       if (earlier[0]) {
-        if (earlier[0].user_id !== user.userId) {
+        // A replay is the same person asking to join the same project; anything else reused it.
+        if (earlier[0].user_id !== user.userId || earlier[0].project_id !== project.id) {
           throw new ConflictException({ code: 'idempotency_key_reused' });
         }
         return this.view(client, project, actor);

@@ -364,18 +364,49 @@ describe.runIf(testDatabaseUrl)('review eligibility and LPE review approval (MIS
       await blocker.query('ROLLBACK').catch(() => undefined);
       await blocker.end();
     });
-    async function waitForLockWait(text: string) {
+    async function waitForLockWait(text: string, waiters = 1) {
       for (let i = 0; i < 2000; i += 1) {
         const { rows } = await h.db.pool.query<{ n: number }>(
           `SELECT count(*)::int AS n FROM pg_stat_activity
            WHERE wait_event_type = 'Lock' AND query ILIKE $1`,
           [`%${text}%`],
         );
-        if (rows[0]!.n > 0) return;
+        if (rows[0]!.n >= waiters) return;
         await new Promise((resolve) => setImmediate(resolve));
       }
       throw new Error(`nothing waited on ${text}`);
     }
+
+    it('review fix (#122): ten replays of one approval queued on the lock all succeed without a second connection', async () => {
+      const id = await person('Quinn Queue');
+      await grant(id);
+      await join('a', id);
+      const assignment = await assign('a', id);
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT review_eligibility_lock()');
+      // As many callers as the API pool has connections (10): each holds one while it waits, so
+      // the one that gets the lock must finish on the connection it already has.
+      const key = newKey();
+      const calls = Array.from({ length: 10 }, () =>
+        send(
+          'post',
+          projectPath('a', `reviewer-assignments/${assignment}/approval`),
+          { idempotencyKey: key },
+          'pe',
+        ),
+      );
+      await waitForLockWait('review_eligibility_lock', 10);
+      await blocker.query('COMMIT');
+      const responses = await Promise.all(calls);
+      expect(responses.map((r) => r.status)).toEqual(Array(10).fill(201));
+      expect(await approvals(id)).toEqual([{ ended: false, end_kind: null }]);
+      const { rows: audits } = await h.db.pool.query(
+        `SELECT 1 FROM audit_event e JOIN project_review_approval a ON a.id = e.entity_id
+         WHERE a.reviewer_user_id = $1 AND e.action = 'project_review_approval.approved'`,
+        [id],
+      );
+      expect(audits).toHaveLength(1);
+    }, 30_000);
 
     it('an exclusion that commits first refuses the late approval', async () => {
       const id = await person('Rae Race');

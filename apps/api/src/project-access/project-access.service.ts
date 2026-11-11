@@ -581,7 +581,9 @@ export class ProjectAccessService {
     return this.start(projectId, user, 'project_review.approve', REVIEW_APPROVAL, async (ctx) => {
       const request = parseBody(approveReviewerRequestSchema, body);
       const { rows } = UUID_PATTERN.test(assignmentId)
-        ? await this.database.pool.query<{ reviewer_user_id: string; scope_code: string }>(
+        ? // On the transaction's own connection: it already holds the eligibility lock, and a
+          // second pool connection here could wait behind callers queued on that lock (#122).
+          await ctx.client.query<{ reviewer_user_id: string; scope_code: string }>(
             `SELECT reviewer_user_id, scope_code FROM project_reviewer_assignment
              WHERE id = $1 AND project_id = $2 AND removed_at IS NULL`,
             [assignmentId, projectId],
@@ -790,7 +792,7 @@ export class ProjectAccessService {
     user: AuthUser,
     permission: Permission,
     t: GrantTable,
-    prepare: (ctx: { project: ProjectFacts; user: AuthUser }) => Promise<{
+    prepare: (ctx: { project: ProjectFacts; user: AuthUser; client: PoolClient }) => Promise<{
       subjectId: string;
       subjectField: string;
       scope: string | null;
@@ -814,7 +816,7 @@ export class ProjectAccessService {
           throw new NotFoundException({ code: 'project_not_found' });
         }
         if (!can(user, permission, await projectContext(client, project))) throw forbidden();
-        const intent = await prepare({ project, user });
+        const intent = await prepare({ project, user, client });
 
         const standing = await lockStanding(client, [user.userId, intent.subjectId]);
         const actor = asLocked(user, standing);
