@@ -196,7 +196,7 @@ describe('Receiving wizard (MM-T10)', () => {
     await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S12');
     await addHole(user, bucket(1), 'TH26-02');
     await user.selectOptions(holeGroup(bucket(1), 'TH26-02').getByLabelText('Summary type'), 'all');
-    expect(within(bucket(1)).getByText('TH26-01: G1–S12 · TH26-02: ALL')).toBeVisible();
+    expect(within(bucket(1)).getByText('TH26-01: G1–S12 · TH26-02: All samples')).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Add bucket' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
@@ -206,7 +206,7 @@ describe('Receiving wizard (MM-T10)', () => {
     await user.click(screen.getByRole('button', { name: 'Next: Review' }));
     const review1 = await screen.findByRole('region', { name: 'Bucket 1' });
     expect(within(review1).getByText('G1–S12')).toBeInTheDocument();
-    expect(within(review1).getByText('ALL')).toBeInTheDocument();
+    expect(within(review1).getByText('All samples')).toBeInTheDocument();
     expect(within(bucket(2)).getByText('G13–S32')).toBeInTheDocument();
     expect(screen.getByText('None')).toBeInTheDocument(); // blank description (AC8)
     expect(screen.getByText('2 storage units')).toBeInTheDocument();
@@ -500,7 +500,7 @@ describe('Receiving wizard (MM-T10)', () => {
       const [, first, second] = within(table).getAllByRole('row');
       expect(within(first!).getByRole('rowheader')).toHaveTextContent('Bucket 1');
       expect(first).toHaveTextContent('TH26-01 G1–S4');
-      expect(first).toHaveTextContent('TH26-02 ALL');
+      expect(first).toHaveTextContent('TH26-02 All samples');
       expect(within(second!).getByRole('rowheader')).toHaveTextContent('Bucket 2');
       // No separate card per unit at this width.
       expect(screen.queryByRole('region', { name: 'Bucket 1' })).toBeNull();

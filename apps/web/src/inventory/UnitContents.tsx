@@ -1,5 +1,6 @@
 import {
   formatBulkBadge,
+  formatCoreRuns,
   formatSampleIdentity,
   formatStorageUnitHoleSummary,
   type BulkMembership,
@@ -41,6 +42,9 @@ export function UnitContentsList({
           {hole.testHoleName}: {formatStorageUnitHoleSummary(hole)}
         </li>
       ))}
+      {unit.coreRunCount ? (
+        <li className={itemClassName}>{formatCoreRuns(unit.coreRunCount)}</li>
+      ) : null}
     </ul>
   );
 }

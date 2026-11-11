@@ -35,6 +35,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 /** Current physical holder for a corrected unit type (the issued holder and ID never change). */
 const HOLDER_BY_UNIT_TYPE: Readonly<Partial<Record<StorageUnitType, string>>> = {
   bucket: 'bucket',
+  core_box: 'core_box',
 };
 
 interface LockedUnit {
@@ -43,6 +44,7 @@ interface LockedUnit {
   version: number;
   unit_type: StorageUnitType;
   holder_kind: string;
+  core_run_count: number | null;
   status: string;
   bulk_group_id: string | null;
   /** True for a Shelby tube with a sampling source or a bulk soil bucket (MM-T36). */
@@ -99,7 +101,13 @@ export class StorageUnitCorrectionsService {
       // 2026-10-30, BUG-014 and MM-T82): its disposal record and approval rest on them. The
       // database refuses it too. A unit removed after testing is disposed.
       if (unit.status === 'disposed') {
-        const blocked = present(['unitType', 'projectId', 'sample', 'holeSummaries']);
+        const blocked = present([
+          'unitType',
+          'coreRunCount',
+          'projectId',
+          'sample',
+          'holeSummaries',
+        ]);
         if (blocked.length > 0) {
           unprocessable(
             'storage_unit_disposed',
@@ -122,7 +130,9 @@ export class StorageUnitCorrectionsService {
       // date and note can be corrected as for any unit.
       if (unit.has_sample_identity || changes.sample !== undefined) {
         const blocked = present(
-          converting ? ['projectId'] : ['unitType', 'projectId', 'holeSummaries'],
+          converting
+            ? ['projectId', 'coreRunCount']
+            : ['unitType', 'coreRunCount', 'projectId', 'holeSummaries'],
         );
         if (blocked.length > 0) {
           unprocessable(
@@ -176,6 +186,7 @@ export class StorageUnitCorrectionsService {
       const group = identity?.bulkGroup;
       const current: CorrectableValues = {
         unitType: unit.unit_type,
+        coreRunCount: unit.core_run_count,
         receivedDate: unit.received_date,
         project: { id: unit.project_id, projectNumber: unit.project_number },
         sample: group ? null : (identity?.sample ?? null),
@@ -255,7 +266,7 @@ export class StorageUnitCorrectionsService {
          SET unit_type = $2, holder_kind = $3, note = $4, received_date = $5, project_id = $6,
              source_type = $7, source_test_hole_id = $8, source_location_reference = $9,
              sample_reference = $10, sample_depth_from = $11, sample_depth_to = $12,
-             sample_depth_unit = $13, bulk_group_id = $14,
+             sample_depth_unit = $13, bulk_group_id = $14, core_run_count = $15,
              version = version + 1, updated_at = now()
          WHERE id = $1`,
         [
@@ -275,6 +286,7 @@ export class StorageUnitCorrectionsService {
           next.sample?.depthTo ?? null,
           next.sample?.depthUnit ?? null,
           next.bulkGroup?.id ?? null,
+          next.coreRunCount,
         ],
       );
       if (rewriteSummaries) {
@@ -325,7 +337,8 @@ export class StorageUnitCorrectionsService {
   private async lockUnit(client: PoolClient, idOrCode: string): Promise<LockedUnit | null> {
     const byUuid = UUID_PATTERN.test(idOrCode);
     const { rows } = await client.query<LockedUnit>(
-      `SELECT su.id, su.readable_id, su.version, su.unit_type, su.holder_kind, su.note, su.status,
+      `SELECT su.id, su.readable_id, su.version, su.unit_type, su.holder_kind, su.core_run_count,
+              su.note, su.status,
               su.bulk_group_id,
               (su.source_type IS NOT NULL OR su.bulk_group_id IS NOT NULL) AS has_sample_identity,
               su.received_date::text AS received_date, su.project_id, p.project_number
@@ -441,8 +454,34 @@ export class StorageUnitCorrectionsService {
         .sort((a, b) => a.testHoleName.localeCompare(b.testHoleName));
     }
 
+    // Core boxes (Kyle, 2026-11-10): 1–3 runs and exactly one test hole; no other unit has runs.
+    const unitType = changes.unitType ?? current.unitType;
+    let coreRunCount: number | null = null;
+    if (unitType === 'core_box') {
+      coreRunCount = changes.coreRunCount ?? current.coreRunCount;
+      if (coreRunCount === null) {
+        throw validationError([
+          {
+            field: 'changes.coreRunCount',
+            code: 'required',
+            message: 'is required for a core box (1, 2 or 3 runs)',
+          },
+        ]);
+      }
+      if (holeSummaries.length !== 1) {
+        unprocessable(
+          'core_box_one_test_hole',
+          ['changes.holeSummaries'],
+          'a core box belongs to exactly one test hole',
+        );
+      }
+    } else if (changes.coreRunCount !== undefined) {
+      unprocessable('not_a_core_box', ['changes.coreRunCount'], 'only a core box has runs');
+    }
+
     return {
-      unitType: changes.unitType ?? current.unitType,
+      unitType,
+      coreRunCount,
       receivedDate: changes.receivedDate ?? current.receivedDate,
       project,
       sample,

@@ -1,5 +1,6 @@
 import {
   formatBucketPosition,
+  formatCoreRuns,
   formatSampleIdentity,
   formatStorageUnitHoleSummary,
   type BulkMembership,
@@ -13,6 +14,8 @@ export interface UnitContentsSource {
   holes: StorageUnitHoleSummary[];
   sample: SampleIdentity | null;
   bulkGroup: BulkMembership | null;
+  /** Core boxes: 1–3 runs of 1.52 m. */
+  coreRunCount?: number | null;
 }
 
 /** Every summary as one comma-separated line (compact rows and titles). */
@@ -21,7 +24,8 @@ export function unitContentsText(unit: UnitContentsSource): string {
     const identity = formatSampleIdentity(unit.sample);
     return unit.bulkGroup ? `${identity} · ${formatBucketPosition(unit.bulkGroup)}` : identity;
   }
-  return unit.holes
+  const holes = unit.holes
     .map((hole) => `${hole.testHoleName}: ${formatStorageUnitHoleSummary(hole)}`)
     .join(', ');
+  return unit.coreRunCount ? `${holes} · ${formatCoreRuns(unit.coreRunCount)}` : holes;
 }

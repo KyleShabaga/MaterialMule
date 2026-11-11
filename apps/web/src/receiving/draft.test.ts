@@ -12,11 +12,13 @@ import {
   newSummary,
   newUnit,
   newUuid,
+  normalizeUnit,
   toConfirmRequest,
   todayInEdmonton,
   unitHeadline,
   validateDraft,
   withHoles,
+  withUnitKind,
   type ReceiptDraft,
   type SummaryDraft,
   type UnitDraft,
@@ -110,22 +112,22 @@ describe('draft model', () => {
     expect(copy.summaries[0]).not.toBe(original.summaries[0]);
   });
 
-  it('keeps entered summaries when holes are added or removed', () => {
-    const start = unit(summary(th1, { type: 'all' }));
+  it('keeps entered summaries when holes are added or removed; a new hole is All samples', () => {
+    const start = unit(summary(th1, { type: 'sample_range', sampleFrom: 'G1', sampleTo: 'G4' }));
     const both = withHoles(start, [th1, th2]);
     expect(both.summaries.map((s) => [s.testHole.name, s.type])).toEqual([
-      ['TH26-01', 'all'],
-      ['TH26-02', ''],
+      ['TH26-01', 'sample_range'],
+      ['TH26-02', 'all'],
     ]);
     expect(withHoles(both, [th2]).summaries.map((s) => s.testHole.name)).toEqual(['TH26-02']);
   });
 
-  it('reads like "Bucket 1 · TH26-01: G1–S12 · TH26-02: ALL"', () => {
+  it('reads like "Bucket 1 · TH26-01: G1–S12 · TH26-02: All samples"', () => {
     const mixed = unit(
       summary(th1, { type: 'sample_range', sampleFrom: 'G1', sampleTo: 'S12' }),
       summary(th2, { type: 'all' }),
     );
-    expect(unitHeadline(0, mixed)).toBe('Bucket 1 · TH26-01: G1–S12 · TH26-02: ALL');
+    expect(unitHeadline(0, mixed)).toBe('Bucket 1 · TH26-01: G1–S12 · TH26-02: All samples');
     expect(
       unitHeadline(
         1,
@@ -243,7 +245,7 @@ describe('validation matches the T09 rules (T1)', () => {
       unit(summary(th1, { type: 'depth_range', depthFrom: '', depthTo: '', depthUnit: 'm' })),
     );
     expect(problems(d).map((p) => `${p.where}: ${p.message}`)).toEqual([
-      'Bucket 1 · TH26-01: Choose a summary type: ALL, Sample range, Depth range or Custom.',
+      'Bucket 1 · TH26-01: Choose a summary type: All samples, Sample range, Depth range or Custom.',
       'Bucket 1 · TH26-02: Sample to is required.',
       'Bucket 2 · TH26-01: Depth from is required.',
       'Bucket 2 · TH26-01: Depth to is required.',
@@ -288,5 +290,44 @@ describe('validation matches the T09 rules (T1)', () => {
   it('uses the Edmonton calendar day for today', () => {
     // 05:30 UTC on 27 Oct is still 26 Oct in Edmonton (UTC-6).
     expect(todayInEdmonton(new Date('2026-10-27T05:30:00Z'))).toBe('2026-10-26');
+  });
+});
+
+describe('core boxes (Kyle, 2026-11-10)', () => {
+  it('start at 3 runs, keep one test hole and send their runs', () => {
+    const box = withUnitKind(unit(summary(th1, {}), summary(th2, {})), 'core_box');
+    expect(box).toMatchObject({ unitType: 'core_box', coreRunCount: 3 });
+    expect(box.summaries.map((s) => [s.testHole.name, s.type])).toEqual([['TH26-01', 'all']]);
+    expect(unitHeadline(0, box)).toBe('Core box 1 · TH26-01: All samples · 3 runs · 4.56 m');
+    const request = toConfirmRequest(draft({ ...box, coreRunCount: 2 }));
+    expect(request.units[0]).toMatchObject({
+      unitType: 'core_box',
+      coreRunCount: 2,
+      holeSummaries: [{ testHoleId: th1.id, type: 'all' }],
+    });
+    expect(problems(draft(box))).toEqual([]);
+  });
+
+  it('a bucket never sends runs, and a saved core box draft keeps its runs', () => {
+    const request = toConfirmRequest(draft(unit(summary(th1, {}))));
+    expect(request.units[0]).not.toHaveProperty('coreRunCount');
+    const saved = normalizeUnit({ ...newUnit(), unitType: 'core_box', coreRunCount: 1 });
+    expect(saved).toMatchObject({ unitType: 'core_box', coreRunCount: 1, bulk: false });
+    const broken = normalizeUnit({
+      ...newUnit(),
+      unitType: 'core_box',
+      coreRunCount: 7 as never,
+    });
+    expect(broken.coreRunCount).toBe(3);
+  });
+
+  it('needs exactly one test hole on a core box', () => {
+    const box = {
+      ...withUnitKind(unit(), 'core_box'),
+      summaries: [summary(th1, {}), summary(th2, {})],
+    };
+    expect(problems(draft(box)).map((p) => p.message)).toEqual([
+      expect.stringContaining('exactly one'),
+    ]);
   });
 });

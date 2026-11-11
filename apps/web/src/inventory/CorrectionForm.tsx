@@ -1,11 +1,13 @@
 import {
   CORRECTION_UNIT_TYPES,
+  DEFAULT_CORE_RUN_COUNT,
   STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH,
   formatSampleIdentity,
   formatStorageUnitHoleSummary,
   storageUnitCorrectionRequestSchema,
   storageUnitTypeLabel,
   toFieldErrors,
+  type CoreRunCount,
   type FieldError,
   type LabRequestLink,
   type ProjectSummary,
@@ -29,6 +31,7 @@ import {
   type SampleDraft,
   type SummaryDraft,
 } from '../receiving/draft';
+import { CoreRunsField } from '../receiving/CoreRunsField';
 import { ProjectPicker } from '../receiving/ProjectPicker';
 import { SampleFields } from '../receiving/SampleFields';
 import { SummaryEditor } from '../receiving/SummaryEditor';
@@ -37,8 +40,8 @@ import { correctStorageUnit } from './api';
 import { messageFor, summaryPayload } from './correction-fields';
 
 // Correct a confirmed storage unit (MM-T13, D45–D47): type, received date, project, test holes
-// and summaries, and note; a Shelby tube's sampling source (MM-T82). The storage unit ID, saved
-// location and receipt header never change.
+// and summaries, and note; a Shelby tube's sampling source (MM-T82); a core box's runs (Kyle,
+// 2026-11-10). The storage unit ID, saved location and receipt header never change.
 
 export const CONFLICT_MESSAGE =
   'Someone else changed this unit. Review the latest values and try again.';
@@ -89,6 +92,9 @@ export function CorrectionForm({
     [unit],
   );
   const [unitType, setUnitType] = useState<StorageUnitType>(unit.unitType);
+  const [coreRunCount, setCoreRunCount] = useState<CoreRunCount>(
+    (unit.coreRunCount as CoreRunCount | null | undefined) ?? DEFAULT_CORE_RUN_COUNT,
+  );
   const [receivedDate, setReceivedDate] = useState(unit.receivedDate);
   const [note, setNote] = useState(unit.note ?? '');
   const [changingProject, setChangingProject] = useState(false);
@@ -129,6 +135,10 @@ export function CorrectionForm({
   const projectId = changingProject ? (newProject?.id ?? null) : unit.project.id;
   const projectChanged = projectId !== null && projectId !== unit.project.id;
   const typeChanged = unitType !== unit.unitType;
+  const coreBox = unitType === 'core_box';
+  const runsChanged = coreBox && coreRunCount !== (unit.coreRunCount ?? null);
+  // A core box belongs to exactly one test hole: switching a mixed-hole bucket needs a choice.
+  const tooManyHolesForCoreBox = coreBox && summaries.length > 1;
   const dateChanged = receivedDate !== unit.receivedDate;
   const noteChanged = note.trim() !== (unit.note ?? '');
   const summariesChanged =
@@ -165,6 +175,7 @@ export function CorrectionForm({
   function request(): StorageUnitCorrectionRequestInput {
     const changes: StorageUnitCorrectionRequestInput['changes'] = {};
     if (typeChanged) changes.unitType = unitType as (typeof CORRECTION_UNIT_TYPES)[number];
+    if (runsChanged) changes.coreRunCount = coreRunCount;
     if (dateChanged) changes.receivedDate = receivedDate;
     if (noteChanged) changes.note = note;
     if (changingProject && projectId === null) changes.projectId = '';
@@ -183,6 +194,10 @@ export function CorrectionForm({
     const checked = storageUnitCorrectionRequestSchema.safeParse(body);
     if (!checked.success) {
       setErrors(toFieldErrors(checked.error));
+      return;
+    }
+    if (tooManyHolesForCoreBox) {
+      setErrors([{ field: SUMMARIES_PATH, code: 'core_box_one_test_hole', message: '' }]);
       return;
     }
     if (replacing && sampleChanged && !replaceConfirmed) {
@@ -229,6 +244,7 @@ export function CorrectionForm({
   const general = fieldError('changes');
   const changedCount = [
     typeChanged,
+    runsChanged,
     dateChanged,
     projectChanged,
     summariesChanged,
@@ -412,6 +428,23 @@ export function CorrectionForm({
         </Changed>
       </div>
 
+      {!contentsFixed && tooManyHolesForCoreBox ? (
+        <p className="notice notice-warning" role="status">
+          A core box belongs to exactly one test hole. Remove the other test holes below before
+          saving.
+        </p>
+      ) : null}
+      {contentsFixed || !coreBox ? null : (
+        <Changed when={runsChanged}>
+          <CoreRunsField
+            id="correction-coreRunCount"
+            value={coreRunCount}
+            error={fieldError('changes.coreRunCount')}
+            onChange={setCoreRunCount}
+          />
+        </Changed>
+      )}
+
       {contentsFixed ? null : (
         <>
           <Changed when={projectChanged}>
@@ -471,7 +504,10 @@ export function CorrectionForm({
                     onChange={(holes: TestHole[]) =>
                       setSummaries((current) => {
                         const byHole = new Map(current.map((s) => [s.testHole.id, s]));
-                        return holes.map((hole) => byHole.get(hole.id) ?? newSummary(hole));
+                        // A core box belongs to one test hole: choosing another replaces it.
+                        return (coreBox ? holes.slice(-1) : holes).map(
+                          (hole) => byHole.get(hole.id) ?? newSummary(hole),
+                        );
                       })
                     }
                     query={holeQuery}

@@ -35,7 +35,7 @@ test('shows a unit just received, opens it by ID, and fits the screen', async ({
   const table = recent.getByRole('table', { name: 'Recently received storage units' });
   const row = table.locator('tbody tr').filter({ hasText: id });
   await expect(row).toBeVisible();
-  for (const text of ['DEMO-2601', 'TH26-01: ALL', 'Receiving lab', 'by AT']) {
+  for (const text of ['DEMO-2601', 'TH26-01: All samples', 'Receiving lab', 'by AT']) {
     await expect(row).toContainText(text);
   }
   await expect(page.getByRole('region', { name: 'Recent activity' })).toBeVisible();

@@ -41,14 +41,17 @@ export interface ConfirmReceiptResult {
 const HOLDER_BY_UNIT_TYPE: Readonly<Record<ReceiptUnitInput['unitType'], HolderKind>> = {
   bucket: 'bucket',
   shelby_tube: 'shelby_tube',
+  core_box: 'core_box',
 };
 
 /**
  * Stored unit type: a bucket holding a bulk soil sample is `bulk_container` (MM-T36), still a
  * physical bucket with a BKT- ID; the holder, not the contents, decides the prefix.
  */
-function storedUnitType(unit: ReceiptUnitInput): 'bucket' | 'shelby_tube' | 'bulk_container' {
-  if (unit.unitType === 'shelby_tube') return 'shelby_tube';
+function storedUnitType(
+  unit: ReceiptUnitInput,
+): 'bucket' | 'shelby_tube' | 'bulk_container' | 'core_box' {
+  if (unit.unitType === 'shelby_tube' || unit.unitType === 'core_box') return unit.unitType;
   return unit.bulkGroup ? 'bulk_container' : 'bucket';
 }
 
@@ -250,9 +253,9 @@ export class ReceiptsService {
                                      current_location_id, status, received_date, receipt_line,
                                      source_type, source_test_hole_id, source_location_reference,
                                      sample_reference, sample_depth_from, sample_depth_to,
-                                     sample_depth_unit, bulk_group_id)
+                                     sample_depth_unit, bulk_group_id, core_run_count)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'in_stock', $11, $12,
-                   $13, $14, $15, $16, $17, $18, $19, $20)
+                   $13, $14, $15, $16, $17, $18, $19, $20, $21)
            RETURNING id`,
           [
             readableId,
@@ -275,6 +278,7 @@ export class ReceiptsService {
             sample?.depthTo ?? null,
             sample?.depthUnit ?? null,
             bulkGroupId,
+            unit.coreRunCount ?? null,
           ],
         );
         const storageUnitId = rows[0]!.id;
@@ -316,6 +320,7 @@ export class ReceiptsService {
             status: 'in_stock',
             location: 'Receiving lab',
             testHoleCount: unit.holeSummaries?.length ?? 0,
+            ...(unit.coreRunCount !== undefined ? { coreRunCount: unit.coreRunCount } : {}),
             ...(sample ? { sample: identityOf(sample, holeNames) } : {}),
             ...(bulkGroupId
               ? {

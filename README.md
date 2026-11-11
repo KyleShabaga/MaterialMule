@@ -124,8 +124,10 @@ For hands-on testing, `npm run db:seed:demo` adds a fuller fictional dataset thr
 - 8 locations (lab benches, staging, warehouses, cold room) and 5 demo test types
 - 6 projects, DEMO-2610 to DEMO-2615, with leads Pat, Dana and Jamie, project teams, and
   DEMO-2615 still waiting for an admin to confirm its lead
-- 40 storage units in 12 receipts received 1 to 430 days ago: buckets with every summary type,
-  Shelby tubes and a three-bucket bulk sample, mostly moved out of Receiving
+- 60 storage units in 14 receipts received 1 to 430 days ago, mostly moved out of Receiving:
+  buckets (all but one hold All samples of their test holes, as about 95% do), Shelby tubes, a
+  three-bucket bulk sample, and 20 CRE- core boxes on DEMO-2611 / DEMO-2612, 19 of them full
+  (3 runs, 4.56 m) and one hole's last box holding 2 runs
 - Lab programs LP-…: one with tests in every stage (including one returned for correction), an
   urgent one, a closed one, a requested one and an unsubmitted draft
 - Retention: a hold, an extension and a pending request; three DEMO-2613 units approved for

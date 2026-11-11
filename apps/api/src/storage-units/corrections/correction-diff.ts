@@ -8,6 +8,8 @@ import type {
 /** The correctable values of a storage unit (MM-T13). Everything else is never corrected. */
 export interface CorrectableValues {
   unitType: StorageUnitType;
+  /** Core boxes: 1–3 runs of 1.52 m; null for every other unit. */
+  coreRunCount: number | null;
   receivedDate: string;
   project: { id: string; projectNumber: string };
   /** A Shelby tube's own sampling source (MM-T82); null for every other unit. */
@@ -79,6 +81,9 @@ export function diffCorrection(
     diff.after[field] = after;
   };
   if (current.unitType !== next.unitType) changed('unitType', current.unitType, next.unitType);
+  if (current.coreRunCount !== next.coreRunCount) {
+    changed('coreRunCount', current.coreRunCount, next.coreRunCount);
+  }
   if (current.receivedDate !== next.receivedDate) {
     changed('receivedDate', current.receivedDate, next.receivedDate);
   }

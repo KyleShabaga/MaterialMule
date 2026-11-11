@@ -5,7 +5,7 @@ import {
   STORAGE_UNIT_TYPES,
   type StorageUnitHoleSummary,
 } from './inventory';
-import { holeSummaryInputSchema } from './receipts';
+import { coreRunCountSchema, formatCoreRuns, holeSummaryInputSchema } from './receipts';
 import {
   formatBucketPosition,
   formatSampleIdentity,
@@ -18,11 +18,12 @@ import {
 // and the original receipt header are never rewritten.
 
 /**
- * Types a correction may set. Bucket only: a Shelby tube needs its own sampling source, which a
- * type correction doesn't carry (MM-T36). Setting a bulk soil bucket to Bucket, with its test
- * holes, makes it an ordinary bucket (MM-T82).
+ * Types a correction may set. Bucket or core box: a Shelby tube needs its own sampling source,
+ * which a type correction doesn't carry (MM-T36). Setting a bulk soil bucket to Bucket, with its
+ * test holes, makes it an ordinary bucket (MM-T82). A core box needs its runs and exactly one
+ * test hole (Kyle, 2026-11-10). The issued ID never changes.
  */
-export const CORRECTION_UNIT_TYPES = ['bucket'] as const;
+export const CORRECTION_UNIT_TYPES = ['bucket', 'core_box'] as const;
 
 /** Minimum length of the reason every correction needs. */
 export const STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH = 5;
@@ -30,6 +31,7 @@ export const STORAGE_UNIT_CORRECTION_REASON_MIN_LENGTH = 5;
 /** Fields a correction may change, in display order. */
 export const STORAGE_UNIT_CORRECTION_FIELDS = [
   'unitType',
+  'coreRunCount',
   'receivedDate',
   'project',
   'sample',
@@ -56,7 +58,9 @@ export const storageUnitCorrectionRequestSchema = z
     // Strict: anything else (the ID, location, receipt header…) can't be corrected here.
     changes: z.strictObject(
       {
-        unitType: z.enum(CORRECTION_UNIT_TYPES, { error: 'must be bucket' }).optional(),
+        unitType: z.enum(CORRECTION_UNIT_TYPES, { error: 'must be bucket or core_box' }).optional(),
+        /** Core boxes only: 1, 2 or 3 runs of 1.52 m. Required when setting the type to core box. */
+        coreRunCount: coreRunCountSchema.optional(),
         /** Absent: unchanged. Null or blank: clear the note. */
         note: z
           .string({ error: 'must be text' })
@@ -167,6 +171,7 @@ export function minimumRetainUntil(receivedDate: string): string {
 
 const FIELD_LABELS: Record<StorageUnitCorrectionField, string> = {
   unitType: 'type',
+  coreRunCount: 'core runs',
   receivedDate: 'received date',
   project: 'project',
   sample: 'sampling source',
@@ -195,6 +200,8 @@ function correctionValueText(field: StorageUnitCorrectionField, value: unknown):
       const type = z.enum(STORAGE_UNIT_TYPES).safeParse(value);
       return type.success ? storageUnitTypeLabel(type.data) : String(value);
     }
+    case 'coreRunCount':
+      return typeof value === 'number' ? formatCoreRuns(value) : String(value);
     case 'project': {
       const project = z.object({ projectNumber: z.string() }).safeParse(value);
       return project.success ? project.data.projectNumber : 'unknown';

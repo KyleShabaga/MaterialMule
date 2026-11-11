@@ -139,7 +139,7 @@ test('MM-T82 T3: make a bulk soil bucket an ordinary bucket; the ID stays', asyn
   await expect(page.getByRole('heading', { level: 1, name: first })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Bulk sample' })).toBeHidden();
   await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-    'TH26-02: ALL',
+    'TH26-02: All samples',
   );
   await expect(page.getByRole('list', { name: 'History events' })).toContainText(
     // Its place follows the received date, then the (random) storage unit ID.

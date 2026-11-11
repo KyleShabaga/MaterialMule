@@ -7,7 +7,7 @@ import { TESTED_REMOVAL_REASONS, storageUnitTestingSchema } from './tested-remov
 // Storage unit inventory, search and detail (MM-T12). One row per tracked storage unit; ordinary
 // samples are never inventory rows. Filtering, sorting and paging all happen on the server.
 
-export const STORAGE_UNIT_TYPES = ['bucket', 'shelby_tube', 'bulk_container'] as const;
+export const STORAGE_UNIT_TYPES = ['bucket', 'shelby_tube', 'bulk_container', 'core_box'] as const;
 export type StorageUnitType = (typeof STORAGE_UNIT_TYPES)[number];
 
 export const STORAGE_UNIT_STATUSES = ['in_stock', 'approved_for_disposal', 'disposed'] as const;
@@ -37,6 +37,8 @@ export function storageUnitTypeLabel(type: StorageUnitType): string {
     case 'bulk_container':
       // A bucket holding a bulk soil sample (MM-T36); its BKT- ID still names the bucket.
       return 'Bulk soil sample';
+    case 'core_box':
+      return 'Core box';
   }
 }
 
@@ -213,7 +215,10 @@ export const storageUnitHoleSummarySchema = z.object({
 });
 export type StorageUnitHoleSummary = z.infer<typeof storageUnitHoleSummarySchema>;
 
-/** The SAMPLE#/DEPTH summary as people read it: "ALL", "G1–S12", "0–1.5 ft" or the Custom text. */
+/**
+ * The SAMPLE#/DEPTH summary as people read it: "All samples", "G1–S12", "0–1.5 ft" or the Custom
+ * text. Stored as summary type `all`; most buckets hold all of a test hole's samples.
+ */
 export function formatStorageUnitHoleSummary(
   summary: Pick<
     StorageUnitHoleSummary,
@@ -222,7 +227,7 @@ export function formatStorageUnitHoleSummary(
 ): string {
   switch (summary.type) {
     case 'all':
-      return 'ALL';
+      return 'All samples';
     case 'sample_range':
       return `${summary.sampleFrom ?? ''}–${summary.sampleTo ?? ''}`;
     case 'depth_range':
@@ -267,6 +272,8 @@ export const inventoryItemSchema = z.object({
   sample: sampleIdentitySchema.nullable(),
   /** "Bucket n of N" in the unit's bulk group; null unless it holds a bulk soil sample. */
   bulkGroup: bulkMembershipSchema.nullable(),
+  /** Core boxes: 1–3 runs of 1.52 m; null otherwise. Optional so older fixtures stay valid. */
+  coreRunCount: z.number().nullable().optional(),
   /** Last saved location (a pending move never replaces it, MM-T28). */
   location: locationRef,
   /**
@@ -331,6 +338,8 @@ export const storageUnitDetailSchema = z.object({
   sample: sampleIdentitySchema.nullable(),
   /** The unit's bulk group with every member bucket and its own place in it (MM-T36). */
   bulkGroup: bulkGroupDetailSchema.nullable(),
+  /** Core boxes: 1–3 runs of 1.52 m; null otherwise. Optional so older fixtures stay valid. */
+  coreRunCount: z.number().nullable().optional(),
   location: locationRef,
   /**
    * Open location conflict (MM-T28): the saved location needs a person to confirm it. Always sent
