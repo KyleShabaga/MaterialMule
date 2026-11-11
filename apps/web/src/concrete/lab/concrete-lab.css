@@ -27,8 +27,7 @@
     max-width: none;
   }
 
-  .lab-search input,
-  .lab-search-button {
+  .lab-search input {
     min-height: 44px;
   }
 }
@@ -470,12 +469,6 @@
 .concrete-history span {
   flex: 1 1 16rem;
   min-width: 0;
-}
-
-/* ---- Lab search page ------------------------------------------------------------------------ */
-
-.lab-search-area-head a {
-  font-weight: 700;
 }
 
 @media (forced-colors: active) {

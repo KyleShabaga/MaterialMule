@@ -49,7 +49,7 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   const printJobs = await printJobCount();
 
   await page.goto('/receiving-log');
-  await expect(page.getByRole('heading', { name: 'Receiving Log' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Receiving log' })).toBeVisible();
 
   // An exact storage unit ID finds its receipt once, with quantity two (AC1, AC9).
   const search = page.getByRole('searchbox', { name: 'Search' });
@@ -85,7 +85,7 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   await noHorizontalScroll(page);
 
   // Back returns to the filtered list.
-  await page.getByRole('link', { name: '← Back to Receiving Log' }).click();
+  await page.getByRole('link', { name: '← Back to Receiving log' }).click();
   await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveValue(ids[1]!.toLowerCase());
   await page.goBack();
 

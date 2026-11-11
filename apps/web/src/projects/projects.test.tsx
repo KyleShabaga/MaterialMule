@@ -261,7 +261,8 @@ describe('Project detail (MM-T35)', () => {
     expect(holes).toHaveTextContent('TH26-02 0 units');
     const receipts = screen.getByRole('table', { name: 'Receipts' });
     expect(within(receipts).getAllByRole('row')).toHaveLength(3);
-    expect(screen.getByRole('link', { name: 'Open in Sample Storage' })).toHaveAttribute(
+    const units = screen.getByRole('region', { name: 'Units by test hole' });
+    expect(within(units).getByRole('link', { name: 'Open in Inventory' })).toHaveAttribute(
       'href',
       `/sample-storage?projectId=${PROJECT_ID}&status=all`,
     );

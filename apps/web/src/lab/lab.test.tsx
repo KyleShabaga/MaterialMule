@@ -179,7 +179,7 @@ describe('Lab Testing (MM-T23)', () => {
     expect(
       await screen.findByText('Nothing waiting. Submitted programs appear here.'),
     ).toBeVisible();
-    const tabs = screen.getByRole('navigation', { name: 'Lab Testing' });
+    const tabs = screen.getByRole('navigation', { name: 'Lab programs' });
     await user.click(within(tabs).getByRole('link', { name: 'Programs' }));
     expect(await screen.findByRole('heading', { name: 'Programs' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'New lab program' })).toBeVisible();
@@ -238,6 +238,78 @@ describe('Lab Testing (MM-T23)', () => {
     ).toBeVisible();
     // The submit action lives in the panel and stays off until a review is ready.
     expect(within(panel).getByRole('button', { name: 'Submit program' })).toBeDisabled();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
+  it('Field Ledger: units chosen on Inventory open a new program with them ticked', async () => {
+    const UNIT = '00000000-0000-4000-8000-000000000401';
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith('/api/test-catalogue')) return json(200, catalogue);
+      if (url.startsWith('/api/test-templates')) return json(200, templates);
+      if (url.endsWith('/units')) {
+        return json(200, [
+          {
+            storageUnitId: UNIT,
+            readableId: 'BKT-2026-000142',
+            unitType: 'bucket',
+            contents: 'G1–G3',
+            receivedDate: '2026-11-02',
+          },
+          {
+            storageUnitId: '00000000-0000-4000-8000-000000000402',
+            readableId: 'BKT-2026-000143',
+            unitType: 'bucket',
+            contents: 'G4',
+            receivedDate: '2026-11-02',
+          },
+        ]);
+      }
+      if (url.includes('/lab-sources')) {
+        return json(200, [
+          {
+            kind: 'test_hole',
+            id: '00000000-0000-4000-8000-000000000301',
+            label: 'TH26-01',
+            unitCount: 2,
+          },
+        ]);
+      }
+      return json(200, { items: [], total: 0 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const router = createMemoryRouter(routes, {
+      initialEntries: [
+        {
+          pathname: '/lab-testing/programs/new',
+          state: {
+            projectId: '00000000-0000-4000-8000-000000000201',
+            projectLabel: 'DEMO-2601 · Riverbank investigation',
+            storageUnitIds: [UNIT],
+          },
+        },
+      ],
+    });
+    render(
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me: me() },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <RouterProvider router={router} />
+      </SessionContext.Provider>,
+    );
+    expect(
+      await screen.findByText(
+        '1 unit from Inventory is ticked on 1 line. Name each sample and choose its tests.',
+      ),
+    ).toBeVisible();
+    expect(screen.getAllByText('DEMO-2601 · Riverbank investigation').length).toBeGreaterThan(0);
+    expect(screen.getByRole('radio', { name: 'Specific sample' })).toBeChecked();
+    expect(await screen.findByRole('checkbox', { name: /BKT-2026-000142/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /BKT-2026-000143/ })).not.toBeChecked();
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
 

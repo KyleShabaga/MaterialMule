@@ -1,7 +1,7 @@
 import type { MeResponse } from '@materialmule/shared';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext } from '../session/context';
 import { THEME_STORAGE_KEY } from '../theme/theme';
@@ -180,6 +180,32 @@ describe('SidebarFooter', () => {
     expect(within(account).queryByRole('button', { name: 'Switch user' })).toBeNull();
     await user.click(within(account).getByRole('button', { name: 'Sign out' }));
     expect(signOut).toHaveBeenCalledWith();
+  });
+
+  it('Help & Feedback carries the page it was opened from, for the feedback form', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(200, { status: 'ok', version: '0.1.0', database: 'up' })),
+    );
+    function HelpProbe() {
+      const { state } = useLocation();
+      return <p>from: {(state as { from?: string } | null)?.from ?? 'none'}</p>;
+    }
+    render(
+      <SessionContext.Provider
+        value={{ session: { status: 'active', me: person }, refresh: vi.fn(), signOut: vi.fn() }}
+      >
+        <MemoryRouter initialEntries={['/sample-storage/move']}>
+          <Routes>
+            <Route path="/help" element={<HelpProbe />} />
+            <Route path="*" element={<SidebarFooter />} />
+          </Routes>
+        </MemoryRouter>
+      </SessionContext.Provider>,
+    );
+    await user.click(screen.getByRole('link', { name: 'Help & Feedback' }));
+    expect(await screen.findByText('from: /sample-storage/move')).toBeInTheDocument();
   });
 
   it('LAB has no Pending actions; Switch user signs out to the account picker', async () => {

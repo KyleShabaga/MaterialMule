@@ -96,7 +96,7 @@ test('MM-T70 T4: correcting the project of an approved unit is refused with a pl
     `${data.a1} is approved for disposal under ${data.projectA}. Revoke the approval on the ` +
       'Disposal & Retention page first, then correct the project.',
   );
-  await expect(form.getByRole('link', { name: 'Open Disposal & Retention' })).toHaveAttribute(
+  await expect(form.getByRole('link', { name: 'Open Retention' })).toHaveAttribute(
     'href',
     /disposal-retention[?]projectId=/,
   );

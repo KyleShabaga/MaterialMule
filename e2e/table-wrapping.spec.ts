@@ -69,7 +69,7 @@ test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', 
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
     await projects.getByRole('link', { name: `Open project ${data.projectA}` }).click();
-    const projectUnits = page.getByRole('table', { name: 'Storage units' });
+    const projectUnits = page.getByRole('table', { name: 'Storage units in TH26-01' });
     await expect(projectUnits.getByRole('link', { name: data.a1, exact: true })).toBeVisible();
     await expectOneLine(projectUnits.locator('.unit-link'), `project unit ID at ${width}px`);
     await expectOneLine(projectUnits.locator('.badge'), `project unit badge at ${width}px`);

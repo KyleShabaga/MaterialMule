@@ -233,6 +233,8 @@ export function SidebarFooter({ onNavigate }: { onNavigate?: () => void } = {}) 
         <li>
           <Link
             to="/help"
+            // Help's "Include the page I was on" (lane A) offers the path this link was used from.
+            state={help ? undefined : { from: pathname }}
             className="rail-link rail-footer-link"
             aria-current={help ? 'page' : undefined}
             onClick={onNavigate}

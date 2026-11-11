@@ -350,15 +350,6 @@
   }
 }
 
-/* Kept for the concrete pages that still use the former dashboard panel (lane F rebuilds them). */
-.dash-panel {
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
-  overflow: hidden;
-}
-
 .today-receive {
   justify-content: center;
   min-height: var(--control-phone);

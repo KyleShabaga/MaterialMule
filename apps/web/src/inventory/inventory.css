@@ -102,17 +102,6 @@ th.select-cell input {
   margin-top: 0;
 }
 
-.inline-input {
-  display: flex;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.inline-input input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 /* The rest of the filters on one quiet card under the filter row. */
 .inventory-filters {
   display: grid;

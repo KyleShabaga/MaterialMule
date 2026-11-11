@@ -376,25 +376,11 @@
   text-align: right;
 }
 
-/* A plain-language panel on paper: why, and what happens next. */
-.auth-callout {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-card);
-  background: var(--paper);
-  color: var(--ink-soft);
-}
-
 .auth-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3) var(--space-4);
-}
-
-.auth-actions-end {
-  justify-content: flex-end;
 }
 
 .auth-actions .primary {
@@ -440,11 +426,6 @@
   margin: 0 0 var(--space-1);
   font: 600 var(--fs-label) / 1rem var(--font-mono);
   text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.auth-lead {
-  margin: var(--space-2) 0 0;
   color: var(--ink-soft);
 }
 
@@ -517,42 +498,6 @@
   margin-left: auto;
   color: var(--tag-storage-fg);
   font: 600 var(--fs-label) / 1rem var(--font-mono);
-}
-
-/* First sign-in: each position is a large choice card. */
-.position-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.position-form .position-options {
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-4);
-}
-
-.position-options legend {
-  padding: 0 6px;
-  font: 600 var(--fs-label) / 1.4 var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.position-option {
-  padding: var(--space-3) 14px;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background: var(--sheet);
-  cursor: pointer;
-}
-
-.position-option:has(input:checked) {
-  background: var(--flag-wash);
-}
-
-.position-form > p {
-  margin: 0;
 }
 
 @media (max-width: 640px) {

@@ -37,10 +37,14 @@ test('T5: projects table → detail → add test hole (duplicate rejected) → e
   await expect(details).toContainText('PE · Pat Example');
   await expect(details).toContainText('3 units in stock of 4 units received');
   await expect(page.getByRole('table', { name: 'Receipts' }).locator('tbody tr')).toHaveCount(4);
-  const units = page.getByRole('region', { name: 'Storage units' });
-  await expect(units.getByRole('table', { name: 'Storage units' }).locator('tbody tr')).toHaveCount(
-    4,
-  );
+  // Field Ledger "Units by test hole": one table per hole, in the project's hole order.
+  const units = page.getByRole('region', { name: 'Units by test hole' });
+  const hole1 = units.getByRole('table', { name: 'Storage units in TH26-01' });
+  await expect(hole1.locator('tbody tr')).toHaveCount(3);
+  await expect(hole1).toContainText(data.aReceiving);
+  const hole2 = units.getByRole('table', { name: 'Storage units in TH26-02' });
+  await expect(hole2.locator('tbody tr')).toHaveCount(1);
+  await expect(hole2).toContainText(data.aOtherHole);
   await expect(units).toContainText(data.aDisposed);
   const holes = page.getByRole('list', { name: 'Test holes' });
   await expect(holes.locator('li').filter({ hasText: 'TH26-01' })).toContainText('3 units');
@@ -132,7 +136,7 @@ test('T6: phone width list and detail are usable without horizontal scroll', asy
 
   await card.getByRole('link', { name: `Open project ${data.projectA}` }).click();
   await expect(page.getByRole('heading', { level: 1, name: data.projectA })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Storage units' })).toContainText(data.a1);
+  await expect(page.getByRole('region', { name: 'Units by test hole' })).toContainText(data.a1);
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
   await page.getByRole('button', { name: 'Edit project' }).click();

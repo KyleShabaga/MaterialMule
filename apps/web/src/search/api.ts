@@ -103,11 +103,17 @@ export async function resolveExact(q: string): Promise<ScanResolveResponse | nul
   return result.ok ? result.data : null;
 }
 
-/** Where a search for `q` lands: the unit itself for an exact unit ID or label, else /search. */
+/**
+ * Where a search for `q` lands: the unit itself for an exact unit ID or label, the shelf page for
+ * a shelf label, else /search.
+ */
 export async function searchDestination(q: string): Promise<string> {
   const exact = await resolveExact(q);
   if (exact?.type === 'storage_unit') {
     return `/sample-storage/${encodeURIComponent(exact.storageUnit.readableId)}`;
+  }
+  if (exact?.type === 'location') {
+    return `/sample-storage/locations/${encodeURIComponent(exact.location.code)}`;
   }
   return `/search?q=${encodeURIComponent(q)}`;
 }

@@ -492,10 +492,6 @@
   .field-pair {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .projects-table .data-table td::before {
-    min-width: 6rem;
-  }
 }
 
 /* Acceptance delegates on the project page (MM-T25). */
@@ -563,4 +559,33 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+/* Field Ledger (canvas Project): "Units by test hole", one framed unit table per hole. */
+.project-hole-groups {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.project-hole-group {
+  min-width: 0;
+}
+
+.project-hole-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.project-hole-head h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.project-hole-head span {
+  font-size: var(--fs-small);
 }

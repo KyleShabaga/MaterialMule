@@ -480,9 +480,9 @@ describe('Receipt detail (MM-T51)', () => {
     );
     renderAt(`/receiving-log/${RECEIPT_ID}`);
     expect(
-      await screen.findByText('No receipt found. Find it in the Receiving Log instead.'),
+      await screen.findByText('No receipt found. Find it in the Receiving log instead.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Receiving Log' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '← Back to Receiving log' })).toHaveAttribute(
       'href',
       '/receiving-log',
     );

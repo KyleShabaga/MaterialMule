@@ -57,7 +57,7 @@ export function ReceiptDetailPage() {
 
   const backLink = (
     <Link className="back-link" to={`/receiving-log${from}`}>
-      ← Back to Receiving Log
+      ← Back to Receiving log
     </Link>
   );
   const back = <ContextRow className="receipt-context">{backLink}</ContextRow>;
@@ -79,7 +79,7 @@ export function ReceiptDetailPage() {
         {back}
         <PageHeader title="Receipt" />
         {missing ? (
-          <EmptyState>No receipt found. Find it in the Receiving Log instead.</EmptyState>
+          <EmptyState>No receipt found. Find it in the Receiving log instead.</EmptyState>
         ) : (
           <ErrorState
             message={result.message}

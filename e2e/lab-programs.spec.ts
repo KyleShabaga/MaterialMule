@@ -27,7 +27,7 @@ async function startProgram(page: Page) {
   await page.goto('/lab-testing');
   await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
   await page
-    .getByRole('navigation', { name: 'Lab Testing' })
+    .getByRole('navigation', { name: 'Lab programs' })
     .getByRole('link', { name: 'Programs' })
     .click();
   await expect(page.getByRole('heading', { name: 'Programs', level: 2 })).toBeVisible();
@@ -102,7 +102,7 @@ test('MISC-01: New program opens the editor from Programs and Worklist, not the 
 }) => {
   await signInAs(page, 'at');
   const discard = page.getByRole('dialog', { name: 'Discard this draft?' });
-  const tabs = page.getByRole('navigation', { name: 'Lab Testing' });
+  const tabs = page.getByRole('navigation', { name: 'Lab programs' });
   for (const tab of ['Programs', 'Worklist']) {
     await page.goto('/lab-testing');
     await tabs.getByRole('link', { name: tab }).click();
