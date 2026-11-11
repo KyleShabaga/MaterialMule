@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone: field report, load</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 15px; line-height: 1.4; overflow: hidden">
+
+  <header style="padding: 8px 16px 12px; border-bottom: 2px solid #14140F; background: #E8E9E2; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+      <a href="PhoneConcrete.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: #14140F">Save and close</a>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 3px; background: #FBEBC2; color: #7A4E00">DRAFT · SAVED ON DEVICE</span>
+    </div>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1">Field report</h1>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">CONCRETE</span>
+    </div>
+    <ol aria-label="Steps" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; border: 2px solid #14140F; border-radius: 4px; overflow: hidden; font-weight: 700; font-size: 13px">
+      <li aria-current="step" style="display: flex"><a href="PhoneFieldLoad.dc.html" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; background: #14140F; color: #F4F4EF; text-decoration: none; border-right: 1px solid #14140F">1 Load</a></li>
+      <li style="display: flex"><a href="PhoneFieldTests.dc.html" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; background: #FFFFFF; color: #14140F; text-decoration: none; border-right: 1px solid #14140F">2 Tests</a></li>
+      <li style="display: flex"><a href="PhoneFieldSpecimens.dc.html" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; background: #FFFFFF; color: #14140F; text-decoration: none">3 Specimens</a></li>
+    </ol>
+  </header>
+
+  <div style="flex: 1 1 0; min-height: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+    <div style="display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="proj" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">PROJECT</label>
+        <select id="proj" style="height: 48px; min-width: 0; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F"><option>DEMO-2616</option><option>DEMO-2614</option></select>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="date" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">REPORT DATE</label>
+        <input id="date" type="text" value="10 Nov 2026" style="height: 48px; box-sizing: border-box; min-width: 0; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F">
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <label for="sup" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">SUPPLIER</label>
+      <select id="sup" style="height: 48px; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 16px; font-weight: 600; color: #14140F"><option>Demo Ready-Mix</option><option>Sample Concrete Co.</option></select>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: end">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="ticket" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">TICKET NUMBER</label>
+        <input id="ticket" type="text" inputmode="numeric" value="004452" style="height: 48px; box-sizing: border-box; min-width: 0; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: #14140F">
+      </div>
+      <button type="button" style="height: 48px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Ticket photo added</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <label for="mix" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">MIX</label>
+      <select id="mix" style="height: 48px; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 16px; font-weight: 600; color: #14140F"><option>DM-32, approved</option><option>DM-25, approved</option><option>Not on the list</option></select>
+    </div>
+
+    <div style="background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden">
+      <div style="padding: 6px 12px; background: #14140F; color: #F4F4EF; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">PROJECT SPEC FOR DM-32</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr))">
+        <div style="padding: 8px 12px; border-right: 1px solid #CFCFC4"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">SLUMP</div><div style="font-weight: 700">80 ± 30 mm</div></div>
+        <div style="padding: 8px 12px; border-right: 1px solid #CFCFC4"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">AIR</div><div style="font-weight: 700">5.0–8.0 %</div></div>
+        <div style="padding: 8px 12px"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">AGES</div><div style="font-weight: 700">7, 28, 28, HOLD</div></div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="arr" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">ARRIVED</label>
+        <input id="arr" type="text" value="10:42" style="height: 48px; box-sizing: border-box; min-width: 0; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: #14140F">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="el" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">ELEMENT</label>
+        <select id="el" style="height: 48px; min-width: 0; padding: 0 10px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 16px; font-weight: 600; color: #14140F"><option>Slab, level 2</option><option>Column</option><option>Footing</option><option>Other</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; padding: 12px 16px; border-top: 2px solid #14140F; background: #FFFFFF">
+    <a href="PhoneConcrete.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 56px; border: 2px solid #14140F; border-radius: 6px; background: #FFFFFF; font-weight: 700; font-size: 16px; color: #14140F; text-decoration: none">Back</a>
+    <a href="PhoneFieldTests.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 56px; border: 2px solid #14140F; border-radius: 6px; background: #FF5A1F; font-weight: 800; font-size: 18px; color: #14140F; text-decoration: none">Next: tests</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dialogs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#A8340A}a:hover{color:#14140F}
+/* hover */
+a,button,select,summary,label:has(input[type="checkbox"]),label:has(input[type="radio"]),input[type="checkbox"],input[type="radio"]{cursor:pointer}
+button:disabled,[aria-disabled="true"]{cursor:not-allowed}
+button:not(:disabled):hover,a[style*="display:"]:not([aria-disabled="true"]):hover{background-image:linear-gradient(rgba(20,20,15,.1),rgba(20,20,15,.1)) !important}
+button:not(:disabled)[style*="background: #14140F"]:hover,button:not(:disabled)[style*="background: rgb(20, 20, 15)"]:hover,a[style*="background: #14140F"]:hover,a[style*="background: rgb(20, 20, 15)"]:hover{background-image:linear-gradient(rgba(244,244,239,.2),rgba(244,244,239,.2)) !important}
+a:not([style*="display:"]):hover{text-decoration:underline !important;text-decoration-thickness:2px !important;text-underline-offset:3px}
+input:not([type="checkbox"]):not([type="radio"]):not(:disabled):hover,select:not(:disabled):hover,textarea:not(:disabled):hover{box-shadow:0 0 0 3px #CFCFC4 !important}
+input[type="checkbox"]:hover,input[type="radio"]:hover{outline:3px solid #CFCFC4;outline-offset:1px}
+tbody tr:hover>*{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+[data-row]:hover{background-image:linear-gradient(rgba(20,20,15,.05),rgba(20,20,15,.05)) !important}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1040px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 28px; background: #F4F4EF; color: #14140F; font-family: 'Archivo', system-ui, sans-serif; font-size: 15px; line-height: 1.4">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; border-bottom: 2px solid #14140F; padding-bottom: 16px">
+    <h1 style="margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1">Dialogs</h1>
+    <p style="margin: 0; max-width: 680px">Small decisions that happen in place, over the screen they belong to. Each names the record, says what will change, asks only for what is needed, and has one primary action.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 40px; flex: 1 1 0; min-height: 0">
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">01 · CHECK OUT TO LAB · FROM A STORAGE UNIT OR A LAB PROGRAM</h2>
+      <div role="dialog" aria-labelledby="d1" style="flex: 1 1 0; background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 12px 18px; background: #E8E9E2; border-bottom: 2px solid #14140F"><div id="d1" style="font-size: 18px; font-weight: 700">Check out <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">ST-2026-000031</span> to the lab</div></div>
+        <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 0">
+          <div>It leaves Tube rack · Slot 12 and shows as In lab until it is put back on a shelf.</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d1a" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">FOR LAB PROGRAM</label><select id="d1a" style="height: 44px; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; color: #14140F"><option>Foundation investigation</option></select></div>
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d1b" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">GOING TO</label><select id="d1b" style="height: 44px; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; color: #14140F"><option>Lab bench 2</option><option>Lab bench 1</option></select></div>
+          </div>
+          <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 10px">
+            <button type="button" style="min-height: 44px; padding: 0 16px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Cancel</button>
+            <button type="button" style="min-height: 44px; padding: 0 18px; border: 2px solid #14140F; border-radius: 4px; background: #FF5A1F; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Check out</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">02 · EXTEND RETENTION · FROM RETENTION</h2>
+      <div role="dialog" aria-labelledby="d2" style="flex: 1 1 0; background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 12px 18px; background: #E8E9E2; border-bottom: 2px solid #14140F"><div id="d2" style="font-size: 18px; font-weight: 700">Keep <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">BKT-2026-000061</span> longer</div></div>
+        <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 0">
+          <div>Retention ends 14 Nov 2026. It will leave the due list until the new date.</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d2a" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">KEEP UNTIL</label><input id="d2a" type="text" value="14 May 2027" style="height: 44px; box-sizing: border-box; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F"></div>
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d2b" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">REASON</label><input id="d2b" type="text" value="Client asked to keep until design is final" style="height: 44px; box-sizing: border-box; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 14px; color: #14140F"></div>
+          </div>
+          <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 10px">
+            <button type="button" style="min-height: 44px; padding: 0 16px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Cancel</button>
+            <button type="button" style="min-height: 44px; padding: 0 18px; border: 2px solid #14140F; border-radius: 4px; background: #FF5A1F; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Extend retention</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">03 · CORRECT DETAILS · FROM A STORAGE UNIT</h2>
+      <div role="dialog" aria-labelledby="d3" style="flex: 1 1 0; background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 12px 18px; background: #E8E9E2; border-bottom: 2px solid #14140F"><div id="d3" style="font-size: 18px; font-weight: 700">Correct <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">BKT-2026-000142</span></div></div>
+        <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 0">
+          <div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: #E6E6DE; border-radius: 4px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; padding-top: 2px">ID STAYS</span><span>The ID does not change, whatever you correct. The old values stay in the history.</span></div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d3a" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">SAMPLES</label><input id="d3a" type="text" value="S1–S5" style="height: 44px; box-sizing: border-box; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFF0E8; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F"></div>
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d3b" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">DEPTH FROM, M</label><input id="d3b" type="text" value="0.8" style="height: 44px; box-sizing: border-box; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F"></div>
+            <div style="display: flex; flex-direction: column; gap: 6px"><label for="d3c" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">DEPTH TO, M</label><input id="d3c" type="text" value="4.6" style="height: 44px; box-sizing: border-box; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFF0E8; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #14140F"></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px"><label for="d3d" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">WHY (REQUIRED)</label><input id="d3d" type="text" value="S6 was logged in the wrong bucket at receiving" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 14px; color: #14140F"></div>
+          <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 10px">
+            <button type="button" style="min-height: 44px; padding: 0 16px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Cancel</button>
+            <button type="button" style="min-height: 44px; padding: 0 18px; border: 2px solid #14140F; border-radius: 4px; background: #FF5A1F; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Save 2 corrections</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">04 · RESCHEDULE A SPECIMEN · FROM CONCRETE BREAKS</h2>
+      <div role="dialog" aria-labelledby="d4" style="flex: 1 1 0; background: #FFFFFF; border: 2px solid #14140F; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 12px 18px; background: #E8E9E2; border-bottom: 2px solid #14140F"><div id="d4" style="font-size: 18px; font-weight: 700">Reschedule <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">26-01</span> <span style="display: inline-block; min-width: 22px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; background: #14140F; color: #F4F4EF; border-radius: 3px; padding: 1px 4px">C</span></div></div>
+        <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 0">
+          <div>Cast 13 Oct 2026. You pick a new age; the target date is always casting date plus age.</div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 2px solid #14140F; border-radius: 6px; overflow: hidden">
+            <div style="padding: 10px 12px; border-right: 1px solid #CFCFC4"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">NOW</div><div style="font-weight: 700">28 days · 10 Nov</div></div>
+            <div style="padding: 10px 12px; border-right: 1px solid #CFCFC4; display: flex; flex-direction: column; gap: 4px"><label for="d4a" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">NEW AGE, DAYS</label><input id="d4a" type="text" inputmode="numeric" value="30" style="height: 44px; box-sizing: border-box; min-width: 0; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFF0E8; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: #14140F"></div>
+            <div style="padding: 10px 12px; background: #FFF0E8"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #45463E">NEW TARGET</div><div style="font-weight: 700">Thu 12 Nov 2026</div></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px"><label for="d4b" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">WHY (REQUIRED)</label><input id="d4b" type="text" value="Testing machine is out for calibration until Thursday" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-size: 14px; color: #14140F"></div>
+          <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 10px">
+            <button type="button" style="min-height: 44px; padding: 0 16px; border: 2px solid #14140F; border-radius: 4px; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Cancel</button>
+            <button type="button" style="min-height: 44px; padding: 0 18px; border: 2px solid #14140F; border-radius: 4px; background: #FF5A1F; font-family: inherit; font-weight: 700; font-size: 14px; color: #14140F">Reschedule to 30 days</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
