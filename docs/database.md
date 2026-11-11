@@ -161,7 +161,7 @@ Key rules enforced by the database:
   (Kyle, 2026-11-10), so receiving and corrections start every newly chosen hole at All samples;
   a range or Custom text is the exception. Stored values never changed for it: `all` has always
   existed, only its default and its label ("All samples", formerly "ALL") are new.
-- **Core boxes (migration 0039, Kyle 2026-11-10).** `unit_type = 'core_box'` in a `core_box`
+- **Core boxes (migration 0037, Kyle 2026-11-10).** `unit_type = 'core_box'` in a `core_box`
   holder, issued a `CRE-` ID when received as one. A core box belongs to exactly one test hole
   (its one ordinary hole summary, All samples by default) and holds `core_run_count` runs of
   1.52 m: 1, 2 or 3 (1.52, 3.04 or 4.56 m). A full box is 3 runs, the default; usually only a

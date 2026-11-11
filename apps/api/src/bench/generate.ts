@@ -570,7 +570,7 @@ export async function generateBenchData(
   await client.query(
     'ALTER TABLE storage_unit_hole_summary DISABLE TRIGGER storage_unit_search_summary',
   );
-  // The bench makes no core boxes; its deferred one-test-hole check (migration 0039) would only
+  // The bench makes no core boxes; its deferred one-test-hole check (migration 0037) would only
   // queue an event per summary, and pending events block the ALTER TABLE below.
   await client.query(
     'ALTER TABLE storage_unit_hole_summary DISABLE TRIGGER storage_unit_core_box_summary_one_test_hole',

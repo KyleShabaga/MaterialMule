@@ -11,10 +11,10 @@ import {
 } from '../test-support/fixtures.js';
 import { migrate } from './migrator.js';
 
-// Core boxes (migration 0039, Kyle 2026-11-10): a CRE- core box belongs to exactly one test hole
+// Core boxes (migration 0037, Kyle 2026-11-10): a CRE- core box belongs to exactly one test hole
 // and holds 1 to 3 runs of 1.52 m; no other unit has runs. Fictional data only (DEMO-2601).
 
-describe.runIf(testDatabaseUrl)('core box schema (migration 0039)', () => {
+describe.runIf(testDatabaseUrl)('core box schema (migration 0037)', () => {
   let db: TestSchema;
   let userId: string;
   let locationId: string;
