@@ -479,7 +479,7 @@ Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — St
 Every board has a Dark tweak; the dark boards are the same boards with it on. The boards are
 drawn as markup in shadcn's look (not live shadcn components). Drafts for review, not approved.
 
-### Today (boards: Today desktop, phone, nothing needs you, dark)
+### Today (boards: desktop, nothing needs you, dark)
 
 - **Greeting block:** a 20 px-radius indigo panel. Date and lab line, the 40 px greeting
   ("Good morning, Alex. Five things need you today."), and at the right one white button for the
@@ -495,21 +495,32 @@ drawn as markup in shadcn's look (not live shadcn components). Drafts for review
 - **Nothing needs you (LAB station):** the shared LAB account is greeted without a name, the
   greeting offers "Receive a delivery", counters read 0, Needs you is the empty state, and the rail
   foot shows "Session ends" and Switch user.
-- **Phone:** header (tile, title, bell), the greeting stacked with a full-width button, counters
-  2 × 2, Needs you as stacked cards with the action at the bottom right, a shorter timeline, and
-  the five-slot bottom bar with the raised Scan circle.
 
-### Sign in (boards: desktop, phone, states, dark)
+### Sign in (boards: desktop, states, dark)
 
 - **Desktop:** split screen. An indigo brand panel (donkey tile, wordmark, "Every bucket, tube and
   core box, where the record says it is.", the five lifecycle stages as round tags, "Office
   network only") beside the form: "Sign in", the 56 px Microsoft button with the hint about
   working under your own name, an "or" rule, the LAB card (username, password, "Sign in as LAB",
   forgot-password line), and the development-only test link with a closed-stage tag.
-- **Phone:** the brand panel shrinks to a short indigo band above the full-width form.
 - **States:** session ended and LAB session expired (due banners), wrong password (field error),
   paused after failed attempts (danger banner, help text, LAB button disabled), options could not
   load (Try again), and no sign-in method set up. Wording is the app's current wording.
+
+### Sidebar (boards: variants, component) — quick mock for revision
+
+shadcn `Sidebar` with ideas from Linear and Notion. Header: lab switcher (logo tile, "Material Mule",
+the lab, up/down chevron) and a New button; a search field with `Ctrl K` under it. Then Today,
+Inbox and My requests; a collapsible "Lab" group with the six work areas (Concrete open as a
+`SidebarMenuSub`, Retention folded); Pinned records; a folded Recent group; and the footer with
+Settings, Help & Feedback and the account menu. Rows are 32 px (desktop mouse use). Collapses to
+48 px icons.
+
+Open for Kyle: moving search from the top bar into the sidebar and Inbox replacing the bell (both
+change Field Ledger decisions), an unread dot on Inbox rather than a count, and 32 px rows instead
+of 44 px on desktop.
+
+Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
 ## Next
 
