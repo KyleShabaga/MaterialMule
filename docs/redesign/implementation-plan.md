@@ -119,12 +119,12 @@ PR into `redesign/field-ledger`.
 1. Mark `docs/design.md` superseded by `docs/redesign/design.md`; update `README.md` screenshots
    or wording that names old destinations.
 2. Open one PR from `redesign/field-ledger` into `main` with: what changed, what was built new,
-   what stopped at a gate, the proposed dark palette for Kyle's review. **Kyle merges it.**
+   what stopped at a gate, the proposed dark palette for Kyle's review. **Claude merges it once CI is green (Kyle, 2026-11-10).**
 
 ## Order and dependencies
 
 ```
-PR 170 merged → wave 0 → wave 1 (A B C D E F in parallel) → wave 2 → wave 3 → Kyle reviews
+PR 170 merged → wave 0 → wave 1 (A B C D E F in parallel) → wave 2 → wave 3 → merged to main
 ```
 
 ## Follow-ups this plan does not cover
