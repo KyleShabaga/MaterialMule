@@ -1,10 +1,14 @@
-import { act, render, screen } from '@testing-library/react';
+import type { MeResponse } from '@materialmule/shared';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SessionContext } from '../session/context';
 import { THEME_STORAGE_KEY } from '../theme/theme';
-import { ServerHealth, ThemeSwitch } from './SidebarFooter';
+import { ServerHealth, SidebarFooter, ThemeSwitch } from './SidebarFooter';
 
-// MISC-09: sidebar footer — dark mode switch and server health in words, not colour alone.
+// MISC-09: rail footer — Pending actions, Settings, Help & Feedback, the account row, the dark
+// mode switch and server health in words, not colour alone.
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -122,5 +126,75 @@ describe('ServerHealth', () => {
     );
     window.dispatchEvent(new Event('focus'));
     expect(await screen.findByText('Server connected')).toBeInTheDocument();
+  });
+});
+
+describe('SidebarFooter', () => {
+  const person: MeResponse = {
+    id: 'u2',
+    displayName: 'Alex Tester',
+    initials: null,
+    accountType: 'personal',
+    status: 'active',
+    roles: ['lab_technician'],
+    permissions: ['inventory.read', 'action_item.read'],
+    sessionExpiresAt: '2026-10-26T06:00:00.000Z',
+  };
+
+  function renderFooter(me: MeResponse, path = '/') {
+    const signOut = vi.fn(async () => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith('/api/action-items/count')) return json(200, { open: 3 });
+        return json(200, { status: 'ok', version: '0.1.0', database: 'up' });
+      }),
+    );
+    render(
+      <SessionContext.Provider
+        value={{ session: { status: 'active', me }, refresh: vi.fn(), signOut }}
+      >
+        <MemoryRouter initialEntries={[path]}>
+          <SidebarFooter />
+        </MemoryRouter>
+      </SessionContext.Provider>,
+    );
+    return signOut;
+  }
+
+  it('links Pending actions with its count, Settings and Help & Feedback, then the account row', async () => {
+    const user = userEvent.setup();
+    const signOut = renderFooter(person, '/action-requests');
+    const pending = await screen.findByRole('link', { name: 'Pending actions, 3 waiting on you' });
+    expect(pending).toHaveAttribute('href', '/action-requests');
+    expect(pending).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Help & Feedback' })).toHaveAttribute('href', '/help');
+    const account = screen.getByRole('group', { name: 'Signed in user' });
+    expect(account).toHaveTextContent('AT');
+    expect(account).toHaveTextContent('Alex Tester');
+    expect(account).toHaveTextContent('Lab Technician');
+    // Personal accounts carry no tag and no Switch user.
+    expect(within(account).queryByText('Personal')).toBeNull();
+    expect(within(account).queryByRole('button', { name: 'Switch user' })).toBeNull();
+    await user.click(within(account).getByRole('button', { name: 'Sign out' }));
+    expect(signOut).toHaveBeenCalledWith();
+  });
+
+  it('LAB has no Pending actions; Switch user signs out to the account picker', async () => {
+    const user = userEvent.setup();
+    const signOut = renderFooter({
+      ...person,
+      displayName: 'LAB',
+      accountType: 'shared_lab',
+      roles: [],
+      permissions: ['inventory.read'],
+    });
+    expect(screen.queryByRole('link', { name: /^Pending actions/ })).toBeNull();
+    expect(screen.getByText('Shared station')).toBeInTheDocument();
+    expect(screen.getByText(/Session ends/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Switch user' }));
+    expect(signOut).toHaveBeenCalledWith('/sign-in?switch=1');
   });
 });

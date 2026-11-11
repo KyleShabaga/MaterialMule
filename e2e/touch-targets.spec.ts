@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-94: on a 375 px phone every control a person taps is at least 44 × 44 px: buttons, the
-// Pending actions and Notifications controls, date and select fields (the receive step's too), checkbox rows (the label
+// Notifications bell, the bottom-bar slots (60 px), the More sheet's links and Pending actions, date and select fields (the receive step's too), checkbox rows (the label
 // is the hit area), back links, "See all" links and the dashboard filter chips. Inline links in a
 // sentence or a table cell are exempt (WCAG 2.5.8) and not measured.
 
@@ -18,9 +18,11 @@ const TARGETS = [
   '.back-link a',
   '.see-all-link',
   '.action-bell',
-  '.action-bell-item',
-  '.action-bell-all',
-  '.app-brand',
+  '.brand',
+  '.phone-slot',
+  '.rail-link',
+  '.rail-sub-link',
+  '.rail-toggle',
 ].join(', ');
 
 async function smallTargets(page: Page): Promise<string[]> {
@@ -57,16 +59,16 @@ for (const route of [
   });
 }
 
-test('MTR-94: the open menu and the Pending actions popover have 44 px targets', async ({
+test('MTR-94: the bottom bar is 60 px and the open More sheet has 44 px targets', async ({
   page,
 }) => {
   await signInAs(page, 'at');
   await page.goto('/');
-  await page.getByRole('button', { name: /^Pending actions/ }).click();
-  await expect(page.locator('.action-bell-panel')).toBeVisible();
-  expect(await smallTargets(page)).toEqual([]);
-  await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await expect(page.locator('.side-nav-footer')).toBeVisible();
+  for (const slot of await page.locator('.phone-slot').all()) {
+    expect((await slot.boundingBox())!.height).toBeGreaterThanOrEqual(59.5);
+  }
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await expect(page.locator('.more-sheet .rail-footer')).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Pending actions/ })).toBeVisible();
   expect(await smallTargets(page)).toEqual([]);
 });

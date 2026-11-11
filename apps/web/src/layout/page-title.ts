@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
-import { NAV_ITEMS } from './nav';
 
 // MTR-134: every page gets its own browser tab title, "<page> · <section> · Material Mule",
 // e.g. "BKT-2026-000014 · Sample Storage · Material Mule" (WCAG 2.4.2). PageHeader and detail
@@ -8,9 +7,20 @@ import { NAV_ITEMS } from './nav';
 
 const APP_NAME = 'Material Mule';
 
-const EXTRA_SECTIONS: readonly { to: string; label: string }[] = [
+// Tab-title sections keep the pages' own area names (pages keep their titles in the Field Ledger
+// wave 0; the rail's shorter labels live in nav.ts).
+const SECTIONS: readonly { to: string; label: string }[] = [
+  { to: '/receiving-log', label: 'Receiving Log' },
+  { to: '/sample-storage', label: 'Sample Storage' },
+  { to: '/lab-testing', label: 'Lab Testing' },
+  { to: '/disposal-retention', label: 'Disposal & Retention' },
+  { to: '/concrete/review', label: 'Concrete Review' },
+  { to: '/concrete', label: 'Concrete' },
+  { to: '/projects', label: 'Projects' },
+  { to: '/settings', label: 'Settings' },
   { to: '/action-requests', label: 'Action requests' },
   { to: '/notifications', label: 'Notifications' },
+  { to: '/help', label: 'Help & Feedback' },
 ];
 
 const ROUTE_LABELS: readonly [RegExp, string][] = [
@@ -40,9 +50,7 @@ const ROUTE_LABELS: readonly [RegExp, string][] = [
 
 function sectionFor(pathname: string): string | null {
   if (pathname === '/') return 'Dashboard';
-  const match = [...NAV_ITEMS, ...EXTRA_SECTIONS]
-    .filter((item) => item.to !== '/')
-    .find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+  const match = SECTIONS.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
   return match?.label ?? null;
 }
 

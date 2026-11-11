@@ -3,6 +3,7 @@ import { signInAs } from '../support/auth';
 import { withDatabase } from '../support/db';
 import { E2E_LAB_STATION_ID, signInAsLabStation } from '../support/lab-station';
 import { dropNextPrintJobContaining } from '../support/printer';
+import { closeMore, openAccount } from '../support/shell';
 import {
   addHole,
   bucket,
@@ -87,7 +88,9 @@ test(
     const description = uniqueTag('T18-lab');
     await signInAsLabStation(page);
     await openWizard(page);
-    await expect(page.getByLabel('Signed in user')).toContainText('Shared station: LAB');
+    // The account row sits in the rail (desktop) or the More sheet (phone).
+    await expect(await openAccount(page)).toContainText('Shared station: LAB');
+    await closeMore(page);
     // LAB starts blank every time and must pick a listed person (App Idea §8).
     const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
     await expect(receiver).toHaveValue('');

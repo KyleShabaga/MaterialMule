@@ -7,11 +7,10 @@ import {
   EmptyState,
   ErrorState,
   Segmented,
-  TABLE_VIEW_STORAGE_PREFIX,
   TableViewSelector,
   UnitLabel,
-  useTableView,
 } from './ui';
+import { TABLE_VIEW_STORAGE_PREFIX, useTableView } from './useTableView';
 
 // Field Ledger shared parts (wave 0): docs/redesign/design.md, "Components".
 

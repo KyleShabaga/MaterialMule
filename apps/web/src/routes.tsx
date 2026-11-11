@@ -40,6 +40,7 @@ import {
   RequireActiveSession,
   SettingsLayout,
 } from './pages/simple-pages';
+import { HelpPage } from './pages/HelpPage';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
@@ -173,6 +174,8 @@ export const routes: RouteObject[] = [
               // Notification center (MM-T91): personal accounts; the header Notifications control
               // links here. Separate from action requests; nothing here resolves one.
               { path: 'notifications', element: <NotificationsPage /> },
+              // Field Ledger rail footer: Help & Feedback (placeholder until lane A builds it).
+              { path: 'help', element: <HelpPage /> },
               // Projects list and detail (MM-T35).
               { path: 'projects', element: <ProjectsPage /> },
               { path: 'projects/:projectId', element: <ProjectDetailPage /> },

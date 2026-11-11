@@ -2187,8 +2187,7 @@ textarea {
 
 @media (max-width: 640px) {
   button,
-  .button,
-  .identity button {
+  .button {
     min-height: var(--target);
   }
 
@@ -2252,10 +2251,9 @@ textarea {
     min-height: var(--target);
   }
 
-  /* Links that stand on their own line (Back, See all, the brand) are 44px tall. */
+  /* Links that stand on their own line (Back, See all) are 44px tall. */
   .back-link a,
-  .see-all-link,
-  .app-brand {
+  .see-all-link {
     display: inline-flex;
     align-items: center;
     min-height: var(--target);
@@ -2888,7 +2886,6 @@ textarea {
 @media (forced-colors: active) {
   .dash-filters button[aria-pressed='true'],
   .view-switch button[aria-pressed='true'],
-  .side-nav a[aria-current='page'],
   .sub-nav a[aria-current='page'],
   .sub-nav a.active,
   .listbox li[aria-selected='true'],
