@@ -491,12 +491,25 @@ Elevated PowerShell 7 on the host:
    fill in **every** IT decision. Leave nothing at a proposal IT hasn't approved.
 4. Preview, then install (creates `C:\MaterialMule\ops`, its permissions, the event log source
    "MaterialMule" and the two scheduled tasks; nothing else changes with `-Skip`):
+
    ```powershell
    cd C:\MaterialMule\current\deploy\windows
    .\Install-MaterialMuleHost.ps1 -ConfigPath C:\MaterialMule\config\host.config.psd1 -BackupConfigPath C:\MaterialMule\config\backup.config.psd1 -Skip Folders,Service,Permissions,Firewall,Postgres,Power -WhatIf
    ```
+
    Run it again without `-WhatIf`. For a standard (non-gMSA) backup account it asks for that
    account's password once and hands it to Task Scheduler.
+
+   **Changing the backup account** (review fix #101): change `BackupAccount` and run the same
+   command (preview first). The installer records the backup account in
+   `C:\MaterialMule\config\admin\backup-account.txt` and, on the next run with a different
+   account, removes the former account's installer-added read rules on `C:\MaterialMule` and
+   `C:\MaterialMule\config` (the `ops` folders are replaced outright). Nothing else is removed,
+   including other permissions that account holds. A host set up before that record existed has
+   no record: the installer then warns that the former account `still has the backup account's
+read permission`; run it again with `-PreviousBackupAccount '<former account>'`. Afterwards
+   remove the former account from the pgpass folder (step 2) and disable it with IT.
+
 5. Point the app and the deploy script at it, then restart the service:
    - `materialmule.env`: `BACKUP_STATUS_FILE=C:\MaterialMule\ops\status\backup-status.json`
    - `host.config.psd1`: `BackupScript = 'C:\MaterialMule\current\deploy\windows\backup.ps1'` and
@@ -598,7 +611,8 @@ It checks:
   as `postgres` or the migration role.
 - **The database,** through `node <release>\apps\api\dist\db\cli.js security-check`, connected as
   the app role: role attributes (no superuser, CREATEDB or CREATEROLE), table privileges, no
-  `PUBLIC` access, the app role can't update or delete append-only history tables, the backup role
+  `PUBLIC` access, the app role can't update or delete append-only history tables, every trigger
+  protecting those tables exists and is enabled (`append-only-triggers`, listed by table), the backup role
   is read-only, and the server settings `listen_addresses`, `password_encryption`,
   `log_statement` and `log_connections` ([Log rotation](#log-rotation-ac5)).
 

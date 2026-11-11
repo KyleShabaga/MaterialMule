@@ -117,6 +117,221 @@ VALUES ('${LAPSED_ITEM}', '${U.jordan}', 'Jordan Smith', 'Rehearsal: Jordan hand
 DELETE FROM role_assignment WHERE user_id = '${U.jordan}' AND role = 'lab_manager';
 `;
 
+// Review fix #97: the before/after comparison uses the same policy code for both snapshots, so
+// a wrong grant in the policy itself shows up in both and still compares equal. This reviewed,
+// frozen matrix is the independent expectation for the fixture: every grant, written out by
+// person, source, project context and permission. Both snapshots must equal it exactly. When the
+// policy deliberately changes (a new permission, a role gains or loses one), update this list in
+// the same change and have it reviewed; the test failure lists the lines that differ.
+const ALL_CONTEXTS = [
+  '-',
+  'DEMO-2601',
+  'DEMO-2601/concrete_field',
+  'DEMO-2601/concrete_strength',
+  'DEMO-2602',
+  'DEMO-2602/concrete_field',
+  'DEMO-2602/concrete_strength',
+];
+const PROJECT_CONTEXTS = ALL_CONTEXTS.filter((context) => context !== '-');
+const ALEX = '00000000-0000-4000-8000-000000000102';
+const TAYLOR = '00000000-0000-4000-8000-000000000110';
+
+/** Every signed-in staff account (source `internal`), whatever its role, in every context. */
+const INTERNAL_PERMISSIONS = [
+  'acceptance_delegation.read',
+  'action_item.read',
+  'concrete_report.draft',
+  'inventory.read',
+  'lab_comment.write',
+  'lab_program.amend',
+  'lab_program.manage',
+  'lab_program.read',
+  'label.print',
+  'location_conflict.resolve',
+  'notification.read',
+  'program.close_request',
+  'project.create',
+  'project_access.read',
+  'project_lead.nominate',
+  'receipt.confirm',
+  'receipt.draft',
+  'retention.request',
+  'storage_unit.correct',
+  'storage_unit.dispose_scan',
+  'storage_unit.move',
+  'storage_unit.tested_removal',
+  'test.cancel_request',
+  'test.progress',
+  'test.review',
+  'test_hole.create',
+];
+
+interface ExpectedGrant {
+  users: string[];
+  source: string;
+  contexts: string[];
+  permissions: string[];
+}
+
+const EXPECTED_GRANTS: ExpectedGrant[] = [
+  {
+    // The shared LAB account: lab work only.
+    users: [U.lab],
+    source: 'lab',
+    contexts: ALL_CONTEXTS,
+    permissions: [
+      'concrete_report.draft',
+      'concrete_specimen.dispose_record',
+      'concrete_specimen.receive',
+      'concrete_test.enter',
+      'inventory.read',
+      'lab_comment.write',
+      'lab_program.manage',
+      'lab_program.read',
+      'label.print',
+      'project.create',
+      'receipt.confirm',
+      'receipt.draft',
+      'storage_unit.move',
+      'test.progress',
+      'test_hole.create',
+    ],
+  },
+  {
+    // Every active staff account. Not the disabled former admin (U.former): nothing at all.
+    users: [U.pat, ALEX, U.admin, U.labManager, U.dana, U.jordan, U.jamie, TAYLOR],
+    source: 'internal',
+    contexts: ALL_CONTEXTS,
+    permissions: INTERNAL_PERMISSIONS,
+  },
+  {
+    // Pat leads DEMO-2601 and DEMO-2602: project authority there, never outside a project.
+    users: [U.pat],
+    source: 'lead_project_engineer',
+    contexts: PROJECT_CONTEXTS,
+    permissions: [
+      'acceptance_delegation.manage',
+      'concrete.review',
+      'concrete_failure_schedule.approve',
+      'concrete_hold.manage',
+      'concrete_mix.approve',
+      'concrete_mix.manage',
+      'concrete_ordinary_hold.manage',
+      'concrete_receiving_exception.resolve',
+      'concrete_set.void',
+      'concrete_specimen.reschedule',
+      'concrete_sync_conflict.resolve_lab',
+      'disposal.approve',
+      'program.close',
+      'program.priority.set',
+      'program.reopen',
+      'project.edit',
+      'project_review.approve',
+      'project_reviewer.manage',
+      'project_team.manage',
+      'report.issue',
+      'report_issuer.manage',
+      'retention.manage',
+      'test.accept',
+      'test.cancel',
+    ],
+  },
+  {
+    // The admin role: administration, and no concrete project authority (docs/permissions.md).
+    users: [U.admin],
+    source: 'admin',
+    contexts: ALL_CONTEXTS,
+    permissions: [
+      'action_item.reassign',
+      'concrete_settings.attachment_limit.manage',
+      'concrete_settings.curing_standard.manage',
+      'concrete_settings.holiday.manage',
+      'concrete_settings.report_header.manage',
+      'concrete_settings.supplier.manage',
+      'location.manage',
+      'printer.manage',
+      'project.edit',
+      'project.lead_project_engineer.change',
+      'project_reviewer.manage',
+      'project_team.manage',
+      'reviewer_eligibility.manage',
+      'session.revoke',
+      'settings.drafts.manage',
+      'staff.manage',
+      'staff_capability.manage',
+      'system.status.read',
+      'test_catalog.manage',
+    ],
+  },
+  {
+    // The Lab Manager role (Lab (test)); Jordan lost it, so Jordan has none of these.
+    users: [U.labManager],
+    source: 'lab_manager',
+    contexts: ALL_CONTEXTS,
+    permissions: [
+      'action_item.reassign',
+      'concrete_ordinary_hold.manage',
+      'concrete_recovery.import',
+      'concrete_settings.air_meter.manage',
+      'concrete_settings.curing_standard.manage',
+      'concrete_settings.supplier.manage',
+      'concrete_settings.testing_machine.manage',
+      'concrete_specimen.dispose_record',
+      'concrete_specimen.mass_correct',
+      'concrete_specimen.receive',
+      'concrete_sync_conflict.resolve_lab',
+      'concrete_test.enter',
+      'disposal.approve',
+      'location.manage',
+      'program.priority.set',
+      'program.reopen',
+      'retention.manage',
+      'settings.drafts.manage',
+      'test.cancel',
+      'test.correction_done',
+      'test_catalog.manage',
+    ],
+  },
+  {
+    // Dana's pre-reason delegation on DEMO-2601 only.
+    users: [U.dana],
+    source: 'acceptance_delegate',
+    contexts: ['DEMO-2601', 'DEMO-2601/concrete_field', 'DEMO-2601/concrete_strength'],
+    permissions: ['test.accept'],
+  },
+  {
+    // Dana's live issuer grant: field reports on DEMO-2601 only. Jamie's expired grant: nothing.
+    users: [U.dana],
+    source: 'report_issuer',
+    contexts: ['DEMO-2601/concrete_field'],
+    permissions: ['report.issue'],
+  },
+];
+
+/** The frozen matrix as effectiveRights lines (sources of one grant joined), sorted. */
+function expectedRights(grants: ExpectedGrant[] = EXPECTED_GRANTS): string[] {
+  const sources = new Map<string, string[]>();
+  for (const grant of grants) {
+    for (const user of grant.users) {
+      for (const permission of grant.permissions) {
+        for (const context of grant.contexts) {
+          const key = `${user} ${permission} ${context}`;
+          sources.set(key, [...(sources.get(key) ?? []), grant.source]);
+        }
+      }
+    }
+  }
+  return [...sources].map(([key, list]) => `${key} ${list.sort().join(',')}`).sort();
+}
+
+/** What the release gate rejects: lines granted but not expected, and expected but missing. */
+function matrixDifferences(actual: string[], expected: string[]) {
+  return {
+    unexpected: actual.filter((line) => !expected.includes(line)).sort(),
+    missing: expected.filter((line) => !actual.includes(line)).sort(),
+  };
+}
+
 /** One line per granted (person, permission, project, report scope) with its sources. */
 async function effectiveRights(pool: Pool, permissions: Permission[]): Promise<string[]> {
   const { rows: users } = await pool.query<{
@@ -275,7 +490,36 @@ describe.runIf(testDatabaseUrl)('release rehearsal: 0001 baseline to latest (MM-
   });
 
   it('gives nobody a permission they did not have and takes none away', () => {
+    // Guarantee: the SQL migrations change no one's access (both snapshots use the same policy).
     expect(after.rights).toEqual(before.rights);
+  });
+
+  it('#97: matches the reviewed, frozen access matrix before and after the upgrade', () => {
+    // Guarantee: the access itself is what was reviewed, independent of the policy code under
+    // test. Each list names the lines that differ; nothing may be unexpected or missing.
+    const expected = expectedRights();
+    expect(matrixDifferences(before.rights, expected)).toEqual({ unexpected: [], missing: [] });
+    expect(matrixDifferences(after.rights, expected)).toEqual({ unexpected: [], missing: [] });
+  });
+
+  it('#97: the gate rejects a grant that is wrong in both snapshots alike', () => {
+    // An extra admin source for Pat's staff.manage, injected into both snapshots: before = after
+    // still holds, so only the frozen matrix catches it.
+    const injected = `${U.pat} staff.manage - admin`;
+    const wrongBefore = [...before.rights, injected];
+    const wrongAfter = [...after.rights, injected];
+    expect(wrongAfter).toEqual(wrongBefore);
+    expect(matrixDifferences(wrongAfter, expectedRights()).unexpected).toEqual([injected]);
+
+    // An expected source lost in both: Dana's acceptance delegation.
+    const lost = (rights: string[]) =>
+      rights.filter((line) => !(line.startsWith(U.dana) && line.endsWith(' acceptance_delegate')));
+    expect(lost(after.rights)).toEqual(lost(before.rights));
+    expect(matrixDifferences(lost(after.rights), expectedRights()).missing).toEqual([
+      `${U.dana} test.accept DEMO-2601 acceptance_delegate`,
+      `${U.dana} test.accept DEMO-2601/concrete_field acceptance_delegate`,
+      `${U.dana} test.accept DEMO-2601/concrete_strength acceptance_delegate`,
+    ]);
   });
 
   it('grants nothing through the exceptions the upgrade accounts for', () => {

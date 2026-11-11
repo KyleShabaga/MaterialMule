@@ -126,8 +126,87 @@ Remove-Item Env:PGPASSWORD
 Run the two `SELECT` commands above again: both now return `(0 rows)`.
 
 If `DROP ROLE` says the role "cannot be dropped because some objects depend on it", the role still
-owns something in another database (usually `postgres`). Connect to the database it names and run
-`DROP OWNED BY <role>;`, then repeat the drop.
+owns something, or holds privileges, in a database you did **not** drop (often `postgres`, or a
+database of another app). **Never run `DROP OWNED BY` there:** it deletes every table and other
+object the role owns in that database, with their data. Inspect first (review fix #99; the SQL
+below is proven in `apps/api/src/db/clean-install-guide.test.ts`):
+
+1. See which databases still depend on the role (`owner`: it owns objects there; `privileges`:
+   it was only granted access). This only reads:
+
+   ```powershell
+   $env:PGPASSWORD = (Read-Host 'postgres password' -MaskInput)
+   $role = '<role>'   # the role DROP ROLE refused, e.g. materialmule
+   @'
+   -- role-dependencies-by-database
+   SELECT coalesce(d.datname, '(shared: a database or tablespace itself)') AS database,
+          CASE s.deptype WHEN 'o' THEN 'owner' WHEN 'a' THEN 'privileges' WHEN 'i' THEN 'privileges'
+                         WHEN 'r' THEN 'row security policy' ELSE s.deptype::text END AS dependency,
+          count(*) AS objects
+     FROM pg_shdepend s JOIN pg_roles r ON r.oid = s.refobjid
+     LEFT JOIN pg_database d ON d.oid = s.dbid
+    WHERE s.refclassid = 'pg_authid'::regclass AND r.rolname = :'role'
+    GROUP BY 1, 2 ORDER BY 1, 2;
+   '@ | & $psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -v role=$role
+   ```
+
+2. For **each** database it lists, list the exact objects (this only reads too):
+
+   ```powershell
+   $database = '<database>'   # one database from step 1
+   @'
+   -- role-dependencies-in-database
+   SELECT pg_describe_object(s.classid, s.objid, s.objsubid) AS object,
+          CASE s.deptype WHEN 'o' THEN 'owner' WHEN 'a' THEN 'privileges' WHEN 'i' THEN 'privileges'
+                         WHEN 'r' THEN 'row security policy' ELSE s.deptype::text END AS dependency
+     FROM pg_shdepend s JOIN pg_roles r ON r.oid = s.refobjid
+    WHERE s.refclassid = 'pg_authid'::regclass AND r.rolname = :'role'
+      AND s.dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+    ORDER BY 2, 1;
+   '@ | & $psql -h 127.0.0.1 -U postgres -d $database -v ON_ERROR_STOP=1 -v role=$role
+   ```
+
+3. Decide, per database, and **ask** if you are not sure who the objects belong to:
+   - **Keep the objects** (the usual case for a database you are keeping): give them to their
+     intended owner, then remove the role's remaining privileges. `REASSIGN OWNED` runs first and
+     moves every object the role owns in that database, so nothing is deleted; the `DROP OWNED`
+     after it then only revokes privileges (and the role's default privileges). Both run in one
+     transaction, which refuses and changes nothing unless the new owner is an existing role
+     other than `$role`:
+
+     ```powershell
+     $newOwner = '<intended owner>'   # an existing role, e.g. the owner of that database
+     @'
+     -- role-hand-over
+     SELECT set_config('materialmule.cleanup_role', :'role', true) AS role,
+            set_config('materialmule.cleanup_new_owner', :'new_owner', true) AS new_owner;
+     DO $$
+     DECLARE
+       old_role text := current_setting('materialmule.cleanup_role');
+       new_owner text := current_setting('materialmule.cleanup_new_owner');
+     BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = old_role) THEN
+         RAISE EXCEPTION 'role % does not exist; nothing was changed', old_role;
+       END IF;
+       IF new_owner = old_role OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = new_owner) THEN
+         RAISE EXCEPTION 'new owner must be an existing role other than %; nothing was changed', old_role;
+       END IF;
+       EXECUTE format('REASSIGN OWNED BY %I TO %I', old_role, new_owner);
+       EXECUTE format('DROP OWNED BY %I', old_role);
+     END
+     $$;
+     '@ | & $psql -h 127.0.0.1 -U postgres -d $database -v ON_ERROR_STOP=1 -1 -v role=$role -v new_owner=$newOwner
+     ```
+
+     Run step 2 again: it now lists nothing for that database.
+
+   - **Keep the role** instead: leave it and stop here. In [3.2](#32-create-the-role-and-databases)
+     use `ALTER ROLE materialmule LOGIN` in place of `CREATE ROLE materialmule LOGIN`.
+   - Drop an object only once step 2 has shown it and you have confirmed that **it** is
+     disposable, and drop it by name (`DROP TABLE <schema>.<table>;`), never with `DROP OWNED`.
+
+4. Repeat the `DROP ROLE` above. If it still refuses, its message names the database and object
+   left: go back to step 2 for that database. When done, `Remove-Item Env:PGPASSWORD`.
 
 ### 1.4 Delete the old checkouts and caches
 
@@ -213,16 +292,24 @@ esbuild and @swc/core were skipped; that is on purpose (`allowScripts` in `packa
 
 ### 3.2 Create the role and databases
 
-Pick a new local password for the `materialmule` login (it is only used on this PC):
+Pick a new local password for the `materialmule` login (it is only used on this PC) and save it
+in the password manager. The password is never typed into a command: the login is created
+without one, and psql's `\password` asks for it twice, hidden, and sends PostgreSQL only its
+SCRAM hash, so it never appears in the command line, the process list or the server log (review
+fix #99). Any characters work, including `'`, `$`, `@`, `/` and `:`.
 
 ```powershell
 $psql = 'C:\Program Files\PostgreSQL\17\bin\psql.exe'
 $env:PGPASSWORD = (Read-Host 'postgres password' -MaskInput)
-& $psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE materialmule LOGIN PASSWORD '<password>'"
+& $psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE materialmule LOGIN"
+& $psql -h 127.0.0.1 -U postgres -d postgres -c '\password materialmule'
 & $psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE materialmule_dev OWNER materialmule"
 & $psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE materialmule_test OWNER materialmule"
 Remove-Item Env:PGPASSWORD
 ```
+
+(If you kept the old `materialmule` role in [1.3](#13-drop-the-old-databases-and-roles), use
+`ALTER ROLE materialmule LOGIN` in the first `-c` instead.)
 
 ### 3.3 Create the configuration files
 
@@ -242,6 +329,17 @@ The last two lines print two different random secrets. Edit the two files (e.g.
 | `DATABASE_URL`     | `postgres://materialmule:<password>@127.0.0.1:5432/materialmule_dev` | `postgres://materialmule:<password>@127.0.0.1:5432/materialmule_test` |
 | `SESSION_SECRET`   | the first secret                                                     | the second secret                                                     |
 | `ENABLE_TEST_AUTH` | `true`                                                               | leave as is                                                           |
+
+`<password>` in `DATABASE_URL` is the password **percent-encoded**: a URL can't hold `@`, `:`,
+`/`, `#`, `?`, `%` and other characters as they are. This prints the encoded form (type the
+password at the hidden prompt; it is not kept anywhere):
+
+```powershell
+[uri]::EscapeDataString([System.Net.NetworkCredential]::new('', (Read-Host 'materialmule password' -AsSecureString)).Password)
+```
+
+For example the fictional password `it's$a/b@c:d` becomes `it%27s%24a%2Fb%40c%3Ad`. Paste the
+printed text in place of `<password>`, then clear the screen (`Clear-Host`).
 
 Leave everything else at its default. These files are git-ignored; never commit, email or paste
 them.
