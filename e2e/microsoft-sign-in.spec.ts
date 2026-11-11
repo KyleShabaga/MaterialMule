@@ -19,7 +19,9 @@ test('MISC-06: a new starter goes straight to Access pending with no position st
 
   await signInWithMicrosoft(page, name);
   // New people wait for an administrator before seeing any data; Not set blocks nothing.
-  await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'You are signed in, but not set up yet.' }),
+  ).toBeVisible();
   await expect(page.getByRole('radio')).toHaveCount(0);
 
   // There is no self-service position any more.
@@ -32,7 +34,9 @@ test('MISC-06: a new starter goes straight to Access pending with no position st
   // Wait for sign-out's own navigation; a page.goto during it is aborted (net::ERR_ABORTED).
   await expect(page).toHaveURL(/\/sign-in/);
   await signInWithMicrosoft(page, name);
-  await expect(page.getByRole('heading', { name: 'Access pending' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'You are signed in, but not set up yet.' }),
+  ).toBeVisible();
   const me = await (await page.request.get('/api/me')).json();
   expect(me).toMatchObject({ status: 'pending', permissions: [] });
   expect(me).not.toHaveProperty('position');

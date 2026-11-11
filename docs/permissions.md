@@ -1487,3 +1487,14 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   unit is refused by moves, queued-move replay and test linking, and never returns to stock.
 - **Tested units** use MM-T36's separate route, which needs no approval, scan, retention or
   program closure.
+
+## Help & Feedback (Field Ledger)
+
+| Route                                   | Policy                           |
+| --------------------------------------- | -------------------------------- |
+| `POST /api/feedback {kind, text, page}` | any active session, LAB included |
+| `GET /api/feedback`                     | `staff.manage` (admin)           |
+
+- **Stays on the host.** Each submission is an append-only audit event `feedback.submitted`
+  (actor snapshot, kind, text, optional in-app path without a query string). Nothing is emailed
+  or sent to an outside service. Administrators read the latest 50 on the Help & Feedback page.

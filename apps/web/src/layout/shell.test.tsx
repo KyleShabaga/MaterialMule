@@ -243,7 +243,9 @@ describe('route guard', () => {
       status: 'pending',
       me: me({ status: 'pending', permissions: [] }),
     });
-    expect(await screen.findByRole('heading', { name: 'Access pending' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'You are signed in, but not set up yet.' }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/access-pending');
     expect(screen.getByText('Waiting for approval')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
@@ -364,7 +366,9 @@ describe('dashboard', () => {
 
   it('shows a not-found page for unknown paths inside the app', async () => {
     renderAt('/nowhere', { status: 'active', me: me() });
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Nothing is at this address.' }),
+    ).toBeInTheDocument();
   });
 });
 
