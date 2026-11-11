@@ -6,6 +6,7 @@ import {
   RECORD_MIGRATIONS,
   isStale,
   newRecord,
+  openingStep,
   recordedReceiver,
   upgradeRecord,
   visibleTo,
@@ -31,6 +32,25 @@ const T0 = new Date('2026-10-26T16:00:00.000Z');
 const T1 = new Date('2026-10-26T16:42:00.000Z');
 
 describe('draft record (MM-T11)', () => {
+  it('opens on Delivery until a project is chosen; older Details and Review drafts on Units', () => {
+    const data = newDraft(null, '2026-10-26');
+    const withProject = {
+      ...data,
+      project: {
+        id: '00000000-0000-4000-8000-000000000901',
+        projectNumber: 'DEMO-2601',
+        name: 'Riverbank investigation',
+        client: 'Example Client',
+        leadProjectEngineer: null,
+      },
+    };
+    expect(openingStep({ step: 'units', data })).toBe('delivery');
+    expect(openingStep({ step: 'delivery', data: withProject })).toBe('delivery');
+    for (const step of ['units', 'details', 'review'] as const) {
+      expect(openingStep({ step, data: withProject })).toBe('units');
+    }
+  });
+
   it('starts with a created entry, the owner and the idempotency key of the draft', () => {
     const data = newDraft(null, '2026-10-26');
     const record = newRecord(data, LAB, T0);
@@ -40,7 +60,7 @@ describe('draft record (MM-T11)', () => {
       owner: { accountId: LAB.id, type: 'lab' },
       receiver: null,
       status: 'editing',
-      step: 'details',
+      step: 'delivery',
       createdAt: T0.toISOString(),
     });
     expect(record.history).toEqual([

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signInAsLabStation } from './support/lab-station';
-import { bucket, openWizard } from './support/receiving';
+import { bucket, openWizard, toUnits } from './support/receiving';
 
 // MM-T62 T2: the Receive samples pickers by keyboard alone, at a LAB station. Typing then Enter
 // picks the first (highlighted) match in each picker. Fictional data only: DEMO-2601, TH26-01, AT.
@@ -23,6 +23,7 @@ test('T2: receiver, project and test hole are chosen with Enter alone', async ({
   ).toHaveAttribute('aria-selected', 'true');
   await project.press('Enter');
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
+  await toUnits(page);
 
   const unit = bucket(page, 1);
   const hole = unit.getByRole('combobox', { name: 'Find or add a test hole' });

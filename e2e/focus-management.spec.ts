@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { mainNav, openMore } from './support/shell';
-import { openWizard } from './support/receiving';
+import { chooseDemoProject, openWizard, toUnits } from './support/receiving';
 
 // MTR-136: keyboard focus never falls to the page body after picking a project, removing a
 // bucket, closing the Add location panel or following a menu link. Keyboard only; fictional data
@@ -24,12 +24,14 @@ test('MTR-136: picking a project focuses Change project', async ({ page }) => {
   expect(await activeTag(page)).not.toBe('BODY');
 });
 
-test('MTR-136: removing a bucket focuses the bucket before it, then Add bucket', async ({
+test('MTR-136: removing a bucket focuses the bucket before it, then Add a storage unit', async ({
   page,
 }) => {
   await signInAs(page, 'at');
   await openWizard(page);
-  const add = page.getByRole('button', { name: 'Add bucket' });
+  await chooseDemoProject(page);
+  await toUnits(page);
+  const add = page.getByRole('button', { name: 'Add a storage unit' });
   for (const n of [2, 3]) {
     await add.focus();
     await page.keyboard.press('Enter');
@@ -43,7 +45,7 @@ test('MTR-136: removing a bucket focuses the bucket before it, then Add bucket',
     await page.keyboard.press('Enter');
     expect(await activeTag(page)).not.toBe('BODY');
   }
-  await expect(page.getByRole('button', { name: 'Add bucket' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Add a storage unit' })).toBeFocused();
 });
 
 test('MTR-136: closing the Add location panel returns focus to Add location', async ({ page }) => {
@@ -82,7 +84,7 @@ test('MTR-133: required fields are marked and a failed Add location focuses the 
 }) => {
   await signInAs(page, 'at');
   await openWizard(page);
-  const details = page.getByRole('region', { name: 'Details' });
+  const details = page.getByRole('region', { name: 'Delivery' });
   await expect(details.getByText('(required)')).toHaveCount(3);
 
   await signInAs(page, 'lab');

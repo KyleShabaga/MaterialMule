@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { chooseDemoProject, openWizard, uniqueTag } from './support/receiving';
+import { chooseDemoProject, openWizard, toUnits, uniqueTag } from './support/receiving';
 
 // MM-T36 receiving increment end to end (card T6, T8, T14, T15): bulk soil buckets sharing a bulk
 // sample, Shelby tubes from a test hole and from a standalone location, a later receipt joining
@@ -57,6 +57,7 @@ async function useReceivedDate(page: Page) {
 async function fillReceipt(page: Page, tag: string) {
   await chooseDemoProject(page);
   await useReceivedDate(page);
+  await toUnits(page);
   const first = unitRegion(page, 'Bucket 1');
   await first.getByRole('checkbox', { name: 'Bulk soil sample' }).check();
   await standalone(first, `Pit ${tag}`);
@@ -67,14 +68,14 @@ async function fillReceipt(page: Page, tag: string) {
     /^same:/,
   );
 
-  await page.getByRole('button', { name: 'Add bucket' }).click();
-  await unitRegion(page, 'Bucket 3').getByLabel('Physical holder').selectOption('shelby_tube');
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
+  await unitRegion(page, 'Bucket 3').getByRole('button', { name: 'ST Shelby tube' }).click();
   const tube3 = unitRegion(page, 'Shelby tube 3');
   await sourceHole(tube3, 'TH26-01');
   await tube3.getByLabel(/^Sample reference/).fill('T5');
 
-  await page.getByRole('button', { name: 'Add bucket' }).click();
-  await unitRegion(page, 'Bucket 4').getByLabel('Physical holder').selectOption('shelby_tube');
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
+  await unitRegion(page, 'Bucket 4').getByRole('button', { name: 'ST Shelby tube' }).click();
   const tube4 = unitRegion(page, 'Shelby tube 4');
   await standalone(tube4, `Embankment ${tag}`);
   await depth(tube4, '10', '12', 'ft');
@@ -95,9 +96,10 @@ test('T6/T8/T14/T15: bulk buckets, both Shelby sources, a later join, inventory 
   await openWizard(page);
   await fillReceipt(page, tag);
   await noHorizontalScroll(page);
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await expect(page.getByRole('heading', { name: 'Bulk samples in this receipt' })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await expect(
+    unitRegion(page, 'Bucket 2').getByRole('list', { name: 'Bucket 2 contents' }),
+  ).toContainText('bucket 2 of 2 in this receipt');
+  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
   const ids = await issued(page);
   expect(ids.map((id) => id.split('-')[0])).toEqual(['BKT', 'BKT', 'ST', 'ST']);
 
@@ -117,13 +119,13 @@ test('T6/T8/T14/T15: bulk buckets, both Shelby sources, a later join, inventory 
   await page.getByRole('button', { name: 'Receive another' }).click();
   await chooseDemoProject(page);
   await useReceivedDate(page);
+  await toUnits(page);
   const later = unitRegion(page, 'Bucket 1');
   await later.getByRole('checkbox', { name: 'Bulk soil sample' }).check();
   await later
     .getByLabel('Bulk sample', { exact: true })
     .selectOption({ label: `Pit ${tag} · B1 · 1.5–2 m — 2 buckets so far` });
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
   const [third] = await issued(page);
 
   // Detail: bucket 3 of 3, siblings listed, own location; search by the displayed identity.
@@ -165,7 +167,7 @@ test('T6/T8/T14/T15: bulk buckets, both Shelby sources, a later join, inventory 
 test.describe('wide screens (> 1280px)', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('review shows one table with sources and the bulk samples; Compact keeps one line', async ({
+  test('unit rows show sources and bulk positions; Compact keeps one line', async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name === 'phone-chromium', 'Wide layout only on desktop.');
@@ -173,16 +175,13 @@ test.describe('wide screens (> 1280px)', () => {
     await signInAs(page, 'at');
     await openWizard(page);
     await fillReceipt(page, tag);
-    await page.getByRole('button', { name: 'Next: Review' }).click();
-    const table = page.getByRole('table', { name: 'Storage units in this receipt' });
-    await expect(table).toBeVisible();
-    const rows = table.getByRole('row');
-    await expect(rows.nth(1)).toContainText(`Pit ${tag}: B1 at 1.5–2 m · bucket 1 of 2`);
-    await expect(rows.nth(3)).toContainText('TH26-01: T5');
-    await expect(rows.nth(4)).toContainText(`Embankment ${tag}: 10–12 ft`);
-    const bulk = page.getByRole('table', { name: 'Bulk samples in this receipt' });
-    await expect(bulk.getByRole('row').nth(1)).toContainText('2 buckets');
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    const contents = (name: string) =>
+      unitRegion(page, name).getByRole('list', { name: `${name} contents` });
+    await expect(contents('Bucket 1')).toContainText(`Pit ${tag}: B1 at 1.5–2 m · bucket 1 of 2`);
+    await expect(contents('Shelby tube 3')).toContainText('TH26-01T5');
+    await expect(contents('Shelby tube 4')).toContainText(`Embankment ${tag}10–12 ft`);
+    await expect(page.getByRole('region', { name: 'On confirm' })).toContainText('2 buckets');
+    await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
     const ids = await issued(page);
 
     // The tag is in the two bulk buckets' and the standalone tube's sources (not the TH26-01 tube).

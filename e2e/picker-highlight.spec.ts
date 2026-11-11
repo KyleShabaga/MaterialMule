@@ -2,7 +2,7 @@ import { expect, test, type Locator } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertInventoryFixture } from './support/inventory';
 import { signInAsLabStation } from './support/lab-station';
-import { bucket, openWizard } from './support/receiving';
+import { bucket, openWizard, toUnits } from './support/receiving';
 
 // MM-T78: the keyboard-highlighted option (aria-activedescendant, marked aria-selected) must be
 // clearly visible in every picker, in both colour schemes. In light mode it used to be painted
@@ -119,6 +119,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     );
     await project.press('Enter');
     await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
+    await toUnits(page);
 
     const unit = bucket(page, 1);
     const hole = unit.getByRole('combobox', { name: 'Find or add a test hole' });

@@ -2939,3 +2939,11 @@ textarea {
     border-bottom-color: Highlight;
   }
 }
+
+/* Lane B (pure addition): on phones, anything scrolled into view or focused stops above the fixed
+   bottom bar instead of under it (WCAG 2.4.11 Focus Not Obscured). */
+html:has(.app-phone) {
+  scroll-padding-bottom: calc(
+    var(--target-primary-phone) + var(--rule-width) + var(--space-4) + env(safe-area-inset-bottom)
+  );
+}

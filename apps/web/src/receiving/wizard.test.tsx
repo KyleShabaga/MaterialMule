@@ -143,39 +143,96 @@ function issued(body: unknown, first = 1) {
   };
 }
 
-describe('Receiving wizard layout (MM-T55 part C)', () => {
-  it('shows the step tag and chips, banded cards, and the bottom action bar per step', async () => {
+/** Delivery → Units with the demo project and the default receiver. */
+async function toUnits(user: User) {
+  await chooseProject(user);
+  await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
+}
+
+const confirmButton = () => screen.getByRole('button', { name: 'Confirm and issue IDs' });
+
+describe('Receiving layout (Field Ledger: Delivery, Units, Confirm and label)', () => {
+  it('shows the DRAFT tag, the three steps, unit rows and the On confirm panel', async () => {
     const user = userEvent.setup();
     renderWizard();
     await chooseProject(user);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Receive samples' })).toBeVisible();
-    expect(screen.getByText('Step 1 of 3')).toBeVisible();
+    expect(screen.getByText('DRAFT')).toBeVisible();
+    expect(screen.getByText('Step 1 of 3 · Nothing is in inventory yet')).toBeVisible();
     const steps = screen.getByRole('list', { name: 'Receiving steps' });
+    expect(
+      within(steps)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['1 Delivery', '2 Units', '3 Confirm and label']);
     expect(within(steps).getAllByRole('listitem')[0]).toHaveAttribute('aria-current', 'step');
-    expect(screen.getByRole('region', { name: 'Details' })).toBeVisible();
+    expect(screen.getByText(/Receiver: AT/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Discard draft' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save draft and leave' })).toBeVisible();
+    // Units are on the next step.
+    expect(screen.queryByRole('region', { name: 'Bucket 1' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
+    expect(within(steps).getAllByRole('listitem')[1]).toHaveAttribute('aria-current', 'step');
     const unit = bucket(1);
     expect(within(unit).getByRole('heading', { level: 3, name: 'Bucket 1' })).toBeVisible();
     expect(within(unit).getByText('no test holes yet')).toBeVisible();
+    // The prefix block, and the holder choice with Bucket pressed.
+    expect(within(unit).getAllByText('BKT')).toHaveLength(2);
+    expect(within(unit).getByRole('button', { name: 'BKT Bucket' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // A draft never shows an ID: On confirm names the prefix with masked digits.
+    const onConfirm = screen.getByRole('region', { name: 'On confirm' });
+    expect(within(onConfirm).getByText(/^BKT-\d{4}-······$/)).toBeVisible();
+    expect(within(onConfirm).getByText('1 bucket')).toBeVisible();
+    expect(within(onConfirm).getByRole('checkbox', { name: /Print 1 label/ })).toBeChecked();
+    expect(screen.queryByText(/BKT-\d{4}-\d{6}/)).toBeNull();
 
-    // Step 1 bar: no problems yet, the draft status, Discard draft and Next: Review.
-    const bar = () => document.querySelector<HTMLElement>('.wizard-step > .wizard-actions')!;
-    expect(within(bar()).queryByText(/problems? to fix/)).toBeNull();
-    expect(within(bar()).getByText(/Receiver: AT/)).toBeVisible();
-    expect(within(bar()).getByRole('button', { name: 'Discard draft' })).toBeVisible();
-
-    // Trying to move on with a bucket that has no test hole counts the problems in the bar.
-    await user.click(within(bar()).getByRole('button', { name: 'Next: Review' }));
-    expect(within(bar()).getByText(/^\d+ problems? to fix$/)).toBeVisible();
+    // Trying to confirm with a bucket that has no test hole counts the problems.
+    await user.click(confirmButton());
+    expect(within(onConfirm).getByText(/^\d+ problems? to fix$/)).toBeVisible();
 
     await addHole(user, bucket(1), 'TH26-01');
     await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S12');
-    await user.click(within(bar()).getByRole('button', { name: 'Next: Review' }));
-    expect(await screen.findByText('Step 2 of 3')).toBeVisible();
-    expect(within(bar()).getByRole('button', { name: 'Back' })).toBeVisible();
-    expect(within(bar()).getByRole('button', { name: 'Confirm receipt' })).toBeVisible();
-    expect(within(bar()).getByRole('button', { name: 'Discard draft' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Bucket 1' })).toBeVisible();
+    expect(within(bucket(1)).getByText('G1–S12')).toBeVisible();
+    // Done folds the row to its summary line; Edit opens it again.
+    await user.click(within(bucket(1)).getByRole('button', { name: 'Done with Bucket 1' }));
+    expect(within(bucket(1)).queryByLabelText('Bucket 1 note (optional)')).toBeNull();
+    expect(within(bucket(1)).getByText('TH26-01')).toBeVisible();
+    await user.click(within(bucket(1)).getByRole('button', { name: 'Edit Bucket 1' }));
+    expect(within(bucket(1)).getByLabelText('Bucket 1 note (optional)')).toBeVisible();
+
+    // Back keeps everything.
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByLabelText('Project name')).toHaveValue('Riverbank investigation');
+  });
+
+  it('keeps a typed or scanned shelf as where the unit will go, without sending it', async () => {
+    const user = userEvent.setup();
+    const posts: unknown[] = [];
+    renderWizard({
+      'GET /api/locations': () =>
+        json(200, [{ id: 'loc-1', code: 'WH-C2', name: 'Warehouse C2', active: true }]),
+      'POST /api/receipts': (body) => {
+        posts.push(body);
+        return json(201, issued(body));
+      },
+    });
+    await toUnits(user);
+    await addHole(user, bucket(1), 'TH26-01');
+    const where = within(bucket(1)).getByLabelText('Where Bucket 1 will go (optional)');
+    // A handheld scanner types the shelf label's payload.
+    await user.type(where, 'LOC-WH-C2{Enter}');
+    await waitFor(() => expect(where).toHaveValue('WH-C2 · Warehouse C2'));
+    expect(within(bucket(1)).getByText('Goes to WH-C2 · Warehouse C2')).toBeVisible();
+    await user.click(screen.getByRole('checkbox', { name: /Print 1 label/ }));
+    await user.click(confirmButton());
+    expect(await screen.findByRole('heading', { level: 1, name: '1 ID issued' })).toBeVisible();
+    expect(screen.getByText('Goes to WH-C2 · Warehouse C2')).toBeVisible();
+    expect(JSON.stringify(posts[0])).not.toContain('WH-C2');
   });
 });
 
@@ -183,42 +240,61 @@ describe('Receiving wizard (MM-T10)', () => {
   it('AC1/AC2: two buckets, one with a mixed-hole summary, confirmed in one request', async () => {
     const user = userEvent.setup();
     const posts: unknown[] = [];
+    const prints: unknown[] = [];
     renderWizard({
       'POST /api/receipts': (body) => {
         posts.push(body);
         return json(201, issued(body));
       },
+      'POST /api/print-jobs': (body) => {
+        prints.push(body);
+        return json(500, {});
+      },
     });
-    await chooseProject(user);
+    await toUnits(user);
     expect(screen.getAllByText('1 storage unit').length).toBeGreaterThan(0);
 
     await addHole(user, bucket(1), 'TH26-01');
     await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S12');
     await addHole(user, bucket(1), 'TH26-02');
     await user.selectOptions(holeGroup(bucket(1), 'TH26-02').getByLabelText('Summary type'), 'all');
-    expect(within(bucket(1)).getByText('TH26-01: G1–S12 · TH26-02: All samples')).toBeVisible();
+    const lines = within(bucket(1)).getByRole('list', { name: 'Bucket 1 contents' });
+    expect(
+      within(lines)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['TH26-01G1–S12', 'TH26-02All samples']);
 
-    await user.click(screen.getByRole('button', { name: 'Add bucket' }));
+    await user.click(screen.getByRole('button', { name: 'Add a storage unit' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
     await addHole(user, bucket(2), 'TH26-01');
     await sampleRange(user, bucket(2), 'TH26-01', 'G13', 'S32');
-
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    const review1 = await screen.findByRole('region', { name: 'Bucket 1' });
-    expect(within(review1).getByText('G1–S12')).toBeInTheDocument();
-    expect(within(review1).getByText('All samples')).toBeInTheDocument();
     expect(within(bucket(2)).getByText('G13–S32')).toBeInTheDocument();
     expect(screen.getByText('None')).toBeInTheDocument(); // blank description (AC8)
-    expect(screen.getByText('2 storage units')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: 'On confirm' })).getByText('2 buckets'),
+    ).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Confirm receipt' }));
-    expect(await screen.findByRole('heading', { name: 'BKT-2026-000001' })).toBeInTheDocument();
+    await user.click(confirmButton());
+    expect(await screen.findByRole('heading', { level: 1, name: '2 IDs issued' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'BKT-2026-000001' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'BKT-2026-000002' })).toBeInTheDocument();
+    expect(screen.getByText('CONFIRMED')).toBeVisible();
+    // Labels were sent on confirm; a failed print says the IDs are still issued.
+    expect(
+      await screen.findByText(/The IDs are issued, but the labels didn’t print/),
+    ).toBeVisible();
+    expect(prints).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Print all labels' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Print BKT-2026-000001' })).toBeEnabled();
     expect(screen.getByRole('link', { name: 'Open BKT-2026-000002' })).toHaveAttribute(
       'href',
       '/sample-storage/BKT-2026-000002',
+    );
+    // The next physical task is the primary action.
+    expect(screen.getByRole('link', { name: 'Put these 2 away' })).toHaveAttribute(
+      'href',
+      '/sample-storage/move',
     );
 
     expect(posts).toHaveLength(1);
@@ -237,20 +313,39 @@ describe('Receiving wizard (MM-T10)', () => {
     // Receive another starts a new draft with a new idempotency key.
     await user.click(screen.getByRole('button', { name: 'Receive another' }));
     expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveValue('');
-    expect(screen.getAllByText('1 storage unit').length).toBeGreaterThan(0);
     expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
   });
 
-  it('AC3: a reversed depth range and a missing ft/m block Next with a linked error summary', async () => {
+  it('prints nothing on confirm when Print labels is cleared', async () => {
+    const user = userEvent.setup();
+    const prints: unknown[] = [];
+    renderWizard({
+      'POST /api/receipts': (body) => json(201, issued(body)),
+      'POST /api/print-jobs': (body) => {
+        prints.push(body);
+        return json(500, {});
+      },
+    });
+    await toUnits(user);
+    await addHole(user, bucket(1), 'TH26-01');
+    await user.click(screen.getByRole('checkbox', { name: /Print 1 label/ }));
+    await user.click(confirmButton());
+    expect(await screen.findByRole('heading', { level: 1, name: '1 ID issued' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Print all labels' })).toBeEnabled();
+    expect(screen.getByRole('link', { name: 'Put this unit away' })).toBeVisible();
+    expect(prints).toHaveLength(0);
+  });
+
+  it('AC3: a reversed depth range and a missing ft/m block Confirm with a linked error summary', async () => {
     const user = userEvent.setup();
     renderWizard();
-    await chooseProject(user);
+    await toUnits(user);
     await addHole(user, bucket(1), 'TH26-01');
     const group = holeGroup(bucket(1), 'TH26-01');
     await user.selectOptions(group.getByLabelText('Summary type'), 'depth_range');
     await user.type(group.getByLabelText('Depth from'), '30');
     await user.type(group.getByLabelText('Depth to'), '0');
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    await user.click(confirmButton());
 
     const summary = screen.getByRole('alert');
     expect(summary).toHaveFocus();
@@ -267,34 +362,35 @@ describe('Receiving wizard (MM-T10)', () => {
       'aria-invalid',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Next: Review' })).toBeInTheDocument();
+    // A unit with problems on show can't be folded away.
+    expect(within(bucket(1)).queryByRole('button', { name: 'Done with Bucket 1' })).toBeNull();
 
     await user.click(within(summary).getByRole('link', { name: /Depth to must be/ }));
     expect(group.getByLabelText('Depth to')).toHaveFocus();
 
-    // Fixing both moves on; 10.5 m stays 10.5 m (AC4).
+    // Fixing both clears the summary; 10.5 m stays 10.5 m (AC4).
     await user.clear(group.getByLabelText('Depth from'));
     await user.type(group.getByLabelText('Depth from'), '0');
     await user.clear(group.getByLabelText('Depth to'));
     await user.type(group.getByLabelText('Depth to'), '10.5');
     await user.click(group.getByRole('radio', { name: 'm' }));
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    expect(await screen.findByText('0–10.5 m')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(within(bucket(1)).getByText('0–10.5 m')).toBeInTheDocument();
   });
 
   it('MTR-133: required fields are marked before submit and errors set aria-invalid', async () => {
     const user = userEvent.setup();
     renderWizard();
-    const details = await screen.findByRole('region', { name: 'Details' });
+    const delivery = await screen.findByRole('region', { name: 'Delivery' });
     // Project, Received date and Received by, shown as text before anything is submitted.
-    expect(within(details).getAllByText('(required)')).toHaveLength(3);
+    expect(within(delivery).getAllByText('(required)')).toHaveLength(3);
     expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveAttribute(
       'aria-required',
       'true',
     );
     expect(screen.getByLabelText(/^Received date/)).toBeRequired();
 
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     expect(screen.getByRole('alert')).toHaveFocus();
     expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveAttribute(
       'aria-invalid',
@@ -302,9 +398,10 @@ describe('Receiving wizard (MM-T10)', () => {
     );
 
     await chooseProject(user);
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     const holes = within(bucket(1)).getByRole('group', { name: /Test holes/ });
     expect(within(holes).getByText('(required)')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    await user.click(confirmButton());
     expect(
       within(bucket(1)).getByRole('combobox', { name: 'Find or add a test hole' }),
     ).toHaveAttribute('aria-invalid', 'true');
@@ -313,15 +410,15 @@ describe('Receiving wizard (MM-T10)', () => {
   it('AC3: empty Custom text and a unit without a test hole are reported', async () => {
     const user = userEvent.setup();
     renderWizard();
-    await chooseProject(user);
+    await toUnits(user);
     await addHole(user, bucket(1), 'TH26-01');
     await user.selectOptions(
       holeGroup(bucket(1), 'TH26-01').getByLabelText('Summary type'),
       'custom',
     );
     expect(screen.getByText('State units if you describe depths.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Add bucket' }));
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    await user.click(screen.getByRole('button', { name: 'Add a storage unit' }));
+    await user.click(confirmButton());
     const summary = screen.getByRole('alert');
     expect(
       within(summary)
@@ -333,41 +430,37 @@ describe('Receiving wizard (MM-T10)', () => {
     ]);
   });
 
-  it('AC6/AC7: offline disables Confirm with the message; Review → Back → Review keeps everything', async () => {
+  it('AC6/AC7: offline disables Confirm with the message; Units → Delivery → Units keeps everything', async () => {
     const user = userEvent.setup();
     renderWizard();
     await chooseProject(user);
     await user.type(screen.getByLabelText('Description (optional)'), 'Two buckets');
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     await addHole(user, bucket(1), 'TH26-01');
     const group = holeGroup(bucket(1), 'TH26-01');
     await user.selectOptions(group.getByLabelText('Summary type'), 'custom');
     await user.type(group.getByLabelText('Custom summary'), 'Grab samples, 0–2 m');
     await user.type(within(bucket(1)).getByLabelText('Bucket 1 note (optional)'), 'Lid cracked');
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    expect(screen.getByText('Two buckets')).toBeInTheDocument();
 
     setOnline(false);
     expect(
       screen.getByText("You're offline. Your draft is kept. Connect to confirm."),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Confirm receipt' })).toBeDisabled();
+    expect(confirmButton()).toBeDisabled();
 
-    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await user.click(screen.getByRole('button', { name: 'Edit delivery' }));
     expect(screen.getByLabelText('Description (optional)')).toHaveValue('Two buckets');
+    expect(screen.getByLabelText('Project name')).toHaveValue('Riverbank investigation');
+    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
+
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     expect(holeGroup(bucket(1), 'TH26-01').getByLabelText('Custom summary')).toHaveValue(
       'Grab samples, 0–2 m',
     );
     expect(within(bucket(1)).getByLabelText('Bucket 1 note (optional)')).toHaveValue('Lid cracked');
-    expect(screen.getByLabelText('Project name')).toHaveValue('Riverbank investigation');
-    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
-
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    expect(screen.getByText('Grab samples, 0–2 m')).toBeInTheDocument();
     setOnline(true);
-    expect(screen.getByRole('button', { name: 'Confirm receipt' })).toBeEnabled();
-
-    // Edit on a unit returns to that unit on step 1.
-    await user.click(screen.getByRole('button', { name: 'Edit Bucket 1' }));
-    expect(screen.getByRole('heading', { name: 'Bucket 1' })).toHaveFocus();
+    expect(confirmButton()).toBeEnabled();
   });
 
   it('retries a lost response automatically with the same idempotency key and body', async () => {
@@ -380,11 +473,10 @@ describe('Receiving wizard (MM-T10)', () => {
         return json(200, issued(body, 7));
       },
     });
-    await chooseProject(user);
+    await toUnits(user);
     await addHole(user, bucket(1), 'TH26-01');
     await user.selectOptions(holeGroup(bucket(1), 'TH26-01').getByLabelText('Summary type'), 'all');
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    await user.click(screen.getByRole('button', { name: 'Confirm receipt' }));
+    await user.click(confirmButton());
     expect(screen.getByRole('button', { name: /Confirming/ })).toBeDisabled();
     expect(
       await screen.findByRole('heading', { name: 'BKT-2026-000007' }, { timeout: 3000 }),
@@ -393,7 +485,7 @@ describe('Receiving wizard (MM-T10)', () => {
     expect(bodies[1]).toBe(bodies[0]);
   });
 
-  it('server field errors return to step 1 next to the field', async () => {
+  it('server field errors return to Delivery next to the field', async () => {
     const user = userEvent.setup();
     renderWizard({
       'POST /api/receipts': () =>
@@ -408,11 +500,10 @@ describe('Receiving wizard (MM-T10)', () => {
           ],
         }),
     });
-    await chooseProject(user);
+    await toUnits(user);
     await addHole(user, bucket(1), 'TH26-01');
     await user.selectOptions(holeGroup(bucket(1), 'TH26-01').getByLabelText('Summary type'), 'all');
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    await user.click(screen.getByRole('button', { name: 'Confirm receipt' }));
+    await user.click(confirmButton());
     const summary = await screen.findByRole('alert');
     expect(
       within(summary).getByRole('link', { name: 'Received by must be an active staff member.' }),
@@ -426,11 +517,11 @@ describe('Receiving wizard (MM-T10)', () => {
   it('Enter in a unit field never submits; Alt+N adds a unit; duplicate and remove', async () => {
     const user = userEvent.setup();
     renderWizard();
-    await chooseProject(user);
+    await toUnits(user);
     await addHole(user, bucket(1), 'TH26-01');
     await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S4');
     await user.type(within(bucket(1)).getByLabelText('Bucket 1 note (optional)'), 'Heavy{Enter}');
-    expect(screen.getByRole('button', { name: 'Next: Review' })).toBeInTheDocument();
+    expect(confirmButton()).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
 
     await user.keyboard('{Alt>}n{/Alt}');
@@ -440,92 +531,22 @@ describe('Receiving wizard (MM-T10)', () => {
     ).toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Duplicate Bucket 1' }));
     expect(screen.getAllByText('3 storage units').length).toBeGreaterThan(0);
-    expect(within(bucket(2)).getByText('TH26-01: G1–S4')).toBeInTheDocument();
+    expect(within(bucket(2)).getByText('G1–S4')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Remove Bucket 3' }));
     expect(screen.getAllByText('2 storage units').length).toBeGreaterThan(0);
-    // MTR-136: focus goes to the bucket before the removed one, then to Add bucket.
+    // MTR-136: focus goes to the unit before the removed one, then to Add a storage unit.
     expect(screen.getByRole('heading', { level: 3, name: 'Bucket 2' })).toHaveFocus();
     await user.click(screen.getByRole('button', { name: 'Remove Bucket 1' }));
     await user.click(screen.getByRole('button', { name: 'Remove Bucket 1' }));
-    expect(screen.getByRole('button', { name: 'Add bucket' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Add a storage unit' })).toHaveFocus();
   });
 
-  describe('MM-T66 UI-08/UI-11: Review receipt above 1280px', () => {
-    /** matchMedia that answers `wide` for exactly the "> 1280px" query and records the queries. */
-    function stubWidth(wide: boolean) {
-      const queries: string[] = [];
-      vi.stubGlobal('matchMedia', (query: string) => {
-        queries.push(query);
-        return {
-          matches: wide && query === '(width > 1280px)',
-          media: query,
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-        };
-      });
-      return queries;
-    }
-
-    async function toReview(user: User) {
-      await chooseProject(user);
-      await addHole(user, bucket(1), 'TH26-01');
-      await sampleRange(user, bucket(1), 'TH26-01', 'G1', 'S4');
-      await addHole(user, bucket(1), 'TH26-02');
-      await user.selectOptions(
-        holeGroup(bucket(1), 'TH26-02').getByLabelText('Summary type'),
-        'all',
-      );
-      await user.click(screen.getByRole('button', { name: 'Add bucket' }));
-      await addHole(user, bucket(2), 'TH26-01');
-      await user.selectOptions(
-        holeGroup(bucket(2), 'TH26-01').getByLabelText('Summary type'),
-        'all',
-      );
-      await user.click(screen.getByRole('button', { name: 'Next: Review' }));
-    }
-
-    it('shows one table with shared headers, a row per unit, every summary and Edit', async () => {
-      const queries = stubWidth(true);
-      const user = userEvent.setup();
-      renderWizard();
-      await toReview(user);
-
-      const table = await screen.findByRole('table', { name: 'Storage units in this receipt' });
-      expect(queries).toContain('(width > 1280px)');
-      expect(
-        within(table)
-          .getAllByRole('columnheader')
-          .map((th) => th.textContent),
-      ).toEqual(['Storage unit', 'Type', 'Sampling source (SAMPLE#/DEPTH)', 'Note', 'Actions']);
-      const [, first, second] = within(table).getAllByRole('row');
-      expect(within(first!).getByRole('rowheader')).toHaveTextContent('Bucket 1');
-      expect(first).toHaveTextContent('TH26-01 G1–S4');
-      expect(first).toHaveTextContent('TH26-02 All samples');
-      expect(within(second!).getByRole('rowheader')).toHaveTextContent('Bucket 2');
-      // No separate card per unit at this width.
-      expect(screen.queryByRole('region', { name: 'Bucket 1' })).toBeNull();
-      // UI-11: the Details summary keeps every field and its action.
-      const details = await screen.findByRole('region', { name: 'Details' });
-      for (const term of ['Project', 'Received date', 'Received by', 'Description', 'Quantity']) {
-        expect(within(details).getByText(term)).toBeInTheDocument();
-      }
-      expect(within(details).getByRole('button', { name: 'Edit details' })).toBeEnabled();
-
-      await user.click(within(table).getByRole('button', { name: 'Edit Bucket 2' }));
-      // Focus moves to the unit's heading once it renders. Query inside waitFor so a re-rendered
-      // heading is found again (MM-T71: this was flaky on busy CI).
-      await waitFor(() => expect(screen.getByRole('heading', { name: 'Bucket 2' })).toHaveFocus());
-    });
-
-    it('keeps a card per unit at 1280px and below', async () => {
-      stubWidth(false);
-      const user = userEvent.setup();
-      renderWizard();
-      await toReview(user);
-      expect(await screen.findByRole('region', { name: 'Bucket 1' })).toBeInTheDocument();
-      expect(screen.getByRole('region', { name: 'Bucket 2' })).toBeInTheDocument();
-      expect(screen.queryByRole('table', { name: 'Storage units in this receipt' })).toBeNull();
-    });
+  it('Alt+N belongs to Units: it adds nothing on Delivery', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(await screen.findByLabelText('Description (optional)'));
+    await user.keyboard('{Alt>}n{/Alt}');
+    expect(screen.queryByRole('region', { name: /^Bucket \d$/ })).toBeNull();
   });
 
   describe('MM-T66 UI-05/UI-06: keyboard flow for test holes', () => {
@@ -535,7 +556,7 @@ describe('Receiving wizard (MM-T10)', () => {
     it('Alt+N adds one bucket and typing goes straight into its test hole search', async () => {
       const user = userEvent.setup();
       renderWizard();
-      await chooseProject(user);
+      await toUnits(user);
       await user.click(within(bucket(1)).getByLabelText('Bucket 1 note (optional)'));
       await user.keyboard('{Alt>}n{/Alt}');
       expect(screen.getAllByRole('region', { name: /^Bucket \d$/ })).toHaveLength(2);
@@ -553,7 +574,7 @@ describe('Receiving wizard (MM-T10)', () => {
     it('Alt+N still works after Enter has left the test hole search', async () => {
       const user = userEvent.setup();
       renderWizard();
-      await chooseProject(user);
+      await toUnits(user);
       await user.type(search(bucket(1)), 'TH26-01');
       await within(bucket(1)).findByRole('option', { name: 'TH26-01' });
       await user.keyboard('{Enter}');
@@ -562,18 +583,10 @@ describe('Receiving wizard (MM-T10)', () => {
       expect(search(bucket(2))).toHaveFocus();
     });
 
-    it('Alt+N before a project is chosen focuses the new bucket heading', async () => {
-      const user = userEvent.setup();
-      renderWizard();
-      await user.click(await screen.findByLabelText('Description (optional)'));
-      await user.keyboard('{Alt>}n{/Alt}');
-      expect(screen.getByRole('heading', { name: 'Bucket 2' })).toHaveFocus();
-    });
-
     it('Enter on an existing hole selects it, closes the list and leaves the search box', async () => {
       const user = userEvent.setup();
       renderWizard();
-      await chooseProject(user);
+      await toUnits(user);
       await user.type(search(bucket(1)), 'TH26-01');
       await within(bucket(1)).findByRole('option', { name: 'TH26-01' });
       await user.keyboard('{Enter}');
@@ -583,8 +596,8 @@ describe('Receiving wizard (MM-T10)', () => {
       expect(search(bucket(1))).not.toHaveFocus();
       expect(search(bucket(1))).toHaveAttribute('aria-expanded', 'false');
       expect(within(bucket(1)).queryByRole('listbox')).toBeNull();
-      // Nothing was submitted: still on Details.
-      expect(screen.getByRole('button', { name: 'Next: Review' })).toBeInTheDocument();
+      // Nothing was submitted: still on Units.
+      expect(confirmButton()).toBeInTheDocument();
     });
 
     it('Enter on "Add …" creates the hole, selects it and leaves the search box', async () => {
@@ -593,7 +606,7 @@ describe('Receiving wizard (MM-T10)', () => {
       renderWizard({
         [`POST /api/projects/${project.id}/test-holes`]: () => json(201, th3),
       });
-      await chooseProject(user);
+      await toUnits(user);
       await user.type(search(bucket(1)), 'TH26-03');
       await within(bucket(1)).findByRole('option', { name: 'Add TH26-03' });
       await user.keyboard('{Enter}');
@@ -613,7 +626,7 @@ describe('Receiving wizard (MM-T10)', () => {
           throw new TypeError('Failed to fetch');
         },
       });
-      await chooseProject(user);
+      await toUnits(user);
       await user.type(search(bucket(1)), 'TH26-04');
       await within(bucket(1)).findByRole('option', { name: 'Add TH26-04' });
       await user.keyboard('{Enter}');
@@ -642,7 +655,7 @@ describe('Receiving wizard (MM-T10)', () => {
       me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB', initials: null }),
     );
     expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
-    await user.click(screen.getByRole('button', { name: 'Next: Review' }));
+    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     expect(
       within(screen.getByRole('alert')).getByRole('link', {
         name: 'Choose who received the samples.',

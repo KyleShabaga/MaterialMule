@@ -41,6 +41,17 @@ export async function chooseDemoProject(page: Page) {
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
 }
 
+/** Delivery → Units (Field Ledger receiving: units are added on step 2). */
+export async function toUnits(page: Page) {
+  await page.getByRole('button', { name: 'Next: add the units' }).click();
+  await expect(page.getByRole('heading', { name: 'Storage units in this delivery' })).toBeVisible();
+}
+
+/** Confirms the delivery from the On confirm panel (IDs are issued only here). */
+export async function confirmDelivery(page: Page) {
+  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
+}
+
 export async function addHole(unit: Locator, name: string) {
   await unit.getByRole('combobox', { name: 'Find or add a test hole' }).fill(name);
   await unit.getByRole('option', { name, exact: true }).click();

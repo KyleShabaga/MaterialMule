@@ -5,10 +5,12 @@ import {
   bucket,
   chooseDemoProject,
   chooseReceiver,
+  confirmDelivery,
   issuedIds,
   openWizard,
   receiptsDescribed,
   summaryOf,
+  toUnits,
   uniqueTag,
 } from '../support/receiving';
 
@@ -27,14 +29,14 @@ test(
     await chooseReceiver(page, 'AT', /^AT · Alex Tester/);
     await chooseDemoProject(page);
     await page.getByLabel('Description (optional)').fill(description);
+    await toUnits(page);
     await addHole(bucket(page, 1), 'TH26-01');
     await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
-    await page.getByRole('button', { name: 'Next: Review' }).click();
     await expect(page.locator('.draft-status')).toContainText('Receiver: AT');
 
     // The month is up while the receipt is on screen.
     await expireSession(firstSession);
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    await confirmDelivery(page);
     const expired = page.getByRole('alert').filter({ hasText: 'LAB session has expired' });
     await expect(expired).toContainText('Your draft is saved. Sign in to confirm.');
     await expect(page.getByText(description)).toBeVisible();
@@ -50,7 +52,7 @@ test(
       page.getByRole('region', { name: 'This draft was started for AT. Change receiver?' }),
     ).toBeVisible();
     await expect(page.getByText(description)).toBeVisible();
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    await confirmDelivery(page);
     const [id] = await issuedIds(page);
     expect(await receiptsDescribed(description)).toMatchObject([
       { quantity: 1, readable_ids: [id], receiver_initials_snapshot: 'AT' },

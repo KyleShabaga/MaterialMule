@@ -9,6 +9,7 @@ import {
   bucket,
   chooseDemoProject,
   chooseReceiver,
+  confirmDelivery,
   createProjectThroughApi,
   DEMO,
   issuedIds,
@@ -17,6 +18,7 @@ import {
   receiveThroughApi,
   sampleRange,
   summaryOf,
+  toUnits,
   uniqueTag,
   unitState,
 } from '../support/receiving';
@@ -43,17 +45,17 @@ test(
       /^AT · Alex Tester/,
     );
     await page.getByLabel('Description (optional)').fill(description);
+    await toUnits(page);
     await addHole(bucket(page, 1), 'TH26-01');
     await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-    await page.getByRole('button', { name: 'Add bucket' }).click();
+    await page.getByRole('button', { name: 'Add a storage unit' }).click();
     await addHole(bucket(page, 2), 'TH26-01');
     await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
     // D41: the quantity is calculated from the units; never an individual sample list (CLAUDE.md).
     await expect(page.getByText('2 storage units').first()).toBeVisible();
     await expect(page.getByLabel(/sample (number|id)/i)).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Next: Review' }).click();
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    await confirmDelivery(page);
     const ids = await issuedIds(page);
     expect(ids).toHaveLength(2);
 
@@ -102,14 +104,16 @@ test(
 
     await chooseDemoProject(page);
     await page.getByLabel('Description (optional)').fill(description);
+    await toUnits(page);
     const unit = bucket(page, 1);
     await addHole(unit, 'TH26-01');
     await sampleRange(unit, 'TH26-01', 'G1', 'S12');
     await addHole(unit, 'TH26-02');
     await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
-    await expect(unit.getByText('TH26-01: G1–S12 · TH26-02: All samples')).toBeVisible();
-    await page.getByRole('button', { name: 'Next: Review' }).click();
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    await expect(
+      unit.getByRole('list', { name: 'Bucket 1 contents' }).getByRole('listitem'),
+    ).toHaveText(['TH26-01G1–S12', 'TH26-02All samples']);
+    await confirmDelivery(page);
     const [id] = await issuedIds(page);
 
     const [receipt] = await receiptsDescribed(description);
@@ -171,6 +175,7 @@ test(
       .selectOption({ label: 'PE · Pat Example' });
     await form.getByRole('button', { name: 'Save project' }).click();
     await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
+    await toUnits(page);
 
     // ... and a hole that doesn't exist in it yet.
     const unit = bucket(page, 1);
@@ -179,12 +184,10 @@ test(
     await summaryOf(unit, 'TH26-03').getByLabel('Summary type').selectOption('all');
 
     // Nothing typed earlier was lost.
-    await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
-      /^AT · Alex Tester/,
-    );
-    await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
-    await page.getByRole('button', { name: 'Next: Review' }).click();
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    const delivery = page.getByRole('group', { name: 'Delivery' });
+    await expect(delivery).toContainText('AT · Alex Tester');
+    await expect(delivery).toContainText(description);
+    await confirmDelivery(page);
     const [id] = await issuedIds(page);
 
     expect(await receiptsDescribed(description)).toMatchObject([
@@ -219,15 +222,15 @@ test(
       await openWizard(page);
       await chooseDemoProject(page);
       await page.getByLabel('Description (optional)').fill(description);
+      await toUnits(page);
       await addHole(bucket(page, 1), 'TH26-01');
       await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S4');
-      await page.getByRole('button', { name: 'Next: Review' }).click();
     }
 
     // 1. Double-click: one receipt, one unit.
     const doubled = uniqueTag('T18-dblclick');
     await fillOneBucket(doubled);
-    await page.getByRole('button', { name: 'Confirm receipt' }).dblclick();
+    await page.getByRole('button', { name: 'Confirm and issue IDs' }).dblclick();
     const [first] = await issuedIds(page);
     expect(await receiptsDescribed(doubled)).toMatchObject([
       { quantity: 1, readable_ids: [first] },
@@ -249,7 +252,7 @@ test(
       await route.continue();
     });
     await fillOneBucket(lost);
-    await page.getByRole('button', { name: 'Confirm receipt' }).click();
+    await confirmDelivery(page);
     const [second] = await issuedIds(page);
     expect(posts.length).toBeGreaterThanOrEqual(2);
     const keys = new Set(
@@ -268,19 +271,21 @@ test('a failed print then a reprint keep the same IDs and location', critical, a
   await openWizard(page);
   await chooseDemoProject(page);
   await page.getByLabel('Description (optional)').fill(description);
+  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-  await page.getByRole('button', { name: 'Add bucket' }).click();
+  await page.getByRole('button', { name: 'Add a storage unit' }).click();
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
-  await page.getByRole('button', { name: 'Next: Review' }).click();
-  await page.getByRole('button', { name: 'Confirm receipt' }).click();
+  // Print from the confirmation screen, so the printer can be told to drop this job first.
+  await page.getByRole('checkbox', { name: /Print 2 labels/ }).uncheck();
+  await confirmDelivery(page);
   const ids = await issuedIds(page);
   const before = await unitState(ids);
 
   // The printer drops the connection part-way through this receipt's labels.
   await dropNextPrintJobContaining(ids[0]!);
-  const labels = page.getByRole('region', { name: 'Receipt confirmed' });
+  const labels = page.getByRole('region', { name: 'Next: put them away' });
   await labels.getByRole('button', { name: 'Print all labels' }).click();
   await expect(labels.getByText('Unknown — check the printer before reprinting')).toBeVisible({
     timeout: 15_000,
