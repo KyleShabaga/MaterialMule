@@ -226,11 +226,7 @@ export function SampleTagsPage() {
   const chosen = tags.filter((tag) => !notSelected.has(tag.key));
   const sheets = layoutTagSheets(chosen.length, start);
   const previewRef = useRef<HTMLDivElement>(null);
-  const overflowing = useFitText(previewRef, [
-    chosen.map((tag) => tag.key).join('|'),
-    start,
-    date,
-  ]);
+  const overflowing = useFitText(previewRef, [chosen.map((tag) => tag.key).join('|'), start, date]);
 
   const toggle = useCallback(
     (key: string) => {
