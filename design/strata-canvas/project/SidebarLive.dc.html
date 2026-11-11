@@ -144,11 +144,11 @@ Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class
 <header class="flex h-14 shrink-0 items-center gap-2 border-b px-4">
 <x-import component-from-global-scope="Strata.SidebarTrigger" class-name="-ml-1"></x-import>
 <span class="text-sm font-semibold">Today</span>
-<div class="ml-auto flex items-center gap-1">
+<div class="ml-auto flex items-center gap-2">
 <!-- Quick actions: start common work from any page -->
 <x-import component-from-global-scope="Strata.DropdownMenu">
-<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Quick actions" title="Quick actions" class-name="text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:ring-ring/50 inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
-<x-import component-from-global-scope="Strata.Icon" name="plus" class-name="size-5"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Quick actions" title="Quick actions" class-name="bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
+<x-import component-from-global-scope="Strata.Icon" name="zap" class-name="size-5"></x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuContent" align="end" side-offset="{{four}}" class-name="w-64">
 <x-import component-from-global-scope="Strata.DropdownMenuLabel">Quick actions</x-import>
@@ -164,7 +164,7 @@ Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class
 </x-import>
 <!-- Notifications: always the last item on the right -->
 <x-import component-from-global-scope="Strata.Popover">
-<x-import component-from-global-scope="Strata.PopoverTrigger" aria-label="Notifications, 2 unread" title="Notifications" class-name="text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
+<x-import component-from-global-scope="Strata.PopoverTrigger" aria-label="Notifications, 2 unread" title="Notifications" class-name="bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
 <x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-5"></x-import>
 <span aria-hidden="true" class="bg-primary ring-background absolute top-2.5 right-2.5 size-2 rounded-full ring-2"></span>
 </x-import>

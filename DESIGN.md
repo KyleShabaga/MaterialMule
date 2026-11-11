@@ -269,11 +269,11 @@ stay readable on a phone in a dim storage room.
 - **Rail footer:** Settings, Help & Feedback, then the account row (initials avatar, name, role,
   sign-out icon button). Shared LAB stations show "Switch user" and the session end under it.
 - **Top bar**, 56 px, `background`, bottom border: the sidebar toggle and the page title at the
-  left; at the right, on every page, the quick actions button (`plus`, a `DropdownMenu`: Receive
+  left; at the right, on every page, the quick actions button (`zap`, a `DropdownMenu`: Receive
   storage units, Request lab testing, New concrete field report, Move storage units, then Scan a
   label) and, always last, the notification bell (`bell`, a `Popover` listing recent notifications
-  with Mark all read and Open Inbox; a primary dot when any are unread). Both are 44 px icon
-  buttons. Search lives in the sidebar.
+  with Mark all read and Open Inbox; a primary dot when any are unread). Both are 44 px outline icon
+  buttons (border, `background` fill, `shadow-xs`), 8 px apart. Search lives in the sidebar.
 - **Page head:** a context row (back link, record tags, step control) above the page title, with
   the page's actions at the right of the title. One primary action at most.
 - **Content** is capped at 1280 px with 32 px padding. Two-column pages split 2:1 and wrap to one
@@ -446,7 +446,7 @@ Navigation labels are the seven destinations above.
   Lucide's default 2 px stroke; 16 px in the sidebar and menus, 20 px elsewhere. Names in use:
   `house` Today, `inbox` Inbox, `square-check-big` My requests, `folder` Projects,
   `arrow-down-to-line` Receive, `package` Inventory, `flask-conical` Lab programs, `hourglass`
-  Retention, `cylinder` Concrete, `search`, `scan-line`, `bell`, `settings`,
+  Retention, `cylinder` Concrete, `search`, `scan-line`, `zap` Quick actions, `bell`, `settings`,
   `circle-question-mark` Help, `bug` Feedback & bugs, `log-out` Sign out, `chevrons-up-down`,
   `chevron-down`, `chevron-right`, `arrow-right`, `check`, `lock`, `clock`, `circle-alert`, `pause`.
 - **Checks:** `npm run check:bundle` and `npm run verify` stay the gate; no new runtime network
