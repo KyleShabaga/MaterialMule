@@ -260,11 +260,60 @@ describe.runIf(superuser)('least-privilege database roles (MM-T20)', () => {
       'role-attributes',
       'schema-ownership',
       'public-access',
+      'append-only-triggers',
       'read-only-tables',
       'append-only-tables',
       'no-truncate',
       'backup-role-read-only',
     ]);
+  });
+
+  it('#102: never grants UPDATE or DELETE on audit_event again after its triggers are dropped', async () => {
+    const roleNames = {
+      migrationRole: MIGRATION_ROLE,
+      appRole: APP_ROLE,
+      backupRole: BACKUP_ROLE,
+      schema: scratch.schema,
+    };
+    const privilege = async (kind: string) =>
+      (
+        await admin.query<{ ok: boolean }>('SELECT has_table_privilege($1, $2, $3) AS ok', [
+          APP_ROLE,
+          `${scratch.schema}.audit_event`,
+          kind,
+        ])
+      ).rows[0]!.ok;
+    const auditEvent = `${scratch.schema}.audit_event`;
+    await owner.query(`DROP TRIGGER audit_event_no_update_delete ON ${auditEvent}`);
+    await owner.query(`DROP TRIGGER audit_event_no_truncate ON ${auditEvent}`);
+    try {
+      // Rerun setup twice, as an operator would after a failed check.
+      await setUpDatabaseRoles(admin, roleNames);
+      await setUpDatabaseRoles(admin, roleNames);
+      expect(await privilege('UPDATE')).toBe(false);
+      expect(await privilege('DELETE')).toBe(false);
+      expect(await privilege('TRUNCATE')).toBe(false);
+      expect(await outcome(app, 'DELETE FROM audit_event')).toBe('42501');
+
+      const results = await checkDatabaseSecurity(app, roleNames);
+      const triggers = results.find((result) => result.check === 'append-only-triggers')!;
+      expect(triggers.status).toBe('fail');
+      expect(triggers.detail).toBe(
+        'audit_event: trigger audit_event_no_update_delete is missing, ' +
+          'trigger audit_event_no_truncate is missing',
+      );
+      expect(results.find((result) => result.check === 'append-only-tables')!.status).toBe('pass');
+    } finally {
+      // Put the triggers back for the rest of this file, exactly as the baseline creates them.
+      await owner.query(
+        `CREATE TRIGGER audit_event_no_update_delete BEFORE UPDATE OR DELETE ON ${auditEvent}
+           FOR EACH ROW EXECUTE FUNCTION ${scratch.schema}.audit_event_is_append_only()`,
+      );
+      await owner.query(
+        `CREATE TRIGGER audit_event_no_truncate BEFORE TRUNCATE ON ${auditEvent}
+           FOR EACH STATEMENT EXECUTE FUNCTION ${scratch.schema}.audit_event_is_append_only()`,
+      );
+    }
   });
 
   it('keeps PUBLIC out of the database and the schema', async () => {

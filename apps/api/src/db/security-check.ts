@@ -1,5 +1,10 @@
-import { escapeIdentifier, type Pool } from 'pg';
-import { APP_READ_ONLY_TABLES, appendOnlyTables, assertRoleName } from './roles.js';
+import { escapeIdentifier, type Pool, type PoolClient } from 'pg';
+import {
+  APP_READ_ONLY_TABLES,
+  APPEND_ONLY_TABLES,
+  appendOnlyTables,
+  assertRoleName,
+} from './roles.js';
 
 /**
  * Read-only database security check for the production host (MM-T68, run on the host by MM-T90
@@ -184,7 +189,23 @@ export async function checkDatabaseSecurity(
       return found;
     };
 
-    const appendOnly = await appendOnlyTables(client, schema);
+    // The independent inventory decides which tables must be append-only (#102); tables found
+    // through their triggers are checked too, so nothing a migration protects is skipped.
+    const discovered = await appendOnlyTables(client, schema);
+    const appendOnly = [
+      ...new Set([...APPEND_ONLY_TABLES.map((entry) => entry.table), ...discovered]),
+    ].sort();
+    const { rows: existingTables } = await client.query<{ table: string }>(
+      'SELECT tablename AS table FROM pg_tables WHERE schemaname = $1 AND tablename = ANY($2)',
+      [schema, appendOnly],
+    );
+    const present = new Set(existingTables.map((row) => row.table));
+    add(
+      'append-only-triggers',
+      await appendOnlyTriggerProblems(client, schema, present),
+      `${APPEND_ONLY_TABLES.length} append-only tables: every protecting trigger exists and is enabled`,
+    );
+
     if (!exists(roles.appRole)) {
       for (const check of ['read-only-tables', 'append-only-tables', 'no-truncate']) {
         add(check, [missing(roles.appRole)], '');
@@ -199,8 +220,11 @@ export async function checkDatabaseSecurity(
       add('read-only-tables', readOnlyProblems, `${APP_READ_ONLY_TABLES.join(', ')}: read-only`);
 
       const appendProblems: string[] = [];
-      if (appendOnly.length === 0) appendProblems.push(`no append-only tables found in ${schema}`);
       for (const table of appendOnly) {
+        if (!present.has(table)) {
+          appendProblems.push(`${table} is missing from ${schema}`);
+          continue;
+        }
         const held = await heldPrivileges(roles.appRole, table, ['UPDATE', 'DELETE', 'TRUNCATE']);
         if (held.length > 0)
           appendProblems.push(`${roles.appRole} has ${held.join(', ')} on ${table}`);
@@ -276,6 +300,63 @@ export async function checkDatabaseSecurity(
     client.release();
   }
   return results;
+}
+
+const EVENT_BITS: Record<string, number> = { DELETE: 8, UPDATE: 16, TRUNCATE: 32 };
+
+/**
+ * Per table, what is wrong with the triggers APPEND_ONLY_TABLES expects: missing, disabled (or
+ * firing only for replication), running another function, or not covering an event (#102).
+ */
+async function appendOnlyTriggerProblems(
+  client: Pick<PoolClient, 'query'>,
+  schema: string,
+  present: Set<string>,
+): Promise<string[]> {
+  const { rows } = await client.query<{
+    table: string;
+    name: string;
+    function: string;
+    type: number;
+    enabled: string;
+  }>(
+    `SELECT c.relname AS table, t.tgname AS name, p.proname AS function, t.tgtype::int AS type,
+            t.tgenabled AS enabled
+       FROM pg_trigger t
+       JOIN pg_class c ON c.oid = t.tgrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_proc p ON p.oid = t.tgfoid
+      WHERE n.nspname = $1 AND NOT t.tgisinternal AND c.relname = ANY($2)`,
+    [schema, APPEND_ONLY_TABLES.map((entry) => entry.table)],
+  );
+  const problems: string[] = [];
+  for (const { table, triggers } of APPEND_ONLY_TABLES) {
+    if (!present.has(table)) {
+      problems.push(`${table}: table is missing`);
+      continue;
+    }
+    const issues: string[] = [];
+    for (const expected of triggers) {
+      const found = rows.find((row) => row.table === table && row.name === expected.name);
+      if (!found) {
+        issues.push(`trigger ${expected.name} is missing`);
+        continue;
+      }
+      // 'O' fires normally and 'A' always; 'D' is disabled and 'R' fires only for replication.
+      if (found.enabled !== 'O' && found.enabled !== 'A') {
+        issues.push(`trigger ${expected.name} is disabled`);
+      }
+      if (found.function !== expected.function) {
+        issues.push(`trigger ${expected.name} runs ${found.function}, not ${expected.function}`);
+      }
+      const uncovered = expected.events.filter((event) => (found.type & EVENT_BITS[event]!) === 0);
+      if (uncovered.length > 0) {
+        issues.push(`trigger ${expected.name} does not refuse ${uncovered.join(', ')}`);
+      }
+    }
+    if (issues.length > 0) problems.push(`${table}: ${issues.join(', ')}`);
+  }
+  return problems;
 }
 
 /** The runbook's postgresql.conf settings (local only, SCRAM, no statement logging, connections logged). */

@@ -52,10 +52,22 @@ and each project with each report scope, with its sources, using the central pol
 project loader) and every inbox route, applies the remaining migrations, records both again, and
 compares.
 
+What each permission check guarantees (review fix #97):
+
+- **Before = after** shows that the SQL migrations change no one's access. Both snapshots are
+  computed by the same policy code, so on its own it can't show that access is _right_: a wrong
+  grant in the policy appears in both and still compares equal.
+- **The frozen matrix** (`EXPECTED_GRANTS` in the test) is the reviewed, independent expectation:
+  every grant in the fixture, by person, source, project context and permission. Both snapshots
+  must equal it exactly, and the test proves the gate rejects an extra grant injected into both
+  snapshots and a source lost from both. A deliberate policy change (a new permission, a role
+  gaining or losing one) updates that list in the same pull request, where it is reviewed.
+
 | Check                                                               | Result at `b1dab39` (Linux, PostgreSQL 16.15)                        |
 | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Later migrations applied in order                                   | `0002`, `0003`, `0004`                                               |
 | Effective permissions before = after                                | identical: no access gained, none lost                               |
+| Both equal the frozen, reviewed matrix (added later, #97)           | not run at `b1dab39`; part of the test since review fixes C          |
 | Disabled admin, expired issuer grant, team member, staff capability | grant nothing, before and after                                      |
 | Inbox routes changed                                                | only the lapsed assignment: Jordan Smith → Lab (test) + Pat Example  |
 | Row counts (users, roles, audit, units, grants, items, assignments) | unchanged; storage unit IDs unchanged; the item still names Jordan   |

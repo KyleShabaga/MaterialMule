@@ -20,6 +20,8 @@ With -BackupConfigPath (MM-T21; only once IT has decided the backup design, D39)
    and the backup account; the service account may read status\ (Settings -> System status).
    The backup account also gets read access to <InstallRoot> (the release's scripts, release.json,
    deploy-state.json) and to the files directly in config\ (never config\admin\ or tls\).
+   When BackupAccount changes, the former account's rules there are removed (it is recorded in
+   config\admin\backup-account.txt; give -PreviousBackupAccount if the host predates the record).
 9. Windows event log source "MaterialMule" for backup and monitoring alerts.
 10. Scheduled tasks "\MaterialMule\Material Mule Backup" (at BackupTimes) and "\MaterialMule\Material
     Mule Monitor" (every MonitorIntervalMinutes), run as BackupAccount whether or not anyone is
@@ -48,6 +50,10 @@ param(
     # MM-T21: backup.config.psd1. Adds the backup folders, event log source and scheduled tasks;
     # refuses while IT's backup decisions (D39) are missing from it.
     [string]$BackupConfigPath,
+    # Review fix #101: the backup account this host used before BackupAccount was changed, when
+    # the installer has no record of it (hosts set up before the record in config\admin existed).
+    # Its installer-added read rules on <InstallRoot> and config\ are removed; nothing else is.
+    [string]$PreviousBackupAccount,
     # MM-T68: fail (non-zero exit) when the read-only checks (step 7) find PostgreSQL reachable from
     # other computers, a pg_hba method other than scram-sha-256 or a firewall rule opening TCP 5432,
     # instead of only warning.
@@ -243,21 +249,12 @@ if ($backupConfig) {
             }
         }
         # The scheduled tasks run the release's scripts and read the configuration: add the backup
-        # account's read rules to the protected folders of step 3 (also when -Skip Permissions).
-        $backupReadRules = Get-MaterialMuleBackupAccountRules -Config $config -BackupAccount $backupAccount
-        foreach ($dir in $backupReadRules.Keys) {
-            $rule = $backupReadRules[$dir]
-            $scope = if ($rule.InheritanceFlags -eq 'ObjectInherit') { 'the folder and the files directly in it' } else { 'the folder and everything in it' }
-            if ($PSCmdlet.ShouldProcess($dir, "add permission ($scope) $($rule.IdentityReference): $($rule.FileSystemRights)")) {
-                if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
-                    throw "$dir not found; run the Folders and Permissions steps first"
-                }
-                $info = [System.IO.DirectoryInfo]::new($dir)
-                $acl = [System.IO.FileSystemAclExtensions]::GetAccessControl($info, [System.Security.AccessControl.AccessControlSections]::Access)
-                $acl.AddAccessRule($rule)
-                [System.IO.FileSystemAclExtensions]::SetAccessControl($info, $acl)
-            }
-        }
+        # account's read rules to the protected folders of step 3 (also when -Skip Permissions),
+        # and remove the same rules of a former backup account (the one recorded in config\admin
+        # by the last run, or -PreviousBackupAccount), so a rotated account loses its access (#101).
+        $accessWarnings = Update-MaterialMuleBackupAccountAccess -Config $config -BackupAccount $backupAccount `
+            -PreviousBackupAccount $PreviousBackupAccount -WhatIf:$WhatIfPreference
+        foreach ($warning in $accessWarnings) { $warnings.Add($warning) }
         if (-not (Test-Path -LiteralPath $backupConfig.BackupTarget -PathType Container)) {
             $warnings.Add("Backup location $($backupConfig.BackupTarget) is not reachable from this session; check it as $backupAccount")
         }
