@@ -72,6 +72,15 @@
       "title": "Shell — shared LAB station (recording as, session end)",
       "is_interactive": true,
       "page": "shell"
+    },
+    "SettingsModal.dc.html": {
+      "x": 1360,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Settings — modal mock-up (Dark tweak)",
+      "page": "shell",
+      "is_interactive": true
     }
   },
   "order": [
@@ -80,7 +89,8 @@
     "SidebarLive.dc.html",
     "SidebarStation.dc.html",
     "SidebarVariants.dc.html",
-    "SidebarNav.dc.html"
+    "SidebarNav.dc.html",
+    "SettingsModal.dc.html"
   ],
   "notes": {
     "rowComponents": {
@@ -122,6 +132,14 @@
       "fill": "blue",
       "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional.",
       "page": "shell"
+    },
+    "settingsNotes": {
+      "x": 2720,
+      "y": 920,
+      "w": 400,
+      "fill": "yellow",
+      "page": "shell",
+      "text": "Settings mock-up: a modal over the shell (shadcn Dialog), opened from the account menu. Left: search and the app's real settings sections (You: Profile, Preferences, Notifications, My access; Lab: Staff, Locations, Printers, Receiving, Lab tests, Templates; Concrete: Equipment, Suppliers, Holidays, Report header; Admin: System status). Sections a person can't use would be hidden. Right: the open page, here a new Preferences page (theme, table rows, sidebar start, date format, week start, lab time zone, scan behaviour). Proposed: Preferences and its options are new; the rest exist today as /settings pages."
     }
   },
   "designSystems": []

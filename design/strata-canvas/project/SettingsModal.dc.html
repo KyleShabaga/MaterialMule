@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings modal</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="text-foreground relative font-sans" style="width: 1280px; height: 800px; overflow: hidden;">
+<!-- The shell behind, as it is -->
+<dc-import name="SidebarLive" dark="{{dark}}" hint-size="1280px,800px"></dc-import>
+<!-- Scrim -->
+<div aria-hidden="true" class="absolute inset-0 z-40 bg-black/50"></div>
+<!-- The modal: shadcn Dialog content, drawn open. 1080 x 680, centred. -->
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
+<section role="dialog" aria-modal="true" aria-labelledby="settings-title" class="bg-background absolute top-[60px] left-[100px] z-50 flex h-[680px] w-[1080px] overflow-hidden rounded-xl border shadow-lg">
+
+<!-- Settings navigation -->
+<nav aria-label="Settings" class="bg-sidebar border-sidebar-border flex w-[264px] shrink-0 flex-col gap-4 overflow-y-auto border-r p-3">
+<h2 id="settings-title" class="sr-only">Settings</h2>
+<x-import component-from-global-scope="Strata.InputGroup" class-name="bg-background rounded-full">
+<x-import component-from-global-scope="Strata.InputGroupAddon"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import></x-import>
+<x-import component-from-global-scope="Strata.InputGroupInput" placeholder="Search settings" aria-label="Search settings"></x-import>
+</x-import>
+
+<div class="grid gap-0.5">
+<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">You</h3>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><span class="bg-accent text-accent-foreground flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold">AT</span>Profile</a>
+<a href="#" aria-current="page" class="bg-sidebar-accent text-sidebar-accent-foreground ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="sliders-horizontal"></x-import>Preferences</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import>Notifications</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="key-round"></x-import>My access</a>
+</div>
+
+<div class="grid gap-0.5">
+<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">Lab</h3>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="users"></x-import>Staff</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="map-pin"></x-import>Locations</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Printers</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receiving</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import>Lab tests</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="layout-template"></x-import>Templates</a>
+</div>
+
+<div class="grid gap-0.5">
+<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">Concrete</h3>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="gauge"></x-import>Equipment</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="truck"></x-import>Suppliers</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="calendar-off"></x-import>Holidays</a>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="file-text"></x-import>Report header</a>
+</div>
+
+<div class="grid gap-0.5">
+<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">Admin</h3>
+<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="activity"></x-import>System status</a>
+</div>
+</nav>
+
+<!-- The open settings page -->
+<div class="relative flex-1 overflow-y-auto">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon" aria-label="Close settings" class-name="absolute top-3 right-3"><x-import component-from-global-scope="Strata.Icon" name="x"></x-import></x-import>
+<div class="mx-auto max-w-[680px] px-10 pt-12 pb-16">
+<h1 class="text-2xl font-semibold">Preferences</h1>
+<p class="text-muted-foreground mt-1 text-sm">How Material Mule looks and behaves for you. Changes save as you make them.</p>
+
+<section aria-labelledby="pref-appearance" class="mt-10">
+<h2 id="pref-appearance" class="border-b pb-3 text-base font-semibold">Appearance</h2>
+<div class="flex items-center justify-between gap-8 py-5">
+<div class="grid gap-1"><span id="pref-theme" class="text-sm font-medium">Theme</span><span class="text-muted-foreground text-sm">Light, dark, or follow this computer's setting.</span></div>
+<x-import component-from-global-scope="Strata.Select" default-value="system">
+<x-import component-from-global-scope="Strata.SelectTrigger" aria-labelledby="pref-theme" class-name="w-44"><x-import component-from-global-scope="Strata.SelectValue"></x-import></x-import>
+<x-import component-from-global-scope="Strata.SelectContent" align="end">
+<x-import component-from-global-scope="Strata.SelectItem" value="system">Use system setting</x-import>
+<x-import component-from-global-scope="Strata.SelectItem" value="light">Light</x-import>
+<x-import component-from-global-scope="Strata.SelectItem" value="dark">Dark</x-import>
+</x-import>
+</x-import>
+</div>
+<div class="flex items-center justify-between gap-8 border-t py-5">
+<div class="grid gap-1"><span id="pref-density" class="text-sm font-medium">Table rows</span><span class="text-muted-foreground text-sm">Compact fits more storage units on screen.</span></div>
+<x-import component-from-global-scope="Strata.ToggleGroup" type="single" variant="outline" default-value="comfortable" aria-labelledby="pref-density">
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="comfortable">Comfortable</x-import>
+<x-import component-from-global-scope="Strata.ToggleGroupItem" value="compact">Compact</x-import>
+</x-import>
+</div>
+<div class="flex items-center justify-between gap-8 border-t py-5">
+<div class="grid gap-1"><label for="pref-sidebar" class="text-sm font-medium">Start with the sidebar collapsed</label><span class="text-muted-foreground text-sm">Icons only, with names on hover. Ctrl B switches it any time.</span></div>
+<x-import component-from-global-scope="Strata.Switch" id="pref-sidebar"></x-import>
+</div>
+</section>
+
+<section aria-labelledby="pref-time" class="mt-8">
+<h2 id="pref-time" class="border-b pb-3 text-base font-semibold">Dates and time</h2>
+<div class="flex items-center justify-between gap-8 py-5">
+<div class="grid gap-1"><span id="pref-date" class="text-sm font-medium">Date format</span><span class="text-muted-foreground text-sm">How dates appear in tables, labels on screen and history.</span></div>
+<x-import component-from-global-scope="Strata.Select" default-value="iso">
+<x-import component-from-global-scope="Strata.SelectTrigger" aria-labelledby="pref-date" class-name="w-44"><x-import component-from-global-scope="Strata.SelectValue"></x-import></x-import>
+<x-import component-from-global-scope="Strata.SelectContent" align="end">
+<x-import component-from-global-scope="Strata.SelectItem" value="iso">2026-11-11</x-import>
+<x-import component-from-global-scope="Strata.SelectItem" value="long">Nov 11, 2026</x-import>
+</x-import>
+</x-import>
+</div>
+<div class="flex items-center justify-between gap-8 border-t py-5">
+<div class="grid gap-1"><label for="pref-monday" class="text-sm font-medium">Start the week on Monday</label><span class="text-muted-foreground text-sm">Affects calendars, such as concrete break dates.</span></div>
+<x-import component-from-global-scope="Strata.Switch" id="pref-monday" default-checked="{{yes}}"></x-import>
+</div>
+<div class="flex items-center justify-between gap-8 border-t py-5">
+<div class="grid gap-1"><span class="text-sm font-medium">Time zone</span><span class="text-muted-foreground text-sm">Set for the whole lab. Storage unit IDs and due dates use it.</span></div>
+<span class="text-muted-foreground flex h-11 items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="lock"></x-import>America/Edmonton (Mountain)</span>
+</div>
+</section>
+
+<section aria-labelledby="pref-scan" class="mt-8">
+<h2 id="pref-scan" class="border-b pb-3 text-base font-semibold">Scanning</h2>
+<div class="flex items-center justify-between gap-8 py-5">
+<div class="grid gap-1"><label for="pref-scanopen" class="text-sm font-medium">Open a scanned label's record</label><span class="text-muted-foreground text-sm">When a label is scanned outside a field, go straight to its storage unit.</span></div>
+<x-import component-from-global-scope="Strata.Switch" id="pref-scanopen" default-checked="{{yes}}"></x-import>
+</div>
+</section>
+</div>
+</div>
+</section>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { dark: !!this.props.dark, yes: true };
+  }
+}
+</script>
+</body>
+</html>
