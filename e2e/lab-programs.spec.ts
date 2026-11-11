@@ -31,7 +31,7 @@ async function startProgram(page: Page) {
     .getByRole('link', { name: 'Programs' })
     .click();
   await expect(page.getByRole('heading', { name: 'Programs', level: 2 })).toBeVisible();
-  await page.getByRole('link', { name: 'New program' }).click();
+  await page.getByRole('link', { name: 'New lab program' }).click();
   await page.getByLabel('Project', { exact: true }).fill('DEMO-2601');
   await page.getByRole('button', { name: /DEMO-2601/ }).click();
 }
@@ -107,8 +107,8 @@ test('MISC-01: New program opens the editor from Programs and Worklist, not the 
     await page.goto('/lab-testing');
     await tabs.getByRole('link', { name: tab }).click();
     await expect(page.getByRole('heading', { name: tab, level: 2 })).toBeVisible();
-    await page.getByRole('link', { name: 'New program' }).click();
-    await expect(page.getByRole('heading', { name: 'New program', level: 2 })).toBeVisible();
+    await page.getByRole('link', { name: 'New lab program' }).click();
+    await expect(page.getByRole('heading', { name: 'New lab program', level: 1 })).toBeVisible();
     await expect(page.getByLabel('Project', { exact: true })).toBeVisible();
     await expect(page.getByText('Discard this draft?')).toBeHidden();
     await expect(discard).toBeHidden();
@@ -118,7 +118,7 @@ test('MISC-01: New program opens the editor from Programs and Worklist, not the 
   await expect(discard).toBeVisible();
   await discard.getByRole('button', { name: 'Cancel' }).click();
   await expect(discard).toBeHidden();
-  await expect(page.getByRole('heading', { name: 'New program', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'New lab program', level: 1 })).toBeVisible();
 });
 
 test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as Requested', async ({

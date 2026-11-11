@@ -25,6 +25,7 @@ function program(n: number, status: LabProgramSummary['status'] = 'submitted'): 
     submittedAt: status === 'draft' ? null : '2026-10-21T16:00:00.000Z',
     lineCount: 1,
     testCount: 2,
+    progress: { done: 0, inProgress: 0, notStarted: 2, cancelled: 0 },
   };
 }
 
@@ -70,6 +71,10 @@ const programLinks = () =>
   within(screen.getByRole('table', { name: 'Testing programs' }))
     .getAllByRole('link')
     .map((link) => link.textContent);
+
+/** The Field Ledger Show filter is a segmented control (aria-pressed buttons). */
+const showButton = (name: string) =>
+  within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -120,7 +125,7 @@ describe('Lab Testing → Programs list', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByText('Page 2 of 2');
-    await user.selectOptions(screen.getByLabelText(/Show/), 'Closed');
+    await user.click(showButton('Closed'));
     expect(await screen.findByText('1 program')).toBeInTheDocument();
     expect(programLinks()).toEqual(['LP-2026-0007']);
     expect(queries.at(-1)).toBe('status=closed');
@@ -134,14 +139,14 @@ describe('Lab Testing → Programs list', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.selectOptions(screen.getByLabelText(/Show/), 'Drafts');
+    await user.click(showButton('Drafts'));
     pending.drafts.resolve(json({ total: 1, items: [program(3, 'draft')] }));
     expect(await screen.findByText('1 program')).toBeInTheDocument();
     // The All request answers last, with more programs.
     pending.all.resolve(json({ total: 2, items: [program(3, 'draft'), program(4)] }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(programLinks()).toEqual(['Draft program']);
-    expect(screen.getByLabelText(/Show/)).toHaveValue('draft');
+    expect(showButton('Drafts')).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('BUG-010: a late failure for an earlier filter shows no error', async () => {
@@ -152,13 +157,33 @@ describe('Lab Testing → Programs list', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.selectOptions(screen.getByLabelText(/Show/), 'Drafts');
+    await user.click(showButton('Drafts'));
     pending.drafts.resolve(json({ total: 1, items: [program(3, 'draft')] }));
     expect(await screen.findByText('1 program')).toBeInTheDocument();
     pending.all.reject(new Error('network'));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByText('Programs couldn’t be loaded.')).not.toBeInTheDocument();
     expect(programLinks()).toEqual(['Draft program']);
+  });
+
+  it('Field Ledger: progress is one counted cell per test, with the count in words', async () => {
+    stubPrograms(() =>
+      json({
+        total: 1,
+        items: [
+          { ...program(1), progress: { done: 2, inProgress: 1, notStarted: 1, cancelled: 1 } },
+        ],
+      }),
+    );
+    renderPage();
+    const cells = await screen.findByRole('img', {
+      name: '2 of 4 tests done, 1 in progress, 1 not started, 1 cancelled',
+    });
+    expect(cells.querySelectorAll('.counted-cell')).toHaveLength(4);
+    expect(cells.querySelectorAll('.counted-cell-done')).toHaveLength(2);
+    expect(cells.querySelectorAll('.counted-cell-current')).toHaveLength(1);
+    expect(screen.getByText(/2 of 4 done · 1 in progress · 1 cancelled/)).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Table view' })).toBeInTheDocument();
   });
 
   it('steps back when the page asked for is past the end', async () => {
