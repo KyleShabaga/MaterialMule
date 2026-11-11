@@ -2939,3 +2939,12 @@ textarea {
     border-bottom-color: Highlight;
   }
 }
+
+/* Lane F (pure addition): on a phone, scrolling a focused or targeted control into view keeps it
+   clear of the fixed bottom bar (60 px slots and the 2 px rule), so it is never hidden under it
+   (WCAG 2.4.11). */
+html:has(.app-phone) {
+  scroll-padding-bottom: calc(
+    var(--target-primary-phone) + var(--rule-width) + env(safe-area-inset-bottom)
+  );
+}
