@@ -166,3 +166,8 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+/* Strata: browser surfaces follow the theme (scrollbars, form controls). */
+:root { color-scheme: light; scrollbar-color: var(--input) transparent; }
+.dark { color-scheme: dark; }
+[data-sidebar="content"] { scrollbar-width: thin; }

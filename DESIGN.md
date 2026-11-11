@@ -532,19 +532,39 @@ this file's history (commit b43c23a) and will be redrawn from these components.
 
 ### Sidebar (boards: real shadcn/ui, mock variants, mock component)
 
-shadcn `Sidebar` with ideas from Linear and Notion. Header: a static logo (the donkey mark from
-`apps/web/src/layout/DonkeyMark.tsx` in a tile), "Material Mule" and the lab, with no switcher
-or buttons; a search field with `Ctrl K` under it. Then Today,
-Inbox and My requests; a collapsible "Lab" group with the six work areas (Concrete open as a
-`SidebarMenuSub`, Retention folded); Pinned records; a folded Recent group; and a footer with only
-the account row. Clicking it opens the account menu (`DropdownMenu`, as in Notion and Linear): the
-person, their role and lab, then Settings, Help, Feedback & bugs, and Sign out (Kyle,
-2026-11-11). On the shared LAB station the menu would also hold Switch user and the session end. Rows are 32 px (desktop mouse use). Collapses to
-48 px icons.
+shadcn `Sidebar`, desk-style (Linear and Notion), reworked after the shell critique of
+2026-11-11 (`.impeccable/critique/`, 19/36). Kyle chose: navigation first, keep the desk-style
+shell, fix all five issues, leave the top bar as it is.
 
-Open for Kyle: moving search from the top bar into the sidebar and Inbox replacing the bell (both
-change Field Ledger decisions), an unread dot on Inbox rather than a count, and 32 px rows instead
-of 44 px on desktop.
+- **Header:** a static logo (the donkey mark from `apps/web/src/layout/DonkeyMark.tsx` in a tile),
+  "Material Mule" and the lab; no switcher or buttons. Under it one 44 px search-or-scan field
+  (`scan-search`, rounded-full, `Ctrl K`).
+- **Pages, never folded** (the old collapsible "Lab" group is gone): Today, Projects, My requests;
+  **Storage units:** Receive, Inventory, Retention; **Testing:** Lab programs, Concrete. Section
+  labels are fixed `SidebarGroupLabel`s at 13 px. Retention (Due and overdue, Disposal scan) and
+  Concrete (Breaks, Receiving, Specimens, Holds, Review) unfold their sub-pages in place, closed by
+  default.
+- **No Inbox row:** the bell is the inbox. Its panel's rows link to their records, unread rows say
+  "Unread" to screen readers, and "See all notifications" opens the full list.
+- **Pinned** records: stage-tinted square, mono ID, short name.
+- **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
+- **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): above the
+  account a "Recording as Pat Example · Until 4:30 PM" control that opens a person picker (Who is
+  working here?, the station's people, Someone else…); the account row reads "LAB station ·
+  Shared · Receiving lab" and its menu starts with Switch user and ends with End station session.
+- **Sizes and access:** every row, sub-row and the account row is at least 44 px; rows are links
+  (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
+  2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
+  content" link comes first.
+- **Collapsed** (Ctrl B): 60 px wide, every item a 44 px icon with a tooltip. Retention, Concrete
+  and Pinned open their pages in a menu to the right (`Strata.NavCollapsible`, `Strata.NavFlyout`
+  in the bundle), so nothing is unreachable.
+- **Browser surfaces:** `color-scheme` follows the theme and scrollbars use `input`, thin in the
+  sidebar.
+
+Left as they are because the top bar is out of scope: the 28 px sidebar toggle and its
+"Toggle Sidebar" label, and Ctrl K shown on both the search field and quick actions' Scan (both
+open the same palette).
 
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 

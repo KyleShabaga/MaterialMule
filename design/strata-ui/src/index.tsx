@@ -113,6 +113,105 @@ for (const mod of modules) {
   }
 }
 
+// Strata composites. Built from the ref-safe components above, because the canvas can't nest
+// asChild triggers in markup (each x-import gets its own wrapper element).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const S = Strata as Record<string, any>
+
+/**
+ * A sidebar parent with sub-pages (Retention, Concrete). Expanded sidebar: a row that unfolds its
+ * sub-pages in place. Collapsed (icon) sidebar: a 44 px icon with a tooltip that opens the
+ * sub-pages in a menu to the right, so every page stays reachable. `items` is "A|B|C".
+ */
+function NavCollapsible({ icon, label, items, defaultOpen, isActive }: {
+  icon: string; label: string; items?: string; defaultOpen?: boolean; isActive?: boolean
+}) {
+  const { state, isMobile } = Sidebar.useSidebar()
+  const list = (items || "").split("|").filter(Boolean)
+  if (state === "collapsed" && !isMobile) {
+    return (
+      <S.SidebarMenuItem>
+        <S.DropdownMenu>
+          <S.Tooltip>
+            <S.TooltipTrigger asChild>
+              <S.DropdownMenuTrigger asChild>
+                <S.SidebarMenuButton isActive={isActive}>
+                  <Icon name={icon} />
+                  <span>{label}</span>
+                </S.SidebarMenuButton>
+              </S.DropdownMenuTrigger>
+            </S.TooltipTrigger>
+            <S.TooltipContent side="right" align="center">{label}</S.TooltipContent>
+          </S.Tooltip>
+          <S.DropdownMenuContent side="right" align="start" sideOffset={8} className="w-52">
+            <S.DropdownMenuLabel>{label}</S.DropdownMenuLabel>
+            {list.map((item) => (
+              <S.DropdownMenuItem key={item}>{item}</S.DropdownMenuItem>
+            ))}
+          </S.DropdownMenuContent>
+        </S.DropdownMenu>
+      </S.SidebarMenuItem>
+    )
+  }
+  return (
+    <S.Collapsible defaultOpen={defaultOpen} asChild className="group/collapsible">
+      <S.SidebarMenuItem>
+        <S.CollapsibleTrigger asChild>
+          <S.SidebarMenuButton isActive={isActive}>
+            <Icon name={icon} />
+            <span>{label}</span>
+            <Icon
+              name="chevron-right"
+              className="ml-auto transition-transform duration-200 ease-out group-data-[state=open]/collapsible:rotate-90 motion-reduce:transition-none"
+            />
+          </S.SidebarMenuButton>
+        </S.CollapsibleTrigger>
+        <S.CollapsibleContent>
+          <S.SidebarMenuSub>
+            {list.map((item) => (
+              <S.SidebarMenuSubItem key={item}>
+                <S.SidebarMenuSubButton href="#">
+                  <span>{item}</span>
+                </S.SidebarMenuSubButton>
+              </S.SidebarMenuSubItem>
+            ))}
+          </S.SidebarMenuSub>
+        </S.CollapsibleContent>
+      </S.SidebarMenuItem>
+    </S.Collapsible>
+  )
+}
+
+/** Collapsed sidebar only: one 44 px icon with a tooltip that opens `children` as a menu. */
+function NavFlyout({ icon, label, children }: { icon: string; label: string; children?: React.ReactNode }) {
+  const { state, isMobile } = Sidebar.useSidebar()
+  if (state !== "collapsed" || isMobile) return null
+  return (
+    <S.SidebarMenuItem>
+      <S.DropdownMenu>
+        <S.Tooltip>
+          <S.TooltipTrigger asChild>
+            <S.DropdownMenuTrigger asChild>
+              <S.SidebarMenuButton>
+                <Icon name={icon} />
+                <span>{label}</span>
+              </S.SidebarMenuButton>
+            </S.DropdownMenuTrigger>
+          </S.TooltipTrigger>
+          <S.TooltipContent side="right" align="center">{label}</S.TooltipContent>
+        </S.Tooltip>
+        <S.DropdownMenuContent side="right" align="start" sideOffset={8} className="w-64">
+          <S.DropdownMenuLabel>{label}</S.DropdownMenuLabel>
+          {children}
+        </S.DropdownMenuContent>
+      </S.DropdownMenu>
+    </S.SidebarMenuItem>
+  )
+}
+
+Strata.NavCollapsible = NavCollapsible
+Strata.NavFlyout = NavFlyout
+
 ;(window as unknown as { Strata: typeof Strata }).Strata = Strata
 
 export default Strata

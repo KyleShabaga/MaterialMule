@@ -16,6 +16,7 @@ body{margin:0}
 </style>
 </helmet>
 <div class="bg-background text-foreground font-sans" style="width: 1280px; height: 800px; overflow: hidden;">
+<a href="#main" class="bg-primary text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-3">Skip to content</a>
 <x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
 <x-import component-from-global-scope="Strata.SidebarProvider" class-name="min-h-0 h-[800px]">
 <x-import component-from-global-scope="Strata.Sidebar" collapsible="icon" class-name="h-[800px]">
@@ -23,106 +24,99 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.SidebarHeader">
 <x-import component-from-global-scope="Strata.SidebarMenu">
 <x-import component-from-global-scope="Strata.SidebarMenuItem">
-<div class="flex h-12 items-center gap-2 px-2 group-data-[collapsible=icon]:p-0!">
+<div class="flex h-12 items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
 <span class="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg"><svg width="24" height="19" viewBox="150 230 960 760" aria-hidden="true" focusable="false"><defs><mask id="mm-donkey-live" maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760"><rect x="150" y="230" width="960" height="760" fill="#fff"></rect><g fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path></g></mask></defs><g fill="currentColor"><g mask="url(#mm-donkey-live)"><path d="M350,690 C360,730 380,745 395,765 C380,790 350,805 320,825 C290,850 272,880 268,920 C272,935 285,950 292,970 L232,970 L232,955 C238,945 230,930 240,915 C260,880 280,840 300,800 C320,780 340,760 350,690 Z"></path><path d="M715,700 L770,720 C760,770 740,800 725,840 C710,880 700,910 715,970 L655,970 C660,950 648,935 650,915 C665,870 690,820 705,780 C712,760 712,730 715,700 Z"></path></g><path d="M352,595 C335,615 320,640 300,665 C285,680 275,700 262,720 C240,752 200,768 165,772 C180,755 185,735 200,710 C220,680 250,660 280,655 C300,640 315,600 340,575 Z"></path><path d="M340,580 C365,535 425,503 500,500 C580,497 640,520 700,505 C760,490 805,465 845,435 C885,405 912,390 938,390 L1000,405 C1025,430 1042,452 1047,472 C1060,510 1080,545 1087,577 C1092,605 1074,628 1050,628 C1030,628 1018,614 1014,600 C980,582 945,568 925,540 C902,578 878,612 862,632 L850,700 L745,690 C700,715 640,728 590,722 C550,716 522,702 505,690 L495,700 C470,745 420,745 395,735 C355,690 330,640 340,580 Z"></path><path d="M765,490 C785,478 805,474 822,468 L812,490 Z"></path><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path><path d="M935,412 C928,360 945,300 995,255 C1002,300 992,360 975,405 Z"></path><path d="M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z"></path></g></svg></span>
-<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">Material Mule</span><span class="text-muted-foreground truncate text-xs">Receiving lab</span></span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">Material Mule</span><span class="text-muted-foreground truncate text-[13px]">Receiving lab</span></span>
 </div>
 </x-import>
 <x-import component-from-global-scope="Strata.SidebarMenuItem">
-<x-import component-from-global-scope="Strata.SidebarMenuButton" variant="outline" tooltip="Search or scan (Ctrl K)" class-name="text-muted-foreground">
-<x-import component-from-global-scope="Strata.Icon" name="search"></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuButton" variant="outline" tooltip="Search or scan a label (Ctrl K)" aria-keyshortcuts="Control+K" class-name="text-muted-foreground rounded-full px-4 group-data-[collapsible=icon]:rounded-md">
+<x-import component-from-global-scope="Strata.Icon" name="scan-search"></x-import>
 <span>Search or scan</span>
-<x-import component-from-global-scope="Strata.Kbd" class-name="ml-auto">Ctrl K</x-import>
+<x-import component-from-global-scope="Strata.Kbd" class-name="ml-auto text-[13px] group-data-[collapsible=icon]:hidden">Ctrl K</x-import>
 </x-import>
 </x-import>
 </x-import>
 </x-import>
 
 <x-import component-from-global-scope="Strata.SidebarContent">
+<nav aria-label="Main" class="flex flex-col gap-2">
 <x-import component-from-global-scope="Strata.SidebarGroup">
 <x-import component-from-global-scope="Strata.SidebarMenu">
-<x-import component-from-global-scope="Strata.SidebarMenuItem">
-<x-import component-from-global-scope="Strata.SidebarMenuButton" is-active="{{yes}}" tooltip="Today"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import><span>Today</span></x-import>
-</x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem">
-<x-import component-from-global-scope="Strata.SidebarMenuButton" tooltip="Inbox"><x-import component-from-global-scope="Strata.Icon" name="inbox"></x-import><span>Inbox</span></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuBadge" aria-label="Unread"><span class="bg-primary size-2 rounded-full"></span></x-import>
-</x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem">
-<x-import component-from-global-scope="Strata.SidebarMenuButton" tooltip="My requests"><x-import component-from-global-scope="Strata.Icon" name="square-check-big"></x-import><span>My requests</span></x-import>
-</x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{yes}}" aria-current="page" tooltip="Today"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import><span>Today</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Projects"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import><span>Projects</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="My requests"><x-import component-from-global-scope="Strata.Icon" name="square-check-big"></x-import><span>My requests</span></x-import></x-import>
 </x-import>
 </x-import>
 
-<x-import component-from-global-scope="Strata.Collapsible" default-open="{{yes}}" class-name="group/lab">
 <x-import component-from-global-scope="Strata.SidebarGroup">
-<x-import component-from-global-scope="Strata.CollapsibleTrigger" class-name="text-sidebar-foreground/70 hover:bg-sidebar-accent flex h-8 w-full items-center gap-1 rounded-md px-2 text-xs font-medium group-data-[collapsible=icon]:hidden">
-Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class-name="size-3.5 transition-transform group-data-[state=closed]/lab:-rotate-90"></x-import>
-</x-import>
-<x-import component-from-global-scope="Strata.CollapsibleContent">
+<x-import component-from-global-scope="Strata.SidebarGroupLabel">Storage units</x-import>
 <x-import component-from-global-scope="Strata.SidebarMenu">
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" tooltip="Projects"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import><span>Projects</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" tooltip="Receive"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span>Receive</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" tooltip="Inventory"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span>Inventory</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" tooltip="Lab programs"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import><span>Lab programs</span></x-import></x-import>
-
-<x-import component-from-global-scope="Strata.Collapsible" class-name="group/ret">
-<x-import component-from-global-scope="Strata.SidebarMenuItem">
-<x-import component-from-global-scope="Strata.CollapsibleTrigger" data-sidebar="menu-button" class-name="peer/menu-button hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&amp;&gt;svg]:size-4 [&amp;&gt;svg]:shrink-0">
-<x-import component-from-global-scope="Strata.Icon" name="hourglass"></x-import><span class="truncate">Retention</span><x-import component-from-global-scope="Strata.Icon" name="chevron-right" class-name="ml-auto transition-transform group-data-[state=open]/ret:rotate-90"></x-import>
-</x-import>
-<x-import component-from-global-scope="Strata.CollapsibleContent">
-<x-import component-from-global-scope="Strata.SidebarMenuSub">
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Due and overdue</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Disposal scan</span></x-import></x-import>
-</x-import>
-</x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Receive"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span>Receive</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Inventory"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span>Inventory</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.NavCollapsible" icon="hourglass" label="Retention" items="Due and overdue|Disposal scan"></x-import>
 </x-import>
 </x-import>
 
-<x-import component-from-global-scope="Strata.Collapsible" default-open="{{yes}}" class-name="group/con">
-<x-import component-from-global-scope="Strata.SidebarMenuItem">
-<x-import component-from-global-scope="Strata.CollapsibleTrigger" data-sidebar="menu-button" class-name="peer/menu-button hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&amp;&gt;svg]:size-4 [&amp;&gt;svg]:shrink-0">
-<x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import><span class="truncate">Concrete</span><x-import component-from-global-scope="Strata.Icon" name="chevron-right" class-name="ml-auto transition-transform group-data-[state=open]/con:rotate-90"></x-import>
-</x-import>
-<x-import component-from-global-scope="Strata.CollapsibleContent">
-<x-import component-from-global-scope="Strata.SidebarMenuSub">
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Breaks</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Receiving</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Specimens</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Holds</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuSubItem"><x-import component-from-global-scope="Strata.SidebarMenuSubButton" href="#"><span>Review</span></x-import></x-import>
-</x-import>
-</x-import>
-</x-import>
-</x-import>
-</x-import>
-</x-import>
+<x-import component-from-global-scope="Strata.SidebarGroup">
+<x-import component-from-global-scope="Strata.SidebarGroupLabel">Testing</x-import>
+<x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Lab programs"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import><span>Lab programs</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.NavCollapsible" icon="cylinder" label="Concrete" items="Breaks|Receiving|Specimens|Holds|Review"></x-import>
 </x-import>
 </x-import>
 
-<x-import component-from-global-scope="Strata.SidebarGroup" class-name="group-data-[collapsible=icon]:hidden">
+<x-import component-from-global-scope="Strata.SidebarGroup">
 <x-import component-from-global-scope="Strata.SidebarGroupLabel">Pinned</x-import>
+<x-import component-from-global-scope="Strata.SidebarMenu" class-name="group-data-[collapsible=icon]:hidden">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="font-mono text-[13px]">DEMO-2601</span><span class="text-muted-foreground truncate">Riverbank</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-due-bg text-stage-due-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3.5"></x-import></span><span class="font-mono text-[13px]">DEMO-2616</span><span class="text-muted-foreground truncate">Riverside apts</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="flask-conical" class-name="size-3.5"></x-import></span><span class="font-mono text-[13px]">LP-2026-0007</span><span class="text-muted-foreground truncate">Atterberg, TH26-02</span></x-import></x-import>
+</x-import>
 <x-import component-from-global-scope="Strata.SidebarMenu">
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-4 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3"></x-import></span><span class="font-mono text-[13px]">DEMO-2601</span><span class="text-muted-foreground truncate">Riverbank</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton"><span class="bg-stage-due-bg text-stage-due-mark flex size-4 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3"></x-import></span><span class="font-mono text-[13px]">DEMO-2616</span><span class="text-muted-foreground truncate">Riverside apts</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-4 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="flask-conical" class-name="size-3"></x-import></span><span class="font-mono text-[13px]">LP-2026-0007</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.NavFlyout" icon="pin" label="Pinned">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="font-mono text-[13px]">DEMO-2601</span><span class="text-muted-foreground truncate">Riverbank</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-due-bg text-stage-due-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3.5"></x-import></span><span class="font-mono text-[13px]">DEMO-2616</span><span class="text-muted-foreground truncate">Riverside apts</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="flask-conical" class-name="size-3.5"></x-import></span><span class="font-mono text-[13px]">LP-2026-0007</span><span class="text-muted-foreground truncate">Atterberg, TH26-02</span></x-import>
 </x-import>
 </x-import>
+</x-import>
+</nav>
 </x-import>
 
 <x-import component-from-global-scope="Strata.SidebarFooter">
+<!-- Shared LAB station: who the work is recorded as, and when the session ends -->
+<sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as Pat Example until 4:30 PM. Change person" class-name="ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent border-sidebar-border bg-background flex w-full items-center gap-2 overflow-hidden rounded-md border p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-stage-storage-bg text-stage-storage-fg flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">PE</span>
+<span class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden"><span class="text-muted-foreground text-[13px]">Recording as</span><span class="truncate font-semibold">Pat Example</span><span class="text-muted-foreground text-[13px]">Until 4:30 PM</span></span>
+<x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="right" align="end" side-offset="{{four}}" class-name="w-64">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel">Who is working here?</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioGroup" value="pat">
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="pat">Pat Example</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="alex">Alex Tester</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="sam">Sam Sample</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="user-plus"></x-import>Someone else…</x-import>
+</x-import>
+</x-import>
+</sc-if>
 <x-import component-from-global-scope="Strata.SidebarMenu">
 <x-import component-from-global-scope="Strata.SidebarMenuItem">
+<sc-if value="{{individual}}" hint-placeholder-val="{{ true }}">
 <x-import component-from-global-scope="Strata.DropdownMenu">
-<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="Alex Tester, Technician. Account menu" class-name="peer/menu-button hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0!">
-<span class="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold">AT</span>
-<span class="grid flex-1 text-left leading-tight"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-xs">Technician</span></span>
-<x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto size-4"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="Alex Tester, Technician. Account menu" class-name="peer/menu-button ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">AT</span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-[13px]">Technician</span></span>
+<x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuContent" side="top" align="start" side-offset="{{four}}" class-name="w-60">
 <x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="p-0 font-normal">
-<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm"><span class="bg-accent text-accent-foreground flex size-8 items-center justify-center rounded-full font-mono text-xs font-bold">AT</span><span class="grid flex-1 leading-tight"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-xs">Technician · Receiving lab</span></span></div>
+<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm"><span class="bg-accent text-accent-foreground flex size-8 items-center justify-center rounded-full font-mono text-[13px] font-bold">AT</span><span class="grid flex-1 leading-tight"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-[13px]">Technician</span></span></div>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuGroup">
@@ -134,13 +128,34 @@ Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="log-out"></x-import>Sign out</x-import>
 </x-import>
 </x-import>
+</sc-if>
+<sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="LAB station, Receiving lab. Account menu" class-name="peer/menu-button ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-md font-mono text-[11px] font-bold">LAB</span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">LAB station</span><span class="text-muted-foreground truncate text-[13px]">Shared · Receiving lab</span></span>
+<x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="top" align="start" side-offset="{{four}}" class-name="w-60">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="users"></x-import>Switch user</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuGroup">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="settings"></x-import>Settings</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="circle-question-mark"></x-import>Help</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="bug"></x-import>Feedback &amp; bugs</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="log-out"></x-import>End station session</x-import>
+</x-import>
+</x-import>
+</sc-if>
 </x-import>
 </x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.SidebarRail"></x-import>
 </x-import>
 
-<x-import component-from-global-scope="Strata.SidebarInset">
+<x-import component-from-global-scope="Strata.SidebarInset" id="main">
 <header class="flex h-14 shrink-0 items-center gap-2 border-b px-4">
 <x-import component-from-global-scope="Strata.SidebarTrigger" class-name="-ml-1"></x-import>
 <span class="text-sm font-semibold">Today</span>
@@ -174,27 +189,28 @@ Lab<x-import component-from-global-scope="Strata.Icon" name="chevron-down" class
 <span aria-hidden="true" class="bg-primary text-primary-foreground ring-background absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-[11px] leading-none font-bold tabular-nums ring-2">2</span>
 </x-import>
 <x-import component-from-global-scope="Strata.PopoverContent" align="end" side-offset="{{four}}" class-name="w-96 p-0">
-<div class="flex items-center justify-between border-b px-4 py-3"><span class="text-sm font-semibold">Notifications</span><button type="button" class="text-link text-sm font-medium hover:underline">Mark all read</button></div>
-<ul class="divide-y text-sm">
-<li class="flex gap-3 px-4 py-3"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><div class="grid gap-0.5"><span class="font-medium">Lab request assigned to you</span><span class="text-muted-foreground">Atterberg limits · TH26-02 · DEMO-2612</span><span class="text-muted-foreground text-xs">12 min ago</span></div></li>
-<li class="flex gap-3 px-4 py-3"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><div class="grid gap-0.5"><span class="font-medium">Break due today</span><span class="text-muted-foreground">Set 4, 28-day · DEMO-2616</span><span class="text-muted-foreground text-xs">8:00 AM</span></div></li>
-<li class="flex gap-3 px-4 py-3"><span aria-hidden="true" class="mt-1.5 size-2 shrink-0"></span><div class="grid gap-0.5"><span class="font-medium">Retention ends in 7 days</span><span class="text-muted-foreground">BKT-2026-000143 · DEMO-2610</span><span class="text-muted-foreground text-xs">Yesterday</span></div></li>
+<div class="flex items-center justify-between border-b py-1 pr-1 pl-4"><h2 class="text-sm font-semibold">Notifications</h2><button type="button" class="text-link hover:bg-accent focus-visible:ring-ring/50 h-11 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-[3px]">Mark all read</button></div>
+<ul class="max-h-80 divide-y overflow-y-auto text-sm">
+<li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><span class="grid gap-0.5"><span class="font-medium"><span class="sr-only">Unread: </span>Lab request assigned to you</span><span class="text-muted-foreground">Atterberg limits · TH26-02 · DEMO-2612</span><span class="text-muted-foreground text-[13px]">12 min ago</span></span></a></li>
+<li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><span class="grid gap-0.5"><span class="font-medium"><span class="sr-only">Unread: </span>Break due today</span><span class="text-muted-foreground">Set 4, 28-day · DEMO-2616</span><span class="text-muted-foreground text-[13px]">8:00 AM</span></span></a></li>
+<li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="mt-1.5 size-2 shrink-0"></span><span class="grid gap-0.5"><span class="font-medium">Retention ends in 7 days</span><span class="text-muted-foreground">BKT-2026-000143 · DEMO-2610</span><span class="text-muted-foreground text-[13px]">Yesterday</span></span></a></li>
 </ul>
-<div class="border-t p-2"><button type="button" class="hover:bg-accent hover:text-accent-foreground flex h-9 w-full items-center justify-center rounded-md text-sm font-medium">Open Inbox</button></div>
+<div class="border-t p-1"><a href="#" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-11 w-full items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-[3px]">See all notifications</a></div>
 </x-import>
 </x-import>
 </div>
 </header>
-<div class="text-muted-foreground p-6 text-sm">Page content goes here. Try the sidebar: collapse it with the button above or Ctrl+B, hover an icon for its tooltip, fold the Lab group, open Concrete and Retention, and open the account menu at the bottom.</div>
+<div class="text-muted-foreground p-6 text-sm">Page content goes here. Try the sidebar: collapse it with the button above or Ctrl+B and hover or click Retention, Concrete and Pinned; open the account menu at the bottom. Turn on the Station tweak for the shared LAB station.</div>
 </x-import>
 </x-import>
 </x-import>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"station":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   renderVals() {
-    return { dark: !!this.props.dark, yes: true, four: 4 };
+    var station = !!this.props.station;
+    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4 };
   }
 }
 </script>
