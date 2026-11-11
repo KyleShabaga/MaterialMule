@@ -187,7 +187,7 @@ export class LabProgramsService {
 
   async list(
     user: AuthUser,
-    query: { status?: string; projectId?: string; page?: number },
+    query: { status?: string; projectId?: string; page?: number; search?: string },
   ): Promise<LabProgramList> {
     const params: unknown[] = [user.userId];
     // Submitted and closed programs are shared; drafts only for the account that owns them.
@@ -199,6 +199,15 @@ export class LabProgramsService {
     if (query.projectId && UUID_PATTERN.test(query.projectId)) {
       params.push(query.projectId);
       where.push(`lp.project_id = $${params.length}`);
+    }
+    if (query.search) {
+      // Contains, ignoring case; LIKE wildcards in what was typed match literally.
+      params.push(`%${query.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+      const n = params.length;
+      where.push(
+        `(lp.program_number ILIKE $${n} OR EXISTS (SELECT 1 FROM project sp WHERE sp.id = lp.project_id
+           AND (sp.project_number ILIKE $${n} OR sp.name ILIKE $${n})))`,
+      );
     }
     const page = Math.max(1, query.page ?? 1);
     const { rows } = await this.database.pool.query<

@@ -1,0 +1,116 @@
+/* Field Ledger search results (canvas Search, PhoneFind). Tokens only; hover is global. */
+
+.search-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1040px;
+}
+
+.search-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.search-title .page-header {
+  margin: 0;
+}
+
+.search-for {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+}
+
+.search-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.search-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.search-row-id {
+  width: 190px;
+  font-size: var(--fs-row-id);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.search-row-text {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-row-title {
+  font-weight: 600;
+}
+
+.search-row-sub {
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+}
+
+.search-row .badge {
+  white-space: nowrap;
+}
+
+.search-more,
+.search-note {
+  margin: 0;
+  font-size: var(--fs-small);
+}
+
+.search-note {
+  color: var(--ink-soft);
+}
+
+/* Phone: stacked cards, the ID and tag on one line, then the title and the detail line. */
+@media (max-width: 640px) {
+  .search-page {
+    gap: var(--space-4);
+  }
+
+  .search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  .search-row-id {
+    width: auto;
+  }
+
+  .search-row .badge {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .search-row-text {
+    grid-column: 1 / -1;
+  }
+}

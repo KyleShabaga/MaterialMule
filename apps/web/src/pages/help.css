@@ -1,0 +1,238 @@
+/* ---- Help & Feedback (Field Ledger "Help") ---- */
+
+.help-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.help-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help-title .page-header {
+  margin: 0;
+}
+
+.help-subtitle {
+  margin: 0;
+  font: 400 var(--fs-small) / var(--lh-small) var(--font-mono);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Guides and answers on the left; the form and contacts at the side (2:1, wraps). */
+.help-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-7);
+}
+
+.help-main {
+  display: flex;
+  flex: 2 1 520px;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.help-main > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.help-aside {
+  display: flex;
+  flex: 1 1 300px;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.help-guides {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-guides li {
+  display: flex;
+}
+
+.help-guide {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-height: var(--target);
+  padding: 14px var(--space-4);
+  border: var(--rule-width) solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.help-guide:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.help-guide-steps {
+  font: 600 var(--fs-label) / 1.2 var(--font-mono);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.help-guide-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.help-guide-line {
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--ink-soft);
+}
+
+.help-facts {
+  margin: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--sheet);
+}
+
+.help-facts > div {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.help-facts > div:last-child {
+  border-bottom: none;
+}
+
+.help-facts dt {
+  font-weight: 700;
+}
+
+.help-facts dd {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-soft);
+}
+
+.help-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.help-form select,
+.help-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.help-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.help-check input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+}
+
+.help-check label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.help-check-title {
+  font-weight: 600;
+}
+
+.help-check-path {
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.help-form button[type='submit'] {
+  min-height: var(--control-phone);
+}
+
+.help-note {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.help-contacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.help-contacts dt {
+  font: 600 var(--fs-label) / 1.2 var(--font-mono);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.help-contacts dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.help-received {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.help-received-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-received-list li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.help-received-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
+}
+
+.help-received-kind {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.help-received-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

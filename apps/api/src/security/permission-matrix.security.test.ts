@@ -163,6 +163,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/concrete/specimen-sets/:setId/strength-report/versions/:versionNo/exception-notes':
     'concrete.review',
   'GET /api/me/grants': null,
+  // Field Ledger Help & Feedback: every active session (LAB included) may send feedback; it is
+  // kept as an audit event on the host. Reading it is staff.manage (admins).
+  'POST /api/feedback': null,
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
   'POST /api/concrete/field-reports/:reportId/casting-correction': 'concrete_specimen.reschedule',

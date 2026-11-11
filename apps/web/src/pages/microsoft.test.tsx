@@ -130,7 +130,9 @@ describe('Microsoft callback page', () => {
 describe('No position step (MISC-06)', () => {
   it('sends a pending person straight to Access pending, and an active one to the app', async () => {
     const { router } = renderAt('/access-pending', { status: 'pending', me: NEW_STAFF });
-    expect(await screen.findByRole('heading', { name: 'Access pending' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'You are signed in, but not set up yet.' }),
+    ).toBeVisible();
     expect(router.state.location.pathname).toBe('/access-pending');
     const active = renderAt(
       '/settings/profile',
@@ -149,7 +151,9 @@ describe('No position step (MISC-06)', () => {
       status: 'active',
       me: { ...NEW_STAFF, status: 'active' },
     });
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Nothing is at this address.' }),
+    ).toBeVisible();
     expect(screen.queryByRole('radio')).toBeNull();
   });
 });

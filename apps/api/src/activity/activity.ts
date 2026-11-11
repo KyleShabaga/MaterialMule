@@ -10,6 +10,10 @@ export const DASHBOARD_ACTIONS = [
   'storage_unit.corrected',
   'label.print_requested',
   'label.reprint_requested',
+  // Field Ledger Today ledger: moves and disposals, named by the unit's ID (looked up by the
+  // controller, since these producers record only the unit's row ID).
+  'storage_unit.moved',
+  'disposal.removed',
 ] as const;
 
 /** Display details producers may include in an event's `after` values. */
@@ -21,6 +25,9 @@ interface DisplayDetails {
   /** MM-T37 location label jobs: `target: 'location'` with the location's code. */
   target?: string;
   locationCode?: string;
+  /** storage_unit.moved: where the unit went. */
+  locationName?: string;
+  confirmedInPlace?: boolean;
 }
 
 function details(event: AuditEvent): DisplayDetails {
@@ -34,7 +41,23 @@ function details(event: AuditEvent): DisplayDetails {
     unitCount: typeof after.unitCount === 'number' ? after.unitCount : undefined,
     target: typeof after.target === 'string' ? after.target : undefined,
     locationCode: typeof after.locationCode === 'string' ? after.locationCode : undefined,
+    locationName: locationNameOf(after.location),
+    confirmedInPlace: after.confirmedInPlace === true,
   };
+}
+
+function locationNameOf(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const name = (value as Record<string, unknown>).name;
+  return typeof name === 'string' ? name : undefined;
+}
+
+/** The one record an event is about, as people write it; null when it names several or none. */
+function refOf(d: DisplayDetails): string | null {
+  const ids = d.readableIds ?? (d.readableId ? [d.readableId] : []);
+  if (ids.length === 1) return ids[0]!;
+  if (ids.length > 1) return d.projectNumber ?? null;
+  return d.projectNumber ?? d.locationCode ?? null;
 }
 
 function units(d: DisplayDetails): string {
@@ -46,9 +69,13 @@ function units(d: DisplayDetails): string {
   return 'storage units';
 }
 
-/** Builds the readable line and link for one audit event. */
-export function toActivityItem(event: AuditEvent): ActivityItem {
+/**
+ * Builds the readable line and link for one audit event. `readableId` is the storage unit's ID
+ * when the caller looked it up (moves and disposals record only the unit's row ID).
+ */
+export function toActivityItem(event: AuditEvent, readableId?: string): ActivityItem {
   const d = details(event);
+  if (readableId && !d.readableId && !d.readableIds) d.readableId = readableId;
   const who = event.actorInitials ?? event.actorName ?? 'Someone';
   // At a shared LAB station the account isn't the person: name the receiver as recorded at the
   // time (MM-T56 snapshot), e.g. "LAB for RE received …" (decided 2026-10-27, MM-T61).
@@ -95,6 +122,16 @@ export function toActivityItem(event: AuditEvent): ActivityItem {
       summary = `${who} reprinted the label for ${units(d)}${forReceiver}`;
       href = d.readableId ? `/sample-storage/${d.readableId}` : null;
       break;
+    case 'storage_unit.moved':
+      summary = d.confirmedInPlace
+        ? `${who} confirmed ${d.readableId ?? 'a storage unit'} at ${d.locationName ?? 'its location'}`
+        : `${who} moved ${d.readableId ?? 'a storage unit'} to ${d.locationName ?? 'a new location'}`;
+      href = d.readableId ? `/sample-storage/${d.readableId}` : null;
+      break;
+    case 'disposal.removed':
+      summary = `${who} recorded the disposal of ${d.readableId ?? 'a storage unit'}`;
+      href = d.readableId ? `/sample-storage/${d.readableId}` : null;
+      break;
     default:
       summary = `${who}: ${event.action}`;
   }
@@ -106,6 +143,7 @@ export function toActivityItem(event: AuditEvent): ActivityItem {
     actorInitials: event.actorInitials,
     actorName: event.actorName,
     summary,
+    ref: refOf(d),
     href,
   };
 }
