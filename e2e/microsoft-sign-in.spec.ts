@@ -58,9 +58,16 @@ test('AC1: the bootstrap administrator gets in as an active admin', async ({ pag
 test('a cancelled Microsoft sign-in explains itself and signs nobody in', async ({ page }) => {
   await page.goto('/sign-in?switch=1');
   await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
-  // Switch user: Microsoft is asked to show the account picker.
+  // ?switch=1 (the cancelled-sign-in Try again link): Microsoft is asked to show the account picker.
   await expect(page.getByText('Prompt: select_account')).toBeVisible();
   await page.getByRole('link', { name: 'Cancel' }).click();
-  await expect(page.getByRole('heading', { name: 'Sign-in was cancelled' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Sign-in was cancelled.' }),
+  ).toBeVisible();
+  // Round 10: one plain sentence and the next step, never the provider's error code.
+  await expect(page.getByRole('alert')).not.toContainText('access_denied');
+  await expect(page.getByRole('link', { name: 'Try again' })).toBeVisible();
+  await page.getByRole('link', { name: 'Back to sign in' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
   expect((await page.request.get('/api/me')).status()).toBe(401);
 });

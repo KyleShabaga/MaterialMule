@@ -23,7 +23,7 @@ import { UnitsToPull } from './UnitsToPull';
 type Load = { state: 'loading' } | { state: 'error' } | { state: 'ready'; list: Worklist };
 
 /**
- * Lab Testing → Worklist (MM-T24, the default tab): open programs, Urgent first, then the oldest
+ * Lab Testing → Workboard (MM-T24's Worklist, renamed by STRATA-10; the default tab): open programs, Urgent first, then the oldest
  * submission (D52). Sorting is display only; it never changes a status.
  */
 export function WorklistPage() {
@@ -99,7 +99,7 @@ export function WorklistPage() {
       <UnitsToPull />
       <section aria-labelledby="worklist-heading" className="lab-list">
         <div className="lab-list-head">
-          <h2 id="worklist-heading">Worklist</h2>
+          <h2 id="worklist-heading">Workboard</h2>
           <TableViewSelector value={view} onChange={setView} />
         </div>
         <div className="worklist-filters">
@@ -148,10 +148,10 @@ export function WorklistPage() {
             Only programs with open tests
           </label>
         </div>
-        {load.state === 'loading' ? <p aria-busy="true">Loading the worklist…</p> : null}
+        {load.state === 'loading' ? <p aria-busy="true">Loading the Workboard…</p> : null}
         {load.state === 'error' ? (
           <ErrorState
-            message="The worklist couldn’t be loaded."
+            message="The Workboard couldn’t be loaded."
             onRetry={() => setAttempt((n) => n + 1)}
           />
         ) : null}
@@ -161,9 +161,9 @@ export function WorklistPage() {
           </p>
         ) : null}
         {load.state === 'ready' ? (
-          <TableScroll label="Lab worklist">
+          <TableScroll label="Workboard table">
             <DataTable
-              caption="Lab worklist"
+              caption="Workboard"
               view={view}
               rows={load.list.items}
               rowKey={(item) => item.programId}

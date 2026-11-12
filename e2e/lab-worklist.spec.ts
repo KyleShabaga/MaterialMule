@@ -2,7 +2,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { signInAsLabStation } from './support/lab-station';
+import { STATION_PEOPLE, signInAsLabStation } from './support/lab-station';
 
 // MM-T24: worklist, per-test progress with actor/time and comments (card T5), two LAB stations
 // acting for different people (T6), and exact Shelby tube completion evidence (T11/T12 lab
@@ -84,7 +84,7 @@ test('T5: a Technician starts and completes a test, comments and edits; actor an
   const program = await submitProgram(page.request, ids);
 
   await page.goto('/lab-testing');
-  await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workboard', level: 2 })).toBeVisible();
   await page.getByRole('link', { name: program.programNumber }).click();
   await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
 
@@ -124,13 +124,14 @@ test('T6: two LAB stations act for different people on different tests and comme
 
   const stations = await Promise.all([browser.newContext(), browser.newContext()]);
   const pages = await Promise.all(stations.map((context) => context.newPage()));
+  // STRATA-125: each station records as its own person (the Recording as chip).
   const plan = [
-    { code: x, search: 'Jordan', person: /Jordan Smith/ },
-    { code: y, search: 'Pat', person: /Pat Example/ },
+    { code: x, recordAs: STATION_PEOPLE.jordan, person: /Jordan Smith/ },
+    { code: y, recordAs: STATION_PEOPLE.pat, person: /Pat Example/ },
   ];
   try {
-    for (const page of pages) {
-      await signInAsLabStation(page);
+    for (const [i, page] of pages.entries()) {
+      await signInAsLabStation(page, { person: plan[i]!.recordAs });
       await page.goto(`/lab-testing/programs/${program.id}`);
       await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
     }
@@ -138,8 +139,10 @@ test('T6: two LAB stations act for different people on different tests and comme
       const row = testRow(page, plan[i]!.code);
       await row.getByRole('button', { name: 'Start' }).click();
       const panel = row.getByRole('group', { name: /Start/ });
-      await panel.getByRole('combobox', { name: /Who is doing this/ }).fill(plan[i]!.search);
-      await page.getByRole('option', { name: plan[i]!.person }).click();
+      // Who is doing this? follows the chip, read-only.
+      await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+        plan[i]!.person,
+      );
       await panel.getByRole('button', { name: 'Start' }).click();
       await expect(row).toContainText('In progress');
       await expect(row).toContainText('LAB for');
@@ -151,8 +154,9 @@ test('T6: two LAB stations act for different people on different tests and comme
 
     const box = pages[1]!.locator('.program-comments');
     await box.getByLabel('Comment on the program').fill('Second station note');
-    await box.getByRole('combobox', { name: /Who is doing this/ }).fill('Pat');
-    await pages[1]!.getByRole('option', { name: /Pat Example/ }).click();
+    await expect(box.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+      /Pat Example/,
+    );
     await box.getByRole('button', { name: 'Post comment' }).click();
     await expect(box.getByRole('list', { name: 'Program comments' })).toContainText(
       /LAB for .*Pat Example/,
@@ -202,12 +206,12 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   });
   const program = await submitProgram(page.request, [id], { holeId });
 
-  await signInAsLabStation(page);
+  // Jordan Smith is recording at the station (STRATA-125): the performer follows the chip.
+  await signInAsLabStation(page, { person: STATION_PEOPLE.jordan });
   await page.goto(`/lab-testing/programs/${program.id}`);
   const row = testRow(page, code);
   await row.getByRole('button', { name: 'Start' }).click();
-  await row.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
   await expect(row).toContainText('In progress');
 
@@ -215,8 +219,9 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   const panel = row.getByRole('group', { name: /Mark completed/ });
   await expect(panel.getByText('Units actually used (required)')).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Mark completed' })).toBeDisabled();
-  await panel.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+    /Jordan Smith/,
+  );
   await panel.getByRole('checkbox', { name: new RegExp(tubes[0]!) }).check();
   await panel.getByRole('button', { name: 'Mark completed' }).click();
   await expect(row).toContainText('Completed');

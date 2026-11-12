@@ -12,11 +12,13 @@ import { VerifyLabelsPanel } from './VerifyLabelsPanel';
 // MM-T16: the DS3678-XR is a USB keyboard that types the symbol's data and then Enter, so every
 // scan here is simulated keyboard input. Fictional data only (DEMO-2601, TH26-01).
 
+// A personal account: a LAB station first asks "Who is working here?" (STRATA-19/125), which
+// these lookup tests don't exercise.
 const me: MeResponse = {
   id: 'u1',
-  displayName: 'Lab (shared)',
-  initials: null,
-  accountType: 'shared_lab',
+  displayName: 'Alex Tester',
+  initials: 'AT',
+  accountType: 'test',
   status: 'active',
   roles: [],
   permissions: ['inventory.read', 'label.print'],

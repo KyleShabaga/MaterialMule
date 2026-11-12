@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MTR-2: the shared LAB account never asks for personal-account data, so its console shows no
 // 403s; the pages say plainly that they are for personal accounts.
@@ -37,6 +38,7 @@ const PERSONAL = [
 
 function renderAsLab(path: string) {
   const urls: string[] = [];
+  pickStationPerson(LAB);
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {

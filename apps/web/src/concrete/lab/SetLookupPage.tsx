@@ -15,6 +15,7 @@ import {
   type BadgeTone,
 } from '../../components/app-ui';
 import { ContextRow } from '../../layout/ContextRow';
+import { useRecordRecent } from '../../layout/record-recent';
 import { SpecimenId } from '../ledger';
 import { fetchScheduleHistory, fetchSetLookup, type LoadResult, type SetLookup } from './api';
 import { ageLabel, labDateTime, setLabel, workflowLabel } from './format';
@@ -149,6 +150,7 @@ export function SetLookupPage() {
       current = false;
     };
   }, [setId, key]);
+  useRecordRecent('specimen_set', load?.ok ? load.data.set.id : null);
 
   const back = (
     <ContextRow>

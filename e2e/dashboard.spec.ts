@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { receiveThroughApi } from './support/receiving';
 
-// Today (Field Ledger; replaces the dashboard at /) and the top-bar search, at desktop and phone
-// width. Fictional data only.
+// Today (Field Ledger; replaces the dashboard at /) and search through the Ctrl K menu, at
+// desktop and phone width. Fictional data only.
 
 async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(
@@ -60,15 +60,24 @@ test('a search for exactly one unit ID opens the unit; anything else lists resul
   const [unit] = await receiveThroughApi(page);
   const id = unit!.suNumber;
 
+  // Strata (STRATA-14): search is the Ctrl K command menu; Enter on an exact ID opens the unit.
   await page.goto('/search');
-  const box = page.getByRole('search', { name: 'Search' }).getByRole('textbox', { name: 'Search' });
+  // The shell is up (its shortcuts listen from then on).
+  await expect(page.getByRole('banner')).toBeVisible();
+  await page.keyboard.press('Control+k');
+  const box = page
+    .getByRole('dialog', { name: 'Search or scan' })
+    .getByRole('combobox', { name: 'Search or scan a label' });
+  await expect(box).toBeFocused();
   await box.fill(id.toLowerCase());
   await box.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/sample-storage/${id}$`));
   await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
 
   await page.goto('/search?q=TH26-01');
-  await expect(page.getByRole('heading', { level: 1, name: /^\d+ results?$/ })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Results for “TH26-01”' }),
+  ).toBeVisible();
   await expect(page).toHaveTitle('Search · Material Mule');
   const holes = page.getByRole('region', { name: 'Test holes' });
   await expect(holes.getByRole('link', { name: /^TH26-01 Test hole on DEMO-2601/ })).toBeVisible();

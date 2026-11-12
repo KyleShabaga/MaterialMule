@@ -71,7 +71,7 @@ async function submittedProgram(request: APIRequestContext, testTypeId: string) 
   };
 }
 
-test('AC1/T2: a Lead Project Engineer adds a Grabs line with explicit units after a preview; the worklist shows the new test', async ({
+test('AC1/T2: a Lead Project Engineer adds a Grabs line with explicit units after a preview; the Workboard shows the new test', async ({
   page,
 }) => {
   const [first, added] = [unique('DEMO-AM'), unique('DEMO-AL')];
@@ -116,7 +116,7 @@ test('AC1/T2: a Lead Project Engineer adds a Grabs line with explicit units afte
   await expect(page.getByText('Amendments (1)')).toBeVisible();
 
   await page.goto('/lab-testing');
-  await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workboard', level: 2 })).toBeVisible();
   await page.getByRole('combobox', { name: /^Test\b/ }).selectOption({ label: added });
   await expect(page.getByRole('link', { name: program.programNumber })).toBeVisible();
 });

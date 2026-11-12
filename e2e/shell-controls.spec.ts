@@ -1,53 +1,45 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { mainNav, moreButton, openMore } from './support/shell';
+import { mainNav, openAccountMenu, openMore } from './support/shell';
 
-// Bugs & UI lane B, Field Ledger shell: phone More sheet focus (MTR-137, was the drawer), the rail
-// groups and the rail footer (MISC-09).
+// Strata shell (DESIGN.md › Shell, › Sidebar; STRATA-8, 9, 12, 15, 42): the phone Sheet, Retention
+// and folding sections, Ctrl B and the collapsed rail, the account menu's theme, server health.
 
-test('MTR-137: the phone More sheet keeps focus, closes on Escape and outside taps, and returns focus', async ({
+test('phone: the sidebar is a Sheet from the top bar; it keeps focus and Escape returns it', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone-chromium', 'phone layout only');
   await signInAs(page, 'at');
   await page.goto('/sample-storage');
-  const more = moreButton(page);
-  const nav = mainNav(page);
-  // One "Main" navigation: the bottom bar, no rail.
-  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(1);
-  for (const slot of ['Today', 'Find', 'Scan', 'Receive']) {
-    await expect(nav.getByRole('link', { name: slot, exact: true })).toBeVisible();
-  }
+  const toggle = page.getByRole('banner').getByRole('button', { name: 'Toggle Sidebar' });
+  // Closed: no "Main" navigation at all; the old bottom bar is gone.
+  await expect(mainNav(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'More', exact: true })).toHaveCount(0);
 
-  await more.click();
-  await expect(more).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('link', { name: 'Projects', exact: true })).toBeFocused();
-  await expect(page.locator('#main')).toHaveAttribute('inert', '');
-  await expect(page.getByRole('banner')).toHaveAttribute('inert', '');
-  // Tabbing never lands on what the sheet covers.
+  await toggle.click();
+  const nav = mainNav(page);
+  await expect(nav.getByRole('link', { name: 'Projects', exact: true })).toBeVisible();
+  // Tabbing stays inside the Sheet (Radix focus trap).
   for (let i = 0; i < 14; i += 1) {
     await page.keyboard.press('Tab');
-    const inCovered = await page.evaluate(
-      () => !!document.activeElement?.closest('#main, .phone-header, .phone-bar li[inert]'),
-    );
-    expect(inCovered, `Tab ${i + 1}`).toBe(false);
+    const inPage = await page.evaluate(() => !!document.activeElement?.closest('#main, header'));
+    expect(inPage, `Tab ${i + 1}`).toBe(false);
   }
   await page.keyboard.press('Escape');
-  await expect(more).toHaveAttribute('aria-expanded', 'false');
-  await expect(more).toBeFocused();
-  await expect(page.locator('#main')).not.toHaveAttribute('inert');
+  await expect(mainNav(page)).toHaveCount(0);
+  await expect(toggle).toBeFocused();
 
-  // A tap on the page behind (the scrim) closes it.
-  await more.click();
-  await page.mouse.click(200, 10);
-  await expect(more).toHaveAttribute('aria-expanded', 'false');
-  await expect(more).toBeFocused();
+  // Following a link closes it.
+  await toggle.click();
+  await mainNav(page).getByRole('link', { name: 'Projects', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
+  await expect(mainNav(page)).toHaveCount(0);
 });
 
-test('Field Ledger: rail groups open inside their section and toggle with the chevron', async ({
+test('Retention opens inside its section; section headings fold and the fold is kept', async ({
   page,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-chromium', 'desktop rail only');
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'desktop sidebar');
   await signInAs(page, 'at');
   await page.goto('/disposal-retention/scan');
   const nav = mainNav(page);
@@ -55,30 +47,91 @@ test('Field Ledger: rail groups open inside their section and toggle with the ch
     'aria-current',
     'page',
   );
-  const hide = nav.getByRole('button', { name: 'Hide Retention pages' });
-  await expect(hide).toHaveAttribute('aria-expanded', 'true');
-  await hide.click();
+  // The layout is saved for the person on the server (STRATA-41): each fold waits for its save.
+  const saved = () =>
+    page.waitForResponse(
+      (r) => r.url().endsWith('/api/me/sidebar-layout') && r.request().method() === 'PUT',
+    );
+  const retention = nav.getByRole('button', { name: 'Retention', exact: true });
+  await expect(retention).toHaveAttribute('aria-expanded', 'true');
+  let save = saved();
+  await retention.click();
   await expect(nav.getByRole('link', { name: 'Disposal scan' })).toBeHidden();
-  await expect(nav.getByRole('button', { name: 'Show Retention pages' })).toHaveAttribute(
+  expect((await save).status()).toBe(200);
+
+  // Recent starts folded; folding Concrete hides its pages and survives a reload.
+  await expect(nav.getByRole('button', { name: 'Recent', exact: true })).toHaveAttribute(
     'aria-expanded',
     'false',
   );
-  // Concrete stays closed outside its section.
-  await expect(nav.getByRole('button', { name: 'Show Concrete pages' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Breaks', exact: true })).toBeVisible();
+  save = saved();
+  await nav.getByRole('button', { name: 'Concrete', exact: true }).click();
   await expect(nav.getByRole('link', { name: 'Breaks', exact: true })).toBeHidden();
+  expect((await save).status()).toBe(200);
+  await page.reload();
+  await expect(mainNav(page).getByRole('link', { name: 'Inventory', exact: true })).toBeVisible();
+  await expect(mainNav(page).getByRole('link', { name: 'Breaks', exact: true })).toBeHidden();
+  // Unfold again: other specs sign in as the same person.
+  save = saved();
+  await mainNav(page).getByRole('button', { name: 'Concrete', exact: true }).click();
+  await expect(mainNav(page).getByRole('link', { name: 'Breaks', exact: true })).toBeVisible();
+  expect((await save).status()).toBe(200);
 });
 
-test('MISC-09: the dark mode switch applies at once and survives a reload', async ({ page }) => {
+test('Ctrl B collapses to a 60 px rail with 44 px icons, is remembered, and leaves text fields alone', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'desktop sidebar');
+  await signInAs(page, 'at');
+  await page.goto('/');
+  const sidebar = page.locator('[data-slot="sidebar"]');
+  await expect(sidebar).toHaveAttribute('data-state', 'expanded');
+
+  await page.locator('body').press('Control+b');
+  await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  const container = page.locator('[data-slot="sidebar-container"]');
+  await expect.poll(async () => Math.round((await container.boundingBox())!.width)).toBe(60);
+  const today = mainNav(page).getByRole('link', { name: 'Today', exact: true });
+  const box = (await today.boundingBox())!;
+  expect(Math.round(box.width)).toBe(44);
+  expect(Math.round(box.height)).toBe(44);
+  // A tooltip names the icon; Retention opens its pages in a menu to the right.
+  await today.hover();
+  await expect(page.getByRole('tooltip', { name: 'Today' })).toBeVisible();
+  await mainNav(page).getByRole('button', { name: 'Retention pages' }).click();
+  await page.getByRole('menuitem', { name: 'Disposal scan' }).click();
+  await expect(page).toHaveURL(/\/disposal-retention\/scan$/);
+
+  await page.reload();
+  await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+  // In a text field Ctrl B is the field's (bold), not the sidebar's.
+  await page.goto('/sample-storage');
+  const search = page.getByRole('main').getByRole('textbox').first();
+  await search.focus();
+  await search.press('Control+b');
+  await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  // Out of the field (focusing <body> can't take focus from it), Ctrl B is the sidebar's again.
+  await search.blur();
+  await page.keyboard.press('Control+b');
+  await expect(sidebar).toHaveAttribute('data-state', 'expanded');
+});
+
+test('STRATA-7/15: Light, Dark and System in the account menu apply at once and survive a reload', async ({
+  page,
+}) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await signInAs(page, 'at');
   await page.goto('/');
-  await openMore(page);
-  const toggle = page.getByRole('switch', { name: 'Dark mode' });
-  await expect(toggle).toHaveAttribute('aria-checked', 'false');
   const lightBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  await toggle.focus();
-  await page.keyboard.press('Space');
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+  let menu = await openAccountMenu(page);
+  await expect(menu.getByRole('menuitemradio', { name: 'System' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await menu.getByRole('menuitemradio', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe(
     lightBg,
@@ -86,28 +139,30 @@ test('MISC-09: the dark mode switch applies at once and survives a reload', asyn
 
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await openMore(page);
-  await expect(page.getByRole('switch', { name: 'Dark mode' })).toHaveAttribute(
+  // An explicit light choice wins over a dark OS setting; System follows the OS again.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  menu = await openAccountMenu(page);
+  await expect(menu.getByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute(
     'aria-checked',
     'true',
   );
-  // An explicit light choice wins over a dark OS setting.
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await page.getByRole('switch', { name: 'Dark mode' }).click();
+  await menu.getByRole('menuitemradio', { name: 'Light' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(lightBg);
+  await menu.getByRole('menuitemradio', { name: 'System' }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme');
 });
 
-test('MISC-09: server health reads connected, then unreachable when the API is down', async ({
-  page,
-}) => {
+test('MISC-09: server health shows only when the API is unreachable', async ({ page }) => {
   await signInAs(page, 'at');
   await page.goto('/');
   await openMore(page);
-  const nav = mainNav(page);
-  await expect(nav.locator('.server-health')).toHaveText('Server connected');
+  const health = page.locator('.server-health');
+  await expect(health).toHaveText('Server connected');
+  await expect(health).toHaveClass(/sr-only/);
   await page.route('**/api/health', (route) => route.abort('connectionrefused'));
   // Health is re-checked when the window regains focus.
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(nav.locator('.server-health')).toHaveText('Server unreachable');
+  await expect(health).toHaveText('Server unreachable');
+  await expect(health).toBeVisible();
 });

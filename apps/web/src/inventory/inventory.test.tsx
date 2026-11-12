@@ -12,6 +12,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { inventorySearchParams, readInventoryQuery } from './url-state';
 
 // Fictional data only (MM-T12): DEMO-2601, TH26-01, receiver AT.
@@ -147,6 +148,7 @@ function stubApi(handler: (url: URL) => Response | undefined) {
 
 function renderAt(path: string, user = me()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{

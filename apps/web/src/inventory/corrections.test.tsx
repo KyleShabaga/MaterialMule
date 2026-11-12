@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { TEST_STATION_PERSON, pickStationPerson } from '../session/station-test-person';
 
 // Fictional data only (MM-T13): BKT-2026-000014 in DEMO-2601, test hole TH26-01, user KCS.
 
@@ -125,7 +126,11 @@ function stubApi(api: Api) {
     if (url.pathname === '/api/projects/search') {
       return json(200, api.projects?.(url.searchParams.get('q') ?? '') ?? [OTHER_PROJECT]);
     }
-    if (url.pathname === '/api/staff/active') return json(200, []);
+    if (url.pathname === '/api/staff/active') {
+      // The LAB station's picked person (STRATA-16) must still be active staff.
+      const { id, displayName, initials } = TEST_STATION_PERSON;
+      return json(200, [{ id, displayName, initials }]);
+    }
     if (url.pathname === `/api/projects/${OTHER_PROJECT.id}/test-holes`) return json(200, []);
     if (url.pathname === `/api/projects/${PROJECT.id}/test-holes`) {
       return json(200, [{ id: UNIT.holes[0]!.testHoleId, projectId: PROJECT.id, name: 'TH26-01' }]);
@@ -140,6 +145,7 @@ function renderUnit(user = me()) {
   const router = createMemoryRouter(routes, {
     initialEntries: [`/sample-storage/${UNIT.readableId}`],
   });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{

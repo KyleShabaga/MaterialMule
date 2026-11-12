@@ -15,8 +15,22 @@ function collect403s(page: Page): string[] {
   return refused;
 }
 
+/** Sign-in step 2 on the station (STRATA-16): pick who is working before any app page opens. */
+async function pickStationPerson(page: Page, name: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/who-is-working/);
+  await page
+    .getByRole('list', { name: 'Receiving lab staff' })
+    .getByRole('button', { name: new RegExp(name) })
+    .click();
+  await expect(
+    page.getByRole('button', { name: `Recording as ${name}. Sign off or switch person` }),
+  ).toBeVisible();
+}
+
 test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ page }) => {
-  await signInAsLabStation(page);
+  await signInAsLabStation(page, { person: null });
+  await pickStationPerson(page, 'Alex Tester');
   const refused = collect403s(page);
 
   await page.goto('/action-requests');
@@ -50,7 +64,13 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
   ).toBeVisible();
   await expect(page.getByLabel('Units shown')).toBeVisible();
 
+  // The picked person is attribution only: LAB still can't reach personal-account data.
+  await expect(
+    page.getByRole('button', { name: 'Recording as Alex Tester. Sign off or switch person' }),
+  ).toBeVisible();
+
   // Let in-flight requests settle before the check: the last page's loads must be finished.
   await page.waitForLoadState('networkidle');
   expect(refused).toEqual([]);
+  expect((await page.request.get('/api/me/access')).status()).toBe(403);
 });

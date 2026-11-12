@@ -1,15 +1,36 @@
-import { locationKindLabel, type ConcreteSearch, type LabProgramList } from '@materialmule/shared';
+import type { ConcreteSearch, LabProgramList } from '@materialmule/shared';
+import { SearchX, TextSearch, TriangleAlert } from 'lucide-react';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/app-ui';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { PageHeader } from '../components/app-ui';
 import { useMediaQuery } from '../components/useMediaQuery';
-import { fetchConcreteSearch, LAB_SEARCH_PREVIEW, type LoadResult } from '../concrete/lab/api';
-import { ConcreteSearchResults } from '../concrete/lab/ConcreteSearch';
 import { FEATURES } from '../features';
-import { PHONE_QUERY } from '../layout/AppLayout';
-import { ContextRow } from '../layout/ContextRow';
+import { useOptionalCommandMenu } from './command-menu';
 import {
   SEARCH_PREVIEW,
+  SEARCH_UNIT_PAGE,
+  searchConcrete,
   searchLocations,
   searchPrograms,
   searchProjects,
@@ -17,15 +38,40 @@ import {
   searchUnits,
   type SearchResult,
 } from './api';
-import { plural, PROGRAM_TAG, testHoleRows, unitRow, type ResultRow } from './rows';
-import './search.css';
+import {
+  concreteSetRows,
+  plural,
+  programRow,
+  projectRow,
+  receiptRow,
+  shelfRow,
+  testHoleRows,
+  unitRow,
+  type ResultRow,
+  type UnitRow,
+} from './rows';
+import { StageTag } from './StageTag';
 
-// Field Ledger search results (docs/redesign/design.md, "Search results"; canvas Search and
-// PhoneFind): grouped by kind, each row one link. Test holes are found through their storage
-// units; samples are matched by the units' SAMPLE#/DEPTH summaries and sample references, since
-// receiving keeps no individual sample inventory.
+// Strata search results (STRATA-82, DESIGN.md › Round 3 "Search results"): `/search?q=`, from the
+// Ctrl K menu's "Show all results". Grouped by kind, each group with an honest count: where a
+// group only lists a preview (capped by the source), it says so instead of passing the preview
+// off as the total. Storage units carry their stage tag (STRATA-60).
 
-type GroupKey = 'holes' | 'units' | 'projects' | 'shelves' | 'deliveries' | 'programs';
+const PHONE_QUERY = '(max-width: 640px)';
+
+const SEARCHED_KINDS = [
+  'storage units',
+  'test holes',
+  'projects',
+  'shelves',
+  'receipts',
+  ...(FEATURES.labTesting ? ['lab programs'] : []),
+  ...(FEATURES.concreteLab ? ['concrete records'] : []),
+]
+  .join(', ')
+  .replace(/, ([^,]+)$/, ' and $1');
+
+type GroupKey = 'holes' | 'units' | 'projects' | 'shelves' | 'receipts' | 'programs' | 'concrete';
 
 /** Phone filter (canvas PhoneFind): All, Units, Holes, Programs. */
 type PhoneFilter = 'all' | 'units' | 'holes' | 'programs';
@@ -36,6 +82,7 @@ const PHONE_FILTERS: { value: PhoneFilter; label: string }[] = [
   { value: 'programs', label: 'Programs' },
 ];
 
+/** The answer for the current query only; an older query's late answer is never shown. */
 function useResult<T>(q: string, load: (q: string) => Promise<T>): T | null {
   const [answer, setAnswer] = useState<{ q: string; value: T } | null>(null);
   useEffect(() => {
@@ -49,167 +96,268 @@ function useResult<T>(q: string, load: (q: string) => Promise<T>): T | null {
   return answer?.q === q ? answer.value : null;
 }
 
-const loadConcrete = (q: string): Promise<LoadResult<ConcreteSearch>> =>
-  fetchConcreteSearch(q, 1, LAB_SEARCH_PREVIEW);
-const noConcrete = (): Promise<null> => Promise.resolve(null);
-const noPrograms = () =>
-  Promise.resolve<SearchResult<LabProgramList>>({
-    ok: false,
-    forbidden: true,
-    message: '',
-  });
+const loadUnits = (q: string) => searchUnits(q);
+const loadConcrete = (q: string) => searchConcrete(q);
+const refused = <T,>(): Promise<SearchResult<T>> =>
+  Promise.resolve({ ok: false, forbidden: true, message: '' });
+const noPrograms = () => refused<LabProgramList>();
+const noConcrete = () => refused<ConcreteSearch>();
 
 interface Group {
   key: GroupKey;
   title: string;
-  /** Matches in total; may be more than the rows listed. */
-  total: number;
+  /** "3 matches", or what a capped preview really shows ("First 5 shown"). */
+  count: string;
   rows: ResultRow[];
   more?: { to: string; label: string };
+  note?: string;
 }
 
-function ResultList({ rows }: { rows: ResultRow[] }) {
-  return (
-    <ul className="search-rows">
-      {rows.map((row) => (
-        <li key={row.key}>
-          <Link to={row.href} className="search-row" data-row>
-            <span className="search-row-id mono">{row.id}</span>
-            <span className="search-row-text">
-              <span className="search-row-title">{row.title}</span>
-              {row.sub ? <span className="search-row-sub">{row.sub}</span> : null}
-            </span>
-            <StatusBadge tone={row.tag.tone}>{row.tag.label}</StatusBadge>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
+function matches(n: number): string {
+  return plural(n, 'match', 'matches');
 }
 
-function GroupSection({
+function GroupCard({
   title,
   count,
+  more,
+  note,
   children,
 }: {
   title: string;
-  count: ReactNode;
+  count: string;
+  more?: { to: string; label: string };
+  note?: string;
   children: ReactNode;
 }) {
   const headingId = useId();
   return (
-    <section className="search-group" aria-labelledby={headingId}>
-      <div className="section-head">
-        <h2 id={headingId}>{title}</h2>
-        <span className="section-meta">{count}</span>
-      </div>
-      {children}
-    </section>
+    <Card role="region" aria-labelledby={headingId} className="gap-3 py-4">
+      <CardHeader className="px-4">
+        <CardTitle>
+          <h2 id={headingId} className="text-base font-semibold">
+            {title}
+          </h2>
+        </CardTitle>
+        <CardAction>
+          <span className="font-mono text-xs text-muted-foreground uppercase">{count}</span>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-4">
+        {children}
+        {note ? <p className="mt-2 text-xs text-muted-foreground">{note}</p> : null}
+        {more ? (
+          <p className="mt-3 text-sm">
+            <Link className="text-link underline-offset-4 hover:underline" to={more.to}>
+              {more.label}
+            </Link>
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
-function matches(n: number): string {
-  return `${n} ${n === 1 ? 'MATCH' : 'MATCHES'}`;
+function ResultTable({ rows, label }: { rows: ResultRow[]; label: string }) {
+  return (
+    <Table aria-label={label}>
+      <TableHeader className="sr-only">
+        <TableRow>
+          <TableHead>ID</TableHead>
+          <TableHead>Name</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell className="w-0 align-top">
+              <Link
+                to={row.href}
+                className="font-mono font-medium whitespace-nowrap text-link underline-offset-4 hover:underline"
+              >
+                {row.id} <span className="sr-only">{row.title}</span>
+              </Link>
+            </TableCell>
+            <TableCell className="min-w-0 whitespace-normal">
+              <div>{row.title}</div>
+              {row.sub ? <div className="text-xs text-muted-foreground">{row.sub}</div> : null}
+            </TableCell>
+            <TableCell className="w-0 text-right">
+              {row.tag ? <StageTag stage={row.tag.stage}>{row.tag.label}</StageTag> : null}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function UnitTable({ rows }: { rows: UnitRow[] }) {
+  return (
+    <Table aria-label="Storage units">
+      <TableHeader>
+        <TableRow>
+          <TableHead>ID</TableHead>
+          <TableHead>Project</TableHead>
+          <TableHead>Test holes</TableHead>
+          <TableHead>Where</TableHead>
+          <TableHead className="text-right">Stage</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell className="w-0">
+              <Link
+                to={row.href}
+                className="font-mono font-medium whitespace-nowrap text-link underline-offset-4 hover:underline"
+              >
+                {row.id}
+              </Link>
+            </TableCell>
+            <TableCell>
+              <span className="font-mono">{row.projectNumber}</span>{' '}
+              <span className="text-muted-foreground">{row.type}</span>
+            </TableCell>
+            <TableCell className="whitespace-normal">{row.contents}</TableCell>
+            <TableCell className="whitespace-normal">{row.where}</TableCell>
+            <TableCell className="w-0 text-right">
+              <StageTag stage={row.stage.stage}>{row.stage.label}</StageTag>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function LoadingGroups() {
+  return (
+    <div className="flex flex-col gap-4" aria-hidden="true">
+      {[0, 1].map((n) => (
+        <Card key={n} className="gap-3 py-4">
+          <CardContent className="flex flex-col gap-2 px-4">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 }
 
 export function SearchPage() {
   const [params] = useSearchParams();
   const q = (params.get('q') ?? '').trim();
   const phone = useMediaQuery(PHONE_QUERY);
+  const menu = useOptionalCommandMenu();
   const [filter, setFilter] = useState<PhoneFilter>('all');
 
-  const units = useResult(q, searchUnits);
+  const units = useResult(q, loadUnits);
   const projects = useResult(q, searchProjects);
   const shelves = useResult(q, searchLocations);
-  const deliveries = useResult(q, searchReceipts);
+  const receipts = useResult(q, searchReceipts);
   const programs = useResult(q, FEATURES.labTesting ? searchPrograms : noPrograms);
   const concrete = useResult(q, FEATURES.concreteLab ? loadConcrete : noConcrete);
 
   if (!q) {
     return (
-      <div className="search-page">
-        <PageHeader title="Search" />
-        <EmptyState title="Type what you are looking for.">
-          Use the search field at the top of the page: a unit ID, project, test hole, sample, shelf
-          or lab program. A scanned label opens the unit.
-        </EmptyState>
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Search" documentTitle={false} />
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <TextSearch />
+            </EmptyMedia>
+            <EmptyTitle>Type what you are looking for.</EmptyTitle>
+            <EmptyDescription>
+              A unit ID, project, test hole, sample, shelf or lab program. A scanned label opens the
+              unit.
+            </EmptyDescription>
+          </EmptyHeader>
+          {menu ? (
+            <EmptyContent>
+              <Button variant="outline" onClick={() => menu.open()}>
+                Search or scan
+              </Button>
+            </EmptyContent>
+          ) : null}
+        </Empty>
       </div>
     );
   }
 
   const encoded = encodeURIComponent(q);
-  const results = [units, projects, shelves, deliveries, programs];
-  const loading = results.some((r) => r === null) || (FEATURES.concreteLab && concrete === null);
+  const results = [units, projects, shelves, receipts, programs, concrete];
+  const loading = results.some((r) => r === null);
   const failures = results.filter(
     (r): r is { ok: false; forbidden: false; message: string } => !!r && !r.ok && !r.forbidden,
   );
 
   const groups: Group[] = [];
+  let unitRows: UnitRow[] = [];
+  let unitCount = '';
+  let unitMore: Group['more'];
   if (units?.ok) {
     const holes = testHoleRows(units.data.items, q);
-    if (holes.length)
-      groups.push({ key: 'holes', title: 'Test holes', total: holes.length, rows: holes });
-    if (units.data.total > 0) {
+    // Test holes are found through the units read, so past that page the list is partial.
+    const holesPartial = units.data.total > units.data.items.length;
+    if (holes.length) {
       groups.push({
-        key: 'units',
-        title: 'Storage units',
-        total: units.data.total,
-        rows: units.data.items.slice(0, SEARCH_PREVIEW).map(unitRow),
-        more:
-          units.data.total > SEARCH_PREVIEW
-            ? { to: `/sample-storage?search=${encoded}&status=all`, label: 'Show all in Inventory' }
-            : undefined,
+        key: 'holes',
+        title: 'Test holes',
+        count: holesPartial ? `${holes.length} found so far` : matches(holes.length),
+        rows: holes,
+        note: holesPartial
+          ? `Found through the first ${SEARCH_UNIT_PAGE} matching storage units; there may be more.`
+          : undefined,
+        more: holesPartial
+          ? { to: `/sample-storage?search=${encoded}&status=all`, label: 'Show all in Inventory' }
+          : undefined,
       });
+    }
+    if (units.data.total > 0) {
+      unitRows = units.data.items.slice(0, SEARCH_PREVIEW).map(unitRow);
+      unitCount = matches(units.data.total);
+      unitMore =
+        units.data.total > SEARCH_PREVIEW
+          ? { to: `/sample-storage?search=${encoded}&status=all`, label: 'Show all in Inventory' }
+          : undefined;
     }
   }
   if (projects?.ok && projects.data.length > 0) {
+    // The project search returns at most a preview; a full preview may not be every match.
+    const capped = projects.data.length >= SEARCH_PREVIEW;
     groups.push({
       key: 'projects',
       title: 'Projects',
-      total: projects.data.length,
-      rows: projects.data.map((project) => ({
-        key: project.id,
-        id: project.projectNumber,
-        title: project.name,
-        sub: project.client,
-        tag: { label: 'Project', tone: 'closed' },
-        href: `/projects/${project.id}`,
-      })),
-      more: { to: `/projects?search=${encoded}`, label: 'Show all projects' },
+      count: capped ? `First ${projects.data.length} shown` : matches(projects.data.length),
+      rows: projects.data.map(projectRow),
+      more: { to: `/projects?search=${encoded}`, label: 'Show all in Projects' },
     });
   }
   if (shelves?.ok && shelves.data.length > 0) {
     groups.push({
       key: 'shelves',
       title: 'Shelves',
-      total: shelves.data.length,
-      rows: shelves.data.slice(0, SEARCH_PREVIEW).map((location) => ({
-        key: location.id,
-        id: location.code,
-        title: location.name,
-        sub: `${plural(location.inStockCount, 'unit')} · ${locationKindLabel(location.kind)}`,
-        tag: location.active
-          ? { label: 'Shelf', tone: 'storage' }
-          : { label: 'Retired', tone: 'closed' },
-        href: `/sample-storage/locations/${encodeURIComponent(location.code)}`,
-      })),
+      count: matches(shelves.data.length),
+      rows: shelves.data.slice(0, SEARCH_PREVIEW).map(shelfRow),
+      note:
+        shelves.data.length > SEARCH_PREVIEW
+          ? `Showing ${SEARCH_PREVIEW} of ${shelves.data.length}. Type more of the shelf code to narrow it.`
+          : undefined,
     });
   }
-  if (deliveries?.ok && deliveries.data.total > 0) {
+  if (receipts?.ok && receipts.data.total > 0) {
     groups.push({
-      key: 'deliveries',
-      title: 'Deliveries',
-      total: deliveries.data.total,
-      rows: deliveries.data.items.map((receipt) => ({
-        key: receipt.id,
-        id: receipt.project.projectNumber,
-        title: `Received ${receipt.receivedDate}`,
-        sub: `${plural(receipt.quantity, 'unit')} · received by ${receipt.receiver.name}`,
-        tag: { label: 'Confirmed', tone: 'storage' },
-        href: `/receiving-log/${encodeURIComponent(receipt.id)}`,
-      })),
+      key: 'receipts',
+      title: 'Receipts',
+      count: matches(receipts.data.total),
+      rows: receipts.data.items.map(receiptRow),
       more:
-        deliveries.data.total > SEARCH_PREVIEW
+        receipts.data.total > receipts.data.items.length
           ? { to: `/receiving-log?search=${encoded}`, label: 'Show all in the Receiving log' }
           : undefined,
     });
@@ -218,82 +366,108 @@ export function SearchPage() {
     groups.push({
       key: 'programs',
       title: 'Lab programs',
-      total: programs.data.total,
-      rows: programs.data.items.slice(0, SEARCH_PREVIEW).map((program) => ({
-        key: program.id,
-        id: program.programNumber ?? 'Draft',
-        title: `${program.project.projectNumber} · ${program.project.name}`,
-        sub: `${plural(program.testCount, 'test')} · requested by ${program.requestedBy.name}`,
-        tag: PROGRAM_TAG[program.status],
-        href: `/lab-testing/programs/${encodeURIComponent(program.id)}`,
-      })),
+      count: matches(programs.data.total),
+      rows: programs.data.items.slice(0, SEARCH_PREVIEW).map(programRow),
+      note:
+        programs.data.total > SEARCH_PREVIEW
+          ? `Showing ${SEARCH_PREVIEW} of ${programs.data.total}.`
+          : undefined,
     });
   }
-  const concreteTotal = concrete?.ok ? concrete.data.total : 0;
-  const total = groups.reduce((sum, group) => sum + group.total, 0) + concreteTotal;
+  if (concrete?.ok && concrete.data.total > 0) {
+    groups.push({
+      key: 'concrete',
+      title: 'Concrete',
+      count: plural(concrete.data.total, 'field report'),
+      rows: concreteSetRows(concrete.data),
+      note: 'Set numbering is open (package 3): sets show the ID they carry today.',
+      more: { to: `/concrete/search?q=${encoded}`, label: 'Show all in Concrete' },
+    });
+  }
 
-  const shown = phone && filter !== 'all' ? groups.filter((group) => group.key === filter) : groups;
-  const kinds = ['UNITS', 'PROJECTS', 'TEST HOLES', 'SHELVES', 'DELIVERIES'];
-  if (FEATURES.labTesting) kinds.push('PROGRAMS');
-  if (FEATURES.concreteLab) kinds.push('CONCRETE');
+  const empty = !loading && failures.length === 0 && groups.length === 0 && unitRows.length === 0;
+  const visible = (key: GroupKey) => !phone || filter === 'all' || filter === key;
+  const order: GroupKey[] = [
+    'units',
+    'holes',
+    'projects',
+    'shelves',
+    'receipts',
+    'programs',
+    'concrete',
+  ];
+  const byKey = new Map(groups.map((group) => [group.key, group]));
 
   return (
-    <div className="search-page">
-      <ContextRow align="end">
-        <Link className="button" to="/sample-storage/scan">
-          Scan label
-        </Link>
-      </ContextRow>
-      <div className="search-title">
-        <PageHeader
-          title={loading ? 'Searching…' : total === 1 ? '1 result' : `${total} results`}
-          documentTitle={false}
-        />
-        <p className="search-for mono" aria-live="polite">
-          FOR “{q}” · {kinds.join(', ')}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <PageHeader title={`Results for “${q}”`} documentTitle={false} />
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {loading ? 'Searching…' : `Searched ${SEARCHED_KINDS}.`}
         </p>
       </div>
       {phone ? (
-        <Segmented label="Show" options={PHONE_FILTERS} value={filter} onChange={setFilter} />
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          aria-label="Show"
+          value={filter}
+          onValueChange={(next) => next && setFilter(next as PhoneFilter)}
+        >
+          {PHONE_FILTERS.map((option) => (
+            <ToggleGroupItem key={option.value} value={option.value}>
+              {option.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       ) : null}
       {failures.map((failure) => (
-        <ErrorState key={failure.message} message={failure.message} detail="Nothing was changed." />
+        <Alert key={failure.message} variant="destructive">
+          <TriangleAlert />
+          <AlertTitle>{failure.message}</AlertTitle>
+          <AlertDescription>Nothing was changed. The other results are below.</AlertDescription>
+        </Alert>
       ))}
-      {!loading && total === 0 && failures.length === 0 ? (
-        <EmptyState title="Nothing matches.">
-          No unit, project, test hole, shelf or program matches <span className="mono">“{q}”</span>.
-          Check the ID, or try part of it.
-        </EmptyState>
+      {empty ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <SearchX />
+            </EmptyMedia>
+            <EmptyTitle>Nothing matches.</EmptyTitle>
+            <EmptyDescription>
+              No unit, project, test hole, shelf or program matches{' '}
+              <span className="font-mono">“{q}”</span>. Check the ID, or scan the label again.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : null}
-      {shown.map((group) => (
-        <GroupSection key={group.key} title={group.title} count={matches(group.total)}>
-          <ResultList rows={group.rows} />
-          {group.more ? (
-            <p className="search-more">
-              <Link to={group.more.to}>{group.more.label}</Link>
-            </p>
-          ) : null}
-        </GroupSection>
-      ))}
-      {FEATURES.concreteLab && concrete && (!phone || filter === 'all') ? (
-        concrete.ok ? (
-          concreteTotal > 0 ? (
-            <GroupSection title="Concrete" count={matches(concreteTotal)}>
-              <ConcreteSearchResults result={concrete.data} headingLevel={3} />
-              <p className="search-more">
-                <Link to={`/concrete/search?q=${encoded}`}>Show all concrete results</Link>
-              </p>
-            </GroupSection>
-          ) : null
-        ) : concrete.notFound ? null : (
-          <ErrorState
-            message="Concrete records couldn't load. Try again."
-            detail="Nothing was changed."
-          />
-        )
-      ) : null}
-      <p className="search-note">
-        A scanned label that matches exactly one unit skips this page and opens the unit.
+      {order.map((key) => {
+        if (!visible(key)) return null;
+        if (key === 'units') {
+          return unitRows.length > 0 ? (
+            <GroupCard key={key} title="Storage units" count={unitCount} more={unitMore}>
+              <UnitTable rows={unitRows} />
+            </GroupCard>
+          ) : null;
+        }
+        const group = byKey.get(key);
+        if (!group) return null;
+        return (
+          <GroupCard
+            key={key}
+            title={group.title}
+            count={group.count}
+            more={group.more}
+            note={group.note}
+          >
+            <ResultTable rows={group.rows} label={group.title} />
+          </GroupCard>
+        );
+      })}
+      {loading ? <LoadingGroups /> : null}
+      <p className="text-xs text-muted-foreground">
+        A scanned label that matches exactly one unit or shelf skips this page and opens it.
       </p>
     </div>
   );

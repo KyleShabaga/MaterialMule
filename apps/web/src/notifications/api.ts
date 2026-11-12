@@ -44,9 +44,11 @@ export class NotificationsForbiddenError extends Error {
 export async function fetchNotifications(
   filter: NotificationFilter,
   cursor: string | null = null,
+  limit?: number,
 ): Promise<NotificationList> {
   const query = new URLSearchParams({ filter });
   if (cursor) query.set('cursor', cursor);
+  if (limit !== undefined) query.set('limit', String(limit));
   const response = await apiFetch(`/api/notifications?${query.toString()}`);
   if (response.status === 403) throw new NotificationsForbiddenError();
   if (!response.ok) throw new Error(`HTTP ${response.status}`);

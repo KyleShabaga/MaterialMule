@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { NOTIFICATIONS_CHANGED_EVENT } from './api';
 
 // MM-T91 UI: the header Notifications control beside Pending actions (separate labels and
@@ -60,6 +61,7 @@ function renderAt(
   user: MeResponse,
   api: (url: string, init?: RequestInit) => Response | Promise<Response>,
 ) {
+  pickStationPerson(user);
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
     api(String(input), init),
   );
@@ -93,43 +95,49 @@ function listenForChanges() {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** GET /api/inbox/summary with `badge` unread (lane 1C's one count the bell shows). */
+const inboxSummary = (badge: number) => ({
+  counts: { badge, unread: badge, unreadRequests: 0, unreadUpdates: badge, openRequests: 0 },
+  preview: [],
+});
+
 describe('Header controls (MM-T91)', () => {
-  it('AC10: Notifications and Pending actions are separate controls with their own counts', async () => {
+  it('AC10: the bell and Action requests are separate controls; counts are never added', async () => {
     renderAt('/projects', me(), (url) => {
-      if (url.startsWith('/api/notifications/count')) return json(200, { unread: 3 });
+      if (url.startsWith('/api/inbox/summary')) return json(200, inboxSummary(3));
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 2 });
       if (url.startsWith('/api/projects')) return json(200, { items: [] });
       return json(404, {});
     });
     const notifications = await screen.findByRole('link', { name: 'Notifications, 3 unread' });
-    const pending = await screen.findByRole('link', {
-      name: 'Pending actions, 2 waiting on you',
+    const requests = within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', {
+      name: 'Action requests',
     });
     expect(notifications).toHaveAttribute('href', '/notifications');
     expect(notifications).toHaveTextContent('3');
-    expect(pending).toHaveTextContent('2');
+    expect(requests).toHaveAttribute('href', '/action-requests');
     // Never added together.
     expect(screen.queryByText('5')).toBeNull();
-    // Field Ledger: the bell sits in the top bar, Pending actions in the rail footer.
+    // Strata: the bell sits in the top bar; Action requests is the sub-row under Inbox.
     expect(screen.getByRole('banner')).toContainElement(notifications);
-    expect(screen.getByRole('navigation', { name: 'Main' })).toContainElement(pending);
+    expect(screen.getByRole('banner')).not.toContainElement(requests);
   });
 
   it('says none unread at 0 and refreshes when notifications change', async () => {
     let unread = 0;
     renderAt('/projects', me(), (url) => {
-      if (url.startsWith('/api/notifications/count')) return json(200, { unread });
+      if (url.startsWith('/api/inbox/summary')) return json(200, inboxSummary(unread));
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 1 });
       if (url.startsWith('/api/projects')) return json(200, { items: [] });
       return json(404, {});
     });
     const link = await screen.findByRole('link', { name: 'Notifications, none unread' });
-    expect(link.querySelector('.action-bell-count')).toBeNull();
+    expect(link.querySelector('[data-slot="bell-count"]')).toBeNull();
     unread = 4;
     act(() => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT)));
     expect(await screen.findByRole('link', { name: 'Notifications, 4 unread' })).toBeVisible();
-    // The pending count is its own.
-    expect(screen.getByRole('link', { name: 'Pending actions, 1 waiting on you' })).toBeVisible();
+    // Action requests stays its own row, with no count added to the bell's.
+    expect(screen.getByRole('link', { name: 'Action requests' })).toBeVisible();
   });
 
   it('shows each control only with its own permission', async () => {
@@ -138,9 +146,12 @@ describe('Header controls (MM-T91)', () => {
       if (url.startsWith('/api/projects')) return json(200, { items: [] });
       return json(404, {});
     });
-    expect(
-      await screen.findByRole('link', { name: 'Pending actions, 1 waiting on you' }),
-    ).toBeVisible();
+    // Without notification.read, Inbox opens the action requests and there is no bell.
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Inbox' })).toHaveAttribute(
+      'href',
+      '/action-requests',
+    );
     expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
   });
 
@@ -155,10 +166,10 @@ describe('Header controls (MM-T91)', () => {
     );
     expect(await screen.findByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
     expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: /^Pending actions/ })).toBeNull();
-    expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/notifications'))).toBe(
-      false,
-    );
+    expect(screen.queryByRole('link', { name: /^Action requests/ })).toBeNull();
+    expect(
+      fetchMock.mock.calls.some(([url]) => /^\/api\/(notifications|inbox)/.test(String(url))),
+    ).toBe(false);
   });
 });
 
@@ -390,9 +401,9 @@ describe('Notification center (MM-T91)', () => {
         'Notifications are for personal accounts. Sign in with your own account.',
       ),
     ).toBeVisible();
-    expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/notifications'))).toBe(
-      false,
-    );
+    expect(
+      fetchMock.mock.calls.some(([url]) => /^\/api\/(notifications|inbox)/.test(String(url))),
+    ).toBe(false);
   });
 });
 

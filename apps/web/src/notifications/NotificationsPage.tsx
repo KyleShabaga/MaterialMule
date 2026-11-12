@@ -26,6 +26,7 @@ import {
   updateNotification,
   type NotificationAction,
 } from './api';
+import { notificationEventText as eventText } from './inbox-feed';
 import './notifications.css';
 
 /**
@@ -56,18 +57,6 @@ const EMPTY: Record<NotificationFilter, string> = {
 };
 
 const REFUSED = 'Notifications are for personal accounts. Sign in with your own account.';
-
-/** What happened, as of when it happened. The live status of the request is shown separately. */
-function eventText(item: Notification): string {
-  switch (item.kind) {
-    case 'action_request.opened':
-      return 'Sent to you for action';
-    case 'action_request.decided':
-      return 'Your request was decided';
-    default:
-      return 'Concrete';
-  }
-}
 
 const REPORT_STATE_LABEL: Record<NotificationLinkedReport['state'], string> = {
   draft: 'Draft',

@@ -8,6 +8,14 @@ afterEach(() => {
 });
 
 describe('loadSession messages', () => {
+  it('tells a server failure apart from an unreachable server', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 503 })),
+    );
+    expect(await loadSession()).toMatchObject({ status: 'error', kind: 'server' });
+  });
+
   it('says Material Mule couldn’t be reached when the request fails', async () => {
     vi.stubGlobal(
       'fetch',
@@ -17,6 +25,7 @@ describe('loadSession messages', () => {
     );
     expect(await loadSession()).toEqual({
       status: 'error',
+      kind: 'unreachable',
       message: 'Material Mule couldn’t be reached. Check the connection, then reload the page.',
     });
   });
@@ -33,7 +42,7 @@ describe('loadSession messages', () => {
       ),
     );
     const state = await loadSession();
-    expect(state).toMatchObject({ status: 'error' });
+    expect(state).toMatchObject({ status: 'error', kind: 'unreadable' });
     expect(state.status === 'error' ? state.message : '').not.toMatch(/API/);
   });
 });

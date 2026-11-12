@@ -256,6 +256,7 @@ export function LocationDrawer({
               <ReceiverSelect
                 label="Printed by"
                 required
+                stationPerson="follow"
                 value={printer}
                 onChange={(option) => {
                   setPrinter(option);

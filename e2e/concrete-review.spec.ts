@@ -104,7 +104,7 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   // The lead finds it in Awaiting review with its exception flags.
   await signInAs(page, 'pe');
   await page.goto('/concrete/review');
-  // The rail's Concrete group opens by itself here, with Review marked.
+  // The sidebar's Concrete section marks Review as the current page.
   await openMore(page);
   await expect(mainNav(page).getByRole('link', { name: 'Review', exact: true })).toHaveAttribute(
     'aria-current',

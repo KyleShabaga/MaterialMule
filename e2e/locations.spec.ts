@@ -165,15 +165,13 @@ test('T9/AC8: two LAB stations read and print independently and never administer
       expect(await resolved.json()).toMatchObject({ type: 'location', location: { code } });
     }
 
-    // Station A prints for one person; station B is unaffected and still signed in.
+    // Station A prints as its Recording as person (Alex Tester; Printed by follows the chip,
+    // read-only, STRATA-125); station B is unaffected and still signed in.
     await row(pageA, code)
       .getByRole('button', { name: 'Label and history for E2E station bench' })
       .click();
     const drawerA = pageA.getByRole('dialog', { name: 'E2E station bench' });
-    await drawerA.getByRole('button', { name: 'Print label' }).click();
-    await expect(drawerA.getByText('Choose who is printing this label.')).toBeVisible();
-    await drawerA.getByRole('combobox', { name: /Printed by/ }).fill('Alex');
-    await drawerA.getByRole('option', { name: /Alex Tester/ }).click();
+    await expect(drawerA.getByRole('textbox', { name: /Printed by/ })).toHaveValue(/Alex Tester/);
     await drawerA.getByRole('button', { name: 'Print label' }).click();
     await expect(
       drawerA.getByRole('region', { name: 'Label' }).getByText('Sent to printer'),
@@ -184,7 +182,7 @@ test('T9/AC8: two LAB stations read and print independently and never administer
 
     await pageB.reload();
     await expect(pageB.getByRole('heading', { name: 'Locations', level: 2 })).toBeVisible();
-    await expect(pageB.getByRole('combobox', { name: /Printed by/ })).toHaveCount(0);
+    await expect(pageB.getByRole('textbox', { name: /Printed by/ })).toHaveCount(0);
   } finally {
     await stationA.close();
     await stationB.close();

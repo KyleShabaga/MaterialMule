@@ -20,7 +20,7 @@ describe('pageTitle', () => {
     ],
     ['/sample-storage', null, 'Inventory · Material Mule'],
     ['/sample-storage/move', null, 'Move units · Inventory · Material Mule'],
-    ['/lab-testing', null, 'Worklist · Lab programs · Material Mule'],
+    ['/lab-testing', null, 'Workboard · Lab programs · Material Mule'],
     ['/lab-testing/programs', null, 'Programs · Lab programs · Material Mule'],
     ['/lab-testing/programs/p1', 'LP-2026-0001', 'LP-2026-0001 · Lab programs · Material Mule'],
     ['/projects/p1', 'DEMO-2601', 'DEMO-2601 · Projects · Material Mule'],

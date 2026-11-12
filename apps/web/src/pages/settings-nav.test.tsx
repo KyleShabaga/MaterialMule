@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // Settings sub-nav: each tab is shown only to the people who can use it (MTR-88, MISC-05,
 // MISC-04).
@@ -54,6 +55,7 @@ const LAB: MeResponse = {
 };
 
 function renderAt(path: string, me: MeResponse) {
+  pickStationPerson(me);
   vi.stubGlobal(
     'fetch',
     vi.fn(

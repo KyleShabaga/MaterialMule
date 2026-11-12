@@ -7,10 +7,12 @@ import {
   type StorageUnitDetail,
 } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { PageHeader } from '../components/app-ui';
+import { useMediaQuery } from '../components/useMediaQuery';
 import { fetchStorageUnit } from '../inventory/api';
 import { ContextRow } from '../layout/ContextRow';
+import { useOptionalCommandMenu, type ScanRedirectState } from '../search/command-menu';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
 import '../inventory/inventory.css';
 import { CameraScanButton } from './CameraScanButton';
@@ -20,10 +22,38 @@ import { ScanInput, type ScanStatusView } from './ScanInput';
 import { useScanLookup, type ScanLookupState } from './useScanLookup';
 
 /**
+ * Desktop: a wide screen with a mouse (STRATA-81). Phones and tablets (narrow or touch) keep the
+ * camera Scan page until the phone screens bring their own.
+ */
+export const DESKTOP_SCAN_QUERY = '(min-width: 641px) and (pointer: fine)';
+
+/**
+ * /sample-storage/scan. On desktop there is no Scan page any more (DESIGN.md › Round 3): the URL
+ * lands on Inventory with the Ctrl K menu open, carrying any `?q=` / `?code=` it was given.
+ * Elsewhere it is the camera and handheld lookup page.
+ */
+export function ScanPage() {
+  const desktop = useMediaQuery(DESKTOP_SCAN_QUERY);
+  return desktop ? <DesktopScanRedirect /> : <ScanLookupPage />;
+}
+
+function DesktopScanRedirect() {
+  const menu = useOptionalCommandMenu();
+  const [params] = useSearchParams();
+  const initial = params.get('q') ?? params.get('code') ?? '';
+  const open = menu?.open;
+  useEffect(() => {
+    open?.(initial);
+  }, [open, initial]);
+  const state: ScanRedirectState = { scanRedirect: true };
+  return <Navigate to="/sample-storage" replace state={state} />;
+}
+
+/**
  * Inventory → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage
  * unit here; the next scan replaces it. Scanning only reads: it never moves or disposes anything.
  */
-export function ScanPage() {
+export function ScanLookupPage() {
   const sound = useScanSound();
   const navigate = useNavigate();
   const lookup = useScanLookup((code, result) => {

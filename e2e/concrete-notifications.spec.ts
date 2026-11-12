@@ -101,10 +101,11 @@ async function expectBellMatchesServer(page: Page) {
         .getAttribute('aria-label');
       const match = /, (\d+|none) /.exec(label ?? '');
       const shown = !match?.[1] || match[1] === 'none' ? 0 : Number(match[1]);
-      const server = (await (await page.request.get('/api/notifications/count')).json()) as {
-        unread: number;
+      // The bell shows the Inbox's one badge-eligible unread count (STRATA-55).
+      const server = (await (await page.request.get('/api/inbox/summary')).json()) as {
+        counts: { badge: number };
       };
-      return shown === server.unread;
+      return shown === server.counts.badge;
     })
     .toBe(true);
 }

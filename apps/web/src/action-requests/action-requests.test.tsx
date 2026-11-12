@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MM-T27 UI: header Pending actions count (renamed from the bell in MM-T91), Action requests page (Open/Resolved, who asked and why, Open
 // link, Resolved by), reassignment for Lab Managers and the profile notification preference.
@@ -47,6 +48,9 @@ const item = (overrides: Partial<ActionRequest> = {}): ActionRequest => ({
   ...overrides,
 });
 
+/** Notifications too: Inbox opens them, and Action requests becomes its sub-row. */
+const WITH_INBOX = ['inventory.read', 'action_item.read', 'notification.read'] as const;
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -59,6 +63,7 @@ function renderAt(
   user: MeResponse,
   api: (url: string, init?: RequestInit) => Response,
 ) {
+  pickStationPerson(user);
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
     api(String(input), init),
   );
@@ -80,15 +85,18 @@ function renderAt(
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Action requests (MM-T27)', () => {
-  it('T5: the bell shows the open count and the page lists who asked, why, and an Open link', async () => {
+  it('T5: Inbox opens the page, which lists who asked, why, and an Open link', async () => {
     renderAt('/action-requests', me(), (url) => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 2 });
       if (url.startsWith('/api/action-items?status=open')) return json(200, { items: [item()] });
       return json(404, {});
     });
-    expect(
-      await screen.findByRole('link', { name: 'Pending actions, 2 waiting on you' }),
-    ).toHaveAttribute('aria-current', 'page');
+    // With only action_item.read, the sidebar's Inbox row opens the action requests.
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Inbox' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     const row = await screen.findByRole('listitem', { name: 'Closure requested for LP-2026-0001' });
     expect(row).toHaveTextContent(
       'Lead Project Engineer: Closure requested for LP-2026-0001 by AT · All tests are done',
@@ -106,32 +114,31 @@ describe('Action requests (MM-T27)', () => {
     expect(within(row).queryByRole('button', { name: 'Reassign' })).toBeNull();
   });
 
-  it('Field Ledger: Pending actions is a rail-footer link above the account row', async () => {
-    renderAt('/action-requests', me(), (url) => {
+  it('Strata: Action requests is a sidebar sub-row under Inbox, not in the top bar', async () => {
+    renderAt('/action-requests', me({ permissions: [...WITH_INBOX] }), (url) => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
       return json(200, { items: [] });
     });
-    const link = await screen.findByRole('link', { name: 'Pending actions, 0 waiting on you' });
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    expect(nav).toContainElement(link);
-    const account = within(nav).getByRole('group', { name: 'Signed in user' });
-    expect(link.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // The top bar holds only search and the notification bell.
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    const link = within(nav).getByRole('link', { name: 'Action requests' });
+    expect(link).toHaveAttribute('href', '/action-requests');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', { name: 'Inbox' })).not.toHaveAttribute('aria-current');
     expect(
-      within(screen.getByRole('banner')).queryByRole('link', { name: /^Pending actions/ }),
+      within(screen.getByRole('banner')).queryByRole('link', { name: /^Action requests/ }),
     ).toBeNull();
   });
 
-  it('Pending actions opens the Action requests page, with its count as a tag', async () => {
+  it('Action requests opens the Action requests page', async () => {
     const user = userEvent.setup();
-    renderAt('/projects', me(), (url) => {
+    renderAt('/projects', me({ permissions: [...WITH_INBOX] }), (url) => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 2 });
       if (url.startsWith('/api/action-items?status=open')) return json(200, { items: [item()] });
       if (url.startsWith('/api/projects')) return json(200, { items: [] });
       return json(404, {});
     });
-    const link = await screen.findByRole('link', { name: 'Pending actions, 2 waiting on you' });
-    expect(link).toHaveTextContent('Pending actions2');
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    const link = within(nav).getByRole('link', { name: 'Action requests' });
     expect(link).not.toHaveAttribute('aria-current');
     await user.click(link);
     expect(
@@ -293,7 +300,8 @@ describe('Action requests (MM-T27)', () => {
       },
     );
     expect(await screen.findByRole('heading', { name: 'My profile' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Pending actions/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Action requests/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Inbox' })).toBeNull();
     expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Notifications' })).toBeNull();
   });

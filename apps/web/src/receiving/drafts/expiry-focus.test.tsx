@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionProvider } from '../../session/SessionProvider';
+import { TEST_STATION_PERSON, pickStationPerson } from '../../session/station-test-person';
 import { newDraft, newSummary, type ReceiptDraft } from '../draft';
 import { resetDraftCleanupForTests } from './cleanup-notice';
 import { newRecord, type StoredDraft } from './record';
@@ -78,6 +79,10 @@ function stubApi() {
       if (!server.me) return json(401, { code: 'unauthenticated' });
       if (url.startsWith('/api/projects/search')) return json(200, [project]);
       if (url.startsWith(`/api/projects/${project.id}/test-holes`)) return json(200, [th1]);
+      if (url.startsWith('/api/staff/active')) {
+        const { id, displayName, initials } = TEST_STATION_PERSON;
+        return json(200, [{ id, displayName, initials }]);
+      }
       if (url.startsWith('/api/staff')) return json(200, []);
       return json(404, {});
     }),
@@ -125,6 +130,7 @@ describe('Receiving draft when the session expires in the background', () => {
   it('stays on the LAB draft with Sign in after a focus re-check, then signs in back to it', async () => {
     const user = userEvent.setup();
     server.me = LAB_ME;
+    pickStationPerson(LAB_ME);
     stubApi();
     const { record, path } = await openDraft(LAB_ME);
     const router = renderApp(path);
@@ -150,7 +156,7 @@ describe('Receiving draft when the session expires in the background', () => {
     const params = new URLSearchParams(router.state.location.search);
     expect(params.get('returnTo')).toBe(path);
     expect(params.get('expired')).toBe('1');
-    expect(screen.getByText(/The LAB session has expired/)).toBeInTheDocument();
+    expect(await screen.findByText(/The LAB session has expired/)).toBeInTheDocument();
     await closeTab();
     expect(await store.get(record.draftId)).toMatchObject({
       status: 'editing',

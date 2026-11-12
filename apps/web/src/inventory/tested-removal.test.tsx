@@ -11,6 +11,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MM-T36 removal after testing on the storage unit page and in Sample Storage: a tested Shelby
 // tube's destroyed contents, the personal-only confirmation, and "Disposed after testing".
@@ -130,6 +131,7 @@ function stubApi(handler: (url: URL, init?: RequestInit) => Response | undefined
 
 function renderAt(path: string, user = me()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{

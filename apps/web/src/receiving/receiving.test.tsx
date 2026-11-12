@@ -1,11 +1,12 @@
 import type { MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { prefillFromQuery } from './prefill';
 
 // Every project, person and hole here is fictional.
@@ -54,6 +55,7 @@ type Handler = (body: unknown) => Response;
 
 /** Renders /receiving-log/new with API responses keyed by "METHOD path-prefix". */
 function renderReceive(api: Record<string, Handler>, session = me()) {
+  pickStationPerson(session);
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = (init?.method ?? 'GET').toUpperCase();
@@ -395,8 +397,11 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(screen.getByRole('button', { name: 'Add project' })).toBeEnabled();
   });
 
-  it('a LAB station has no default receiver', async () => {
+  it('a LAB station starts Received by as the Recording as person, still editable', async () => {
     renderReceive({}, me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB' }));
-    expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
+    const receiver = await screen.findByRole('combobox', { name: 'Received by' });
+    await waitFor(() => expect(receiver).toHaveValue('AT · Alex Tester'));
+    expect(receiver).toBeEnabled();
+    expect(receiver).not.toHaveAttribute('readonly');
   });
 });

@@ -83,6 +83,7 @@ function WhoIsDoingThis({
     <ReceiverSelect
       label="Who is doing this?"
       required
+      stationPerson="follow"
       value={value}
       onChange={onChange}
       hint="Shared LAB station: attribution only; LAB gains none of this person’s permissions."

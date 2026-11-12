@@ -43,6 +43,7 @@ import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
 import { TestedRemovalSection } from './TestedRemovalSection';
 import { UnitLabPrograms } from './UnitLabPrograms';
 import { usePageTitle } from '../layout/page-title';
+import { useRecordRecent } from '../layout/record-recent';
 
 type Loaded<T> =
   | { key: string; ok: true; data: T }
@@ -123,6 +124,7 @@ function StorageUnitDetail() {
       cancelled = true;
     };
   }, [readableId, reloads]);
+  useRecordRecent('storage_unit', result?.key === readableId && result.ok ? result.data.id : null);
 
   const backLink = <Link to={`/sample-storage${from}`}>← Back to inventory</Link>;
 

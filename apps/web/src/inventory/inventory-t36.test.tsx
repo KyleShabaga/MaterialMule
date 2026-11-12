@@ -13,6 +13,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MM-T36 in Sample Storage: Shelby tube and bulk soil bucket rows in the Standard and Compact
 // views, and a bulk bucket's detail with its sibling buckets and the personal-only corrections.
@@ -165,6 +166,7 @@ function stubApi(handler: (url: URL, init?: RequestInit) => Response | undefined
 
 function renderAt(path: string, user = me()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{

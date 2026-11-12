@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { closeMore, openMore } from './support/shell';
+import { closeMore, mainNav, openMore } from './support/shell';
 import { signInAsLabStation } from './support/lab-station';
 
-// MM-T27 (card T5, T6): the Pending actions control (the bell before MM-T91; a rail-footer link
-// since the Field Ledger shell) and the Action requests page, resolution through the real workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
+// MM-T27 (card T5, T6): the Action requests link (the bell before MM-T91; since the Strata shell
+// the sidebar sub-row under Inbox) and the Action requests page, resolution through the real workflow action, LAB without an inbox, and the email preference (default off; nothing is sent).
 // Fictional data only: DEMO-2601, Lead Project Engineer Pat Example (pe), Lab Manager "Lab (test)" (lab),
 // Technician Alex Tester (at).
 
@@ -65,12 +65,7 @@ async function submittedProgram(page: Page) {
   };
 }
 
-/** The number in Pending actions' accessible name. */
-function countFrom(label: string | null): number {
-  return Number(/, (\d+) /.exec(label ?? '')?.[1] ?? 0);
-}
-
-test('T5: a closure request appears under the Lead Project Engineer’s Pending actions, opens the program, and closing resolves it', async ({
+test('T5: a closure request appears in the Lead Project Engineer’s Action requests, opens the program, and closing resolves it', async ({
   page,
 }) => {
   const { programId, programNumber } = await submittedProgram(page);
@@ -88,15 +83,16 @@ test('T5: a closure request appears under the Lead Project Engineer’s Pending 
 
   await signInAs(page, 'pe');
   await page.goto('/');
-  // Field Ledger: Pending actions is a rail-footer link (the phone More sheet) to the inbox.
+  // Strata: Action requests is the sidebar sub-row under Inbox (in the Sheet on a phone).
+  const open = await page.request.get('/api/action-items/count');
+  expect(((await open.json()) as { open: number }).open).toBeGreaterThan(0);
   await openMore(page);
-  const pending = page.getByRole('link', { name: /^Pending actions, \d+ waiting on you$/ });
-  await expect(pending).toBeVisible();
-  expect(countFrom(await pending.getAttribute('aria-label'))).toBeGreaterThan(0);
-  await pending.click();
+  const requests = mainNav(page).getByRole('link', { name: 'Action requests', exact: true });
+  await expect(requests).toBeVisible();
+  await requests.click();
   await expect(page).toHaveURL(/\/action-requests$/);
   await openMore(page);
-  await expect(pending).toHaveAttribute('aria-current', 'page');
+  await expect(requests).toHaveAttribute('aria-current', 'page');
   await closeMore(page);
   const row = page.getByRole('listitem', { name: `Closure requested for ${programNumber}` });
   await expect(row).toContainText(
@@ -127,14 +123,14 @@ test('T5: a closure request appears under the Lead Project Engineer’s Pending 
   ).toContainText('Resolved by PE · Program closed');
 });
 
-test('T6: LAB has no Pending actions or Notifications control, inbox or preferences, whoever the station would select', async ({
+test('T6: LAB has no Action requests or Notifications control, inbox or preferences, whoever the station would select', async ({
   page,
 }) => {
   await signInAsLabStation(page);
   await page.goto('/');
   // Today (Field Ledger): its queue heading, on desktop and phone.
   await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Pending actions/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Action requests/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
   for (const path of [
     '/api/action-items',

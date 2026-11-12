@@ -2,8 +2,8 @@ import { expect, test, type Locator } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-131: under a Windows contrast theme (Chromium's forced-colors emulation) the selected
-// dashboard filter, Standard/Compact segment, Settings tab, rail destination, rail sub-page and the
-// dark mode switch still look different from the unselected ones. Desktop only: the rail is there.
+// dashboard filter, Standard/Compact segment, Settings tab, sidebar row, sidebar sub-page and the
+// account menu's theme choice still look different from the unselected ones. Desktop only.
 
 test.skip(({ isMobile }) => isMobile, 'Desktop layout');
 test.use({ forcedColors: 'active' });
@@ -47,7 +47,7 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
   await expectDifferent(
     nav.getByRole('link', { name: 'Today', exact: true }),
     nav.getByRole('link', { name: 'Inventory', exact: true }),
-    'rail destination',
+    'sidebar row',
   );
 
   await page.goto('/disposal-retention/scan');
@@ -58,7 +58,7 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
   await expectDifferent(
     nav.getByRole('link', { name: 'Disposal scan' }),
     nav.getByRole('link', { name: 'Due and overdue' }),
-    'rail sub-page',
+    'sidebar sub-page',
   );
 
   await page.goto('/sample-storage?status=all');
@@ -83,13 +83,11 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
     'Settings tab',
   );
 
-  const toggle = page.getByRole('switch', { name: 'Dark mode' });
-  const track = toggle.locator('.theme-switch-track');
-  const thumb = toggle.locator('.theme-switch-thumb');
-  const wasChecked = await toggle.getAttribute('aria-checked');
-  const before = [await look(track), await look(thumb)].join(' / ');
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-checked', wasChecked === 'true' ? 'false' : 'true');
-  const after = [await look(track), await look(thumb)].join(' / ');
-  expect(after, 'dark mode switch on vs off').not.toBe(before);
+  // The account menu's theme choice: the chosen one carries its dot, the others none.
+  await page.getByRole('group', { name: 'Signed in user' }).getByRole('button').click();
+  const chosen = page.getByRole('menuitemradio', { checked: true });
+  const other = page.getByRole('menuitemradio', { checked: false }).first();
+  await expect(chosen).toHaveCount(1);
+  await expect(chosen.locator('svg.fill-current')).toBeVisible();
+  await expect(other.locator('svg.fill-current')).toHaveCount(0);
 });

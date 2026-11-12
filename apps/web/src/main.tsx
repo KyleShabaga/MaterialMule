@@ -15,6 +15,8 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { applyPageTitle } from './layout/page-title';
+import { StrataToaster } from '@/components/strata/toast';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { routes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
 import { applyStoredTheme } from './theme/theme';
@@ -35,7 +37,11 @@ router.subscribe((state) => applyPageTitle(state.location.pathname));
 createRoot(root).render(
   <StrictMode>
     <SessionProvider>
-      <RouterProvider router={router} />
+      {/* One tooltip provider and one toast host for the whole app (lanes 1A and 1B). */}
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
+      <StrataToaster />
     </SessionProvider>
   </StrictMode>,
 );

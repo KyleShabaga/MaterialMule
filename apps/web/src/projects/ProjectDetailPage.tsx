@@ -22,6 +22,7 @@ import { ProjectSectionNav } from './ProjectSectionNav';
 import type { ProjectLinkState } from './ProjectsPage';
 import './projects.css';
 import { usePageTitle } from '../layout/page-title';
+import { useRecordRecent } from '../layout/record-recent';
 import { ContextRow } from '../layout/ContextRow';
 
 /** Units listed on the project page; the full list is a link to Inventory. */
@@ -71,6 +72,7 @@ export function ProjectDetailPage() {
       cancelled = true;
     };
   }, [projectId, reloads]);
+  useRecordRecent('project', result?.key === projectId && result.ok ? result.data.id : null);
 
   const back = (
     <p className="back-link">

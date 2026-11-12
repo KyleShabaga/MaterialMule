@@ -2,7 +2,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { signInAsLabStation } from './support/lab-station';
+import { STATION_PEOPLE, signInAsLabStation } from './support/lab-station';
 
 // MM-T73 T3 (owner decision 2026-10-28, option B): a Specific line submitted without choosing
 // its Shelby tube. LAB completes the test for a person, picks the tube from the same source in
@@ -125,19 +125,20 @@ test('T3: Specific line tube outside coverage — LAB records it with a same-sou
   const program = await submitSpecific(page.request, testTypeId, holeId);
   const requestId = program.lines[0]!.requests[0]!.id;
 
-  await signInAsLabStation(page);
+  // Jordan Smith is recording at the station: the performer follows the chip (STRATA-125).
+  await signInAsLabStation(page, { person: STATION_PEOPLE.jordan });
   await page.goto(`/lab-testing/programs/${program.id}`);
   const row = page.locator('.request-list li', { hasText: code });
   await row.getByRole('button', { name: 'Start' }).click();
-  await row.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
   await expect(row).toContainText('In progress');
 
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
-  await panel.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+    /Jordan Smith/,
+  );
 
   // Keyboard only: open the same-source picker, tick the tube, then confirm.
   const reveal = panel.getByRole('button', { name: /Used a unit from this source/ });

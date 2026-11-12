@@ -157,14 +157,16 @@ describe('Concrete Lab navigation (role-based, grants nothing)', () => {
     expect(concrete({ accountType: 'personal', roles: [] })).toEqual(['Breaks', 'Holds', 'Review']);
   });
 
-  it('opens the Concrete group in the rail for a Lab Technician, Specimens marked', async () => {
+  it('shows the sidebar Concrete section to a Lab Technician, Specimens marked', async () => {
     renderAt('/concrete/specimens', () => undefined, { ...ME, roles: ['lab_technician'] });
-    const group = await screen.findByRole('list', { name: 'Concrete pages' });
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    const group = nav.querySelector<HTMLElement>('[data-section="concrete"]')!;
     expect(
       within(group)
         .getAllByRole('link')
         .map((a) => a.getAttribute('href')),
     ).toEqual([
+      '/concrete',
       '/lab-testing/concrete',
       '/concrete/receiving',
       '/concrete/specimens',
@@ -399,8 +401,8 @@ describe('Concrete search and specimen lookup', () => {
   });
 });
 
-describe('Lab search (top bar)', () => {
-  it('searches every lab area from the header and shows each area’s results', async () => {
+describe('Lab search (Ctrl K menu)', () => {
+  it('searches every lab area from the sidebar’s Search or scan and shows each area’s results', async () => {
     const user = userEvent.setup();
     const { router } = renderAt('/concrete', (url) => {
       if (url.pathname === '/api/inventory') {
@@ -427,11 +429,16 @@ describe('Lab search (top bar)', () => {
           items: [result({ matches: ['project'] })],
         });
       }
+      if (url.pathname === '/api/scan/resolve') {
+        return json(200, { type: 'unknown', reason: 'not_recognised' });
+      }
       return undefined;
     });
-    const box = await screen.findByRole('textbox', { name: 'Search' });
-    await user.type(box, 'DEMO-2601{Enter}');
-    // Field Ledger search (lane A): not an exact unit ID, so it lands on /search.
+    // Strata: the top-bar search box is gone; the sidebar's Search or scan opens the Ctrl K menu.
+    await user.click(await screen.findByRole('button', { name: 'Search or scan' }));
+    await screen.findByRole('dialog', { name: 'Search or scan' });
+    await user.keyboard('DEMO-2601{Enter}');
+    // Not an exact unit ID, so Enter lands on the results page.
     await vi.waitFor(() =>
       expect(router.state.location.pathname + router.state.location.search).toBe(
         '/search?q=DEMO-2601',
@@ -444,8 +451,9 @@ describe('Lab search (top bar)', () => {
     await vi.waitFor(() => expect(concrete).toHaveTextContent('Matched on Project'), {
       timeout: 3000,
     });
-    expect(
-      within(concrete).getByRole('link', { name: 'Show all concrete results' }),
-    ).toHaveAttribute('href', '/concrete/search?q=DEMO-2601');
+    expect(within(concrete).getByRole('link', { name: 'Show all in Concrete' })).toHaveAttribute(
+      'href',
+      '/concrete/search?q=DEMO-2601',
+    );
   });
 });

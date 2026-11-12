@@ -1,153 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '../components/useMediaQuery';
-import { useMoreCounts, type MoreCounts } from '../dashboard/more-counts';
-import { SearchBox } from '../search/SearchBox';
 import { NotificationsBell } from '../notifications/NotificationsBell';
+import { CommandMenuProvider } from '../search/command-menu';
+import { QuickActions } from '../search/QuickActions';
+import { RecordingAsChip } from '../session/recording-person';
+import { useOptionalRecordingPerson } from '../session/recording-person-store';
 import { useMe } from '../session/context';
-import { DonkeyMark } from './DonkeyMark';
+import { AppSidebar } from './AppSidebar';
+import { sidebarNavFor } from './nav';
+import { useTopBarTitle } from './page-title';
 import {
-  activeDestination,
-  activeSubPage,
-  canUseSearch,
-  destinationsFor,
-  type Destination,
-} from './nav';
-import { SidebarFooter } from './SidebarFooter';
+  createSidebarPrefsSource,
+  readCollapsed,
+  useSidebarPrefs,
+  writeCollapsed,
+} from './sidebar-prefs';
 import { useFocusPageHeading } from './useFocusPageHeading';
 import './shell.css';
 
-/** Phone layout (bottom bar, no rail) up to 640 px, matching shell.css. */
+/** Phone width (pages' own phone layouts, e.g. Today). The sidebar's Sheet starts below 768 px. */
 export const PHONE_QUERY = '(max-width: 640px)';
 
-/** Donkey tile and wordmark, linking to Today (38 px tile in the rail, 32 px on a phone). */
-function Brand() {
-  return (
-    <Link to="/" className="brand">
-      <span className="brand-tile" aria-hidden="true">
-        <DonkeyMark />
-      </span>
-      <span className="brand-name">Material Mule</span>
-    </Link>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="rail-chevron"
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
-
-/**
- * The seven destinations, with the Retention and Concrete groups (drop-downs). A group opens by
- * itself while you are inside its section; its chevron overrides that until the next toggle.
- * Shared by the desktop rail and the phone More sheet.
- */
-function DestinationList({
-  destinations,
-  idPrefix,
-  onNavigate,
-  counts,
-}: {
-  destinations: Destination[];
-  idPrefix: string;
-  onNavigate?: () => void;
-  /** Phone More sheet only (canvas PhoneMore): a count per destination; the rail has none. */
-  counts?: MoreCounts;
-}) {
-  const { pathname } = useLocation();
-  const active = activeDestination(pathname);
-  const [toggled, setToggled] = useState<Partial<Record<string, boolean>>>({});
-
-  return (
-    <ul className="rail-list">
-      {destinations.map((item) => {
-        const current = active === item.key;
-        const sub = item.children.length > 0 ? activeSubPage(pathname, item.children) : null;
-        const open = item.children.length > 0 && (toggled[item.key] ?? current);
-        const groupId = `${idPrefix}-${item.key}`;
-        const count = counts?.[item.key];
-        const countId = `${idPrefix}-${item.key}-count`;
-        return (
-          <li key={item.key} className="rail-item">
-            <div className={current ? 'rail-row is-current' : 'rail-row'}>
-              <Link
-                to={item.to}
-                className="rail-link"
-                // The destination is the current page unless one of its sub-pages is marked.
-                aria-current={current ? (sub ? 'true' : 'page') : undefined}
-                aria-describedby={count !== undefined ? countId : undefined}
-                onClick={onNavigate}
-              >
-                {item.label}
-                {count !== undefined ? (
-                  // Out of the link's name (it stays "Inventory"); read as its description.
-                  <span id={countId} className="more-count" aria-hidden="true">
-                    {count}
-                  </span>
-                ) : null}
-              </Link>
-              {item.children.length > 0 ? (
-                <button
-                  type="button"
-                  className="rail-toggle"
-                  aria-expanded={open}
-                  aria-controls={groupId}
-                  aria-label={`${open ? 'Hide' : 'Show'} ${item.label} pages`}
-                  onClick={() => setToggled((state) => ({ ...state, [item.key]: !open }))}
-                >
-                  <Chevron />
-                </button>
-              ) : null}
-            </div>
-            {item.children.length > 0 ? (
-              <ul
-                id={groupId}
-                className="rail-sub"
-                aria-label={`${item.label} pages`}
-                hidden={!open}
-              >
-                {item.children.map((page) => (
-                  <li key={page.to}>
-                    <Link
-                      to={page.to}
-                      className="rail-sub-link"
-                      aria-current={sub === page.to ? 'page' : undefined}
-                      onClick={onNavigate}
-                    >
-                      {page.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/** The notification bell (MM-T91): personal accounts only (`notification.read`). */
-function Bell({ inert = false }: { inert?: boolean }) {
-  const me = useMe();
-  if (!me.permissions.includes('notification.read')) return null;
-  return <NotificationsBell inert={inert} />;
-}
+/** Below 1280 px the sidebar starts collapsed to icons, so work tables get the width. */
+export const NARROW_DESKTOP_QUERY = '(max-width: 1279px)';
 
 function ProfileNotice() {
   const me = useMe();
@@ -160,156 +37,99 @@ function ProfileNotice() {
   );
 }
 
-/** Destinations the phone bar holds itself; the rest live in the More sheet. */
-const BAR_DESTINATIONS = new Set<string>(['today', 'receive']);
+/** Any navigation closes the phone Sheet (a link inside it was followed, or Back). */
+function CloseSheetOnNavigate() {
+  const { pathname } = useLocation();
+  const { setOpenMobile } = useSidebar();
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname, setOpenMobile]);
+  return null;
+}
 
 /**
- * Field Ledger shell (docs/redesign/design.md): the desktop rail and top bar, or on a phone the
- * header strip, five-slot bottom bar and More sheet. Only one layout's chrome is rendered at a
- * time, so there is always exactly one "Main" navigation. `main` keeps its place in the tree in
- * both, so crossing 640 px (a phone turned sideways) never remounts the page or loses its input.
+ * STRATA-12 top bar, 56 px: the sidebar toggle and the page's name at the left; at the right,
+ * 8 px apart, Recording as (LAB stations), Quick actions and, always last, the bell. The name is
+ * text, not a heading: each page keeps its own h1 (DESIGN.md, "One h1 per page").
+ */
+function TopBar() {
+  const me = useMe();
+  const title = useTopBarTitle();
+  // The chip needs the station provider (routes.tsx mounts it); without it there is no station.
+  const recording = useOptionalRecordingPerson();
+  return (
+    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+      <SidebarTrigger className="-ml-1 max-md:size-11 pointer-coarse:size-11" />
+      <p className="min-w-0 truncate text-sm font-semibold">{title}</p>
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        {recording ? <RecordingAsChip /> : null}
+        <QuickActions />
+        {me.permissions.includes('notification.read') ? <NotificationsBell /> : null}
+      </div>
+    </header>
+  );
+}
+
+/**
+ * Strata shell (DESIGN.md › Shell, › Sidebar; STRATA-8, 9, 12): the shadcn Sidebar (a Sheet under
+ * 768 px, opened from the top bar), the top bar and the page. `main#main` keeps its place in the
+ * tree at every width, so crossing a breakpoint never remounts the page or loses its input.
+ *
+ * Collapsed (Ctrl B) is remembered per browser (STRATA-42: localStorage through sidebar-prefs,
+ * replacing shadcn's cookie); never chosen, the window decides (collapsed below 1280 px).
  */
 export function AppLayout() {
   const me = useMe();
-  const phone = useMediaQuery(PHONE_QUERY);
-  const { pathname } = useLocation();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLButtonElement>(null);
-  const sheetRef = useRef<HTMLDivElement>(null);
+  const recording = useOptionalRecordingPerson();
   useFocusPageHeading();
 
-  const destinations = destinationsFor(me);
-  const active = activeDestination(pathname);
-  // Field Ledger search for every session that can read storage units (LAB included).
-  const search = canUseSearch(me);
-  const sheetOpen = phone && moreOpen;
-  const moreCounts = useMoreCounts(sheetOpen, me);
-
-  // Any navigation, or widening past phone width, closes the More sheet.
-  const [shownAt, setShownAt] = useState(pathname);
-  if (shownAt !== pathname) {
-    setShownAt(pathname);
-    setMoreOpen(false);
-  }
-  if (moreOpen && !phone) setMoreOpen(false);
-
-  // MTR-137 (now the More sheet): while it is open, what it covers is inert; focus starts on its
-  // first link, and Escape or a tap outside closes it and returns focus to More.
-  useEffect(() => {
-    if (!sheetOpen) return;
-    sheetRef.current?.querySelector<HTMLElement>('a[href], button')?.focus();
-    const closeToMore = () => {
-      setMoreOpen(false);
-      moreRef.current?.focus();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) {
-        event.preventDefault();
-        closeToMore();
-      }
-    };
-    // On click rather than pointerdown, so the tap's own focus change can't undo the return.
-    const onOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (sheetRef.current?.contains(target) || moreRef.current?.contains(target)) return;
-      closeToMore();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('click', onOutsideClick, true);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('click', onOutsideClick, true);
-    };
-  }, [sheetOpen]);
-
-  const findTo = search ? '/search' : '/sample-storage';
-  const slot = (() => {
-    if (pathname === '/sample-storage/scan') return 'scan';
-    if (active === 'today') return 'today';
-    if (active === 'receive') return 'receive';
-    if (search ? pathname === '/search' : pathname === '/sample-storage') return 'find';
-    if (active !== null) return 'more';
-    return null;
-  })();
-  const close = () => setMoreOpen(false);
-  const slotLink = (key: string, to: string, label: string, extra = '') => (
-    <li inert={sheetOpen}>
-      <Link
-        to={to}
-        className={`phone-slot ${extra}`.trim()}
-        aria-current={slot === key ? 'page' : undefined}
-      >
-        {label}
-      </Link>
-    </li>
+  // Station: the controller's word (a picked person grants nothing); the account type as fallback.
+  const station = recording?.isStation ?? me.accountType === 'shared_lab';
+  const personId = station ? (recording?.person?.id ?? null) : null;
+  // Pins and recents are the person's own (never on a station).
+  const records = !station && me.permissions.includes('personal_settings.manage');
+  // Keyed by identity, not by the `me` object: re-reading /api/me keeps the layout on screen.
+  const source = useMemo(
+    () => createSidebarPrefsSource({ station, personId, records }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new account needs a new source
+    [me.id, station, personId, records],
   );
+  const prefs = useSidebarPrefs(source);
+  const nav = sidebarNavFor(me);
+
+  const narrow = useMediaQuery(NARROW_DESKTOP_QUERY);
+  const [collapsed, setCollapsed] = useCollapsed();
+  const open = !(collapsed ?? narrow);
 
   return (
-    <div className={phone ? `app app-phone${sheetOpen ? ' more-open' : ''}` : 'app'}>
-      <a className="skip-link" href="#main" inert={sheetOpen}>
-        Skip to content
-      </a>
-      {phone ? null : (
-        <nav className="rail" aria-label="Main">
-          <Brand />
-          <DestinationList destinations={destinations} idPrefix="rail-group" />
-          <SidebarFooter />
-        </nav>
-      )}
-      <div className="app-column">
-        {phone ? (
-          <header className="phone-header" inert={sheetOpen}>
-            <div className="phone-header-row">
-              <Brand />
-              <Bell inert={sheetOpen} />
-            </div>
-            {/* Find: the search field sits in the header on its results page (PhoneFind). */}
-            {search && pathname === '/search' ? <SearchBox /> : null}
-          </header>
-        ) : (
-          <header className="top-bar">
-            {search ? <SearchBox /> : <span className="top-bar-spacer" />}
-            <Bell />
-          </header>
-        )}
-        <main id="main" className="app-main" tabIndex={-1} inert={sheetOpen}>
-          <ProfileNotice />
-          <Outlet />
-        </main>
-      </div>
-      {phone ? (
-        <nav className="phone-nav" aria-label="Main">
-          {sheetOpen ? (
-            <div id="more-sheet" className="more-sheet" ref={sheetRef}>
-              <DestinationList
-                destinations={destinations.filter((d) => !BAR_DESTINATIONS.has(d.key))}
-                idPrefix="more-group"
-                onNavigate={close}
-                counts={moreCounts}
-              />
-              <SidebarFooter onNavigate={close} />
-            </div>
-          ) : null}
-          <ul className="phone-bar">
-            {slotLink('today', '/', 'Today')}
-            {slotLink('find', findTo, 'Find')}
-            {slotLink('scan', '/sample-storage/scan', 'Scan', 'phone-slot-scan')}
-            {slotLink('receive', '/receiving-log', 'Receive')}
-            <li>
-              <button
-                ref={moreRef}
-                type="button"
-                className={slot === 'more' ? 'phone-slot is-current' : 'phone-slot'}
-                aria-expanded={sheetOpen}
-                aria-controls={sheetOpen ? 'more-sheet' : undefined}
-                onClick={() => setMoreOpen((open) => !open)}
-              >
-                More
-              </button>
-            </li>
-          </ul>
-        </nav>
-      ) : null}
-    </div>
+    <CommandMenuProvider>
+      <SidebarProvider open={open} onOpenChange={(next) => setCollapsed(!next)}>
+        <a
+          href="#main"
+          className="sr-only z-50 rounded-md bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        >
+          Skip to content
+        </a>
+        <CloseSheetOnNavigate />
+        <AppSidebar nav={nav} prefs={prefs} station={station} />
+        <SidebarInset className="min-w-0">
+          <TopBar />
+          <main id="main" className="app-main" tabIndex={-1}>
+            <ProfileNotice />
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </CommandMenuProvider>
   );
+}
+
+/** The browser's collapsed choice (null: never chosen), saved as it changes. */
+function useCollapsed(): [boolean | null, (collapsed: boolean) => void] {
+  const [value, setValue] = useState<boolean | null>(readCollapsed);
+  const set = (collapsed: boolean) => {
+    writeCollapsed(collapsed);
+    setValue(collapsed);
+  };
+  return [value, set];
 }

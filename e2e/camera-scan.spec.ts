@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { cameraState, installFakeCamera, labelCrop, labelImage } from './support/fake-camera';
 import { insertInventoryFixture } from './support/inventory';
+import { isPhoneLayout } from './support/shell';
 
 // MM-T17: phone-camera scanning against a fake camera that films a generated T14 label, decoded
 // by the app's real decoder (ZXing WebAssembly; headless Chromium has no BarcodeDetector).
@@ -61,13 +62,16 @@ test('AC2/AC5: no prompt before tapping; Close and Escape turn the camera off', 
 }) => {
   await installFakeCamera(page, { image: labelImage('BKT-2024-000001'), crop: labelCrop('text') });
   await signInAs(page, 'at');
-  for (const path of ['/', '/sample-storage', '/sample-storage/scan', '/receiving-log/new']) {
+  // Desktop has no Scan page (STRATA-81): /sample-storage/scan opens Inventory with Ctrl K, so
+  // the camera is tried from Inventory there. Phones keep the Scan page.
+  const scanPage = isPhoneLayout(page) ? '/sample-storage/scan' : '/sample-storage';
+  for (const path of ['/', '/sample-storage', scanPage, '/receiving-log/new']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect((await cameraState(page)).calls, path).toBe(0);
   }
 
-  await page.goto('/sample-storage/scan');
+  await page.goto(scanPage);
   await page.getByRole('button', { name: 'Scan with camera' }).click();
   const dialog = page.getByRole('dialog', { name: 'Scan with camera' });
   await expect(dialog.getByRole('status')).toHaveText('Point at the label');
