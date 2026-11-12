@@ -591,7 +591,7 @@ shell, fix all five issues, leave the top bar as it is.
   - **Projects:** number in mono and name.
   - **Actions:** Receive storage units, Move storage units, Print labels, New project.
   - **Go to:** pages.
-  - **Help** (critique 2026-11-12): Keyboard shortcuts () and Help and how-tos.
+  - **Help** (critique 2026-11-12): Keyboard shortcuts (`?`) and Help and how-tos.
   - **No match:** "Nothing matches. Check the ID, or scan the label again."
 
   Quick actions' "Scan" (top bar) should open the same menu; the mock doesn't wire them
