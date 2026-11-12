@@ -724,6 +724,23 @@ chose the content from PRODUCT.md's description of the role, and Kyle approved i
   (`variant` tweak); in the shell, `SidebarLive`'s `today` tweak takes `manager-*` values and the
   account row reads "Sam Sample · Lab Manager".
 
+### Today for a technician (canvas page "Today", fourth row)
+
+The same layout again, drawn as Pat Example. Kyle asked for the technician next (2026-11-11);
+Claude chose the content from PRODUCT.md, for Kyle's review.
+
+- **Shortcuts:** Receive, Move storage units, Print labels, My tests.
+- **Needs you:**
+  - tests assigned to you today (Start, the one `primary`);
+  - units to pull for a lab program, with their places (Pull list);
+  - your own draft receipts not confirmed (Finish);
+  - a label that didn't print (Print again).
+
+  A longer list adds a move waiting to be confirmed and tests waiting on a sample you received.
+- **Last 24 hours** is the person's own work, in the second person ("You received 2 buckets…").
+- **Boards:** busy, long list ("Show all 8"), clear day, dark. `TodayTechContent.dc.html`; in the
+  shell, `tech-*` values, and the account row reads "Pat Example · Technician".
+
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
 ## Next

@@ -334,6 +334,51 @@
       "title": "Lab Manager Today content component (variant tweak)",
       "page": "today",
       "is_interactive": true
+    },
+    "TodayTech.dc.html": {
+      "x": 0,
+      "y": 6420,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — technician (own account)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayTechLong.dc.html": {
+      "x": 1360,
+      "y": 6420,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — technician, 8 things (Show all)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayTechClear.dc.html": {
+      "x": 2720,
+      "y": 6420,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — technician, nothing needs you",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayTechDark.dc.html": {
+      "x": 4080,
+      "y": 6420,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — technician, dark",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayTechContent.dc.html": {
+      "x": 4080,
+      "y": 5200,
+      "w": 1024,
+      "h": 744,
+      "title": "Technician Today content component (variant tweak)",
+      "page": "today",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -466,6 +511,22 @@
       "fill": "yellow",
       "page": "today",
       "text": "Lab Manager Today, 2026-11-11: the project lead's layout with the manager's content (Claude's choices, from PRODUCT.md's description of the role). Shortcuts: Workboard, Breaks due today, Retention due, Disposal scan. Needs you: concrete sets on HOLD, unassigned lab requests, breaks due today, units approved for disposal; longer lists add old draft receipts and location checks that disagree. Last 24 hours covers the whole lab, not one person's projects."
+    },
+    "rowTodayTech": {
+      "x": 0,
+      "y": 6120,
+      "text": "Today — own account (technician)",
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "today"
+    },
+    "todayTechNotes": {
+      "x": 5440,
+      "y": 6420,
+      "w": 420,
+      "fill": "yellow",
+      "page": "today",
+      "text": "Technician Today, 2026-11-11: the same layout with a technician's content (Claude's choices, from PRODUCT.md). Shortcuts: Receive, Move storage units, Print labels, My tests. Needs you: tests assigned today, units to pull for a lab program, own draft receipts, a label that didn't print; longer lists add a move to confirm and tests waiting on a sample. Last 24 hours is the person's own work ('You received…')."
     }
   },
   "order": [
@@ -505,7 +566,12 @@
     "TodayManagerLong.dc.html",
     "TodayManagerClear.dc.html",
     "TodayManagerDark.dc.html",
-    "TodayManagerContent.dc.html"
+    "TodayManagerContent.dc.html",
+    "TodayTech.dc.html",
+    "TodayTechLong.dc.html",
+    "TodayTechClear.dc.html",
+    "TodayTechDark.dc.html",
+    "TodayTechContent.dc.html"
   ],
   "pages": [
     {
