@@ -321,7 +321,8 @@ function PeekSplit({ children, peekSize = "44%", minPeek = "30%", maxPeek = "65%
   return (
     <S.ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
       <S.ResizablePanel id="peek-list" minSize="35%">
-        <div className="h-full overflow-y-auto">{parts[0]}</div>
+        {/* @container: the list can hide columns by its own width (Job number under 30rem). */}
+        <div className="@container h-full overflow-y-auto">{parts[0]}</div>
       </S.ResizablePanel>
       <S.ResizableHandle withHandle aria-label="Resize the drawer" />
       <S.ResizablePanel id="peek-drawer" defaultSize={peekSize} minSize={minPeek} maxSize={maxPeek}>

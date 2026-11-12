@@ -865,7 +865,11 @@ notification. Kyle chose:
   **Job number** 128 px (the project number, mono), Record 160 px, From 144 px, Received 128 px.
   **Columns are customizable** in the toolbar's View menu under Columns: Task, Title and Job number
   are always shown (checked, disabled, "Always shown"); Record, From and Received can be hidden,
-  and the choice is saved per person. With the drawer open only the three fixed columns show. Record truncates with
+  and the choice is saved per person. **With the drawer open, Title always stays visible** (critique 2026-11-12): Task folds into the
+  kind icon (the Task column hides; the icon carries the task as a tooltip and for screen readers,
+  e.g. "Request · Correction"), Record, From and Received hide, and Job number hides too when the
+  list is narrower than 30rem (a container query on the list, so it follows the divider). At the
+  narrowest list (35 %) Title keeps about 280 px. Record truncates with
   an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
   then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
   drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a
