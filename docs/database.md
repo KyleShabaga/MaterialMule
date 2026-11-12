@@ -949,6 +949,20 @@ The single Inbox shows action requests and notifications together. Notifications
   the Inbox folds that notice into the request row.
 - Proven in `apps/api/src/db/schema-inbox-read.test.ts`.
 
+## Directory photos (STRATA-52, `0040_person_photo.sql`)
+
+- **`person_photo`**: at most one cached Microsoft photo per person (`user_id` primary key),
+  read by the server at sign-in and profile refresh with the existing delegated `User.Read` token
+  (`/me/photos/96x96/$value`). `content_type` is `image/jpeg` or `image/png` and must match the
+  bytes' magic numbers (`person_photo_magic_check`); `bytes` is 1 byte to 100 KB
+  (`PERSON_PHOTO_MAX_BYTES`); `sha256` is the hex digest of the bytes (the photo route's ETag).
+- Graph answering 404 clears the row; any other failure, or a photo that fails the checks, keeps
+  the last cached one. Sign-in never waits on a photo save.
+- A disabled person keeps no photo: disabling deletes it in the same transaction
+  (`person_photo_delete_on_disable`) and none can be saved while disabled
+  (`person_photo_owner_not_disabled`). Served only for active people by
+  `GET /api/people/:userId/photo`. Proven in `apps/api/src/db/schema-person-photo.test.ts`.
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`

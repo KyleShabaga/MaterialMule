@@ -78,6 +78,7 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0037_core_box_runs',
       '0038_person_settings',
       '0039_inbox_request_read',
+      '0040_person_photo',
     ]);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);

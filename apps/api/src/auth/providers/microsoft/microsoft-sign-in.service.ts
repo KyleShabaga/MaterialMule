@@ -16,6 +16,7 @@ import {
 import { SessionService, type NewSession } from '../../session.service.js';
 import { ProviderSignInFailed, type ExternalIdentityProvider } from './entra-provider.js';
 import { GraphProfileError, fetchGraphProfile } from './graph-client.js';
+import { applyGraphPhoto, fetchGraphPhoto } from '../../../people/photo-sync.js';
 import { MICROSOFT_PROVIDER, MICROSOFT_SETTINGS } from './microsoft.constants.js';
 import type { MicrosoftSettings } from './entra-provider.js';
 import { linkPreprovisionedStaff } from '../../../staff/staff.service.js';
@@ -151,6 +152,10 @@ export class MicrosoftSignInService {
       throw error;
     }
     const { identity } = completed;
+
+    // STRATA-52: the directory photo is read beside the profile with the same token; it never
+    // rejects, so a photo failure can't block sign-in.
+    const photo = fetchGraphPhoto(this.settings.graphBaseUrl, completed.accessToken);
 
     // Graph failure never blocks sign-in (AC5); it is recorded and the person can retry.
     let graph: GraphProfile | null = null;
@@ -307,12 +312,17 @@ export class MicrosoftSignInService {
       });
       // No position step (MISC-06): an Admin sets positions; Not set never blocks onboarding.
       const next = status === 'pending' ? '/access-pending' : attempt.return_to;
-      return { ok: true as const, session, next };
+      return { ok: true as const, session, next, userId: row.id };
     });
 
     if (!outcome.ok) {
       return this.fail(outcome.reason, requestId, {}, outcome.userId);
     }
+    // Cached after the sign-in commits; a failure keeps the last photo (applyGraphPhoto never
+    // throws). A disabled person never gets here.
+    await applyGraphPhoto(this.database.pool, outcome.userId, await photo, (message) =>
+      this.logger.warn(message),
+    );
     this.tokens.set(
       outcome.session.sessionId,
       completed.accessToken,
