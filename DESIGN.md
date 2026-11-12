@@ -780,7 +780,8 @@ notification. Kyle chose:
   - Grouped;
   - Requests empty;
   - Updates all read;
-  - the LAB station;
+  - the LAB station, shown (the person turned it on);
+  - the LAB station, kept private;
   - dark.
 
 ### Today for a technician (canvas page "Today", fourth row)
