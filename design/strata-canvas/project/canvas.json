@@ -857,15 +857,6 @@
    "page": "round2",
    "is_interactive": true
   },
-  "R2PutAway.dc.html": {
-   "x": 2720,
-   "y": 3060,
-   "w": 1280,
-   "h": 800,
-   "title": "Straight to Put away (preference on)",
-   "page": "round2",
-   "is_interactive": true
-  },
   "R2DoneDark.dc.html": {
    "x": 4080,
    "y": 3060,
@@ -3019,7 +3010,8 @@
   "r4Title3",
   "r4Title4",
   "r4Notes",
-  "partTwo"
+  "partTwo",
+  "r2PutAwayMoved"
  ],
  "notes": {
   "about": {
@@ -3549,6 +3541,14 @@
    "fill": "blue",
    "page": "shell",
    "text": "Rounds 7 (concrete lab), 8 (concrete review and reports) and 9 (settings, including the Settings modal) moved to a second canvas on 2026-11-12, because one canvas holds at most 512 files: Material Mule — Strata (concrete and settings), https://claude.ai/artifact/CHET4GJw9t8NzxtrMc4CFP"
+  },
+  "r2PutAwayMoved": {
+   "x": 2720,
+   "y": 3060,
+   "w": 420,
+   "fill": "yellow",
+   "page": "round2",
+   "text": "Straight to Put away (preference on): confirming a receipt opens Put away, drawn once on the Inventory, move, search page (board \"Put away — after receiving\", R3PutAway). Round 2's stand-in was removed on 2026-11-12 so the screen exists in one place."
   }
  },
  "order": [
@@ -3647,7 +3647,6 @@
   "R2Entry1024.dc.html",
   "R2Done.dc.html",
   "R2DoneFailed.dc.html",
-  "R2PutAway.dc.html",
   "R2DoneDark.dc.html",
   "R2Done1024.dc.html",
   "R2Log.dc.html",
