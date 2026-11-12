@@ -707,8 +707,9 @@ shortcuts; Needs you; Last 24 hours (no Storage room); drawn for a project lead 
 
 ### Today for the Lab Manager (canvas page "Today", third row)
 
-The same layout as the project lead's. Kyle asked for the Lab Manager next (2026-11-11). The
-content is Claude's choice, taken from PRODUCT.md's description of the role; drawn as Sam Sample.
+The same layout as the project lead's. Kyle asked for the Lab Manager next (2026-11-11). Claude
+chose the content from PRODUCT.md's description of the role, and Kyle approved it ("Looks right",
+2026-11-11). Drawn as Sam Sample.
 
 - **Shortcuts:** Workboard, Breaks due today, Retention due, Disposal scan.
 - **Needs you:**
