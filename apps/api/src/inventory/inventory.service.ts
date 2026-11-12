@@ -7,6 +7,7 @@ import { loadSampleIdentities, membershipOf } from '../storage-units/sample-iden
 import { BusinessClock } from '../retention/business-clock.js';
 import { loadUnitRetention } from '../retention/retention.js';
 import { buildInventoryQuery } from './inventory-query.js';
+import { unitStage } from './unit-stage.js';
 
 interface InventoryRow {
   id: string;
@@ -22,6 +23,7 @@ interface InventoryRow {
   location_id: string;
   location_code: string;
   location_name: string;
+  location_kind: string;
   tested_removal_reason: InventoryItem['testedRemovalReason'];
   contents_destroyed: boolean;
   open_conflict: boolean;
@@ -44,7 +46,7 @@ export async function queryInventory(
     `SELECT su.id, su.readable_id, su.unit_type, su.core_run_count, su.status, su.received_date::text AS received_date,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
-            tr.reason AS tested_removal_reason,
+            l.kind AS location_kind, tr.reason AS tested_removal_reason,
             (su.unit_type = 'shelby_tube'
              AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed,
             EXISTS (SELECT 1 FROM location_conflict c
@@ -66,6 +68,14 @@ export async function queryInventory(
   const retention = await loadUnitRetention(pool, ids, asOf);
   return {
     items: rows.map((row) => ({
+      // STRATA-58: record status words and stage from the unit's real state.
+      ...unitStage({
+        status: row.status,
+        openConflict: row.open_conflict,
+        locationKind: row.location_kind,
+        retention: retention.get(row.id),
+        today: asOf,
+      }),
       id: row.id,
       readableId: row.readable_id,
       unitType: row.unit_type,

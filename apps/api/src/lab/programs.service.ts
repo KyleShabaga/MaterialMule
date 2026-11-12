@@ -8,7 +8,8 @@ import {
 import {
   depthKey,
   formatLineDepth,
-  LAB_PROGRAM_PAGE_SIZE,
+  LAB_PROGRAM_STATUS_STAGE,
+  labProgramListSortDirection,
   lineSubmitProblems,
   testDisplayName,
   type CoverageUnit,
@@ -32,6 +33,7 @@ import {
   type TestRequest,
   type UpdateLabProgramRequest,
   testProgress,
+  type LabProgramListQuery,
   type LabProgramSummary,
 } from '@materialmule/shared';
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
@@ -54,7 +56,25 @@ import {
 } from './coverage.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PAGE_SIZE = LAB_PROGRAM_PAGE_SIZE;
+/**
+ * STRATA-47: the list order, built only from the allowlisted sort and direction (never from raw
+ * input). The program ID ends every order so equal keys page deterministically.
+ */
+export function labProgramOrderBy(query: Pick<LabProgramListQuery, 'sort' | 'dir'>): string {
+  const dir = labProgramListSortDirection(query) === 'asc' ? 'ASC' : 'DESC';
+  switch (query.sort) {
+    case 'number':
+      // Drafts have no number yet: they come last in either direction.
+      return `lp.program_number COLLATE "C" ${dir} NULLS LAST, lp.id ${dir}`;
+    case 'project':
+      return `p.project_number_normalized COLLATE "C" ${dir}, lp.program_number COLLATE "C" ${dir} NULLS LAST, lp.id ${dir}`;
+    case 'submitted':
+      return `lp.submitted_at ${dir} NULLS LAST, lp.id ${dir}`;
+    default:
+      // This account's drafts first, then the newest submission or edit.
+      return `(lp.status = 'draft') DESC, coalesce(lp.submitted_at, lp.updated_at) ${dir}, lp.id ${dir}`;
+  }
+}
 
 type Db = Pool | PoolClient;
 
@@ -185,18 +205,15 @@ export class LabProgramsService {
   // Reads
   // -------------------------------------------------------------------------------------------
 
-  async list(
-    user: AuthUser,
-    query: { status?: string; projectId?: string; page?: number; search?: string },
-  ): Promise<LabProgramList> {
+  async list(user: AuthUser, query: LabProgramListQuery): Promise<LabProgramList> {
     const params: unknown[] = [user.userId];
     // Submitted and closed programs are shared; drafts only for the account that owns them.
     const where = [`(lp.status <> 'draft' OR lp.created_by_account_user_id = $1)`];
-    if (query.status && ['draft', 'submitted', 'closed'].includes(query.status)) {
+    if (query.status) {
       params.push(query.status);
       where.push(`lp.status = $${params.length}`);
     }
-    if (query.projectId && UUID_PATTERN.test(query.projectId)) {
+    if (query.projectId) {
       params.push(query.projectId);
       where.push(`lp.project_id = $${params.length}`);
     }
@@ -209,7 +226,7 @@ export class LabProgramsService {
            AND (sp.project_number ILIKE $${n} OR sp.name ILIKE $${n})))`,
       );
     }
-    const page = Math.max(1, query.page ?? 1);
+    const { page, pageSize } = query;
     const { rows } = await this.database.pool.query<
       ProgramRow & {
         line_count: number;
@@ -232,8 +249,8 @@ export class LabProgramsService {
                    WHERE r.program_id = lp.id GROUP BY r.status) s) AS status_counts`,
       )}
        WHERE ${where.join(' AND ')}
-       ORDER BY (lp.status = 'draft') DESC, coalesce(lp.submitted_at, lp.updated_at) DESC, lp.id
-       LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
+       ORDER BY ${labProgramOrderBy(query)}
+       LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
       params,
     );
     let total = rows[0]?.total ?? 0;
@@ -262,6 +279,8 @@ export class LabProgramsService {
         lineCount: row.line_count,
         testCount: row.test_count,
         progress: listProgress(row.status, row.test_count, row.status_counts),
+        // STRATA-58: the row's stage from its status (draft, in the lab, closed).
+        stage: LAB_PROGRAM_STATUS_STAGE[row.status],
       })),
     };
   }

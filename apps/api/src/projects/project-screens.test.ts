@@ -325,6 +325,8 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         testHoleCount: 2,
         inStockUnitCount: 3,
         lastReceiptDate: '2026-10-20',
+        // STRATA-58: projects have no closed state yet, so every row is active.
+        stage: 'storage',
       });
     });
 
