@@ -1027,7 +1027,7 @@ Drawn in its own session from the round 2 brief: 34 boards and 6 components (`R2
   gets "Also holds" lines, one SAMPLE#/DEPTH summary per hole. Bulk samples and location
   references are a row option.
   - Enter on the last row adds a unit. Shift+Enter copies the previous one.
-  - Received by is read-only. On a station it's the picked person.
+  - Received by starts as the signed-in or picked person and can be changed.
   - Add project is a Dialog with today's nomination wording.
   - Errors are counted in the sticky bar ("2 things to fix before confirming…"), and each row
     shows its own.
@@ -1044,16 +1044,9 @@ Drawn in its own session from the round 2 brief: 34 boards and 6 components (`R2
   - Drafts on this computer are Items with Continue and Delete draft.
 - **Receipt page:** follows the record pattern. Units and the original record sit on the left,
   corrections and history on the right. A corrected value is highlighted in the original record.
-- **Open for Kyle** (on Notion as decisions):
-  - may anyone change Received by?
-  - who may delete a draft on a shared computer?
-  - should bulk samples and location references stay as row options?
-
-## Briefs still to design
-
-Shaped one round at a time ([Strata screens and shaping plan](https://app.notion.com/p/4161bd4b6bde810f8f74f5f4f81607ff)
-on Notion), then designed in the same order. Each brief is what the design must do, not how it
-looks; the visual world is the rest of this file.
+- **Kyle's answers (2026-11-12):** anyone can change Received by (a staff picker; the receipt
+  then says "Entered by Pat Example, for Jordan Lab"); bulk samples and location references stay
+  as row options; only the person who started a draft or a Lab Manager can delete it.
 
 ### Round 1: storage unit record (shaped 2026-11-12)
 
