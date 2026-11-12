@@ -693,8 +693,46 @@ function TableToolbar({
     if (open && opened.current) inputRef.current?.focus()
     opened.current = true
   }, [open])
+  // FLIP: remember where the other tools sit, change layout at once, then slide them from there.
+  const toolbarRef = React.useRef<HTMLDivElement>(null)
+  const boxRef = React.useRef<HTMLDivElement>(null)
+  const before = React.useRef<Map<Element, number> | null>(null)
+  const movers = () => {
+    const tb = toolbarRef.current
+    if (!tb) return [] as HTMLElement[]
+    return Array.from(tb.querySelectorAll<HTMLElement>("button, [data-slot=separator], [aria-label='Active sort and filters']")).filter(
+      (el) => !boxRef.current?.contains(el) && !el.parentElement?.closest("[aria-label='Active sort and filters']"),
+    )
+  }
+  const setOpenAnimated = (next: boolean) => {
+    before.current = new Map(movers().map((el) => [el, el.getBoundingClientRect().left]))
+    setOpen(next)
+  }
+  React.useLayoutEffect(() => {
+    const prev = before.current
+    before.current = null
+    if (!prev || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const ease = "cubic-bezier(0.2, 0, 0, 1)"
+    for (const el of movers()) {
+      const dx = (prev.get(el) ?? el.getBoundingClientRect().left) - el.getBoundingClientRect().left
+      if (!dx) continue
+      el.style.transition = "none"
+      el.style.transform = "translateX(" + dx + "px)"
+      el.getBoundingClientRect()
+      el.style.transition = "transform 200ms " + ease
+      el.style.transform = ""
+    }
+    const box = boxRef.current
+    if (box && open) {
+      box.style.transition = "none"
+      box.style.clipPath = "inset(0 0 0 calc(100% - 36px) round 6px)"
+      box.getBoundingClientRect()
+      box.style.transition = "clip-path 200ms " + ease
+      box.style.clipPath = "inset(0 round 6px)"
+    }
+  }, [open])
   const close = () => {
-    setOpen(false)
+    setOpenAnimated(false)
     setQuery("")
     requestAnimationFrame(() => searchBtnRef.current?.focus())
   }
@@ -743,7 +781,7 @@ function TableToolbar({
   return (
     // TableToolbar children first: page actions such as Mark all read, then a divider.
     <S.TooltipProvider delayDuration={300}>
-    <div role="toolbar" aria-label="Table tools" className="flex items-center gap-0.5">
+    <div ref={toolbarRef} role="toolbar" aria-label="Table tools" className="flex items-center gap-0.5">
       {chips.length ? <div aria-label="Active sort and filters" role="group" className="mr-1 flex items-center">{chips}</div> : null}
       {children ? (
         <>
@@ -845,8 +883,9 @@ function TableToolbar({
 
       {/* Search: the icon, or the open box in its place. */}
       <div
+        ref={boxRef}
         className={cn(
-          "flex h-9 items-center overflow-hidden rounded-md transition-[width,background-color,box-shadow] duration-200 ease-out motion-reduce:transition-none",
+          "flex h-9 items-center overflow-hidden rounded-md",
           open ? "border-input bg-background w-56 border shadow-xs" : "w-9",
         )}
       >
@@ -865,7 +904,7 @@ function TableToolbar({
                 }
               }}
               onBlur={() => {
-                if (!query) setOpen(false)
+                if (!query) setOpenAnimated(false)
               }}
               placeholder={placeholder}
               aria-label={placeholder.replace(/…$/, "")}
@@ -889,7 +928,7 @@ function TableToolbar({
         ) : (
           tip(
             "Search",
-            <button ref={searchBtnRef} type="button" aria-label="Search" aria-expanded={false} className={iconButton} onClick={() => setOpen(true)}>
+            <button ref={searchBtnRef} type="button" aria-label="Search" aria-expanded={false} className={iconButton} onClick={() => setOpenAnimated(true)}>
               <Icon name="search" />
             </button>,
           )
