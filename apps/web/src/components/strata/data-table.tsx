@@ -24,30 +24,143 @@ import type { SortState } from './table-query';
 
 /** Container widths an attribute column may hide below. Literal classes so Tailwind finds them. */
 export type HideBreakpoint =
-  '25rem' | '30rem' | '35rem' | '40rem' | '48rem' | '56rem' | '60rem' | '64rem';
+  | '20rem'
+  | '22rem'
+  | '24rem'
+  | '25rem'
+  | '26rem'
+  | '28rem'
+  | '30rem'
+  | '32rem'
+  | '34rem'
+  | '35rem'
+  | '36rem'
+  | '38rem'
+  | '40rem'
+  | '42rem'
+  | '44rem'
+  | '46rem'
+  | '48rem'
+  | '50rem'
+  | '52rem'
+  | '54rem'
+  | '56rem'
+  | '58rem'
+  | '60rem'
+  | '62rem'
+  | '64rem'
+  | '66rem'
+  | '68rem'
+  | '70rem'
+  | '72rem'
+  | '74rem'
+  | '76rem'
+  | '78rem'
+  | '80rem'
+  | '82rem'
+  | '84rem'
+  | '86rem'
+  | '88rem'
+  | '90rem'
+  | '92rem'
+  | '94rem'
+  | '96rem';
+
+/** Every breakpoint, narrowest first (the hide plan rounds up to one of these). */
+// eslint-disable-next-line react-refresh/only-export-components -- breakpoint list beside its table
+export const HIDE_BREAKPOINTS_REM: readonly number[] = [
+  20, 22, 24, 25, 26, 28, 30, 32, 34, 35, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62,
+  64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96,
+];
 
 /** Hides a cell while the table's container (`@container/table`) is narrower than the breakpoint. */
 const HIDE_BELOW: Record<HideBreakpoint, string> = {
+  '20rem': '@max-[20rem]/table:hidden',
+  '22rem': '@max-[22rem]/table:hidden',
+  '24rem': '@max-[24rem]/table:hidden',
   '25rem': '@max-[25rem]/table:hidden',
+  '26rem': '@max-[26rem]/table:hidden',
+  '28rem': '@max-[28rem]/table:hidden',
   '30rem': '@max-[30rem]/table:hidden',
+  '32rem': '@max-[32rem]/table:hidden',
+  '34rem': '@max-[34rem]/table:hidden',
   '35rem': '@max-[35rem]/table:hidden',
+  '36rem': '@max-[36rem]/table:hidden',
+  '38rem': '@max-[38rem]/table:hidden',
   '40rem': '@max-[40rem]/table:hidden',
+  '42rem': '@max-[42rem]/table:hidden',
+  '44rem': '@max-[44rem]/table:hidden',
+  '46rem': '@max-[46rem]/table:hidden',
   '48rem': '@max-[48rem]/table:hidden',
+  '50rem': '@max-[50rem]/table:hidden',
+  '52rem': '@max-[52rem]/table:hidden',
+  '54rem': '@max-[54rem]/table:hidden',
   '56rem': '@max-[56rem]/table:hidden',
+  '58rem': '@max-[58rem]/table:hidden',
   '60rem': '@max-[60rem]/table:hidden',
+  '62rem': '@max-[62rem]/table:hidden',
   '64rem': '@max-[64rem]/table:hidden',
+  '66rem': '@max-[66rem]/table:hidden',
+  '68rem': '@max-[68rem]/table:hidden',
+  '70rem': '@max-[70rem]/table:hidden',
+  '72rem': '@max-[72rem]/table:hidden',
+  '74rem': '@max-[74rem]/table:hidden',
+  '76rem': '@max-[76rem]/table:hidden',
+  '78rem': '@max-[78rem]/table:hidden',
+  '80rem': '@max-[80rem]/table:hidden',
+  '82rem': '@max-[82rem]/table:hidden',
+  '84rem': '@max-[84rem]/table:hidden',
+  '86rem': '@max-[86rem]/table:hidden',
+  '88rem': '@max-[88rem]/table:hidden',
+  '90rem': '@max-[90rem]/table:hidden',
+  '92rem': '@max-[92rem]/table:hidden',
+  '94rem': '@max-[94rem]/table:hidden',
+  '96rem': '@max-[96rem]/table:hidden',
 };
 
 /** The inverse: shows folded content (hidden by default) below the same breakpoint. */
 const SHOW_BELOW: Record<HideBreakpoint, string> = {
+  '20rem': '@max-[20rem]/table:inline-flex',
+  '22rem': '@max-[22rem]/table:inline-flex',
+  '24rem': '@max-[24rem]/table:inline-flex',
   '25rem': '@max-[25rem]/table:inline-flex',
+  '26rem': '@max-[26rem]/table:inline-flex',
+  '28rem': '@max-[28rem]/table:inline-flex',
   '30rem': '@max-[30rem]/table:inline-flex',
+  '32rem': '@max-[32rem]/table:inline-flex',
+  '34rem': '@max-[34rem]/table:inline-flex',
   '35rem': '@max-[35rem]/table:inline-flex',
+  '36rem': '@max-[36rem]/table:inline-flex',
+  '38rem': '@max-[38rem]/table:inline-flex',
   '40rem': '@max-[40rem]/table:inline-flex',
+  '42rem': '@max-[42rem]/table:inline-flex',
+  '44rem': '@max-[44rem]/table:inline-flex',
+  '46rem': '@max-[46rem]/table:inline-flex',
   '48rem': '@max-[48rem]/table:inline-flex',
+  '50rem': '@max-[50rem]/table:inline-flex',
+  '52rem': '@max-[52rem]/table:inline-flex',
+  '54rem': '@max-[54rem]/table:inline-flex',
   '56rem': '@max-[56rem]/table:inline-flex',
+  '58rem': '@max-[58rem]/table:inline-flex',
   '60rem': '@max-[60rem]/table:inline-flex',
+  '62rem': '@max-[62rem]/table:inline-flex',
   '64rem': '@max-[64rem]/table:inline-flex',
+  '66rem': '@max-[66rem]/table:inline-flex',
+  '68rem': '@max-[68rem]/table:inline-flex',
+  '70rem': '@max-[70rem]/table:inline-flex',
+  '72rem': '@max-[72rem]/table:inline-flex',
+  '74rem': '@max-[74rem]/table:inline-flex',
+  '76rem': '@max-[76rem]/table:inline-flex',
+  '78rem': '@max-[78rem]/table:inline-flex',
+  '80rem': '@max-[80rem]/table:inline-flex',
+  '82rem': '@max-[82rem]/table:inline-flex',
+  '84rem': '@max-[84rem]/table:inline-flex',
+  '86rem': '@max-[86rem]/table:inline-flex',
+  '88rem': '@max-[88rem]/table:inline-flex',
+  '90rem': '@max-[90rem]/table:inline-flex',
+  '92rem': '@max-[92rem]/table:inline-flex',
+  '94rem': '@max-[94rem]/table:inline-flex',
+  '96rem': '@max-[96rem]/table:inline-flex',
 };
 
 /**
@@ -67,6 +180,12 @@ export interface DataTableColumn<Row> {
    * than this. Ignored, with a dev warning, on identity and state columns.
    */
   hideBelow?: HideBreakpoint;
+  /**
+   * Attribute columns only: hide order when the table plans its own breakpoints (1 hides first).
+   * The table hides columns in this order just before the free column (the one without a width)
+   * would drop below `freeColumnMin`. An explicit `hideBelow` wins.
+   */
+  hideOrder?: number;
   /**
    * Fold, don't drop: while this column is hidden (`hideBelow`), render `fold(row)` inside the
    * identity cell instead, e.g. an icon with a tooltip and sr-only text. Needs `hideBelow`.
@@ -125,6 +244,11 @@ export interface DataTableProps<Row> {
   /** Shown in one full-width row when `data` is empty. */
   empty?: React.ReactNode;
   loading?: boolean;
+  /**
+   * The narrowest the free column (title, name) may get before attribute columns with a
+   * `hideOrder` hide, e.g. '16rem' (DESIGN.md › Tables: column priority). Default 16rem.
+   */
+  freeColumnMin?: `${number}rem`;
   className?: string;
 }
 
@@ -159,8 +283,60 @@ function columnWidth(width: string, dense: boolean): string {
   return `calc(${width} + ${dense ? '1rem' : '1.5rem'})`;
 }
 
-function effectiveHide<Row>(column: DataTableColumn<Row>): HideBreakpoint | undefined {
-  return column.priority === 'attribute' ? column.hideBelow : undefined;
+/** Rough rem per `ch` at body size (Atkinson Hyperlegible Mono 14 px is about 8.4 px). */
+const CH_REM = 0.6;
+
+function widthRem(width: string | undefined, dense: boolean): number {
+  if (!width) return 0;
+  const pad = dense ? 1 : 1.5;
+  const n = Number.parseFloat(width);
+  if (Number.isNaN(n)) return pad;
+  if (width.endsWith('ch')) return n * CH_REM + pad;
+  if (width.endsWith('px')) return n / 16 + pad;
+  return n + pad;
+}
+
+/**
+ * Plans when each attribute column with a `hideOrder` hides (DESIGN.md › Tables: column
+ * priority): starting with every column shown, the first in hide order hides below the width the
+ * whole row needs (fixed widths plus the free column at `freeColumnMin`); then the next, with the
+ * first already gone; and so on. Each width rounds up to a breakpoint. Pure, so it is tested
+ * without layout.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- pure planner beside its table
+export function planColumnHiding<Row>(
+  columns: readonly DataTableColumn<Row>[],
+  options: { freeColumnMin?: string; selectable?: boolean; dense?: boolean } = {},
+): Map<string, HideBreakpoint> {
+  const dense = options.dense ?? false;
+  const freeMin = Number.parseFloat(options.freeColumnMin ?? '16rem');
+  const plan = new Map<string, HideBreakpoint>();
+  const shown = new Set(columns.map((c) => c.id));
+  const needed = () =>
+    (options.selectable ? (dense ? 2.5 : 2.75) : 0) +
+    columns
+      .filter((c) => shown.has(c.id))
+      .reduce((sum, c) => sum + (c.width ? widthRem(c.width, dense) : freeMin), 0);
+  const ordered = columns
+    .filter((c) => c.priority === 'attribute' && c.hideOrder !== undefined && !c.hideBelow)
+    .sort((a, b) => a.hideOrder! - b.hideOrder!);
+  for (const column of ordered) {
+    const want = needed();
+    const bp =
+      HIDE_BREAKPOINTS_REM.find((b) => b >= want) ??
+      HIDE_BREAKPOINTS_REM[HIDE_BREAKPOINTS_REM.length - 1]!;
+    plan.set(column.id, `${bp}rem` as HideBreakpoint);
+    shown.delete(column.id);
+  }
+  return plan;
+}
+
+function effectiveHide<Row>(
+  column: DataTableColumn<Row>,
+  plan?: ReadonlyMap<string, HideBreakpoint>,
+): HideBreakpoint | undefined {
+  if (column.priority !== 'attribute') return undefined;
+  return column.hideBelow ?? plan?.get(column.id);
 }
 
 function isTypingTarget(el: Element | null): boolean {
@@ -197,10 +373,15 @@ export function DataTable<Row>({
   caption,
   empty,
   loading = false,
+  freeColumnMin = '16rem',
   className,
 }: DataTableProps<Row>) {
   const dense = density === 'table';
   const selectable = !!selectedIds && !!onSelectedIdsChange;
+  const plan = React.useMemo(
+    () => planColumnHiding(columns, { freeColumnMin, selectable, dense }),
+    [columns, freeColumnMin, selectable, dense],
+  );
 
   React.useEffect(() => {
     if (!isDev) return;
@@ -210,11 +391,11 @@ export function DataTable<Row>({
           `DataTable: column "${column.id}" is ${column.priority}; identity and state columns never hide, so hideBelow is ignored.`,
         );
       }
-      if (column.fold && !effectiveHide(column)) {
+      if (column.fold && !effectiveHide(column, plan)) {
         console.warn(`DataTable: column "${column.id}" has fold but never hides; fold is ignored.`);
       }
     }
-  }, [columns]);
+  }, [columns, plan]);
 
   const columnDefs = React.useMemo<ColumnDef<Row>[]>(
     () =>
@@ -246,13 +427,13 @@ export function DataTable<Row>({
     const firstIdentity = columns.find((c) => c.priority === 'identity')?.id;
     const map = new Map<string, DataTableColumn<Row>[]>();
     for (const column of columns) {
-      if (!column.fold || !effectiveHide(column)) continue;
+      if (!column.fold || !effectiveHide(column, plan)) continue;
       const target = column.foldInto ?? firstIdentity;
       if (!target) continue;
       map.set(target, [...(map.get(target) ?? []), column]);
     }
     return map;
-  }, [columns]);
+  }, [columns, plan]);
 
   // Roving tabindex: the focused row, else the open row, else the first row.
   const [focusId, setFocusId] = React.useState<string | null>(null);
@@ -298,7 +479,7 @@ export function DataTable<Row>({
 
   /** Classes shared by a column's th and td. */
   const columnClasses = (column: DataTableColumn<Row>, index: number, head: boolean) => {
-    const hide = effectiveHide(column);
+    const hide = effectiveHide(column, plan);
     const isFirst = !selectable && index === 0;
     const isLast = index === visibleColumns.length - 1;
     return cn(
@@ -350,7 +531,10 @@ export function DataTable<Row>({
               <span
                 key={fold.id}
                 data-fold={fold.id}
-                className={cn('hidden shrink-0 items-center', SHOW_BELOW[effectiveHide(fold)!])}
+                className={cn(
+                  'hidden shrink-0 items-center',
+                  SHOW_BELOW[effectiveHide(fold, plan)!],
+                )}
               >
                 {fold.fold!(row)}
               </span>

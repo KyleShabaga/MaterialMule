@@ -172,7 +172,7 @@ const COLUMNS: DataTableColumn<InboxRow>[] = [
     id: 'task',
     header: 'Task',
     priority: 'attribute',
-    hideBelow: '48rem',
+    hideOrder: 1,
     width: '9rem',
     fold: (row) => <KindIcon row={row} />,
     cell: (row) => `${row.kind} · ${row.task}`,
@@ -181,7 +181,7 @@ const COLUMNS: DataTableColumn<InboxRow>[] = [
     id: 'from',
     header: 'From',
     priority: 'attribute',
-    hideBelow: '40rem',
+    hideOrder: 2,
     width: '10rem',
     cell: (row) => (
       <PersonCell name={row.from ?? undefined} system={row.from === null} size="compact" />
@@ -191,7 +191,7 @@ const COLUMNS: DataTableColumn<InboxRow>[] = [
     id: 'received',
     header: 'Received',
     priority: 'attribute',
-    hideBelow: '35rem',
+    hideOrder: 3,
     mono: true,
     width: '10ch',
     sortKey: 'received',

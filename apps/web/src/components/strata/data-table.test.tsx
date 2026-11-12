@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DataTable,
   TABLE_DENSITY_STORAGE_PREFIX,
+  planColumnHiding,
   useTableDensity,
   type DataTableColumn,
   type DataTableDensity,
@@ -461,5 +462,93 @@ describe('DataTable column widths', () => {
     expect(within(th).getByText('Received').closest('.font-sans')).not.toBeNull();
     // The sort button carries a data-slot, so wave 0's legacy bare-button rules skip it.
     expect(within(th).getByRole('button').getAttribute('data-slot')).toBe('table-sort-button');
+  });
+});
+
+describe('planColumnHiding', () => {
+  // The gallery's Inbox-like table: Title is the free column; Task, From and Received hide in
+  // that order before Title drops below 16rem.
+  const INBOX: DataTableColumn<Unit>[] = [
+    { id: 'title', header: 'Title', priority: 'identity', cell: () => null },
+    {
+      id: 'job',
+      header: 'Job number',
+      priority: 'identity',
+      mono: true,
+      width: '10ch',
+      cell: () => null,
+    },
+    { id: 'stage', header: 'Stage', priority: 'state', width: '10rem', cell: () => null },
+    {
+      id: 'task',
+      header: 'Task',
+      priority: 'attribute',
+      hideOrder: 1,
+      width: '9rem',
+      cell: () => null,
+    },
+    {
+      id: 'from',
+      header: 'From',
+      priority: 'attribute',
+      hideOrder: 2,
+      width: '10rem',
+      cell: () => null,
+    },
+    {
+      id: 'received',
+      header: 'Received',
+      priority: 'attribute',
+      hideOrder: 3,
+      mono: true,
+      width: '10ch',
+      cell: () => null,
+    },
+  ];
+  const hiddenAt = (plan: Map<string, string>, px: number) =>
+    [...plan].filter(([, bp]) => px / 16 < Number.parseFloat(bp)).map(([id]) => id);
+
+  it('hides Task first, then From, then Received, and never identity or state', () => {
+    const plan = planColumnHiding(INBOX, { selectable: true });
+    const rem = (id: string) => Number.parseFloat(plan.get(id)!);
+    expect(rem('task')).toBeGreaterThan(rem('from'));
+    expect(rem('from')).toBeGreaterThan(rem('received'));
+    expect(plan.has('title')).toBe(false);
+    expect(plan.has('stage')).toBe(false);
+  });
+
+  it('at a ~950 px list (1024 px window, rail collapsed) hides Task and keeps Title at 16rem or more', () => {
+    const plan = planColumnHiding(INBOX, { selectable: true });
+    expect(hiddenAt(plan, 950)).toEqual(['task']);
+    // Room left for Title at 950 px once Task is gone: checkbox 2.75 + job 7.5 + stage 11.5 +
+    // from 11.5 + received 7.5 = 40.75rem of fixed columns.
+    expect(950 / 16 - 40.75).toBeGreaterThanOrEqual(16);
+  });
+
+  it('keeps every column in a 72rem list, drops only Task at 64rem, all three in a drawer list', () => {
+    const plan = planColumnHiding(INBOX, { selectable: true });
+    expect(hiddenAt(plan, 72 * 16)).toEqual([]);
+    // 1280 px with the rail open: the page container is about 64rem (DESIGN.md).
+    expect(hiddenAt(plan, 64 * 16)).toEqual(['task']);
+    expect(hiddenAt(plan, 480)).toEqual(['task', 'from', 'received']);
+  });
+
+  it('lets an explicit hideBelow win and applies the planned class to th and td', () => {
+    const columns = INBOX.map((c) => (c.id === 'from' ? { ...c, hideBelow: '30rem' as const } : c));
+    expect(planColumnHiding(columns).has('from')).toBe(false);
+    render(
+      <DataTable
+        columns={columns}
+        data={UNITS}
+        getRowId={(u) => u.id}
+        rowLabel={(u) => u.id}
+        caption="Inbox"
+      />,
+    );
+    const task = screen.getByRole('columnheader', { name: 'Task' });
+    expect(task.className).toMatch(/@max-\[\d+rem\]\/table:hidden/);
+    expect(screen.getByRole('columnheader', { name: 'From' }).className).toContain(
+      '@max-[30rem]/table:hidden',
+    );
   });
 });
