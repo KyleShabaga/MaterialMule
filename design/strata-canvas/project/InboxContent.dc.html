@@ -36,10 +36,10 @@ body{margin:0}
 <p class="bg-accent text-accent-foreground w-full rounded-md px-3 py-2 text-[13px]">Pat Example's Inbox on the LAB station.</p>
 </sc-if>
 <x-import component-from-global-scope="Strata.Tabs" default-value="{{tab}}"><x-import component-from-global-scope="Strata.TabsList"><x-import component-from-global-scope="Strata.TabsTrigger" value="all">All <span class="text-muted-foreground font-mono text-[11px]">6</span></x-import><x-import component-from-global-scope="Strata.TabsTrigger" value="requests">Requests <span class="text-muted-foreground font-mono text-[11px]">{{requestCount}}</span></x-import><x-import component-from-global-scope="Strata.TabsTrigger" value="updates">Updates <span class="text-muted-foreground font-mono text-[11px]">{{updateCount}}</span></x-import><x-import component-from-global-scope="Strata.TabsTrigger" value="done">Done</x-import></x-import></x-import>
-<div class="ml-auto flex items-center gap-2">
-<span id="inbox-view" class="text-muted-foreground text-[13px]">View</span>
-<x-import component-from-global-scope="Strata.Select" default-value="{{view}}"><x-import component-from-global-scope="Strata.SelectTrigger" size="sm" aria-labelledby="inbox-view" class-name="w-36"><x-import component-from-global-scope="Strata.SelectValue"></x-import></x-import><x-import component-from-global-scope="Strata.SelectContent"><x-import component-from-global-scope="Strata.SelectItem" value="stream">One stream</x-import><x-import component-from-global-scope="Strata.SelectItem" value="grouped">Grouped</x-import><x-import component-from-global-scope="Strata.SelectItem" value="table">Table</x-import></x-import></x-import>
-<x-import component-from-global-scope="Strata.Button" variant="ghost" size="sm" class-name="text-link">Mark all read</x-import>
+<!-- Table tools (Strata.TableToolbar): Search first; opening it pushes Filter, Sort and View to the right, into the room this slot keeps for it. -->
+<div class="ml-auto flex w-[28rem] max-w-full items-center gap-2">
+<x-import component-from-global-scope="Strata.TableToolbar" placeholder="Search Inbox…" filters="Unread only|Waiting on me|About my requests" sorts="Newest first|Oldest first|Requests first" views="One stream|Grouped|Table" view="{{viewLabel}}" search-open="{{searchOpen}}"></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="sm" class-name="text-link ml-auto">Mark all read</x-import>
 </div>
 </div>
 <sc-if value="{{peekOpen}}" hint-placeholder-val="{{ true }}">
@@ -408,12 +408,12 @@ body{margin:0}
 </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stream-request","stream-update","stream-closed","grouped","table","table-request","requests-empty","updates-read","private"],"default":"stream-request"},"station":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stream-request","stream-update","stream-closed","grouped","table","table-request","table-search","requests-empty","updates-read","private"],"default":"stream-request"},"station":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
 class Component extends DCLogic {
   renderVals() {
     var v = this.props.variant || 'stream-request';
     var selected = (v === 'stream-update') ? 'u1' : (v === 'stream-request' || v === 'grouped' || v === 'table-request') ? 'r1' : '';
-    var view = (v === 'grouped') ? 'grouped' : (v === 'table' || v === 'table-request') ? 'table' : 'stream';
+    var view = (v === 'grouped') ? 'grouped' : (v === 'table' || v === 'table-request' || v === 'table-search') ? 'table' : 'stream';
     var vals = {
       yes: true,
       station: !!this.props.station,
@@ -421,6 +421,8 @@ class Component extends DCLogic {
       notPrivate: v !== 'private',
       tab: v === 'requests-empty' ? 'requests' : v === 'updates-read' ? 'updates' : 'all',
       view: view,
+      viewLabel: view === 'grouped' ? 'Grouped' : view === 'table' ? 'Table' : 'One stream',
+      searchOpen: v === 'table-search',
       requestCount: v === 'requests-empty' ? '0' : '3',
       updateCount: v === 'updates-read' ? '0' : '3',
       showStream: view === 'stream' && v !== 'requests-empty' && v !== 'updates-read',

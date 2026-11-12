@@ -648,6 +648,179 @@ function SidebarCustomize({ defaultOpen }: { defaultOpen?: boolean }) {
   )
 }
 
+/**
+ * The toolbar every table and list page carries at its top right, like Notion's: Search, Filter,
+ * Sort and View, as 36 px icon buttons with tooltips. Search comes first; clicking it opens a
+ * search box in its place that pushes the other icons to the right (CSS width transition, no
+ * motion library). Escape, or leaving the box empty, closes it. A filter that is on tints the
+ * Filter icon and shows a dot. Lists are "A|B|C"; `view` is the current view's label.
+ */
+function TableToolbar({
+  placeholder = "Search…",
+  filters = "",
+  sorts = "Newest first|Oldest first",
+  views = "",
+  view = "",
+  searchOpen = false,
+}: {
+  placeholder?: string; filters?: string; sorts?: string; views?: string; view?: string; searchOpen?: boolean
+}) {
+  const split = (v: string) => v.split("|").filter(Boolean)
+  const [open, setOpen] = React.useState(!!searchOpen)
+  const [query, setQuery] = React.useState("")
+  const [on, setOn] = React.useState<string[]>([])
+  const [sort, setSort] = React.useState(split(sorts)[0] || "")
+  const [current, setCurrent] = React.useState(view || split(views)[0] || "")
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const searchBtnRef = React.useRef<HTMLButtonElement>(null)
+  const opened = React.useRef(false)
+  React.useEffect(() => {
+    if (open && opened.current) inputRef.current?.focus()
+    opened.current = true
+  }, [open])
+  const close = () => {
+    setOpen(false)
+    setQuery("")
+    requestAnimationFrame(() => searchBtnRef.current?.focus())
+  }
+  const iconButton =
+    "text-muted-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent focus-visible:ring-ring/50 relative flex size-9 shrink-0 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]"
+  const tip = (label: string, child: React.ReactElement) => (
+    <S.Tooltip>
+      <S.TooltipTrigger asChild>{child}</S.TooltipTrigger>
+      <S.TooltipContent side="bottom">{label}</S.TooltipContent>
+    </S.Tooltip>
+  )
+  const filterOn = on.length > 0
+  return (
+    <div role="toolbar" aria-label="Table tools" className="flex items-center gap-0.5">
+      {/* Search: the icon, or the open box in its place. */}
+      <div
+        className={cn(
+          "flex h-9 items-center overflow-hidden rounded-md transition-[width,background-color,box-shadow] duration-200 ease-out motion-reduce:transition-none",
+          open ? "border-input bg-background w-56 border shadow-xs" : "w-9",
+        )}
+      >
+        {open ? (
+          <>
+            <Icon name="search" aria-hidden="true" className="text-muted-foreground ml-2.5 shrink-0" />
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault()
+                  close()
+                }
+              }}
+              onBlur={() => {
+                if (!query) setOpen(false)
+              }}
+              placeholder={placeholder}
+              aria-label={placeholder.replace(/…$/, "")}
+              className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setQuery("")
+                  inputRef.current?.focus()
+                }}
+                className="text-muted-foreground hover:text-foreground mr-1 flex size-7 shrink-0 items-center justify-center rounded-sm"
+              >
+                <Icon name="x" />
+              </button>
+            ) : null}
+          </>
+        ) : (
+          tip(
+            "Search",
+            <button ref={searchBtnRef} type="button" aria-label="Search" aria-expanded={false} className={iconButton} onClick={() => setOpen(true)}>
+              <Icon name="search" />
+            </button>,
+          )
+        )}
+      </div>
+
+      {split(filters).length ? (
+        <S.DropdownMenu>
+          {tip(
+            filterOn ? "Filter, " + on.length + " on" : "Filter",
+            <S.DropdownMenuTrigger aria-label={filterOn ? "Filter, " + on.length + " on" : "Filter"} className={cn(iconButton, filterOn && "text-primary")}>
+              <Icon name="list-filter" />
+              {filterOn ? <span aria-hidden="true" className="bg-primary absolute top-1.5 right-1.5 size-1.5 rounded-full" /> : null}
+            </S.DropdownMenuTrigger>,
+          )}
+          <S.DropdownMenuContent align="end" className="w-52">
+            <S.DropdownMenuLabel>Filter</S.DropdownMenuLabel>
+            {split(filters).map((f) => (
+              <S.DropdownMenuCheckboxItem
+                key={f}
+                checked={on.includes(f)}
+                onSelect={(e: Event) => e.preventDefault()}
+                onCheckedChange={(c: boolean) => setOn((o) => (c ? [...o, f] : o.filter((x) => x !== f)))}
+              >
+                {f}
+              </S.DropdownMenuCheckboxItem>
+            ))}
+            {filterOn ? (
+              <>
+                <S.DropdownMenuSeparator />
+                <S.DropdownMenuItem onSelect={() => setOn([])}>
+                  <Icon name="x" />
+                  Clear filters
+                </S.DropdownMenuItem>
+              </>
+            ) : null}
+          </S.DropdownMenuContent>
+        </S.DropdownMenu>
+      ) : null}
+
+      <S.DropdownMenu>
+        {tip(
+          "Sort",
+          <S.DropdownMenuTrigger aria-label={"Sort, " + sort} className={iconButton}>
+            <Icon name="arrow-up-down" />
+          </S.DropdownMenuTrigger>,
+        )}
+        <S.DropdownMenuContent align="end" className="w-52">
+          <S.DropdownMenuLabel>Sort</S.DropdownMenuLabel>
+          <S.DropdownMenuRadioGroup value={sort} onValueChange={setSort}>
+            {split(sorts).map((s) => (
+              <S.DropdownMenuRadioItem key={s} value={s}>{s}</S.DropdownMenuRadioItem>
+            ))}
+          </S.DropdownMenuRadioGroup>
+        </S.DropdownMenuContent>
+      </S.DropdownMenu>
+
+      {split(views).length ? (
+        <S.DropdownMenu>
+          {tip(
+            "View",
+            <S.DropdownMenuTrigger aria-label={"View, " + current} className={iconButton}>
+              <Icon name="sliders-horizontal" />
+            </S.DropdownMenuTrigger>,
+          )}
+          <S.DropdownMenuContent align="end" className="w-52">
+            <S.DropdownMenuLabel>View</S.DropdownMenuLabel>
+            <S.DropdownMenuRadioGroup value={current} onValueChange={setCurrent}>
+              {split(views).map((v) => (
+                <S.DropdownMenuRadioItem key={v} value={v}>{v}</S.DropdownMenuRadioItem>
+              ))}
+            </S.DropdownMenuRadioGroup>
+          </S.DropdownMenuContent>
+        </S.DropdownMenu>
+      ) : null}
+    </div>
+  )
+}
+
+Strata.TableToolbar = TableToolbar
 Strata.NavSection = NavSection
 Strata.SidebarCustomize = SidebarCustomize
 Strata.PeekSplit = PeekSplit

@@ -202,6 +202,16 @@ stay readable on a phone in a dim storage room.
 
 ## Components
 
+- **Table tools** (`Strata.TableToolbar`; Kyle, 2026-11-11): every table and list page carries
+  Search, Filter, Sort and View at its top right, like Notion: 36 px ghost icon buttons (`search`,
+  `list-filter`, `arrow-up-down`, `sliders-horizontal`) with tooltips, in a `toolbar` role. Search
+  comes first: clicking it opens a 224 px search box (`Input` styling, search icon, Clear) in its
+  place, which pushes Filter, Sort and View to the right (200 ms ease-out width transition, CSS
+  only; none with reduced motion). The page keeps room for it so nothing else moves. Escape closes
+  it and returns focus to the icon; so does leaving it while empty. Filter is a menu of checkboxes
+  with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its name says
+  how many ("Filter, 1 on"). Sort and View are radio menus; View lists that page's views. The
+  search and filters apply as you type (server side for long lists).
 - **Buttons** (`Button`). 44 px high (48 px on phone, 56 px for the pinned phone primary), 8 px
   radius, 20 px side padding, sans 600. `default`: indigo fill, white text, one per screen.
   `outline`: `card` fill with a 1.5 px `input` border, for the other actions. `ghost` and `link`
@@ -778,8 +788,10 @@ notification. Kyle chose:
   - **Drawer toolbar:** Close (`chevrons-right`, Esc), Open as full page (`maximize-2`), Previous
     and Next (`chevron-up` and `chevron-down`, K and J), and "1 of 6".
   - With nothing open, the list uses the full width.
-- **Header:** tabs All, Requests, Updates and Done, each with a count. Then View (One stream,
-  Grouped or Table, `Select`) and Mark all read.
+- **Header:** tabs All, Requests, Updates and Done, each with a count. At the right, the table
+  tools (Search Inbox…, Filter: Unread only, Waiting on me, About my requests; Sort: Newest first,
+  Oldest first, Requests first; View: One stream, Grouped, Table; this replaces the View `Select`),
+  then Mark all read. Board "Inbox — table, search open".
 - **Table** (compact; shadcn `Table`; Kyle 2026-11-11: "borders or background", "even more compact"): 28 px
   rows (32 px header) at 13 px with no vertical padding, a 20 px kind icon and a 16 px-high pill;
   rows separated three ways: a bottom border, every other row tinted `muted` at 40 %, and a

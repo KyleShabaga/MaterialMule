@@ -496,6 +496,15 @@
       "w": 1280,
       "x": 3200,
       "y": 0
+    },
+    "InboxTableSearch.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "inbox",
+      "title": "Inbox — table, search open (Search, Filter, Sort, View)",
+      "w": 1280,
+      "x": 1360,
+      "y": 3680
     }
   },
   "createdOnFiles": {
@@ -515,7 +524,8 @@
     "settingsNotes",
     "rowSignIn",
     "signinNotes",
-    "sidebarLayout"
+    "sidebarLayout",
+    "tableTools"
   ],
   "notes": {
     "about": {
@@ -669,6 +679,14 @@
       "x": 3200,
       "y": 840,
       "text": "Sidebar layout (2026-11-11): Pinned and Recent sit right under Today, Projects and Inbox. Every section heading folds its section; Recent starts folded. Customize sidebar turns the sidebar itself into an editor, like Notion: Today, Projects and Inbox locked at the top, the sections with grips and eye toggles, Reset to default, and Done (or Escape). Folds, order and hidden sections are saved per person, so the sidebar comes back as they left it (the canvas keeps them in this browser)."
+    },
+    "tableTools": {
+      "fill": "yellow",
+      "page": "inbox",
+      "w": 380,
+      "x": 2720,
+      "y": 3680,
+      "text": "Table tools (2026-11-11, Kyle): every table and list page has Search, Filter, Sort and View icons at its top right (Strata.TableToolbar). Search comes first; clicking it opens a search box in its place that pushes the other icons to the right. Escape or an empty box closes it. A filter that is on tints the Filter icon with a dot. View replaces the old View select. The mock does not filter the rows."
     }
   },
   "order": [
@@ -726,7 +744,8 @@
     "InboxStationPrivate.dc.html",
     "InboxClosed.dc.html",
     "InboxTable.dc.html",
-    "InboxTablePeek.dc.html"
+    "InboxTablePeek.dc.html",
+    "InboxTableSearch.dc.html"
   ],
   "pages": [
     {
