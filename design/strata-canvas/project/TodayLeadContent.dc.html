@@ -39,7 +39,7 @@ body{margin:0}
 
 <!-- Needs you: two thirds -->
 <section aria-labelledby="needs-you" class="col-span-2 flex flex-col gap-3">
-<h2 id="needs-you" class="text-base font-semibold">Needs you</h2>
+<div class="flex items-baseline justify-between gap-4"><h2 id="needs-you" class="text-base font-semibold">Needs you</h2><a href="#" class="text-link text-sm font-medium underline-offset-4 hover:underline">Open Inbox</a></div>
 
 <sc-if value="{{failed}}" hint-placeholder-val="{{ false }}">
 <x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">Needs you couldn't load.</x-import><x-import component-from-global-scope="Strata.AlertDescription">Shortcuts and the last 24 hours still work.</x-import></x-import>
@@ -49,7 +49,7 @@ body{margin:0}
 <sc-if value="{{clear}}" hint-placeholder-val="{{ false }}">
 <div class="bg-card flex items-start gap-4 rounded-xl border p-6">
 <span class="bg-stage-closed-bg text-stage-closed-fg flex size-10 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="size-5"></x-import></span>
-<div class="grid gap-1"><p class="font-medium">Nothing needs you right now.</p><p class="text-muted-foreground text-sm">Reports to review, retention decisions and lab requests will show up here.</p></div>
+<div class="grid gap-1"><p class="font-medium">Nothing needs you right now.</p><p class="text-muted-foreground text-sm">Requests in your Inbox, reports to review and HOLDs show up here.</p></div>
 </div>
 </sc-if>
 
@@ -57,44 +57,58 @@ body{margin:0}
 <ul class="bg-card divide-y overflow-hidden rounded-xl border">
 <li class="flex items-center gap-4 p-4">
 <div class="grid flex-1 gap-1.5">
-<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due">Retention</x-import><span class="font-medium">Retention ends in 7 days for 4 storage units</span></div>
-<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2610</span> · Riverbend lots · <span class="font-mono text-[13px]">BKT-2026-000143</span> and 3 more. Extend, or approve disposal.</p>
+<div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground text-[13px]">Retention</span></div>
+<p class="font-medium">Decide on 4 units at end of retention</p>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2610</span> · Riverbend lots · <span class="font-mono text-[13px]">BKT-2026-000143</span> and 3 more · retention ends in 7 days</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" size="sm">Decide</x-import>
 </li>
 <li class="flex items-center gap-4 p-4">
 <div class="grid flex-1 gap-1.5">
-<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="lab">Concrete</x-import><span class="font-medium">3 field reports to review</span></div>
+<div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground text-[13px]">Correction</span></div>
+<p class="font-medium">Correct a hole summary</p>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">BKT-2026-000019</span> · <span class="font-mono text-[13px]">DEMO-2601</span> · from Sam Sample</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
+</li>
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground text-[13px]">Close a program</span></div>
+<p class="font-medium">Close lab program</p>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Atterberg limits, 6 of 6 tests done</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
+</li>
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="lab">Concrete</x-import></div>
+<p class="font-medium">3 field reports to review</p>
 <p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2616</span> · Riverside apts · placed Nov 9 and 10 by Pat Example</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Review</x-import>
 </li>
 <li class="flex items-center gap-4 p-4">
 <div class="grid flex-1 gap-1.5">
-<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger">Hold</x-import><span class="font-medium">Set 4 is on HOLD</span></div>
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger">Hold</x-import></div>
+<p class="font-medium">Set 4 is on HOLD</p>
 <p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2616</span> · 28-day breaks wait for your decision</p>
-</div>
-<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
-</li>
-<li class="flex items-center gap-4 p-4">
-<div class="grid flex-1 gap-1.5">
-<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="lab">Lab</x-import><span class="font-medium">Lab program finished</span></div>
-<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Atterberg limits, 6 of 6 tests done</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
 </li>
 <sc-if value="{{long}}" hint-placeholder-val="{{ false }}">
 <li class="flex items-center gap-4 p-4">
 <div class="grid flex-1 gap-1.5">
-<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft">Request</x-import><span class="font-medium">A lab request is waiting on your answer</span></div>
-<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2601</span> · <span class="font-mono text-[13px]">TH26-02</span> · asked by Sam Sample</p>
+<div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground text-[13px]">Lab request</span></div>
+<p class="font-medium">Answer a lab request</p>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2601</span> · <span class="font-mono text-[13px]">TH26-02</span> · from Sam Sample</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Answer</x-import>
 </li>
 <li class="flex items-center gap-4 p-4">
 <div class="grid flex-1 gap-1.5">
-<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due">Retention</x-import><span class="font-medium">Retention ends in 14 days for 2 storage units</span></div>
-<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2611</span> · <span class="font-mono text-[13px]">ST-2026-000021</span> and 1 more</p>
+<div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground text-[13px]">Retention</span></div>
+<p class="font-medium">Decide on 2 units at end of retention</p>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2611</span> · <span class="font-mono text-[13px]">ST-2026-000021</span> and 1 more · retention ends in 14 days</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Decide</x-import>
 </li>
@@ -126,8 +140,8 @@ class Component extends DCLogic {
   renderVals() {
     var v = this.props.variant || 'busy';
     var summaries = {
-      busy: '4 things need you today.',
-      long: '11 things need you today.',
+      busy: '5 things need you. 3 are requests in your Inbox.',
+      long: '11 things need you. 5 are requests in your Inbox.',
       clear: 'Nothing needs you right now.',
       failed: 'Your list couldn’t load. Shortcuts still work.'
     };

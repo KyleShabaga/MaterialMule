@@ -612,7 +612,13 @@ shell, fix all five issues, leave the top bar as it is.
 - **Inbox** (`inbox`; was My requests, renamed by Kyle 2026-11-11) is the one place for every
   notification and every action request. Its row shows the unread count in a small `primary`
   badge. The bell's hover card is a preview of the same items (rows link to their records, unread
-  rows say "Unread" to screen readers), and its "Open Inbox" and the bell itself go here. The Inbox
+  rows say "Unread" to screen readers), and its "Open Inbox" and the bell itself go here.
+  **One count, one wording** (critique 2026-11-12, Kyle chose this first): the sidebar badge, the
+  bell badge and the bell's heading ("Inbox · 3 unread") all show the number of unread Inbox items,
+  from one value, so it always equals the bold rows in Inbox. The bell previews Inbox's newest
+  three items word for word, request vs update marked as in Inbox; with nothing unread there is no
+  badge and the preview says "Nothing unread in your Inbox." On a LAB station counts stay hidden
+  unless the picked person shares their Inbox there. The Inbox
   page is shaped next.
 - **Pinned** records: stage-tinted square, mono ID (never wraps), short name. Pinning is done from
   a record's page.
@@ -737,6 +743,12 @@ shortcuts; Needs you; Last 24 hours (no Storage room); drawn for a project lead 
 - **Shortcuts** (outline buttons, a project lead's set): Request lab testing, Review concrete
   reports, My projects, New project.
 - **Two columns, 2 : 1:**
+  - **Needs you = Inbox requests waiting on you + system work** (critique 2026-11-12): requests
+    appear with the same "Request" pill, kind and sentence as in Inbox ("Decide on 4 units at end of
+    retention", "Correct a hole summary", "Close lab program"); work that never goes to Inbox
+    (reports to review, HOLDs) keeps its own tag. The summary says how many came from Inbox ("5
+    things need you. 3 are requests in your Inbox.") and the heading links to Open Inbox. When
+    nothing needs you, nothing is unread either, so no badge shows.
   - **Needs you** (left): one card list, most urgent first. Each row has a stage Badge (Retention
     `due`, Concrete `lab`, Hold `danger`, Lab `lab`, Request `draft`), a sentence, a detail line
     with IDs in mono, and one action. Only the first row's action is `primary`; the rest are
