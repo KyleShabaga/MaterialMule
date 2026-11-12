@@ -1,0 +1,2240 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-12T04:36:57.197Z"
+ },
+ "title": "Material Mule — Strata (concrete and settings)",
+ "launch": {
+  "view": "canvas",
+  "page": "round7"
+ },
+ "pages": [
+  {
+   "id": "round8",
+   "name": "Concrete review"
+  },
+  {
+   "id": "round7",
+   "name": "Concrete lab"
+  },
+  {
+   "id": "round9",
+   "name": "Settings"
+  },
+  {
+   "id": "shared",
+   "name": "Shared shell"
+  }
+ ],
+ "boards": {
+  "R8Queue.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — Waiting for review",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueReturned.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — Returned",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueReviewed.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — Reviewed, not yet issued",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueExceptions.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — Exceptions",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueEmpty.dc.html": {
+   "x": 5440,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — nothing needs your action",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueLoading.dc.html": {
+   "x": 6800,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — loading",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueError.dc.html": {
+   "x": 8160,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — couldn’t load",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueDark.dc.html": {
+   "x": 9520,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Review queue — dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Queue1024.dc.html": {
+   "x": 10880,
+   "y": 0,
+   "w": 1024,
+   "h": 768,
+   "title": "Review queue — 1024 px",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Report.dc.html": {
+   "x": 0,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Review, one exception open",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportReady.dc.html": {
+   "x": 1360,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Review, ready to mark reviewed",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportReturn.dc.html": {
+   "x": 2720,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Return for correction (comment required)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportOwn.dc.html": {
+   "x": 4080,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — your own report (no review)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportChanged.dc.html": {
+   "x": 5440,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — changed while loading (Reload)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportUnavailable.dc.html": {
+   "x": 6800,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — not available at this stage",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportLoading.dc.html": {
+   "x": 8160,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — loading",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportError.dc.html": {
+   "x": 9520,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — couldn’t load",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportStation.dc.html": {
+   "x": 10880,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — LAB station (needs a personal account)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportDark.dc.html": {
+   "x": 12240,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Review, dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Report1024.dc.html": {
+   "x": 13600,
+   "y": 1220,
+   "w": 1024,
+   "h": 768,
+   "title": "Report — 1024 px (panel closed)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportDrawer1024.dc.html": {
+   "x": 14960,
+   "y": 1220,
+   "w": 1024,
+   "h": 768,
+   "title": "Report — 1024 px, review panel as a drawer",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Issue.dc.html": {
+   "x": 0,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Issue step (Before it goes out)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8IssueConfirm.dc.html": {
+   "x": 1360,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Issue report confirmation",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Issued.dc.html": {
+   "x": 2720,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Issued (As issued)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8IssueDark.dc.html": {
+   "x": 4080,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Report — Issue step, dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Issue1024.dc.html": {
+   "x": 5440,
+   "y": 2440,
+   "w": 1024,
+   "h": 768,
+   "title": "Report — Issue step, 1024 px drawer",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Strength.dc.html": {
+   "x": 0,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Strength report — provisional (G2), review",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8StrengthExclude.dc.html": {
+   "x": 1360,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Strength report — Exclude a specimen (reason)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8StrengthNotReady.dc.html": {
+   "x": 2720,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Strength report — not available yet",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8StrengthDark.dc.html": {
+   "x": 4080,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Strength report — dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Strength1024.dc.html": {
+   "x": 5440,
+   "y": 3660,
+   "w": 1024,
+   "h": 768,
+   "title": "Strength report — 1024 px drawer",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectReports.dc.html": {
+   "x": 0,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — Field reports",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectSets.dc.html": {
+   "x": 1360,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — Sets",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectMixes.dc.html": {
+   "x": 2720,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — Mixes",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectMixesEmpty.dc.html": {
+   "x": 4080,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — no mixes yet",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectSummary.dc.html": {
+   "x": 5440,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — Summary report",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectSettings.dc.html": {
+   "x": 6800,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — Settings",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectError.dc.html": {
+   "x": 8160,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — couldn’t load",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectDark.dc.html": {
+   "x": 9520,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Project › Concrete — Sets, dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Project1024.dc.html": {
+   "x": 10880,
+   "y": 4880,
+   "w": 1024,
+   "h": 768,
+   "title": "Project › Concrete — Field reports, 1024 px",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectSummary1024.dc.html": {
+   "x": 12240,
+   "y": 4880,
+   "w": 1024,
+   "h": 768,
+   "title": "Project › Concrete — Summary, 1024 px",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8MixPending.dc.html": {
+   "x": 0,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Mix — revision pending (draft changes marked)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8MixApproved.dc.html": {
+   "x": 1360,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Mix — approved (Change this mix)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8MixUnapproved.dc.html": {
+   "x": 2720,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Mix — unapproved",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8MixReadonly.dc.html": {
+   "x": 4080,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Mix — not the lead (read-only)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8MixDark.dc.html": {
+   "x": 5440,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Mix — dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Mix1024.dc.html": {
+   "x": 6800,
+   "y": 6100,
+   "w": 1024,
+   "h": 768,
+   "title": "Mix — 1024 px",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Prop.dc.html": {
+   "x": 0,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "Change propagation — choose records",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8PropStale.dc.html": {
+   "x": 1360,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "Change propagation — list changed (reload)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8PropApplied.dc.html": {
+   "x": 2720,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "Change propagation — applied",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8PropNone.dc.html": {
+   "x": 4080,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "Change propagation — no approved revision",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8PropDark.dc.html": {
+   "x": 5440,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "Change propagation — dark",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8Prop1024.dc.html": {
+   "x": 6800,
+   "y": 7320,
+   "w": 1024,
+   "h": 768,
+   "title": "Change propagation — 1024 px",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "Round8Content.dc.html": {
+   "x": 0,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "Round8Content (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8QueueContent.dc.html": {
+   "x": 1360,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "R8QueueContent (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ReportContent.dc.html": {
+   "x": 2720,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "R8ReportContent (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8StrengthContent.dc.html": {
+   "x": 4080,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "R8StrengthContent (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8ProjectContent.dc.html": {
+   "x": 5440,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "R8ProjectContent (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8MixContent.dc.html": {
+   "x": 6800,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "R8MixContent (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R8PropContent.dc.html": {
+   "x": 8160,
+   "y": 8540,
+   "w": 1024,
+   "h": 744,
+   "title": "R8PropContent (component)",
+   "page": "round8",
+   "is_interactive": true
+  },
+  "R7OverviewBoard.dc.html": {
+   "x": 0,
+   "y": 400,
+   "w": 1280,
+   "h": 800,
+   "title": "Concrete overview — busy",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7OverviewClear.dc.html": {
+   "x": 1360,
+   "y": 400,
+   "w": 1280,
+   "h": 800,
+   "title": "Concrete overview — nothing waiting",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7OverviewFailed.dc.html": {
+   "x": 2720,
+   "y": 400,
+   "w": 1280,
+   "h": 800,
+   "title": "Concrete overview — two counts failed",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7OverviewLoading.dc.html": {
+   "x": 4080,
+   "y": 400,
+   "w": 1280,
+   "h": 800,
+   "title": "Concrete overview — loading",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7OverviewDark.dc.html": {
+   "x": 5440,
+   "y": 400,
+   "w": 1280,
+   "h": 800,
+   "title": "Concrete overview — dark",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Overview1024.dc.html": {
+   "x": 6800,
+   "y": 400,
+   "w": 1024,
+   "h": 768,
+   "title": "Concrete overview — 1024 px",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksA.dc.html": {
+   "x": 0,
+   "y": 1620,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — Today",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksASelected.dc.html": {
+   "x": 1360,
+   "y": 1620,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — specimens ticked, selection bar",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksAReschedule.dc.html": {
+   "x": 2720,
+   "y": 1620,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — Reschedule (new test age)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksAStation.dc.html": {
+   "x": 4080,
+   "y": 1620,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — LAB station (Jordan Lab picked)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksADark.dc.html": {
+   "x": 5440,
+   "y": 1620,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — dark",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksA1024.dc.html": {
+   "x": 6800,
+   "y": 1620,
+   "w": 1024,
+   "h": 768,
+   "title": "Breaks — 1024 px",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksOverdue.dc.html": {
+   "x": 0,
+   "y": 2840,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — Overdue (days late)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksHold.dc.html": {
+   "x": 1360,
+   "y": 2840,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — On HOLD",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksExceptions.dc.html": {
+   "x": 2720,
+   "y": 2840,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — Exceptions, none open",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksEmpty.dc.html": {
+   "x": 4080,
+   "y": 2840,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — nothing due today",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksNoMachine.dc.html": {
+   "x": 5440,
+   "y": 2840,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — no testing machine registered",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7BreaksLoading.dc.html": {
+   "x": 6800,
+   "y": 2840,
+   "w": 1280,
+   "h": 800,
+   "title": "Breaks — loading",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7TestingBoard.dc.html": {
+   "x": 0,
+   "y": 4060,
+   "w": 1280,
+   "h": 800,
+   "title": "Testing table — save states",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7TestingReason.dc.html": {
+   "x": 1360,
+   "y": 4060,
+   "w": 1280,
+   "h": 800,
+   "title": "Testing table — saved value changed, reason",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7TestingSelection.dc.html": {
+   "x": 2720,
+   "y": 4060,
+   "w": 1280,
+   "h": 800,
+   "title": "Testing table — the selection from Breaks A",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7TestingStation.dc.html": {
+   "x": 4080,
+   "y": 4060,
+   "w": 1280,
+   "h": 800,
+   "title": "Testing table — LAB station",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7TestingDark.dc.html": {
+   "x": 5440,
+   "y": 4060,
+   "w": 1280,
+   "h": 800,
+   "title": "Testing table — dark",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Testing1024.dc.html": {
+   "x": 6800,
+   "y": 4060,
+   "w": 1024,
+   "h": 768,
+   "title": "Testing table — 1024 px (scrolls sideways, specimen fixed)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7ReceivingBoard.dc.html": {
+   "x": 0,
+   "y": 5280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — My reports, then Other reports",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7ReceivingSet.dc.html": {
+   "x": 1360,
+   "y": 5280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — receive a set (scan or tick)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7ReceivingPickup.dc.html": {
+   "x": 2720,
+   "y": 5280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — awaiting pickup",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7ReceivingEmpty.dc.html": {
+   "x": 4080,
+   "y": 5280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — nothing to receive",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7ReceivingDark.dc.html": {
+   "x": 5440,
+   "y": 5280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — dark",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Receiving1024.dc.html": {
+   "x": 6800,
+   "y": 5280,
+   "w": 1024,
+   "h": 768,
+   "title": "Receiving — 1024 px",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SpecimensBoard.dc.html": {
+   "x": 0,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Specimens — lookup, several matches",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SetDue.dc.html": {
+   "x": 1360,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Set page — due today (Record breaks)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SetAwaiting.dc.html": {
+   "x": 2720,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Set page — awaiting receiving (Receive)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SetHold.dc.html": {
+   "x": 4080,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Set page — hold period ended (Open hold)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SetNotFound.dc.html": {
+   "x": 5440,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Specimens — no match",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SetLoading.dc.html": {
+   "x": 6800,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Set page — loading",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7SetDark.dc.html": {
+   "x": 8160,
+   "y": 6500,
+   "w": 1280,
+   "h": 800,
+   "title": "Set page — dark",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Set1024.dc.html": {
+   "x": 9520,
+   "y": 6500,
+   "w": 1024,
+   "h": 768,
+   "title": "Set page — 1024 px (History below)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsBoard.dc.html": {
+   "x": 0,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — All holds",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsSelected.dc.html": {
+   "x": 1360,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — selection, actions offered by eligibility",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsDispose.dc.html": {
+   "x": 2720,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — Record disposal (lists every ID)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsTech.dc.html": {
+   "x": 4080,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — technician (no disposal authority)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsFailed.dc.html": {
+   "x": 5440,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — Failed-specimen holds",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsEmpty.dc.html": {
+   "x": 6800,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — none on HOLD",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsLoading.dc.html": {
+   "x": 8160,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — loading",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7HoldsDark.dc.html": {
+   "x": 9520,
+   "y": 7720,
+   "w": 1280,
+   "h": 800,
+   "title": "Holds — dark",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Holds1024.dc.html": {
+   "x": 10880,
+   "y": 7720,
+   "w": 1024,
+   "h": 768,
+   "title": "Holds — 1024 px",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "Round7Content.dc.html": {
+   "x": 0,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — Round7Content (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Overview.dc.html": {
+   "x": 1360,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — R7Overview (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Breaks.dc.html": {
+   "x": 2720,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — R7Breaks (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Testing.dc.html": {
+   "x": 4080,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — R7Testing (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Receiving.dc.html": {
+   "x": 5440,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — R7Receiving (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Specimens.dc.html": {
+   "x": 6800,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — R7Specimens (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R7Holds.dc.html": {
+   "x": 8160,
+   "y": 8940,
+   "w": 1024,
+   "h": 744,
+   "title": "Component — R7Holds (variant tweak)",
+   "page": "round7",
+   "is_interactive": true
+  },
+  "R9TechProfile.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — technician, Profile (Account only in the nav)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TechPreferences.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — Preferences",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TechPreferencesMore.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — Preferences, scrolled (Receiving, dates, scanning, sidebar)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TechNotifications.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — Notifications",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TechAccess.dc.html": {
+   "x": 5440,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — My access",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TechBlocked.dc.html": {
+   "x": 6800,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — technician opened /settings/staff (not permitted)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StationProfile.dc.html": {
+   "x": 8160,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — LAB station, shared account Profile",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ManagerProfile.dc.html": {
+   "x": 9520,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — Lab Manager nav (Account, Lab, Concrete)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9AccountDark.dc.html": {
+   "x": 10880,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Settings — Preferences, dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Account1024.dc.html": {
+   "x": 12240,
+   "y": 0,
+   "w": 1024,
+   "h": 768,
+   "title": "Settings — Preferences at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffPeople.dc.html": {
+   "x": 0,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — People (administrator nav: everything)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffDrawer.dc.html": {
+   "x": 1360,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — person drawer (roles, admin, access)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffManager.dc.html": {
+   "x": 2720,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — Lab Manager's drawer (admin locked)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffPending.dc.html": {
+   "x": 4080,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — Pending applicant",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffDisabled.dc.html": {
+   "x": 5440,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — Disabled",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffDisable.dc.html": {
+   "x": 6800,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — Disable access, reason required",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffNoChanges.dc.html": {
+   "x": 8160,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — No changes to save",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffConflict.dc.html": {
+   "x": 9520,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — changed by someone else meanwhile",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffSaved.dc.html": {
+   "x": 10880,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — roles saved (toast)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffLoading.dc.html": {
+   "x": 12240,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — loading",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffFailed.dc.html": {
+   "x": 13600,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — couldn't load",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffDark.dc.html": {
+   "x": 14960,
+   "y": 1220,
+   "w": 1280,
+   "h": 800,
+   "title": "Staff — drawer, dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Staff1024.dc.html": {
+   "x": 16320,
+   "y": 1220,
+   "w": 1024,
+   "h": 768,
+   "title": "Staff — drawer at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsTree.dc.html": {
+   "x": 0,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — the tree",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsDrawer.dc.html": {
+   "x": 1360,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — shelf drawer",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsRetire.dc.html": {
+   "x": 2720,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — Retire, reason required",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsBlocked.dc.html": {
+   "x": 4080,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — can't retire a shelf holding units",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsAdd.dc.html": {
+   "x": 5440,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — Add location",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsSystem.dc.html": {
+   "x": 6800,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — the system location (code locked)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsDark.dc.html": {
+   "x": 8160,
+   "y": 2440,
+   "w": 1280,
+   "h": 800,
+   "title": "Locations — drawer, dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Locations1024.dc.html": {
+   "x": 9520,
+   "y": 2440,
+   "w": 1024,
+   "h": 768,
+   "title": "Locations — tree at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Printers.dc.html": {
+   "x": 0,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Printers — list and this computer's default",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9PrintersDrawer.dc.html": {
+   "x": 1360,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Printers — Not sure if printed",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9PrintersTest.dc.html": {
+   "x": 2720,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Printers — test print sent (toast)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9PrintersDark.dc.html": {
+   "x": 4080,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Printers — dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Printers1024.dc.html": {
+   "x": 5440,
+   "y": 3660,
+   "w": 1024,
+   "h": 768,
+   "title": "Printers at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TemplatesUnit.dc.html": {
+   "x": 6800,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Templates — storage unit label, true size",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TemplatesLocation.dc.html": {
+   "x": 8160,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Templates — location label, true size",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TemplatesDark.dc.html": {
+   "x": 9520,
+   "y": 3660,
+   "w": 1280,
+   "h": 800,
+   "title": "Templates — dark (label stays black on white)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Templates1024.dc.html": {
+   "x": 10880,
+   "y": 3660,
+   "w": 1024,
+   "h": 768,
+   "title": "Templates at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Receiving.dc.html": {
+   "x": 0,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — draft clean-up",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ReceivingError.dc.html": {
+   "x": 1360,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — days out of range",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ReceivingSaved.dc.html": {
+   "x": 2720,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — saved (toast)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ReceivingDark.dc.html": {
+   "x": 4080,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving — dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Receiving1024.dc.html": {
+   "x": 5440,
+   "y": 4880,
+   "w": 1024,
+   "h": 768,
+   "title": "Receiving at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTests.dc.html": {
+   "x": 6800,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Lab tests — catalogue by group",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTestsDrawer.dc.html": {
+   "x": 8160,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Lab tests — test drawer",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTestsTemplates.dc.html": {
+   "x": 9520,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Lab tests — Templates tab",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTestsFailed.dc.html": {
+   "x": 10880,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Lab tests — couldn't load",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTestsDark.dc.html": {
+   "x": 12240,
+   "y": 4880,
+   "w": 1280,
+   "h": 800,
+   "title": "Lab tests — dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTests1024.dc.html": {
+   "x": 13600,
+   "y": 4880,
+   "w": 1024,
+   "h": 768,
+   "title": "Lab tests at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Equipment.dc.html": {
+   "x": 0,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Equipment — testing machine and air meters (G8 open)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9EquipmentEmpty.dc.html": {
+   "x": 1360,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Equipment — No testing machine is registered",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Suppliers.dc.html": {
+   "x": 2720,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Suppliers",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Holidays.dc.html": {
+   "x": 4080,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Holidays — non-test days (administrator)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ReportHeader.dc.html": {
+   "x": 5440,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Report header (templates gate open)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ConcreteDark.dc.html": {
+   "x": 6800,
+   "y": 6100,
+   "w": 1280,
+   "h": 800,
+   "title": "Equipment — dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9Concrete1024.dc.html": {
+   "x": 8160,
+   "y": 6100,
+   "w": 1024,
+   "h": 768,
+   "title": "Holidays at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9System.dc.html": {
+   "x": 0,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "System status — all well",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9SystemDown.dc.html": {
+   "x": 1360,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "System status — database unavailable",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9SystemNotSetUp.dc.html": {
+   "x": 2720,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "System status — backups not set up",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9SystemLoading.dc.html": {
+   "x": 4080,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "System status — checking",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9SystemDark.dc.html": {
+   "x": 5440,
+   "y": 7320,
+   "w": 1280,
+   "h": 800,
+   "title": "System status — dark",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9System1024.dc.html": {
+   "x": 6800,
+   "y": 7320,
+   "w": 1024,
+   "h": 768,
+   "title": "System status at 1024 px",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "Round9Content.dc.html": {
+   "x": 0,
+   "y": 8540,
+   "w": 1080,
+   "h": 680,
+   "title": "Round 9 — Settings modal (variant, role, size)",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9AccountPanel.dc.html": {
+   "x": 1160,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Account",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9StaffPanel.dc.html": {
+   "x": 2064,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Staff",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LocationsPanel.dc.html": {
+   "x": 2968,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Locations",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9PrintersPanel.dc.html": {
+   "x": 3872,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Printers",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9TemplatesPanel.dc.html": {
+   "x": 4776,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Templates",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ReceivingPanel.dc.html": {
+   "x": 5680,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Receiving",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9LabTestsPanel.dc.html": {
+   "x": 6584,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — LabTests",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9ConcretePanel.dc.html": {
+   "x": 7488,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — Concrete",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "R9SystemPanel.dc.html": {
+   "x": 8392,
+   "y": 8540,
+   "w": 824,
+   "h": 680,
+   "title": "R9 panel — System",
+   "page": "round9",
+   "is_interactive": true
+  },
+  "SidebarLive.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Shell — real shadcn/ui (Dark, Station and Customizing tweaks) (copy; edit on the main canvas)",
+   "page": "shared",
+   "is_interactive": true
+  },
+  "TodayTechContent.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1024,
+   "h": 744,
+   "title": "Technician Today content component (variant tweak) (copy; edit on the main canvas)",
+   "page": "shared",
+   "is_interactive": true
+  },
+  "TodayManagerContent.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1024,
+   "h": 744,
+   "title": "Lab Manager Today content component (variant tweak) (copy; edit on the main canvas)",
+   "page": "shared",
+   "is_interactive": true
+  },
+  "TodayLeadContent.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1024,
+   "h": 744,
+   "title": "Project-lead Today content component (variant tweak) (copy; edit on the main canvas)",
+   "page": "shared",
+   "is_interactive": true
+  },
+  "TodayStationContent.dc.html": {
+   "x": 5440,
+   "y": 0,
+   "w": 1024,
+   "h": 744,
+   "title": "Today content component (variant tweak) (copy; edit on the main canvas)",
+   "page": "shared",
+   "is_interactive": true
+  },
+  "SettingsModal.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "round9",
+   "title": "Settings — modal mock-up (Dark tweak)",
+   "w": 1280,
+   "x": -1440,
+   "y": 0
+  }
+ },
+ "order": [
+  "R8Queue.dc.html",
+  "R8QueueReturned.dc.html",
+  "R8QueueReviewed.dc.html",
+  "R8QueueExceptions.dc.html",
+  "R8QueueEmpty.dc.html",
+  "R8QueueLoading.dc.html",
+  "R8QueueError.dc.html",
+  "R8QueueDark.dc.html",
+  "R8Queue1024.dc.html",
+  "R8Report.dc.html",
+  "R8ReportReady.dc.html",
+  "R8ReportReturn.dc.html",
+  "R8ReportOwn.dc.html",
+  "R8ReportChanged.dc.html",
+  "R8ReportUnavailable.dc.html",
+  "R8ReportLoading.dc.html",
+  "R8ReportError.dc.html",
+  "R8ReportStation.dc.html",
+  "R8ReportDark.dc.html",
+  "R8Report1024.dc.html",
+  "R8ReportDrawer1024.dc.html",
+  "R8Issue.dc.html",
+  "R8IssueConfirm.dc.html",
+  "R8Issued.dc.html",
+  "R8IssueDark.dc.html",
+  "R8Issue1024.dc.html",
+  "R8Strength.dc.html",
+  "R8StrengthExclude.dc.html",
+  "R8StrengthNotReady.dc.html",
+  "R8StrengthDark.dc.html",
+  "R8Strength1024.dc.html",
+  "R8ProjectReports.dc.html",
+  "R8ProjectSets.dc.html",
+  "R8ProjectMixes.dc.html",
+  "R8ProjectMixesEmpty.dc.html",
+  "R8ProjectSummary.dc.html",
+  "R8ProjectSettings.dc.html",
+  "R8ProjectError.dc.html",
+  "R8ProjectDark.dc.html",
+  "R8Project1024.dc.html",
+  "R8ProjectSummary1024.dc.html",
+  "R8MixPending.dc.html",
+  "R8MixApproved.dc.html",
+  "R8MixUnapproved.dc.html",
+  "R8MixReadonly.dc.html",
+  "R8MixDark.dc.html",
+  "R8Mix1024.dc.html",
+  "R8Prop.dc.html",
+  "R8PropStale.dc.html",
+  "R8PropApplied.dc.html",
+  "R8PropNone.dc.html",
+  "R8PropDark.dc.html",
+  "R8Prop1024.dc.html",
+  "Round8Content.dc.html",
+  "R8QueueContent.dc.html",
+  "R8ReportContent.dc.html",
+  "R8StrengthContent.dc.html",
+  "R8ProjectContent.dc.html",
+  "R8MixContent.dc.html",
+  "R8PropContent.dc.html",
+  "R7OverviewBoard.dc.html",
+  "R7OverviewClear.dc.html",
+  "R7OverviewFailed.dc.html",
+  "R7OverviewLoading.dc.html",
+  "R7OverviewDark.dc.html",
+  "R7Overview1024.dc.html",
+  "R7BreaksA.dc.html",
+  "R7BreaksASelected.dc.html",
+  "R7BreaksAReschedule.dc.html",
+  "R7BreaksAStation.dc.html",
+  "R7BreaksADark.dc.html",
+  "R7BreaksA1024.dc.html",
+  "R7BreaksOverdue.dc.html",
+  "R7BreaksHold.dc.html",
+  "R7BreaksExceptions.dc.html",
+  "R7BreaksEmpty.dc.html",
+  "R7BreaksNoMachine.dc.html",
+  "R7BreaksLoading.dc.html",
+  "R7TestingBoard.dc.html",
+  "R7TestingReason.dc.html",
+  "R7TestingSelection.dc.html",
+  "R7TestingStation.dc.html",
+  "R7TestingDark.dc.html",
+  "R7Testing1024.dc.html",
+  "R7ReceivingBoard.dc.html",
+  "R7ReceivingSet.dc.html",
+  "R7ReceivingPickup.dc.html",
+  "R7ReceivingEmpty.dc.html",
+  "R7ReceivingDark.dc.html",
+  "R7Receiving1024.dc.html",
+  "R7SpecimensBoard.dc.html",
+  "R7SetDue.dc.html",
+  "R7SetAwaiting.dc.html",
+  "R7SetHold.dc.html",
+  "R7SetNotFound.dc.html",
+  "R7SetLoading.dc.html",
+  "R7SetDark.dc.html",
+  "R7Set1024.dc.html",
+  "R7HoldsBoard.dc.html",
+  "R7HoldsSelected.dc.html",
+  "R7HoldsDispose.dc.html",
+  "R7HoldsTech.dc.html",
+  "R7HoldsFailed.dc.html",
+  "R7HoldsEmpty.dc.html",
+  "R7HoldsLoading.dc.html",
+  "R7HoldsDark.dc.html",
+  "R7Holds1024.dc.html",
+  "Round7Content.dc.html",
+  "R7Overview.dc.html",
+  "R7Breaks.dc.html",
+  "R7Testing.dc.html",
+  "R7Receiving.dc.html",
+  "R7Specimens.dc.html",
+  "R7Holds.dc.html",
+  "R9TechProfile.dc.html",
+  "R9TechPreferences.dc.html",
+  "R9TechPreferencesMore.dc.html",
+  "R9TechNotifications.dc.html",
+  "R9TechAccess.dc.html",
+  "R9TechBlocked.dc.html",
+  "R9StationProfile.dc.html",
+  "R9ManagerProfile.dc.html",
+  "R9AccountDark.dc.html",
+  "R9Account1024.dc.html",
+  "R9StaffPeople.dc.html",
+  "R9StaffDrawer.dc.html",
+  "R9StaffManager.dc.html",
+  "R9StaffPending.dc.html",
+  "R9StaffDisabled.dc.html",
+  "R9StaffDisable.dc.html",
+  "R9StaffNoChanges.dc.html",
+  "R9StaffConflict.dc.html",
+  "R9StaffSaved.dc.html",
+  "R9StaffLoading.dc.html",
+  "R9StaffFailed.dc.html",
+  "R9StaffDark.dc.html",
+  "R9Staff1024.dc.html",
+  "R9LocationsTree.dc.html",
+  "R9LocationsDrawer.dc.html",
+  "R9LocationsRetire.dc.html",
+  "R9LocationsBlocked.dc.html",
+  "R9LocationsAdd.dc.html",
+  "R9LocationsSystem.dc.html",
+  "R9LocationsDark.dc.html",
+  "R9Locations1024.dc.html",
+  "R9Printers.dc.html",
+  "R9PrintersDrawer.dc.html",
+  "R9PrintersTest.dc.html",
+  "R9PrintersDark.dc.html",
+  "R9Printers1024.dc.html",
+  "R9TemplatesUnit.dc.html",
+  "R9TemplatesLocation.dc.html",
+  "R9TemplatesDark.dc.html",
+  "R9Templates1024.dc.html",
+  "R9Receiving.dc.html",
+  "R9ReceivingError.dc.html",
+  "R9ReceivingSaved.dc.html",
+  "R9ReceivingDark.dc.html",
+  "R9Receiving1024.dc.html",
+  "R9LabTests.dc.html",
+  "R9LabTestsDrawer.dc.html",
+  "R9LabTestsTemplates.dc.html",
+  "R9LabTestsFailed.dc.html",
+  "R9LabTestsDark.dc.html",
+  "R9LabTests1024.dc.html",
+  "R9Equipment.dc.html",
+  "R9EquipmentEmpty.dc.html",
+  "R9Suppliers.dc.html",
+  "R9Holidays.dc.html",
+  "R9ReportHeader.dc.html",
+  "R9ConcreteDark.dc.html",
+  "R9Concrete1024.dc.html",
+  "R9System.dc.html",
+  "R9SystemDown.dc.html",
+  "R9SystemNotSetUp.dc.html",
+  "R9SystemLoading.dc.html",
+  "R9SystemDark.dc.html",
+  "R9System1024.dc.html",
+  "Round9Content.dc.html",
+  "R9AccountPanel.dc.html",
+  "R9StaffPanel.dc.html",
+  "R9LocationsPanel.dc.html",
+  "R9PrintersPanel.dc.html",
+  "R9TemplatesPanel.dc.html",
+  "R9ReceivingPanel.dc.html",
+  "R9LabTestsPanel.dc.html",
+  "R9ConcretePanel.dc.html",
+  "R9SystemPanel.dc.html",
+  "SidebarLive.dc.html",
+  "TodayTechContent.dc.html",
+  "TodayManagerContent.dc.html",
+  "TodayLeadContent.dc.html",
+  "TodayStationContent.dc.html",
+  "SettingsModal.dc.html"
+ ],
+ "notes": {
+  "r8Row0": {
+   "x": 0,
+   "y": -300,
+   "text": "Review queue",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row1": {
+   "x": 0,
+   "y": 920,
+   "text": "Report page: Review",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row2": {
+   "x": 0,
+   "y": 2140,
+   "text": "Report page: Issue",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row3": {
+   "x": 0,
+   "y": 3360,
+   "text": "Strength report (provisional, G2 open)",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row4": {
+   "x": 0,
+   "y": 4580,
+   "text": "Project › Concrete tab",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row5": {
+   "x": 0,
+   "y": 5800,
+   "text": "Mix page",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row6": {
+   "x": 0,
+   "y": 7020,
+   "text": "Change propagation",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Row7": {
+   "x": 0,
+   "y": 8240,
+   "text": "Components",
+   "kind": "title1",
+   "maxW": 15984,
+   "page": "round8"
+  },
+  "r8Notes": {
+   "x": 16064,
+   "y": 0,
+   "w": 420,
+   "fill": "yellow",
+   "page": "round8",
+   "text": "Round 8: concrete review and reports (brief: DESIGN.md › Round 8).\n• Review queue: tabs Waiting for review, Returned, Reviewed (not yet issued), Exceptions; table tools; stage stripe (due waiting, danger returned); your own reports are listed with no stripe and routed to someone else; J/K hint.\n• Report page: steps Review → Issue; the report on the left as a paper preview (stays black on white in dark, like printed labels), comment markers 1/2 link to comments, changes since the last version highlighted; review panel right: exceptions (open/documented, note required), changes, comments, routing, history, then Return for correction (comment required) or Mark reviewed (blocked while an exception is open).\n• Issue step: Before it goes out (photos unavailable until attachments; machine info Include/Omit with \"the project hasn't set a default\"), documented exceptions, the version that will be issued, Issue report → AlertDialog. Issued shows \"As issued\", Download PDF and Start a revision.\n• Strength report: drawn only as provisional (G2 open banner and paper stamp); Not calculated; methods placeholder; Exclude with reason.\n• Project › Concrete: sub-tabs Field reports, Sets, Mixes, Summary, Settings (Kyle 2026-11-11). Mix page with draft changes marked; Change propagation in three groups with Why it stays.\n• 1024 px: review panel becomes a drawer over the report; tables drop columns by container width."
+  },
+  "r7Title": {
+   "x": 0,
+   "y": 0,
+   "text": "Round 7 · Concrete lab",
+   "kind": "title1",
+   "maxW": 9440,
+   "page": "round7"
+  },
+  "r7Row0": {
+   "x": 0,
+   "y": 140,
+   "text": "Concrete overview",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row1": {
+   "x": 0,
+   "y": 1360,
+   "text": "Breaks: list, then Record breaks (Kyle chose this variant)",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row2": {
+   "x": 0,
+   "y": 2580,
+   "text": "Breaks: tabs and states",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row3": {
+   "x": 0,
+   "y": 3800,
+   "text": "Testing table",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row4": {
+   "x": 0,
+   "y": 5020,
+   "text": "Concrete receiving",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row5": {
+   "x": 0,
+   "y": 6240,
+   "text": "Specimens and the set page",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row6": {
+   "x": 0,
+   "y": 7460,
+   "text": "Holds",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Row7": {
+   "x": 0,
+   "y": 8680,
+   "text": "Components (open one and use the variant tweak)",
+   "kind": "title2",
+   "maxW": 5360,
+   "page": "round7"
+  },
+  "r7Notes": {
+   "x": 9600,
+   "y": 400,
+   "w": 420,
+   "fill": "yellow",
+   "page": "round7",
+   "text": "Round 7, concrete lab. Breaks: Kyle chose variant A, list then Record breaks (2026-11-11). Tick specimens or whole sets; the selection bar offers Record breaks (opens the testing table for just the selection), Reschedule and Hold until. Variant B (entry in the list) was dropped.\n\nSame data on every board: lab day 2026-11-11, projects DEMO-2612/2614/2616, 7 due today in 6 sets, 3 overdue, 5 on ordinary HOLD.\n\nResult fields are only the ones the app has now (test date, height, diameter, max load, excluded); kN/mm and the reading count are marked provisional until G8. Strength is only an unchecked Columns option (P1, provisional).\n\nGates shown as open items: G2 strength reports (overview), G8 units/readings, New field report (offline field entry), set numbering (TMP- sets).\n\nOverview boards highlight Concrete › Overview in the sidebar."
+  },
+  "r9Row0": {
+   "x": 0,
+   "y": -300,
+   "text": "Settings · Account sections and nav by permission",
+   "kind": "title1",
+   "maxW": 13520,
+   "page": "round9"
+  },
+  "r9Row1": {
+   "x": 0,
+   "y": 920,
+   "text": "Settings · Staff",
+   "kind": "title1",
+   "maxW": 17600,
+   "page": "round9"
+  },
+  "r9Row2": {
+   "x": 0,
+   "y": 2140,
+   "text": "Settings · Locations",
+   "kind": "title1",
+   "maxW": 10800,
+   "page": "round9"
+  },
+  "r9Row3": {
+   "x": 0,
+   "y": 3360,
+   "text": "Settings · Printers and Templates",
+   "kind": "title1",
+   "maxW": 12160,
+   "page": "round9"
+  },
+  "r9Row4": {
+   "x": 0,
+   "y": 4580,
+   "text": "Settings · Receiving and Lab tests",
+   "kind": "title1",
+   "maxW": 14880,
+   "page": "round9"
+  },
+  "r9Row5": {
+   "x": 0,
+   "y": 5800,
+   "text": "Settings · Concrete reference",
+   "kind": "title1",
+   "maxW": 9440,
+   "page": "round9"
+  },
+  "r9Row6": {
+   "x": 0,
+   "y": 7020,
+   "text": "Settings · System status (administrators)",
+   "kind": "title1",
+   "maxW": 8080,
+   "page": "round9"
+  },
+  "r9Components": {
+   "x": 0,
+   "y": 8240,
+   "text": "Settings · Components (the modal and its panels)",
+   "kind": "title1",
+   "maxW": 10000,
+   "page": "round9"
+  },
+  "r9Notes": {
+   "x": -520,
+   "y": 0,
+   "w": 420,
+   "fill": "yellow",
+   "page": "round9",
+   "text": "Round 9: Settings, all in one modal (1080 × 680) over a dimmed shell page. Section URLs (/settings/staff) open the modal on that section; Esc or × closes it.\n\nNav by permission, hidden not locked: technician = Account only (row 1); Lab Manager = Account, Lab, Concrete Equipment + Suppliers; administrator = everything, incl. Holidays, Report header and System.\n\nAdmin sections are wide panels: header with the main action, TableToolbar, Table; rows open the Inbox drawer (PeekSplit) to edit. Destructive changes ask for a reason (Disable access, Retire location).\n\nAt 1024 px the modal fills the window less a 16 px margin and the nav narrows to 192 px; drawer lists hide columns by container width.\n\nLocations carry a Storage term (Short-term / Long-term); a stored unit's lifecycle step follows its location.\n\nGates stay open items: G8 units/methods (Equipment), report templates (Report header). No session settings (D38).\n\nToasts are drawn as static Sonner mock-ups inside the modal."
+  },
+  "splitAbout": {
+   "x": -560,
+   "y": 0,
+   "w": 420,
+   "fill": "blue",
+   "page": "round7",
+   "text": "Strata, part 2: rounds 7 (concrete lab), 8 (concrete review and reports) and 9 (settings). Everything else (shell, components, sign in, Today, Inbox, rounds 1–6 and 10) is on the main canvas, Material Mule — Strata. Split on 2026-11-12 because one canvas holds at most 512 files. The Shared shell page holds copies of the shell and Today pages these boards sit on; change them on the main canvas. All data is fictional."
+  }
+ },
+ "noteOrder": [
+  "r8Row0",
+  "r8Row1",
+  "r8Row2",
+  "r8Row3",
+  "r8Row4",
+  "r8Row5",
+  "r8Row6",
+  "r8Row7",
+  "r8Notes",
+  "r7Title",
+  "r7Row0",
+  "r7Row1",
+  "r7Row2",
+  "r7Row3",
+  "r7Row4",
+  "r7Row5",
+  "r7Row6",
+  "r7Row7",
+  "r7Notes",
+  "r9Row0",
+  "r9Row1",
+  "r9Row2",
+  "r9Row3",
+  "r9Row4",
+  "r9Row5",
+  "r9Row6",
+  "r9Components",
+  "r9Notes",
+  "splitAbout"
+ ],
+ "designSystems": []
+}

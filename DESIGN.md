@@ -168,6 +168,8 @@ five small squares joined by a line, with the current step written beside them. 
 use the same track with their own steps (Cast, Received, Testing, Reported). Built as
 `Strata.LifecycleTrack` (`steps` "Name=Short:stage|…", `current` index, `compact`).
 
+**Record tags vs work-item tags** (Kyle, 2026-11-12): a record's own tag uses record status words: storage units read In lab, Short-term, Long-term, Retention due, Retention overdue, Disposed or Location conflict (shelf cells: Short-term, Retention due, Overdue, Conflict). The "<Stage> · <domain>" form stays for work items (Today, Inbox, program and receipt tags such as Due · Review or Draft · Receipt). Colours still come from the stage list.
+
 Short-term vs long-term storage is new to the app: today "long-term" exists only in a warehouse
 name. Chosen (recommended): each location in Settings › Locations gets a **Storage term**
 (Short-term or Long-term), and a stored unit's step follows the location it is on. The API must
@@ -566,7 +568,7 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 
 ## Screens
 
-Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private). Every
+Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private). Rounds 7–9 (concrete lab, concrete review, settings) are on a second canvas, https://claude.ai/artifact/CHET4GJw9t8NzxtrMc4CFP ("Material Mule — Strata (concrete and settings)"), split on 2026-11-12 because one canvas holds at most 512 files. Every
 board has a Dark tweak. Drafts for review, not approved.
 
 ### Components (board: Components) — real shadcn/ui
@@ -1047,6 +1049,32 @@ Drawn in its own session from the round 2 brief: 34 boards and 6 components (`R2
 - **Kyle's answers (2026-11-12):** anyone can change Received by (a staff picker; the receipt
   then says "Entered by Pat Example, for Jordan Lab"); bulk samples and location references stay
   as row options; only the person who started a draft or a Lab Manager can delete it.
+
+### Inventory, Move and search (page: Inventory, move, search), round 3, designed 2026-11-12
+
+Drawn in its own session from the round 3 brief: 33 boards (light, dark and 1024 px); components `Round3Content`, `R3InventoryContent`, `R3MoveContent`, `R3SearchContent`. Every decision is in `rounds/round3.json`; the ones that set direction:
+
+- New lifecycle (Kyle, 2026-11-12): the brief's 'In storage' tab became Short-term and Long-term tabs, in lifecycle order: All, In lab, Short-term, Long-term, Retention due, Disposed, Conflicts. Stored units' tags say Short-term or Long-term (storage hue), from their location's storage term. Retention due stays a tag for long-term units.
+- Kyle, 2026-11-12: a record's own tag uses record status words (In lab, Short-term, Long-term, Retention due, Retention overdue, Disposed, Location conflict). The '<Stage> · <domain>' form stays for work items (Today, Inbox). Round 1's drawer now matches.
+- Kyle, 2026-11-12: Search shows concrete sets by their field report number ('Set 4') with the 'numbering is open (package 3)' note until set numbering is decided.
+- Kyle, 2026-11-12: Move on a LAB station preselects the person recording there ('Moved by Pat Example · recording here'). Scanning works at once, and Change (a menu of the station's people, then Someone else…) is one click.
+- Kyle, 2026-11-12: receipts get no new number. They are named by date and receiver everywhere ('Receipt 2026-11-11 · Pat Example'), in Search, Put away and breadcrumbs. Put away's breadcrumb is Receiving log › Receipt 2026-11-11 · Pat Example › Put away. The receipt's units show 'Waiting for its label' until scanned, and Save takes only the scanned ones.
+- The narrow Inventory list (under 40rem, such as with the drawer open) swaps the stage tabs for a Stage select with the same options and counts, so the tabs never wrap.
+- A unit that is confirmed but not yet put away shows the draft hue with the word 'Received', the lifecycle's first step.
+- The filter chip row is always shown with '+ Add filter', even with no filters on (UX change 5). Each chip is a ButtonGroup: field and value open its picker, and × removes it.
+
+### Projects (page: Projects), round 4, designed 2026-11-12
+
+Drawn in its own session from the round 4 brief: 38 boards (light, dark and 1024 px); components `Round4Content`, `R4List`, `R4Project`, `R4PersonDrawer`. Every decision is in `rounds/round4.json`; the ones that set direction:
+
+- Projects list: tabs use the Inbox segmented Tabs; the project page's sections use the line Tabs, so page sections and list filters look different.
+- Projects list has no page action icon: projects are created while receiving (round 2), and Quick actions keeps New project.
+- Projects list rows have no stage stripe: every open project would be the same green bar. 'Waiting for a lead' is a due tag in the Lead column, with the nomination state under it.
+- At 1024 px (table narrower than 50rem) the Projects list hides Test holes; Number, Name, Lead, Units in stock and Last receipt stay.
+- Project header: number in mono 28/34 bold beside the name, lead with avatar, then three counts as text (test holes, units in stock, units received). Receive for this project is the primary; More holds Edit project and Copy link.
+- One primary per screen: on Team & permissions, while a decision or form is open (nominate, admin decision, a needs-review reason, a grant change), Receive for this project turns outline and the form's button is the primary.
+- Overview at wide widths is 2:1: Test holes and Recent receipts left; Retention coming up and Lab programs right. Under 56rem (1024 px) the sections stack.
+- Test holes show 6 rows with 'Show all 12 test holes'; a hole with no units yet says 'No units yet'. A row opens Storage units filtered to that hole.
 
 ### Soils lab programs and Workboard (page: Soils lab), round 5, designed 2026-11-12
 
