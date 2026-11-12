@@ -194,3 +194,13 @@
 :root { color-scheme: light; scrollbar-color: var(--input) transparent; }
 .dark { color-scheme: dark; }
 [data-sidebar="content"] { scrollbar-width: thin; }
+
+/* Strata tables: a cell never paints over its neighbour (DESIGN.md, Tables: column priority). In a
+   fixed-layout table, text cells clip at their padding edge (no ellipsis, so text that only runs
+   into the padding still shows whole); cells holding controls are left alone so their focus rings
+   still show. Text that may truncate gets its own truncate span. Column priority keeps important columns wide enough that this
+   rarely shows; it is the net, not the rule. */
+[data-slot="table"].table-fixed [data-slot="table-cell"]:not(:has(input, textarea, select, button, [role="checkbox"], [role="combobox"])),
+[data-slot="table"].table-fixed [data-slot="table-head"]:not(:has(button, [role="checkbox"])) {
+  overflow: hidden;
+}

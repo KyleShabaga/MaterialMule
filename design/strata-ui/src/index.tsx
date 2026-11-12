@@ -263,10 +263,10 @@ function NavSearch() {
           aria-keyshortcuts="Control+K"
           aria-haspopup="dialog"
           onClick={() => setOpen(true)}
-          className="text-muted-foreground rounded-full px-4 group-data-[collapsible=icon]:rounded-md"
+          className="text-muted-foreground rounded-full px-4 group-data-[collapsible=icon]:rounded-md group-data-[collapsible=icon]:px-2"
         >
           <Icon name="scan-search" />
-          <span>Search or scan</span>
+          <span className="group-data-[collapsible=icon]:hidden">Search or scan</span>
           <S.Kbd className="ml-auto text-[13px] group-data-[collapsible=icon]:hidden">Ctrl K</S.Kbd>
         </S.SidebarMenuButton>
       </S.SidebarMenuItem>

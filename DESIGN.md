@@ -316,7 +316,8 @@ stay readable on a phone in a dim storage room.
   radius) with a 16 px Lucide icon and a label. The current one is `sidebar-accent` with
   `sidebar-accent-foreground` text and a filled icon. Destinations with sub-pages expand under the
   parent (Concrete, Retention), indented, with a chevron button. The rail collapses to icons
-  (`collapsible="icon"`, labels as tooltips); the choice is remembered per browser.
+  (`collapsible="icon"`, labels as tooltips); the choice is remembered per browser. At 1024 px it
+  starts collapsed so work tables get the width (Ctrl B opens it; tables fix, 2026-11-12).
 - **Rail footer:** Settings, Help & Feedback, then the account row (initials avatar, name, role,
   sign-out icon button). Shared LAB stations show "Switch user" (no session end time: session
   length is decision D38, deferred).
@@ -349,6 +350,32 @@ stay readable on a phone in a dim storage room.
   the page's actions at the right of the title. One primary action at most.
 - **Content** is capped at 1280 px with 32 px padding. Two-column pages split 2:1 and wrap to one
   column below 1180 px.
+
+### Tables: column priority (tables fix after the 2026-11-12 critique)
+
+One rule for every list table, so a drawer or a 1024 px screen never makes columns print over each
+other:
+
+- **Rank the columns.** Identity first (the record's ID or name, and its project), then state (the
+  stage or status word), then attributes (people, dates, counts, priority). As the table narrows,
+  attributes hide first; identity and state never hide.
+- **Hide by the table's room, not the window.** Each hide is a container query on the page or list
+  (`@max-[NNrem]:hidden`), set from measured widths: at 1280 px the page container is 64rem, at
+  1024 px with the collapsed rail about 60rem, and a list beside an open drawer 25–35rem.
+- **Keep the free column readable.** The column without a fixed width (project name, title,
+  structure) keeps at least about 7rem. IDs and dates are never cut; a full ISO date needs about
+  11ch of mono.
+- **Fold, don't drop.** An attribute that still matters when its column hides moves into the
+  identity cell as an icon with a tooltip and screen-reader text: the Inbox task kind; Lab
+  programs' Urgent priority (a `flag` in `stage-danger-fg`).
+- **Stack two-part values** instead of running them on: Progress "6 of 6" over "1 cancelled";
+  Where "Soils lab" over "since today 9:12 AM"; units on a second header line ("Height", "mm").
+  Status cells may wrap to two lines; a status is never cut off.
+- **Safety net:** in fixed-layout tables, text cells clip at their padding edge, so nothing paints
+  over its neighbour; cells holding controls are left out so focus rings show
+  (`design/strata-ui/src/index.css`).
+- **The one sideways scroll** is the program editor's samples-by-tests grid, with the sample
+  column fixed.
 
 ### Tablet (641–1023 px)
 
@@ -1534,8 +1561,8 @@ can compare them. **Kyle picked variant A on 2026-11-12.**
   nothing due ("No concrete specimens are due today."); nothing overdue or on HOLD; reports
   continuing on the next page; a saved value changed with a reason.
 - **Interaction and layout:** Breaks and Testing table are keyboard-first (arrows, Enter to save);
-  on a LAB station the person picked is the performer; at 1024 px the Testing table scrolls
-  sideways with the specimen column fixed.
+  on a LAB station the person picked is the performer; at 1024 px the Testing table fits whole with
+  the rail collapsed (Status stays in view; units on a second header line; tables fix 2026-11-12).
 - **Constraints and open decisions:** G2 strength report, G8 units/readings/methods, workbook and
   CSA/ASTM limits, report templates, offline device runs and set numbering stay **gates**, never
   defaults; HOLD and review authority as in docs/concrete.md and docs/permissions.md; specimens
