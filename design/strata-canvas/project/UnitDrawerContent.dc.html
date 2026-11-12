@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Storage unit drawer content</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* The canvas mounts this board in a block host; let the host fill its flex parent so this board can scroll inside it. */
+.sc-host:has(> .unit-drawer-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- The unit drawer, for a PeekSplit drawer opened from Inventory, a shelf, a project or search.
+     Fills its parent and scrolls inside. Toolbar as in Inbox; then the compact label block, stage
+     tag, compact track, Where it is, Retention and the main action. History and Lab programs are
+     only on the full page. All data is fictional. -->
+<aside aria-labelledby="drawer-unit-id" class="unit-drawer-root bg-background text-foreground flex h-full min-h-0 flex-col font-sans" style="height: 100%;">
+<div class="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Close" title="Close (Esc)"><x-import component-from-global-scope="Strata.Icon" name="chevrons-right"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open as full page" title="Open as full page"><x-import component-from-global-scope="Strata.Icon" name="maximize-2"></x-import></x-import>
+<span aria-hidden="true" class="bg-border mx-1 h-5 w-px"></span>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Previous storage unit" title="Previous (K)" disabled="{{prevOff}}"><x-import component-from-global-scope="Strata.Icon" name="chevron-up"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Next storage unit" title="Next (J)"><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<span class="text-muted-foreground ml-auto pr-2 font-mono text-[13px]">{{position}}</span>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+<div class="flex flex-col gap-5">
+
+<!-- Compact label block -->
+<div class="bg-card relative overflow-hidden rounded-xl border py-3 pr-4 pl-5">
+<span aria-hidden="true" class="{{stripe}} absolute inset-y-0 left-0 w-1"></span>
+<p class="text-muted-foreground text-[13px]">Bucket · <span class="font-mono whitespace-nowrap">DEMO-2601</span> Riverbank investigation</p>
+<h2 id="drawer-unit-id" class="font-mono text-xl font-bold whitespace-nowrap">BKT-2026-000019</h2>
+<ul aria-label="Test holes on this unit" class="mt-2 grid grid-cols-[auto_auto_1fr] gap-x-4 gap-y-0.5 font-mono text-[13px]">
+<li class="contents"><span class="font-semibold">TH26-01</span><span>SS1–SS6</span><span class="whitespace-nowrap">0.8–5.4 m</span></li>
+<li class="contents"><span class="font-semibold">TH26-02</span><span>SS1–SS3</span><span class="whitespace-nowrap">0.5–2.1 m</span></li>
+</ul>
+</div>
+
+<!-- Stage tag and compact track -->
+<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+<div class="flex flex-wrap items-center gap-2">
+<x-import component-from-global-scope="Strata.Badge" variant="{{stage}}" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="{{dot}} size-1.5 rounded-full"></span>{{stageTag}}</x-import>
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Badge" variant="danger" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Location</x-import></sc-if>
+</div>
+<x-import component-from-global-scope="Strata.LifecycleTrack" compact="{{yes}}" current="{{track}}" label="Lifecycle of BKT-2026-000019"></x-import>
+</div>
+
+<!-- Main action -->
+<div class="flex flex-wrap gap-2">
+<x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="{{primaryIcon}}"></x-import>{{primaryLabel}}</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Print label</x-import>
+</div>
+
+<!-- Where it is -->
+<section aria-labelledby="drawer-where" class="flex flex-col gap-3 border-t pt-5">
+<h3 id="drawer-where" class="text-sm font-semibold">Where it is</h3>
+<sc-if value="{{onShelf}}" hint-placeholder-val="{{ true }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Place</dt><dd><a href="#" class="text-link font-medium underline-offset-4 hover:underline">Warehouse A · Bay 2 · Shelf 3</a></dd>
+<dt class="text-muted-foreground">Code</dt><dd class="font-mono whitespace-nowrap">WH-A-B2-S3</dd>
+<dt class="text-muted-foreground">Here since</dt><dd><span class="font-mono whitespace-nowrap">2026-11-03</span> · Jordan Lab</dd>
+</dl>
+</sc-if>
+<sc-if value="{{inlab}}" hint-placeholder-val="{{ false }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Place</dt><dd>Soils lab · <a href="#" class="text-link font-mono font-medium underline-offset-4 hover:underline">LP-2026-0007</a></dd>
+<dt class="text-muted-foreground">Since</dt><dd>Today 9:12 AM · Jordan Lab</dd>
+<dt class="text-muted-foreground">Goes back to</dt><dd class="font-mono whitespace-nowrap">WH-A-B2-S3</dd>
+</dl>
+</sc-if>
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="relative overflow-hidden grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><span aria-hidden="true" class="bg-stage-danger-mark absolute inset-y-0 left-0 w-1"></span>
+<x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import>
+<x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">Two places are recorded for this unit</x-import>
+<x-import component-from-global-scope="Strata.AlertDescription"><p>Jordan Lab scanned it on <span class="font-mono whitespace-nowrap">WH-B-B1-S2</span> at 2:14 PM. Find the bucket and move it to the shelf it is on.</p></x-import>
+</x-import>
+</sc-if>
+</section>
+
+<!-- Retention -->
+<section aria-labelledby="drawer-retention" class="flex flex-col gap-3 border-t pt-5">
+<h3 id="drawer-retention" class="text-sm font-semibold">Retention</h3>
+<sc-if value="{{retainPlain}}" hint-placeholder-val="{{ true }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Retain until</dt><dd class="font-mono">2027-10-14</dd>
+<dt class="text-muted-foreground">Extensions</dt><dd>None</dd>
+</dl>
+</sc-if>
+<sc-if value="{{due}}" hint-placeholder-val="{{ false }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Retain until</dt><dd><span class="font-mono whitespace-nowrap">2026-11-20</span> · in 9 days</dd>
+<dt class="text-muted-foreground">Extensions</dt><dd>1 · 6 months</dd>
+<dt class="text-muted-foreground">Decision</dt><dd>Waiting on Alex Tester</dd>
+</dl>
+</sc-if>
+</section>
+
+<p class="text-muted-foreground text-[13px]">History and lab programs are on the full page.</p>
+</div>
+</div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stored","inlab","due","conflict"],"default":"stored"},"$preview":{"width":560,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'stored';
+    var st = { stored: 'storage', conflict: 'storage', inlab: 'lab', due: 'due' }[v] || 'storage';
+    var primary = { stored: ['Move', 'move'], conflict: ['Move', 'move'], inlab: ['Move back to storage', 'undo-2'], due: ['Decide', 'gavel'] }[v] || ['Move', 'move'];
+    return {
+      yes: true,
+      position: v === 'stored' ? '1 of 12' : '3 of 12',
+      prevOff: v === 'stored',
+      stage: st,
+      stageTag: { storage: 'Stored · Storage', lab: 'In lab · Lab program', due: 'Due · Retention' }[st],
+      dot: 'bg-stage-' + st + '-mark',
+      stripe: 'bg-stage-' + st + '-mark',
+      track: { storage: 1, lab: 2, due: 3 }[st],
+      primaryLabel: primary[0],
+      primaryIcon: primary[1],
+      conflict: v === 'conflict',
+      inlab: v === 'inlab',
+      due: v === 'due',
+      onShelf: v !== 'inlab',
+      retainPlain: v !== 'due'
+    };
+  }
+}
+</script>
+</body>
+</html>

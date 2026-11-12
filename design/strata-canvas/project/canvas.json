@@ -1,773 +1,1083 @@
 {
-  "v": 3,
-  "attachments": {},
-  "boards": {
-    "Main.dc.html": {
-      "expand": "fill",
-      "h": 5300,
-      "is_interactive": true,
-      "page": "components",
-      "title": "Components — light (Dark tweak)",
-      "w": 1440,
-      "x": 0,
-      "y": 0
-    },
-    "MainDark.dc.html": {
-      "expand": "fill",
-      "h": 5300,
-      "is_interactive": true,
-      "page": "components",
-      "title": "Components — dark",
-      "w": 1440,
-      "x": 1520,
-      "y": 0
-    },
-    "SettingsModal.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "shell",
-      "title": "Settings — modal mock-up (Dark tweak)",
-      "w": 1280,
-      "x": 1360,
-      "y": 920
-    },
-    "SidebarLive.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "shell",
-      "title": "Shell — real shadcn/ui (Dark, Station and Customizing tweaks)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "SidebarNav.dc.html": {
-      "h": 900,
-      "page": "shell",
-      "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)",
-      "w": 256,
-      "x": 1400,
-      "y": 1840
-    },
-    "SidebarStation.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "shell",
-      "title": "Shell — shared LAB station (recording as, Switch user)",
-      "w": 1280,
-      "x": 0,
-      "y": 920
-    },
-    "SidebarVariants.dc.html": {
-      "h": 1040,
-      "page": "shell",
-      "title": "Sidebar — mock variants",
-      "w": 1320,
-      "x": 0,
-      "y": 1840
-    },
-    "SignIn.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "Sign in — normal computer (Dark, mode, state, dev tweaks)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "SignInDark.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "Dark, with the development test link",
-      "w": 1280,
-      "x": 4080,
-      "y": 0
-    },
-    "SignInLab.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "LAB station computer",
-      "w": 1280,
-      "x": 1360,
-      "y": 0
-    },
-    "SignInLabExpired.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: LAB session expired",
-      "w": 1280,
-      "x": 1360,
-      "y": 920
-    },
-    "SignInNoMethods.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: no sign-in method set up",
-      "w": 1280,
-      "x": 1360,
-      "y": 1840
-    },
-    "SignInOptionsFailed.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: sign-in options could not load",
-      "w": 1280,
-      "x": 0,
-      "y": 1840
-    },
-    "SignInPaused.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: paused after failed attempts",
-      "w": 1280,
-      "x": 4080,
-      "y": 920
-    },
-    "SignInPicker.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "LAB step 2: who is working here?",
-      "w": 1280,
-      "x": 2720,
-      "y": 0
-    },
-    "SignInPickerEmpty.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: no one listed for the station",
-      "w": 1280,
-      "x": 2720,
-      "y": 1840
-    },
-    "SignInSessionEnded.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: session ended",
-      "w": 1280,
-      "x": 0,
-      "y": 920
-    },
-    "SignInWrongPassword.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "signin",
-      "title": "State: wrong password",
-      "w": 1280,
-      "x": 2720,
-      "y": 920
-    },
-    "TodayStation.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — LAB station (default)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationConcrete.dc.html": {
-      "x": 1360,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — a concrete-room station (2 rows hidden)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationCustomize.dc.html": {
-      "x": 2720,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — Customize this station open",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationQuiet.dc.html": {
-      "x": 4080,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — quiet day (all zero)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationFailed.dc.html": {
-      "x": 0,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — station work could not load",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationNoneShown.dc.html": {
-      "x": 1360,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — every row switched off",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationDark.dc.html": {
-      "x": 2720,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — LAB station, dark",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayStationContent.dc.html": {
-      "x": 4080,
-      "y": 920,
-      "w": 1024,
-      "h": 744,
-      "title": "Today content component (variant tweak)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayLead.dc.html": {
-      "x": 0,
-      "y": 2140,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — project lead (own account)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayLeadClear.dc.html": {
-      "x": 1360,
-      "y": 2140,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — project lead, nothing needs you",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayLeadLong.dc.html": {
-      "x": 2720,
-      "y": 2140,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — project lead, 11 things (Show all)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayLeadFailed.dc.html": {
-      "x": 4080,
-      "y": 2140,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — project lead, Needs you could not load",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayLeadDark.dc.html": {
-      "x": 0,
-      "y": 3060,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — project lead, dark",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayLeadContent.dc.html": {
-      "x": 1360,
-      "y": 3060,
-      "w": 1024,
-      "h": 744,
-      "title": "Project-lead Today content component (variant tweak)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayManager.dc.html": {
-      "x": 0,
-      "y": 4280,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — Lab Manager (own account)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayManagerLong.dc.html": {
-      "x": 1360,
-      "y": 4280,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — Lab Manager, 9 things (Show all)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayManagerClear.dc.html": {
-      "x": 2720,
-      "y": 4280,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — Lab Manager, nothing needs you",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayManagerDark.dc.html": {
-      "x": 4080,
-      "y": 4280,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — Lab Manager, dark",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayManagerContent.dc.html": {
-      "x": 2720,
-      "y": 5200,
-      "w": 1024,
-      "h": 744,
-      "title": "Lab Manager Today content component (variant tweak)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayTech.dc.html": {
-      "x": 0,
-      "y": 6420,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — technician (own account)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayTechLong.dc.html": {
-      "x": 1360,
-      "y": 6420,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — technician, 8 things (Show all)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayTechClear.dc.html": {
-      "x": 2720,
-      "y": 6420,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — technician, nothing needs you",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayTechDark.dc.html": {
-      "x": 4080,
-      "y": 6420,
-      "w": 1280,
-      "h": 800,
-      "title": "Today — technician, dark",
-      "page": "today",
-      "is_interactive": true
-    },
-    "TodayTechContent.dc.html": {
-      "x": 4080,
-      "y": 5200,
-      "w": 1024,
-      "h": 744,
-      "title": "Technician Today content component (variant tweak)",
-      "page": "today",
-      "is_interactive": true
-    },
-    "Inbox.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — one stream, a request open in the drawer",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxUpdate.dc.html": {
-      "x": 1360,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — one stream, an update open in the drawer",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxGrouped.dc.html": {
-      "x": 2720,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — Grouped view",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxRequestsEmpty.dc.html": {
-      "x": 4080,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — Requests tab, nothing waiting",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxUpdatesRead.dc.html": {
-      "x": 0,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — Updates tab, all read",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxStation.dc.html": {
-      "x": 1360,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — LAB station, Pat chose to show it",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxDark.dc.html": {
-      "x": 2720,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — dark",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxContent.dc.html": {
-      "x": 4080,
-      "y": 920,
-      "w": 1024,
-      "h": 744,
-      "title": "Inbox content component (variant, station tweaks)",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxStationPrivate.dc.html": {
-      "x": 4080,
-      "y": 1840,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — LAB station, Pat keeps it private",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxClosed.dc.html": {
-      "x": 0,
-      "y": 2760,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — one stream, nothing open (full width)",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxTable.dc.html": {
-      "x": 1360,
-      "y": 2760,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — Table view (compact)",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "InboxTablePeek.dc.html": {
-      "x": 2720,
-      "y": 2760,
-      "w": 1280,
-      "h": 800,
-      "title": "Inbox — Table view, a request open in the drawer",
-      "page": "inbox",
-      "is_interactive": true
-    },
-    "SidebarCustomizeOpen.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "shell",
-      "title": "Shell — customize mode in the sidebar (drag to reorder, show or hide sections)",
-      "w": 1280,
-      "x": 3200,
-      "y": 0
-    },
-    "InboxTableSearch.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "inbox",
-      "title": "Inbox — table, search open (Search, Filter, Sort, View)",
-      "w": 1280,
-      "x": 1360,
-      "y": 3680
-    }
+ "v": 3,
+ "attachments": {},
+ "boards": {
+  "Main.dc.html": {
+   "expand": "fill",
+   "h": 5300,
+   "is_interactive": true,
+   "page": "components",
+   "title": "Components — light (Dark tweak)",
+   "w": 1440,
+   "x": 0,
+   "y": 0
   },
-  "createdOnFiles": {
-    "at": "2026-11-11T18:00:00Z",
-    "v": 1
+  "MainDark.dc.html": {
+   "expand": "fill",
+   "h": 5300,
+   "is_interactive": true,
+   "page": "components",
+   "title": "Components — dark",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
   },
-  "designSystems": [],
-  "launch": {
-    "view": "canvas"
+  "SettingsModal.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "shell",
+   "title": "Settings — modal mock-up (Dark tweak)",
+   "w": 1280,
+   "x": 1360,
+   "y": 920
   },
-  "noteOrder": [
-    "rowComponents",
-    "rowSidebar",
-    "liveNotes",
-    "sidebarNotes",
-    "about",
-    "settingsNotes",
-    "rowSignIn",
-    "signinNotes",
-    "sidebarLayout",
-    "tableTools"
-  ],
-  "notes": {
-    "about": {
-      "fill": "blue",
-      "page": "shell",
-      "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional.",
-      "w": 380,
-      "x": 1840,
-      "y": 0
-    },
-    "liveNotes": {
-      "fill": "green",
-      "page": "shell",
-      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, Inbox; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 36 px rows, a 36 px Search or scan field that opens the Ctrl K command menu (clicking it does the same), Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox (was My requests) holds every notification and action request; hovering the bell previews the latest, clicking it opens Inbox. The board below shows the shared LAB station (recording as, Switch user). Press Play to try it.",
-      "w": 400,
-      "x": 1360,
-      "y": 0
-    },
-    "rowComponents": {
-      "kind": "title1",
-      "maxW": 2960,
-      "page": "components",
-      "text": "Components",
-      "w": 240,
-      "x": 0,
-      "y": -300
-    },
-    "rowSidebar": {
-      "kind": "title1",
-      "maxW": 1656,
-      "page": "shell",
-      "text": "Shell",
-      "w": 240,
-      "x": 0,
-      "y": -300
-    },
-    "rowSignIn": {
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "signin",
-      "text": "Sign in",
-      "w": 240,
-      "x": 0,
-      "y": -300
-    },
-    "settingsNotes": {
-      "page": "shell",
-      "text": "Settings mock-up: a modal over the shell (shadcn Dialog), opened from the account menu. Left: search and the app's real settings sections (You: Profile, Preferences, Notifications, My access; Lab: Staff, Locations, Printers, Receiving, Lab tests, Templates; Concrete: Equipment, Suppliers, Holidays, Report header; Admin: System status). Sections a person can't use would be hidden. Right: the open page, here a new Preferences page (theme, table rows, sidebar start, date format, week start, lab time zone, scan behaviour). Proposed: Preferences and its options are new; the rest exist today as /settings pages.",
-      "w": 400,
-      "x": 2720,
-      "y": 920
-    },
-    "sidebarNotes": {
-      "page": "shell",
-      "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number.",
-      "w": 400,
-      "x": 1736,
-      "y": 1840
-    },
-    "signinNotes": {
-      "page": "signin",
-      "text": "Sign in, shaped 2026-11-11. Each computer remembers its kind: a normal computer shows Sign in with Microsoft; a computer set up as the LAB station opens straight to the LAB form. Each links to the other. After LAB, step 2 asks Who is working here? and the app opens under that name. This changes today's model, where LAB picks the person on each receipt. Proposed and open: an admin marks a computer as the station (a setting saved in that browser); the picker lists receiving-lab staff; Someone else… finds any staff member. Session length (D38) is deferred, so no end time is shown. Wording of every state is the app's current wording.",
-      "w": 420,
-      "x": 5440,
-      "y": 0
-    },
-    "rowToday": {
-      "x": 0,
-      "y": -300,
-      "text": "Today — LAB station",
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "today"
-    },
-    "todayNotes": {
-      "x": 5440,
-      "y": 0,
-      "w": 420,
-      "fill": "yellow",
-      "page": "today",
-      "text": "Today on a LAB station, shaped 2026-11-11. Two equal receiving buttons (Receive samples, Receive concrete), then At this station: draft receipts to finish, deliveries waiting, breaks due today, labels to print, each with a count and a way in. No greeting: the sidebar shows who is recording. Each LAB computer picks its rows with Customize this station (saved on that computer). Open: who may customise (proposed: anyone at the station); whether the two buttons are customisable too (fixed for now). The staff (own account) Today comes later."
-    },
-    "rowTodayLead": {
-      "x": 0,
-      "y": 1840,
-      "text": "Today — own account (project lead)",
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "today"
-    },
-    "todayLeadNotes": {
-      "x": 5440,
-      "y": 2140,
-      "w": 420,
-      "fill": "yellow",
-      "page": "today",
-      "text": "Own-account Today, shaped 2026-11-11, drawn for a project lead first. Welcome with the date and a one-line summary; shortcuts (Request lab testing, Review concrete reports, My projects, New project); then Needs you (two thirds: stage tag, sentence, IDs in mono, one action, most urgent first, first six then Show all) beside Last 24 hours on their projects (one third). No Storage room. Open: what other roles see; whether shortcuts can be changed (fixed for now)."
-    },
-    "rowTodayManager": {
-      "x": 0,
-      "y": 3980,
-      "text": "Today — own account (Lab Manager)",
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "today"
-    },
-    "todayManagerNotes": {
-      "x": 5440,
-      "y": 4280,
-      "w": 420,
-      "fill": "yellow",
-      "page": "today",
-      "text": "Lab Manager Today, 2026-11-11: the project lead's layout with the manager's content (Claude's choices, from PRODUCT.md's description of the role). Shortcuts: Workboard, Breaks due today, Retention due, Disposal scan. Needs you: concrete sets on HOLD, unassigned lab requests, breaks due today, units approved for disposal; longer lists add old draft receipts and location checks that disagree. Last 24 hours covers the whole lab, not one person's projects."
-    },
-    "rowTodayTech": {
-      "x": 0,
-      "y": 6120,
-      "text": "Today — own account (technician)",
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "today"
-    },
-    "todayTechNotes": {
-      "x": 5440,
-      "y": 6420,
-      "w": 420,
-      "fill": "yellow",
-      "page": "today",
-      "text": "Technician Today, 2026-11-11: the same layout with a technician's content (Claude's choices, from PRODUCT.md). Shortcuts: Receive, Move storage units, Print labels, My tests. Needs you: tests assigned today, units to pull for a lab program, own draft receipts, a label that didn't print; longer lists add a move to confirm and tests waiting on a sample. Last 24 hours is the person's own work ('You received…')."
-    },
-    "rowInbox": {
-      "x": 0,
-      "y": -300,
-      "text": "Inbox",
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "inbox"
-    },
-    "inboxNotes": {
-      "x": 5440,
-      "y": 0,
-      "w": 420,
-      "fill": "yellow",
-      "page": "inbox",
-      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. The list fills the page; opening an item slides a resizable drawer in from the right (Notion's side peek: Close, Open as full page, Previous, Next). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream, Grouped or Table (compact), here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: each person chooses, in Settings > Preferences > Privacy, whether their Inbox opens on shared LAB computers (off by default). Off: the station shows that it stays private, and work is still recorded under their name."
-    },
-    "sidebarLayout": {
-      "fill": "yellow",
-      "page": "shell",
-      "w": 380,
-      "x": 3200,
-      "y": 840,
-      "text": "Sidebar layout (2026-11-11): Pinned and Recent sit right under Today, Projects and Inbox. Every section heading folds its section; Recent starts folded. Customize sidebar turns the sidebar itself into an editor, like Notion: Today, Projects and Inbox locked at the top, the sections with grips and eye toggles, Reset to default, and Done (or Escape). Folds, order and hidden sections are saved per person, so the sidebar comes back as they left it (the canvas keeps them in this browser)."
-    },
-    "tableTools": {
-      "fill": "yellow",
-      "page": "inbox",
-      "w": 380,
-      "x": 2720,
-      "y": 3680,
-      "text": "Table tools (2026-11-11, Kyle, Notion as reference): every table and list page has Mark all read (or the page action) as an icon with a tooltip, then Filter, Sort, View, and Search at the far right (Strata.TableToolbar). Opening Search grows it to the left and pushes the others left; Escape or an empty box closes it. The compact table alone has Notion borders (lines between rows and columns, plain header with column icons) and row checkboxes that fade in on hover (100 ms) and stay once any row is ticked. The mock does not filter the rows. Compact table columns: Task, Title, Job number (always shown), Record, From, Received; hide or show the others in View › Columns. People in every table show a shadcn Avatar before the name."
-    }
+  "SidebarLive.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "shell",
+   "title": "Shell — real shadcn/ui (Dark, Station and Customizing tweaks)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
   },
-  "order": [
-    "Main.dc.html",
-    "MainDark.dc.html",
-    "SidebarLive.dc.html",
-    "SidebarStation.dc.html",
-    "SidebarCustomizeOpen.dc.html",
-    "SidebarVariants.dc.html",
-    "SidebarNav.dc.html",
-    "SettingsModal.dc.html",
-    "SignIn.dc.html",
-    "SignInLab.dc.html",
-    "SignInPicker.dc.html",
-    "SignInDark.dc.html",
-    "SignInSessionEnded.dc.html",
-    "SignInLabExpired.dc.html",
-    "SignInWrongPassword.dc.html",
-    "SignInPaused.dc.html",
-    "SignInOptionsFailed.dc.html",
-    "SignInNoMethods.dc.html",
-    "SignInPickerEmpty.dc.html",
-    "TodayStation.dc.html",
-    "TodayStationConcrete.dc.html",
-    "TodayStationCustomize.dc.html",
-    "TodayStationQuiet.dc.html",
-    "TodayStationFailed.dc.html",
-    "TodayStationNoneShown.dc.html",
-    "TodayStationDark.dc.html",
-    "TodayStationContent.dc.html",
-    "TodayLead.dc.html",
-    "TodayLeadClear.dc.html",
-    "TodayLeadLong.dc.html",
-    "TodayLeadFailed.dc.html",
-    "TodayLeadDark.dc.html",
-    "TodayLeadContent.dc.html",
-    "TodayManager.dc.html",
-    "TodayManagerLong.dc.html",
-    "TodayManagerClear.dc.html",
-    "TodayManagerDark.dc.html",
-    "TodayManagerContent.dc.html",
-    "TodayTech.dc.html",
-    "TodayTechLong.dc.html",
-    "TodayTechClear.dc.html",
-    "TodayTechDark.dc.html",
-    "TodayTechContent.dc.html",
-    "Inbox.dc.html",
-    "InboxUpdate.dc.html",
-    "InboxGrouped.dc.html",
-    "InboxRequestsEmpty.dc.html",
-    "InboxUpdatesRead.dc.html",
-    "InboxStation.dc.html",
-    "InboxDark.dc.html",
-    "InboxContent.dc.html",
-    "InboxStationPrivate.dc.html",
-    "InboxClosed.dc.html",
-    "InboxTable.dc.html",
-    "InboxTablePeek.dc.html",
-    "InboxTableSearch.dc.html"
-  ],
-  "pages": [
-    {
-      "id": "shell",
-      "name": "Shell"
-    },
-    {
-      "id": "components",
-      "name": "Components"
-    },
-    {
-      "id": "signin",
-      "name": "Sign in"
-    },
-    {
-      "id": "today",
-      "name": "Today"
-    },
-    {
-      "id": "inbox",
-      "name": "Inbox"
-    }
-  ],
-  "title": "Material Mule — Strata"
+  "SidebarNav.dc.html": {
+   "h": 900,
+   "page": "shell",
+   "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)",
+   "w": 256,
+   "x": 1400,
+   "y": 1840
+  },
+  "SidebarStation.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "shell",
+   "title": "Shell — shared LAB station (recording as, Switch user)",
+   "w": 1280,
+   "x": 0,
+   "y": 920
+  },
+  "SidebarVariants.dc.html": {
+   "h": 1040,
+   "page": "shell",
+   "title": "Sidebar — mock variants",
+   "w": 1320,
+   "x": 0,
+   "y": 1840
+  },
+  "SignIn.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "Sign in — normal computer (Dark, mode, state, dev tweaks)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "SignInDark.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "Dark, with the development test link",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "SignInLab.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "LAB station computer",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "SignInLabExpired.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: LAB session expired",
+   "w": 1280,
+   "x": 1360,
+   "y": 920
+  },
+  "SignInNoMethods.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: no sign-in method set up",
+   "w": 1280,
+   "x": 1360,
+   "y": 1840
+  },
+  "SignInOptionsFailed.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: sign-in options could not load",
+   "w": 1280,
+   "x": 0,
+   "y": 1840
+  },
+  "SignInPaused.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: paused after failed attempts",
+   "w": 1280,
+   "x": 4080,
+   "y": 920
+  },
+  "SignInPicker.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "LAB step 2: who is working here?",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "SignInPickerEmpty.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: no one listed for the station",
+   "w": 1280,
+   "x": 2720,
+   "y": 1840
+  },
+  "SignInSessionEnded.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: session ended",
+   "w": 1280,
+   "x": 0,
+   "y": 920
+  },
+  "SignInWrongPassword.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "signin",
+   "title": "State: wrong password",
+   "w": 1280,
+   "x": 2720,
+   "y": 920
+  },
+  "TodayStation.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — LAB station (default)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationConcrete.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — a concrete-room station (2 rows hidden)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationCustomize.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — Customize this station open",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationQuiet.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — quiet day (all zero)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationFailed.dc.html": {
+   "x": 0,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — station work could not load",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationNoneShown.dc.html": {
+   "x": 1360,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — every row switched off",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationDark.dc.html": {
+   "x": 2720,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — LAB station, dark",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayStationContent.dc.html": {
+   "x": 4080,
+   "y": 920,
+   "w": 1024,
+   "h": 744,
+   "title": "Today content component (variant tweak)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayLead.dc.html": {
+   "x": 0,
+   "y": 2140,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — project lead (own account)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayLeadClear.dc.html": {
+   "x": 1360,
+   "y": 2140,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — project lead, nothing needs you",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayLeadLong.dc.html": {
+   "x": 2720,
+   "y": 2140,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — project lead, 11 things (Show all)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayLeadFailed.dc.html": {
+   "x": 4080,
+   "y": 2140,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — project lead, Needs you could not load",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayLeadDark.dc.html": {
+   "x": 0,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — project lead, dark",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayLeadContent.dc.html": {
+   "x": 1360,
+   "y": 3060,
+   "w": 1024,
+   "h": 744,
+   "title": "Project-lead Today content component (variant tweak)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayManager.dc.html": {
+   "x": 0,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — Lab Manager (own account)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayManagerLong.dc.html": {
+   "x": 1360,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — Lab Manager, 9 things (Show all)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayManagerClear.dc.html": {
+   "x": 2720,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — Lab Manager, nothing needs you",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayManagerDark.dc.html": {
+   "x": 4080,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — Lab Manager, dark",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayManagerContent.dc.html": {
+   "x": 2720,
+   "y": 5200,
+   "w": 1024,
+   "h": 744,
+   "title": "Lab Manager Today content component (variant tweak)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayTech.dc.html": {
+   "x": 0,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — technician (own account)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayTechLong.dc.html": {
+   "x": 1360,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — technician, 8 things (Show all)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayTechClear.dc.html": {
+   "x": 2720,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — technician, nothing needs you",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayTechDark.dc.html": {
+   "x": 4080,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Today — technician, dark",
+   "page": "today",
+   "is_interactive": true
+  },
+  "TodayTechContent.dc.html": {
+   "x": 4080,
+   "y": 5200,
+   "w": 1024,
+   "h": 744,
+   "title": "Technician Today content component (variant tweak)",
+   "page": "today",
+   "is_interactive": true
+  },
+  "Inbox.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — one stream, a request open in the drawer",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxUpdate.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — one stream, an update open in the drawer",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxGrouped.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — Grouped view",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxRequestsEmpty.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — Requests tab, nothing waiting",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxUpdatesRead.dc.html": {
+   "x": 0,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — Updates tab, all read",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxStation.dc.html": {
+   "x": 1360,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — LAB station, Pat chose to show it",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxDark.dc.html": {
+   "x": 2720,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — dark",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxContent.dc.html": {
+   "x": 4080,
+   "y": 920,
+   "w": 1024,
+   "h": 744,
+   "title": "Inbox content component (variant, station tweaks)",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxStationPrivate.dc.html": {
+   "x": 4080,
+   "y": 1840,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — LAB station, Pat keeps it private",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxClosed.dc.html": {
+   "x": 0,
+   "y": 2760,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — one stream, nothing open (full width)",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxTable.dc.html": {
+   "x": 1360,
+   "y": 2760,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — Table view (compact)",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "InboxTablePeek.dc.html": {
+   "x": 2720,
+   "y": 2760,
+   "w": 1280,
+   "h": 800,
+   "title": "Inbox — Table view, a request open in the drawer",
+   "page": "inbox",
+   "is_interactive": true
+  },
+  "SidebarCustomizeOpen.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "shell",
+   "title": "Shell — customize mode in the sidebar (drag to reorder, show or hide sections)",
+   "w": 1280,
+   "x": 3200,
+   "y": 0
+  },
+  "InboxTableSearch.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "inbox",
+   "title": "Inbox — table, search open (Search, Filter, Sort, View)",
+   "w": 1280,
+   "x": 1360,
+   "y": 3680
+  },
+  "UnitStored.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — Stored (main action Move)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitInLab.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — In lab (Move back to storage)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitDue.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — Retention due (Decide)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitDisposed.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — Disposed (read-only)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitConflict.dc.html": {
+   "x": 0,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — location conflict and a pending move",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitStation.dc.html": {
+   "x": 1360,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — LAB station (Correct needs a personal account)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitLoading.dc.html": {
+   "x": 2720,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — loading",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitNotFound.dc.html": {
+   "x": 4080,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — no unit has this ID",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitDark.dc.html": {
+   "x": 0,
+   "y": 1840,
+   "w": 1280,
+   "h": 800,
+   "title": "Unit page — dark",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "Unit1024.dc.html": {
+   "x": 1360,
+   "y": 1840,
+   "w": 1024,
+   "h": 768,
+   "title": "Unit page — 1024 px (History below the facts)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfPeek.dc.html": {
+   "x": 0,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Shelf page — a unit open in the drawer",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfPage.dc.html": {
+   "x": 1360,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Shelf page — 12 of 16 places used",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfEmpty.dc.html": {
+   "x": 2720,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Shelf page — nothing stored",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfUnknown.dc.html": {
+   "x": 4080,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Shelf page — no location has this code",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfConflict.dc.html": {
+   "x": 0,
+   "y": 3980,
+   "w": 1280,
+   "h": 800,
+   "title": "Shelf page — a conflict on one of its units",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfDark.dc.html": {
+   "x": 1360,
+   "y": 3980,
+   "w": 1280,
+   "h": 800,
+   "title": "Shelf page and drawer — dark",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "Shelf1024.dc.html": {
+   "x": 2720,
+   "y": 3980,
+   "w": 1024,
+   "h": 768,
+   "title": "Shelf page and drawer — 1024 px",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "LabelsUnit.dc.html": {
+   "x": 0,
+   "y": 5200,
+   "w": 1280,
+   "h": 800,
+   "title": "Print labels — one unit",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "LabelsReceipt.dc.html": {
+   "x": 1360,
+   "y": 5200,
+   "w": 1280,
+   "h": 800,
+   "title": "Print labels — a receipt's units",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "LabelsSelection.dc.html": {
+   "x": 2720,
+   "y": 5200,
+   "w": 1280,
+   "h": 800,
+   "title": "Print labels — a selection from Inventory",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "LabelsFailed.dc.html": {
+   "x": 4080,
+   "y": 5200,
+   "w": 1280,
+   "h": 800,
+   "title": "Print labels — the printer didn't answer",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "LabelsDark.dc.html": {
+   "x": 0,
+   "y": 6120,
+   "w": 1280,
+   "h": 800,
+   "title": "Print labels — dark",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "Labels1024.dc.html": {
+   "x": 1360,
+   "y": 6120,
+   "w": 1024,
+   "h": 768,
+   "title": "Print labels — 1024 px",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitContent.dc.html": {
+   "x": 2720,
+   "y": 1840,
+   "w": 1024,
+   "h": 744,
+   "title": "Unit page content component (variant, station tweaks)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "UnitDrawerContent.dc.html": {
+   "x": 4080,
+   "y": 1840,
+   "w": 560,
+   "h": 744,
+   "title": "Unit drawer content component (variant tweak)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "ShelfContent.dc.html": {
+   "x": 4080,
+   "y": 3980,
+   "w": 1024,
+   "h": 744,
+   "title": "Shelf page content component (variant tweak)",
+   "page": "unit",
+   "is_interactive": true
+  },
+  "LabelPrintContent.dc.html": {
+   "x": 2720,
+   "y": 6120,
+   "w": 1024,
+   "h": 744,
+   "title": "Label printing content component (variant tweak)",
+   "page": "unit",
+   "is_interactive": true
+  }
+ },
+ "createdOnFiles": {
+  "at": "2026-11-11T18:00:00Z",
+  "v": 1
+ },
+ "designSystems": [],
+ "launch": {
+  "view": "canvas"
+ },
+ "noteOrder": [
+  "rowComponents",
+  "rowSidebar",
+  "liveNotes",
+  "sidebarNotes",
+  "about",
+  "settingsNotes",
+  "rowSignIn",
+  "signinNotes",
+  "sidebarLayout",
+  "tableTools",
+  "rowUnit",
+  "rowShelf",
+  "rowLabels",
+  "unitNotes"
+ ],
+ "notes": {
+  "about": {
+   "fill": "blue",
+   "page": "shell",
+   "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional.",
+   "w": 380,
+   "x": 1840,
+   "y": 0
+  },
+  "liveNotes": {
+   "fill": "green",
+   "page": "shell",
+   "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, Inbox; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 36 px rows, a 36 px Search or scan field that opens the Ctrl K command menu (clicking it does the same), Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox (was My requests) holds every notification and action request; hovering the bell previews the latest, clicking it opens Inbox. The board below shows the shared LAB station (recording as, Switch user). Press Play to try it.",
+   "w": 400,
+   "x": 1360,
+   "y": 0
+  },
+  "rowComponents": {
+   "kind": "title1",
+   "maxW": 2960,
+   "page": "components",
+   "text": "Components",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "rowSidebar": {
+   "kind": "title1",
+   "maxW": 1656,
+   "page": "shell",
+   "text": "Shell",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "rowSignIn": {
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "signin",
+   "text": "Sign in",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "settingsNotes": {
+   "page": "shell",
+   "text": "Settings mock-up: a modal over the shell (shadcn Dialog), opened from the account menu. Left: search and the app's real settings sections (You: Profile, Preferences, Notifications, My access; Lab: Staff, Locations, Printers, Receiving, Lab tests, Templates; Concrete: Equipment, Suppliers, Holidays, Report header; Admin: System status). Sections a person can't use would be hidden. Right: the open page, here a new Preferences page (theme, table rows, sidebar start, date format, week start, lab time zone, scan behaviour). Proposed: Preferences and its options are new; the rest exist today as /settings pages.",
+   "w": 400,
+   "x": 2720,
+   "y": 920
+  },
+  "sidebarNotes": {
+   "page": "shell",
+   "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number.",
+   "w": 400,
+   "x": 1736,
+   "y": 1840
+  },
+  "signinNotes": {
+   "page": "signin",
+   "text": "Sign in, shaped 2026-11-11. Each computer remembers its kind: a normal computer shows Sign in with Microsoft; a computer set up as the LAB station opens straight to the LAB form. Each links to the other. After LAB, step 2 asks Who is working here? and the app opens under that name. This changes today's model, where LAB picks the person on each receipt. Proposed and open: an admin marks a computer as the station (a setting saved in that browser); the picker lists receiving-lab staff; Someone else… finds any staff member. Session length (D38) is deferred, so no end time is shown. Wording of every state is the app's current wording.",
+   "w": 420,
+   "x": 5440,
+   "y": 0
+  },
+  "rowToday": {
+   "x": 0,
+   "y": -300,
+   "text": "Today — LAB station",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "today"
+  },
+  "todayNotes": {
+   "x": 5440,
+   "y": 0,
+   "w": 420,
+   "fill": "yellow",
+   "page": "today",
+   "text": "Today on a LAB station, shaped 2026-11-11. Two equal receiving buttons (Receive samples, Receive concrete), then At this station: draft receipts to finish, deliveries waiting, breaks due today, labels to print, each with a count and a way in. No greeting: the sidebar shows who is recording. Each LAB computer picks its rows with Customize this station (saved on that computer). Open: who may customise (proposed: anyone at the station); whether the two buttons are customisable too (fixed for now). The staff (own account) Today comes later."
+  },
+  "rowTodayLead": {
+   "x": 0,
+   "y": 1840,
+   "text": "Today — own account (project lead)",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "today"
+  },
+  "todayLeadNotes": {
+   "x": 5440,
+   "y": 2140,
+   "w": 420,
+   "fill": "yellow",
+   "page": "today",
+   "text": "Own-account Today, shaped 2026-11-11, drawn for a project lead first. Welcome with the date and a one-line summary; shortcuts (Request lab testing, Review concrete reports, My projects, New project); then Needs you (two thirds: stage tag, sentence, IDs in mono, one action, most urgent first, first six then Show all) beside Last 24 hours on their projects (one third). No Storage room. Open: what other roles see; whether shortcuts can be changed (fixed for now)."
+  },
+  "rowTodayManager": {
+   "x": 0,
+   "y": 3980,
+   "text": "Today — own account (Lab Manager)",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "today"
+  },
+  "todayManagerNotes": {
+   "x": 5440,
+   "y": 4280,
+   "w": 420,
+   "fill": "yellow",
+   "page": "today",
+   "text": "Lab Manager Today, 2026-11-11: the project lead's layout with the manager's content (Claude's choices, from PRODUCT.md's description of the role). Shortcuts: Workboard, Breaks due today, Retention due, Disposal scan. Needs you: concrete sets on HOLD, unassigned lab requests, breaks due today, units approved for disposal; longer lists add old draft receipts and location checks that disagree. Last 24 hours covers the whole lab, not one person's projects."
+  },
+  "rowTodayTech": {
+   "x": 0,
+   "y": 6120,
+   "text": "Today — own account (technician)",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "today"
+  },
+  "todayTechNotes": {
+   "x": 5440,
+   "y": 6420,
+   "w": 420,
+   "fill": "yellow",
+   "page": "today",
+   "text": "Technician Today, 2026-11-11: the same layout with a technician's content (Claude's choices, from PRODUCT.md). Shortcuts: Receive, Move storage units, Print labels, My tests. Needs you: tests assigned today, units to pull for a lab program, own draft receipts, a label that didn't print; longer lists add a move to confirm and tests waiting on a sample. Last 24 hours is the person's own work ('You received…')."
+  },
+  "rowInbox": {
+   "x": 0,
+   "y": -300,
+   "text": "Inbox",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "inbox"
+  },
+  "inboxNotes": {
+   "x": 5440,
+   "y": 0,
+   "w": 420,
+   "fill": "yellow",
+   "page": "inbox",
+   "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. The list fills the page; opening an item slides a resizable drawer in from the right (Notion's side peek: Close, Open as full page, Previous, Next). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream, Grouped or Table (compact), here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: each person chooses, in Settings > Preferences > Privacy, whether their Inbox opens on shared LAB computers (off by default). Off: the station shows that it stays private, and work is still recorded under their name."
+  },
+  "sidebarLayout": {
+   "fill": "yellow",
+   "page": "shell",
+   "w": 380,
+   "x": 3200,
+   "y": 840,
+   "text": "Sidebar layout (2026-11-11): Pinned and Recent sit right under Today, Projects and Inbox. Every section heading folds its section; Recent starts folded. Customize sidebar turns the sidebar itself into an editor, like Notion: Today, Projects and Inbox locked at the top, the sections with grips and eye toggles, Reset to default, and Done (or Escape). Folds, order and hidden sections are saved per person, so the sidebar comes back as they left it (the canvas keeps them in this browser)."
+  },
+  "tableTools": {
+   "fill": "yellow",
+   "page": "inbox",
+   "w": 380,
+   "x": 2720,
+   "y": 3680,
+   "text": "Table tools (2026-11-11, Kyle, Notion as reference): every table and list page has Mark all read (or the page action) as an icon with a tooltip, then Filter, Sort, View, and Search at the far right (Strata.TableToolbar). Opening Search grows it to the left and pushes the others left; Escape or an empty box closes it. The compact table alone has Notion borders (lines between rows and columns, plain header with column icons) and row checkboxes that fade in on hover (100 ms) and stay once any row is ticked. The mock does not filter the rows. Compact table columns: Task, Title, Job number (always shown), Record, From, Received; hide or show the others in View › Columns. People in every table show a shadcn Avatar before the name."
+  },
+  "rowUnit": {
+   "x": 0,
+   "y": -300,
+   "text": "Storage unit page (round 1)",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "unit"
+  },
+  "rowShelf": {
+   "x": 0,
+   "y": 2760,
+   "text": "Unit drawer and shelf page",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "unit"
+  },
+  "rowLabels": {
+   "x": 0,
+   "y": 4900,
+   "text": "Label printing",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "unit"
+  },
+  "unitNotes": {
+   "x": 5520,
+   "y": 0,
+   "w": 420,
+   "fill": "yellow",
+   "page": "unit",
+   "text": "Round 1, the storage unit record (shaped 2026-11-12, DESIGN.md › Briefs still to design › Round 1). Kyle chose: History beside the facts, Inbox's resizable drawer when a unit opens from a list, and a main action that changes with the stage (Stored: Move; In lab: Move back to storage; Retention due: Decide; Disposed: none). Print label, Correct and Copy link sit in More. This page sets the record pattern that sets, lab programs and projects reuse. All data is fictional (DEMO-2601, TH26-01)."
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "MainDark.dc.html",
+  "SidebarLive.dc.html",
+  "SidebarStation.dc.html",
+  "SidebarCustomizeOpen.dc.html",
+  "SidebarVariants.dc.html",
+  "SidebarNav.dc.html",
+  "SettingsModal.dc.html",
+  "SignIn.dc.html",
+  "SignInLab.dc.html",
+  "SignInPicker.dc.html",
+  "SignInDark.dc.html",
+  "SignInSessionEnded.dc.html",
+  "SignInLabExpired.dc.html",
+  "SignInWrongPassword.dc.html",
+  "SignInPaused.dc.html",
+  "SignInOptionsFailed.dc.html",
+  "SignInNoMethods.dc.html",
+  "SignInPickerEmpty.dc.html",
+  "TodayStation.dc.html",
+  "TodayStationConcrete.dc.html",
+  "TodayStationCustomize.dc.html",
+  "TodayStationQuiet.dc.html",
+  "TodayStationFailed.dc.html",
+  "TodayStationNoneShown.dc.html",
+  "TodayStationDark.dc.html",
+  "TodayStationContent.dc.html",
+  "TodayLead.dc.html",
+  "TodayLeadClear.dc.html",
+  "TodayLeadLong.dc.html",
+  "TodayLeadFailed.dc.html",
+  "TodayLeadDark.dc.html",
+  "TodayLeadContent.dc.html",
+  "TodayManager.dc.html",
+  "TodayManagerLong.dc.html",
+  "TodayManagerClear.dc.html",
+  "TodayManagerDark.dc.html",
+  "TodayManagerContent.dc.html",
+  "TodayTech.dc.html",
+  "TodayTechLong.dc.html",
+  "TodayTechClear.dc.html",
+  "TodayTechDark.dc.html",
+  "TodayTechContent.dc.html",
+  "Inbox.dc.html",
+  "InboxUpdate.dc.html",
+  "InboxGrouped.dc.html",
+  "InboxRequestsEmpty.dc.html",
+  "InboxUpdatesRead.dc.html",
+  "InboxStation.dc.html",
+  "InboxDark.dc.html",
+  "InboxContent.dc.html",
+  "InboxStationPrivate.dc.html",
+  "InboxClosed.dc.html",
+  "InboxTable.dc.html",
+  "InboxTablePeek.dc.html",
+  "InboxTableSearch.dc.html",
+  "UnitStored.dc.html",
+  "UnitInLab.dc.html",
+  "UnitDue.dc.html",
+  "UnitDisposed.dc.html",
+  "UnitConflict.dc.html",
+  "UnitStation.dc.html",
+  "UnitLoading.dc.html",
+  "UnitNotFound.dc.html",
+  "UnitDark.dc.html",
+  "Unit1024.dc.html",
+  "ShelfPeek.dc.html",
+  "ShelfPage.dc.html",
+  "ShelfEmpty.dc.html",
+  "ShelfUnknown.dc.html",
+  "ShelfConflict.dc.html",
+  "ShelfDark.dc.html",
+  "Shelf1024.dc.html",
+  "LabelsUnit.dc.html",
+  "LabelsReceipt.dc.html",
+  "LabelsSelection.dc.html",
+  "LabelsFailed.dc.html",
+  "LabelsDark.dc.html",
+  "Labels1024.dc.html",
+  "UnitContent.dc.html",
+  "UnitDrawerContent.dc.html",
+  "ShelfContent.dc.html",
+  "LabelPrintContent.dc.html"
+ ],
+ "pages": [
+  {
+   "id": "shell",
+   "name": "Shell"
+  },
+  {
+   "id": "components",
+   "name": "Components"
+  },
+  {
+   "id": "signin",
+   "name": "Sign in"
+  },
+  {
+   "id": "today",
+   "name": "Today"
+  },
+  {
+   "id": "inbox",
+   "name": "Inbox"
+  },
+  {
+   "id": "unit",
+   "name": "Storage unit"
+  }
+ ],
+ "title": "Material Mule — Strata"
 }

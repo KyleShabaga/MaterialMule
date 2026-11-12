@@ -15,7 +15,7 @@
 body{margin:0}
 </style>
 </helmet>
-<div class="bg-background text-foreground font-sans" style="width: 1280px; height: 800px; overflow: hidden;">
+<div class="bg-background text-foreground font-sans" style="{{shellStyle}}">
 <a href="#main" class="bg-primary text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-3">Skip to content</a>
 <x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
 <x-import component-from-global-scope="Strata.Toaster" position="bottom-right" theme="{{toastTheme}}"></x-import>
@@ -40,7 +40,7 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.SidebarGroup">
 <x-import component-from-global-scope="Strata.SidebarMenu">
 <x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{todayActive}}" aria-current="{{todayCurrent}}" tooltip="Today"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import><span>Today</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Projects"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import><span>Projects</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navProjects}}" aria-current="{{navProjectsCurrent}}" tooltip="Projects"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import><span>Projects</span></x-import></x-import>
 <x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{inboxActive}}" aria-current="{{inboxCurrent}}" tooltip="Inbox" aria-label="{{inboxLabel}}"><x-import component-from-global-scope="Strata.Icon" name="inbox"></x-import><span>Inbox</span></x-import><sc-if value="{{showCounts}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.SidebarMenuBadge" aria-hidden="true" class-name="bg-primary text-primary-foreground top-1/2 right-2 -translate-y-1/2 rounded-full px-1.5 font-mono text-[11px]">{{unreadCount}}</x-import></sc-if></x-import>
 </x-import>
 </x-import>
@@ -74,24 +74,24 @@ body{margin:0}
 </sc-if>
 <x-import component-from-global-scope="Strata.NavSection" id="storage">
 <div><x-import component-from-global-scope="Strata.SidebarMenu">
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Receive"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span>Receive</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Inventory"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span>Inventory</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navReceive}}" aria-current="{{navReceiveCurrent}}" tooltip="Receive"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span>Receive</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{inventoryActive}}" aria-current="{{inventoryCurrent}}" tooltip="Inventory"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span>Inventory</span></x-import></x-import>
 <x-import component-from-global-scope="Strata.NavCollapsible" icon="hourglass" label="Retention" items="Due and overdue|Disposal scan"></x-import>
 </x-import></div>
 </x-import>
 <x-import component-from-global-scope="Strata.NavSection" id="soils">
 <div><x-import component-from-global-scope="Strata.SidebarMenu">
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Lab programs"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import><span>Lab programs</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Workboard"><x-import component-from-global-scope="Strata.Icon" name="square-kanban"></x-import><span>Workboard</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navLabPrograms}}" aria-current="{{navLabProgramsCurrent}}" tooltip="Lab programs"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import><span>Lab programs</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navWorkboard}}" aria-current="{{navWorkboardCurrent}}" tooltip="Workboard"><x-import component-from-global-scope="Strata.Icon" name="square-kanban"></x-import><span>Workboard</span></x-import></x-import>
 </x-import></div>
 </x-import>
 <x-import component-from-global-scope="Strata.NavSection" id="concrete">
 <div><x-import component-from-global-scope="Strata.SidebarMenu">
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Breaks"><x-import component-from-global-scope="Strata.Icon" name="hammer"></x-import><span>Breaks</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Receiving"><x-import component-from-global-scope="Strata.Icon" name="truck"></x-import><span>Receiving</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Specimens"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import><span>Specimens</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Holds"><x-import component-from-global-scope="Strata.Icon" name="octagon-pause"></x-import><span>Holds</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Review"><x-import component-from-global-scope="Strata.Icon" name="clipboard-check"></x-import><span>Review</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navBreaks}}" aria-current="{{navBreaksCurrent}}" tooltip="Breaks"><x-import component-from-global-scope="Strata.Icon" name="hammer"></x-import><span>Breaks</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navReceiving}}" aria-current="{{navReceivingCurrent}}" tooltip="Receiving"><x-import component-from-global-scope="Strata.Icon" name="truck"></x-import><span>Receiving</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navSpecimens}}" aria-current="{{navSpecimensCurrent}}" tooltip="Specimens"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import><span>Specimens</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navHolds}}" aria-current="{{navHoldsCurrent}}" tooltip="Holds"><x-import component-from-global-scope="Strata.Icon" name="octagon-pause"></x-import><span>Holds</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navReview}}" aria-current="{{navReviewCurrent}}" tooltip="Review"><x-import component-from-global-scope="Strata.Icon" name="clipboard-check"></x-import><span>Review</span></x-import></x-import>
 </x-import></div>
 </x-import>
 </nav>
@@ -253,6 +253,42 @@ body{margin:0}
 <sc-if value="{{todayManager}}" hint-placeholder-val="{{ false }}">
 <div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayManagerContent" variant="{{managerVariant}}" hint-size="100%,744px"></dc-import></div>
 </sc-if>
+<sc-if value="{{round2}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round2Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round3}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round3Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round4}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round4Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round5}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round5Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round6}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round6Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round7}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round7Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round8}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round8Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round9}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round9Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round10}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round10Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{unitPage}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="UnitContent" variant="{{recordVariant}}" station="{{station}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{shelfPage}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="ShelfContent" variant="{{recordVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{labelsPage}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="LabelPrintContent" variant="{{recordVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
 <sc-if value="{{todayLead}}" hint-placeholder-val="{{ false }}">
 <div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayLeadContent" variant="{{leadVariant}}" hint-size="100%,744px"></dc-import></div>
 </sc-if>
@@ -271,10 +307,17 @@ class Component extends DCLogic {
     var clear = /-clear$/.test(today);
     var unread = clear ? 0 : 3;
     var inboxPage = today.indexOf("inbox-") === 0;
+    var recordKind = /^(unit|shelf|labels)-/.test(today) ? today.split("-")[0] : "";
+    var recordPage = !!recordKind;
+    var shellStyle = String(this.props.size) === "1024" ? "width: 1024px; height: 768px; overflow: hidden;" : "width: 1280px; height: 800px; overflow: hidden;";
+    var roundM = /^r([0-9]+)-(.*)$/.exec(today);
+    var roundN = roundM ? +roundM[1] : 0;
+    var nav = this.props.nav || "";
+    if (roundN) recordPage = true;
     var customizing = station && today === 'customize';
     var who = customizing ? { key: 'sam', name: 'Sam Sample', ini: 'SS' } : { key: 'pat', name: 'Pat Example', ini: 'PE' };
     var privateHere = today === "inbox-private" || (station && !inboxPage);
-    return { stationName: who.name, stationInitials: who.ini, stationKey: who.key, toastTheme: this.props.dark ? 'dark' : 'light', stationDensity: station ? '[&_[data-sidebar=menu-button]]:h-11 [&_[data-sidebar=menu-sub-button]]:h-11' : '', signOff: function () { var S = window.Strata; if (S && S.toast) S.toast('Signed off ' + who.name + '. Back to Who is working here?'); }, customizing: !!this.props.customizing, dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, hoverOpen: 150, hoverClose: 200, today: today, placeholder: today === "none", todayStation: today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0 && today.indexOf("inbox-") !== 0, inbox: today.indexOf("inbox-") === 0, inboxVariant: today.replace("inbox-", ""), pageTitle: today.indexOf("inbox-") === 0 ? "Inbox" : "Today", todayActive: today.indexOf("inbox-") !== 0, inboxActive: today.indexOf("inbox-") === 0, todayCurrent: today.indexOf("inbox-") === 0 ? "false" : "page", inboxCurrent: today.indexOf("inbox-") === 0 ? "page" : "false", todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), unreadCount: unread, inboxPrivate: privateHere, showCounts: !privateHere && unread > 0, caughtUp: !privateHere && !unread, inboxLabel: privateHere || !unread ? "Inbox" : "Inbox, " + unread + " unread", bellLabel: privateHere || !unread ? "Notifications. Open Inbox" : "Notifications, " + unread + " unread. Open Inbox", role: today.indexOf("lead-") === 0 || inboxPage ? "Project lead" : today.indexOf("manager-") === 0 ? "Lab Manager" : "Technician", personName: today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
+    return { shellStyle: shellStyle, stationName: who.name, stationInitials: who.ini, stationKey: who.key, toastTheme: this.props.dark ? 'dark' : 'light', stationDensity: station ? '[&_[data-sidebar=menu-button]]:h-11 [&_[data-sidebar=menu-sub-button]]:h-11' : '', signOff: function () { var S = window.Strata; if (S && S.toast) S.toast('Signed off ' + who.name + '. Back to Who is working here?'); }, customizing: !!this.props.customizing, dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, hoverOpen: 150, hoverClose: 200, today: today, placeholder: today === "none", todayStation: !recordPage && today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0 && today.indexOf("inbox-") !== 0, inbox: today.indexOf("inbox-") === 0, inboxVariant: today.replace("inbox-", ""), pageTitle: this.props.title ? this.props.title : recordKind === "labels" ? "Print labels" : recordPage ? "Inventory" : today.indexOf("inbox-") === 0 ? "Inbox" : "Today", todayActive: !recordPage && today.indexOf("inbox-") !== 0, inventoryActive: recordKind === "unit" || recordKind === "shelf" || nav === "Inventory", inventoryCurrent: recordKind === "unit" || recordKind === "shelf" || nav === "Inventory" ? "page" : "false", roundVariant: roundM ? roundM[2] : "",round2: roundN === 2, round3: roundN === 3, round4: roundN === 4, round5: roundN === 5, round6: roundN === 6, round7: roundN === 7, round8: roundN === 8, round9: roundN === 9, round10: roundN === 10, navProjects: nav === "Projects", navProjectsCurrent: nav === "Projects" ? "page" : "false", navReceive: nav === "Receive", navReceiveCurrent: nav === "Receive" ? "page" : "false", navLabPrograms: nav === "Lab programs", navLabProgramsCurrent: nav === "Lab programs" ? "page" : "false", navWorkboard: nav === "Workboard", navWorkboardCurrent: nav === "Workboard" ? "page" : "false", navBreaks: nav === "Breaks", navBreaksCurrent: nav === "Breaks" ? "page" : "false", navReceiving: nav === "Receiving", navReceivingCurrent: nav === "Receiving" ? "page" : "false", navSpecimens: nav === "Specimens", navSpecimensCurrent: nav === "Specimens" ? "page" : "false", navHolds: nav === "Holds", navHoldsCurrent: nav === "Holds" ? "page" : "false", navReview: nav === "Review", navReviewCurrent: nav === "Review" ? "page" : "false", unitPage: recordKind === "unit", shelfPage: recordKind === "shelf", labelsPage: recordKind === "labels", recordVariant: recordPage ? today.slice(recordKind.length + 1) : "", inboxActive: today.indexOf("inbox-") === 0, todayCurrent: recordPage || today.indexOf("inbox-") === 0 ? "false" : "page", inboxCurrent: today.indexOf("inbox-") === 0 ? "page" : "false", todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), unreadCount: unread, inboxPrivate: privateHere, showCounts: !privateHere && unread > 0, caughtUp: !privateHere && !unread, inboxLabel: privateHere || !unread ? "Inbox" : "Inbox, " + unread + " unread", bellLabel: privateHere || !unread ? "Notifications. Open Inbox" : "Notifications, " + unread + " unread. Open Inbox", role: today.indexOf("lead-") === 0 || inboxPage ? "Project lead" : today.indexOf("manager-") === 0 ? "Lab Manager" : "Technician", personName: today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
   }
 }
 </script>

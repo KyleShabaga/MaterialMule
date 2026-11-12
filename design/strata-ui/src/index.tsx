@@ -1045,7 +1045,8 @@ function LifecycleTrack({
   steps = "Received:draft|Stored:storage|In lab:lab|Retention:due|Disposed:closed",
   current = 1,
   label = "Lifecycle",
-}: { steps?: string; current?: number | string; label?: string }) {
+  compact = false,
+}: { steps?: string; current?: number | string; label?: string; compact?: boolean }) {
   const list = steps.split("|").filter(Boolean).map((s) => {
     const [name, stage] = s.split(":")
     return { name, stage: stage || "storage" }
@@ -1058,6 +1059,48 @@ function LifecycleTrack({
     due: { past: "bg-stage-due-bg text-stage-due-fg", now: "bg-stage-due-mark text-stage-due-contrast" },
     danger: { past: "bg-stage-danger-bg text-stage-danger-fg", now: "bg-stage-danger-mark text-stage-danger-contrast" },
     closed: { past: "bg-stage-closed-bg text-stage-closed-fg", now: "bg-stage-closed-mark text-stage-closed-contrast" },
+  }
+  if (compact) {
+    /* Compact form for rows and the unit drawer: five 8 px dots joined by a line, the current
+       stage written beside them. Past dots are their stage mark, the current one is ringed,
+       future ones are outlined. Still one ol with aria-current="step". */
+    const dot: Record<string, { fill: string; ring: string }> = {
+      draft: { fill: "bg-stage-draft-mark", ring: "ring-stage-draft-mark" },
+      storage: { fill: "bg-stage-storage-mark", ring: "ring-stage-storage-mark" },
+      lab: { fill: "bg-stage-lab-mark", ring: "ring-stage-lab-mark" },
+      due: { fill: "bg-stage-due-mark", ring: "ring-stage-due-mark" },
+      danger: { fill: "bg-stage-danger-mark", ring: "ring-stage-danger-mark" },
+      closed: { fill: "bg-stage-closed-mark", ring: "ring-stage-closed-mark" },
+    }
+    const now = list[at]
+    return (
+      <div className="flex items-center gap-2.5">
+        <ol aria-label={label} className="flex items-center">
+          {list.map((step, i) => {
+            const state = i < at ? "past" : i === at ? "now" : "future"
+            const tone = dot[step.stage] || dot.storage
+            return (
+              <li key={step.name} aria-current={state === "now" ? "step" : undefined} className="flex items-center">
+                {i > 0 ? <span aria-hidden="true" className={cn("h-0.5 w-3", i <= at ? "bg-input" : "bg-border")} /> : null}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    state === "future" ? "border-input border bg-transparent" : tone.fill,
+                    state === "now" ? cn("ring-offset-background ring-2 ring-offset-2", tone.ring) : "",
+                  )}
+                />
+                <span className="sr-only">
+                  {step.name}
+                  {state === "past" ? ", done" : state === "now" ? ", current" : ""}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+        {now ? <span aria-hidden="true" className="text-[13px] font-semibold">{now.name}</span> : null}
+      </div>
+    )
   }
   return (
     <ol aria-label={label} className="flex w-full gap-1">

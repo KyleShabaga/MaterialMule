@@ -549,6 +549,9 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 | Where the layout is saved     | Per person on the server (folds, order, hidden), not per browser                                                                                                                                                                                                                                   | Kyle asked for it to be as they left it when they return; people share LAB computers | localStorage per browser                              |
 | Drag and drop library         | dnd kit (sortable, keyboard sensor, announcements)                                                                                                                                                                                                                                                 | Emil Kowalski's list; accessible keyboard reordering                                 | Hand-rolled HTML drag and drop                        |
 | Recent                        | The last 8 records opened, newest first; starts folded                                                                                                                                                                                                                                             | Kyle: Recent closed by default                                                       | Pages as well as records                              |
+| Record pattern (round 1)      | Header: label block left; stage tag, lifecycle track and one primary action right; More menu for the rest; facts 2:1 beside a sticky History. Sets, lab programs and projects reuse it                                                                                                             |
+| Disabled menu items           | The reason sits on its own line under the item (aria-describedby), because a disabled item's text drops below 4.5:1                                                                                                                                                                                |
+| Label preview                 | The sticker exactly as printed today (template-v1), black on white at true size; Strata never restyles it                                                                                                                                                                                          |
 
 ## Screens
 
@@ -962,6 +965,46 @@ Claude chose the content from PRODUCT.md, and Kyle approved it ("Looks right", 2
   shell, `tech-*` values, and the account row reads "Pat Example · Technician".
 
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
+
+### Storage unit record (page: Storage unit), round 1, designed 2026-11-12
+
+Round 1 is drawn from its brief (below). The page holds 23 screen boards and 4 components:
+`UnitContent`, `UnitDrawerContent`, `ShelfContent` and `LabelPrintContent`. The shell routes
+`today="unit-…"`, `"shelf-…"` and `"labels-…"` to them, with Inventory highlighted in the sidebar.
+
+- **Unit page:**
+  - Variants: stored, inlab, due, disposed, conflict, loading and notfound, plus a LAB station
+    board, dark and 1024 px.
+  - Primary by stage: Move, Move back to storage, Decide, or none (disposed: "Read-only. Disposed
+    units keep their ID and history.").
+  - A conflict keeps Move as the primary. The `danger` alert says the move clears it, and its own
+    action is an outline "Open WH-B-B1-S2". The conflict is shown as a second tag, "Urgent ·
+    Location"; the track stays on Stored.
+  - Disposed: Print label and Correct are disabled, each with its reason on a separate line below
+    it, linked with `aria-describedby`.
+  - Test hole summaries are a small table: Test hole, Samples (range), Count, Depth.
+  - At narrow widths the body goes 2:1 from a 56rem container and the header goes two-column from
+    52rem. Below that, History moves under the facts.
+  - `Strata.LifecycleTrack` gained `compact`: five dots with the current stage written, used in
+    the drawer.
+- **Unit drawer:**
+  - Has the Inbox drawer toolbar and an outline Print label next to the main action. History and
+    lab programs stay on the full page.
+- **Shelf page:**
+  - 16 cells, 4 per row (2 below 44rem). Filled cells are buttons with an inset stripe and the
+    short stage word; empty places are dashed.
+  - The Units here table uses comfortable rows. The compact Notion look stays Inbox-only. With the
+    drawer open it keeps ID and Stage.
+  - The peek board has two primaries, the shelf's "Move units here" and the drawer's Move. The
+    Inbox drawer does the same; the drawer is its own context.
+- **Label printing:**
+  - The preview is the real sticker (`apps/api/src/labels/template-v1.ts`): ID, project number and
+    name, test holes, Code 128, QR and the received date, black on white at true size (3.5 × 1.5
+    in) in both themes.
+  - The preview has **no SAMPLE#/DEPTH**, because the template must not change.
+  - Failure: "The printer didn't answer." Try again replaces the primary and Save as PDF stays. A
+    PDF isn't recorded as a print.
+  - Below 896 px of content the preview drops under the form.
 
 ## Briefs still to design
 

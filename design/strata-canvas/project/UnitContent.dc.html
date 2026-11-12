@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Storage unit page content</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* The canvas mounts this board in a block host; let the host fill its flex parent so this board can scroll inside it. */
+.sc-host:has(> .unit-page-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- Storage unit page (/sample-storage/:id), round 1. The page scrolls inside the shell's content
+     area. Header: the unit label block left; stage tag, lifecycle track and actions right. Body 2:1:
+     facts left, History right (sticky). Under 56rem of container width (the 1024 px window) History
+     moves below the facts. One primary action, chosen by the stage. All data is fictional. -->
+<div class="unit-page-root @container bg-background text-foreground min-h-0 flex-1 overflow-y-auto font-sans" style="height: 100%;">
+
+<!-- Loading: a skeleton of the header and the sections -->
+<sc-if value="{{loading}}" hint-placeholder-val="{{ false }}">
+<div aria-busy="true" aria-label="Loading storage unit" class="mx-auto flex max-w-[1280px] flex-col gap-6 px-8 py-6">
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-56"></x-import>
+<div class="grid gap-6 @min-[52rem]:grid-cols-[minmax(0,24rem)_1fr]">
+<div class="bg-card flex flex-col gap-3 rounded-xl border p-5">
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-48"></x-import>
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-8 w-72"></x-import>
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-60"></x-import>
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-60"></x-import>
+</div>
+<div class="flex flex-col gap-3">
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-6 w-36 rounded-full"></x-import>
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-7 w-full rounded-full"></x-import>
+<div class="flex gap-2"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-11 w-28"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="size-11"></x-import></div>
+</div>
+</div>
+<div class="grid items-start gap-6 @min-[56rem]:grid-cols-3">
+<div class="flex flex-col gap-6 @min-[56rem]:col-span-2">
+<div class="bg-card flex flex-col gap-3 rounded-xl border p-5"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-5 w-32"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-3/4"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-1/2"></x-import></div>
+<div class="bg-card flex flex-col gap-3 rounded-xl border p-5"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-5 w-40"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-full"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-full"></x-import></div>
+<div class="bg-card flex flex-col gap-3 rounded-xl border p-5"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-5 w-24"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-2/3"></x-import></div>
+</div>
+<div class="bg-card flex flex-col gap-4 rounded-xl border p-5">
+<x-import component-from-global-scope="Strata.Skeleton" class-name="h-5 w-20"></x-import>
+<div class="flex gap-3"><x-import component-from-global-scope="Strata.Skeleton" class-name="size-6 rounded-full"></x-import><div class="flex flex-1 flex-col gap-2"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-full"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-3 w-24"></x-import></div></div>
+<div class="flex gap-3"><x-import component-from-global-scope="Strata.Skeleton" class-name="size-6 rounded-full"></x-import><div class="flex flex-1 flex-col gap-2"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-full"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-3 w-24"></x-import></div></div>
+<div class="flex gap-3"><x-import component-from-global-scope="Strata.Skeleton" class-name="size-6 rounded-full"></x-import><div class="flex flex-1 flex-col gap-2"><x-import component-from-global-scope="Strata.Skeleton" class-name="h-4 w-full"></x-import><x-import component-from-global-scope="Strata.Skeleton" class-name="h-3 w-24"></x-import></div></div>
+</div>
+</div>
+<p class="sr-only" role="status">Loading storage unit BKT-2026-000019</p>
+</div>
+</sc-if>
+
+<!-- Not found: the ID asked for and Scan again -->
+<sc-if value="{{notfound}}" hint-placeholder-val="{{ false }}">
+<div class="mx-auto flex max-w-[1280px] flex-col gap-6 px-8 py-6">
+<x-import component-from-global-scope="Strata.Breadcrumb"><x-import component-from-global-scope="Strata.BreadcrumbList"><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#">Inventory</x-import></x-import><x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbPage" class-name="font-mono whitespace-nowrap">BKT-2026-000091</x-import></x-import></x-import></x-import>
+<div class="flex flex-col items-center gap-4 px-6 py-20 text-center">
+<span class="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="search-x" class-name="size-5"></x-import></span>
+<div class="grid max-w-[440px] gap-1">
+<h1 class="text-lg font-semibold">No storage unit has this ID.</h1>
+<p class="text-muted-foreground text-sm">You asked for <span class="text-foreground font-mono font-semibold whitespace-nowrap">BKT-2026-000091</span>. Check the ID on the label, or scan it again.</p>
+</div>
+<div class="flex flex-wrap justify-center gap-2">
+<x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import>Scan again</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline">Go to Inventory</x-import>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- The record -->
+<sc-if value="{{page}}" hint-placeholder-val="{{ true }}">
+<div class="mx-auto flex max-w-[1280px] flex-col gap-6 px-8 py-6">
+
+<!-- Context row -->
+<x-import component-from-global-scope="Strata.Breadcrumb"><x-import component-from-global-scope="Strata.BreadcrumbList"><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#">Inventory</x-import></x-import><x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbPage" class-name="font-mono whitespace-nowrap">BKT-2026-000019</x-import></x-import></x-import></x-import>
+
+<!-- Header: label block left; stage, track and actions right -->
+<header class="grid items-stretch gap-6 @min-[52rem]:grid-cols-[minmax(0,24rem)_1fr]">
+<div class="bg-card relative overflow-hidden rounded-xl border py-4 pr-5 pl-6">
+<span aria-hidden="true" class="{{stripe}} absolute inset-y-0 left-0 w-1"></span>
+<p class="text-muted-foreground text-[13px]">Bucket · <span class="font-mono whitespace-nowrap">DEMO-2601</span> Riverbank investigation</p>
+<h1 class="{{idTone}} mt-1 font-mono text-[28px] leading-[34px] font-bold whitespace-nowrap">BKT-2026-000019</h1>
+<ul aria-label="Test holes on this unit" class="mt-3 grid grid-cols-[auto_auto_1fr] gap-x-4 gap-y-1 font-mono text-sm">
+<li class="contents"><span class="font-semibold">TH26-01</span><span>SS1–SS6</span><span class="whitespace-nowrap">0.8–5.4 m</span></li>
+<li class="contents"><span class="font-semibold">TH26-02</span><span>SS1–SS3</span><span class="whitespace-nowrap">0.5–2.1 m</span></li>
+</ul>
+</div>
+<div class="flex min-w-0 flex-col justify-center gap-4">
+<div class="flex flex-wrap items-center gap-2">
+<x-import component-from-global-scope="Strata.Badge" variant="{{stage}}" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="{{dot}} size-1.5 rounded-full"></span>{{stageTag}}</x-import>
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Badge" variant="danger" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Location</x-import></sc-if>
+</div>
+<x-import component-from-global-scope="Strata.LifecycleTrack" current="{{track}}" label="Lifecycle of BKT-2026-000019"></x-import>
+<div class="flex flex-wrap items-center gap-2">
+<sc-if value="{{hasPrimary}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="{{primaryIcon}}"></x-import>{{primaryLabel}}</x-import></sc-if>
+<sc-if value="{{disposed}}" hint-placeholder-val="{{ false }}"><p class="text-muted-foreground flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="lock"></x-import>Read-only. Disposed units keep their ID and history.</p></sc-if>
+<x-import component-from-global-scope="Strata.DropdownMenu" default-open="{{station}}" modal="{{no}}">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="More actions" title="More actions" class-name="border-input bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 inline-flex size-11 items-center justify-center rounded-md border shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"><x-import component-from-global-scope="Strata.Icon" name="ellipsis"></x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" align="end" class-name="w-64">
+<x-import component-from-global-scope="Strata.DropdownMenuItem" disabled="{{printOff}}" aria-describedby="{{printDesc}}"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Print label</x-import>
+<sc-if value="{{disposed}}" hint-placeholder-val="{{ false }}"><p id="print-reason" class="text-muted-foreground -mt-1 pr-2 pb-1.5 pl-8 text-xs">Disposed units' labels can't be reprinted.</p></sc-if>
+<x-import component-from-global-scope="Strata.DropdownMenuItem" disabled="{{correctOff}}" aria-describedby="{{correctDesc}}"><x-import component-from-global-scope="Strata.Icon" name="pencil"></x-import>Correct</x-import>
+<sc-if value="{{correctNote}}" hint-placeholder-val="{{ false }}"><p id="correct-reason" class="text-muted-foreground -mt-1 pr-2 pb-1.5 pl-8 text-xs">{{correctReason}}</p></sc-if>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="link"></x-import>Copy link</x-import>
+</x-import>
+</x-import>
+</div>
+</div>
+</header>
+
+<!-- Body 2:1 -->
+<div class="grid items-start gap-6 @min-[56rem]:grid-cols-3">
+<div class="flex min-w-0 flex-col gap-6 @min-[56rem]:col-span-2">
+
+<!-- Where it is -->
+<section aria-labelledby="where" class="bg-card flex flex-col gap-4 rounded-xl border p-5">
+<h2 id="where" class="text-base font-semibold">Where it is</h2>
+<sc-if value="{{onShelf}}" hint-placeholder-val="{{ true }}">
+<dl class="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Place</dt><dd><a href="#" class="text-link font-medium underline-offset-4 hover:underline">Warehouse A · Bay 2 · Shelf 3</a></dd>
+<dt class="text-muted-foreground">Code</dt><dd class="font-mono whitespace-nowrap">WH-A-B2-S3</dd>
+<dt class="text-muted-foreground">Here since</dt><dd><span class="font-mono whitespace-nowrap">2026-11-03</span> · put back by Jordan Lab</dd>
+</dl>
+</sc-if>
+<sc-if value="{{inlab}}" hint-placeholder-val="{{ false }}">
+<dl class="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Place</dt><dd>Soils lab · checked out for <a href="#" class="text-link font-mono font-medium underline-offset-4 hover:underline">LP-2026-0007</a></dd>
+<dt class="text-muted-foreground">Since</dt><dd>Today 9:12 AM · checked out by Jordan Lab</dd>
+<dt class="text-muted-foreground">Goes back to</dt><dd><a href="#" class="text-link font-medium underline-offset-4 hover:underline">Warehouse A · Bay 2 · Shelf 3</a> <span class="text-muted-foreground font-mono whitespace-nowrap">WH-A-B2-S3</span></dd>
+</dl>
+</sc-if>
+<sc-if value="{{disposed}}" hint-placeholder-val="{{ false }}">
+<dl class="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Place</dt><dd>Disposed. It is no longer on a shelf.</dd>
+<dt class="text-muted-foreground">Disposed</dt><dd><span class="font-mono whitespace-nowrap">2026-11-02</span> · recorded by Sam Sample</dd>
+<dt class="text-muted-foreground">Last place</dt><dd><a href="#" class="text-link font-medium underline-offset-4 hover:underline">Warehouse A · Bay 2 · Shelf 3</a> <span class="text-muted-foreground font-mono whitespace-nowrap">WH-A-B2-S3</span></dd>
+</dl>
+</sc-if>
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}">
+<p class="bg-accent text-accent-foreground flex items-start gap-2 rounded-md px-3 py-2 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="clock" class-name="mt-0.5"></x-import><span>A move to <span class="font-mono whitespace-nowrap">WH-A-B4-S1</span> is waiting on LAB-02 since 1:58 PM. It will be sent when that computer is back online.</span></p>
+<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="relative overflow-hidden grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><span aria-hidden="true" class="bg-stage-danger-mark absolute inset-y-0 left-0 w-1"></span>
+<x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import>
+<x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">Two places are recorded for this unit</x-import>
+<x-import component-from-global-scope="Strata.AlertDescription"><p>The last move put it on <span class="font-mono whitespace-nowrap">WH-A-B2-S3</span>, but Jordan Lab scanned it on <span class="font-mono whitespace-nowrap">WH-B-B1-S2</span> at 2:14 PM. Find the bucket, then move it to the shelf it is on; the move clears the conflict.</p><div class="mt-2"><x-import component-from-global-scope="Strata.Button" variant="outline" size="sm" class-name="text-foreground">Open <span class="font-mono whitespace-nowrap">WH-B-B1-S2</span></x-import></div></x-import>
+</x-import>
+</sc-if>
+</section>
+
+<!-- Test hole summaries: one SAMPLE#/DEPTH summary per hole, never individual samples -->
+<section aria-labelledby="holes" class="bg-card flex flex-col gap-3 overflow-hidden rounded-xl border pt-5">
+<div class="flex items-baseline justify-between gap-4 px-5"><h2 id="holes" class="text-base font-semibold">Test hole summaries</h2><span class="text-muted-foreground text-[13px]">2 test holes</span></div>
+<x-import component-from-global-scope="Strata.Table" class-name="text-sm">
+<x-import component-from-global-scope="Strata.TableHeader" class-name="bg-muted"><x-import component-from-global-scope="Strata.TableRow" class-name="hover:bg-transparent"><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground pl-5 text-[13px] font-semibold">Test hole</x-import><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground text-[13px] font-semibold">Samples</x-import><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground text-right text-[13px] font-semibold">Count</x-import><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground pr-5 text-right text-[13px] font-semibold">Depth</x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableBody">
+<x-import component-from-global-scope="Strata.TableRow" class-name="hover:bg-transparent"><x-import component-from-global-scope="Strata.TableCell" class-name="pl-5 font-mono font-semibold">TH26-01</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">SS1–SS6</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="text-right font-mono tabular-nums">6</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="pr-5 text-right font-mono whitespace-nowrap">0.8–5.4 m</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="hover:bg-transparent"><x-import component-from-global-scope="Strata.TableCell" class-name="pl-5 font-mono font-semibold">TH26-02</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="font-mono">SS1–SS3</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="text-right font-mono tabular-nums">3</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="pr-5 text-right font-mono whitespace-nowrap">0.5–2.1 m</x-import></x-import>
+</x-import>
+</x-import>
+</section>
+
+<div class="grid gap-6">
+<!-- Receipt -->
+<section aria-labelledby="receipt" class="bg-card flex flex-col gap-4 rounded-xl border p-5">
+<h2 id="receipt" class="text-base font-semibold">Receipt</h2>
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Receipt</dt><dd><a href="#" class="text-link font-medium underline-offset-4 hover:underline">3 units on <span class="font-mono whitespace-nowrap">2026-10-14</span></a></dd>
+<dt class="text-muted-foreground">Received</dt><dd class="font-mono">2026-10-14</dd>
+<dt class="text-muted-foreground">Received by</dt><dd class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><span class="truncate">Pat Example</span></dd>
+</dl>
+</section>
+
+<!-- Retention -->
+<section aria-labelledby="retention" class="bg-card flex flex-col gap-4 rounded-xl border p-5">
+<h2 id="retention" class="text-base font-semibold">Retention</h2>
+<sc-if value="{{retainPlain}}" hint-placeholder-val="{{ true }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Retain until</dt><dd class="font-mono">2027-10-14</dd>
+<dt class="text-muted-foreground">Extensions</dt><dd>None</dd>
+<dt class="text-muted-foreground">Rule</dt><dd>12 months from receipt</dd>
+</dl>
+</sc-if>
+<sc-if value="{{due}}" hint-placeholder-val="{{ false }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Retain until</dt><dd><span class="font-mono whitespace-nowrap">2026-11-20</span> · in 9 days</dd>
+<dt class="text-muted-foreground">Extensions</dt><dd>1 · 6 months, approved by Sam Sample on <span class="font-mono whitespace-nowrap">2026-05-04</span></dd>
+<dt class="text-muted-foreground">Decision</dt><dd>Waiting on Alex Tester: keep it longer or add it to the disposal list.</dd>
+</dl>
+</sc-if>
+<sc-if value="{{disposed}}" hint-placeholder-val="{{ false }}">
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Retain until</dt><dd class="font-mono">2026-10-14</dd>
+<dt class="text-muted-foreground">Extensions</dt><dd>None</dd>
+<dt class="text-muted-foreground">Decision</dt><dd>Dispose · Alex Tester on <span class="font-mono whitespace-nowrap">2026-10-20</span></dd>
+</dl>
+</sc-if>
+</section>
+</div>
+
+<!-- Lab programs: progress only -->
+<section aria-labelledby="programs" class="bg-card flex flex-col gap-4 rounded-xl border p-5">
+<div class="flex items-baseline justify-between gap-4"><h2 id="programs" class="text-base font-semibold">Lab programs</h2><span class="text-muted-foreground text-[13px]">{{programCount}}</span></div>
+<ul class="flex flex-col divide-y">
+<sc-if value="{{inlab}}" hint-placeholder-val="{{ false }}">
+<li class="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 pb-3">
+<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><a href="#" class="text-link font-mono text-sm font-semibold whitespace-nowrap underline-offset-4 hover:underline">LP-2026-0007</a><span class="truncate text-sm">Atterberg limits and moisture</span></div>
+<x-import component-from-global-scope="Strata.Badge" variant="lab"><span aria-hidden="true" class="bg-stage-lab-mark size-1.5 rounded-full"></span>In lab · Testing</x-import>
+<div class="col-span-2 flex items-center gap-3"><x-import component-from-global-scope="Strata.Progress" value="{{forty}}" aria-label="2 of 5 tests done" class-name="h-1.5 max-w-64"></x-import><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">2 of 5 tests</span></div>
+</li>
+</sc-if>
+<li class="{{lastPad}} grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
+<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><a href="#" class="text-link font-mono text-sm font-semibold whitespace-nowrap underline-offset-4 hover:underline">LP-2026-0003</a><span class="truncate text-sm">Moisture content</span></div>
+<x-import component-from-global-scope="Strata.Badge" variant="closed"><span aria-hidden="true" class="bg-stage-closed-mark size-1.5 rounded-full"></span>Closed · Testing</x-import>
+<div class="col-span-2 flex items-center gap-3"><x-import component-from-global-scope="Strata.Progress" value="{{hundred}}" aria-label="4 of 4 tests done" class-name="h-1.5 max-w-64"></x-import><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">4 of 4 tests</span></div>
+</li>
+</ul>
+</section>
+</div>
+
+<!-- History: newest first, paged; stays in view while the facts scroll -->
+<aside aria-labelledby="history" class="bg-card flex flex-col gap-4 rounded-xl border p-5 @min-[56rem]:sticky @min-[56rem]:top-6">
+<div class="flex items-baseline justify-between gap-4"><h2 id="history" class="text-base font-semibold">History</h2><span class="text-muted-foreground text-[13px]">{{eventCount}}</span></div>
+<ol class="flex flex-col text-sm" aria-label="History, newest first">
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}">
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">JL</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Jordan Lab</span> scanned it on <span class="font-mono whitespace-nowrap">WH-B-B1-S2</span>, not where it was recorded</p><p class="text-muted-foreground font-mono text-[13px]">Today 2:14 PM</p></div></li>
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Pat Example</span> queued a move to <span class="font-mono whitespace-nowrap">WH-A-B4-S1</span> on LAB-02 (not sent yet)</p><p class="text-muted-foreground font-mono text-[13px]">Today 1:58 PM</p></div></li>
+</sc-if>
+<sc-if value="{{due}}" hint-placeholder-val="{{ false }}">
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-primary text-primary-foreground text-[11px] font-semibold">MM</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Material Mule</span> asked Alex Tester to decide: retention ends <span class="font-mono whitespace-nowrap">2026-11-20</span></p><p class="text-muted-foreground font-mono text-[13px]">Today 6:00 AM</p></div></li>
+</sc-if>
+<sc-if value="{{disposed}}" hint-placeholder-val="{{ false }}">
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Sam Sample</span> recorded its disposal</p><p class="text-muted-foreground font-mono text-[13px]">2026-11-02 10:30 AM</p></div></li>
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">AT</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Alex Tester</span> decided to dispose of it at the end of retention</p><p class="text-muted-foreground font-mono text-[13px]">2026-10-20 3:05 PM</p></div></li>
+</sc-if>
+<sc-if value="{{inlab}}" hint-placeholder-val="{{ false }}">
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">JL</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Jordan Lab</span> checked it out for <span class="font-mono whitespace-nowrap">LP-2026-0007</span></p><p class="text-muted-foreground font-mono text-[13px]">Today 9:12 AM</p></div></li>
+</sc-if>
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">JL</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Jordan Lab</span> put it back on <span class="font-mono whitespace-nowrap">WH-A-B2-S3</span></p><p class="text-muted-foreground font-mono text-[13px]">2026-11-03 4:40 PM</p></div></li>
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">JL</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Jordan Lab</span> checked it out for <span class="font-mono whitespace-nowrap">LP-2026-0003</span></p><p class="text-muted-foreground font-mono text-[13px]">2026-10-28 8:15 AM</p></div></li>
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3 pb-4"><span aria-hidden="true" class="bg-border absolute top-7 bottom-0 left-3 w-px"></span><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Pat Example</span> put it away on <span class="font-mono whitespace-nowrap">WH-A-B2-S3</span></p><p class="text-muted-foreground font-mono text-[13px]">2026-10-14 2:05 PM</p></div></li>
+<li class="relative grid grid-cols-[1.5rem_1fr] gap-3"><x-import component-from-global-scope="Strata.Avatar" class-name="size-6"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><div class="grid gap-0.5"><p><span class="font-medium">Pat Example</span> printed the label</p><p class="text-muted-foreground font-mono text-[13px]">2026-10-14 11:20 AM</p></div></li>
+</ol>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="sm" class-name="self-start"><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import>Show older<span class="text-muted-foreground font-mono text-[13px]">2 more</span></x-import>
+</aside>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stored","inlab","due","disposed","conflict","loading","notfound"],"default":"stored"},"station":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'stored';
+    var station = !!this.props.station;
+    var st = { stored: 'storage', conflict: 'storage', inlab: 'lab', due: 'due', disposed: 'closed' }[v] || 'storage';
+    var tag = { storage: 'Stored · Storage', lab: 'In lab · Lab program', due: 'Due · Retention', closed: 'Closed · Disposed' }[st];
+    var track = { storage: 1, lab: 2, due: 3, closed: 4 }[st];
+    var primary = { stored: ['Move', 'move'], conflict: ['Move', 'move'], inlab: ['Move back to storage', 'undo-2'], due: ['Decide', 'gavel'] }[v] || ['', 'move'];
+    var disposed = v === 'disposed';
+    var events = { stored: 4, conflict: 6, inlab: 5, due: 5, disposed: 6 }[v] || 4;
+    return {
+      yes: true,
+      no: false,
+      station: station,
+      loading: v === 'loading',
+      notfound: v === 'notfound',
+      page: v !== 'loading' && v !== 'notfound',
+      stage: st,
+      stageTag: tag,
+      dot: 'bg-stage-' + st + '-mark',
+      stripe: 'bg-stage-' + st + '-mark',
+      idTone: disposed ? 'text-muted-foreground' : '',
+      track: track,
+      hasPrimary: !disposed,
+      primaryLabel: primary[0],
+      primaryIcon: primary[1],
+      disposed: disposed,
+      conflict: v === 'conflict',
+      inlab: v === 'inlab',
+      due: v === 'due',
+      onShelf: v === 'stored' || v === 'due' || v === 'conflict',
+      retainPlain: v === 'stored' || v === 'inlab' || v === 'conflict',
+      printOff: disposed,
+      correctOff: disposed || station,
+      correctNote: disposed || station,
+      correctDesc: disposed || station ? 'correct-reason' : undefined,
+      printDesc: disposed ? 'print-reason' : undefined,
+      correctReason: station ? 'Corrections need a personal account.' : 'Disposed units can’t be corrected.',
+      programCount: v === 'inlab' ? '2 · 1 open' : '1 · none open',
+      lastPad: v === 'inlab' ? 'pt-3' : '',
+      forty: 40,
+      hundred: 100,
+      eventCount: (events + 2) + ' events'
+    };
+  }
+}
+</script>
+</body>
+</html>
