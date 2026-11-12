@@ -17,9 +17,16 @@ export function personPhotoUrl(userId: string): string {
   return `/api/people/${encodeURIComponent(userId)}/photo`;
 }
 
-/** Up to two initials from a display name, for the fallback ("Pat Example" → "PE"). */
+/**
+ * Up to two initials from a display name, for the fallback ("Pat Example" → "PE"). Words that
+ * don't start with a letter, such as a bracketed suffix ("Pat Example (LAB)") or a number, are
+ * skipped.
+ */
 export function initialsFromName(name: string | null | undefined): string {
-  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  const words = (name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter((word) => /^\p{L}/u.test(word));
   if (words.length === 0) return '?';
   const first = words[0]![0] ?? '';
   const last = words.length > 1 ? (words[words.length - 1]![0] ?? '') : '';

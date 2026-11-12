@@ -963,6 +963,23 @@ The single Inbox shows action requests and notifications together. Notifications
   (`person_photo_owner_not_disabled`). Served only for active people by
   `GET /api/people/:userId/photo`. Proven in `apps/api/src/db/schema-person-photo.test.ts`.
 
+## Undo of a move (STRATA-123, `0041_movement_reversal.sql`)
+
+- An undo never edits or deletes history: it is a new `move` movement event (saved through
+  `MovesService.moveInTransaction`, so the same locks, rules and `storage_unit.moved` audit, with
+  `after.undoOfMovementEventId`; history labels it "Move undone") that takes the unit straight
+  back, linked to the original in **`movement_reversal`** (`original_event_id` primary key,
+  `reversal_event_id` unique, `idempotency_key` unique and equal to the reversal's
+  `client_move_id`, `account_user_id`). Append-only (`movement_history_is_append_only`).
+- `movement_reversal_check` (BEFORE INSERT): both events are saved moves (`_kind_check`); the
+  original changed the location and the reversal goes from its destination back to its origin,
+  for the same unit, from the version it left (`_shape_check`); the same account and LAB person
+  saved both (`_actor_check`); the key is the reversal's client move ID (`_key_check`); undo of an
+  undo is not allowed, and no original is ever a reversal (`_chain_check`).
+- The service locks the unit first (FOR UPDATE), then the previous location (FOR KEY SHARE), and
+  rechecks every guard there; two undos of one move serialise on the unit lock. Proven in
+  `apps/api/src/db/schema-undo.test.ts` and `apps/api/src/undo/undo.integration.test.ts`.
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`

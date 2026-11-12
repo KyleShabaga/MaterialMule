@@ -41,6 +41,10 @@ export const WORK_DOMAINS = [
   'concrete',
   'project',
   'access',
+  /** Concrete HOLDs ("Urgent · Hold"). */
+  'hold',
+  /** Concrete breaks ("In lab · Breaks"). */
+  'breaks',
 ] as const;
 export type WorkDomain = (typeof WORK_DOMAINS)[number];
 export const workDomainSchema = z.enum(WORK_DOMAINS);
@@ -56,6 +60,8 @@ export const WORK_DOMAIN_LABELS: Record<WorkDomain, string> = {
   concrete: 'Concrete',
   project: 'Project',
   access: 'Access',
+  hold: 'Hold',
+  breaks: 'Breaks',
 };
 
 /** "Due · Retention": the visible text of a work-item tag. */

@@ -1210,6 +1210,17 @@ account confirms a conflicted unit's actual location (`location_conflict.resolve
 refused even when a Lab Manager is selected at the station. A queued move is only ever sent by the
 account that scanned it (`captureContext.accountId` must equal the session's account).
 
+**Undo (STRATA-123).** `GET /api/undo/:action/:sourceId` and `POST /api/undo` are `@ActiveUser()`
+(pending and disabled refused at the guard); the handler checks `storage_unit.move` again inside
+its transaction (GET uses the same, so it never offers what POST refuses). A move is undone only
+by the account that saved it, and on a LAB station only for the same picked person
+(`moverUserId`, attribution only, who must still be active staff); within 15 minutes; only while
+the unit is exactly as the move left it, not disposed, approved for disposal or in an open
+location conflict, and the previous location is not retired. Another person's move or an unknown
+ID answers `not_found`. A notification's dismissal is undone by its recipient only (LAB has none),
+as the existing restore. Never undoable: receipt confirmation and issued IDs, disposals, reports,
+destructive tests and approval revocation (the action enum refuses them with 400).
+
 ## Lab test catalogue and testing programs (MM-T23)
 
 | Route                                                              | Policy                                                |

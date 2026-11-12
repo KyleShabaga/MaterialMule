@@ -115,6 +115,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'location_conflict',
       'move_action',
       'movement_event',
+      'movement_reversal',
       'notification',
       'notification_preference',
       'oidc_sign_in_attempt',

@@ -78,6 +78,8 @@ describe('STRATA-58 stage', () => {
     expect(workStageLabel('due', 'retention')).toBe('Due · Retention');
     expect(workStageLabel('draft', 'receipt')).toBe('Draft · Receipt');
     expect(workStageLabel('danger', 'correction')).toBe('Urgent · Correction');
+    expect(workStageLabel('danger', 'hold')).toBe('Urgent · Hold');
+    expect(workStageLabel('lab', 'breaks')).toBe('In lab · Breaks');
   });
 });
 
@@ -267,5 +269,9 @@ describe('STRATA-123 undo and STRATA-52 photos', () => {
     expect(personPhotoUrl('abc')).toBe('/api/people/abc/photo');
     expect(initialsFromName('Pat Example')).toBe('PE');
     expect(initialsFromName('  ')).toBe('?');
+    expect(initialsFromName('Pat Example (LAB)')).toBe('PE');
+    expect(initialsFromName('Riley 2 Sample')).toBe('RS');
+    expect(initialsFromName('(LAB)')).toBe('?');
+    expect(initialsFromName('Émile Ångström')).toBe('ÉÅ');
   });
 });
