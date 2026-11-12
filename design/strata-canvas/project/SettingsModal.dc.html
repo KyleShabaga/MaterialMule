@@ -25,42 +25,48 @@ body{margin:0}
 <section role="dialog" aria-modal="true" aria-labelledby="settings-title" class="bg-background absolute top-[60px] left-[100px] z-50 flex h-[680px] w-[1080px] overflow-hidden rounded-xl border shadow-lg">
 
 <!-- Settings navigation -->
-<nav aria-label="Settings" class="bg-sidebar border-sidebar-border flex w-[264px] shrink-0 flex-col gap-4 overflow-y-auto border-r p-3">
+<nav aria-label="Settings" class="bg-sidebar text-sidebar-foreground border-sidebar-border flex w-64 shrink-0 flex-col overflow-y-auto border-r">
 <h2 id="settings-title" class="sr-only">Settings</h2>
+<div class="p-2">
 <x-import component-from-global-scope="Strata.InputGroup" class-name="bg-background rounded-full">
 <x-import component-from-global-scope="Strata.InputGroupAddon"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import></x-import>
 <x-import component-from-global-scope="Strata.InputGroupInput" placeholder="Search settings" aria-label="Search settings"></x-import>
 </x-import>
-
-<div class="grid gap-0.5">
-<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">You</h3>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><span class="bg-accent text-accent-foreground flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold">AT</span>Profile</a>
-<a href="#" aria-current="page" class="bg-sidebar-accent text-sidebar-accent-foreground ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="sliders-horizontal"></x-import>Preferences</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import>Notifications</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="key-round"></x-import>My access</a>
 </div>
-
-<div class="grid gap-0.5">
-<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">Lab</h3>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="users"></x-import>Staff</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="map-pin"></x-import>Locations</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Printers</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receiving</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import>Lab tests</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="layout-template"></x-import>Templates</a>
+<div class="px-2 py-1">
+<h3 class="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">You</h3>
+<ul class="flex flex-col">
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><span aria-hidden="true" class="bg-accent text-accent-foreground flex size-5 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold">AT</span><span class="truncate">Profile</span></a></li>
+<li><a href="#" aria-current="page" class="bg-sidebar-accent text-sidebar-accent-foreground ring-sidebar-ring flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm font-medium outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="sliders-horizontal"></x-import><span class="truncate">Preferences</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import><span class="truncate">Notifications</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="key-round"></x-import><span class="truncate">My access</span></a></li>
+</ul>
 </div>
-
-<div class="grid gap-0.5">
-<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">Concrete</h3>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="gauge"></x-import>Equipment</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="truck"></x-import>Suppliers</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="calendar-off"></x-import>Holidays</a>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="file-text"></x-import>Report header</a>
+<div class="px-2 py-1">
+<h3 class="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">Lab</h3>
+<ul class="flex flex-col">
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="users"></x-import><span class="truncate">Staff</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="map-pin"></x-import><span class="truncate">Locations</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import><span class="truncate">Printers</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span class="truncate">Receiving</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import><span class="truncate">Lab tests</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="layout-template"></x-import><span class="truncate">Templates</span></a></li>
+</ul>
 </div>
-
-<div class="grid gap-0.5">
-<h3 class="text-muted-foreground px-3 pb-1 text-[13px] font-medium">Admin</h3>
-<a href="#" class="hover:bg-sidebar-accent ring-sidebar-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="activity"></x-import>System status</a>
+<div class="px-2 py-1">
+<h3 class="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">Concrete</h3>
+<ul class="flex flex-col">
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="gauge"></x-import><span class="truncate">Equipment</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="truck"></x-import><span class="truncate">Suppliers</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="calendar-off"></x-import><span class="truncate">Holidays</span></a></li>
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="file-text"></x-import><span class="truncate">Report header</span></a></li>
+</ul>
+</div>
+<div class="px-2 py-1">
+<h3 class="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">Admin</h3>
+<ul class="flex flex-col">
+<li><a href="#" class="text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 w-full items-center gap-2 rounded-md p-2 text-sm outline-hidden focus-visible:ring-2"><x-import component-from-global-scope="Strata.Icon" name="activity"></x-import><span class="truncate">System status</span></a></li>
+</ul>
 </div>
 </nav>
 
