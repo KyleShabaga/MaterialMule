@@ -1055,7 +1055,7 @@ delivery at the door" step (drafts are enough, so "Deliveries waiting" leaves st
     labels**; errors summarised in the bar and inline on their rows.
 - **Done page:** "3 storage units received", each new ID in `unit-id` with its prefix (BKT-, ST-,
   CRE-, CT-), "Sending the labels to the printer…", then "Stick each label on its unit". Next:
-  **Put away** (scan the units, then the shelf) as the primary, Print all labels again, Receive
+  **Put away** (the round 3 Move screen: scan the units and the shelf in either order) as the primary, Print all labels again, Receive
   more. Units not put away show at Receiving until shelved.
 - **Preference** (Settings › Preferences › Receiving): "After confirming a receipt": Show the
   done page (default) / Go straight to Put away.
@@ -1080,6 +1080,59 @@ delivery at the door" step (drafts are enough, so "Deliveries waiting" leaves st
 - **Constraints:** IDs are issued only on confirm, per prefix and year (America/Edmonton), never
   changed or recycled; drafts never get IDs; no individual sample inventory; labels stay as
   printed today; on a LAB station everything records under the picked person.
+
+### Round 3: inventory, moves and scanning (shaped 2026-11-12)
+
+Kyle chose: one Move screen that takes labels in either order (used by Move and by Put away);
+no separate Scan page on desktop (Ctrl K and scan-anywhere cover it; a camera Scan page returns
+with the phone screens); Inventory with stage tabs and filter chips.
+
+- **Job and audience:** anyone finding a unit or a group of units (where is it, what's on
+  retention, what's in the lab); technicians moving units between shelves, the lab and back;
+  the Lab Manager clearing location conflicts.
+- **Inventory** (`/sample-storage`):
+  - **Stage tabs** with counts: All, In storage, In lab, Retention due, Disposed, Conflicts.
+  - The **table tools** (page action Receive as an icon, Filter, Sort, View with Columns, Search
+    at the far right). Filters added from the Filter menu appear as **chips** in a row under the
+    tabs: Project, Test hole, Type, Location, Received (date range), Retention; each chip opens
+    its own picker and has ×; "+ Add filter" ends the row. The Conflicts tab replaces today's
+    Conflict filter.
+  - **Table:** checkbox, ID (mono, stage stripe), project, test hole, type, where (location path),
+    stage tag, received, retain until. Default sort newest received; headings sort; columns can
+    be hidden (ID, project and stage always shown). Rows open the unit drawer (round 1).
+  - **Selection bar** when rows are ticked: "3 selected" with Move, Print labels, Clear.
+  - States: no storage units yet ("Receive samples to add the first." with Receive), no matches
+    ("No storage units match this search and these filters." with Clear filters), loading rows,
+    couldn't load (Try again). Up to tens of thousands of units: server-side search, filters,
+    sort and paging (or virtual scrolling).
+- **Move** (`/sample-storage/move`, also Put away after receiving and Move from a unit or a
+  selection):
+  - "Moved by" (the signed-in or picked person; a LAB station asks first: "Choose who is moving
+    these units first").
+  - **Scan labels in any order:** a shelf label sets the destination ("Moving to Warehouse A ·
+    Bay 2 · Shelf 3", with "Shelf after this move: 14 of 16 places"); unit labels join the
+    batch, each row showing from → to and its stage tag. Scanning another shelf changes the
+    destination for the units scanned after it (the earlier ones keep theirs). Typed IDs work
+    like scans.
+  - **Save moves** (primary) with the count; "All moves saved." on success.
+  - Problems on their row, never blocking the rest: already scanned, no storage unit has this ID,
+    disposed units can't be moved, retired locations can't receive units, and offline: moves are
+    queued on this computer ("Not moved yet", "Needs online lookup" for a unit this computer
+    hasn't seen) and sent when it reconnects; session ended (sign in again, nothing lost).
+- **Scanning on desktop:** a label scanned with no field focused opens that unit or shelf (the
+  drawer over the current list, or the page); with Ctrl K open it searches; Quick actions' Scan
+  opens Ctrl K. There is no Scan page; `/sample-storage/scan` redirects to Inventory with Ctrl K
+  open until the phone screens bring a camera Scan page.
+- **Search results** (`/search`, from Ctrl K "Show all"): results grouped by kind with counts and
+  "Show all in Inventory / the Receiving log / Projects / Concrete": storage units (ID, project,
+  hole, where, stage tag), projects, test holes, receipts, lab programs, concrete sets. "Type
+  what you are looking for." when empty; "Nothing matches." with what was searched and a tip
+  (check the ID or scan again).
+- **Interaction and layout:** stage tabs keep their counts live; chips wrap to a second line;
+  at 1024 px the table drops Received and Retain until first; the Move list keeps the newest
+  scan at the top and announces each result to screen readers.
+- **Constraints:** IDs never change; disposed units can't move; moves record who and when and
+  are enforced on the server; offline moves are queued, never lost; fictional data.
 
 ## Next
 
