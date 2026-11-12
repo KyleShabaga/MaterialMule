@@ -490,6 +490,26 @@ stage).
 - Targets 44 px minimum; phone primaries 56 px; the bottom bar 64 px tall plus the safe area.
 - `forced-colors`: tags and stripes fall back to `CanvasText` borders; the focus ring uses
   `Highlight`.
+- Audit fixes (2026-11-12, after the all-boards audit):
+  - **Red text** uses `text-destructive-text` (`#CE2C31` light, Radix red dark step 11 `#FF9592`
+    dark). `destructive` stays the fill colour only; in dark, `#CE2C31` text was 3.4:1.
+  - **Link-style text** (the `link` button and badge variants, active filter and sort icons, hovered
+    links) uses `link`, never `primary`. `primary` is a fill; as dark text it was 3.3:1.
+  - **One h1 per page.** When the title shows only in the top bar (list pages, Workboard, the Review
+    queue, loading and error states), the shell adds it as a `sr-only` h1. Loading and error states
+    keep the page's h1.
+  - **Settings modal titles are h2**; the page behind keeps its h1. The full Lab admin pages keep
+    their h1.
+  - **No skipped levels:** the report paper's sections are h2 under the page's h1.
+  - **Every control has a name:** `CommandInput` takes its placeholder as `aria-label` unless one is
+    given; locked switches carry their own `aria-label`.
+  - **No reduced-opacity small text.** Counts and quiet rows use `muted-foreground` at full opacity;
+    a repeat scan row is `bg-muted/50`, not faded.
+  - **Bars that float over a scroll area are opaque**, and the area has bottom padding at least the
+    bar's height, so the last row can scroll clear of it.
+  - **No card inside a card.** Inner groups are rows divided by borders, a `border-t` section, or a
+    `bg-muted/50` panel for an inline form or confirm.
+  - **Empty result cells stay blank**; the Status column says why (no runs of em-dashes).
 
 ## Dark theme
 
@@ -507,7 +527,8 @@ The same Radix custom palette's dark scales. Radix lifts accent step 9 to `#555B
 | muted-foreground         | `#62636C`                         | `#B2B3BD`                         |
 | accent                   | `#EEF1FF`                         | `#1D2050`                         |
 | accent-foreground        | `#242471`                         | `#D8E0FF`                         |
-| destructive              | `#CE2C31`                         | `#CE2C31`                         |
+| destructive (fills)      | `#CE2C31`                         | `#CE2C31`                         |
+| destructive-text         | `#CE2C31`                         | `#FF9592`                         |
 | border                   | `#D8D9E0`                         | `#393A40`                         |
 | input                    | `#8B8D98`                         | `#797B86`                         |
 | ring                     | `#21206D`                         | `#9EADFF`                         |

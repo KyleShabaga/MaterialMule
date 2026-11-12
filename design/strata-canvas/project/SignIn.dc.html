@@ -75,7 +75,7 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.Label" html-for="lab-pass">Password</x-import>
 <x-import component-from-global-scope="Strata.Input" id="lab-pass" name="password" type="password" autocomplete="current-password" aria-invalid="{{pwInvalid}}" aria-describedby="lab-pass-error"></x-import>
 <sc-if value="{{sWrong}}" hint-placeholder-val="{{ false }}">
-<p id="lab-pass-error" class="text-destructive flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="circle-alert"></x-import>The username or password is incorrect.</p>
+<p id="lab-pass-error" class="text-destructive-text flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="circle-alert"></x-import>The username or password is incorrect.</p>
 </sc-if>
 </div>
 <x-import component-from-global-scope="Strata.Button" type="submit" size="lg" disabled="{{sPaused}}" class-name="w-full">Sign in as LAB</x-import>

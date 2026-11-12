@@ -155,3 +155,18 @@ The detector agrees:
 4. **[P2] `/impeccable distill`:** flatten the nested cards in Retention, Project overview and Program.
 5. **[P3] `/impeccable clarify`:** trim the em-dashes in the strength report copy.
 6. **`/impeccable polish`:** remove the opacity-reduced small text (R8 tab counts, R6Scan) and do a final pass.
+
+## Fixes applied (2026-11-12, main canvas v90, concrete-and-settings v7)
+All 8 findings were fixed. Then the probe was re-run on all 517 boards.
+- **P1 contrast:** a new `destructive-text` token (`#FF9592` in dark). The `link` button and badge variants and the active filter and sort icons now use `link`. Every contrast failure left is on a disabled control, which is exempt; each one was checked.
+- **h1:** the shell adds an sr-only page h1 where the content has none. Every real page now has exactly one h1. The only boards with no h1 are those with a dialog or drawer open (the page behind is hidden from assistive technology) and bare component boards. No board has more than one h1.
+- **Heading skips:** the report paper's sections are now h2. The probe finds no skips.
+- **Settings modal:** panel titles are now h2.
+- **Unnamed controls:** `CommandInput` takes its placeholder as `aria-label`; the locked switch has its own label. The probe finds no unnamed controls.
+- **Move:** the save bar is opaque. Its scroll area already had 112 px of bottom padding. Disposal scan and Receive put their bars outside the scroll area, so nothing scrolls under them.
+- **Nested cards:**
+  - Retention table boxes no longer have a frame.
+  - On Project overview, the nomination form is now a `border-t` section, the withdraw confirmation is a muted panel, and the Retention coming up boxes are divided rows.
+  - On Program, the pull table has a top border only, and the cancel reason is a muted panel.
+- **Faded text:** small text no longer uses reduced opacity, and the repeat scan row is `bg-muted/50`.
+- **Em-dashes:** empty strength-result cells are blank, and "28 d / —" is now "28 d".

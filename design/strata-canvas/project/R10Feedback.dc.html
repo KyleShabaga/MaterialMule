@@ -43,7 +43,7 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.FieldLabel" html-for="r10-fb-text">What happened</x-import>
 <x-import component-from-global-scope="Strata.Textarea" id="r10-fb-text" rows="{{four}}" placeholder="{{placeholder}}" default-value="{{text}}" aria-invalid="{{invalid}}" aria-describedby="r10-fb-hint" class-name="min-h-28"></x-import>
 <sc-if value="{{showError}}" hint-placeholder-val="{{ false }}">
-<p id="r10-fb-hint" class="text-destructive flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="circle-alert"></x-import>Write a few words about what happened first.</p>
+<p id="r10-fb-hint" class="text-destructive-text flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="circle-alert"></x-import>Write a few words about what happened first.</p>
 </sc-if>
 <sc-if value="{{showHint}}" hint-placeholder-val="{{ true }}">
 <x-import component-from-global-scope="Strata.FieldDescription" id="r10-fb-hint">Never include passwords.</x-import>

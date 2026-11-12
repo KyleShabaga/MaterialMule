@@ -807,7 +807,7 @@ function TableToolbar({
         <S.DropdownMenu>
           {tip(
             filterOn ? "Filter, " + on.length + " on" : "Filter",
-            <S.DropdownMenuTrigger aria-label={filterOn ? "Filter, " + on.length + " on" : "Filter"} className={cn(iconButton, filterOn && "text-primary")}>
+            <S.DropdownMenuTrigger aria-label={filterOn ? "Filter, " + on.length + " on" : "Filter"} className={cn(iconButton, filterOn && "text-link")}>
               <Icon name="list-filter" />
               {filterOn ? <span aria-hidden="true" className="bg-primary absolute top-1.5 right-1.5 size-1.5 rounded-full" /> : null}
             </S.DropdownMenuTrigger>,
@@ -840,7 +840,7 @@ function TableToolbar({
       <S.DropdownMenu>
         {tip(
           "Sort",
-          <S.DropdownMenuTrigger aria-label={"Sort, " + sortName} className={cn(iconButton, sortName !== defaultSort && "text-primary")}>
+          <S.DropdownMenuTrigger aria-label={"Sort, " + sortName} className={cn(iconButton, sortName !== defaultSort && "text-link")}>
             <Icon name="arrow-up-down" />
           </S.DropdownMenuTrigger>,
         )}
@@ -1042,7 +1042,7 @@ function SortHeader({ label, icon, col, by, align }: {
         aria-hidden="true"
         className={cn(
           "size-3.5 shrink-0 transition-opacity duration-100 motion-reduce:transition-none",
-          dir === "none" ? "opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60" : "text-primary opacity-100",
+          dir === "none" ? "opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60" : "text-link opacity-100",
         )}
       />
     </button>
