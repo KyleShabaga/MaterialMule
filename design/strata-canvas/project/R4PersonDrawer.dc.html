@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Person drawer content</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.sc-host:has(> .r4-drawer-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- Person drawer (Team & permissions › People), round 4: Inbox's drawer (PeekSplit) with Close and
+     Previous/Next (a person has no full page). Responsibilities and grants with where each comes from,
+     End grant with a reason, acceptance delegate (lead only), history on this project. Fictional data. -->
+<aside aria-labelledby="pd-name" class="r4-drawer-root bg-background text-foreground flex h-full min-h-0 flex-col font-sans" style="height: 100%;">
+<div class="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Close" title="Close (Esc)"><x-import component-from-global-scope="Strata.Icon" name="chevrons-right"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Separator" orientation="vertical" class-name="mx-1 h-5"></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Previous person" title="Previous (K)"><x-import component-from-global-scope="Strata.Icon" name="chevron-up"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Next person" title="Next (J)"><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<span class="text-muted-foreground ml-auto pr-2 font-mono text-[13px]">2 of 7</span>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+<div class="flex flex-col gap-6">
+
+<div class="flex items-start gap-3"><x-import component-from-global-scope="Strata.Avatar" class-name="size-10 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-sm text-[11px] font-semibold">PE</x-import></x-import><div class="grid min-w-0 gap-0.5"><h2 id="pd-name" class="text-lg font-semibold">Pat Example</h2><p class="text-muted-foreground text-sm">Technician · personal account</p><p class="text-muted-foreground text-[13px]">On <span class="font-mono">DEMO-2601</span> Riverbank investigation</p></div></div>
+
+<section aria-labelledby="pd-resp" class="flex flex-col gap-3"><div class="flex items-baseline justify-between gap-3"><h3 id="pd-resp" class="text-sm font-semibold">Responsibilities</h3></div><x-import component-from-global-scope="Strata.Item" variant="outline" size="sm"><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-56"><x-import component-from-global-scope="Strata.ItemTitle" class-name="flex-wrap">Team member</x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none">Added by Alex Tester on <span class="font-mono whitespace-nowrap">2026-02-03</span>: “Receives and logs the river samples.”</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="sm" class-name="text-muted-foreground">Remove from the team</x-import></x-import></x-import></section>
+
+<section aria-labelledby="pd-grants" class="flex flex-col gap-3"><div class="flex items-baseline justify-between gap-3"><h3 id="pd-grants" class="text-sm font-semibold">Grants</h3></div><x-import component-from-global-scope="Strata.Item" variant="outline" size="sm" class-name="items-start"><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="flex-wrap"><x-import component-from-global-scope="Strata.Badge" variant="secondary" class-name="rounded-full">Acceptance delegate</x-import><span class="text-muted-foreground text-[13px] font-normal">No expiry</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none">Granted by Alex Tester, the lead, on <span class="font-mono whitespace-nowrap">2026-03-10</span>: “Accepts receipts while I'm on site.”</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><sc-if value="{{closed}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">End grant</x-import></sc-if></x-import><sc-if value="{{open}}" hint-placeholder-val="{{ false }}"><div class="bg-muted/50 mt-1 flex w-full flex-col gap-3 rounded-lg border p-3"><p class="text-sm font-semibold">End Pat Example's acceptance delegate grant</p><p class="text-muted-foreground text-[13px]">The grant ends now. Earlier work keeps their name.</p><x-import component-from-global-scope="Strata.Field" data-invalid="true"><x-import component-from-global-scope="Strata.FieldLabel" html-for="pd-reason">Reason (required)</x-import><x-import component-from-global-scope="Strata.Textarea" id="pd-reason" rows="2" placeholder="Say why. It's kept with the change." aria-invalid="true" aria-describedby="pd-reason-err" class-name="min-h-16 text-sm bg-card"></x-import><x-import component-from-global-scope="Strata.FieldError" id="pd-reason-err">Give a reason for ending this grant.</x-import></x-import><div class="flex flex-wrap justify-end gap-2"><x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Cancel</x-import><x-import component-from-global-scope="Strata.Button" size="sm">End grant</x-import></div></div></sc-if></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenu" modal="{{no}}"><x-import component-from-global-scope="Strata.DropdownMenuTrigger" class-name="text-link inline-flex items-center gap-1.5 self-start rounded-sm text-sm font-medium outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"><x-import component-from-global-scope="Strata.Icon" name="plus" class-name="size-4"></x-import>Add a grant</x-import><x-import component-from-global-scope="Strata.DropdownMenuContent" align="start" class-name="w-72"><x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="flex flex-col">Report issuer…<span class="text-muted-foreground text-xs">For one scope, with an expiry. Lead only.</span></span></x-import><x-import component-from-global-scope="Strata.DropdownMenuItem" disabled="{{yes}}"><span class="flex flex-col">Acceptance delegate<span class="text-muted-foreground text-xs">Pat already holds it.</span></span></x-import></x-import></x-import></section>
+
+<section aria-labelledby="pd-delegate" class="flex flex-col gap-3"><div class="flex items-baseline justify-between gap-3"><h3 id="pd-delegate" class="text-sm font-semibold">Acceptance delegate</h3><span class="text-muted-foreground text-[13px]">Lead only</span></div><div class="flex items-start justify-between gap-4 rounded-lg border px-3 py-2.5"><div class="grid gap-0.5"><p class="text-sm">Pat can accept work on your behalf on this project.</p><p class="text-muted-foreground text-[13px]">Only the project's Lead Project Engineer manages acceptance delegates. A reason is asked when you change it.</p></div><x-import component-from-global-scope="Strata.Switch" default-checked="{{yes}}" aria-label="Acceptance delegate on DEMO-2601"></x-import></div></section>
+
+<p class="text-muted-foreground text-[13px]">Pat's job title comes from Microsoft. Job titles grant nothing here.</p>
+
+<section aria-labelledby="pd-history" class="flex flex-col gap-3"><div class="flex items-baseline justify-between gap-3"><h3 id="pd-history" class="text-sm font-semibold">History on this project</h3></div><x-import component-from-global-scope="Strata.ItemGroup" class-name="gap-0 divide-y"><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" class-name="items-start px-0 py-2"><x-import component-from-global-scope="Strata.ItemMedia"><x-import component-from-global-scope="Strata.Avatar" class-name="size-6 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="flex-wrap">Pat Example <span class="font-normal">received 4 units on this project</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none"><span class="font-mono text-[13px]">2026-11-10 10:48 AM</span></x-import></x-import></x-import><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" class-name="items-start px-0 py-2"><x-import component-from-global-scope="Strata.ItemMedia"><x-import component-from-global-scope="Strata.Avatar" class-name="size-6 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">AT</x-import></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="flex-wrap">Alex Tester <span class="font-normal">made Pat an acceptance delegate</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none"><span class="font-mono text-[13px]">2026-03-10 2:05 PM</span></x-import></x-import></x-import><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" class-name="items-start px-0 py-2"><x-import component-from-global-scope="Strata.ItemMedia"><x-import component-from-global-scope="Strata.Avatar" class-name="size-6 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">AT</x-import></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="flex-wrap">Alex Tester <span class="font-normal">added Pat to the team</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none"><span class="font-mono text-[13px]">2026-02-03 9:12 AM</span></x-import></x-import></x-import></x-import></section>
+</div>
+</div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["person","grant"],"default":"person"},"$preview":{"width":520,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'person';
+    return { yes: true, no: false, open: v === 'grant', closed: v !== 'grant' };
+  }
+}
+</script>
+</body>
+</html>

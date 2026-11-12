@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision drawer content (round 6)</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.sc-host:has(> .r6-decide){flex:1 1 0%;min-height:0;height:100%;display:flex;flex-direction:column}
+</style>
+</helmet>
+<!-- Round 6 decision drawer, Inbox's PeekSplit drawer. Opens from Decide on a row, a band, a project, Today or Inbox.
+     The units are listed and all ticked; untick to decide some separately. Three choices, reason required.
+     Leads and admins decide; others send a request to the lead's Inbox. Fictional data only. -->
+<aside aria-labelledby="r6-decide-title" class="r6-decide bg-background text-foreground flex h-full min-h-0 flex-col font-sans">
+<div class="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Close" title="Close (Esc)"><x-import component-from-global-scope="Strata.Icon" name="chevrons-right"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Separator" orientation="vertical" class-name="mx-1 h-5"></x-import>
+<span class="text-muted-foreground text-[13px]">Overdue · <span class="font-mono">DEMO-2610</span></span>
+<span class="text-muted-foreground ml-auto pr-2 font-mono text-[13px]">{{tickedText}}</span>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+<div class="flex flex-col gap-5">
+<div class="grid gap-1">
+<sc-if value="{{request}}" hint-placeholder-val="{{ false }}"><span class="flex"><x-import component-from-global-scope="Strata.Badge" class-name="bg-primary text-primary-foreground rounded-full">Request</x-import></span></sc-if>
+<h2 id="r6-decide-title" class="text-xl font-bold">{{title}}</h2>
+<p class="text-muted-foreground text-sm"><span class="font-mono">DEMO-2610</span> Hillcrest reservoir · Lead Alex Tester</p>
+</div>
+
+<section aria-labelledby="r6-units" class="flex flex-col gap-2">
+<div class="flex items-baseline justify-between gap-3"><h3 id="r6-units" class="text-sm font-semibold">Units</h3><span class="text-muted-foreground text-[13px]">Untick to decide some separately.</span></div>
+<div class="@container overflow-hidden rounded-xl border"><x-import component-from-global-scope="Strata.Table" aria-label="Units in this decision" class-name="table-fixed text-sm"><x-import component-from-global-scope="Strata.TableHeader" class-name="bg-muted"><x-import component-from-global-scope="Strata.TableRow" class-name="hover:bg-transparent"><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground h-9 text-[13px] font-semibold w-10 pl-4"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Include all" default-checked="{{allOn}}"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground h-9 text-[13px] font-semibold">Unit</x-import><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground h-9 text-[13px] font-semibold w-28 @max-[26rem]:hidden">Retain until</x-import><x-import component-from-global-scope="Strata.TableHead" class-name="text-muted-foreground h-9 text-[13px] font-semibold w-28 pr-4 @max-[26rem]:hidden">Minimum</x-import></x-import></x-import><x-import component-from-global-scope="Strata.TableBody"><x-import component-from-global-scope="Strata.TableRow" class-name="h-11 {{u0Row}}"><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 pl-4"><sc-if value="{{u0Box}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Include BKT-2026-000143" default-checked="{{u0On}}"></x-import></sc-if><sc-if value="{{u0Lock}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="BKT-2026-000143 can't go on the disposal list" disabled="{{yes}}"></x-import></sc-if></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-1.5"><span class="grid leading-tight"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">BKT-2026-000143</span><span class="text-muted-foreground font-mono text-[13px] whitespace-normal">TH26-01<span class="@[26rem]:hidden"> · until 2026-11-04 · min 2026-05-04</span><sc-if value="{{u0Note}}" hint-placeholder-val="{{ false }}"><span class="text-destructive-text block font-sans whitespace-normal">Program <span class="font-mono whitespace-nowrap">LP-2026-0011</span> is open</span></sc-if></span></span></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-11-04</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="text-muted-foreground py-0 pr-4 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-05-04</x-import></x-import><x-import component-from-global-scope="Strata.TableRow" class-name="h-11 {{u1Row}}"><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 pl-4"><sc-if value="{{u1Box}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Include BKT-2026-000144" default-checked="{{u1On}}"></x-import></sc-if><sc-if value="{{u1Lock}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="BKT-2026-000144 can't go on the disposal list" disabled="{{yes}}"></x-import></sc-if></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-1.5"><span class="grid leading-tight"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">BKT-2026-000144</span><span class="text-muted-foreground font-mono text-[13px] whitespace-normal">TH26-01<span class="@[26rem]:hidden"> · until 2026-11-04 · min 2026-05-04</span><sc-if value="{{u1Note}}" hint-placeholder-val="{{ false }}"><span class="text-destructive-text block font-sans whitespace-normal">Program <span class="font-mono whitespace-nowrap">LP-2026-0011</span> is open</span></sc-if></span></span></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-11-04</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="text-muted-foreground py-0 pr-4 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-05-04</x-import></x-import><x-import component-from-global-scope="Strata.TableRow" class-name="h-11 {{u2Row}}"><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 pl-4"><sc-if value="{{u2Box}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Include BKT-2026-000145" default-checked="{{u2On}}"></x-import></sc-if><sc-if value="{{u2Lock}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="BKT-2026-000145 can't go on the disposal list" disabled="{{yes}}"></x-import></sc-if></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-1.5"><span class="grid leading-tight"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">BKT-2026-000145</span><span class="text-muted-foreground font-mono text-[13px] whitespace-normal">TH26-02<span class="@[26rem]:hidden"> · until 2026-11-04 · min 2026-05-04</span><sc-if value="{{u2Note}}" hint-placeholder-val="{{ false }}"><span class="text-destructive-text block font-sans whitespace-normal">Program <span class="font-mono whitespace-nowrap">LP-2026-0011</span> is open</span></sc-if></span></span></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-11-04</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="text-muted-foreground py-0 pr-4 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-05-04</x-import></x-import><x-import component-from-global-scope="Strata.TableRow" class-name="h-11 {{u3Row}}"><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 pl-4"><sc-if value="{{u3Box}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Include CRE-2026-000010" default-checked="{{u3On}}"></x-import></sc-if><sc-if value="{{u3Lock}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Checkbox" aria-label="CRE-2026-000010 can't go on the disposal list" disabled="{{yes}}"></x-import></sc-if></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-1.5"><span class="grid leading-tight"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">CRE-2026-000010</span><span class="text-muted-foreground font-mono text-[13px] whitespace-normal">TH26-02<span class="@[26rem]:hidden"> · until 2026-11-04 · min 2026-05-04</span><sc-if value="{{u3Note}}" hint-placeholder-val="{{ false }}"><span class="text-destructive-text block font-sans whitespace-normal">Program <span class="font-mono whitespace-nowrap">LP-2026-0011</span> is open</span></sc-if></span></span></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="py-0 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-11-04</x-import><x-import component-from-global-scope="Strata.TableCell" class-name="text-muted-foreground py-0 pr-4 font-mono text-[13px] tabular-nums @max-[26rem]:hidden">2026-05-04</x-import></x-import></x-import></x-import></div>
+<p class="text-muted-foreground text-[13px]">Retain until is the date now in effect, with extensions. Minimum is the earliest the project's retention allows.</p>
+</section>
+
+<section aria-labelledby="r6-choice" class="flex flex-col gap-2">
+<h3 id="r6-choice" class="text-sm font-semibold">{{choiceHeading}}</h3>
+<x-import component-from-global-scope="Strata.RadioGroup" default-value="{{choice}}" aria-labelledby="r6-choice" class-name="grid gap-2"><x-import component-from-global-scope="Strata.Label" html-for="r6-c-extend" class-name="relative flex cursor-pointer items-start gap-3 rounded-lg border p-3 font-normal hover:bg-accent {{extendCard}}"><x-import component-from-global-scope="Strata.RadioGroupItem" value="extend" id="r6-c-extend" class-name="mt-0.5"></x-import><span class="grid gap-0.5"><span class="flex items-center gap-2 text-sm font-semibold"><x-import component-from-global-scope="Strata.Icon" name="calendar-plus" class-name="text-muted-foreground"></x-import>Extend</span><span class="text-muted-foreground text-[13px]">Keep them longer: add months, or set a new retain-until date.</span></span></x-import><x-import component-from-global-scope="Strata.Label" html-for="r6-c-hold" class-name="relative flex cursor-pointer items-start gap-3 rounded-lg border p-3 font-normal hover:bg-accent {{holdCard}}"><x-import component-from-global-scope="Strata.RadioGroupItem" value="hold" id="r6-c-hold" class-name="mt-0.5"></x-import><span class="grid gap-0.5"><span class="flex items-center gap-2 text-sm font-semibold"><x-import component-from-global-scope="Strata.Icon" name="pause" class-name="text-muted-foreground"></x-import>Place a hold</span><span class="text-muted-foreground text-[13px]">Keep them until a date or until someone releases the hold.</span></span></x-import><sc-if value="{{canDispose}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Label" html-for="r6-c-dispose" class-name="relative flex cursor-pointer items-start gap-3 rounded-lg border p-3 font-normal hover:bg-accent {{disposeCard}}"><x-import component-from-global-scope="Strata.RadioGroupItem" value="dispose" id="r6-c-dispose" class-name="mt-0.5"></x-import><span class="grid gap-0.5"><span class="flex items-center gap-2 text-sm font-semibold"><x-import component-from-global-scope="Strata.Icon" name="list-plus" class-name="text-muted-foreground"></x-import>Add to disposal list</span><span class="text-muted-foreground text-[13px]">Only eligible units can go on it. A lead approves the list before the scan.</span></span></x-import></sc-if></x-import>
+<sc-if value="{{isExtend}}" hint-placeholder-val="{{ true }}"><div class="flex flex-col gap-3 rounded-lg border border-dashed p-3">
+<x-import component-from-global-scope="Strata.RadioGroup" default-value="months" aria-label="How to extend" class-name="flex flex-wrap gap-x-5 gap-y-2"><x-import component-from-global-scope="Strata.Label" class-name="font-normal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="months"></x-import>Add months</x-import><x-import component-from-global-scope="Strata.Label" class-name="font-normal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="date"></x-import>New retain-until date</x-import></x-import>
+<div class="flex flex-wrap items-end gap-3"><x-import component-from-global-scope="Strata.Field" class-name="w-28"><x-import component-from-global-scope="Strata.FieldLabel" html-for="r6-months">Months to add</x-import><x-import component-from-global-scope="Strata.Input" id="r6-months" type="number" default-value="6" class-name="font-mono"></x-import></x-import><p class="text-muted-foreground pb-3 text-[13px]">New retain-until <span class="text-foreground font-mono">2027-05-04</span> for each unit.</p></div>
+</div></sc-if>
+<sc-if value="{{isHold}}" hint-placeholder-val="{{ false }}"><div class="flex flex-col gap-3 rounded-lg border border-dashed p-3">
+<x-import component-from-global-scope="Strata.RadioGroup" default-value="date" aria-label="How long to hold" class-name="flex flex-wrap gap-x-5 gap-y-2"><x-import component-from-global-scope="Strata.Label" class-name="font-normal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="date"></x-import>Until a date</x-import><x-import component-from-global-scope="Strata.Label" class-name="font-normal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="released"></x-import>Until released</x-import></x-import>
+<x-import component-from-global-scope="Strata.Field" class-name="w-44"><x-import component-from-global-scope="Strata.FieldLabel" html-for="r6-hold-until">Hold until</x-import><span class="relative"><x-import component-from-global-scope="Strata.Input" id="r6-hold-until" default-value="2027-03-31" class-name="pr-10 font-mono"></x-import><span class="text-muted-foreground pointer-events-none absolute top-1/2 right-3 -translate-y-1/2"><x-import component-from-global-scope="Strata.Icon" name="calendar"></x-import></span></span></x-import>
+<p class="text-muted-foreground text-[13px]">Held units are never eligible for disposal until the hold ends or is released.</p>
+</div></sc-if>
+<sc-if value="{{isDispose}}" hint-placeholder-val="{{ false }}"><div class="flex flex-col gap-2 rounded-lg border border-dashed p-3 text-[13px]">
+<p class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Icon" name="circle-check" class-name="text-stage-storage-mark"></x-import>3 are eligible: retain-until reached, no hold, programs closed.</p>
+<p class="text-destructive-text flex items-center gap-2"><x-import component-from-global-scope="Strata.Icon" name="circle-alert"></x-import><span><span class="font-mono whitespace-nowrap">CRE-2026-000010</span> can't go on the list until program <span class="font-mono whitespace-nowrap">LP-2026-0011</span> is closed. It stays unticked.</span></p>
+<p class="text-muted-foreground">The list is reversible: anyone can take a unit off it until it's approved. Nothing is disposed until it's scanned out.</p>
+</div></sc-if>
+</section>
+
+<sc-if value="{{reasonOk}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Field"><x-import component-from-global-scope="Strata.FieldLabel" html-for="r6-reason">Reason (required)</x-import><x-import component-from-global-scope="Strata.Textarea" id="r6-reason" default-value="{{reasonText}}" placeholder="Why, in a sentence. It's recorded in each unit's history."></x-import></x-import></sc-if>
+<sc-if value="{{reasonErr}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Field" data-invalid="true"><x-import component-from-global-scope="Strata.FieldLabel" html-for="r6-reason-e">Reason (required)</x-import><x-import component-from-global-scope="Strata.Textarea" id="r6-reason-e" aria-invalid="true" aria-describedby="r6-reason-err" placeholder="Why, in a sentence. It's recorded in each unit's history."></x-import><p id="r6-reason-err" class="text-destructive-text flex items-center gap-1.5 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="size-3.5"></x-import>Give a reason. It's recorded in each unit's history.</p></x-import></sc-if>
+
+<sc-if value="{{request}}" hint-placeholder-val="{{ false }}"><p class="bg-accent text-accent-foreground flex items-start gap-2 rounded-md px-3 py-2 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="inbox" class-name="mt-0.5"></x-import><span>Alex Tester, the project's lead, decides. Your request appears in their Inbox, and you'll see the answer in yours.</span></p></sc-if>
+</div>
+</div>
+<div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t px-6 py-3">
+<x-import component-from-global-scope="Strata.Button" variant="outline">Cancel</x-import><x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="{{primaryIcon}}"></x-import>{{primary}}</x-import>
+</div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["extend","hold","dispose","request"],"default":"extend"},"$preview":{"width":480,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'extend';
+    var request = v === 'request';
+    var choice = v === 'request' ? 'extend' : v;
+    var on = 'border-primary bg-accent dark:bg-muted';
+    var vals = {
+      yes: true, request: request, choice: choice,
+      isExtend: choice === 'extend', isHold: choice === 'hold', isDispose: choice === 'dispose', canDispose: !request,
+      extendCard: choice === 'extend' ? on : '', holdCard: choice === 'hold' ? on : '', disposeCard: choice === 'dispose' ? on : '',
+      title: request ? 'Request hold or extension for 4 units' : 'Decide on 4 units at end of retention',
+      choiceHeading: request ? 'What should happen' : 'Decision',
+      reasonErr: v === 'hold', reasonOk: v !== 'hold',
+      reasonText: { extend: 'Client asked to keep the Hillcrest samples until the design review in spring.', dispose: 'Report issued and accepted; the client needs nothing kept.', request: 'Client may ask for more Atterberg tests on TH26-01 after the review.' }[v] || '',
+      tickedText: v === 'hold' ? '3 of 4 ticked' : v === 'dispose' ? '3 of 4 ticked' : '4 of 4 ticked',
+      allOn: v === 'extend' || v === 'request',
+      primary: { extend: 'Extend 4 units', hold: 'Place a hold on 3 units', dispose: 'Add 3 units to the disposal list', request: 'Send request' }[v],
+      primaryIcon: { extend: 'calendar-plus', hold: 'pause', dispose: 'list-plus', request: 'send' }[v]
+    };
+    for (var i = 0; i < 4; i++) {
+      var off = (v === 'hold' && i === 3);
+      var lock = (v === 'dispose' && i === 3);
+      vals['u' + i + 'On'] = !off && !lock;
+      vals['u' + i + 'Box'] = !lock;
+      vals['u' + i + 'Lock'] = lock;
+      vals['u' + i + 'Note'] = lock;
+      vals['u' + i + 'Row'] = lock ? 'bg-stage-danger-bg/40' : '';
+    }
+    return vals;
+  }
+}
+</script>
+</body>
+</html>

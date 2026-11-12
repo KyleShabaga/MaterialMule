@@ -15,6 +15,7 @@ export default tseslint.config(
       'test-results/**',
       '.claude/**',
       'release/**',
+      'design/strata-ui/**',
     ],
   },
   js.configs.recommended,

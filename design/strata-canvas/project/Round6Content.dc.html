@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Round 6 content: retention and disposal</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.sc-host:has(> .r6-root){flex:1 1 0%;min-height:0;height:100%;display:flex;flex-direction:column}
+html,body{height:100%}
+</style>
+</helmet>
+<!-- Round 6 (retention and disposal) for the shell: SidebarLive routes today="r6-<variant>" here.
+     Retention variants go to R6RetentionContent (which opens R6DecideContent or the unit drawer in a PeekSplit);
+     scan-* variants go to R6ScanContent. Fills its parent and scrolls inside. -->
+<div class="r6-root bg-background text-foreground flex min-h-0 flex-1 flex-col font-sans" style="height: 100%;">
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}"><sc-if value="{{ret}}" hint-placeholder-val="{{ true }}"><div class="flex min-h-0 flex-1 flex-col"><dc-import name="R6RetentionContent" variant="{{retV}}" hint-size="100%,744px"></dc-import></div></sc-if>
+<sc-if value="{{scan}}" hint-placeholder-val="{{ false }}"><div class="flex min-h-0 flex-1 flex-col"><dc-import name="R6ScanContent" variant="{{scanV}}" hint-size="100%,744px"></dc-import></div></sc-if></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["coming","coming-peek","coming-quiet","requester","loading","eligible","list","approved","revoke","approved-failed","approved-none","disposed","decide","decide-hold","decide-dispose","decide-request","scan-start","scan","scan-confirm","scan-done","scan-offline"],"default":"coming"},"station":{"editor":"boolean","default":false},"dark":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'coming';
+    var scan = v.indexOf('scan') === 0;
+    return { dark: !!this.props.dark, ret: !scan, scan: scan, retV: v, scanV: scan ? (v === 'scan' ? 'scan' : v.replace('scan-', '')) : 'scan' };
+  }
+}
+</script>
+</body>
+</html>

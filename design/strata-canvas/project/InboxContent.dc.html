@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inbox content</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<!-- Inbox: every action request and notification in one place. The list fills the page; opening an
+     item slides a resizable peek drawer in from the right (Notion's side peek). Requests: filled
+     "Request" pill and a filled circle-dot. Updates: an outline bell. -->
+<div class="bg-background text-foreground flex flex-col font-sans" style="height: 744px;">
+<h1 class="sr-only">Inbox</h1>
+<sc-if value="{{private}}" hint-placeholder-val="{{ false }}">
+<div class="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+<span class="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="lock" class-name="size-5"></x-import></span>
+<div class="grid max-w-[420px] gap-1">
+<h2 class="text-lg font-semibold">Pat Example's Inbox stays private here</h2>
+<p class="text-muted-foreground text-sm">Pat has chosen not to show their Inbox on shared LAB computers. They can see it on their own computer, or turn it on in Settings, Preferences, Privacy.</p>
+</div>
+<p class="text-muted-foreground text-[13px]">Work at the station is still recorded under Pat's name.</p>
+</div>
+</sc-if>
+<sc-if value="{{notPrivate}}" hint-placeholder-val="{{ true }}">
+<div class="flex shrink-0 flex-wrap items-center gap-3 border-b px-6 py-3">
+<sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
+<p class="bg-accent text-accent-foreground w-full rounded-md px-3 py-2 text-[13px]">Pat Example's Inbox on the LAB station.</p>
+</sc-if>
+<x-import component-from-global-scope="Strata.Tabs" default-value="{{tab}}"><x-import component-from-global-scope="Strata.TabsList"><x-import component-from-global-scope="Strata.TabsTrigger" value="all">All <span class="text-muted-foreground font-mono text-[11px]">6</span></x-import><x-import component-from-global-scope="Strata.TabsTrigger" value="requests">Requests <span class="text-muted-foreground font-mono text-[11px]">{{requestCount}}</span></x-import><x-import component-from-global-scope="Strata.TabsTrigger" value="updates">Updates <span class="text-muted-foreground font-mono text-[11px]">{{updateCount}}</span></x-import><x-import component-from-global-scope="Strata.TabsTrigger" value="done">Done</x-import></x-import></x-import>
+<!-- Table tools (Strata.TableToolbar), Notion style: Mark all read (icon with a tooltip), Filter, Sort, View, and Search at the far right; opening Search grows it to the left and pushes the others left. -->
+<div class="ml-auto flex items-center">
+<x-import component-from-global-scope="Strata.TableToolbar" placeholder="Search Inbox…" filters="Unread only|Waiting on me|About my requests" sorts="Newest first|Oldest first|Requests first" views="One stream|Grouped|Table" columns="{{tableColumns}}" view="{{viewLabel}}" search-open="{{searchOpen}}">
+<x-import component-from-global-scope="Strata.Tooltip"><x-import component-from-global-scope="Strata.TooltipTrigger" aria-label="Mark all read" class-name="text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex size-9 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]"><x-import component-from-global-scope="Strata.Icon" name="check-check"></x-import></x-import><x-import component-from-global-scope="Strata.TooltipContent" side="bottom">Mark all read</x-import></x-import>
+</x-import>
+</div>
+</div>
+<sc-if value="{{peekOpen}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.PeekSplit" peek-size="44%">
+<div>
+<sc-if value="{{showStream}}" hint-placeholder-val="{{ true }}">
+<ul class="divide-y" aria-label="Inbox, newest first">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Today</li><li><button type="button" class="{{sel_r1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Correction</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Correct a hole summary</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">BKT-2026-000019</span> · <span class="font-mono text-[13px]">DEMO-2601</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_r2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Close a program</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">1 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Close lab program</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>Stored · Retention</x-import><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Retention extension approved</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Sam Sample</span>
+</span>
+</button></li>
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Tuesday</li><li><button type="button" class="{{sel_r3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Retention</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Decide on 4 units at end of retention</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2610</span> · <span class="font-mono text-[13px]">BKT-2026-000143</span> +3 · Material Mule</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Returned for correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report returned</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2616</span> · Set 4 · Pat Example</span>
+</span>
+</button></li>
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Monday</li><li><button type="button" class="{{sel_u3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft"><span class="bg-stage-draft-mark size-1.5 rounded-full"></span>Draft · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Mon</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report ready to submit</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2618</span> · Set 2 · Material Mule</span>
+</span>
+</button></li>
+</ul>
+</sc-if>
+<sc-if value="{{showGrouped}}" hint-placeholder-val="{{ false }}">
+<ul class="divide-y" aria-label="Inbox, grouped">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Needs action · 3</li><li><button type="button" class="{{sel_r1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Correction</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Correct a hole summary</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">BKT-2026-000019</span> · <span class="font-mono text-[13px]">DEMO-2601</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_r2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Close a program</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">1 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Close lab program</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_r3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Retention</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Decide on 4 units at end of retention</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2610</span> · <span class="font-mono text-[13px]">BKT-2026-000143</span> +3 · Material Mule</span>
+</span>
+</button></li>
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Updates · 3</li><li><button type="button" class="{{sel_u1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>Stored · Retention</x-import><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Retention extension approved</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Returned for correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report returned</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2616</span> · Set 4 · Pat Example</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft"><span class="bg-stage-draft-mark size-1.5 rounded-full"></span>Draft · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Mon</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report ready to submit</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2618</span> · Set 2 · Material Mule</span>
+</span>
+</button></li>
+</ul>
+</sc-if>
+<sc-if value="{{showTable}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Table" aria-label="Inbox, table" class-name="group/table table-fixed border-y text-[13px] {{stationRows}}"><x-import component-from-global-scope="Strata.TableHeader" class-name="bg-background sticky top-0 z-10"><x-import component-from-global-scope="Strata.TableRow" class-name="group/row h-8 border-b-0 hover:bg-transparent"><x-import component-from-global-scope="Strata.TableHead" class-name="w-10 h-8 pl-5 pr-0"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select all" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="w-9 pl-2 h-8 text-muted-foreground text-[13px] font-medium"><span class="sr-only">Task type</span></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} w-44 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="task"><x-import component-from-global-scope="Strata.SortHeader" label="Task" icon="tag" col="2"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="title"><x-import component-from-global-scope="Strata.SortHeader" label="Title" icon="type" col="3"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="@max-[30rem]:hidden w-32 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="job-number"><x-import component-from-global-scope="Strata.SortHeader" label="Job number" icon="folder" col="4"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} in-data-[hide-record]:hidden w-40 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="record"><x-import component-from-global-scope="Strata.SortHeader" label="Record" icon="hash" col="5"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} in-data-[hide-from]:hidden w-36 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="from"><x-import component-from-global-scope="Strata.SortHeader" label="From" icon="user" col="6"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} in-data-[hide-received]:hidden w-32 pr-6 text-right h-8 text-muted-foreground text-[13px] font-medium border-b border-border" data-col="received"><x-import component-from-global-scope="Strata.SortHeader" label="Received" icon="clock" col="7" by="order" align="right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableBody"><x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_r1}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-due-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Correct a hole summary" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Request · Correction</span><span title="Request · Correction" class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Due. </span><span class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4 font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate">Correct a hole summary</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2601</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="font-mono text-[13px]">BKT-2026-000019</span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><span class="truncate">Sam Sample</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">12 min</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_r2}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-due-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Close lab program" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Request · Close a program</span><span title="Request · Close a program" class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Due. </span><span class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4 font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Close a program</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate">Close lab program</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2612</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="font-mono text-[13px]">LP-2026-0007</span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><span class="truncate">Sam Sample</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">1 h</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_u1}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Retention extension approved" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Update · Your request was decided</span><span title="Update · Your request was decided" class="text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Stored. </span><span class="text-muted-foreground text-[11px] font-semibold">Update</span><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate">Retention extension approved</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2605</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="text-muted-foreground">—</span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><span class="truncate">Sam Sample</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">2 h</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_r3}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-due-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Decide on 4 units at end of retention" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Request · Retention</span><span title="Request · Retention" class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Due. </span><span class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4 font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Retention</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span class=" truncate">Decide on 4 units at end of retention</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2610</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="font-mono text-[13px]">BKT-2026-000143</span> +3</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-primary text-primary-foreground text-[11px] font-semibold">MM</x-import></x-import><span class="truncate">Material Mule</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">Tue</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_u2}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Field report returned" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Update · Returned for correction</span><span title="Update · Returned for correction" class="text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Urgent. </span><span class="text-muted-foreground text-[11px] font-semibold">Update</span><span class="text-muted-foreground truncate text-[13px]">Returned for correction</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span class=" truncate">Field report returned</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2616</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border">Set 4</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><span class="truncate">Pat Example</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">Tue</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_u3}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Field report ready to submit" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Update · Ready to submit</span><span title="Update · Ready to submit" class="text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Draft. </span><span class="text-muted-foreground text-[11px] font-semibold">Update</span><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span class=" truncate">Field report ready to submit</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2618</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border">Set 2</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-primary text-primary-foreground text-[11px] font-semibold">MM</x-import></x-import><span class="truncate">Material Mule</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">Mon</x-import></x-import></x-import></x-import>
+</sc-if>
+<sc-if value="{{showRequestsEmpty}}" hint-placeholder-val="{{ false }}">
+<div class="flex flex-col items-center gap-2 px-6 py-16 text-center">
+<span class="bg-stage-closed-bg text-stage-closed-fg flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="size-5"></x-import></span>
+<p class="text-sm font-medium">Nothing is waiting on you.</p><p class="text-muted-foreground text-[13px]">Requests sent to you for action will show up here.</p>
+</div>
+</sc-if>
+<sc-if value="{{showUpdatesRead}}" hint-placeholder-val="{{ false }}">
+<div class="flex flex-col items-center gap-2 px-6 py-16 text-center">
+<span class="bg-stage-closed-bg text-stage-closed-fg flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="size-5"></x-import></span>
+<p class="text-sm font-medium">You have read every notification.</p><p class="text-muted-foreground text-[13px]">Read updates stay in Done for 90 days.</p>
+</div>
+</sc-if>
+</div>
+<div class="h-full">
+<aside aria-label="Selected item" class="bg-background flex h-full flex-col">
+<div class="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Close" title="Close (Esc)"><x-import component-from-global-scope="Strata.Icon" name="chevrons-right"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open as full page" title="Open as full page"><x-import component-from-global-scope="Strata.Icon" name="maximize-2"></x-import></x-import>
+<span aria-hidden="true" class="bg-border mx-1 h-5 w-px"></span>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Previous item" title="Previous (K)"><x-import component-from-global-scope="Strata.Icon" name="chevron-up"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Next item" title="Next (J)"><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<span class="text-muted-foreground ml-auto pr-2 font-mono text-[13px]">{{position}}</span>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+<sc-if value="{{showRequest}}" hint-placeholder-val="{{ true }}">
+<article aria-labelledby="detail-title" class="flex flex-col gap-6">
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground text-sm">Correction</span></div>
+<h2 id="detail-title" class="text-2xl font-semibold tracking-tight">Correct a hole summary</h2>
+<p class="text-muted-foreground text-sm">From Sam Sample · 12 min ago · waiting on you</p>
+</div>
+<div class="bg-card rounded-xl border p-5">
+<dl class="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Storage unit</dt><dd><span class="font-mono text-[13px]">BKT-2026-000019</span></dd>
+<dt class="text-muted-foreground">Project</dt><dd><span class="font-mono text-[13px]">DEMO-2601</span> · Riverbank</dd>
+<dt class="text-muted-foreground">Test hole</dt><dd><span class="font-mono text-[13px]">TH26-01</span></dd>
+<dt class="text-muted-foreground">Asked</dt><dd>The depth should read 0.5 to 1.5 m, not 0.5 to 1.0 m.</dd>
+</dl>
+</div>
+<div class="flex flex-wrap gap-2">
+<x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="pencil"></x-import>Make the correction</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline">Open the unit</x-import>
+</div>
+<p class="text-muted-foreground text-[13px]">This request closes on its own when the correction is saved.</p>
+<section aria-labelledby="history" class="flex flex-col gap-3 border-t pt-5">
+<h3 id="history" class="text-sm font-semibold">History</h3>
+<ol class="flex flex-col gap-2 text-sm">
+<li class="grid grid-cols-[5.5rem_1fr] gap-3"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap">Today 10:02</span><span>Sam Sample sent this to you</span></li>
+<li class="grid grid-cols-[5.5rem_1fr] gap-3"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap">Today 9:40</span><span>Pat Example received the bucket</span></li>
+</ol>
+</section>
+</article>
+</sc-if>
+<sc-if value="{{showUpdate}}" hint-placeholder-val="{{ false }}">
+<article aria-labelledby="detail-title-u" class="flex flex-col gap-6">
+<div class="flex flex-col gap-3">
+<div class="text-muted-foreground flex items-center gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import>Update · Your request was decided</div>
+<h2 id="detail-title-u" class="text-2xl font-semibold tracking-tight">Retention extension approved</h2>
+<p class="text-muted-foreground text-sm">From Sam Sample · 2 h ago</p>
+</div>
+<div class="bg-card rounded-xl border p-5 text-sm"><p>Sam Sample approved your request to keep the storage units on <span class="font-mono text-[13px]">DEMO-2605</span> for 6 more months.</p></div>
+<div class="flex flex-wrap gap-2">
+<x-import component-from-global-scope="Strata.Button" variant="outline">Open retention</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost"><x-import component-from-global-scope="Strata.Icon" name="archive"></x-import>Dismiss</x-import>
+</div>
+</article>
+</sc-if>
+</div>
+</aside>
+</div>
+</x-import>
+</sc-if>
+<sc-if value="{{peekClosed}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto">
+<sc-if value="{{showStream}}" hint-placeholder-val="{{ true }}">
+<ul class="divide-y" aria-label="Inbox, newest first">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Today</li><li><button type="button" class="{{sel_r1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Correction</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Correct a hole summary</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">BKT-2026-000019</span> · <span class="font-mono text-[13px]">DEMO-2601</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_r2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Close a program</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">1 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Close lab program</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>Stored · Retention</x-import><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Retention extension approved</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Sam Sample</span>
+</span>
+</button></li>
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Tuesday</li><li><button type="button" class="{{sel_r3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Retention</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Decide on 4 units at end of retention</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2610</span> · <span class="font-mono text-[13px]">BKT-2026-000143</span> +3 · Material Mule</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Returned for correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report returned</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2616</span> · Set 4 · Pat Example</span>
+</span>
+</button></li>
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Monday</li><li><button type="button" class="{{sel_u3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft"><span class="bg-stage-draft-mark size-1.5 rounded-full"></span>Draft · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Mon</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report ready to submit</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2618</span> · Set 2 · Material Mule</span>
+</span>
+</button></li>
+</ul>
+</sc-if>
+<sc-if value="{{showGrouped}}" hint-placeholder-val="{{ false }}">
+<ul class="divide-y" aria-label="Inbox, grouped">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Needs action · 3</li><li><button type="button" class="{{sel_r1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Correction</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Correct a hole summary</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">BKT-2026-000019</span> · <span class="font-mono text-[13px]">DEMO-2601</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_r2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Close a program</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">1 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Close lab program</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_r3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Retention</x-import><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Decide on 4 units at end of retention</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2610</span> · <span class="font-mono text-[13px]">BKT-2026-000143</span> +3 · Material Mule</span>
+</span>
+</button></li>
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Updates · 3</li><li><button type="button" class="{{sel_u1}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>Stored · Retention</x-import><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span>
+<span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate text-sm">Retention extension approved</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Sam Sample</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u2}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Returned for correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report returned</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2616</span> · Set 4 · Pat Example</span>
+</span>
+</button></li><li><button type="button" class="{{sel_u3}} relative hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
+<span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
+<span class="grid min-w-0 flex-1 gap-0.5">
+<span class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft"><span class="bg-stage-draft-mark size-1.5 rounded-full"></span>Draft · Concrete</x-import><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Mon</span></span>
+<span class="flex items-center gap-2"><span class=" truncate text-sm">Field report ready to submit</span></span>
+<span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2618</span> · Set 2 · Material Mule</span>
+</span>
+</button></li>
+</ul>
+</sc-if>
+<sc-if value="{{showTable}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Table" aria-label="Inbox, table" class-name="group/table table-fixed border-y text-[13px] {{stationRows}}"><x-import component-from-global-scope="Strata.TableHeader" class-name="bg-background sticky top-0 z-10"><x-import component-from-global-scope="Strata.TableRow" class-name="group/row h-8 border-b-0 hover:bg-transparent"><x-import component-from-global-scope="Strata.TableHead" class-name="w-10 h-8 pl-5 pr-0"><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select all" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="w-9 pl-2 h-8 text-muted-foreground text-[13px] font-medium"><span class="sr-only">Task type</span></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} w-44 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="task"><x-import component-from-global-scope="Strata.SortHeader" label="Task" icon="tag" col="2"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="title"><x-import component-from-global-scope="Strata.SortHeader" label="Title" icon="type" col="3"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="@max-[30rem]:hidden w-32 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="job-number"><x-import component-from-global-scope="Strata.SortHeader" label="Job number" icon="folder" col="4"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} in-data-[hide-record]:hidden w-40 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="record"><x-import component-from-global-scope="Strata.SortHeader" label="Record" icon="hash" col="5"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} in-data-[hide-from]:hidden w-36 h-8 text-muted-foreground text-[13px] font-medium border-r border-border border-b" data-col="from"><x-import component-from-global-scope="Strata.SortHeader" label="From" icon="user" col="6"></x-import></x-import><x-import component-from-global-scope="Strata.TableHead" class-name="{{wideOnly}} in-data-[hide-received]:hidden w-32 pr-6 text-right h-8 text-muted-foreground text-[13px] font-medium border-b border-border" data-col="received"><x-import component-from-global-scope="Strata.SortHeader" label="Received" icon="clock" col="7" by="order" align="right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.TableBody"><x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_r1}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-due-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Correct a hole summary" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Request · Correction</span><span title="Request · Correction" class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Due. </span><span class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4 font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate">Correct a hole summary</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2601</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="font-mono text-[13px]">BKT-2026-000019</span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><span class="truncate">Sam Sample</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">12 min</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_r2}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-due-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Close lab program" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Request · Close a program</span><span title="Request · Close a program" class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Due. </span><span class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4 font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Close a program</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate">Close lab program</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2612</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="font-mono text-[13px]">LP-2026-0007</span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><span class="truncate">Sam Sample</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">1 h</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_u1}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Retention extension approved" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Update · Your request was decided</span><span title="Update · Your request was decided" class="text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Stored. </span><span class="text-muted-foreground text-[11px] font-semibold">Update</span><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="font-semibold truncate">Retention extension approved</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2605</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="text-muted-foreground">—</span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">SS</x-import></x-import><span class="truncate">Sam Sample</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">2 h</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_r3}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-due-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Decide on 4 units at end of retention" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Request · Retention</span><span title="Request · Retention" class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Due. </span><span class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4 font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Retention</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span class=" truncate">Decide on 4 units at end of retention</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2610</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border"><span class="font-mono text-[13px]">BKT-2026-000143</span> +3</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-primary text-primary-foreground text-[11px] font-semibold">MM</x-import></x-import><span class="truncate">Material Mule</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">Tue</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_u2}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Field report returned" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Update · Returned for correction</span><span title="Update · Returned for correction" class="text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Urgent. </span><span class="text-muted-foreground text-[11px] font-semibold">Update</span><span class="text-muted-foreground truncate text-[13px]">Returned for correction</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span class=" truncate">Field report returned</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2616</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border">Set 4</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><span class="truncate">Pat Example</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">Tue</x-import></x-import>
+<x-import component-from-global-scope="Strata.TableRow" class-name="group/row hover:bg-accent h-7 cursor-pointer {{sel_u3}}"><x-import component-from-global-scope="Strata.TableCell" class-name="relative w-10 py-0 pl-5 pr-0"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-1 bottom-1 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.Checkbox" aria-label="Select Field report ready to submit" class-name="group-hover/row:opacity-100 opacity-0 transition-opacity duration-100 ease-out motion-reduce:transition-none focus-visible:opacity-100 data-[state=checked]:opacity-100 group-has-[[data-state=checked]]/table:opacity-100"></x-import></x-import><x-import component-from-global-scope="Strata.TableCell" class-name="w-9 py-0 pl-2"><span class="{{peekSr}}">Update · Ready to submit</span><span title="Update · Ready to submit" class="text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3"></x-import></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} py-0 border-r border-border"><span class="flex items-center gap-2"><span class="sr-only">Draft. </span><span class="text-muted-foreground text-[11px] font-semibold">Update</span><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="max-w-0 py-0 border-r border-border"><span class="flex items-center gap-2"><span class=" truncate">Field report ready to submit</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="@max-[30rem]:hidden py-0 border-r border-border font-mono text-[13px]">DEMO-2618</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-record]:hidden text-muted-foreground truncate py-0 border-r border-border">Set 2</x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-from]:hidden max-w-0 text-muted-foreground py-0 border-r border-border"><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-primary text-primary-foreground text-[11px] font-semibold">MM</x-import></x-import><span class="truncate">Material Mule</span></span></x-import>
+<x-import component-from-global-scope="Strata.TableCell" class-name="{{wideOnly}} in-data-[hide-received]:hidden text-muted-foreground py-0 pr-6 text-right font-mono text-[13px]">Mon</x-import></x-import></x-import></x-import>
+</sc-if>
+<sc-if value="{{showRequestsEmpty}}" hint-placeholder-val="{{ false }}">
+<div class="flex flex-col items-center gap-2 px-6 py-16 text-center">
+<span class="bg-stage-closed-bg text-stage-closed-fg flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="size-5"></x-import></span>
+<p class="text-sm font-medium">Nothing is waiting on you.</p><p class="text-muted-foreground text-[13px]">Requests sent to you for action will show up here.</p>
+</div>
+</sc-if>
+<sc-if value="{{showUpdatesRead}}" hint-placeholder-val="{{ false }}">
+<div class="flex flex-col items-center gap-2 px-6 py-16 text-center">
+<span class="bg-stage-closed-bg text-stage-closed-fg flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="size-5"></x-import></span>
+<p class="text-sm font-medium">You have read every notification.</p><p class="text-muted-foreground text-[13px]">Read updates stay in Done for 90 days.</p>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stream-request","stream-update","stream-closed","grouped","table","table-request","table-search","requests-empty","updates-read","private"],"default":"stream-request"},"station":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'stream-request';
+    var selected = (v === 'stream-update') ? 'u1' : (v === 'stream-request' || v === 'grouped' || v === 'table-request') ? 'r1' : '';
+    var view = (v === 'grouped') ? 'grouped' : (v === 'table' || v === 'table-request' || v === 'table-search') ? 'table' : 'stream';
+    var vals = {
+      yes: true,
+      station: !!this.props.station,
+      private: v === 'private',
+      notPrivate: v !== 'private',
+      tab: v === 'requests-empty' ? 'requests' : v === 'updates-read' ? 'updates' : 'all',
+      view: view,
+      peekSr: selected !== '' ? 'sr-only' : 'hidden',
+      stationRows: this.props.station ? "[&_tbody_tr]:h-11" : "",
+      tableColumns: view === 'table' ? 'Task!|Title!|Job number!|Record|From|Received' : '',
+      viewLabel: view === 'grouped' ? 'Grouped' : view === 'table' ? 'Table' : 'One stream',
+      searchOpen: v === 'table-search',
+      requestCount: v === 'requests-empty' ? '0' : '3',
+      updateCount: v === 'updates-read' ? '0' : '3',
+      showStream: view === 'stream' && v !== 'requests-empty' && v !== 'updates-read',
+      showGrouped: view === 'grouped',
+      showTable: view === 'table',
+      showRequestsEmpty: v === 'requests-empty',
+      showUpdatesRead: v === 'updates-read',
+      peekOpen: selected !== '',
+      wideOnly: selected !== '' ? 'hidden' : '',
+      peekClosed: selected === '',
+      showRequest: selected === 'r1',
+      showUpdate: selected === 'u1',
+      position: selected === 'u1' ? '3 of 6' : '1 of 6'
+    };
+    ['r1', 'r2', 'r3', 'u1', 'u2', 'u3'].forEach(function (id) { vals['sel_' + id] = id === selected ? 'bg-accent dark:bg-muted' : ''; });
+    return vals;
+  }
+}
+</script>
+</body>
+</html>
