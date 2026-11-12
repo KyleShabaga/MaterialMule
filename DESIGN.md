@@ -739,10 +739,19 @@ notification. Kyle chose:
 - a view the person can change, on the page and in Settings;
 - the picked person's Inbox on the LAB station.
 
-- **Layout:** the list on the left (400 px) and the selected item open on the right. In the
-  app, arrow keys or J/K move through the list and Enter takes the main action.
-- **Header:** tabs All, Requests, Updates and Done, each with a count. Then View (One stream or
-  Grouped, `Select`) and Mark all read.
+- **Layout, like a Notion side peek** (Kyle, 2026-11-11): the list fills the page. Opening an
+  item slides a **drawer** in from the right with its details.
+  - **Resizable:** drag the divider or use the arrow keys. It starts at 44 % of the width and can
+    be 30 to 65 %. Built with shadcn `Resizable` (react-resizable-panels), wrapped as
+    `Strata.PeekSplit` because the library needs its panels as direct children.
+  - **Drawer toolbar:** Close (`chevrons-right`, Esc), Open as full page (`maximize-2`), Previous
+    and Next (`chevron-up` and `chevron-down`, K and J), and "1 of 6".
+  - With nothing open, the list uses the full width.
+- **Header:** tabs All, Requests, Updates and Done, each with a count. Then View (One stream,
+  Grouped or Table, `Select`) and Mark all read.
+- **Table** (compact, 36 px rows; shadcn `Table`): Kind (icon, then the Request pill or "Update",
+  then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
+  drawer is open, Record and From hide so the title keeps its room. The selected row has `accent`.
 - **One stream,** newest first, under day headings (Today, Tuesday, Monday…), with requests above
   updates on the same day. **Grouped:** "Needs action · 3" first, then "Updates · 3".
 - **Telling them apart, never by colour alone:**
@@ -752,16 +761,16 @@ notification. Kyle chose:
     decided, Returned for correction, Ready to submit).
   - Unread rows have a dot, "Unread" for screen readers and a bold title. The selected row has
     `accent`.
-- **Detail, a request:** the pill and kind; the title; "From Sam Sample · 12 min ago · waiting on
+- **Drawer, a request:** the pill and kind; the title; "From Sam Sample · 12 min ago · waiting on
   you"; the record as a short definition list with IDs in mono; the main action (Make the
   correction) and Open the unit; "This request closes on its own when the correction is saved.";
   History.
-- **Detail, an update:** the bell and kind; the title; who it's from; a sentence; Open retention
+- **Drawer, an update:** the bell and kind; the title; who it's from; a sentence; Open retention
   and Dismiss.
 - **Empty states, in the app's wording:** "Nothing is waiting on you." (Requests); "You have read
   every notification." (Updates); with nothing selected, "Select an item to see it here."
 - **View setting:** Settings › Preferences gains an "Inbox" section with "Inbox view" (One stream
-  / Grouped), the same choice as on the page.
+  / Grouped / Table), the same choice as on the page.
 - **LAB station:** each person chooses whether their Inbox opens on shared LAB computers (Kyle,
   2026-11-11). Anyone at the station can see it while that person is picked, because there's no
   per-person password.
@@ -775,9 +784,12 @@ notification. Kyle chose:
 - **Built as** `InboxContent.dc.html` (`variant`, `station` tweaks). In the shell, `SidebarLive`'s
   page tweak takes `inbox-*` values: the top bar title reads "Inbox" and the sidebar marks Inbox
   as the current page. Boards:
-  - a request open;
-  - an update open;
+  - a request open in the drawer;
+  - an update open in the drawer;
+  - nothing open (the list at full width);
   - Grouped;
+  - Table;
+  - Table with a request open (Record and From hidden);
   - Requests empty;
   - Updates all read;
   - the LAB station, shown (the person turned it on);

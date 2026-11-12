@@ -32,6 +32,7 @@ import * as Pagination from "@/components/ui/pagination"
 import * as Popover from "@/components/ui/popover"
 import * as Progress from "@/components/ui/progress"
 import * as RadioGroup from "@/components/ui/radio-group"
+import * as Resizable from "@/components/ui/resizable"
 import * as ScrollArea from "@/components/ui/scroll-area"
 import * as Select from "@/components/ui/select"
 import * as Separator from "@/components/ui/separator"
@@ -101,7 +102,7 @@ function withRefs<T extends Record<string, unknown>>(mod: T): T {
 const modules = [
   Accordion, Alert, AlertDialog, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Calendar, Card,
   Checkbox, Collapsible, Command, Dialog, Dropdown, Empty, Field, HoverCard, Input, InputGroup, Item,
-  Kbd, Label, Pagination, Popover, Progress, RadioGroup, ScrollArea, Select, Separator, Sheet,
+  Kbd, Label, Pagination, Popover, Progress, RadioGroup, Resizable, ScrollArea, Select, Separator, Sheet,
   Sidebar, Skeleton, Sonner, Spinner, Switch, Table, Tabs, Textarea, Toggle, ToggleGroup, Tooltip,
 ] as Record<string, unknown>[]
 
@@ -296,6 +297,30 @@ function NavSearch() {
   )
 }
 
+/**
+ * A list and a resizable peek drawer on the right, like Notion's side peek. The first child is the
+ * list, the second the drawer. Built here because react-resizable-panels finds its panels as
+ * direct children, which the canvas's wrapper elements would hide. Drag the divider, or focus it
+ * and use the arrow keys.
+ */
+function PeekSplit({ children, peekSize = "44%", minPeek = "30%", maxPeek = "65%" }: {
+  children?: React.ReactNode; peekSize?: string; minPeek?: string; maxPeek?: string
+}) {
+  const parts = React.Children.toArray(children).filter((c) => typeof c !== "string" || c.trim() !== "")
+  return (
+    <S.ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+      <S.ResizablePanel id="peek-list" minSize="35%">
+        <div className="h-full overflow-y-auto">{parts[0]}</div>
+      </S.ResizablePanel>
+      <S.ResizableHandle withHandle aria-label="Resize the drawer" />
+      <S.ResizablePanel id="peek-drawer" defaultSize={peekSize} minSize={minPeek} maxSize={maxPeek}>
+        {parts[1]}
+      </S.ResizablePanel>
+    </S.ResizablePanelGroup>
+  )
+}
+
+Strata.PeekSplit = PeekSplit
 Strata.NavCollapsible = NavCollapsible
 Strata.NavFlyout = NavFlyout
 Strata.NavSearch = NavSearch

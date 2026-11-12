@@ -29,6 +29,9 @@ the redesign's wave 0. Not an npm workspace; excluded from ESLint and Prettier.
   seam; give its items `class-name` overrides (first item
   `data-[spacing=0]:last:rounded-r-none`, the next
   `data-[spacing=0]:first:rounded-l-none data-[spacing=0]:data-[variant=outline]:first:border-l-0`).
+- Libraries that find their parts as direct DOM children break under the same wrappers.
+  `Resizable` (react-resizable-panels) is one: a board can't nest `ResizablePanel`s itself, so use
+  `Strata.PeekSplit` (its first child is the list, its second the drawer).
 - A `style` attribute may hold only one `{{…}}` hole; with two, the runtime drops the style.
 - Wrap each board in `Strata.Theme` (dark mode, and the TooltipProvider that Tooltip needs).
 - New Tailwind classes in a board only exist after a rebuild (`npm run build`).

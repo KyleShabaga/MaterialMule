@@ -385,7 +385,7 @@
       "y": 0,
       "w": 1280,
       "h": 800,
-      "title": "Inbox — one stream, a request open",
+      "title": "Inbox — one stream, a request open in the drawer",
       "page": "inbox",
       "is_interactive": true
     },
@@ -394,7 +394,7 @@
       "y": 0,
       "w": 1280,
       "h": 800,
-      "title": "Inbox — one stream, an update open",
+      "title": "Inbox — one stream, an update open in the drawer",
       "page": "inbox",
       "is_interactive": true
     },
@@ -458,6 +458,33 @@
       "w": 1280,
       "h": 800,
       "title": "Inbox — LAB station, Pat keeps it private",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxClosed.dc.html": {
+      "x": 0,
+      "y": 2760,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — one stream, nothing open (full width)",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxTable.dc.html": {
+      "x": 1360,
+      "y": 2760,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — Table view (compact)",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxTablePeek.dc.html": {
+      "x": 2720,
+      "y": 2760,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — Table view, a request open in the drawer",
       "page": "inbox",
       "is_interactive": true
     }
@@ -623,7 +650,7 @@
       "w": 420,
       "fill": "yellow",
       "page": "inbox",
-      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. List and detail (like Linear). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream or Grouped, here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: each person chooses, in Settings > Preferences > Privacy, whether their Inbox opens on shared LAB computers (off by default). Off: the station shows that it stays private, and work is still recorded under their name."
+      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. The list fills the page; opening an item slides a resizable drawer in from the right (Notion's side peek: Close, Open as full page, Previous, Next). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream, Grouped or Table (compact), here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: each person chooses, in Settings > Preferences > Privacy, whether their Inbox opens on shared LAB computers (off by default). Off: the station shows that it stays private, and work is still recorded under their name."
     }
   },
   "order": [
@@ -677,7 +704,10 @@
     "InboxStation.dc.html",
     "InboxDark.dc.html",
     "InboxContent.dc.html",
-    "InboxStationPrivate.dc.html"
+    "InboxStationPrivate.dc.html",
+    "InboxClosed.dc.html",
+    "InboxTable.dc.html",
+    "InboxTablePeek.dc.html"
   ],
   "pages": [
     {
