@@ -124,10 +124,10 @@ body{margin:0}
 <aside aria-labelledby="last-day" class="flex flex-col gap-3">
 <h2 id="last-day" class="text-base font-semibold">Last 24 hours</h2>
 <ol class="flex flex-col gap-4 text-sm">
-<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">9:42</span><span aria-hidden="true" class="bg-stage-storage-mark size-2 translate-y-[-1px] rounded-full"></span><span>Pat Example received 2 buckets on <span class="font-mono text-[13px]">DEMO-2601</span></span></li>
-<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">8:15</span><span aria-hidden="true" class="bg-stage-lab-mark size-2 translate-y-[-1px] rounded-full"></span><span>Sam Sample started Atterberg limits on <span class="font-mono text-[13px]">DEMO-2612</span></span></li>
-<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">Tue 4:50</span><span aria-hidden="true" class="bg-stage-lab-mark size-2 translate-y-[-1px] rounded-full"></span><span>Set 3 broken, 7-day, on <span class="font-mono text-[13px]">DEMO-2616</span></span></li>
-<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">Tue 3:12</span><span aria-hidden="true" class="bg-stage-closed-mark size-2 translate-y-[-1px] rounded-full"></span><span>Retention extended 6 months on <span class="font-mono text-[13px]">DEMO-2605</span></span></li>
+<li class="grid grid-cols-[4.75rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">9:42 AM</span><span aria-hidden="true" class="bg-stage-storage-mark size-2 translate-y-[-1px] rounded-full"></span><span>Pat Example received 2 buckets on <span class="font-mono text-[13px]">DEMO-2601</span></span></li>
+<li class="grid grid-cols-[4.75rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">8:15 AM</span><span aria-hidden="true" class="bg-stage-lab-mark size-2 translate-y-[-1px] rounded-full"></span><span>Sam Sample started Atterberg limits on <span class="font-mono text-[13px]">DEMO-2612</span></span></li>
+<li aria-hidden="true" class="text-muted-foreground -mb-2 text-[13px] font-medium">Yesterday</li><li class="grid grid-cols-[4.75rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums"><span class="sr-only">Yesterday </span>4:50 PM</span><span aria-hidden="true" class="bg-stage-lab-mark size-2 translate-y-[-1px] rounded-full"></span><span>Set 3 broken, 7-day, on <span class="font-mono text-[13px]">DEMO-2616</span></span></li>
+<li class="grid grid-cols-[4.75rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums"><span class="sr-only">Yesterday </span>3:12 PM</span><span aria-hidden="true" class="bg-stage-closed-mark size-2 translate-y-[-1px] rounded-full"></span><span>Retention extended 6 months on <span class="font-mono text-[13px]">DEMO-2605</span></span></li>
 </ol>
 <a href="#" class="text-link text-sm font-medium underline-offset-4 hover:underline">All activity</a>
 </aside>
@@ -143,7 +143,7 @@ class Component extends DCLogic {
       busy: '5 things need you. 3 are requests in your Inbox.',
       long: '11 things need you. 5 are requests in your Inbox.',
       clear: 'Nothing needs you right now.',
-      failed: 'Your list couldn’t load. Shortcuts still work.'
+      failed: 'Shortcuts and the last 24 hours still work.'
     };
     return {
       summary: summaries[v] || summaries.busy,
