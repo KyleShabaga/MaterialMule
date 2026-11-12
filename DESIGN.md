@@ -56,7 +56,7 @@ type:
   row-id: { family: mono, weight: 600, size: 15, line: 22 }
   data: { family: mono, weight: 400, size: 14, line: 20 }
   count: { family: sans, weight: 700, size: 32, line: 36 }
-radius: # shadcn --radius 0.625rem; derived steps as shadcn defines them
+radius: # --radius 0.375rem (tightened from shadcn's 0.625rem, Kyle 2026-11-12); derived steps as shadcn defines them
   sm: 6 # checkboxes, kbd, small chips
   md: 8 # buttons, inputs, selects, nav items, menu items
   lg: 10 # popovers, dropdowns, alerts
@@ -168,7 +168,7 @@ results show the unit's stage tag. People's avatars never use stage colours (`mu
 
 The walking donkey from `apps/web/src/layout/DonkeyMark.tsx`, paths unchanged.
 
-- **Colour:** `primary-foreground` donkey on a 12 px-radius `primary` indigo tile (40 px in the
+- **Colour:** `primary-foreground` donkey on a 8 px-radius `primary` indigo tile (40 px in the
   rail, 32 px in phone headers, 56 px on sign-in). On an indigo ground (sign-in panel) the tile is
   `primary-foreground` and the donkey `primary`.
 - **Wordmark:** "Material Mule" in sans 700, sentence case, beside the tile.
@@ -176,9 +176,11 @@ The walking donkey from `apps/web/src/layout/DonkeyMark.tsx`, paths unchanged.
 
 ## Shape and depth
 
-- **Radius** follows shadcn's `--radius: 0.625rem`: buttons, inputs, selects and nav items 8 px;
-  popovers and alerts 10 px; cards and tables 14 px; dialogs, the detail sheet and the Today
-  greeting 20 px.
+- **Radius** is tight (Kyle, 2026-11-12: "Make all radius tighter"): `--radius: 0.375rem`, so
+  `rounded-sm` 2 px, `rounded-md` 4 px (buttons, inputs, selects, nav items, checkboxes 3 px),
+  `rounded-lg` 6 px (popovers, alerts, dialogs, the detail sheet), `rounded-xl` 10 px (cards,
+  tables, the Today greeting). Tags, avatars and search stay fully round. Boards use only these
+  token classes, never arbitrary radii.
 - **Fully round:** tags (`Badge`), avatars, count badges, the top-bar search field, the lifecycle
   track and the phone Scan button (a 64 px circle). Buttons are not pills.
 - **Borders:** cards and tables have a 1 px `border` edge and no shadow. Inputs have a 1.5 px
@@ -233,7 +235,7 @@ stay readable on a phone in a dim storage room.
   fallback (photos when the directory has them), name truncating beside it. Material Mule itself
   (system messages) uses a `primary` avatar with "MM". The Components board's table gains a
   "Received by" column to show it.
-- **Buttons** (`Button`). 44 px high (48 px on phone, 56 px for the pinned phone primary), 8 px
+- **Buttons** (`Button`). 44 px high (48 px on phone, 56 px for the pinned phone primary), 4 px
   radius, 20 px side padding, sans 600. `default`: indigo fill, white text, one per screen.
   `outline`: `card` fill with a 1.5 px `input` border, for the other actions. `ghost` and `link`
   for less important actions in rows. `destructive`: red fill, white text, and it always opens an
@@ -246,21 +248,21 @@ stay readable on a phone in a dim storage room.
   e.g. "Due · Retention", "Urgent · Hold", "In lab · Breaks" (critique 2026-11-12: domain words
   like Pull or Labels on stage colours taught neither). A request keeps its "Request" pill before
   the tag.
-- **Filter chips** (`ToggleGroup`). 36 px (44 px on phone), 6 px radius, `card` with a `border`
+- **Filter chips** (`ToggleGroup`). 36 px (44 px on phone), 4 px radius, `card` with a `border`
   edge; on: `accent` fill, `accent-foreground` text, a check icon, `aria-pressed="true"`. A count
   can follow the label.
 - **Segmented control** (`ToggleGroup` or `Tabs`). A `muted` track; the chosen option is a `card`
   segment with the `raised` shadow. For two to four views of the same thing (Comfortable /
   Compact, Mine / All).
 - **Fields** (`Form`, `Input`, `Select`). Label above in `label` style; 44 px input (48 on phone),
-  8 px radius, `card` fill, 1.5 px `input` border; focus: a 3 px `ring` outside the border. Record
+  4 px radius, `card` fill, 1.5 px `input` border; focus: a 3 px `ring` outside the border. Record
   values (holes, depths, IDs) are typed in mono. Hint text below in `small`; errors below in
   `destructive` with an icon, the border turns destructive, `aria-invalid` and `aria-describedby`
   (shadcn's `FormMessage` wires these).
 - **Search and scan field.** Fully round, 44 px, magnifier at the left, `Ctrl K` hint, a scan icon
   button at the right (opens the camera on a phone, focuses for the wedge scanner on desktop).
   Placeholder "Search or scan a label". `Ctrl+K` or `/` opens the `Command` palette from anywhere.
-- **Cards** (`Card`). `card`, 14 px radius, 1 px `border`, 16–20 px padding. Head: title in
+- **Cards** (`Card`). `card`, 10 px radius, 1 px `border`, 16–20 px padding. Head: title in
   `section`, meta in `small` `muted-foreground`, actions at the right. Optional stage stripe.
 - **Tables** (`Table` + TanStack). A card holding the table: `muted` head row, 1 px `border` row
   dividers, 52 px comfortable rows or 36 px compact rows, stage stripe on the first cell when rows
@@ -281,10 +283,10 @@ stay readable on a phone in a dim storage room.
   (`?open=<id>`), so the sheet can be linked and the back button closes it. Phones always open the
   full page.
 - **Selection bar.** When rows are selected, a bar floats centred at the bottom of the screen with
-  the count and the bulk actions (`raised` shadow, 10 px radius).
+  the count and the bulk actions (`raised` shadow, 6 px radius).
 - **Banners** (`Alert`). A stage stripe, an icon, one bold sentence and one line. Info uses
   `accent`; warnings `due`; errors `danger`; partial success `due` and says what worked.
-- **Dialogs** (`Dialog`, `AlertDialog`). 480 px, 20 px radius, `overlay` shadow, 50 % black
+- **Dialogs** (`Dialog`, `AlertDialog`). 480 px, 6 px radius, `overlay` shadow, 50 % black
   scrim. An irreversible action on several records lists them (IDs in mono, scrolling past about
   six) and its button repeats the count ("Record disposal of 3 units"). Title says the action and the record; one sentence on what will change; only the needed
   fields; Cancel (`outline`) and one primary at the bottom right. Irreversible actions use
@@ -299,7 +301,7 @@ stay readable on a phone in a dim storage room.
 
 ### Desktop (1024 px and wider)
 
-- **Rail** (`Sidebar`), 248 px, `sidebar` gray: logo, then the destinations as 44 px rows (8 px
+- **Rail** (`Sidebar`), 248 px, `sidebar` gray: logo, then the destinations as 44 px rows (4 px
   radius) with a 16 px Lucide icon and a label. The current one is `sidebar-accent` with
   `sidebar-accent-foreground` text and a filled icon. Destinations with sub-pages expand under the
   parent (Concrete, Retention), indented, with a chevron button. The rail collapses to icons
@@ -524,8 +526,8 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 | Light tag text                | Step 12 for amber, cyan and orange; step 11 for grass, red and gray                                                                                                                                                                                                                                | Step 11 on step 3 fails 4.5:1 for the first three                                    | Darker tag fills                                      |
 | Input border                  | Gray 9, not shadcn's lighter default                                                                                                                                                                                                                                                               | Inputs need 3:1 against the card (WCAG 1.4.11)                                       | Gray 7 (fails 3:1)                                    |
 | Destructive                   | Radix red 11 in both themes                                                                                                                                                                                                                                                                        | White text on red 9 is only 3.9:1                                                    | Red 9                                                 |
-| Buttons                       | shadcn's 8 px radius; tags, avatars and search stay fully round                                                                                                                                                                                                                                    | Matches shadcn; replaces the earlier all-pill buttons                                | Pill buttons via a variant                            |
-| Inputs                        | 8 px radius (shadcn `rounded-md`)                                                                                                                                                                                                                                                                  | Matches shadcn                                                                       | 10 px                                                 |
+| Buttons                       | 4 px radius (`--radius` 0.375rem, tightened by Kyle 2026-11-12); tags, avatars and search stay fully round                                                                                                                                                                                         | Matches shadcn; replaces the earlier all-pill buttons                                | Pill buttons via a variant                            |
+| Inputs                        | 4 px radius (`rounded-md`)                                                                                                                                                                                                                                                                         | Matches shadcn                                                                       | 10 px                                                 |
 | Sizes                         | 44 px buttons and inputs (48 on phone), not shadcn's 36 px. **The 44 px rule is for touch (phones and tablets) only** (Kyle, 2026-11-12): desktop and LAB station screens are used with a mouse and keyboard, so smaller desktop controls (36 px icons, 28 px rows, 18 px switches) are fine there | The app's 44 px touch-target rule                                                    | shadcn defaults                                       |
 | Fonts                         | Atkinson Hyperlegible Next + Mono, not shadcn's Geist                                                                                                                                                                                                                                              | Distinct 0/O and 1/l/I in IDs; legible on phones; OFL and bundled                    | Geist + Geist Mono                                    |
 | Caps labels                   | Dropped; sentence case labels                                                                                                                                                                                                                                                                      | Easier to read, and a clear break from Field Ledger                                  | Keep mono caps labels                                 |
@@ -704,7 +706,7 @@ Shaped with Impeccable on 2026-11-11. Kyle chose: the computer remembers its kin
 straight on to a person picker, and the first pass covers the page plus every state.
 
 - **One centred 440 px column**: the donkey tile and "Material Mule · Sample storage and lab
-  testing", then the form on a card (`card`, border, 12 px radius, `shadow-sm`, 32 px padding),
+  testing", then the form on a card (`card`, border, 10 px radius, `shadow-sm`, 32 px padding),
   then "Works on the office network only". No brand panel (the teal split screen of the first
   draft belonged to the old palette).
 - **Background: gradient** (Kyle chose it over the angled planes, 2026-11-11). Two soft
@@ -755,7 +757,7 @@ customisable per computer, and no greeting (the sidebar shows who is recording).
 - **Two equal receiving buttons,** side by side, at the top: Receive samples
   (`arrow-down-to-line`, "Buckets, Shelby tubes and core boxes arriving at the lab.") and
   Receive concrete (`cylinder`, "Specimen sets arriving from site."). Each is a large card link
-  (`card`, border, 12 px radius, min 144 px tall) with a 48 px `primary` icon tile, an 18 px title,
+  (`card`, border, 10 px radius, min 144 px tall) with a 48 px `primary` icon tile, an 18 px title,
   a one-line description and an arrow that nudges right on hover. They're equal, so neither is
   the page's single `primary` button.
 - **At this station:** one card list, a row per kind of waiting work, each a link: a big count
