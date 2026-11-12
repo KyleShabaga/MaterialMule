@@ -1,0 +1,209 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./radix-stage-light.css";
+@import "./radix-stage-dark.css";
+
+/* Tailwind also scans the canvas artboards, so classes written in their markup exist. */
+@source "../../strata-canvas/project";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Strata theme: shadcn variables filled from the Radix custom palette, accent #21206D (DESIGN.md). */
+:root {
+  --radius: 0.375rem;
+  --background: #ffffff;
+  --foreground: #1e1f24;
+  --card: #ffffff;
+  --card-foreground: #1e1f24;
+  --popover: #ffffff;
+  --popover-foreground: #1e1f24;
+  --primary: #21206d;
+  --primary-foreground: #ffffff;
+  --secondary: #eff0f3;
+  --secondary-foreground: #1e1f24;
+  --muted: #eff0f3;
+  --muted-foreground: #62636c;
+  --accent: #eef1ff;
+  --accent-foreground: #242471;
+  --destructive: #ce2c31;
+  --destructive-text: #ce2c31;
+  --border: #d8d9e0;
+  --input: #8b8d98;
+  --ring: #21206d;
+  --link: #5159bd;
+  --sidebar: #f9f9fb;
+  --sidebar-foreground: #1e1f24;
+  --sidebar-primary: #21206d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef1ff;
+  --sidebar-accent-foreground: #242471;
+  --sidebar-border: #d8d9e0;
+  --sidebar-ring: #21206d;
+  /* Stage colours (Kyle, 2026-11-12): draft orange, storage green, lab cyan, due yellow, danger red.
+     Kyle's light scales (radix-stage-light.css): bg step 3, text step 12, stripes and dots step 9. */
+  --stage-draft-bg: var(--orange-3);
+  --stage-draft-fg: var(--orange-12);
+  --stage-draft-mark: var(--orange-9);
+  --stage-draft-contrast: var(--orange-contrast);
+  --stage-storage-bg: var(--green-3);
+  --stage-storage-fg: var(--green-12);
+  --stage-storage-mark: var(--green-9);
+  --stage-storage-contrast: var(--green-contrast);
+  --stage-lab-bg: #def7f9;
+  --stage-lab-fg: #0d3c48;
+  --stage-lab-mark: #107d98;
+  --stage-lab-contrast: #ffffff;
+  --stage-due-bg: var(--yellow-3);
+  --stage-due-fg: var(--yellow-12);
+  --stage-due-mark: var(--yellow-9);
+  --stage-due-contrast: var(--yellow-contrast);
+  --stage-danger-bg: var(--red-3);
+  --stage-danger-fg: var(--red-12);
+  --stage-danger-mark: var(--red-9);
+  --stage-danger-contrast: var(--red-contrast);
+  --stage-closed-bg: #eff0f3;
+  --stage-closed-fg: #62636c;
+  --stage-closed-mark: #62636c;
+  --stage-closed-contrast: #ffffff;
+}
+
+.dark {
+  --background: #111113;
+  --foreground: #eeeef0;
+  --card: #19191b;
+  --card-foreground: #eeeef0;
+  --popover: #222325;
+  --popover-foreground: #eeeef0;
+  --primary: #555bdc;
+  --primary-foreground: #ffffff;
+  --secondary: #222325;
+  --secondary-foreground: #eeeef0;
+  --muted: #222325;
+  --muted-foreground: #b2b3bd;
+  --accent: #1d2050;
+  --accent-foreground: #d8e0ff;
+  --destructive: #ce2c31;
+  --destructive-text: #ff9592;
+  --border: #393a40;
+  --input: #797b86;
+  --ring: #9eadff;
+  --link: #9eadff;
+  --sidebar: #19191b;
+  --sidebar-foreground: #eeeef0;
+  --sidebar-primary: #555bdc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1d2050;
+  --sidebar-accent-foreground: #d8e0ff;
+  --sidebar-border: #393a40;
+  --sidebar-ring: #9eadff;
+  /* Kyle's dark scales (radix-stage-dark.css): stripes and dots use step 9. */
+  --stage-draft-bg: var(--orange-3);
+  --stage-draft-fg: var(--orange-11);
+  --stage-draft-mark: var(--orange-9);
+  --stage-draft-contrast: var(--orange-contrast);
+  --stage-storage-bg: var(--green-3);
+  --stage-storage-fg: var(--green-11);
+  --stage-storage-mark: var(--green-9);
+  --stage-storage-contrast: var(--green-contrast);
+  --stage-lab-bg: #082c36;
+  --stage-lab-fg: #4ccce6;
+  --stage-lab-mark: #4ccce6;
+  --stage-lab-contrast: #0d3c48;
+  --stage-due-bg: var(--yellow-3);
+  --stage-due-fg: var(--yellow-11);
+  --stage-due-mark: var(--yellow-9);
+  --stage-due-contrast: var(--yellow-contrast);
+  --stage-danger-bg: var(--red-3);
+  --stage-danger-fg: var(--red-11);
+  --stage-danger-mark: var(--red-9);
+  --stage-danger-contrast: var(--red-contrast);
+  --stage-closed-bg: #222325;
+  --stage-closed-fg: #b2b3bd;
+  --stage-closed-mark: #b2b3bd;
+  --stage-closed-contrast: #1e1f24;
+}
+
+@theme inline {
+  --font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-text: var(--destructive-text);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-stage-draft-bg: var(--stage-draft-bg);
+  --color-stage-draft-fg: var(--stage-draft-fg);
+  --color-stage-draft-mark: var(--stage-draft-mark);
+  --color-stage-storage-bg: var(--stage-storage-bg);
+  --color-stage-storage-fg: var(--stage-storage-fg);
+  --color-stage-storage-mark: var(--stage-storage-mark);
+  --color-stage-lab-bg: var(--stage-lab-bg);
+  --color-stage-lab-fg: var(--stage-lab-fg);
+  --color-stage-lab-mark: var(--stage-lab-mark);
+  --color-stage-due-bg: var(--stage-due-bg);
+  --color-stage-due-fg: var(--stage-due-fg);
+  --color-stage-due-mark: var(--stage-due-mark);
+  --color-stage-danger-bg: var(--stage-danger-bg);
+  --color-stage-danger-fg: var(--stage-danger-fg);
+  --color-stage-danger-mark: var(--stage-danger-mark);
+  --color-stage-closed-bg: var(--stage-closed-bg);
+  --color-stage-closed-fg: var(--stage-closed-fg);
+  --color-stage-closed-mark: var(--stage-closed-mark);
+  --color-stage-draft-contrast: var(--stage-draft-contrast);
+  --color-stage-storage-contrast: var(--stage-storage-contrast);
+  --color-stage-lab-contrast: var(--stage-lab-contrast);
+  --color-stage-due-contrast: var(--stage-due-contrast);
+  --color-stage-danger-contrast: var(--stage-danger-contrast);
+  --color-stage-closed-contrast: var(--stage-closed-contrast);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Strata: browser surfaces follow the theme (scrollbars, form controls). */
+:root { color-scheme: light; scrollbar-color: var(--input) transparent; }
+.dark { color-scheme: dark; }
+[data-sidebar="content"] { scrollbar-width: thin; }
+
+/* Strata tables: a cell never paints over its neighbour (DESIGN.md, Tables: column priority). In a
+   fixed-layout table, text cells clip at their padding edge (no ellipsis, so text that only runs
+   into the padding still shows whole); cells holding controls are left alone so their focus rings
+   still show. Text that may truncate gets its own truncate span. Column priority keeps important columns wide enough that this
+   rarely shows; it is the net, not the rule. */
+[data-slot="table"].table-fixed [data-slot="table-cell"]:not(:has(input, textarea, select, button, [role="checkbox"], [role="combobox"])),
+[data-slot="table"].table-fixed [data-slot="table-head"]:not(:has(button, [role="checkbox"])) {
+  overflow: hidden;
+}

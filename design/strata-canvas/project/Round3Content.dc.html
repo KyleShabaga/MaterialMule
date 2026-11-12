@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Round 3 content (inventory, move, search)</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.sc-host:has(> .round3-root){flex:1 1 0%;min-height:0;height:100%;display:flex;flex-direction:column}
+</style>
+</helmet>
+<!-- Round 3 router for the shell (SidebarLive today="r3-<variant>"): inv-* Inventory, move-* Move and Put away, search-* Search results. -->
+<div class="round3-root bg-background flex h-full min-h-0 flex-1 flex-col" style="height: 100%;">
+<sc-if value="{{isInv}}" hint-placeholder-val="{{ true }}"><div class="flex min-h-0 flex-1 flex-col"><dc-import name="R3InventoryContent" variant="{{sub}}" station="{{station}}" hint-size="100%,100%"></dc-import></div></sc-if>
+<sc-if value="{{isMove}}" hint-placeholder-val="{{ false }}"><div class="flex min-h-0 flex-1 flex-col"><dc-import name="R3MoveContent" variant="{{sub}}" station="{{station}}" hint-size="100%,100%"></dc-import></div></sc-if>
+<sc-if value="{{isSearch}}" hint-placeholder-val="{{ false }}"><div class="flex min-h-0 flex-1 flex-col"><dc-import name="R3SearchContent" variant="{{sub}}" station="{{station}}" hint-size="100%,100%"></dc-import></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["inv-all","inv-filtered","inv-peek","inv-scanned","inv-selected","inv-conflicts","inv-ctrlk","inv-scanpage","inv-loading","inv-failed","inv-empty","inv-nomatch","move-batch","move-start","move-saved","move-offline","move-station","move-session","move-putaway","search-results","search-empty","search-none"],"default":"inv-all"},"station":{"editor":"boolean","default":false},"dark":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'inv-all';
+    var m = /^(inv|move|search)-(.*)$/.exec(v) || [null, 'inv', 'all'];
+    return { isInv: m[1] === 'inv', isMove: m[1] === 'move', isSearch: m[1] === 'search', sub: m[2], station: !!this.props.station };
+  }
+}
+</script>
+</body>
+</html>
