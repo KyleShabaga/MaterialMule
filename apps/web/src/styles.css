@@ -4,7 +4,11 @@
    shadcn components and utilities. Their variable names are kept and re-pointed at Strata values,
    so every page wears the Strata colours, type and shape now. Raw colours live only in
    strata-theme.css. --muted and --accent meant text and link colours in Field Ledger, which clash
-   with shadcn's surfaces of the same names, so those two are --fl-muted and --fl-accent. */
+   with shadcn's surfaces of the same names, so those two are --fl-muted and --fl-accent.
+   Field Ledger's bare element rules (button, input, select, textarea, a, :focus-visible,
+   [aria-invalid]) skip anything with data-slot, which every shadcn/Strata component part carries:
+   a layer only loses to utilities for the properties they set, so 44 px heights, padding and
+   borders would otherwise leak into shadcn controls. :where() keeps their specificity unchanged. */
 @layer theme, base, legacy, components, utilities;
 
 @import 'tailwindcss';
@@ -161,7 +165,7 @@
     font-family: var(--font-mono);
   }
 
-  a {
+  a:where(:not([data-slot])) {
     color: var(--fl-accent);
     text-underline-offset: 3px;
   }
@@ -169,32 +173,32 @@
   /* MM-T66 UI-01, Field Ledger "Hover states": the underline thickens to 2 px and a link without
    its own colour turns ink. Nothing moves; focus keeps its outline. Button-shaped links get the
    button tint instead (below). */
-  a:hover {
+  a:where(:not([data-slot])):hover {
     color: var(--accent-ink);
     text-decoration-line: underline;
     text-decoration-thickness: 2px;
   }
 
-  :focus-visible {
+  :focus-visible:where(:not([data-slot])) {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
   /* Pointer cursor on everything you can press; not-allowed on disabled controls. */
-  a,
-  button,
-  select,
+  a:where(:not([data-slot])),
+  button:where(:not([data-slot])),
+  select:where(:not([data-slot])),
   summary,
   label:has(input[type='checkbox']),
   label:has(input[type='radio']),
-  input[type='checkbox'],
-  input[type='radio'] {
+  input[type='checkbox']:where(:not([data-slot])),
+  input[type='radio']:where(:not([data-slot])) {
     cursor: pointer;
   }
 
   /* ---- Buttons: 44 px, 2 px ink edge, 4 px radius, sans 700 ---- */
 
-  button,
+  button:where(:not([data-slot])),
   .button {
     display: inline-flex;
     align-items: center;
@@ -215,7 +219,7 @@
   }
 
   /* Primary: the one next action on a screen. Flag fill, ink text. */
-  button.primary,
+  button:where(:not([data-slot])).primary,
   .button.primary {
     border-color: var(--rule);
     background-color: var(--primary);
@@ -223,16 +227,16 @@
   }
 
   /* Selected / toggled on: ink fill, paper text. */
-  button.ink,
+  button:where(:not([data-slot])).ink,
   .button.ink,
-  button[aria-pressed='true'] {
+  button[aria-pressed='true']:where(:not([data-slot])) {
     border-color: var(--rule);
     background-color: var(--selected);
     color: var(--on-selected);
   }
 
   /* Destructive: borderless, danger text. */
-  button.danger,
+  button:where(:not([data-slot])).danger,
   .button.danger {
     border-color: transparent;
     background-color: transparent;
@@ -248,7 +252,7 @@
   }
 
   /* Disabled: dimmed text and edge, never opacity alone; no hover tint. */
-  button:disabled,
+  button:where(:not([data-slot])):disabled,
   .button[aria-disabled='true'] {
     border-color: var(--disabled);
     background-color: var(--card-head);
@@ -260,15 +264,15 @@
   /* ---- Hover (desktop only): one tint over every fill, so nothing needs its own hover colour ---- */
 
   @media (hover: hover) {
-    button:not(:disabled):hover,
+    button:where(:not([data-slot])):not(:disabled):hover,
     .button:not([aria-disabled='true']):hover {
       background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
     }
 
     /* Ink-filled controls lighten instead. */
-    button.ink:not(:disabled):hover,
+    button:where(:not([data-slot])).ink:not(:disabled):hover,
     .button.ink:hover,
-    button[aria-pressed='true']:not(:disabled):hover {
+    button[aria-pressed='true']:where(:not([data-slot])):not(:disabled):hover {
       background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
     }
 
@@ -292,14 +296,14 @@
     }
 
     /* Fields: a 3 px hairline ring outside the ink edge. */
-    input:not([type='checkbox'], [type='radio']):not(:disabled):hover,
-    select:not(:disabled):hover,
-    textarea:not(:disabled):hover {
+    input:where(:not([data-slot])):not([type='checkbox'], [type='radio']):not(:disabled):hover,
+    select:where(:not([data-slot])):not(:disabled):hover,
+    textarea:where(:not([data-slot])):not(:disabled):hover {
       box-shadow: 0 0 0 3px var(--ring-hover);
     }
 
-    input[type='checkbox']:not(:disabled):hover,
-    input[type='radio']:not(:disabled):hover {
+    input[type='checkbox']:where(:not([data-slot])):not(:disabled):hover,
+    input[type='radio']:where(:not([data-slot])):not(:disabled):hover {
       outline: 3px solid var(--ring-hover);
       outline-offset: 1px;
     }
@@ -1014,18 +1018,18 @@
 
   /* ---- Inputs: 16px text so phones don't zoom ---- */
 
-  input[type='text'],
-  input[type='search'],
-  input[type='email'],
-  input[type='password'],
-  input[type='number'],
-  input[type='date'],
-  input[type='datetime-local'],
-  input[type='time'],
-  input[type='tel'],
-  input:not([type]),
-  select,
-  textarea {
+  input[type='text']:where(:not([data-slot])),
+  input[type='search']:where(:not([data-slot])),
+  input[type='email']:where(:not([data-slot])),
+  input[type='password']:where(:not([data-slot])),
+  input[type='number']:where(:not([data-slot])),
+  input[type='date']:where(:not([data-slot])),
+  input[type='datetime-local']:where(:not([data-slot])),
+  input[type='time']:where(:not([data-slot])),
+  input[type='tel']:where(:not([data-slot])),
+  input:where(:not([data-slot])):not([type]),
+  select:where(:not([data-slot])),
+  textarea:where(:not([data-slot])) {
     min-height: var(--control);
     font: inherit;
     font-size: 1rem;
@@ -1038,15 +1042,15 @@
     box-sizing: border-box;
   }
 
-  select {
+  select:where(:not([data-slot])) {
     font-weight: 600;
   }
 
-  [aria-invalid='true'] {
+  [aria-invalid='true']:where(:not([data-slot])) {
     border: 3px solid var(--danger-line);
   }
 
-  textarea {
+  textarea:where(:not([data-slot])) {
     width: 100%;
     min-height: 4rem;
   }
@@ -1690,18 +1694,18 @@
   /* ---- Phone width: tables become cards, 44 px targets, 48 px fields, 36 px titles ---- */
 
   @media (max-width: 640px) {
-    button,
+    button:where(:not([data-slot])),
     .button {
       min-height: var(--target);
     }
 
-    input[type='text'],
-    input[type='search'],
-    input[type='email'],
-    input[type='password'],
-    input[type='number'],
-    input:not([type]),
-    select {
+    input[type='text']:where(:not([data-slot])),
+    input[type='search']:where(:not([data-slot])),
+    input[type='email']:where(:not([data-slot])),
+    input[type='password']:where(:not([data-slot])),
+    input[type='number']:where(:not([data-slot])),
+    input:where(:not([data-slot])):not([type]),
+    select:where(:not([data-slot])) {
       min-height: var(--control-phone);
     }
 
@@ -1727,7 +1731,7 @@
     }
 
     /* MTR-94: the rest of what a phone user taps gets the 44px target too. */
-    input[type='date'] {
+    input[type='date']:where(:not([data-slot])) {
       min-height: var(--target);
     }
 
@@ -2261,8 +2265,8 @@
       background: Highlight;
     }
 
-    button[aria-pressed='true'],
-    button.ink {
+    button[aria-pressed='true']:where(:not([data-slot])),
+    button:where(:not([data-slot])).ink {
       forced-color-adjust: none;
       border-color: Highlight;
       background: Highlight;
