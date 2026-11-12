@@ -115,8 +115,8 @@ body{margin:0}
 <div class="flex flex-wrap items-center gap-6">
 <div class="flex -space-x-2">
 <x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-accent text-accent-foreground font-mono text-xs font-bold">AT</x-import></x-import>
-<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-stage-storage-bg text-stage-storage-fg font-mono text-xs font-bold">PE</x-import></x-import>
-<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-stage-lab-bg text-stage-lab-fg font-mono text-xs font-bold">TB</x-import></x-import>
+<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-muted text-foreground font-mono text-xs font-bold">PE</x-import></x-import>
+<x-import component-from-global-scope="Strata.Avatar" class-name="ring-background ring-2"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-muted text-foreground font-mono text-xs font-bold">TB</x-import></x-import>
 </div>
 <x-import component-from-global-scope="Strata.HoverCard">
 <x-import component-from-global-scope="Strata.HoverCardTrigger" href="#" class-name="text-link text-sm font-medium underline-offset-4 hover:underline">Received by Alex Tester</x-import>
@@ -133,12 +133,13 @@ body{margin:0}
 
 <section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
 <div><h3 class="font-semibold">Card</h3><p class="text-muted-foreground text-sm">Records, counters and panels.</p></div>
-<x-import component-from-global-scope="Strata.Card">
+<x-import component-from-global-scope="Strata.Card" class-name="relative overflow-hidden shadow-none"><span aria-hidden="true" class="bg-stage-storage-mark absolute inset-y-0 left-0 w-1"></span>
 <x-import component-from-global-scope="Strata.CardHeader">
 <x-import component-from-global-scope="Strata.CardTitle" class-name="font-mono text-lg">BKT-2026-000019</x-import>
 <x-import component-from-global-scope="Strata.CardDescription">DEMO-2601 Riverbank investigation · TH26-01</x-import>
 <x-import component-from-global-scope="Strata.CardAction"><x-import component-from-global-scope="Strata.Badge" variant="storage"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>In storage</x-import></x-import>
 </x-import>
+<x-import component-from-global-scope="Strata.CardContent"><x-import component-from-global-scope="Strata.LifecycleTrack" current="1" label="Lifecycle of BKT-2026-000019"></x-import></x-import>
 <x-import component-from-global-scope="Strata.CardContent" class-name="grid grid-cols-2 gap-3 text-sm">
 <div><p class="text-muted-foreground">Samples</p><p class="font-mono">SS1–SS6</p></div>
 <div><p class="text-muted-foreground">Depth</p><p class="font-mono">0.8–5.4 m</p></div>
@@ -436,8 +437,8 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.CommandList">
 <x-import component-from-global-scope="Strata.CommandEmpty">No results.</x-import>
 <x-import component-from-global-scope="Strata.CommandGroup" heading="Storage units">
-<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span class="font-mono">BKT-2026-000019</span><span class="text-muted-foreground">DEMO-2601 · TH26-01</span></x-import>
-<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span class="font-mono">ST-2024-000001</span><span class="text-muted-foreground">DEMO-2601 · TH26-02</span></x-import>
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span class="font-mono">BKT-2026-000019</span><span class="text-muted-foreground">DEMO-2601 · TH26-01</span><x-import component-from-global-scope="Strata.Badge" variant="storage" class-name="ml-auto"><span class="bg-stage-storage-mark size-1.5 rounded-full"></span>In storage</x-import></x-import>
+<x-import component-from-global-scope="Strata.CommandItem"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span class="font-mono">ST-2024-000001</span><span class="text-muted-foreground">DEMO-2601 · TH26-02</span><x-import component-from-global-scope="Strata.Badge" variant="lab" class-name="ml-auto"><span class="bg-stage-lab-mark size-1.5 rounded-full"></span>In lab</x-import></x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.CommandSeparator"></x-import>
 <x-import component-from-global-scope="Strata.CommandGroup" heading="Actions">
@@ -491,17 +492,17 @@ body{margin:0}
 
 <section class="bg-card flex flex-col gap-4 rounded-xl border p-6">
 <div><h3 class="font-semibold">Alert and Sonner (toast)</h3><p class="text-muted-foreground text-sm">Banners on a page; toasts with Undo after reversible actions. Press Play and move the unit.</p></div>
-<x-import component-from-global-scope="Strata.Alert" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3">
+<x-import component-from-global-scope="Strata.Alert" class-name="relative overflow-hidden grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><span aria-hidden="true" class="bg-primary absolute inset-y-0 left-0 w-1"></span>
 <x-import component-from-global-scope="Strata.Icon" name="info" class-name="translate-y-0.5"></x-import>
 <x-import component-from-global-scope="Strata.AlertTitle">Labels print when you confirm</x-import>
 <x-import component-from-global-scope="Strata.AlertDescription">IDs are issued at the same moment. Drafts stay on this computer until then.</x-import>
 </x-import>
-<x-import component-from-global-scope="Strata.Alert" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3 border-stage-due-mark/40 bg-stage-due-bg text-stage-due-fg">
+<x-import component-from-global-scope="Strata.Alert" class-name="relative overflow-hidden grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3 border-stage-due-mark/40 bg-stage-due-bg text-stage-due-fg"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
 <x-import component-from-global-scope="Strata.Icon" name="triangle-alert" class-name="translate-y-0.5"></x-import>
 <x-import component-from-global-scope="Strata.AlertTitle">IDs issued, labels not printed</x-import>
 <x-import component-from-global-scope="Strata.AlertDescription" class-name="text-stage-due-fg">The 3 storage units have their IDs. The printer didn't answer; print the labels when it's back.</x-import>
 </x-import>
-<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3">
+<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="relative overflow-hidden grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><span aria-hidden="true" class="bg-stage-danger-mark absolute inset-y-0 left-0 w-1"></span>
 <x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import>
 <x-import component-from-global-scope="Strata.AlertTitle">The move wasn't saved</x-import>
 <x-import component-from-global-scope="Strata.AlertDescription">Pat Example moved this unit at 09:40. Show the latest and try again.</x-import>

@@ -160,7 +160,9 @@ the current one is a solid stage `mark` fill with `card` text (white in light, n
 4.5:1 or more for every stage), future ones are `muted` with `muted-foreground` text. It is one
 `ol` with `aria-current="step"` on the current item. A unit that goes back to storage after the
 lab simply shows Stored as current again; the history below says it was in the lab. Concrete sets
-use the same track with their own steps (Cast, Received, Testing, Reported).
+use the same track with their own steps (Cast, Received, Testing, Reported). Built as `Strata.LifecycleTrack`
+(`steps` "Label:stage|…", `current` index); the Components board's unit card shows it, and command-menu
+results show the unit's stage tag. People's avatars never use stage colours (`muted` fallback).
 
 ## Logo
 
@@ -184,7 +186,10 @@ The walking donkey from `apps/web/src/layout/DonkeyMark.tsx`, paths unchanged.
 - **Shadows** (`elevation`) only on layers that float: menus and pickers, the sticky selection
   bar, dialogs, the detail sheet, the phone bottom bar. A card never has one.
 - **Stripes:** a 4 px stage `mark` stripe on the left inside edge of a row or card marks its
-  stage. Rows without a stage have none.
+  stage. Rows without a stage have none. Drawn on: Needs you rows (every Today), Inbox rows (One
+  stream, Grouped, and the compact table's first cell, with the stage word for screen readers),
+  the station's "At this station" rows while their count is above zero, the unit card, and
+  banners (info `primary`, warning `due`, error `danger`).
 
 ## Type
 
@@ -225,7 +230,13 @@ stay readable on a phone in a dim storage room.
   for less important actions in rows. `destructive`: red fill, white text, and it always opens an
   `AlertDialog`. Icon buttons are 44 px circles with an `aria-label`.
 - **Tags** (`Badge`, stage variants). Fully round, 24 px high, sans 600 13 px on the stage `bg`,
-  text in the stage `fg`, a 6 px dot before the word. Always a word, never a dot alone.
+  text in the stage `fg`, a 6 px dot before the word. Always a word, never a dot alone. On a
+  record the word is its status ("In storage", "Retention due", "Disposed"). On a **work item**
+  (Today, Inbox) the tag reads "<Stage> · <domain>" with one of six stage words: **Draft**,
+  **Stored**, **In lab**, **Due**, **Urgent**, **Closed** (draft, storage, lab, due, danger, closed),
+  e.g. "Due · Retention", "Urgent · Hold", "In lab · Breaks" (critique 2026-11-12: domain words
+  like Pull or Labels on stage colours taught neither). A request keeps its "Request" pill before
+  the tag.
 - **Filter chips** (`ToggleGroup`). 36 px (44 px on phone), 6 px radius, `card` with a `border`
   edge; on: `accent` fill, `accent-foreground` text, a check icon, `aria-pressed="true"`. A count
   can follow the label.

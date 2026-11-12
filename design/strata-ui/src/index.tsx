@@ -240,12 +240,19 @@ function NavSearch() {
       {extra}
     </S.CommandItem>
   )
-  const unit = (id: string, where: string) =>
+  const STAGE_WORD: Record<string, string> = { draft: "Draft", storage: "In storage", lab: "In lab", due: "Retention due", danger: "Overdue", closed: "Disposed" }
+  const unit = (id: string, where: string, stage = "storage") =>
     item(
       "package",
-      <span className="font-mono text-[13px]">{id}</span>,
-      <span className="text-muted-foreground truncate">{where}</span>,
-      id + " " + where,
+      <span className="shrink-0 font-mono text-[13px] whitespace-nowrap">{id}</span>,
+      <>
+        <span className="text-muted-foreground min-w-0 truncate">{where}</span>
+        <S.Badge variant={stage} className="ml-auto shrink-0">
+          <span className={"size-1.5 rounded-full bg-stage-" + stage + "-mark"} />
+          {STAGE_WORD[stage]}
+        </S.Badge>
+      </>,
+      id + " " + where + " " + STAGE_WORD[stage],
     )
   return (
     <>
@@ -274,8 +281,8 @@ function NavSearch() {
           <S.CommandEmpty>Nothing matches. Check the ID, or scan the label again.</S.CommandEmpty>
           <S.CommandGroup heading="Storage units">
             {unit("BKT-2026-000019", "DEMO-2601 · TH26-01 · Shelf A3")}
-            {unit("ST-2026-000004", "DEMO-2601 · TH26-02 · Tube rack 2")}
-            {unit("CRE-2026-000002", "DEMO-2612 · TH26-01 · Core shelf")}
+            {unit("ST-2026-000004", "DEMO-2601 · TH26-02 · Lab bench 1", "lab")}
+            {unit("CRE-2026-000002", "DEMO-2612 · TH26-01 · Core shelf", "due")}
           </S.CommandGroup>
           <S.CommandGroup heading="Projects">
             {item("folder", <span className="font-mono text-[13px]">DEMO-2601</span>, <span className="text-muted-foreground">Riverbank</span>, "DEMO-2601 Riverbank")}
@@ -945,6 +952,54 @@ function SortHeader({ label, icon, col, by, align }: {
   )
 }
 
+/**
+ * The lifecycle track (DESIGN.md › Lifecycle): five fully rounded segments, Received, Stored,
+ * In lab, Retention, Disposed. Past steps use their stage `bg` with `fg` text and a check; the
+ * current one is a solid stage `mark` fill with `card` text; future ones are `muted`. One `ol` with
+ * `aria-current="step"` on the current item. `steps` is "Label:stage|…", `current` the index.
+ */
+function LifecycleTrack({
+  steps = "Received:draft|Stored:storage|In lab:lab|Retention:due|Disposed:closed",
+  current = 1,
+  label = "Lifecycle",
+}: { steps?: string; current?: number | string; label?: string }) {
+  const list = steps.split("|").filter(Boolean).map((s) => {
+    const [name, stage] = s.split(":")
+    return { name, stage: stage || "storage" }
+  })
+  const at = Number(current)
+  const tone: Record<string, { past: string; now: string }> = {
+    draft: { past: "bg-stage-draft-bg text-stage-draft-fg", now: "bg-stage-draft-mark text-card" },
+    storage: { past: "bg-stage-storage-bg text-stage-storage-fg", now: "bg-stage-storage-mark text-card" },
+    lab: { past: "bg-stage-lab-bg text-stage-lab-fg", now: "bg-stage-lab-mark text-card" },
+    due: { past: "bg-stage-due-bg text-stage-due-fg", now: "bg-stage-due-mark text-card" },
+    danger: { past: "bg-stage-danger-bg text-stage-danger-fg", now: "bg-stage-danger-mark text-card" },
+    closed: { past: "bg-stage-closed-bg text-stage-closed-fg", now: "bg-stage-closed-mark text-card" },
+  }
+  return (
+    <ol aria-label={label} className="flex w-full gap-1">
+      {list.map((step, i) => {
+        const state = i < at ? "past" : i === at ? "now" : "future"
+        return (
+          <li
+            key={step.name}
+            aria-current={state === "now" ? "step" : undefined}
+            className={cn(
+              "flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[12px] font-semibold",
+              state === "future" ? "bg-muted text-muted-foreground font-medium" : tone[step.stage]?.[state === "now" ? "now" : "past"],
+            )}
+          >
+            {state === "past" ? <Icon name="check" aria-hidden="true" className="size-3 shrink-0" /> : null}
+            <span className="truncate">{step.name}</span>
+            {state === "past" ? <span className="sr-only">, done</span> : state === "now" ? <span className="sr-only">, current</span> : null}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+Strata.LifecycleTrack = LifecycleTrack
 Strata.SortHeader = SortHeader
 Strata.TableToolbar = TableToolbar
 Strata.NavSection = NavSection
