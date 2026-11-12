@@ -24,6 +24,11 @@ the redesign's wave 0. Not an npm workspace; excluded from ESLint and Prettier.
   `class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"`.
 - Triggers (`DropdownMenuTrigger`, `PopoverTrigger`, `DialogTrigger`, …) are used without
   `asChild`, styled with `class-name`, because a wrapped child can't be their anchor.
+- The same wrapper makes every mounted component its wrapper's only child, so `first:` and
+  `last:` rules match every item. A joined `ToggleGroup` then shows a rounded, double-bordered
+  seam; give its items `class-name` overrides (first item
+  `data-[spacing=0]:last:rounded-r-none`, the next
+  `data-[spacing=0]:first:rounded-l-none data-[spacing=0]:data-[variant=outline]:first:border-l-0`).
 - A `style` attribute may hold only one `{{…}}` hole; with two, the runtime drops the style.
 - Wrap each board in `Strata.Theme` (dark mode, and the TooltipProvider that Tooltip needs).
 - New Tailwind classes in a board only exist after a rebuild (`npm run build`).
