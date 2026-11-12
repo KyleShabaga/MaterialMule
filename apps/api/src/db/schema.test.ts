@@ -105,6 +105,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'draft_auto_delete_setting',
       'email_outbox',
       'identity_link',
+      'inbox_request_read',
       'lab_comment',
       'lab_comment_revision',
       'lab_program',

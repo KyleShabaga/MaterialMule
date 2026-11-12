@@ -29,6 +29,8 @@ import { DatabaseService } from './database/database.service.js';
 import { FeedbackController } from './feedback/feedback.controller.js';
 import { FeedbackService } from './feedback/feedback.service.js';
 import { HealthController } from './health/health.controller.js';
+import { InboxController } from './inbox/inbox.controller.js';
+import { InboxService } from './inbox/inbox.service.js';
 import { InventoryController } from './inventory/inventory.controller.js';
 import { InventoryService } from './inventory/inventory.service.js';
 import { CatalogueController } from './lab/catalogue.controller.js';
@@ -187,6 +189,7 @@ export class AppModule {
         LabLifecycleController,
         ActionItemsController,
         NotificationsController,
+        InboxController,
         RetentionController,
         DisposalController,
         SystemStatusController,
@@ -279,6 +282,7 @@ export class AppModule {
         LabAmendmentsService,
         ActionItemsService,
         NotificationsService,
+        InboxService,
         EmailWorkerService,
         BusinessClock,
         RetentionService,
