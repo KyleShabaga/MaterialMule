@@ -48,7 +48,7 @@ body{margin:0}
 <div>
 <sc-if value="{{showStream}}" hint-placeholder-val="{{ true }}">
 <ul class="divide-y" aria-label="Inbox, newest first">
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Today</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Today</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
@@ -70,7 +70,7 @@ body{margin:0}
 <span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Alex Tester</span>
 </span>
 </button></li>
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Tuesday</li><li><button type="button" class="{{sel_r3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Tuesday</li><li><button type="button" class="{{sel_r3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Retention</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
@@ -85,7 +85,7 @@ body{margin:0}
 <span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2616</span> · Set 4 · Alex Tester</span>
 </span>
 </button></li>
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Monday</li><li><button type="button" class="{{sel_u3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Monday</li><li><button type="button" class="{{sel_u3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Mon</span></span>
@@ -97,7 +97,7 @@ body{margin:0}
 </sc-if>
 <sc-if value="{{showGrouped}}" hint-placeholder-val="{{ false }}">
 <ul class="divide-y" aria-label="Inbox, grouped">
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Needs action · 3</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Needs action · 3</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
@@ -119,7 +119,7 @@ body{margin:0}
 <span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2610</span> · <span class="font-mono text-[13px]">BKT-2026-000143</span> +3 · Material Mule</span>
 </span>
 </button></li>
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Updates · 3</li><li><button type="button" class="{{sel_u1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Updates · 3</li><li><button type="button" class="{{sel_u1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span>
@@ -264,7 +264,7 @@ body{margin:0}
 <div class="min-h-0 flex-1 overflow-y-auto">
 <sc-if value="{{showStream}}" hint-placeholder-val="{{ true }}">
 <ul class="divide-y" aria-label="Inbox, newest first">
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Today</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Today</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
@@ -286,7 +286,7 @@ body{margin:0}
 <span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Alex Tester</span>
 </span>
 </button></li>
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Tuesday</li><li><button type="button" class="{{sel_r3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Tuesday</li><li><button type="button" class="{{sel_r3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Retention</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Tue</span></span>
@@ -301,7 +301,7 @@ body{margin:0}
 <span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2616</span> · Set 4 · Alex Tester</span>
 </span>
 </button></li>
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Monday</li><li><button type="button" class="{{sel_u3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Monday</li><li><button type="button" class="{{sel_u3}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="text-muted-foreground truncate text-[13px]">Ready to submit</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">Mon</span></span>
@@ -313,7 +313,7 @@ body{margin:0}
 </sc-if>
 <sc-if value="{{showGrouped}}" hint-placeholder-val="{{ false }}">
 <ul class="divide-y" aria-label="Inbox, grouped">
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Needs action · 3</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Needs action · 3</li><li><button type="button" class="{{sel_r1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span>
@@ -335,7 +335,7 @@ body{margin:0}
 <span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2610</span> · <span class="font-mono text-[13px]">BKT-2026-000143</span> +3 · Material Mule</span>
 </span>
 </button></li>
-<li aria-hidden="true" class="text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Updates · 3</li><li><button type="button" class="{{sel_u1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
+<li aria-hidden="true" class="border-b-0 text-muted-foreground bg-background sticky top-0 z-10 px-6 pt-3 pb-1 text-[13px] font-medium">Updates · 3</li><li><button type="button" class="{{sel_u1}} hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 px-6 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset">
 <span class="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell"></x-import></span>
 <span class="grid min-w-0 flex-1 gap-0.5">
 <span class="flex items-center gap-2"><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span>

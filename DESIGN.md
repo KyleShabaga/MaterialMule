@@ -828,7 +828,8 @@ notification. Kyle chose:
   drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a
   deliberate exception to the 44 px rule for this dense view (still above the 24 px minimum); the
   other views keep their size.
-- **One stream,** newest first, under day headings (Today, Tuesday, Monday…), with requests above
+- **One stream,** newest first, under day headings (Today, Tuesday, Monday…; a heading has no line under it, so it reads with its
+  own items, Kyle 2026-11-11), with requests above
   updates on the same day. **Grouped:** "Needs action · 3" first, then "Updates · 3".
 - **Telling them apart, never by colour alone:**
   - A **request** has a filled `primary` circle with `circle-dot`, a filled "Request" pill and its
