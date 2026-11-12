@@ -1472,7 +1472,7 @@ can compare them. **Kyle picked variant A on 2026-11-12.**
   On HOLD, Exceptions ("No open exceptions from the sources checked so far."). Rows grouped by set:
   project, set, test age (7-, 28-day…), specimens, due date, stage stripe (lab; danger when
   overdue or on HOLD). "No testing machine is registered (Settings → Equipment)." blocks recording
-  with a link. **Two variants were designed; Kyle chose A (2026-11-11):**
+  with a link. **Two variants were designed; Kyle chose A (2026-11-12):**
   - **A. List, then Record breaks (chosen):** tick specimens or whole sets; the selection bar
     offers Record breaks, Reschedule (new test age in days) and Hold until; Record breaks opens the
     Testing table for just the selection.
@@ -1670,10 +1670,11 @@ bugs as a dialog from anywhere.
 
 All 47 remaining screens are shaped (rounds 1–10, 2026-11-12). Next:
 
-1. **Design phase,** in the same order as the shaping rounds, each area on its own canvas page:
+1. **Design phase** (under way, 2026-11-12): rounds 1, 2 and 5–10 are drawn; rounds 3 and 4 are
+   in progress. In the same order as the shaping rounds, each area on its own canvas page:
    every screen, its empty, loading, error and permission states, dark, and a 1024 px version
    (audit P1). Kyle reviews each area before the next starts. Round 7 drew both Breaks variants;
-   Kyle chose A, list then Record breaks (2026-11-11).
+   Kyle chose A, list then Record breaks (2026-11-12).
 2. **Gates stay gates:** D38, billing D16–D18, G2, G8, report templates, offline field entry and
    set numbering are drawn only as marked open items.
 3. **Implementation plan** in the same shape as Field Ledger's (wave 0 Tailwind, shadcn, tokens
