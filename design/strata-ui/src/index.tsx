@@ -662,8 +662,9 @@ function TableToolbar({
   views = "",
   view = "",
   searchOpen = false,
+  children,
 }: {
-  placeholder?: string; filters?: string; sorts?: string; views?: string; view?: string; searchOpen?: boolean
+  placeholder?: string; filters?: string; sorts?: string; views?: string; view?: string; searchOpen?: boolean; children?: React.ReactNode
 }) {
   const split = (v: string) => v.split("|").filter(Boolean)
   const [open, setOpen] = React.useState(!!searchOpen)
@@ -693,60 +694,15 @@ function TableToolbar({
   )
   const filterOn = on.length > 0
   return (
+    // TableToolbar children first: page actions such as Mark all read, then a divider.
+    <S.TooltipProvider delayDuration={300}>
     <div role="toolbar" aria-label="Table tools" className="flex items-center gap-0.5">
-      {/* Search: the icon, or the open box in its place. */}
-      <div
-        className={cn(
-          "flex h-9 items-center overflow-hidden rounded-md transition-[width,background-color,box-shadow] duration-200 ease-out motion-reduce:transition-none",
-          open ? "border-input bg-background w-56 border shadow-xs" : "w-9",
-        )}
-      >
-        {open ? (
-          <>
-            <Icon name="search" aria-hidden="true" className="text-muted-foreground ml-2.5 shrink-0" />
-            <input
-              ref={inputRef}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault()
-                  close()
-                }
-              }}
-              onBlur={() => {
-                if (!query) setOpen(false)
-              }}
-              placeholder={placeholder}
-              aria-label={placeholder.replace(/…$/, "")}
-              className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
-            />
-            {query ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  setQuery("")
-                  inputRef.current?.focus()
-                }}
-                className="text-muted-foreground hover:text-foreground mr-1 flex size-7 shrink-0 items-center justify-center rounded-sm"
-              >
-                <Icon name="x" />
-              </button>
-            ) : null}
-          </>
-        ) : (
-          tip(
-            "Search",
-            <button ref={searchBtnRef} type="button" aria-label="Search" aria-expanded={false} className={iconButton} onClick={() => setOpen(true)}>
-              <Icon name="search" />
-            </button>,
-          )
-        )}
-      </div>
-
+      {children ? (
+        <>
+          {children}
+          <S.Separator orientation="vertical" className="mx-1 h-5! self-center" />
+        </>
+      ) : null}
       {split(filters).length ? (
         <S.DropdownMenu>
           {tip(
@@ -816,7 +772,62 @@ function TableToolbar({
           </S.DropdownMenuContent>
         </S.DropdownMenu>
       ) : null}
+
+      {/* Search: the icon, or the open box in its place. */}
+      <div
+        className={cn(
+          "flex h-9 items-center overflow-hidden rounded-md transition-[width,background-color,box-shadow] duration-200 ease-out motion-reduce:transition-none",
+          open ? "border-input bg-background w-56 border shadow-xs" : "w-9",
+        )}
+      >
+        {open ? (
+          <>
+            <Icon name="search" aria-hidden="true" className="text-muted-foreground ml-2.5 shrink-0" />
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault()
+                  close()
+                }
+              }}
+              onBlur={() => {
+                if (!query) setOpen(false)
+              }}
+              placeholder={placeholder}
+              aria-label={placeholder.replace(/…$/, "")}
+              className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setQuery("")
+                  inputRef.current?.focus()
+                }}
+                className="text-muted-foreground hover:text-foreground mr-1 flex size-7 shrink-0 items-center justify-center rounded-sm"
+              >
+                <Icon name="x" />
+              </button>
+            ) : null}
+          </>
+        ) : (
+          tip(
+            "Search",
+            <button ref={searchBtnRef} type="button" aria-label="Search" aria-expanded={false} className={iconButton} onClick={() => setOpen(true)}>
+              <Icon name="search" />
+            </button>,
+          )
+        )}
+      </div>
+
     </div>
+    </S.TooltipProvider>
   )
 }
 

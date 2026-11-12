@@ -202,17 +202,18 @@ stay readable on a phone in a dim storage room.
 
 ## Components
 
-- **Table tools** (`Strata.TableToolbar`; Kyle, 2026-11-11): every table and list page carries
-  Search, Filter, Sort and View at its top right, like Notion: 36 px ghost icon buttons (`search`,
-  `list-filter`, `arrow-up-down`, `sliders-horizontal`) with tooltips, in a `toolbar` role. Search
-  comes first: clicking it opens a 224 px search box (`Input` styling, search icon, Clear) in its
-  place, which pushes Filter, Sort and View to the right (200 ms ease-out width transition, CSS
-  only; none with reduced motion). The page keeps room for it so nothing else moves. Escape closes
-  it and returns focus to the icon; leaving it while empty also closes it. The 36 px icons are an
-  exception to the 44 px rule, like the sidebar rows. Filter is a menu of checkboxes
-  with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its name says
-  how many ("Filter, 1 on"). Sort and View are radio menus; View lists that page's views. The
-  search and filters apply as you type (server side for long lists).
+- **Table tools** (`Strata.TableToolbar`; Kyle, 2026-11-11, Notion as the reference): every
+  table and list page carries a toolbar at its top right, in a `toolbar` role: first the page's
+  own action as an icon with a shadcn `Tooltip` (on Inbox, Mark all read, `check-check`), a
+  divider, then Filter (`list-filter`), Sort (`arrow-up-down`), View (`sliders-horizontal`) and
+  **Search (`search`) at the far right**. All are 36 px ghost icon buttons with tooltips (an
+  exception to the 44 px rule, like the sidebar rows). Clicking Search opens a 224 px search box
+  (`Input` styling, search icon, Clear) in its place; it grows to the left and pushes the other
+  icons left (200 ms ease-out width transition, CSS only; none with reduced motion). Escape closes
+  it and returns focus to the icon; leaving it while empty also closes it. Filter is a menu of
+  checkboxes with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its
+  name says how many ("Filter, 1 on"). Sort and View are radio menus; View lists that page's
+  views. Search and filters apply as you type (server side for long lists).
 - **Buttons** (`Button`). 44 px high (48 px on phone, 56 px for the pinned phone primary), 8 px
   radius, 20 px side padding, sans 600. `default`: indigo fill, white text, one per screen.
   `outline`: `card` fill with a 1.5 px `input` border, for the other actions. `ghost` and `link`
@@ -790,14 +791,20 @@ notification. Kyle chose:
     and Next (`chevron-up` and `chevron-down`, K and J), and "1 of 6".
   - With nothing open, the list uses the full width.
 - **Header:** tabs All, Requests, Updates and Done, each with a count. At the right, the table
-  tools (Search Inbox…, Filter: Unread only, Waiting on me, About my requests; Sort: Newest first,
-  Oldest first, Requests first; View: One stream, Grouped, Table; this replaces the View `Select`),
-  then Mark all read. Board "Inbox — table, search open".
-- **Table** (compact; shadcn `Table`; Kyle 2026-11-11: "borders or background", "even more compact"): 28 px
-  rows (32 px header) at 13 px with no vertical padding, a 20 px kind icon and a 16 px-high pill;
-  rows separated three ways: a bottom border, every other row tinted `muted` at 40 %, and a
-  vertical `border` line between columns (none after Received); the header row is `muted` with
-  muted 13 px labels. Record truncates with an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
+  tools: Mark all read (icon), then Filter (Unread only, Waiting on me, About my requests), Sort
+  (Newest first, Oldest first, Requests first), View (One stream, Grouped, Table; replaces the View
+  `Select`) and Search Inbox… at the far right. Board "Inbox — table, search open".
+- **Table** (compact; shadcn `Table`; Kyle 2026-11-11: "even more compact", then "borders like
+  Notion"): 28 px rows (32 px header) at 13 px with no vertical padding, a 20 px kind icon and a
+  16 px-high pill. **Notion borders, on this view only:** a line under every row, a vertical line
+  between columns (none after Received), lines above and below the table, no row stripes; the
+  header is plain (`background`) with a 14 px Lucide icon before each muted label (Kind `tag`,
+  Title `type`, Record `hash`, From `user`, Received `clock`). The other Inbox views and other
+  tables keep shadcn's plain rows. **Row checkboxes** sit in a 40 px column at the left: hidden
+  until the pointer is over the row (or over the header, for Select all), then they fade in and
+  out in 100 ms (none with reduced motion); a focused or ticked checkbox stays visible, and once
+  any row is ticked every checkbox shows. Each is labelled "Select <title>". Record truncates with
+  an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
   then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
   drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a
   deliberate exception to the 44 px rule for this dense view (still above the 24 px minimum); the
