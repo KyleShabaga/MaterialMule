@@ -118,14 +118,14 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.SidebarMenuItem">
 <sc-if value="{{individual}}" hint-placeholder-val="{{ true }}">
 <x-import component-from-global-scope="Strata.DropdownMenu">
-<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="Alex Tester, Technician. Account menu" class-name="peer/menu-button ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="Alex Tester, {{role}}. Account menu" class-name="peer/menu-button ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
 <span class="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">AT</span>
-<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-[13px]">Technician</span></span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-[13px]">{{role}}</span></span>
 <x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuContent" side="top" align="start" side-offset="{{four}}" class-name="w-60">
 <x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="p-0 font-normal">
-<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm"><span class="bg-accent text-accent-foreground flex size-8 items-center justify-center rounded-full font-mono text-[13px] font-bold">AT</span><span class="grid flex-1 leading-tight"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-[13px]">Technician</span></span></div>
+<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm"><span class="bg-accent text-accent-foreground flex size-8 items-center justify-center rounded-full font-mono text-[13px] font-bold">AT</span><span class="grid flex-1 leading-tight"><span class="truncate font-semibold">Alex Tester</span><span class="text-muted-foreground truncate text-[13px]">{{role}}</span></span></div>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuGroup">
@@ -213,17 +213,20 @@ body{margin:0}
 <sc-if value="{{todayStation}}" hint-placeholder-val="{{ false }}">
 <div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayStationContent" variant="{{today}}" hint-size="100%,744px"></dc-import></div>
 </sc-if>
+<sc-if value="{{todayLead}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayLeadContent" variant="{{leadVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
 </x-import>
 </x-import>
 </x-import>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"station":{"editor":"boolean","default":false},"today":{"editor":"select","options":["none","default","concrete","quiet","customize","failed","none-shown"],"default":"none"},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"station":{"editor":"boolean","default":false},"today":{"editor":"select","options":["none","default","concrete","quiet","customize","failed","none-shown","lead-busy","lead-clear","lead-long","lead-failed"],"default":"none"},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   renderVals() {
     var station = !!this.props.station;
     var today = this.props.today || "none";
-    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, today: today, placeholder: today === "none", todayStation: today !== "none" };
+    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, today: today, placeholder: today === "none", todayStation: today !== "none" && today.indexOf("lead-") !== 0, todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), role: today.indexOf("lead-") === 0 ? "Project lead" : "Technician" };
   }
 }
 </script>

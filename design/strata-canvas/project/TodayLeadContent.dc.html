@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today, project lead content</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<!-- Today for a project lead signed in with their own account. Mounted inside the shell's content
+     area. All data is fictional; soils lab work shows progress only. -->
+<div class="bg-background text-foreground font-sans" style="min-height: 744px;">
+<div class="mx-auto flex max-w-[960px] flex-col gap-8 px-8 py-10">
+
+<!-- Welcome -->
+<header class="grid gap-1">
+<p class="text-muted-foreground text-sm">Wednesday, November 11</p>
+<h1 class="text-3xl font-semibold tracking-tight">Good morning, Alex</h1>
+<p class="text-muted-foreground text-base">{{summary}}</p>
+</header>
+
+<!-- Shortcuts for a project lead -->
+<nav aria-label="Shortcuts" class="flex flex-wrap gap-2">
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import>Request lab testing</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="clipboard-check"></x-import>Review concrete reports</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import>My projects</x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="folder-plus"></x-import>New project</x-import>
+</nav>
+
+<div class="grid grid-cols-3 items-start gap-8">
+
+<!-- Needs you: two thirds -->
+<section aria-labelledby="needs-you" class="col-span-2 flex flex-col gap-3">
+<h2 id="needs-you" class="text-base font-semibold">Needs you</h2>
+
+<sc-if value="{{failed}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">Needs you couldn't load.</x-import><x-import component-from-global-scope="Strata.AlertDescription">Shortcuts and the last 24 hours still work.</x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="outline" class-name="self-start"><x-import component-from-global-scope="Strata.Icon" name="rotate-cw"></x-import>Try again</x-import>
+</sc-if>
+
+<sc-if value="{{clear}}" hint-placeholder-val="{{ false }}">
+<div class="bg-card flex items-start gap-4 rounded-xl border p-6">
+<span class="bg-stage-closed-bg text-stage-closed-fg flex size-10 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="size-5"></x-import></span>
+<div class="grid gap-1"><p class="font-medium">Nothing needs you right now.</p><p class="text-muted-foreground text-sm">Reports to review, retention decisions and lab requests will show up here.</p></div>
+</div>
+</sc-if>
+
+<sc-if value="{{list}}" hint-placeholder-val="{{ true }}">
+<ul class="bg-card divide-y overflow-hidden rounded-xl border">
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due">Retention</x-import><span class="font-medium">Retention ends in 7 days for 4 storage units</span></div>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2610</span> · Riverbend lots · <span class="font-mono text-[13px]">BKT-2026-000143</span> and 3 more. Extend, or approve disposal.</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" size="sm">Decide</x-import>
+</li>
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="lab">Concrete</x-import><span class="font-medium">3 field reports to review</span></div>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2616</span> · Riverside apts · placed Nov 9 and 10 by Pat Example</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Review</x-import>
+</li>
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger">Hold</x-import><span class="font-medium">Set 4 is on HOLD</span></div>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2616</span> · 28-day breaks wait for your decision</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
+</li>
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="lab">Lab</x-import><span class="font-medium">Lab program finished</span></div>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Atterberg limits, 6 of 6 tests done</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
+</li>
+<sc-if value="{{long}}" hint-placeholder-val="{{ false }}">
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft">Request</x-import><span class="font-medium">A lab request is waiting on your answer</span></div>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2601</span> · <span class="font-mono text-[13px]">TH26-02</span> · asked by Sam Sample</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Answer</x-import>
+</li>
+<li class="flex items-center gap-4 p-4">
+<div class="grid flex-1 gap-1.5">
+<div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due">Retention</x-import><span class="font-medium">Retention ends in 14 days for 2 storage units</span></div>
+<p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2611</span> · <span class="font-mono text-[13px]">ST-2026-000021</span> and 1 more</p>
+</div>
+<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Decide</x-import>
+</li>
+</sc-if>
+</ul>
+<sc-if value="{{long}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" class-name="text-link self-start">Show all 11<x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+</sc-if>
+</sc-if>
+</section>
+
+<!-- Last 24 hours on this person's projects: one third -->
+<aside aria-labelledby="last-day" class="flex flex-col gap-3">
+<h2 id="last-day" class="text-base font-semibold">Last 24 hours</h2>
+<ol class="flex flex-col gap-4 text-sm">
+<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">9:42</span><span aria-hidden="true" class="bg-stage-storage-mark size-2 translate-y-[-1px] rounded-full"></span><span>Pat Example received 2 buckets on <span class="font-mono text-[13px]">DEMO-2601</span></span></li>
+<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">8:15</span><span aria-hidden="true" class="bg-stage-lab-mark size-2 translate-y-[-1px] rounded-full"></span><span>Sam Sample started Atterberg limits on <span class="font-mono text-[13px]">DEMO-2612</span></span></li>
+<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">Tue 4:50</span><span aria-hidden="true" class="bg-stage-lab-mark size-2 translate-y-[-1px] rounded-full"></span><span>Set 3 broken, 7-day, on <span class="font-mono text-[13px]">DEMO-2616</span></span></li>
+<li class="grid grid-cols-[4.5rem_auto_1fr] items-baseline gap-2"><span class="text-muted-foreground font-mono text-[13px] whitespace-nowrap tabular-nums">Tue 3:12</span><span aria-hidden="true" class="bg-stage-closed-mark size-2 translate-y-[-1px] rounded-full"></span><span>Retention extended 6 months on <span class="font-mono text-[13px]">DEMO-2605</span></span></li>
+</ol>
+<a href="#" class="text-link text-sm font-medium underline-offset-4 hover:underline">All activity</a>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["busy","clear","long","failed"],"default":"busy"},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'busy';
+    var summaries = {
+      busy: '4 things need you today.',
+      long: '11 things need you today.',
+      clear: 'Nothing needs you right now.',
+      failed: 'Your list couldn’t load. Shortcuts still work.'
+    };
+    return {
+      summary: summaries[v] || summaries.busy,
+      failed: v === 'failed',
+      clear: v === 'clear',
+      list: v === 'busy' || v === 'long',
+      long: v === 'long'
+    };
+  }
+}
+</script>
+</body>
+</html>

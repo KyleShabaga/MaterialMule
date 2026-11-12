@@ -235,6 +235,60 @@
       "title": "Today content component (variant tweak)",
       "page": "today",
       "is_interactive": true
+    },
+    "TodayLead.dc.html": {
+      "x": 0,
+      "y": 2140,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — project lead (own account)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayLeadClear.dc.html": {
+      "x": 1360,
+      "y": 2140,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — project lead, nothing needs you",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayLeadLong.dc.html": {
+      "x": 2720,
+      "y": 2140,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — project lead, 11 things (Show all)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayLeadFailed.dc.html": {
+      "x": 4080,
+      "y": 2140,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — project lead, Needs you could not load",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayLeadDark.dc.html": {
+      "x": 0,
+      "y": 3060,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — project lead, dark",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayLeadContent.dc.html": {
+      "x": 1360,
+      "y": 3060,
+      "w": 1024,
+      "h": 744,
+      "title": "Project-lead Today content component (variant tweak)",
+      "page": "today",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -335,6 +389,22 @@
       "fill": "yellow",
       "page": "today",
       "text": "Today on a LAB station, shaped 2026-11-11. Two equal receiving buttons (Receive samples, Receive concrete), then At this station: draft receipts to finish, deliveries waiting, breaks due today, labels to print, each with a count and a way in. No greeting: the sidebar shows who is recording. Each LAB computer picks its rows with Customize this station (saved on that computer). Open: who may customise (proposed: anyone at the station); whether the two buttons are customisable too (fixed for now). The staff (own account) Today comes later."
+    },
+    "rowTodayLead": {
+      "x": 0,
+      "y": 1840,
+      "text": "Today — own account (project lead)",
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "today"
+    },
+    "todayLeadNotes": {
+      "x": 5440,
+      "y": 2140,
+      "w": 420,
+      "fill": "yellow",
+      "page": "today",
+      "text": "Own-account Today, shaped 2026-11-11, drawn for a project lead first. Welcome with the date and a one-line summary; shortcuts (Request lab testing, Review concrete reports, My projects, New project); then Needs you (two thirds: stage tag, sentence, IDs in mono, one action, most urgent first, first six then Show all) beside Last 24 hours on their projects (one third). No Storage room. Open: what other roles see; whether shortcuts can be changed (fixed for now)."
     }
   },
   "order": [
@@ -363,7 +433,13 @@
     "TodayStationFailed.dc.html",
     "TodayStationNoneShown.dc.html",
     "TodayStationDark.dc.html",
-    "TodayStationContent.dc.html"
+    "TodayStationContent.dc.html",
+    "TodayLead.dc.html",
+    "TodayLeadClear.dc.html",
+    "TodayLeadLong.dc.html",
+    "TodayLeadFailed.dc.html",
+    "TodayLeadDark.dc.html",
+    "TodayLeadContent.dc.html"
   ],
   "pages": [
     {

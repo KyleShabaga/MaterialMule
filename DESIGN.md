@@ -674,6 +674,37 @@ customisable per computer, and no greeting (the sidebar shows who is recording).
   - whether the two buttons become customisable too (fixed for now);
   - which further rows exist.
 
+### Today with an own account (canvas page "Today", second row: project lead)
+
+Shaped with Impeccable on 2026-11-11. Kyle chose: a greeting with a one-line summary;
+shortcuts; Needs you; Last 24 hours (no Storage room); drawn for a project lead first.
+
+- **Welcome:** the date (muted), "Good morning, Alex" (30 px, changes through the day), and one
+  summary line ("4 things need you today." / "Nothing needs you right now.").
+- **Shortcuts** (outline buttons, a project lead's set): Request lab testing, Review concrete
+  reports, My projects, New project.
+- **Two columns, 2 : 1:**
+  - **Needs you** (left): one card list, most urgent first. Each row has a stage Badge (Retention
+    `due`, Concrete `lab`, Hold `danger`, Lab `lab`, Request `draft`), a sentence, a detail line
+    with IDs in mono, and one action. Only the first row's action is `primary`; the rest are
+    outline. Example rows:
+    - retention ending in 7 days (Decide);
+    - 3 concrete field reports to review (never the lead's own);
+    - Set 4 on HOLD;
+    - a lab program finished (progress only);
+    - a lab request waiting on an answer.
+
+    More than six shows the first six and "Show all 11".
+  - **Last 24 hours** (right): this person's projects only. Each line has a time in mono, a stage
+    dot and a sentence; then "All activity".
+- **States:** a clear day (a calm panel: "Nothing needs you right now." with what will appear
+  there); a long list; Needs you couldn't load (red alert, "Shortcuts and the last 24 hours still
+  work.", Try again); dark.
+- **Built as** `TodayLeadContent.dc.html` (`variant` tweak), shown inside the shell
+  (`SidebarLive`'s `today` tweak, `lead-*` values). The account row then reads "Project lead".
+- **Open:** what the other roles see in Needs you and their shortcuts; whether shortcuts can be
+  changed (fixed for now).
+
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
 ## Next
