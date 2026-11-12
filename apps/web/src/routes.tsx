@@ -141,6 +141,18 @@ export const routes: RouteObject[] = [
       { path: '/sign-in/test', element: <TestSignInPage /> },
       { path: '/sign-in/microsoft/callback', element: <MicrosoftCallbackPage /> },
       { path: '/access-pending', element: <AccessPendingPage /> },
+      // Strata shared-component gallery (lane 1B): dev server only. DEV is a build-time constant,
+      // so the production build drops this route and its chunk.
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: '/dev/strata',
+              lazy: async () => ({
+                Component: (await import('./components/strata/StrataGallery')).StrataGallery,
+              }),
+            },
+          ]
+        : []),
       {
         element: <RequireActiveSession />,
         children: [

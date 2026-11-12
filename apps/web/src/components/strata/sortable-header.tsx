@@ -28,7 +28,11 @@ export function SortableTableHead({
   const ariaSort = dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
   const Arrow = dir === 'asc' ? ArrowUp : dir === 'desc' ? ArrowDown : ArrowUpDown;
   return (
-    <TableHead aria-sort={ariaSort} className={cn(align === 'end' && 'text-right', className)} {...props}>
+    <TableHead
+      aria-sort={ariaSort}
+      className={cn(align === 'end' && 'text-right', className)}
+      {...props}
+    >
       <button
         type="button"
         onClick={() => onSortChange(nextHeadingSort(sort, sortKey))}

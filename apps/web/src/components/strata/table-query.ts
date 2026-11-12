@@ -142,7 +142,8 @@ export function useTableQuery(prefix = ''): [TableQuery, SetTableQuery] {
     (patch) => {
       const onlySearch = Object.keys(patch).every((key) => key === 'search');
       setParams(
-        (current) => writeTableQuery(current, { ...readTableQuery(current, prefix), ...patch }, prefix),
+        (current) =>
+          writeTableQuery(current, { ...readTableQuery(current, prefix), ...patch }, prefix),
         { replace: onlySearch },
       );
     },
