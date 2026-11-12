@@ -806,7 +806,12 @@ notification. Kyle chose:
   tables keep shadcn's plain rows. **Row checkboxes** sit in a 40 px column at the left: hidden
   until the pointer is over the row (or over the header, for Select all), then they fade in and
   out in 100 ms (none with reduced motion); a focused or ticked checkbox stays visible, and once
-  any row is ticked every checkbox shows. Each is labelled "Select <title>". Record truncates with
+  any row is ticked every checkbox shows. Each is labelled "Select <title>". **Headings sort** (Kyle, 2026-11-11; `Strata.SortHeader`): the whole
+  heading is a button; clicking it sorts by that column ascending, again descending, a third time
+  back to the default (newest first). One column at a time; an `arrow-up` or `arrow-down` in
+  `primary` shows it, a faint `arrow-up-down` appears on hover, and the `th` carries `aria-sort`.
+  Received ascending means oldest first. Sorting by a heading and the toolbar's Sort menu are one
+  setting. Columns: checkbox 40 px, kind icon 36 px, Kind 176 px, Received 128 px. Record truncates with
   an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
   then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
   drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a

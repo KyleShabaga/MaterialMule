@@ -831,6 +831,90 @@ function TableToolbar({
   )
 }
 
+/**
+ * A sortable column heading for the compact table, like Notion's: the whole heading is a button
+ * (icon, label, and an arrow showing the sort). Clicking cycles ascending, descending, then back to
+ * the default order (newest first); one column sorts at a time, and the heading's `th` carries
+ * `aria-sort`. `col` is the cell index in each row; `by="order"` sorts by the original order
+ * (Received, which is already newest first). The canvas reorders the rendered rows itself; the app
+ * sorts on the server and shares this state with the toolbar's Sort menu.
+ */
+function SortHeader({ label, icon, col, by, align }: {
+  label: string; icon?: string; col: number | string; by?: string; align?: string
+}) {
+  const ref = React.useRef<HTMLButtonElement>(null)
+  const [dir, setDir] = React.useState<"none" | "ascending" | "descending">("none")
+  const index = Number(col)
+  React.useEffect(() => {
+    const table = ref.current?.closest("table")
+    if (!table) return
+    const onSort = (e: Event) => {
+      const d = (e as CustomEvent).detail as { col: number; dir: "none" | "ascending" | "descending" }
+      setDir(d.col === index ? d.dir : "none")
+    }
+    table.addEventListener("strata:sort", onSort)
+    return () => table.removeEventListener("strata:sort", onSort)
+  }, [index])
+  React.useEffect(() => {
+    ref.current?.closest("th")?.setAttribute("aria-sort", dir)
+  }, [dir])
+  const sort = () => {
+    const table = ref.current?.closest("table")
+    const body = table?.querySelector("tbody")
+    if (!table || !body) return
+    const next = dir === "none" ? "ascending" : dir === "ascending" ? "descending" : "none"
+    const rows = Array.from(body.querySelectorAll("tr"))
+    rows.forEach((tr, i) => {
+      if (tr.dataset.order === undefined) tr.dataset.order = String(i)
+    })
+    const key = (tr: HTMLTableRowElement) => {
+      if (next === "none") return Number(tr.dataset.order)
+      // Original order is newest first, so ascending (oldest first) is its reverse.
+      if (by === "order") return -Number(tr.dataset.order)
+      return (tr.querySelectorAll("td")[index]?.textContent || "").replace("Unread.", "").trim().toLowerCase()
+    }
+    rows.sort((a, b) => {
+      const ka = key(a)
+      const kb = key(b)
+      const c = typeof ka === "number" ? ka - (kb as number) : String(ka).localeCompare(String(kb), undefined, { numeric: true })
+      const tie = Number(a.dataset.order) - Number(b.dataset.order)
+      return (next === "descending" ? -c : c) || tie
+    })
+    // Rows sit in the canvas's wrapper elements; move the wrapper that is tbody's child.
+    rows.forEach((tr) => {
+      let el: HTMLElement = tr
+      while (el.parentElement && el.parentElement !== body) el = el.parentElement
+      body.appendChild(el)
+    })
+    table.dispatchEvent(new CustomEvent("strata:sort", { detail: { col: index, dir: next } }))
+  }
+  const arrow = dir === "ascending" ? "arrow-up" : dir === "descending" ? "arrow-down" : "arrow-up-down"
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={sort}
+      className={cn(
+        "group/sort hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 -mx-2 flex h-8 w-[calc(100%+1rem)] items-center gap-1.5 px-2 text-[13px] font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-inset",
+        align === "right" && "justify-end",
+        dir !== "none" && "text-foreground",
+      )}
+    >
+      {icon ? <Icon name={icon} className="size-3.5 shrink-0" /> : null}
+      <span className="truncate">{label}</span>
+      <Icon
+        name={arrow}
+        aria-hidden="true"
+        className={cn(
+          "size-3.5 shrink-0 transition-opacity duration-100 motion-reduce:transition-none",
+          dir === "none" ? "opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60" : "text-primary opacity-100",
+        )}
+      />
+    </button>
+  )
+}
+
+Strata.SortHeader = SortHeader
 Strata.TableToolbar = TableToolbar
 Strata.NavSection = NavSection
 Strata.SidebarCustomize = SidebarCustomize
