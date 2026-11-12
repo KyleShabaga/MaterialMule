@@ -634,6 +634,46 @@ straight on to a person picker, and the first pass covers the page plus every st
   - What Someone else… searches: all staff.
   - Session length stays D38 (deferred), so nothing shows an end time.
 
+### Today on a LAB station (canvas page "Today")
+
+Shaped with Impeccable on 2026-11-11. LAB computers first; the own-account Today comes later.
+Kyle chose: the big buttons are Receive samples and Receive concrete, then the station's work,
+customisable per computer, and no greeting (the sidebar shows who is recording).
+
+- **Two equal receiving buttons,** side by side, at the top: Receive samples
+  (`arrow-down-to-line`, "Buckets, Shelby tubes and core boxes arriving at the lab.") and
+  Receive concrete (`cylinder`, "Specimen sets arriving from site."). Each is a large card link
+  (`card`, border, 12 px radius, min 144 px tall) with a 48 px `primary` icon tile, an 18 px title,
+  a one-line description and an arrow that nudges right on hover. They're equal, so neither is
+  the page's single `primary` button.
+- **At this station:** one card list, a row per kind of waiting work, each a link: a big count
+  in mono figures, a title and a plain line. Rows:
+  - Draft receipts to finish ("Started here, not confirmed yet. IDs are issued on confirm.").
+  - Deliveries waiting.
+  - Breaks due today.
+  - Labels to print.
+
+  A zero shows a muted 0 and "Nothing waiting." (the row stays). Counts over 99 show "99+".
+- **Customize this station** (outline button at the list's top right) opens a popover: "Shown on
+  this station", one switch per row with a drag handle for order, "Saved on this computer only."
+  Hidden rows leave a small note ("2 rows are hidden on this station.").
+- **States:** quiet day (all zero); the list couldn't load (red alert, "The receiving buttons above
+  still work.", Try again); every row switched off ("Nothing is set to show at this station." and
+  Customize this station).
+- **Built as** `TodayStationContent.dc.html` (a `variant` tweak), shown inside the shell
+  (`SidebarLive`'s `today` tweak, station mode). Boards:
+  - the default station;
+  - a concrete-room station with two rows hidden;
+  - Customize open;
+  - quiet day;
+  - failed;
+  - nothing shown;
+  - dark.
+- **Open:**
+  - who may customise a station (proposed: anyone at it);
+  - whether the two buttons become customisable too (fixed for now);
+  - which further rows exist.
+
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
 ## Next

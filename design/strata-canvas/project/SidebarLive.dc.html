@@ -207,17 +207,23 @@ body{margin:0}
 </x-import>
 </div>
 </header>
+<sc-if value="{{placeholder}}" hint-placeholder-val="{{ true }}">
 <div class="text-muted-foreground p-6 text-sm">Page content goes here. Try the sidebar: collapse it with the button above or Ctrl+B and hover the icons, open Retention and Pinned; open the account menu at the bottom. Turn on the Station tweak for the shared LAB station.</div>
+</sc-if>
+<sc-if value="{{todayStation}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayStationContent" variant="{{today}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
 </x-import>
 </x-import>
 </x-import>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"station":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"station":{"editor":"boolean","default":false},"today":{"editor":"select","options":["none","default","concrete","quiet","customize","failed","none-shown"],"default":"none"},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   renderVals() {
     var station = !!this.props.station;
-    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4 };
+    var today = this.props.today || "none";
+    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, today: today, placeholder: today === "none", todayStation: today !== "none" };
   }
 }
 </script>

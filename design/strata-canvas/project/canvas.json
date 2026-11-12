@@ -163,6 +163,78 @@
       "w": 1280,
       "x": 2720,
       "y": 920
+    },
+    "TodayStation.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — LAB station (default)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationConcrete.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — a concrete-room station (2 rows hidden)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationCustomize.dc.html": {
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — Customize this station open",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationQuiet.dc.html": {
+      "x": 4080,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — quiet day (all zero)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationFailed.dc.html": {
+      "x": 0,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — station work could not load",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationNoneShown.dc.html": {
+      "x": 1360,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — every row switched off",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationDark.dc.html": {
+      "x": 2720,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — LAB station, dark",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayStationContent.dc.html": {
+      "x": 4080,
+      "y": 920,
+      "w": 1024,
+      "h": 744,
+      "title": "Today content component (variant tweak)",
+      "page": "today",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -247,6 +319,22 @@
       "w": 420,
       "x": 5440,
       "y": 0
+    },
+    "rowToday": {
+      "x": 0,
+      "y": -300,
+      "text": "Today — LAB station",
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "today"
+    },
+    "todayNotes": {
+      "x": 5440,
+      "y": 0,
+      "w": 420,
+      "fill": "yellow",
+      "page": "today",
+      "text": "Today on a LAB station, shaped 2026-11-11. Two equal receiving buttons (Receive samples, Receive concrete), then At this station: draft receipts to finish, deliveries waiting, breaks due today, labels to print, each with a count and a way in. No greeting: the sidebar shows who is recording. Each LAB computer picks its rows with Customize this station (saved on that computer). Open: who may customise (proposed: anyone at the station); whether the two buttons are customisable too (fixed for now). The staff (own account) Today comes later."
     }
   },
   "order": [
@@ -267,7 +355,15 @@
     "SignInPaused.dc.html",
     "SignInOptionsFailed.dc.html",
     "SignInNoMethods.dc.html",
-    "SignInPickerEmpty.dc.html"
+    "SignInPickerEmpty.dc.html",
+    "TodayStation.dc.html",
+    "TodayStationConcrete.dc.html",
+    "TodayStationCustomize.dc.html",
+    "TodayStationQuiet.dc.html",
+    "TodayStationFailed.dc.html",
+    "TodayStationNoneShown.dc.html",
+    "TodayStationDark.dc.html",
+    "TodayStationContent.dc.html"
   ],
   "pages": [
     {
@@ -281,6 +377,10 @@
     {
       "id": "signin",
       "name": "Sign in"
+    },
+    {
+      "id": "today",
+      "name": "Today"
     }
   ],
   "title": "Material Mule — Strata"
