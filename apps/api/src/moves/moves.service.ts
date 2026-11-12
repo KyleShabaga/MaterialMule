@@ -404,6 +404,24 @@ export class MovesService {
    * returns the same IDs. Every other refusal rolls back and records nothing.
    */
   async move(request: MoveRequest, user: AuthUser, requestId: string | null): Promise<MoveResult> {
+    return withTransaction(this.database.pool, (client) =>
+      this.moveInTransaction(client, request, user, requestId),
+    );
+  }
+
+  /**
+   * `move` inside the caller's transaction, with the same rules and lock order (STRATA-123: an
+   * undo locks the unit and checks its own guards first, then saves the compensating move through
+   * here). `auditExtra` adds facts to the `storage_unit.moved` audit event, e.g. which move an
+   * undo reversed.
+   */
+  async moveInTransaction(
+    client: PoolClient,
+    request: MoveRequest,
+    user: AuthUser,
+    requestId: string | null,
+    auditExtra: Record<string, unknown> = {},
+  ): Promise<MoveResult> {
     // The queue belongs to the account that scanned: never replayed under another account.
     if (request.captureContext.accountId !== user.userId) {
       throw new ForbiddenException({
@@ -413,147 +431,146 @@ export class MovesService {
       });
     }
     const hash = moveRequestHash(request);
-    return withTransaction(this.database.pool, async (client) => {
-      const replay = async () => {
-        const existing = await findAction(client, request.clientMoveId);
-        if (!existing) return null;
-        // Another account can't adopt an action or learn its outcome.
-        if (existing.account_user_id !== user.userId || existing.request_hash !== hash) {
-          throw keyReused();
-        }
-        return replayOf(existing, true);
-      };
-      const early = await replay();
-      if (early) return early;
-
-      const unit = await lockUnit(client, request.storageUnitId);
-      // A concurrent delivery of the same ID may have committed while this one waited.
-      const late = await replay();
-      if (late) return late;
-
-      refuseDisposed(unit);
-      const destination = await lockDestination(client, request.toLocationId);
-      const mover = await resolveMover(client, user, request.captureContext.moverUserId);
-      const expectedVersion = await this.expectedVersion(client, request, user);
-
-      const { rows: open } = await client.query<{ id: string; version: number }>(
-        `SELECT id, version FROM location_conflict
-         WHERE storage_unit_id = $1 AND status = 'open' FOR UPDATE`,
-        [unit.id],
-      );
-      const from = (await locationById(client, unit.current_location_id))!;
-      const actor = actorFor(user);
-      const source = request.capturedOffline ? 'queued' : 'online';
-      const common = {
-        clientMoveId: request.clientMoveId,
-        scannedAt: request.scannedAt,
-        source,
-        station: stationLabel(request.captureContext.stationId),
-      };
-
-      if (open[0] || unit.version !== expectedVersion) {
-        // Contested: keep both stories and let a person decide. Nothing about the unit changes.
-        let conflictId: string;
-        if (open[0]) {
-          conflictId = open[0].id;
-          await client.query('UPDATE location_conflict SET version = version + 1 WHERE id = $1', [
-            conflictId,
-          ]);
-        } else {
-          const { rows } = await client.query<{ id: string }>(
-            `INSERT INTO location_conflict (storage_unit_id, saved_location_id, saved_version)
-             VALUES ($1, $2, $3) RETURNING id`,
-            [unit.id, unit.current_location_id, unit.version],
-          );
-          conflictId = rows[0]!.id;
-        }
-        const eventId = await this.insertEvent(client, {
-          kind: 'contested',
-          unitId: unit.id,
-          from: unit.current_location_id,
-          to: destination.id,
-          baseVersion: request.baseVersion,
-          resultingVersion: null,
-          user,
-          mover,
-          request,
-          source,
-          conflictId,
-        });
-        const action = await this.insertAction(client, request, user, hash, {
-          outcome: 'conflict',
-          eventId,
-          conflictId,
-          resultingVersion: unit.version,
-          appliedTo: null,
-        });
-        await recordAudit(client, {
-          action: 'storage_unit.location_conflict',
-          entityType: 'storage_unit',
-          entityId: unit.id,
-          actor,
-          receiver: mover,
-          before: { location: { code: from.code, name: from.name }, version: unit.version },
-          after: {
-            ...common,
-            conflictId,
-            attemptedLocation: { code: destination.code, name: destination.name },
-            baseVersion: request.baseVersion,
-            expectedVersion,
-          },
-          requestId,
-        });
-        return replayOf(action, false);
+    const replay = async () => {
+      const existing = await findAction(client, request.clientMoveId);
+      if (!existing) return null;
+      // Another account can't adopt an action or learn its outcome.
+      if (existing.account_user_id !== user.userId || existing.request_hash !== hash) {
+        throw keyReused();
       }
+      return replayOf(existing, true);
+    };
+    const early = await replay();
+    if (early) return early;
 
-      // Saved. A scan at the unit's own saved location confirms it there without a new version,
-      // so it can't make other stations' pending moves conflict for nothing.
-      const stays = destination.id === unit.current_location_id;
-      const resultingVersion = stays ? unit.version : unit.version + 1;
-      if (!stays) {
-        await client.query(
-          `UPDATE storage_unit
-           SET current_location_id = $2, version = version + 1, updated_at = now()
-           WHERE id = $1`,
-          [unit.id, destination.id],
+    const unit = await lockUnit(client, request.storageUnitId);
+    // A concurrent delivery of the same ID may have committed while this one waited.
+    const late = await replay();
+    if (late) return late;
+
+    refuseDisposed(unit);
+    const destination = await lockDestination(client, request.toLocationId);
+    const mover = await resolveMover(client, user, request.captureContext.moverUserId);
+    const expectedVersion = await this.expectedVersion(client, request, user);
+
+    const { rows: open } = await client.query<{ id: string; version: number }>(
+      `SELECT id, version FROM location_conflict
+       WHERE storage_unit_id = $1 AND status = 'open' FOR UPDATE`,
+      [unit.id],
+    );
+    const from = (await locationById(client, unit.current_location_id))!;
+    const actor = actorFor(user);
+    const source = request.capturedOffline ? 'queued' : 'online';
+    const common = {
+      clientMoveId: request.clientMoveId,
+      scannedAt: request.scannedAt,
+      source,
+      station: stationLabel(request.captureContext.stationId),
+    };
+
+    if (open[0] || unit.version !== expectedVersion) {
+      // Contested: keep both stories and let a person decide. Nothing about the unit changes.
+      let conflictId: string;
+      if (open[0]) {
+        conflictId = open[0].id;
+        await client.query('UPDATE location_conflict SET version = version + 1 WHERE id = $1', [
+          conflictId,
+        ]);
+      } else {
+        const { rows } = await client.query<{ id: string }>(
+          `INSERT INTO location_conflict (storage_unit_id, saved_location_id, saved_version)
+           VALUES ($1, $2, $3) RETURNING id`,
+          [unit.id, unit.current_location_id, unit.version],
         );
+        conflictId = rows[0]!.id;
       }
       const eventId = await this.insertEvent(client, {
-        kind: 'move',
+        kind: 'contested',
         unitId: unit.id,
         from: unit.current_location_id,
         to: destination.id,
         baseVersion: request.baseVersion,
-        resultingVersion,
+        resultingVersion: null,
         user,
         mover,
         request,
         source,
-        conflictId: null,
+        conflictId,
       });
       const action = await this.insertAction(client, request, user, hash, {
-        outcome: 'saved',
+        outcome: 'conflict',
         eventId,
-        conflictId: null,
-        resultingVersion,
-        appliedTo: destination.id,
+        conflictId,
+        resultingVersion: unit.version,
+        appliedTo: null,
       });
       await recordAudit(client, {
-        action: 'storage_unit.moved',
+        action: 'storage_unit.location_conflict',
         entityType: 'storage_unit',
         entityId: unit.id,
         actor,
         receiver: mover,
-        before: { location: { code: from.code, name: from.name } },
+        before: { location: { code: from.code, name: from.name }, version: unit.version },
         after: {
           ...common,
-          location: { code: destination.code, name: destination.name },
-          ...(stays ? { confirmedInPlace: true } : {}),
+          conflictId,
+          attemptedLocation: { code: destination.code, name: destination.name },
+          baseVersion: request.baseVersion,
+          expectedVersion,
         },
         requestId,
       });
       return replayOf(action, false);
+    }
+
+    // Saved. A scan at the unit's own saved location confirms it there without a new version,
+    // so it can't make other stations' pending moves conflict for nothing.
+    const stays = destination.id === unit.current_location_id;
+    const resultingVersion = stays ? unit.version : unit.version + 1;
+    if (!stays) {
+      await client.query(
+        `UPDATE storage_unit
+         SET current_location_id = $2, version = version + 1, updated_at = now()
+         WHERE id = $1`,
+        [unit.id, destination.id],
+      );
+    }
+    const eventId = await this.insertEvent(client, {
+      kind: 'move',
+      unitId: unit.id,
+      from: unit.current_location_id,
+      to: destination.id,
+      baseVersion: request.baseVersion,
+      resultingVersion,
+      user,
+      mover,
+      request,
+      source,
+      conflictId: null,
     });
+    const action = await this.insertAction(client, request, user, hash, {
+      outcome: 'saved',
+      eventId,
+      conflictId: null,
+      resultingVersion,
+      appliedTo: destination.id,
+    });
+    await recordAudit(client, {
+      action: 'storage_unit.moved',
+      entityType: 'storage_unit',
+      entityId: unit.id,
+      actor,
+      receiver: mover,
+      before: { location: { code: from.code, name: from.name } },
+      after: {
+        ...common,
+        location: { code: destination.code, name: destination.name },
+        ...(stays ? { confirmedInPlace: true } : {}),
+        ...auditExtra,
+      },
+      requestId,
+    });
+    return replayOf(action, false);
   }
 
   /**

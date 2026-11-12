@@ -65,6 +65,20 @@ export const undoSourceParamsSchema = z.strictObject({
   sourceId: z.uuid({ error: 'must be an ID' }),
 });
 
+/**
+ * `GET /api/undo/:action/:sourceId?moverUserId=`: a LAB station names the person picked now, as
+ * it would in the POST (attribution only; without it LAB's moves read `not_found`).
+ */
+export const undoEligibilityQuerySchema = z.strictObject({
+  moverUserId: z.uuid({ error: 'must be a UUID' }).optional(),
+});
+
+/**
+ * The audit `after` key a reversal's `storage_unit.moved` event carries: the movement event it
+ * undid. History reads such an event as "Move undone".
+ */
+export const UNDO_OF_MOVEMENT_EVENT_KEY = 'undoOfMovementEventId';
+
 /** `GET /api/undo/:action/:sourceId`. */
 export const undoEligibilitySchema = z.object({
   action: undoActionSchema,

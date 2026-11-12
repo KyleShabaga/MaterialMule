@@ -171,6 +171,11 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'GET /api/me/sidebar-layout': null,
   'GET /api/me/preferences': null,
   'GET /api/me/table-columns': null,
+  // STRATA-123: Undo. The handler checks the action's own permission in its transaction: the
+  // move permission for moves (LAB included, its own station's move for the same picked person),
+  // recipient-only for a notification. GET uses the same so it never offers what POST refuses.
+  'GET /api/undo/:action/:sourceId': 'storage_unit.move',
+  'POST /api/undo': 'storage_unit.move',
   // Field Ledger Help & Feedback: every active session (LAB included) may send feedback; it is
   // kept as an audit event on the host. Reading it is staff.manage (admins).
   'POST /api/feedback': null,

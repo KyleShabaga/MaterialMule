@@ -447,7 +447,8 @@ export function storageUnitHistoryActionLabel(
     case 'bulk_group.corrected':
       return 'Bulk sample corrected';
     case 'storage_unit.moved':
-      return 'Moved';
+      // STRATA-123: an undo is a new move back, linked to the move it reversed.
+      return typeof after?.undoOfMovementEventId === 'string' ? 'Move undone' : 'Moved';
     case 'storage_unit.location_conflict':
       return 'Location conflict';
     case 'storage_unit.location_conflict_resolved':

@@ -142,6 +142,15 @@ describe('inventory query (MM-T12)', () => {
 });
 
 describe('storage unit history labels (MTR-59)', () => {
+  it('STRATA-123: names a move that undid another', () => {
+    expect(storageUnitHistoryActionLabel('storage_unit.moved', {})).toBe('Moved');
+    expect(
+      storageUnitHistoryActionLabel('storage_unit.moved', {
+        undoOfMovementEventId: '00000000-0000-4000-8000-000000000001',
+      }),
+    ).toBe('Move undone');
+  });
+
   it('names holds and extensions, project-wide or not', () => {
     expect(storageUnitHistoryActionLabel('retention.hold_placed', { scope: 'units' })).toBe(
       'Hold placed',
