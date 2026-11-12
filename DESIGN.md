@@ -1183,6 +1183,57 @@ Kyle chose: a project page with a header and tabs; the Projects list opening on 
   acceptance delegates; review is never one's own work; concrete authority is project-scoped
   (CLAUDE.md, docs/concrete.md); fictional data.
 
+### Round 5: soils lab (shaped 2026-11-12)
+
+Kyle chose: the program editor as sample lines with test chips, with a second Samples × tests grid
+view; the Workboard as both a board by status and a list, as two views.
+
+- **Job and audience:** project leads requesting soils tests on their samples; the Lab Manager
+  reviewing requests and running the lab's queue; technicians pulling units and doing tests.
+  The app tracks **progress only**: results are never recorded here.
+- **Lab programs list** (`/programs`): tabs Open, Drafts (mine), Closed; table tools; table:
+  program (LP number, mono), project, requested by (avatar), submitted, priority (Urgent tag),
+  progress ("n of m" with a thin bar), status tag. New lab program (primary). Rows open the
+  program in the drawer.
+- **Program editor** (`/programs/new`, a draft, an amendment):
+  - Header: project, requested by, priority (Normal / Urgent), "Draft · saved 10:02".
+  - **Lines view** (default): one row per sample line: the source (test hole with interval
+    from–to, or a standalone Shelby tube or bulk sample), the tests as removable chips with
+    - Add test (search the catalogue; groups), the storage units the line covers, a line comment.
+    - Add sample line; Choose a template (fills the tests); Include later receipts.
+  - **Grid view:** samples down the side, tests across the top, a checkbox per cell; tick a
+    column header to add that test to every sample. Same data as Lines; switching keeps it.
+  - Sticky bar: "3 lines · 5 tests" and **Submit to the lab**; problems listed there and on their
+    lines ("Choose a project first.", "Add a test to a line").
+  - Amendments after submission are marked "Added by amendment" and keep their history.
+- **Program page** (`/programs/:id`), the record pattern: header (LP number, project, requested
+  by, priority with Mark urgent/normal and its history, status, "n of m" progress); main action
+  by state (Draft: Continue editing; Submitted: Review, for the Lab Manager; In testing: Print
+  tags; Ready: Close program). Body: the lines, each with its tests and their state (waiting,
+  accepted, in testing, done, cancelled with reason), units covered and **Units to pull** (where
+  each is; "Nothing to pull: every covered unit is at the lab."); comments; history beside.
+  - **Review** happens on this page: each test Accept or Cancel with a reason; "Every test is
+    accepted or cancelled with a reason." before closing. Reopen keeps the history.
+- **Workboard** (`/lab-testing`), two views of the same work (View menu; Board by default):
+  - **Board:** columns Waiting for review, Units to pull, In testing, Ready to close; each card a
+    program (LP number, project, Urgent tag, "n of m tests", oldest open, stage stripe). Urgent
+    first in each column; actions on the card (Review, Pull list, Open). No drag.
+  - **List:** the same programs in a table sorted by priority then oldest open, with the table
+    tools.
+- **Sample ID tags** (Print tags from a program): the print screen pattern from round 1 for tag
+  sheets: which tags (only tests that need a sample ID tag), start at card, a nudge for this
+  computer's printer (inches), true-size preview, Print. "Sample ID tags are available once the
+  program is submitted." and "No test in this program needs a sample ID tag." as states.
+- **States and ranges:** 1–60 lines, 1–40 tests per program; catalogue couldn't load; program
+  changed elsewhere ("This program changed. Reload it to continue."); no permission; someone
+  else's draft; no units received for these lines yet.
+- **Interaction and layout:** the editor saves as you go; Grid view scrolls sideways past ~12
+  tests with the sample column fixed; at 1024 px the board shows two columns at a time with a
+  horizontal scroll and the Lines view wraps chips.
+- **Constraints:** progress only, no results; individual samples appear only in lab requests
+  (never at receiving); review is never by the requester; tests come from the catalogue;
+  fictional data.
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
