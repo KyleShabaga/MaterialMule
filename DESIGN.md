@@ -1048,6 +1048,25 @@ Drawn in its own session from the round 2 brief: 34 boards and 6 components (`R2
   then says "Entered by Pat Example, for Jordan Lab"); bulk samples and location references stay
   as row options; only the person who started a draft or a Lab Manager can delete it.
 
+### Concrete lab (page: Concrete lab), round 7, designed 2026-11-12
+
+Drawn in its own session from the round 7 brief: 54 boards (light, dark, station and 1024 px). Kyle's choices (2026-11-12):
+
+- **Breaks: variant A** (list, then Record breaks in the Testing table). Variant B (enter results in the list) is removed.
+- **Holds default to open holds only** (inside the hold period or past the hold date); Disposal authorized and Disposed are Filter options shown as a chip.
+- **Four hold states:** "Waiting for removal" is the same as Disposal authorized (the API statuses), so they are merged.
+- **Sets without a casting time** are listed in Receiving and can be received, marked "Casting time not recorded · No test dates until it is" (the C31 queue must stop leaving them out).
+- **Hold until** stays in the Breaks selection bar; it needs a new server command (none in docs/concrete.md yet).
+
+Other decisions that set direction (all in `rounds/round7.json`):
+
+- “Hold until” stays in the Breaks selection bar as the brief has it (2026-11-11). It needs a new server command (move a scheduled specimen of a numbered set to ordinary HOLD, with a reason); docs/concrete.md has none yet, so it is an implementation follow-up, not drawn as a dialog.
+- Breaks A rows are one per set with a set checkbox (all/some/none) and one checkbox per due specimen in the Specimens cell, so specimens or whole sets can be ticked without a third table level.
+- Reschedule dialog takes a new test age in days and shows each specimen’s age and date before → after; specimens that can’t be rescheduled (draft report, unnumbered set) are named, not silently dropped.
+- No testing machine: a due-stage banner with a link to Settings → Equipment; Record breaks is disabled in the selection bar with the reason under it. Listing stays usable.
+- HOLD rows use the danger stripe as the brief says. Holds has four states (open question answered 2026-11-11): Inside the hold period and Hold period has ended (danger), Disposal authorized (due; it already means waiting for removal, so there is no separate state), Disposed (closed). These match the API statuses On hold, Review due, Disposal authorized, Disposed.
+- Holds selection bar keeps all three actions visible and disables those not every selected specimen allows, with the brief’s sentence and the specific reason underneath.
+
 ### Round 1: storage unit record (shaped 2026-11-12)
 
 Kyle chose: history beside the facts, Inbox's resizable drawer when a unit opens from a list, and
@@ -1360,7 +1379,7 @@ decision drawer for the whole group.
 
 Kyle chose: keep a Concrete overview page (the sidebar's Concrete group gains Overview at the top);
 for Breaks, design **both** "Breaks list, then Record breaks" and "Enter results in the list" so he
-can compare them.
+can compare them. **Kyle picked variant A on 2026-11-12.**
 
 - **Job and audience:** lab technicians receiving specimen sets and breaking cylinders on their
   test dates (often on a LAB station); the Lab Manager watching what is due, overdue, on HOLD or
@@ -1375,12 +1394,12 @@ can compare them.
   On HOLD, Exceptions ("No open exceptions from the sources checked so far."). Rows grouped by set:
   project, set, test age (7-, 28-day…), specimens, due date, stage stripe (lab; danger when
   overdue or on HOLD). "No testing machine is registered (Settings → Equipment)." blocks recording
-  with a link. **Two variants to design, Kyle picks after seeing them:**
-  - **A. List, then Record breaks:** tick specimens or whole sets; the selection bar offers Record
-    breaks, Reschedule (new test age in days) and Hold until; Record breaks opens the Testing table
-    for just the selection.
-  - **B. Enter results in the list:** a due row expands in place to type its readings; save per
-    specimen; Reschedule and Hold on the row.
+  with a link. **Two variants were designed; Kyle chose A (2026-11-11):**
+  - **A. List, then Record breaks (chosen):** tick specimens or whole sets; the selection bar
+    offers Record breaks, Reschedule (new test age in days) and Hold until; Record breaks opens the
+    Testing table for just the selection.
+  - **B. Enter results in the list (dropped):** a due row expands in place to type its readings;
+    save per specimen; Reschedule and Hold on the row.
 - **Testing table** (`/concrete/testing`, used by variant A and for bulk work): the keyboard-first
   grid as today: specimen, age (assigned / actual), test date, the reading fields the app has now
   (diameter, max load, several readings separated by spaces), excluded, save status per row;
@@ -1390,14 +1409,17 @@ can compare them.
 - **Receiving** (`/concrete/receiving`): field reports whose sets are awaiting receiving, "My
   reports" first then "Other reports" (field technician, project, sets, specimens, casting time or
   "Casting time not recorded"); receive a set by scanning or ticking its specimens; the pickup and
-  receiving rules stay as in docs/concrete.md.
+  receiving rules stay as in docs/concrete.md. Sets with no casting time can be received too
+  (answered 2026-11-11).
 - **Specimens** (`/concrete/specimens`, `/concrete/specimens/:setId`): look up a set or specimen
   (Ctrl K too); the **set page** uses the record pattern: header (set, project, field ID, specimen
   type, stage), main action by state (Receive, Record breaks, Open hold), specimens with their test
   dates (rescheduled marked), the field report link, history beside.
 - **Holds** (`/lab-testing/concrete/holds`): tabs All holds, Failed-specimen holds, Ordinary HOLD;
-  rows: specimen, project, casting date, hold until or "No expiry", state (still inside the hold
-  period, hold period has ended, waiting for removal, disposal authorized, disposed). Selection bar:
+  rows: specimen, project, casting date, hold until or "No expiry", state (inside the hold period,
+  hold period has ended, disposal authorized, disposed; "waiting for removal" is what disposal
+  authorized means, answered 2026-11-11). Opens on open holds only; disposal authorized and
+  disposed are filters (Kyle, 2026-11-11). Selection bar:
   Schedule test, Authorize disposal, Record disposal ("Each action is offered when every selected
   specimen allows it."); a reason is required; disposal uses the confirmation that lists every ID.
 - **Concrete search:** folded into Ctrl K and the round-3 search results (Concrete group); the
@@ -1573,8 +1595,8 @@ All 47 remaining screens are shaped (rounds 1–10, 2026-11-12). Next:
 
 1. **Design phase,** in the same order as the shaping rounds, each area on its own canvas page:
    every screen, its empty, loading, error and permission states, dark, and a 1024 px version
-   (audit P1). Kyle reviews each area before the next starts. Round 7 draws both Breaks variants
-   for Kyle to pick.
+   (audit P1). Kyle reviews each area before the next starts. Round 7 drew both Breaks variants;
+   Kyle chose A, list then Record breaks (2026-11-11).
 2. **Gates stay gates:** D38, billing D16–D18, G2, G8, report templates, offline field entry and
    set numbering are drawn only as marked open items.
 3. **Implementation plan** in the same shape as Field Ledger's (wave 0 Tailwind, shadcn, tokens
