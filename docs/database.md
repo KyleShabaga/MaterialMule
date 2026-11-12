@@ -931,6 +931,24 @@ owns which fields: [concrete.md](concrete.md).
 - **Owner guard** (`person_settings_owner_personal`): no row ever belongs to the shared LAB
   account, on insert or by moving a row. Proven in `apps/api/src/db/schema-person-settings.test.ts`.
 
+## Inbox read state for requests (STRATA-25, `0039_inbox_request_read.sql`)
+
+The single Inbox shows action requests and notifications together. Notifications keep their own
+`read_at` / `dismissed_at`; requests are shared work, so each person's read state is its own row.
+
+- `inbox_request_read`: (`user_id`, `action_item_id`) primary key, `read_at` (null = marked
+  unread), `updated_at`. Written only by `POST /api/inbox/requests/:id/read|unread` and
+  `POST /api/inbox/read-all`. No row means the default: unread for someone the request is routed
+  to (so a request reassigned or rerouted to someone new arrives unread for them), read for the
+  person who raised it.
+- `inbox_request_read_reader_check` (insert trigger): active personal or test accounts only,
+  never LAB or a disabled account (the notification recipient rule).
+- `inbox_request_read_guard`: no DELETE or TRUNCATE, and a row never moves to another person or
+  request; only `read_at` changes. Reading never changes `action_item` (no trigger, no link back).
+- Reading a request also marks that person's `action_request.opened` notification for it read:
+  the Inbox folds that notice into the request row.
+- Proven in `apps/api/src/db/schema-inbox-read.test.ts`.
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`

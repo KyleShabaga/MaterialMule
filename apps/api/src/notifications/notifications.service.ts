@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  CONCRETE_UPDATE_TITLES,
   concreteReportLifecycleState,
   isConcreteNotificationKind,
   NOTIFICATION_LIST_DAYS,
@@ -15,7 +16,7 @@ import {
 } from '@materialmule/shared';
 import { z } from 'zod';
 import type { AuthUser } from '../auth/policy.js';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { hrefOf, loadItemRows, titleOf } from './action-items.js';
 
@@ -258,7 +259,7 @@ interface ConcreteTransitionRow {
 }
 
 /** The linked reports as they stand now (state is read live, never stored on the notice). */
-async function loadConcreteReports(pool: Pool, ids: string[]) {
+export async function loadConcreteReports(pool: Pool | PoolClient, ids: string[]) {
   if (ids.length === 0) return new Map<string, ConcreteReportRow>();
   const { rows } = await pool.query<ConcreteReportRow>(
     `SELECT r.id, r.project_id, p.project_number, to_char(r.report_date, 'YYYY-MM-DD') AS report_date,
@@ -273,7 +274,7 @@ async function loadConcreteReports(pool: Pool, ids: string[]) {
 }
 
 /** The C09 events the notices name: who acted, on which version, and the comment. */
-async function loadConcreteTransitions(pool: Pool, ids: string[]) {
+export async function loadConcreteTransitions(pool: Pool | PoolClient, ids: string[]) {
   if (ids.length === 0) return new Map<string, ConcreteTransitionRow>();
   const { rows } = await pool.query<ConcreteTransitionRow>(
     `SELECT t.id, v.version_no, t.comment, t.actor_user_id,
@@ -287,14 +288,6 @@ async function loadConcreteTransitions(pool: Pool, ids: string[]) {
   return new Map(rows.map((row) => [row.id, row]));
 }
 
-const CONCRETE_TITLES: Record<ConcreteNotificationKind, string> = {
-  'concrete_report.returned': 'Field report returned for correction',
-  'concrete_curing.out_of_range': 'Curing temperature out of range',
-  'concrete_equipment.flagged': 'Equipment flag needs review',
-  'concrete_test.failed': 'Failed concrete test',
-  'concrete_report.auto_submitted': 'Field report submitted automatically',
-};
-
 function concreteNotificationOf(
   row: NotificationRow,
   report: ConcreteReportRow,
@@ -303,7 +296,7 @@ function concreteNotificationOf(
   return {
     id: row.id,
     kind: row.kind,
-    title: CONCRETE_TITLES[row.kind as ConcreteNotificationKind],
+    title: CONCRETE_UPDATE_TITLES[row.kind as ConcreteNotificationKind],
     projectId: report.project_id,
     projectNumber: report.project_number,
     // C28 review view (preview, checklist, history); ?version= opens the version the event was about.

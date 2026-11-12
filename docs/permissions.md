@@ -1467,6 +1467,25 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   link, and can still be unpinned.
 - `/api/me/notification-preferences` is unchanged (its email switch, `action_item.read`).
 
+## Inbox (STRATA-25, STRATA-55)
+
+| Route                                  | Policy                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /api/inbox?tab=&filter=&q=&sort=` | `notification.read`; the signed-in person's own feed                   |
+| `GET /api/inbox/summary`               | `notification.read`                                                    |
+| `POST /api/inbox/read-all`             | `notification.read`; own feed only                                     |
+| `POST /api/inbox/requests/:id/read`    | `action_item.read`; routed to me now or in my history, or raised by me |
+| `POST /api/inbox/requests/:id/unread`  | `action_item.read`; as above                                           |
+
+- **One feed, no new authority.** Requests appear as `GET /api/action-items` shows them to the
+  person (open: routed to them now; resolved in the last 90 days: their history), plus requests
+  they raised; updates are their notifications of the last 90 days. Reading, unreading and
+  read-all change the person's read state only: never a request's status, routing or the audit
+  log. Resolution stays with each workflow.
+- **Someone else's request** (not routed to them, not resolved by them, not raised by them), a
+  missing id or a malformed one is 404 `action_item_not_found`, and nothing changes.
+- **LAB and pending accounts:** 403 on every route above.
+
 ## Retention (MM-T29)
 
 | Route                                                                     | Policy                                             |

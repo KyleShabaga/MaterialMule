@@ -4,6 +4,7 @@ import {
   type ActionRequestKind,
   type ActionRequestResolution,
   type PersonSnapshot,
+  requestTitle,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 
@@ -13,7 +14,7 @@ import type { Pool, PoolClient } from 'pg';
 
 type Db = Pool | PoolClient;
 
-interface ItemRow {
+export interface ItemRow {
   id: string;
   kind: ActionRequestKind;
   status: 'open' | 'resolved';
@@ -76,6 +77,7 @@ export const ITEM_SELECT = `
   LEFT JOIN app_user au ON au.id = a.assigned_user_id
   LEFT JOIN app_user ru ON ru.id = a.resolved_by_user_id`;
 
+/** STRATA-57: the request's title from its structured facts, worded by the shared helper. */
 export function titleOf(
   row: Pick<
     ItemRow,
@@ -88,32 +90,15 @@ export function titleOf(
     | 'retention_units'
   >,
 ): string {
-  const program = row.program_number ?? 'a program';
-  const test = row.test_code ? ` · ${row.test_code}` : '';
-  switch (row.kind) {
-    case 'correction':
-      return `Correction returned for ${program}${test}`;
-    case 'cancellation_request':
-      return `Cancellation requested for ${program}${test}`;
-    case 'closure_request':
-      return `Closure requested for ${program}`;
-    case 'retention_request': {
-      const what = row.retention_kind === 'extension' ? 'Retention extension' : 'Hold';
-      const scope =
-        row.retention_scope === 'units'
-          ? ` · ${row.retention_units} unit${row.retention_units === 1 ? '' : 's'}`
-          : ' · whole project';
-      return `${what} requested for ${row.project_number}${scope}`;
-    }
-    case 'lead_appointment':
-      return `Lead Project Engineer needed for ${row.project_number}`;
-    case 'grant_review':
-      return `Review inherited grants on ${row.project_number}`;
-    case 'team_join_request':
-      return `Team join request on ${row.project_number}`;
-    case 'review_approval_lost':
-      return `Reviewer lost eligibility on ${row.project_number}`;
-  }
+  return requestTitle({
+    kind: row.kind,
+    projectNumber: row.project_number,
+    programNumber: row.program_number,
+    testCode: row.test_code,
+    retentionKind: row.retention_kind,
+    retentionScope: row.retention_scope,
+    retentionUnits: row.retention_units,
+  });
 }
 
 export function hrefOf(row: Pick<ItemRow, 'kind' | 'program_id' | 'project_id'>): string {
