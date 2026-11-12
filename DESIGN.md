@@ -556,6 +556,9 @@ shell, fix all five issues, leave the top bar as it is.
   account a "Recording as Pat Example · Until 4:30 PM" control that opens a person picker (Who is
   working here?, the station's people, Someone else…); the account row reads "LAB station ·
   Shared · Receiving lab" and its menu starts with Switch user and ends with End station session.
+- **Spacing** (Kyle, 2026-11-11: tighter): rows touch, with no gap between them (44 px pitch,
+  was 48), and groups sit closer (4 px vertical group padding, no gap between groups). The 44 px
+  row height stays, because it is the touch target.
 - **Sizes and access:** every row, sub-row and the account row is at least 44 px; rows are links
   (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
   2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
