@@ -148,21 +148,30 @@ colour; it maps its status onto one of these.
 | Stage     | Storage units                       | Concrete                                     | Other records                  |
 | --------- | ----------------------------------- | -------------------------------------------- | ------------------------------ |
 | `draft`   | Receipt draft (no ID yet)           | Field report draft, set not yet received     | Lab program draft              |
-| `storage` | On a shelf                          | Received, curing, waiting for its break date | Active project                 |
+| `storage` | On a shelf (short- or long-term)    | Received, curing, waiting for its break date | Active project                 |
 | `lab`     | Checked out, in a lab program       | Break today, in testing                      | Program in progress            |
 | `due`     | Retention due, extension requested  | Submitted, waiting for review; break due     | Action request waiting         |
 | `danger`  | Retention overdue                   | HOLD, overdue break, returned for correction | Failed print, blocked step     |
 | `closed`  | Disposed (keeps its ID and history) | Issued, disposed without testing             | Closed project, closed program |
 
-The **lifecycle track** shows where a storage unit is: five fully rounded segments, Received,
-Stored, In lab, Retention, Disposed. Past segments use their stage `bg` with `fg` text and a check,
-the current one is a solid stage `mark` fill with `card` text (white in light, near-black in dark;
-4.5:1 or more for every stage), future ones are `muted` with `muted-foreground` text. It is one
-`ol` with `aria-current="step"` on the current item. A unit that goes back to storage after the
-lab simply shows Stored as current again; the history below says it was in the lab. Concrete sets
-use the same track with their own steps (Cast, Received, Testing, Reported). Built as `Strata.LifecycleTrack`
-(`steps` "Label:stage|…", `current` index); the Components board's unit card shows it, and command-menu
-results show the unit's stage tag. People's avatars never use stage colours (`muted` fallback).
+The **lifecycle track** shows where a storage unit is: five squared segments (2 px corners), in
+the order Kyle set on 2026-11-12: **Received, In lab, Short-term storage, Long-term storage,
+Disposed**. Lab testing comes first; once it's done a unit goes to short-term storage, then to
+long-term storage, then it is disposed. Retention is not a step: "Due · Retention" stays a stage
+tag with the Decide action, shown while the unit is in long-term storage. A unit never sent to
+the lab passes In lab as done. Past segments use their stage `bg` with `fg` text and a check,
+the current one is a solid stage `mark` fill with `card` text (4.5:1 or more for every stage),
+future ones are `muted` with `muted-foreground` text. The two storage segments show
+"Short-term" and "Long-term"; the full names are in the title and for screen readers. It is one
+`ol` with `aria-current="step"` on the current item. The compact form (unit drawer, rows) is
+five small squares joined by a line, with the current step written beside them. Concrete sets
+use the same track with their own steps (Cast, Received, Testing, Reported). Built as
+`Strata.LifecycleTrack` (`steps` "Name=Short:stage|…", `current` index, `compact`).
+
+Short-term vs long-term storage is new to the app: today "long-term" exists only in a warehouse
+name. Chosen (recommended): each location in Settings › Locations gets a **Storage term**
+(Short-term or Long-term), and a stored unit's step follows the location it is on. The API must
+return the step with each unit. People's avatars never use stage colours (`muted` fallback).
 
 ## Logo
 

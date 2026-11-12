@@ -1036,20 +1036,22 @@ function SortHeader({ label, icon, col, by, align }: {
 }
 
 /**
- * The lifecycle track (DESIGN.md › Lifecycle): five fully rounded segments, Received, Stored,
- * In lab, Retention, Disposed. Past steps use their stage `bg` with `fg` text and a check; the
+ * The lifecycle track (DESIGN.md › Lifecycle): five squared segments, Received, In lab,
+ * Short-term storage, Long-term storage, Disposed (Kyle, 2026-11-12). A step may carry a short
+ * visible label: "Full name=Short:stage"; the full name stays in the title and for screen readers. Past steps use their stage `bg` with `fg` text and a check; the
  * current one is a solid stage `mark` fill with `card` text; future ones are `muted`. One `ol` with
  * `aria-current="step"` on the current item. `steps` is "Label:stage|…", `current` the index.
  */
 function LifecycleTrack({
-  steps = "Received:draft|Stored:storage|In lab:lab|Retention:due|Disposed:closed",
+  steps = "Received:draft|In lab:lab|Short-term storage=Short-term:storage|Long-term storage=Long-term:storage|Disposed:closed",
   current = 1,
   label = "Lifecycle",
   compact = false,
 }: { steps?: string; current?: number | string; label?: string; compact?: boolean }) {
   const list = steps.split("|").filter(Boolean).map((s) => {
-    const [name, stage] = s.split(":")
-    return { name, stage: stage || "storage" }
+    const [label, stage] = s.split(":")
+    const [name, short] = label.split("=")
+    return { name, short: short || name, stage: stage || "storage" }
   })
   const at = Number(current)
   const tone: Record<string, { past: string; now: string }> = {
@@ -1085,7 +1087,7 @@ function LifecycleTrack({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "size-2 shrink-0 rounded-full",
+                    "size-2 shrink-0 rounded-[1px]",
                     state === "future" ? "border-input border bg-transparent" : tone.fill,
                     state === "now" ? cn("ring-offset-background ring-2 ring-offset-2", tone.ring) : "",
                   )}
@@ -1111,12 +1113,19 @@ function LifecycleTrack({
             key={step.name}
             aria-current={state === "now" ? "step" : undefined}
             className={cn(
-              "flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[12px] font-semibold",
+              "flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-sm px-2 text-[12px] font-semibold",
               state === "future" ? "bg-muted text-muted-foreground font-medium" : tone[step.stage]?.[state === "now" ? "now" : "past"],
             )}
           >
             {state === "past" ? <Icon name="check" aria-hidden="true" className="size-3 shrink-0" /> : null}
-            <span className="truncate">{step.name}</span>
+            {step.short === step.name ? (
+              <span className="truncate">{step.name}</span>
+            ) : (
+              <span className="truncate" title={step.name}>
+                <span aria-hidden="true">{step.short}</span>
+                <span className="sr-only">{step.name}</span>
+              </span>
+            )}
             {state === "past" ? <span className="sr-only">, done</span> : state === "now" ? <span className="sr-only">, current</span> : null}
           </li>
         )
