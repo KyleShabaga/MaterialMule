@@ -55,7 +55,7 @@ body{margin:0}
 
 <sc-if value="{{list}}" hint-placeholder-val="{{ true }}">
 <ul class="bg-card divide-y overflow-hidden rounded-xl border">
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Retention</x-import></div>
 <p class="font-medium">Decide on 4 units at end of retention</p>
@@ -63,7 +63,7 @@ body{margin:0}
 </div>
 <x-import component-from-global-scope="Strata.Button" size="sm">Decide</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Correction</x-import></div>
 <p class="font-medium">Correct a hole summary</p>
@@ -71,7 +71,7 @@ body{margin:0}
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Close a program</x-import></div>
 <p class="font-medium">Close lab program</p>
@@ -79,7 +79,7 @@ body{margin:0}
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Concrete review</x-import></div>
 <p class="font-medium">3 field reports to review</p>
@@ -87,7 +87,7 @@ body{margin:0}
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Review</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-danger-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Hold</x-import></div>
 <p class="font-medium">Set 4 is on HOLD</p>
@@ -96,7 +96,7 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open</x-import>
 </li>
 <sc-if value="{{long}}" hint-placeholder-val="{{ false }}">
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Lab request</x-import></div>
 <p class="font-medium">Answer a lab request</p>
@@ -104,7 +104,7 @@ body{margin:0}
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Answer</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Retention</x-import></div>
 <p class="font-medium">Decide on 2 units at end of retention</p>

@@ -55,28 +55,28 @@ body{margin:0}
 
 <sc-if value="{{list}}" hint-placeholder-val="{{ true }}">
 <ul class="bg-card divide-y overflow-hidden rounded-xl border">
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-danger-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Hold</x-import><span class="font-medium">2 concrete sets are on HOLD</span></div>
 <p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2616</span> Set 4 · <span class="font-mono text-[13px]">DEMO-2618</span> Set 2 · waiting on a lab decision</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" size="sm">Review holds</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Lab requests</x-import><span class="font-medium">5 lab requests aren't assigned yet</span></div>
 <p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2612</span>, <span class="font-mono text-[13px]">DEMO-2601</span> and 2 more projects · oldest from Monday</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Assign</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-lab-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-lab-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="lab"><span class="bg-stage-lab-mark size-1.5 rounded-full"></span>In lab · Breaks</x-import><span class="font-medium">7 breaks due today, 2 not started</span></div>
 <p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">DEMO-2616</span>, <span class="font-mono text-[13px]">DEMO-2618</span> · 28-day and 7-day sets</p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Open breaks</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="due"><span class="bg-stage-due-mark size-1.5 rounded-full"></span>Due · Disposal</x-import><span class="font-medium">12 storage units approved for disposal</span></div>
 <p class="text-muted-foreground text-sm">Retention ended and the leads approved · <span class="font-mono text-[13px]">DEMO-2605</span>, <span class="font-mono text-[13px]">DEMO-2607</span></p>
@@ -84,14 +84,14 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Start disposal</x-import>
 </li>
 <sc-if value="{{long}}" hint-placeholder-val="{{ false }}">
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-draft-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="draft"><span class="bg-stage-draft-mark size-1.5 rounded-full"></span>Draft · Receiving</x-import><span class="font-medium">3 draft receipts are older than 7 days</span></div>
 <p class="text-muted-foreground text-sm">Started at the LAB station · oldest <span class="font-mono text-[13px]">Nov 3</span></p>
 </div>
 <x-import component-from-global-scope="Strata.Button" variant="outline" size="sm">Review</x-import>
 </li>
-<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-danger-mark absolute inset-y-0 left-0 w-1"></span>
+<li class="relative flex items-center gap-4 p-4"><span aria-hidden="true" class="bg-stage-danger-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span>
 <div class="grid flex-1 gap-1.5">
 <div class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="danger"><span class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Inventory</x-import><span class="font-medium">2 location checks disagree</span></div>
 <p class="text-muted-foreground text-sm"><span class="font-mono text-[13px]">BKT-2026-000088</span> and <span class="font-mono text-[13px]">CRE-2026-000011</span> · two moves name different shelves</p>

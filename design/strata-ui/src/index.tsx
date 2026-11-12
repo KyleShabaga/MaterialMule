@@ -1013,12 +1013,12 @@ function LifecycleTrack({
   })
   const at = Number(current)
   const tone: Record<string, { past: string; now: string }> = {
-    draft: { past: "bg-stage-draft-bg text-stage-draft-fg", now: "bg-stage-draft-mark text-card" },
-    storage: { past: "bg-stage-storage-bg text-stage-storage-fg", now: "bg-stage-storage-mark text-card" },
-    lab: { past: "bg-stage-lab-bg text-stage-lab-fg", now: "bg-stage-lab-mark text-card" },
-    due: { past: "bg-stage-due-bg text-stage-due-fg", now: "bg-stage-due-mark text-card" },
-    danger: { past: "bg-stage-danger-bg text-stage-danger-fg", now: "bg-stage-danger-mark text-card" },
-    closed: { past: "bg-stage-closed-bg text-stage-closed-fg", now: "bg-stage-closed-mark text-card" },
+    draft: { past: "bg-stage-draft-bg text-stage-draft-fg", now: "bg-stage-draft-mark text-stage-draft-contrast" },
+    storage: { past: "bg-stage-storage-bg text-stage-storage-fg", now: "bg-stage-storage-mark text-stage-storage-contrast" },
+    lab: { past: "bg-stage-lab-bg text-stage-lab-fg", now: "bg-stage-lab-mark text-stage-lab-contrast" },
+    due: { past: "bg-stage-due-bg text-stage-due-fg", now: "bg-stage-due-mark text-stage-due-contrast" },
+    danger: { past: "bg-stage-danger-bg text-stage-danger-fg", now: "bg-stage-danger-mark text-stage-danger-contrast" },
+    closed: { past: "bg-stage-closed-bg text-stage-closed-fg", now: "bg-stage-closed-mark text-stage-closed-contrast" },
   }
   return (
     <ol aria-label={label} className="flex w-full gap-1">
