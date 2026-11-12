@@ -1277,6 +1277,63 @@ decision drawer for the whole group.
   its programs are closed; approval and disposal are separate steps; disposal keeps the ID and
   history forever; reasons are required; authority is project-scoped and server-enforced.
 
+### Round 7: concrete lab (shaped 2026-11-12)
+
+Kyle chose: keep a Concrete overview page (the sidebar's Concrete group gains Overview at the top);
+for Breaks, design **both** "Breaks list, then Record breaks" and "Enter results in the list" so he
+can compare them.
+
+- **Job and audience:** lab technicians receiving specimen sets and breaking cylinders on their
+  test dates (often on a LAB station); the Lab Manager watching what is due, overdue, on HOLD or
+  an exception, and handling holds. Concrete is its own domain with individual specimen records
+  (docs/concrete.md); lab staff = Lab Technician, Lab Manager, or LAB naming the performer.
+- **Concrete overview** (`/concrete`): counters, each a link to the list that clears it: awaiting
+  pickup, awaiting receiving, tests due today, tests overdue, on HOLD, exceptions, awaiting review,
+  awaiting issuance. Then "Find concrete records" (search a set, specimen or field report) and the
+  strength reports for the lab (gated by G2 until it's decided). Sidebar: Concrete › Overview,
+  Breaks, Receiving, Specimens, Holds, Review.
+- **Breaks** (`/lab-testing/concrete`): tabs with counts: Overdue (days late), Today, Next 7 days,
+  On HOLD, Exceptions ("No open exceptions from the sources checked so far."). Rows grouped by set:
+  project, set, test age (7-, 28-day…), specimens, due date, stage stripe (lab; danger when
+  overdue or on HOLD). "No testing machine is registered (Settings → Equipment)." blocks recording
+  with a link. **Two variants to design, Kyle picks after seeing them:**
+  - **A. List, then Record breaks:** tick specimens or whole sets; the selection bar offers Record
+    breaks, Reschedule (new test age in days) and Hold until; Record breaks opens the Testing table
+    for just the selection.
+  - **B. Enter results in the list:** a due row expands in place to type its readings; save per
+    specimen; Reschedule and Hold on the row.
+- **Testing table** (`/concrete/testing`, used by variant A and for bulk work): the keyboard-first
+  grid as today: specimen, age (assigned / actual), test date, the reading fields the app has now
+  (diameter, max load, several readings separated by spaces), excluded, save status per row;
+  arrow keys move between cells; Columns to show or hide; completed rows can be hidden; changing a
+  saved value asks "Say why the saved value is being changed". No new result fields until G8
+  (units, readings, methods) is decided.
+- **Receiving** (`/concrete/receiving`): field reports whose sets are awaiting receiving, "My
+  reports" first then "Other reports" (field technician, project, sets, specimens, casting time or
+  "Casting time not recorded"); receive a set by scanning or ticking its specimens; the pickup and
+  receiving rules stay as in docs/concrete.md.
+- **Specimens** (`/concrete/specimens`, `/concrete/specimens/:setId`): look up a set or specimen
+  (Ctrl K too); the **set page** uses the record pattern: header (set, project, field ID, specimen
+  type, stage), main action by state (Receive, Record breaks, Open hold), specimens with their test
+  dates (rescheduled marked), the field report link, history beside.
+- **Holds** (`/lab-testing/concrete/holds`): tabs All holds, Failed-specimen holds, Ordinary HOLD;
+  rows: specimen, project, casting date, hold until or "No expiry", state (still inside the hold
+  period, hold period has ended, waiting for removal, disposal authorized, disposed). Selection bar:
+  Schedule test, Authorize disposal, Record disposal ("Each action is offered when every selected
+  specimen allows it."); a reason is required; disposal uses the confirmation that lists every ID.
+- **Concrete search:** folded into Ctrl K and the round-3 search results (Concrete group); the
+  page redirects there.
+- **States and ranges:** 0–200 specimens due a day; sets of 1–12 specimens; no machine registered;
+  nothing due ("No concrete specimens are due today."); nothing overdue or on HOLD; reports
+  continuing on the next page; a saved value changed with a reason.
+- **Interaction and layout:** Breaks and Testing table are keyboard-first (arrows, Enter to save);
+  on a LAB station the person picked is the performer; at 1024 px the Testing table scrolls
+  sideways with the specimen column fixed.
+- **Constraints and open decisions:** G2 strength report, G8 units/readings/methods, workbook and
+  CSA/ASTM limits, report templates, offline device runs and set numbering stay **gates**, never
+  defaults; HOLD and review authority as in docs/concrete.md and docs/permissions.md; specimens
+  never change storage-unit rules; fictional data (DEMO-2616).
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
