@@ -1,7 +1,7 @@
 import type { DisposalReady, DisposalReadyUnit } from '@materialmule/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { BandedCard, DataTable, ErrorState, StatusBadge, type Column } from '../components/ui';
+import { BandedCard, DataTable, ErrorState, StatusBadge, type Column } from '../components/app-ui';
 import { fetchReady } from './api';
 
 const columns: Column<DisposalReadyUnit>[] = [

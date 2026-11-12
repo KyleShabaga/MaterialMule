@@ -14,7 +14,7 @@ import {
   StatusBadge,
   TableScroll,
   TableViewSelector,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { useTableView } from '../../components/useTableView';
 import { concreteProblem, copyMix, createMix, fetchMixes } from './api';
 import { MixForm } from './MixForm';

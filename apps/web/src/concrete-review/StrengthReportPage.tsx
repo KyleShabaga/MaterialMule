@@ -24,7 +24,7 @@ import {
   SidePanel,
   StatusBadge,
   TableScroll,
-} from '../components/ui';
+} from '../components/app-ui';
 import { FactCells, SpecimenId } from '../concrete/ledger';
 import { shortDateTime } from '../dashboard/format';
 import { ContextRow } from '../layout/ContextRow';

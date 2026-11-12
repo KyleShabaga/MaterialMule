@@ -19,7 +19,7 @@ import {
   StatusBadge,
   TableViewSelector,
   type BadgeTone,
-} from '../components/ui';
+} from '../components/app-ui';
 import { useTableView } from '../components/useTableView';
 import { shortDateTime } from '../dashboard/format';
 import { fetchReviewQueue } from './api';

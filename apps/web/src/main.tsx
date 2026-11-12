@@ -1,3 +1,15 @@
+// The stylesheet loads first: it declares the cascade layer order (theme, base, legacy,
+// components, utilities) before any feature stylesheet a route module pulls in.
+import './styles.css';
+// Atkinson Hyperlegible Next and Mono (Strata), bundled with the app (OFL-1.1) so they load on the LAN alone.
+import '@fontsource/atkinson-hyperlegible-next/latin-400.css';
+import '@fontsource/atkinson-hyperlegible-next/latin-500.css';
+import '@fontsource/atkinson-hyperlegible-next/latin-600.css';
+import '@fontsource/atkinson-hyperlegible-next/latin-700.css';
+import '@fontsource/atkinson-hyperlegible-mono/latin-400.css';
+import '@fontsource/atkinson-hyperlegible-mono/latin-500.css';
+import '@fontsource/atkinson-hyperlegible-mono/latin-600.css';
+import '@fontsource/atkinson-hyperlegible-mono/latin-700.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
@@ -6,17 +18,6 @@ import { applyPageTitle } from './layout/page-title';
 import { routes } from './routes';
 import { SessionProvider } from './session/SessionProvider';
 import { applyStoredTheme } from './theme/theme';
-// Interface and identifier fonts, bundled with the app (OFL-1.1) so they load on the LAN alone.
-import '@fontsource/archivo/latin-400.css';
-import '@fontsource/archivo/latin-500.css';
-import '@fontsource/archivo/latin-600.css';
-import '@fontsource/archivo/latin-700.css';
-import '@fontsource/archivo/latin-800.css';
-import '@fontsource/ibm-plex-mono/latin-400.css';
-import '@fontsource/ibm-plex-mono/latin-500.css';
-import '@fontsource/ibm-plex-mono/latin-600.css';
-import '@fontsource/ibm-plex-mono/latin-700.css';
-import './styles.css';
 
 // index.html applies it before paint already; repeat in case that script didn't run.
 applyStoredTheme();

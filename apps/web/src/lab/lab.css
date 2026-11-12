@@ -1,315 +1,317 @@
-/* Lab Testing (MM-T23/T24). Tokens and radii from docs/design.md: no pill shapes. */
+@layer legacy {
+  /* Lab Testing (MM-T23/T24). Tokens and radii from docs/design.md: no pill shapes. */
 
-/* Children skip <dialog>: display here would beat the UA's dialog:not([open]) { display: none }
+  /* Children skip <dialog>: display here would beat the UA's dialog:not([open]) { display: none }
    and show the closed discard dialog (MISC-01); margin-top would also pull a modal off centre. */
-.program-editor,
-.program-editor > * + :not(dialog) {
-  display: block;
-}
+  .program-editor,
+  .program-editor > * + :not(dialog) {
+    display: block;
+  }
 
-.program-editor > * + :not(dialog) {
-  margin-top: var(--space-4, 16px);
-}
+  .program-editor > * + :not(dialog) {
+    margin-top: var(--space-4, 16px);
+  }
 
-.requested-by-station {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius-control);
-  background: var(--accent-bg);
-}
+  .requested-by-station {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius-control);
+    background: var(--accent-bg);
+  }
 
-.requested-by-current {
-  margin: 0.25rem 0 0;
-  font-weight: 600;
-  color: var(--accent-ink);
-}
+  .requested-by-current {
+    margin: 0.25rem 0 0;
+    font-weight: 600;
+    color: var(--accent-ink);
+  }
 
-.line-grid,
-.specific-sample,
-.test-picker-search,
-.test-picker-template {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  align-items: flex-end;
-}
+  .line-grid,
+  .specific-sample,
+  .test-picker-search,
+  .test-picker-template {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: flex-end;
+  }
 
-.line-grid > .form-field {
-  flex: 1 1 18rem;
-}
+  .line-grid > .form-field {
+    flex: 1 1 18rem;
+  }
 
-.specific-sample > .form-field {
-  flex: 0 1 9rem;
-}
+  .specific-sample > .form-field {
+    flex: 0 1 9rem;
+  }
 
-.test-picker-search > input,
-.test-picker-search > select {
-  flex: 1 1 14rem;
-}
-
-.scope-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  padding: 0.5rem 0.75rem;
-}
-
-.scope-toggle label,
-.unit-choice {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-height: var(--control, 40px);
-}
-
-/* MM-T73: the same-source confirmation wraps on a phone instead of overflowing. */
-.unit-choice-confirm {
-  display: flex;
-  align-items: flex-start;
-  padding-top: 0.5rem;
-  overflow-wrap: anywhere;
-}
-
-.unit-choice-confirm input {
-  margin-top: 0.3rem;
-  flex: none;
-}
-
-.unit-choices {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  padding: 0.5rem 0.75rem;
-}
-
-.test-results,
-.coverage-list,
-.request-list,
-.line-problems {
-  list-style: none;
-  margin: 0.5rem 0;
-  padding: 0;
-}
-
-.test-results li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 0.75rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.test-results button {
-  text-align: left;
-}
-
-.chips .chip-retired {
-  border-color: var(--warning-line);
-  background: var(--warning-panel);
-  color: var(--warning-panel-ink);
-}
-
-.chip-text {
-  overflow-wrap: anywhere;
-}
-
-.line-problems li {
-  color: var(--warning);
-}
-
-.line-problems li::before {
-  content: '• ';
-}
-
-.coverage-list li.excluded {
-  color: var(--muted);
-}
-
-.request-list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.program-summary {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 1rem;
-}
-
-.program-summary dd {
-  margin: 0;
-}
-
-.program-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-button, 0.5rem);
-  justify-content: flex-end;
-}
-
-.inline-select select {
-  margin-left: 0.25rem;
-}
-
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-button, 0.5rem);
-}
-
-.pre-wrap {
-  white-space: pre-wrap;
-}
-
-.review-line + .review-line {
-  border-top: 1px solid var(--line);
-  margin-top: 0.75rem;
-}
-
-@media (max-width: 640px) {
-  .specific-sample > .form-field,
   .test-picker-search > input,
   .test-picker-search > select {
-    flex: 1 1 100%;
+    flex: 1 1 14rem;
   }
 
-  .program-actions button {
-    flex: 1 1 100%;
-    min-height: 44px;
+  .scope-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 0.5rem 0.75rem;
   }
-}
 
-/* MM-T24 worklist and progress */
-.worklist-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
+  .scope-toggle label,
+  .unit-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: var(--control, 40px);
+  }
 
-.action-panel {
-  flex: 1 1 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius-control);
-  background: var(--inset, var(--card));
-}
+  /* MM-T73: the same-source confirmation wraps on a phone instead of overflowing. */
+  .unit-choice-confirm {
+    display: flex;
+    align-items: flex-start;
+    padding-top: 0.5rem;
+    overflow-wrap: anywhere;
+  }
 
-.action-title {
-  margin: 0 0 0.5rem;
-  font-weight: 600;
-}
+  .unit-choice-confirm input {
+    margin-top: 0.3rem;
+    flex: none;
+  }
 
-.comment-list {
-  list-style: none;
-  margin: 0.5rem 0;
-  padding: 0;
-}
+  .unit-choices {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 0.5rem 0.75rem;
+  }
 
-.comment {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line);
-}
+  .test-results,
+  .coverage-list,
+  .request-list,
+  .line-problems {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+  }
 
-.comment-meta {
-  margin: 0;
-  font-size: 0.875rem;
-}
+  .test-results li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--line);
+  }
 
-.comment-box textarea,
-.comment textarea {
-  width: 100%;
-  min-height: 4rem;
-}
+  .test-results button {
+    text-align: left;
+  }
 
-.priority-control {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  align-items: center;
-  margin: 0.75rem 0;
-}
+  .chips .chip-retired {
+    border-color: var(--warning-line);
+    background: var(--warning-panel);
+    color: var(--warning-panel-ink);
+  }
 
-/* Review corrections and acceptance (MM-T25). */
-.review-controls {
-  flex: 1 1 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
+  .chip-text {
+    overflow-wrap: anywhere;
+  }
 
-.review-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
+  .line-problems li {
+    color: var(--warning);
+  }
 
-.review-return {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border-left: 3px solid var(--warning, var(--accent-line));
-  border-radius: var(--radius-control);
-  background: var(--inset, var(--card));
-}
+  .line-problems li::before {
+    content: '• ';
+  }
 
-.review-history ol {
-  margin: 0.25rem 0 0;
-  padding-left: 1.25rem;
-}
+  .coverage-list li.excluded {
+    color: var(--fl-muted);
+  }
 
-.action-panel textarea {
-  width: 100%;
-  min-height: 4rem;
-}
+  .request-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid var(--line);
+  }
 
-/* Program lifecycle, cancellation and repeats (MM-T26). */
-.program-lifecycle {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-  padding: 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-}
+  .program-summary {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+  }
 
-.lifecycle-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-}
+  .program-summary dd {
+    margin: 0;
+  }
 
-.lifecycle-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
+  .program-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-button, 0.5rem);
+    justify-content: flex-end;
+  }
 
-.request-lifecycle {
-  flex: 1 1 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
+  .inline-select select {
+    margin-left: 0.25rem;
+  }
 
-.closure-checklist ul,
-.lifecycle-history ol {
-  margin: 0.25rem 0 0;
-  padding-left: 1.25rem;
+  .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-button, 0.5rem);
+  }
+
+  .pre-wrap {
+    white-space: pre-wrap;
+  }
+
+  .review-line + .review-line {
+    border-top: 1px solid var(--line);
+    margin-top: 0.75rem;
+  }
+
+  @media (max-width: 640px) {
+    .specific-sample > .form-field,
+    .test-picker-search > input,
+    .test-picker-search > select {
+      flex: 1 1 100%;
+    }
+
+    .program-actions button {
+      flex: 1 1 100%;
+      min-height: 44px;
+    }
+  }
+
+  /* MM-T24 worklist and progress */
+  .worklist-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .action-panel {
+    flex: 1 1 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius-control);
+    background: var(--inset, var(--card));
+  }
+
+  .action-title {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+
+  .comment-list {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+  }
+
+  .comment {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .comment-meta {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  .comment-box textarea,
+  .comment textarea {
+    width: 100%;
+    min-height: 4rem;
+  }
+
+  .priority-control {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    margin: 0.75rem 0;
+  }
+
+  /* Review corrections and acceptance (MM-T25). */
+  .review-controls {
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .review-return {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--warning, var(--accent-line));
+    border-radius: var(--radius-control);
+    background: var(--inset, var(--card));
+  }
+
+  .review-history ol {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+  }
+
+  .action-panel textarea {
+    width: 100%;
+    min-height: 4rem;
+  }
+
+  /* Program lifecycle, cancellation and repeats (MM-T26). */
+  .program-lifecycle {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+  }
+
+  .lifecycle-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .lifecycle-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .request-lifecycle {
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .closure-checklist ul,
+  .lifecycle-history ol {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+  }
 }

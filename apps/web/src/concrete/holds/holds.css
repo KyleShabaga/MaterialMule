@@ -1,201 +1,203 @@
-/* Concrete → Holds (MM-V2-C26), Field Ledger board ConcreteHolds, and the Ready for disposal
+@layer legacy {
+  /* Concrete → Holds (MM-V2-C26), Field Ledger board ConcreteHolds, and the Ready for disposal
    concrete filter. Tokens only; radii 3/4/6 px (never pill shapes). Hover is global. */
 
-.hold-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+  .hold-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
 
-.hold-page .page-header h1 {
-  margin: 0;
-}
+  .hold-page .page-header h1 {
+    margin: 0;
+  }
 
-.hold-dateline {
-  margin: calc(var(--space-2) * -1) 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
+  .hold-dateline {
+    margin: calc(var(--space-2) * -1) 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
 
-.hold-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
-}
+  .hold-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3);
+  }
 
-.hold-filters label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
+  .hold-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
 
-/* Bands at the left, the side panel at the right (3:1); one column below 1024 px. */
-.hold-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
-  align-items: start;
-  gap: var(--space-6);
-}
-
-.hold-bands {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  min-width: 0;
-}
-
-.hold-band {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.hold-band-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: var(--rule-width) solid var(--rule);
-}
-
-.hold-band-head h2 {
-  flex: 1 1 auto;
-  margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-}
-
-.hold-band .data-table td .field-hint {
-  display: block;
-}
-
-.hold-footnote {
-  margin: 0;
-  font-size: var(--fs-small);
-  color: var(--ink-soft);
-}
-
-.hold-panel {
-  margin-top: 0;
-  position: sticky;
-  top: var(--space-4);
-}
-
-.hold-panel .side-panel-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.hold-panel .field-hint {
-  margin: 0;
-}
-
-.hold-selected {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  max-height: 12rem;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.hold-selected li {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.hold-panel-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.hold-panel-actions button {
-  width: 100%;
-}
-
-.hold-history {
-  padding: var(--space-3) var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-.hold-history h2 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-}
-
-.hold-history ul,
-.hold-confirm-list {
-  padding-left: var(--space-5);
-  margin: var(--space-2) 0;
-}
-
-.hold-confirm-list {
-  max-height: 16rem;
-  overflow-y: auto;
-}
-
-.hold-dialog-heading {
-  font-size: var(--fs-row-id);
-  margin: var(--space-3) 0 var(--space-1);
-}
-
-.hold-dialog-reason p {
-  margin: var(--space-1) 0 0;
-  overflow-wrap: anywhere;
-}
-
-/* Ready for disposal (Disposal & Retention): the selection toolbar and the type filter
-   (DisposalPage's Storage units | Concrete specimens buttons; aria-pressed draws the ink fill). */
-.hold-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  margin: var(--space-3) 0;
-}
-
-.disposal-type-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: 0 0 var(--space-3);
-}
-
-@media (max-width: 1024px) {
+  /* Bands at the left, the side panel at the right (3:1); one column below 1024 px. */
   .hold-layout {
-    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
+    align-items: start;
+    gap: var(--space-6);
+  }
+
+  .hold-bands {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    min-width: 0;
+  }
+
+  .hold-band {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .hold-band-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .hold-band-head h2 {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+  }
+
+  .hold-band .data-table td .field-hint {
+    display: block;
+  }
+
+  .hold-footnote {
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--ink-soft);
   }
 
   .hold-panel {
-    position: static;
+    margin-top: 0;
+    position: sticky;
+    top: var(--space-4);
   }
-}
 
-@media (max-width: 640px) {
-  .hold-filters label,
-  .hold-filters select {
+  .hold-panel .side-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .hold-panel .field-hint {
+    margin: 0;
+  }
+
+  .hold-selected {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-height: 12rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .hold-selected li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .hold-panel-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .hold-panel-actions button {
     width: 100%;
   }
 
-  /* Phone: the rows stack into cards (styles.css), so the band frame steps aside. */
-  .hold-band .table-frame {
-    border: 0;
-    background: none;
+  .hold-history {
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
+  .hold-history h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+  }
+
+  .hold-history ul,
+  .hold-confirm-list {
+    padding-left: var(--space-5);
+    margin: var(--space-2) 0;
+  }
+
+  .hold-confirm-list {
+    max-height: 16rem;
+    overflow-y: auto;
+  }
+
+  .hold-dialog-heading {
+    font-size: var(--fs-row-id);
+    margin: var(--space-3) 0 var(--space-1);
+  }
+
+  .hold-dialog-reason p {
+    margin: var(--space-1) 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Ready for disposal (Disposal & Retention): the selection toolbar and the type filter
+   (DisposalPage's Storage units | Concrete specimens buttons; aria-pressed draws the ink fill). */
+  .hold-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    margin: var(--space-3) 0;
+  }
+
+  .disposal-type-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin: 0 0 var(--space-3);
+  }
+
+  @media (max-width: 1024px) {
+    .hold-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hold-panel {
+      position: static;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hold-filters label,
+    .hold-filters select {
+      width: 100%;
+    }
+
+    /* Phone: the rows stack into cards (styles.css), so the band frame steps aside. */
+    .hold-band .table-frame {
+      border: 0;
+      background: none;
+    }
   }
 }

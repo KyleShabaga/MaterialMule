@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import { TableScroll, type TableView } from '../components/ui';
+import { TableScroll, type TableView } from '../components/app-ui';
 import type { QueuedMove } from '../moves/store';
 import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
 import { UnitContentsLine, UnitContentsList } from './UnitContents';

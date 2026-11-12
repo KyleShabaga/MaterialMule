@@ -1,7 +1,7 @@
 import type { UnitsToPull as UnitsToPullList } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { StatusBadge } from '../components/ui';
+import { StatusBadge } from '../components/app-ui';
 import { fetchUnitsToPull } from './api';
 
 /**

@@ -17,7 +17,7 @@ import {
   PageHeader,
   SectionHead,
   SidePanel,
-} from '../components/ui';
+} from '../components/app-ui';
 import { FEATURES } from '../features';
 import { formatExpiry } from '../lib/format';
 import { useMe } from '../session/context';

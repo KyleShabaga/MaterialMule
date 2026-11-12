@@ -8,7 +8,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { PageHeader } from '../components/ui';
+import { PageHeader } from '../components/app-ui';
 import { fetchStorageUnit } from '../inventory/api';
 import { ContextRow } from '../layout/ContextRow';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';

@@ -8,7 +8,7 @@ import {
   type LabProgramSummary,
   type StorageUnitStatus,
 } from '@materialmule/shared';
-import type { BadgeTone } from '../components/ui';
+import type { BadgeTone } from '../components/app-ui';
 
 // Rows of the search results page: what each kind of record says about itself. Test holes are
 // found through their storage units; samples are matched by the units' SAMPLE#/DEPTH summaries

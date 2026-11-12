@@ -4,7 +4,7 @@ import {
   type DraftSettings,
 } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
-import { ErrorState, FormField } from '../../components/ui';
+import { ErrorState, FormField } from '../../components/app-ui';
 import { useMe } from '../../session/context';
 import { SettingsHead } from '../SettingsHead';
 import { fetchDraftSettings, saveDraftSettings } from './api';

@@ -1,5 +1,5 @@
 import { HOLE_SUMMARY_TYPES, type HoleSummaryType } from '@materialmule/shared';
-import { FormField } from '../components/ui';
+import { FormField } from '../components/app-ui';
 import { fieldId, SUMMARY_TYPE_LABEL, type SummaryDraft } from './draft';
 
 // SAMPLE#/DEPTH summary for one test hole in one storage unit (MM-T10). One summary per hole:

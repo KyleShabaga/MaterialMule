@@ -1,769 +1,772 @@
-/* Shell: rail, top bar, context row, phone header, bottom bar and More sheet
+@layer legacy {
+  /* Shell: rail, top bar, context row, phone header, bottom bar and More sheet
    (Field Ledger, docs/redesign/design.md "Layout", "Shell additions", "Phone screens").
    Owned by layout/. Colours come from the tokens in styles.css only; no pill shapes, no shadows.
    Hover is desktop only: a tint laid over the existing fill. */
 
-/* ---- App grid ---- */
-
-.app {
-  display: grid;
-  grid-template-columns: var(--rail-width) minmax(0, 1fr);
-  min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-sans);
-}
-
-.app-column {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.app-main {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: var(--content-max);
-  min-width: 0;
-  padding: var(--page-pad);
-}
-
-.skip-link {
-  position: absolute;
-  left: -999px;
-}
-
-.skip-link:focus {
-  left: var(--space-2);
-  top: var(--space-2);
-  z-index: 50;
-  padding: var(--space-2) var(--space-3);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background: var(--sheet);
-  color: var(--ink);
-}
-
-/* ---- Brand: donkey tile and wordmark ---- */
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: var(--target);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.brand:hover {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.brand-tile {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  box-sizing: border-box;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background: var(--flag);
-  /* The donkey is drawn in currentColor: always ink on the flag tile. */
-  color: var(--on-flag);
-}
-
-.brand-name {
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-/* ---- Rail (desktop) ---- */
-
-.rail {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  height: 100vh;
-  box-sizing: border-box;
-  overflow-y: auto;
-  padding: var(--space-5) var(--space-4);
-  border-right: var(--rule-width) solid var(--rule);
-  background: var(--rail);
-}
-
-.rail-list,
-.rail-sub,
-.rail-footer-links {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.rail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.rail-row {
-  display: flex;
-  align-items: stretch;
-  min-height: var(--target);
-  border-radius: var(--radius-control);
-}
-
-.rail-link {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  min-height: var(--target);
-  box-sizing: border-box;
-  padding: 11px var(--space-3);
-  border-radius: var(--radius-control);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--fs-body);
-  font-weight: 600;
-  line-height: 1.4;
-  text-decoration: none;
-}
-
-/* The current destination is ink-filled, its chevron included. */
-.rail-row.is-current {
-  background-color: var(--selected);
-}
-
-.rail-row.is-current .rail-link,
-.rail-row.is-current .rail-toggle {
-  color: var(--on-selected);
-}
-
-.rail-toggle {
-  flex: 0 0 auto;
-  width: var(--target);
-  min-height: var(--target);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background-color: transparent;
-  color: var(--ink);
-}
-
-.rail-toggle[aria-expanded='true'] .rail-chevron {
-  transform: rotate(180deg);
-}
-
-/* Sub-pages, indented under a 2 px rule. */
-.rail-sub {
-  gap: 1px;
-  margin: 0 0 6px 12px;
-  padding-left: 10px;
-  border-left: var(--rule-width) solid var(--rule);
-}
-
-.rail-sub[hidden] {
-  display: none;
-}
-
-.rail-sub-link {
-  display: flex;
-  align-items: center;
-  min-height: var(--target);
-  box-sizing: border-box;
-  padding: 0 10px;
-  border-radius: var(--radius-control);
-  color: var(--ink);
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.rail-sub-link[aria-current='page'] {
-  background-color: var(--flag-wash);
-  font-weight: 700;
-}
-
-/* ---- Rail footer: Pending actions, Settings, Help & Feedback, account row, dark mode ---- */
-
-.rail-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: auto;
-}
-
-/* Pending actions' open count: a small square flag tag beside the label. */
-.rail-count {
-  min-width: 20px;
-  height: 20px;
-  box-sizing: border-box;
-  margin-left: auto;
-  padding: 0 4px;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-tag);
-  background: var(--flag);
-  color: var(--on-flag);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  line-height: 16px;
-  text-align: center;
-}
-
-.rail-footer-link[aria-current='page'] {
-  background-color: var(--selected);
-  color: var(--on-selected);
-}
-
-.account {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: 10px;
-  padding-top: 14px;
-  border-top: var(--rule-width) solid var(--rule);
-}
-
-.account-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.account-initials {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-control);
-  background: var(--inverse);
-  color: var(--on-inverse);
-  font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  font-weight: 600;
-}
-
-.account-text {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.account-name {
-  color: var(--ink);
-  font-size: 0.875rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.account-role {
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-}
-
-.account-sign-out {
-  flex: 0 0 auto;
-  width: var(--target);
-  min-height: var(--target);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background-color: transparent;
-  color: var(--ink);
-}
-
-.account-tag {
-  display: flex;
-}
-
-.account-expiry {
-  margin: 0;
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-}
-
-.account-switch {
-  width: 100%;
-}
-
-/* MISC-09: dark mode switch, 44 px with a 2 px rule and a square thumb. */
-.theme-switch {
-  justify-content: flex-start;
-  gap: 10px;
-  width: 100%;
-  min-height: var(--target);
-  margin-top: var(--space-2);
-  padding: 0 var(--space-3);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background-color: var(--sheet);
-  color: var(--ink);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.theme-switch-label {
-  margin-right: auto;
-}
-
-.theme-switch-state {
-  min-width: 1.75rem;
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  text-align: right;
-}
-
-.theme-switch-track {
-  position: relative;
-  flex: 0 0 auto;
-  width: 34px;
-  height: 20px;
-  box-sizing: border-box;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-tag);
-  background: var(--paper);
-}
-
-.theme-switch-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 1px;
-  background: var(--ink);
-}
-
-.theme-switch[aria-checked='true'] .theme-switch-track {
-  background: var(--selected);
-}
-
-.theme-switch[aria-checked='true'] .theme-switch-thumb {
-  left: 16px;
-  background: var(--on-selected);
-}
-
-.server-health {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-1) 0 0;
-  padding: 0 2px;
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-}
-
-.server-health-dot {
-  flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
-  border-radius: 1px;
-  background: var(--muted);
-}
-
-.server-health-ok .server-health-dot {
-  background: var(--success);
-}
-
-.server-health-degraded .server-health-dot {
-  background: var(--warning);
-}
-
-.server-health-unreachable .server-health-dot {
-  background: var(--danger);
-}
-
-/* ---- Top bar (desktop): search at the left, alerts at the right ---- */
-
-.top-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 14px var(--page-pad);
-  border-bottom: 1px solid var(--hairline);
-  background: var(--sheet);
-}
-
-.top-bar-spacer {
-  margin-right: auto;
-}
-
-.top-bar .lab-search,
-.phone-header .lab-search {
-  position: relative;
-  display: flex;
-  flex: 1 1 280px;
-  min-width: 0;
-  max-width: 520px;
-  margin: 0 auto 0 0;
-}
-
-.lab-search-icon {
-  position: absolute;
-  top: 50%;
-  left: 13px;
-  color: var(--ink);
-  pointer-events: none;
-  transform: translateY(-50%);
-}
-
-.top-bar .lab-search input,
-.phone-header .lab-search input {
-  width: 100%;
-  min-height: var(--control);
-  box-sizing: border-box;
-  padding: 0 14px 0 42px;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--fs-body);
-}
-
-.lab-search input::placeholder {
-  color: var(--muted);
-  opacity: 1;
-}
-
-/* MM-T91: the notification bell, a 44 px square control. */
-.action-bell {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: var(--target);
-  min-width: var(--target);
-  height: var(--target);
-  min-height: var(--target);
-  box-sizing: border-box;
-  padding: 0;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background-color: var(--sheet);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-a.action-bell:hover {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-/* The notification center on screen: ink-filled. */
-.notifications-bell[aria-current='page'],
-a.notifications-bell[aria-current='page']:hover {
-  background-color: var(--selected);
-  color: var(--on-selected);
-}
-
-/* The count: a flag-filled square tag on the top-right corner. */
-.action-bell-count {
-  position: absolute;
-  top: -9px;
-  right: -9px;
-  min-width: 20px;
-  height: 20px;
-  box-sizing: border-box;
-  padding: 0 4px;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-tag);
-  background: var(--flag);
-  color: var(--on-flag);
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  line-height: 16px;
-  text-align: center;
-}
-
-/* ---- Context row (pages adopt it in wave 1): back links, tags, switches and actions ---- */
-
-.context-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* A row that holds only actions sits at the right. */
-.context-row-end {
-  justify-content: flex-end;
-}
-
-/* ---- Hover (desktop only): one tint over the existing fill ---- */
-
-@media (hover: hover) {
-  .rail-link:hover,
-  .rail-toggle:hover,
-  .rail-sub-link:hover,
-  .account-sign-out:not(:disabled):hover,
-  a.action-bell:hover {
-    background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
-    text-decoration: none;
+  /* ---- App grid ---- */
+
+  .app {
+    display: grid;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
   }
 
-  .rail-link:hover,
-  .rail-sub-link:hover {
+  .app-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .app-main {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--content-max);
+    min-width: 0;
+    padding: var(--page-pad);
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -999px;
+  }
+
+  .skip-link:focus {
+    left: var(--space-2);
+    top: var(--space-2);
+    z-index: 50;
+    padding: var(--space-2) var(--space-3);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background: var(--sheet);
     color: var(--ink);
   }
 
-  /* Ink-filled items lighten instead, and keep their paper text. */
-  .rail-row.is-current .rail-link:hover,
-  .rail-row.is-current .rail-toggle:not(:disabled):hover,
-  .rail-footer-link[aria-current='page']:hover,
-  a.notifications-bell[aria-current='page']:hover {
-    background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
-    color: var(--on-selected);
+  /* ---- Brand: donkey tile and wordmark ---- */
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: var(--target);
+    color: var(--ink);
+    text-decoration: none;
   }
-}
 
-/* ---- Phone (≤ 640 px): header strip, five-slot bottom bar, More sheet ---- */
+  .brand:hover {
+    color: var(--ink);
+    text-decoration: none;
+  }
 
-.app-phone {
-  display: block;
-}
+  .brand-tile {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    box-sizing: border-box;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background: var(--flag);
+    /* The donkey is drawn in currentColor: always ink on the flag tile. */
+    color: var(--on-flag);
+  }
 
-.phone-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--hairline);
-  background: var(--sheet);
-}
+  .brand-name {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
 
-.phone-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
+  /* ---- Rail (desktop) ---- */
 
-.app-phone .brand-tile {
-  width: 32px;
-  height: 32px;
-}
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    height: 100vh;
+    box-sizing: border-box;
+    overflow-y: auto;
+    padding: var(--space-5) var(--space-4);
+    border-right: var(--rule-width) solid var(--rule);
+    background: var(--rail);
+  }
 
-.app-phone .brand-tile svg {
-  width: 24px;
-  height: 19px;
-}
+  .rail-list,
+  .rail-sub,
+  .rail-footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
 
-.app-phone .brand-name {
-  font-size: var(--fs-body);
-}
+  .rail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
 
-.phone-header .lab-search {
-  flex-basis: auto;
-  max-width: none;
-  margin: 0;
-}
+  .rail-row {
+    display: flex;
+    align-items: stretch;
+    min-height: var(--target);
+    border-radius: var(--radius-control);
+  }
 
-.phone-header .lab-search input {
-  min-height: var(--control-phone);
-}
+  .rail-link {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+    min-height: var(--target);
+    box-sizing: border-box;
+    padding: 11px var(--space-3);
+    border-radius: var(--radius-control);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+  }
 
-/* Content clears the fixed bottom bar (60 px slots and the 2 px rule above them). */
-.app-phone .app-main {
-  max-width: none;
-  padding: var(--space-4) var(--space-4)
-    calc(
-      var(--target-primary-phone) + var(--rule-width) + var(--space-6) + env(safe-area-inset-bottom)
-    );
-}
-
-.phone-nav {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 30;
-}
-
-.phone-bar {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin: 0;
-  padding: 0 0 env(safe-area-inset-bottom);
-  border-top: var(--rule-width) solid var(--rule);
-  background: var(--sheet);
-  list-style: none;
-}
-
-.phone-bar > li {
-  display: flex;
-  min-width: 0;
-}
-
-.phone-slot {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  height: var(--target-primary-phone);
-  min-height: var(--target-primary-phone);
-  box-sizing: border-box;
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: 0;
-  background-color: transparent;
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--fs-small);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.phone-slot:hover {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.phone-bar > li:nth-child(2) .phone-slot,
-.phone-bar > li:nth-child(5) .phone-slot {
-  border-left: 1px solid var(--hairline);
-}
-
-.phone-slot-scan {
-  border-right: var(--rule-width) solid var(--rule);
-  border-left: var(--rule-width) solid var(--rule);
-  background-color: var(--flag);
-  color: var(--on-flag);
-  font-size: 0.875rem;
-  font-weight: 800;
-}
-
-.phone-slot-scan:hover {
-  color: var(--on-flag);
-}
-
-/* The current slot (and More while its sheet is open) is ink-filled. */
-.phone-slot[aria-current='page'],
-.phone-slot.is-current,
-.phone-slot[aria-expanded='true'],
-.phone-slot[aria-current='page']:hover {
-  background-color: var(--selected);
-  color: var(--on-selected);
-}
-
-/* Behind the open sheet: a scrim; tapping it closes the sheet. */
-.more-open .phone-nav::before {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim);
-  content: '';
-}
-
-.more-sheet {
-  position: absolute;
-  right: 0;
-  bottom: 100%;
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-height: calc(100dvh - var(--target-primary-phone) - var(--space-7));
-  box-sizing: border-box;
-  overflow-y: auto;
-  padding: var(--space-4);
-  border-top: var(--rule-width) solid var(--rule);
-  background: var(--rail);
-}
-
-.more-sheet .rail-link {
-  min-height: var(--control-phone);
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.more-sheet .rail-footer {
-  margin-top: 0;
-}
-
-/* ---- Forced colours (Windows contrast themes) ---- */
-
-@media (forced-colors: active) {
-  .rail-row.is-current,
-  .rail-footer-link[aria-current='page'],
-  .rail-sub-link[aria-current='page'],
-  .phone-slot[aria-current='page'],
-  .phone-slot.is-current,
-  .phone-slot[aria-expanded='true'] {
-    forced-color-adjust: none;
-    background: Highlight;
-    color: HighlightText;
-    text-decoration-line: underline;
+  /* The current destination is ink-filled, its chevron included. */
+  .rail-row.is-current {
+    background-color: var(--selected);
   }
 
   .rail-row.is-current .rail-link,
   .rail-row.is-current .rail-toggle {
-    forced-color-adjust: none;
-    color: HighlightText;
-    text-decoration-line: underline;
+    color: var(--on-selected);
   }
 
-  .brand-tile,
+  .rail-toggle {
+    flex: 0 0 auto;
+    width: var(--target);
+    min-height: var(--target);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--ink);
+  }
+
+  .rail-toggle[aria-expanded='true'] .rail-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Sub-pages, indented under a 2 px rule. */
+  .rail-sub {
+    gap: 1px;
+    margin: 0 0 6px 12px;
+    padding-left: 10px;
+    border-left: var(--rule-width) solid var(--rule);
+  }
+
+  .rail-sub[hidden] {
+    display: none;
+  }
+
+  .rail-sub-link {
+    display: flex;
+    align-items: center;
+    min-height: var(--target);
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .rail-sub-link[aria-current='page'] {
+    background-color: var(--flag-wash);
+    font-weight: 700;
+  }
+
+  /* ---- Rail footer: Pending actions, Settings, Help & Feedback, account row, dark mode ---- */
+
+  .rail-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: auto;
+  }
+
+  /* Pending actions' open count: a small square flag tag beside the label. */
+  .rail-count {
+    min-width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    margin-left: auto;
+    padding: 0 4px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-tag);
+    background: var(--flag);
+    color: var(--on-flag);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  .rail-footer-link[aria-current='page'] {
+    background-color: var(--selected);
+    color: var(--on-selected);
+  }
+
+  .account {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: var(--rule-width) solid var(--rule);
+  }
+
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .account-initials {
-    border: 1px solid CanvasText;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-control);
+    background: var(--inverse);
+    color: var(--on-inverse);
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    font-weight: 600;
   }
 
-  .theme-switch-track,
-  .theme-switch-thumb {
-    forced-color-adjust: none;
+  .account-text {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .account-name {
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .account-role {
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  .account-sign-out {
+    flex: 0 0 auto;
+    width: var(--target);
+    min-height: var(--target);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--ink);
+  }
+
+  .account-tag {
+    display: flex;
+  }
+
+  .account-expiry {
+    margin: 0;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+  }
+
+  .account-switch {
+    width: 100%;
+  }
+
+  /* MISC-09: dark mode switch, 44 px with a 2 px rule and a square thumb. */
+  .theme-switch {
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--target);
+    margin-top: var(--space-2);
+    padding: 0 var(--space-3);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background-color: var(--sheet);
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .theme-switch-label {
+    margin-right: auto;
+  }
+
+  .theme-switch-state {
+    min-width: 1.75rem;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-align: right;
   }
 
   .theme-switch-track {
-    border-color: CanvasText;
-    background: Canvas;
+    position: relative;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 20px;
+    box-sizing: border-box;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-tag);
+    background: var(--paper);
   }
 
   .theme-switch-thumb {
-    background: CanvasText;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 1px;
+    background: var(--ink);
   }
 
   .theme-switch[aria-checked='true'] .theme-switch-track {
-    border-color: Highlight;
-    background: Highlight;
+    background: var(--selected);
   }
 
   .theme-switch[aria-checked='true'] .theme-switch-thumb {
-    background: HighlightText;
+    left: 16px;
+    background: var(--on-selected);
   }
-}
 
-/* Lane A (Field Ledger wave 1): the phone More sheet's count per destination (canvas PhoneMore). */
-.more-count {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-section);
-  font-weight: 600;
+  .server-health {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-1) 0 0;
+    padding: 0 2px;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+  }
+
+  .server-health-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 1px;
+    background: var(--fl-muted);
+  }
+
+  .server-health-ok .server-health-dot {
+    background: var(--success);
+  }
+
+  .server-health-degraded .server-health-dot {
+    background: var(--warning);
+  }
+
+  .server-health-unreachable .server-health-dot {
+    background: var(--danger);
+  }
+
+  /* ---- Top bar (desktop): search at the left, alerts at the right ---- */
+
+  .top-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 14px var(--page-pad);
+    border-bottom: 1px solid var(--hairline);
+    background: var(--sheet);
+  }
+
+  .top-bar-spacer {
+    margin-right: auto;
+  }
+
+  .top-bar .lab-search,
+  .phone-header .lab-search {
+    position: relative;
+    display: flex;
+    flex: 1 1 280px;
+    min-width: 0;
+    max-width: 520px;
+    margin: 0 auto 0 0;
+  }
+
+  .lab-search-icon {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    color: var(--ink);
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .top-bar .lab-search input,
+  .phone-header .lab-search input {
+    width: 100%;
+    min-height: var(--control);
+    box-sizing: border-box;
+    padding: 0 14px 0 42px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--fs-body);
+  }
+
+  .lab-search input::placeholder {
+    color: var(--fl-muted);
+    opacity: 1;
+  }
+
+  /* MM-T91: the notification bell, a 44 px square control. */
+  .action-bell {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: var(--target);
+    min-width: var(--target);
+    height: var(--target);
+    min-height: var(--target);
+    box-sizing: border-box;
+    padding: 0;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background-color: var(--sheet);
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  a.action-bell:hover {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  /* The notification center on screen: ink-filled. */
+  .notifications-bell[aria-current='page'],
+  a.notifications-bell[aria-current='page']:hover {
+    background-color: var(--selected);
+    color: var(--on-selected);
+  }
+
+  /* The count: a flag-filled square tag on the top-right corner. */
+  .action-bell-count {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    min-width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    padding: 0 4px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-tag);
+    background: var(--flag);
+    color: var(--on-flag);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  /* ---- Context row (pages adopt it in wave 1): back links, tags, switches and actions ---- */
+
+  .context-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  /* A row that holds only actions sits at the right. */
+  .context-row-end {
+    justify-content: flex-end;
+  }
+
+  /* ---- Hover (desktop only): one tint over the existing fill ---- */
+
+  @media (hover: hover) {
+    .rail-link:hover,
+    .rail-toggle:hover,
+    .rail-sub-link:hover,
+    .account-sign-out:not(:disabled):hover,
+    a.action-bell:hover {
+      background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+      text-decoration: none;
+    }
+
+    .rail-link:hover,
+    .rail-sub-link:hover {
+      color: var(--ink);
+    }
+
+    /* Ink-filled items lighten instead, and keep their paper text. */
+    .rail-row.is-current .rail-link:hover,
+    .rail-row.is-current .rail-toggle:not(:disabled):hover,
+    .rail-footer-link[aria-current='page']:hover,
+    a.notifications-bell[aria-current='page']:hover {
+      background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
+      color: var(--on-selected);
+    }
+  }
+
+  /* ---- Phone (≤ 640 px): header strip, five-slot bottom bar, More sheet ---- */
+
+  .app-phone {
+    display: block;
+  }
+
+  .phone-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--hairline);
+    background: var(--sheet);
+  }
+
+  .phone-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .app-phone .brand-tile {
+    width: 32px;
+    height: 32px;
+  }
+
+  .app-phone .brand-tile svg {
+    width: 24px;
+    height: 19px;
+  }
+
+  .app-phone .brand-name {
+    font-size: var(--fs-body);
+  }
+
+  .phone-header .lab-search {
+    flex-basis: auto;
+    max-width: none;
+    margin: 0;
+  }
+
+  .phone-header .lab-search input {
+    min-height: var(--control-phone);
+  }
+
+  /* Content clears the fixed bottom bar (60 px slots and the 2 px rule above them). */
+  .app-phone .app-main {
+    max-width: none;
+    padding: var(--space-4) var(--space-4)
+      calc(
+        var(--target-primary-phone) + var(--rule-width) + var(--space-6) +
+          env(safe-area-inset-bottom)
+      );
+  }
+
+  .phone-nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+  }
+
+  .phone-bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 0;
+    padding: 0 0 env(safe-area-inset-bottom);
+    border-top: var(--rule-width) solid var(--rule);
+    background: var(--sheet);
+    list-style: none;
+  }
+
+  .phone-bar > li {
+    display: flex;
+    min-width: 0;
+  }
+
+  .phone-slot {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    height: var(--target-primary-phone);
+    min-height: var(--target-primary-phone);
+    box-sizing: border-box;
+    padding: 0 var(--space-1);
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--fs-small);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .phone-slot:hover {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .phone-bar > li:nth-child(2) .phone-slot,
+  .phone-bar > li:nth-child(5) .phone-slot {
+    border-left: 1px solid var(--hairline);
+  }
+
+  .phone-slot-scan {
+    border-right: var(--rule-width) solid var(--rule);
+    border-left: var(--rule-width) solid var(--rule);
+    background-color: var(--flag);
+    color: var(--on-flag);
+    font-size: 0.875rem;
+    font-weight: 800;
+  }
+
+  .phone-slot-scan:hover {
+    color: var(--on-flag);
+  }
+
+  /* The current slot (and More while its sheet is open) is ink-filled. */
+  .phone-slot[aria-current='page'],
+  .phone-slot.is-current,
+  .phone-slot[aria-expanded='true'],
+  .phone-slot[aria-current='page']:hover {
+    background-color: var(--selected);
+    color: var(--on-selected);
+  }
+
+  /* Behind the open sheet: a scrim; tapping it closes the sheet. */
+  .more-open .phone-nav::before {
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    content: '';
+  }
+
+  .more-sheet {
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-height: calc(100dvh - var(--target-primary-phone) - var(--space-7));
+    box-sizing: border-box;
+    overflow-y: auto;
+    padding: var(--space-4);
+    border-top: var(--rule-width) solid var(--rule);
+    background: var(--rail);
+  }
+
+  .more-sheet .rail-link {
+    min-height: var(--control-phone);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .more-sheet .rail-footer {
+    margin-top: 0;
+  }
+
+  /* ---- Forced colours (Windows contrast themes) ---- */
+
+  @media (forced-colors: active) {
+    .rail-row.is-current,
+    .rail-footer-link[aria-current='page'],
+    .rail-sub-link[aria-current='page'],
+    .phone-slot[aria-current='page'],
+    .phone-slot.is-current,
+    .phone-slot[aria-expanded='true'] {
+      forced-color-adjust: none;
+      background: Highlight;
+      color: HighlightText;
+      text-decoration-line: underline;
+    }
+
+    .rail-row.is-current .rail-link,
+    .rail-row.is-current .rail-toggle {
+      forced-color-adjust: none;
+      color: HighlightText;
+      text-decoration-line: underline;
+    }
+
+    .brand-tile,
+    .account-initials {
+      border: 1px solid CanvasText;
+    }
+
+    .theme-switch-track,
+    .theme-switch-thumb {
+      forced-color-adjust: none;
+    }
+
+    .theme-switch-track {
+      border-color: CanvasText;
+      background: Canvas;
+    }
+
+    .theme-switch-thumb {
+      background: CanvasText;
+    }
+
+    .theme-switch[aria-checked='true'] .theme-switch-track {
+      border-color: Highlight;
+      background: Highlight;
+    }
+
+    .theme-switch[aria-checked='true'] .theme-switch-thumb {
+      background: HighlightText;
+    }
+  }
+
+  /* Lane A (Field Ledger wave 1): the phone More sheet's count per destination (canvas PhoneMore). */
+  .more-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-section);
+    font-weight: 600;
+  }
 }

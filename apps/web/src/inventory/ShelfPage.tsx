@@ -17,7 +17,7 @@ import {
   SectionHead,
   StatusBadge,
   type CountedCellState,
-} from '../components/ui';
+} from '../components/app-ui';
 import { ContextRow } from '../layout/ContextRow';
 import { usePageTitle } from '../layout/page-title';
 import { moveToPath } from '../moves/move-link';

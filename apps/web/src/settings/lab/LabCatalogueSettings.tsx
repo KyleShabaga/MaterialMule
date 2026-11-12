@@ -21,7 +21,7 @@ import {
   FormField,
   StatusBadge,
   TableScroll,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { catalogueWrite, fetchCatalogue, fetchTemplates, type WriteResult } from '../../lab/api';
 import { TestPicker } from '../../lab/TestPicker';
 import { useMe } from '../../session/context';

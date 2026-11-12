@@ -1,7 +1,7 @@
 import type { ProjectDetail } from '@materialmule/shared';
 import type { ReactNode } from 'react';
 import { Link, Navigate, NavLink, useParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader } from '../../components/ui';
+import { EmptyState, ErrorState, PageHeader } from '../../components/app-ui';
 import { ContextRow } from '../../layout/ContextRow';
 import { usePageTitle } from '../../layout/page-title';
 import '../../projects/projects.css';

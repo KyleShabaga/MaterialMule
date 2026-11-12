@@ -5,7 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { DataTable, ErrorState, TableScroll, TableViewSelector } from '../../components/ui';
+import { DataTable, ErrorState, TableScroll, TableViewSelector } from '../../components/app-ui';
 import { useTableView } from '../../components/useTableView';
 import { StateBadge } from '../../concrete-review/ReviewReportPage';
 import { StrengthReportList } from '../../concrete-review/StrengthReportList';

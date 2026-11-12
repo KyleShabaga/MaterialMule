@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { apiFetch } from './api/client';
 import { safeReturnTo } from './lib/return-to';
-import { BandedCard, StatusBadge } from './components/ui';
+import { BandedCard, StatusBadge } from './components/app-ui';
 import { AuthPage } from './pages/AuthLayout';
 import { useSession } from './session/context';
 

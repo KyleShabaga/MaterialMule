@@ -14,7 +14,7 @@ import {
   Segmented,
   StatusBadge,
   type BadgeTone,
-} from '../components/ui';
+} from '../components/app-ui';
 import { formatExpiry } from '../lib/format';
 import { useMe } from '../session/context';
 import {

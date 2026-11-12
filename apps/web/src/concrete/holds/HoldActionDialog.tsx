@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useState } from 'react';
 import { ReceiverSelect } from '../../components/ReceiverSelect';
-import { ConfirmDialog, FormField } from '../../components/ui';
+import { ConfirmDialog, FormField } from '../../components/app-ui';
 import {
   authorizeDisposal,
   recordDisposal,

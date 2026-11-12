@@ -5,7 +5,7 @@ import {
   type BulkGroupSummary,
   type InventoryLocation,
 } from '@materialmule/shared';
-import { FormField } from '../components/ui';
+import { FormField } from '../components/app-ui';
 import {
   fieldId,
   formatSampleDraft,

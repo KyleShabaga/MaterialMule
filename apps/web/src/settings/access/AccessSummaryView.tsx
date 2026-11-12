@@ -7,7 +7,7 @@ import {
   type AccessSummary,
 } from '@materialmule/shared';
 import { Link } from 'react-router';
-import { BandedCard, EmptyState, StatusBadge } from '../../components/ui';
+import { BandedCard, EmptyState, StatusBadge } from '../../components/app-ui';
 import { shortDateTime } from '../../dashboard/format';
 
 // One person's current access (MM-AO06), as the server reports it: app roles, what they hold

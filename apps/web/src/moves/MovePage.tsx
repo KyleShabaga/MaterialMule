@@ -11,7 +11,7 @@ import {
   SectionHead,
   StatusBadge,
   type CountedCellState,
-} from '../components/ui';
+} from '../components/app-ui';
 import { ContextRow } from '../layout/ContextRow';
 import { ReceiverSelect } from '../components/ReceiverSelect';
 import { useOnline } from '../lib/online';

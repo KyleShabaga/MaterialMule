@@ -13,7 +13,7 @@ import {
   StatusBadge,
   TableScroll,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { ContextRow } from '../../layout/ContextRow';
 import { SpecimenId } from '../ledger';
 import { fetchScheduleHistory, fetchSetLookup, type LoadResult, type SetLookup } from './api';

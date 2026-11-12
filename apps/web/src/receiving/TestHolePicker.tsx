@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createTestHole, listTestHoles } from '../api/projects';
-import { RequiredMarker } from '../components/ui';
+import { RequiredMarker } from '../components/app-ui';
 import { useListHighlight } from '../components/useListHighlight';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing

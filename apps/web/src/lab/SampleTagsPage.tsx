@@ -12,7 +12,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useParams } from 'react-router';
-import { EmptyState, ErrorState, SectionHead, SidePanel, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, SectionHead, SidePanel, StatusBadge } from '../components/app-ui';
 import { fetchSampleTags, type SampleTagsResult } from './api';
 import './lab.css';
 import './lab-ledger.css';

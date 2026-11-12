@@ -32,7 +32,7 @@ import {
   SectionHead,
   StatusBadge,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { FEATURES } from '../../features';
 import { ContextRow } from '../../layout/ContextRow';
 import { useMe } from '../../session/context';

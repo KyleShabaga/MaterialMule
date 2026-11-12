@@ -1,564 +1,566 @@
-/* ---- Scanning (MM-T16, Field Ledger "PhoneScan"): tokens only ---- */
+@layer legacy {
+  /* ---- Scanning (MM-T16, Field Ledger "PhoneScan"): tokens only ---- */
 
-.scan-screen {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+  .scan-screen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
 
-.scan-screen .page-header h1 {
-  margin: 0;
-}
+  .scan-screen .page-header h1 {
+    margin: 0;
+  }
 
-.scan-context .back-link {
-  margin: 0;
-}
+  .scan-context .back-link {
+    margin: 0;
+  }
 
-/* Phone-only parts of the dark scan screen; desktop keeps the handheld layout. */
-.scan-camera-area {
-  display: contents;
-}
+  /* Phone-only parts of the dark scan screen; desktop keeps the handheld layout. */
+  .scan-camera-area {
+    display: contents;
+  }
 
-.scan-point,
-.scan-helper,
-.scan-corner,
-.scan-last-label,
-.scan-type-instead {
-  display: none;
-}
+  .scan-point,
+  .scan-helper,
+  .scan-corner,
+  .scan-last-label,
+  .scan-type-instead {
+    display: none;
+  }
 
-.scan-viewfinder {
-  display: contents;
-}
+  .scan-viewfinder {
+    display: contents;
+  }
 
-.scan-paper {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-width: 48rem;
-}
+  .scan-paper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 48rem;
+  }
 
-.scan-panel {
-  position: relative;
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
+  .scan-panel {
+    position: relative;
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
 
-.scan-field-row {
-  display: grid;
-  gap: var(--space-1);
-}
+  .scan-field-row {
+    display: grid;
+    gap: var(--space-1);
+  }
 
-.scan-field-row > label {
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  text-transform: uppercase;
-}
+  .scan-field-row > label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
 
-.scan-field {
-  font: inherit;
-  font-family: var(--font-mono);
-  font-size: 1.5rem;
-  font-weight: 600;
-  min-height: 56px;
-  padding: var(--space-2) var(--space-3);
-  border: var(--rule-width) solid var(--line-control);
-  border-radius: var(--radius-control);
-  background: var(--paper);
-  color: var(--ink);
-  min-width: 0;
-}
+  .scan-field {
+    font: inherit;
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    min-height: 56px;
+    padding: var(--space-2) var(--space-3);
+    border: var(--rule-width) solid var(--line-control);
+    border-radius: var(--radius-control);
+    background: var(--paper);
+    color: var(--ink);
+    min-width: 0;
+  }
 
-.scan-ready {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--tag-storage-fg);
-}
+  .scan-ready {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--tag-storage-fg);
+  }
 
-.scan-paused .scan-ready {
-  color: var(--tag-waiting-fg);
-}
+  .scan-paused .scan-ready {
+    color: var(--tag-waiting-fg);
+  }
 
-.scan-status {
-  border-left: 6px solid var(--rule);
-  padding: var(--space-2) var(--space-3);
-  background: var(--rail);
-  border-radius: var(--radius-control);
-}
+  .scan-status {
+    border-left: 6px solid var(--rule);
+    padding: var(--space-2) var(--space-3);
+    background: var(--rail);
+    border-radius: var(--radius-control);
+  }
 
-.scan-message {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.scan-detail {
-  display: block;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  color: var(--tag-waiting-fg);
-}
-
-.scan-last {
-  margin: var(--space-2) 0 0;
-  color: var(--ink-soft);
-  overflow-wrap: anywhere;
-}
-
-.scan-last strong {
-  font-family: var(--font-mono);
-}
-
-.scan-actions {
-  margin-top: var(--space-2);
-}
-
-.scan-status-success {
-  border-left-color: var(--tag-storage-fg);
-  background: var(--tag-storage-bg);
-}
-
-.scan-status-success .scan-message {
-  color: var(--tag-storage-fg);
-}
-
-.scan-status-error {
-  border-left-color: var(--tag-danger-fg);
-  background: var(--tag-danger-bg);
-}
-
-.scan-status-error .scan-message {
-  color: var(--tag-danger-fg);
-}
-
-.scan-status-warning {
-  border-left-color: var(--tag-waiting-fg);
-  background: var(--tag-waiting-bg);
-}
-
-.scan-status-warning .scan-message {
-  color: var(--tag-waiting-fg);
-}
-
-.scan-status-busy {
-  border-left-color: var(--tag-lab-fg);
-}
-
-.scan-sound {
-  color: var(--ink-soft);
-}
-
-/* Covers the whole panel while focus is elsewhere, so a scan is never silently lost. */
-.scan-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  border: 3px dashed var(--rule);
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--sheet) 92%, transparent);
-  color: var(--ink);
-  font-size: 1.25rem;
-  text-align: center;
-}
-
-.scan-overlay strong {
-  font-size: 1.75rem;
-  color: var(--tag-waiting-fg);
-}
-
-.scanned-unit {
-  display: grid;
-  gap: var(--space-3);
-  max-width: 48rem;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-}
-
-.scanned-unit .scanned-unit-id {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-unit-id);
-  line-height: var(--lh-unit-id);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.scanned-unit .button {
-  justify-self: start;
-}
-
-.scanned-unit-facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--space-1) var(--space-4);
-  margin: 0;
-}
-
-.scanned-unit-facts dt {
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.scanned-unit-facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.verify-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
-.verify-list li {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--hairline);
-  font-family: var(--font-mono);
-}
-
-.verify-list li:last-child {
-  border-bottom: 0;
-}
-
-.verify-list .verified strong {
-  color: var(--tag-storage-fg);
-}
-
-.scan-intro {
-  margin: 0;
-  color: var(--ink-soft);
-  max-width: 48rem;
-}
-
-.camera-scan-button {
-  justify-self: start;
-  align-self: flex-start;
-}
-
-/* ---- Phone (≤ 640 px): the one dark screen ---- */
-
-@media (max-width: 640px) {
   .scan-message {
-    font-size: 1.35rem;
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .scan-detail {
+    display: block;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    color: var(--tag-waiting-fg);
+  }
+
+  .scan-last {
+    margin: var(--space-2) 0 0;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .scan-last strong {
+    font-family: var(--font-mono);
+  }
+
+  .scan-actions {
+    margin-top: var(--space-2);
+  }
+
+  .scan-status-success {
+    border-left-color: var(--tag-storage-fg);
+    background: var(--tag-storage-bg);
+  }
+
+  .scan-status-success .scan-message {
+    color: var(--tag-storage-fg);
+  }
+
+  .scan-status-error {
+    border-left-color: var(--tag-danger-fg);
+    background: var(--tag-danger-bg);
+  }
+
+  .scan-status-error .scan-message {
+    color: var(--tag-danger-fg);
+  }
+
+  .scan-status-warning {
+    border-left-color: var(--tag-waiting-fg);
+    background: var(--tag-waiting-bg);
+  }
+
+  .scan-status-warning .scan-message {
+    color: var(--tag-waiting-fg);
+  }
+
+  .scan-status-busy {
+    border-left-color: var(--tag-lab-fg);
+  }
+
+  .scan-sound {
+    color: var(--ink-soft);
+  }
+
+  /* Covers the whole panel while focus is elsewhere, so a scan is never silently lost. */
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    border: 3px dashed var(--rule);
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--sheet) 92%, transparent);
+    color: var(--ink);
+    font-size: 1.25rem;
+    text-align: center;
+  }
+
+  .scan-overlay strong {
+    font-size: 1.75rem;
+    color: var(--tag-waiting-fg);
+  }
+
+  .scanned-unit {
+    display: grid;
+    gap: var(--space-3);
+    max-width: 48rem;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+  }
+
+  .scanned-unit .scanned-unit-id {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-unit-id);
+    line-height: var(--lh-unit-id);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .scanned-unit .button {
+    justify-self: start;
   }
 
   .scanned-unit-facts {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-1) var(--space-4);
+    margin: 0;
   }
 
-  /* Ink ground edge to edge inside the phone's content padding. */
-  .scan-screen {
+  .scanned-unit-facts dt {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .scanned-unit-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .verify-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
     gap: 0;
-    margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) 0;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-control);
+  }
+
+  .verify-list li {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--hairline);
+    font-family: var(--font-mono);
+  }
+
+  .verify-list li:last-child {
+    border-bottom: 0;
+  }
+
+  .verify-list .verified strong {
+    color: var(--tag-storage-fg);
+  }
+
+  .scan-intro {
+    margin: 0;
+    color: var(--ink-soft);
+    max-width: 48rem;
+  }
+
+  .camera-scan-button {
+    justify-self: start;
+    align-self: flex-start;
+  }
+
+  /* ---- Phone (≤ 640 px): the one dark screen ---- */
+
+  @media (max-width: 640px) {
+    .scan-message {
+      font-size: 1.35rem;
+    }
+
+    .scanned-unit-facts {
+      grid-template-columns: 1fr;
+    }
+
+    /* Ink ground edge to edge inside the phone's content padding. */
+    .scan-screen {
+      gap: 0;
+      margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) 0;
+      background: var(--inverse);
+      color: var(--on-inverse);
+    }
+
+    .scan-context,
+    .scan-screen .page-header {
+      padding: var(--space-3) var(--space-4) 0;
+    }
+
+    .scan-context .back-link,
+    .scan-context .back-link a {
+      color: var(--on-inverse);
+    }
+
+    .scan-screen .page-header h1 {
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      line-height: var(--lh-small);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--on-inverse-soft);
+    }
+
+    .scan-intro {
+      display: none;
+    }
+
+    .scan-camera-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-6);
+      padding: var(--space-6) var(--space-4);
+    }
+
+    .scan-point {
+      display: block;
+      margin: 0;
+      font-size: 1.5rem;
+      line-height: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      text-align: center;
+    }
+
+    .scan-helper {
+      display: block;
+      margin: 0;
+      max-width: 280px;
+      font-size: var(--fs-body);
+      color: var(--on-inverse-soft);
+      text-align: center;
+    }
+
+    /* The viewfinder: a label-shaped frame with flag corner brackets; the camera action sits in it. */
+    .scan-viewfinder {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: min(300px, 100%);
+      aspect-ratio: 300 / 190;
+      box-sizing: border-box;
+      border-radius: var(--radius-card);
+      background: color-mix(in srgb, var(--on-inverse) 10%, var(--inverse));
+    }
+
+    .scan-corner {
+      position: absolute;
+      display: block;
+      width: 44px;
+      height: 44px;
+      border: 0 solid var(--flag);
+    }
+
+    .scan-corner-tl {
+      top: -2px;
+      left: -2px;
+      border-top-width: 5px;
+      border-left-width: 5px;
+    }
+
+    .scan-corner-tr {
+      top: -2px;
+      right: -2px;
+      border-top-width: 5px;
+      border-right-width: 5px;
+    }
+
+    .scan-corner-bl {
+      bottom: -2px;
+      left: -2px;
+      border-bottom-width: 5px;
+      border-left-width: 5px;
+    }
+
+    .scan-corner-br {
+      right: -2px;
+      bottom: -2px;
+      border-right-width: 5px;
+      border-bottom-width: 5px;
+    }
+
+    .scan-viewfinder .camera-scan-button {
+      align-self: center;
+      min-height: var(--control-phone);
+      background: var(--primary);
+      color: var(--on-primary);
+      border-color: var(--rule);
+      font-weight: 800;
+    }
+
+    /* The paper panel: the scan field, the last scanned unit and "Type an ID instead". */
+    .scan-paper {
+      gap: var(--space-3);
+      max-width: none;
+      padding: var(--space-4);
+      background: var(--paper);
+      color: var(--ink);
+      border-top: var(--rule-width) solid var(--rule);
+    }
+
+    .scan-panel,
+    .scanned-unit {
+      padding: var(--space-3);
+    }
+
+    .scan-field {
+      font-size: 1.25rem;
+      min-height: var(--control-phone);
+    }
+
+    .scan-last-label {
+      display: block;
+      margin: 0 0 var(--space-2);
+    }
+
+    .scanned-unit .scanned-unit-id {
+      font-size: var(--fs-row-id);
+      line-height: var(--lh-body);
+    }
+
+    .scan-type-instead {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      border-radius: var(--radius-card);
+    }
+  }
+
+  /* ---- Phone-camera scanner (MM-T17): always dark, like the camera view ---- */
+
+  .camera-scanner {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    /* A native modal <dialog> (MTR-143): undo the browser's centred-box defaults. */
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
     background: var(--inverse);
     color: var(--on-inverse);
   }
 
-  .scan-context,
-  .scan-screen .page-header {
-    padding: var(--space-3) var(--space-4) 0;
+  .camera-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    background: color-mix(in srgb, var(--inverse) 70%, transparent);
   }
 
-  .scan-context .back-link,
-  .scan-context .back-link a {
-    color: var(--on-inverse);
+  .camera-top h2 {
+    margin: 0;
+    font-size: 1.1rem;
   }
 
-  .scan-screen .page-header h1 {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    line-height: var(--lh-small);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--on-inverse-soft);
+  .camera-view {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .scan-intro {
+  .camera-view video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Framing guide: a label-shaped box in the middle of the picture, edged in flag. */
+  .camera-guide {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(80%, 32rem);
+    aspect-ratio: 7 / 3;
+    transform: translate(-50%, -50%);
+    border: 3px solid var(--flag);
+    border-radius: var(--radius-control);
+    box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--inverse) 35%, transparent);
+    pointer-events: none;
+  }
+
+  .camera-bottom {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    background: color-mix(in srgb, var(--inverse) 80%, transparent);
+  }
+
+  .camera-status {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  /* Results as status tags (fill and text), readable on the dark camera ground in both themes. */
+  .camera-status-success,
+  .camera-status-error {
+    justify-self: start;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-tag);
+  }
+
+  .camera-status-success {
+    background: var(--tag-storage-bg);
+    color: var(--tag-storage-fg);
+  }
+
+  .camera-status-error {
+    background: var(--tag-danger-bg);
+    color: var(--tag-danger-fg);
+  }
+
+  .camera-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .camera-controls:empty {
     display: none;
   }
 
-  .scan-camera-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-6);
-    padding: var(--space-6) var(--space-4);
+  .camera-controls button[aria-pressed='true'] {
+    background: var(--flag);
+    color: var(--on-flag);
   }
 
-  .scan-point {
-    display: block;
-    margin: 0;
-    font-size: 1.5rem;
-    line-height: 1.75rem;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    text-align: center;
+  .camera-manual {
+    display: grid;
+    gap: var(--space-1);
   }
 
-  .scan-helper {
-    display: block;
+  .camera-manual input {
+    font: inherit;
+    font-family: var(--font-mono);
+    padding: var(--space-2) var(--space-3);
+    min-width: 0;
+  }
+
+  .camera-decoder {
     margin: 0;
-    max-width: 280px;
-    font-size: var(--fs-body);
+    font-size: var(--fs-small);
     color: var(--on-inverse-soft);
-    text-align: center;
   }
 
-  /* The viewfinder: a label-shaped frame with flag corner brackets; the camera action sits in it. */
-  .scan-viewfinder {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: min(300px, 100%);
-    aspect-ratio: 300 / 190;
-    box-sizing: border-box;
-    border-radius: var(--radius-card);
-    background: color-mix(in srgb, var(--on-inverse) 10%, var(--inverse));
-  }
-
-  .scan-corner {
-    position: absolute;
-    display: block;
-    width: 44px;
-    height: 44px;
-    border: 0 solid var(--flag);
-  }
-
-  .scan-corner-tl {
-    top: -2px;
-    left: -2px;
-    border-top-width: 5px;
-    border-left-width: 5px;
-  }
-
-  .scan-corner-tr {
-    top: -2px;
-    right: -2px;
-    border-top-width: 5px;
-    border-right-width: 5px;
-  }
-
-  .scan-corner-bl {
-    bottom: -2px;
-    left: -2px;
-    border-bottom-width: 5px;
-    border-left-width: 5px;
-  }
-
-  .scan-corner-br {
-    right: -2px;
-    bottom: -2px;
-    border-right-width: 5px;
-    border-bottom-width: 5px;
-  }
-
-  .scan-viewfinder .camera-scan-button {
-    align-self: center;
-    min-height: var(--control-phone);
-    background: var(--primary);
-    color: var(--on-primary);
-    border-color: var(--rule);
-    font-weight: 800;
-  }
-
-  /* The paper panel: the scan field, the last scanned unit and "Type an ID instead". */
-  .scan-paper {
-    gap: var(--space-3);
-    max-width: none;
+  .camera-problem {
+    flex: 1 1 auto;
+    overflow-y: auto;
     padding: var(--space-4);
-    background: var(--paper);
+    background: var(--sheet);
     color: var(--ink);
-    border-top: var(--rule-width) solid var(--rule);
   }
 
-  .scan-panel,
-  .scanned-unit {
-    padding: var(--space-3);
+  .camera-problem h3 {
+    margin-top: 0;
   }
-
-  .scan-field {
-    font-size: 1.25rem;
-    min-height: var(--control-phone);
-  }
-
-  .scan-last-label {
-    display: block;
-    margin: 0 0 var(--space-2);
-  }
-
-  .scanned-unit .scanned-unit-id {
-    font-size: var(--fs-row-id);
-    line-height: var(--lh-body);
-  }
-
-  .scan-type-instead {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 52px;
-    border-radius: var(--radius-card);
-  }
-}
-
-/* ---- Phone-camera scanner (MM-T17): always dark, like the camera view ---- */
-
-.camera-scanner {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  /* A native modal <dialog> (MTR-143): undo the browser's centred-box defaults. */
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--inverse);
-  color: var(--on-inverse);
-}
-
-.camera-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: color-mix(in srgb, var(--inverse) 70%, transparent);
-}
-
-.camera-top h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.camera-view {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.camera-view video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* Framing guide: a label-shaped box in the middle of the picture, edged in flag. */
-.camera-guide {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(80%, 32rem);
-  aspect-ratio: 7 / 3;
-  transform: translate(-50%, -50%);
-  border: 3px solid var(--flag);
-  border-radius: var(--radius-control);
-  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--inverse) 35%, transparent);
-  pointer-events: none;
-}
-
-.camera-bottom {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  background: color-mix(in srgb, var(--inverse) 80%, transparent);
-}
-
-.camera-status {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-/* Results as status tags (fill and text), readable on the dark camera ground in both themes. */
-.camera-status-success,
-.camera-status-error {
-  justify-self: start;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-tag);
-}
-
-.camera-status-success {
-  background: var(--tag-storage-bg);
-  color: var(--tag-storage-fg);
-}
-
-.camera-status-error {
-  background: var(--tag-danger-bg);
-  color: var(--tag-danger-fg);
-}
-
-.camera-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.camera-controls:empty {
-  display: none;
-}
-
-.camera-controls button[aria-pressed='true'] {
-  background: var(--flag);
-  color: var(--on-flag);
-}
-
-.camera-manual {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.camera-manual input {
-  font: inherit;
-  font-family: var(--font-mono);
-  padding: var(--space-2) var(--space-3);
-  min-width: 0;
-}
-
-.camera-decoder {
-  margin: 0;
-  font-size: var(--fs-small);
-  color: var(--on-inverse-soft);
-}
-
-.camera-problem {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: var(--space-4);
-  background: var(--sheet);
-  color: var(--ink);
-}
-
-.camera-problem h3 {
-  margin-top: 0;
 }

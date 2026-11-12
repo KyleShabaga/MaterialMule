@@ -6,7 +6,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { NotificationPreferencesCard } from '../action-requests/NotificationPreferencesCard';
 import { apiFetch } from '../api/client';
-import { ErrorState } from '../components/ui';
+import { ErrorState } from '../components/app-ui';
 import { formatExpiry } from '../lib/format';
 import { useSession } from '../session/context';
 import './profile.css';

@@ -5,7 +5,7 @@ import {
   type TestProgress,
   type TestRequest,
 } from '@materialmule/shared';
-import type { CountedCellState } from '../components/ui';
+import type { CountedCellState } from '../components/app-ui';
 
 /** One line's heading: "TH26-01 · ALL" or "TH26-01 · G3 at 7.5 ft". */
 export function lineTitle(line: LabLine): string {

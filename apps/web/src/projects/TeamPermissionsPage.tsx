@@ -23,7 +23,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { BandedCard, DataTable, EmptyState, ErrorState, StatusBadge } from '../components/ui';
+import { BandedCard, DataTable, EmptyState, ErrorState, StatusBadge } from '../components/app-ui';
 import { ContextRow } from '../layout/ContextRow';
 import { YesNoList } from '../settings/access/YesNoList';
 import { ProjectSectionNav } from './ProjectSectionNav';

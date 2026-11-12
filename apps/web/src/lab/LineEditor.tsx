@@ -10,7 +10,7 @@ import {
   type TestTemplate,
 } from '@materialmule/shared';
 import { useEffect, useId, useState } from 'react';
-import { BandedCard } from '../components/ui';
+import { BandedCard } from '../components/app-ui';
 import { fetchSourceUnits } from './api';
 import { numberOrNull, toInput, type LineDraft } from './line-draft';
 import { TestPicker } from './TestPicker';

@@ -2,7 +2,7 @@ import { healthResponseSchema } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { PendingActionsLink } from '../action-requests/ActionRequestsBell';
-import { StatusBadge } from '../components/ui';
+import { StatusBadge } from '../components/app-ui';
 import { formatExpiry } from '../lib/format';
 import { useMe, useSession } from '../session/context';
 import { useTheme } from '../theme/theme';

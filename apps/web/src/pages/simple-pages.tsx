@@ -10,7 +10,7 @@ import {
   useRouteError,
 } from 'react-router';
 import { ROLE_LABELS } from '@materialmule/shared';
-import { EmptyState, ErrorState, PageHeader, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, PageHeader, StatusBadge } from '../components/app-ui';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { PHONE_QUERY } from '../components/useTableView';
 import { usePageTitle } from '../layout/page-title';

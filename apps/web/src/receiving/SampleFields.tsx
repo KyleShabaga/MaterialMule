@@ -5,7 +5,7 @@ import {
   SOURCE_LOCATION_REFERENCE_MAX_LENGTH,
 } from '@materialmule/shared';
 import type { ReactNode } from 'react';
-import { FormField } from '../components/ui';
+import { FormField } from '../components/app-ui';
 import { fieldId, type SampleDraft } from './draft';
 import { TestHolePicker } from './TestHolePicker';
 

@@ -5,7 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../../api/client';
-import { ErrorState, FormField } from '../../components/ui';
+import { ErrorState, FormField } from '../../components/app-ui';
 import { SettingsHead } from '../SettingsHead';
 import { useMe } from '../../session/context';
 import './reference-settings.css';

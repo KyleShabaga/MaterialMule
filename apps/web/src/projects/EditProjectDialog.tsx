@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { listActiveStaff } from '../api/projects';
-import { ConfirmDialog, FormField } from '../components/ui';
+import { ConfirmDialog, FormField } from '../components/app-ui';
 import { useFocusFirstInvalid } from '../components/useFocusFirstInvalid';
 import { StaffOptionGroups } from './StaffOptionGroups';
 import { updateProject } from './api';

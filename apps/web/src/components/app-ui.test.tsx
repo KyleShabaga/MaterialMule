@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { BandedCard, StatusBadge } from './ui';
+import { BandedCard, StatusBadge } from './app-ui';
 
 describe('BandedCard', () => {
   it('is a region named by its heading, with subtitle, aside and body', () => {

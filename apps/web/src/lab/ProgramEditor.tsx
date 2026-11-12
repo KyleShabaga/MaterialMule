@@ -16,7 +16,13 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { searchProjects } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { BandedCard, ConfirmDialog, ErrorState, SidePanel, StatusBadge } from '../components/ui';
+import {
+  BandedCard,
+  ConfirmDialog,
+  ErrorState,
+  SidePanel,
+  StatusBadge,
+} from '../components/app-ui';
 import { useMe } from '../session/context';
 import {
   createProgram,

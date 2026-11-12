@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { apiFetch } from '../../api/client';
-import { BandedCard, ConfirmDialog, ErrorState, FormField } from '../../components/ui';
+import { BandedCard, ConfirmDialog, ErrorState, FormField } from '../../components/app-ui';
 import { formatExpiry } from '../../lib/format';
 
 type Load =

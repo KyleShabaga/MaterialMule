@@ -10,7 +10,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { listActiveStaff, listBulkGroups } from '../api/projects';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { ConfirmDialog, FormField, SectionHead, SidePanel, StatusBadge } from '../components/ui';
+import {
+  ConfirmDialog,
+  FormField,
+  SectionHead,
+  SidePanel,
+  StatusBadge,
+} from '../components/app-ui';
 import { fetchLocations } from '../inventory/api';
 import { ContextRow } from '../layout/ContextRow';
 import { useOnline } from '../lib/online';

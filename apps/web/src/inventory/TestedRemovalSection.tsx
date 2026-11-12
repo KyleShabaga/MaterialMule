@@ -8,7 +8,7 @@ import {
   type TestedRemovalBlocker,
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
-import { BandedCard } from '../components/ui';
+import { BandedCard } from '../components/app-ui';
 import { confirmTestedRemoval } from './api';
 
 const timeFormat = new Intl.DateTimeFormat('en-CA', {

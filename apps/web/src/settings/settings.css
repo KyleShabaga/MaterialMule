@@ -1,529 +1,531 @@
-/* Field Ledger settings frame and pages (docs/redesign/design.md, "Settings pages"; canvas
+@layer legacy {
+  /* Field Ledger settings frame and pages (docs/redesign/design.md, "Settings pages"; canvas
    Settings*, Staff, PhoneSettings). Colours, type, radii and spacing come only from the tokens. */
 
-.settings-frame {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-7);
-  margin-top: var(--space-5);
-}
-
-/* The grouped list on the left: mono caps group names over a 2 px rule, 44 px links. */
-.settings-nav {
-  flex: 1 1 13.75rem;
-  max-width: 20rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.125rem;
-}
-
-.settings-nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.settings-nav-group-name {
-  margin: 0 0 var(--space-1);
-  padding-bottom: 6px;
-  border-bottom: var(--rule-width) solid var(--rule);
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.settings-nav a,
-.settings-nav .settings-nav-signout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: var(--target);
-  box-sizing: border-box;
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  text-align: left;
-  text-decoration: none;
-}
-
-.settings-nav a.active,
-.settings-nav a[aria-current='page'] {
-  background: var(--selected);
-  color: var(--on-selected);
-}
-
-.settings-nav-note {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  text-align: right;
-}
-
-.settings-nav-signout {
-  width: 100%;
-  cursor: pointer;
-}
-
-.settings-content {
-  flex: 3 1 32.5rem;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.settings-content > * {
-  min-width: 0;
-}
-
-/* Phone, on a settings page: the list folds into one scrolling row of the same links. */
-.settings-nav-row {
-  flex: 1 1 100%;
-  max-width: none;
-  flex-direction: row;
-  gap: var(--space-2);
-  overflow-x: auto;
-  padding-bottom: var(--space-1);
-}
-
-.settings-nav-row .settings-nav-group {
-  flex-direction: row;
-  gap: 2px;
-}
-
-.settings-nav-row .settings-nav-group-name {
-  display: none;
-}
-
-.settings-nav-row a {
-  white-space: nowrap;
-  border: var(--rule-width) solid var(--rule);
-  background: var(--sheet);
-}
-
-/* Phone, on /settings: the grouped list alone, each row a 48 px sheet row in one frame. */
-.settings-frame-list {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-5);
-}
-
-.settings-frame-list .settings-nav {
-  max-width: none;
-  flex: 0 0 auto;
-}
-
-.settings-frame-list .settings-nav a,
-.settings-frame-list .settings-nav .settings-nav-signout {
-  min-height: var(--control-phone);
-  background: var(--sheet);
-  border: 1px solid var(--hairline);
-}
-
-.settings-frame-list .settings-nav a[aria-current='page'] {
-  background: var(--sheet);
-  color: var(--ink);
-}
-
-/* The page head: title, one line saying who can change it, actions at the top right. */
-.settings-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding-bottom: 10px;
-  border-bottom: var(--rule-width) solid var(--rule);
-}
-
-.settings-head-titles {
-  flex: 1 1 15rem;
-  min-width: 0;
-}
-
-.settings-head h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  line-height: 2rem;
-  font-weight: 700;
-}
-
-.settings-who {
-  margin: 0;
-  font-size: var(--fs-small);
-  line-height: var(--lh-small, 1.125rem);
-  color: var(--ink-soft);
-}
-
-.settings-head-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-/* A sub-section inside a settings page: h3 and a mono meta over the 2 px rule. */
-.settings-sub {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-  margin-top: var(--space-2);
-  padding-bottom: 6px;
-  border-bottom: var(--rule-width) solid var(--rule);
-}
-
-.settings-sub h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-}
-
-.settings-foot {
-  margin: 0;
-  font-size: var(--fs-small);
-  color: var(--ink-soft);
-}
-
-/* Older page parts inside the frame: cards and section headers take the ledger frame. */
-.settings-content .card {
-  margin-top: 0;
-}
-
-.settings-content .section-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.settings-content > section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.settings-content > section > .notice:empty,
-.settings-content > section > p[role='status']:empty {
-  display: none;
-}
-
-/* Rows inside a framed block (suppliers' plants, holidays, shelves). */
-.ledger-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.ledger-rows > li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.ledger-rows > li:last-child {
-  border-bottom: 0;
-}
-
-/* Staff and access: access requests are dashed rows above the people table. */
-.access-requests {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.access-requests-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.access-requests-head h3 {
-  margin: 0;
-  flex: 1 1 auto;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section, 1.75rem);
-  font-weight: 700;
-}
-
-.access-request {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border: var(--rule-width) dashed var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--paper);
-}
-
-.access-request-who {
-  flex: 1 1 15rem;
-  min-width: 0;
-}
-
-.access-request-who strong {
-  display: block;
-}
-
-.access-request-who span {
-  font-size: var(--fs-small);
-  color: var(--ink-soft);
-}
-
-/* Initials block in the people table. */
-.person-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.initials-block {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-control);
-  background: var(--selected);
-  color: var(--on-selected);
-  font: 600 var(--fs-label) / 1 var(--font-mono);
-}
-
-/* Locations: one row group per area, rail head; shelf cells beside the count. */
-.locations-table tbody th[scope='rowgroup'] {
-  padding: var(--space-3) var(--space-4);
-  background: var(--rail);
-  border-bottom: var(--rule-width) solid var(--rule);
-  text-align: left;
-  font-family: var(--font-sans);
-  font-size: 1.125rem;
-  font-weight: 700;
-  text-transform: none;
-}
-
-.table-stack .locations-table tbody th[scope='rowgroup'] {
-  white-space: normal;
-}
-
-.locations-table tbody + tbody th[scope='rowgroup'] {
-  border-top: var(--rule-width) solid var(--rule);
-}
-
-.locations-area-meta {
-  margin-left: var(--space-3);
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  color: var(--ink-soft);
-}
-
-.shelf-fill {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* YES / NO list of what an account can do (My access, a project's Team page). */
-.yes-no-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-  overflow: hidden;
-}
-
-.yes-no-list > li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: 10px var(--space-4);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.yes-no-list > li:last-child {
-  border-bottom: 0;
-}
-
-.yes-no-list .badge {
-  flex: 0 0 2.75rem;
-  justify-content: center;
-  text-align: center;
-}
-
-.yes-no-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.yes-no-what {
-  font-weight: 600;
-}
-
-.yes-no-note {
-  font-size: var(--fs-small);
-  color: var(--ink-soft);
-}
-
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-/* Holidays: the "flag only" rule in one strip. */
-.flag-only-note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-/* Report header: the fields on the left, a paper preview of the printed header on the right. */
-.report-header-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-6);
-  align-items: start;
-}
-
-.report-header-preview {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.report-header-paper {
-  padding: var(--space-5);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-.report-header-paper p {
-  margin: 0;
-}
-
-.report-header-company {
-  font-size: var(--fs-section);
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-
-.report-header-line {
-  font-family: var(--font-mono);
-  font-size: var(--fs-data);
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
-
-.report-header-rule {
-  margin: var(--space-3) 0 !important;
-  border-top: var(--rule-width) solid var(--rule);
-}
-
-/* Templates: the tests as outlined chips. */
-.test-chips {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.test-chips > li {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: baseline;
-  padding: 4px var(--space-2);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-tag);
-  font-size: var(--fs-small);
-}
-
-/* Settings dialogs (add, edit, retire a location): the framed dialog with Close in its head. */
-.settings-dialog {
-  width: min(36rem, calc(100% - 2rem));
-}
-
-.settings-dialog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.settings-dialog .drawer-section {
-  padding: 0;
-  border: 0;
-}
-
-.settings-dialog input,
-.settings-dialog select,
-.settings-dialog textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* System status: four framed cards, state only. */
-.status-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--space-4);
-}
-
-.status-cards > * {
-  margin: 0;
-}
-
-@media (max-width: 640px) {
   .settings-frame {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-7);
+    margin-top: var(--space-5);
+  }
+
+  /* The grouped list on the left: mono caps group names over a 2 px rule, 44 px links. */
+  .settings-nav {
+    flex: 1 1 13.75rem;
+    max-width: 20rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.125rem;
+  }
+
+  .settings-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .settings-nav-group-name {
+    margin: 0 0 var(--space-1);
+    padding-bottom: 6px;
+    border-bottom: var(--rule-width) solid var(--rule);
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .settings-nav a,
+  .settings-nav .settings-nav-signout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: var(--target);
+    box-sizing: border-box;
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+  }
+
+  .settings-nav a.active,
+  .settings-nav a[aria-current='page'] {
+    background: var(--selected);
+    color: var(--on-selected);
+  }
+
+  .settings-nav-note {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+
+  .settings-nav-signout {
+    width: 100%;
+    cursor: pointer;
+  }
+
+  .settings-content {
+    flex: 3 1 32.5rem;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
     gap: var(--space-4);
   }
 
-  .settings-head-actions,
-  .settings-head-actions > * {
-    width: 100%;
+  .settings-content > * {
+    min-width: 0;
   }
 
-  .report-header-layout {
-    grid-template-columns: minmax(0, 1fr);
+  /* Phone, on a settings page: the list folds into one scrolling row of the same links. */
+  .settings-nav-row {
+    flex: 1 1 100%;
+    max-width: none;
+    flex-direction: row;
+    gap: var(--space-2);
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
   }
-}
 
-@media (forced-colors: active) {
-  .settings-nav a[aria-current='page'] {
-    forced-color-adjust: none;
-    background: Highlight;
-    color: HighlightText;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
+  .settings-nav-row .settings-nav-group {
+    flex-direction: row;
+    gap: 2px;
+  }
+
+  .settings-nav-row .settings-nav-group-name {
+    display: none;
+  }
+
+  .settings-nav-row a {
+    white-space: nowrap;
+    border: var(--rule-width) solid var(--rule);
+    background: var(--sheet);
+  }
+
+  /* Phone, on /settings: the grouped list alone, each row a 48 px sheet row in one frame. */
+  .settings-frame-list {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-5);
+  }
+
+  .settings-frame-list .settings-nav {
+    max-width: none;
+    flex: 0 0 auto;
+  }
+
+  .settings-frame-list .settings-nav a,
+  .settings-frame-list .settings-nav .settings-nav-signout {
+    min-height: var(--control-phone);
+    background: var(--sheet);
+    border: 1px solid var(--hairline);
+  }
+
+  .settings-frame-list .settings-nav a[aria-current='page'] {
+    background: var(--sheet);
+    color: var(--ink);
+  }
+
+  /* The page head: title, one line saying who can change it, actions at the top right. */
+  .settings-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding-bottom: 10px;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .settings-head-titles {
+    flex: 1 1 15rem;
+    min-width: 0;
+  }
+
+  .settings-head h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+  }
+
+  .settings-who {
+    margin: 0;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small, 1.125rem);
+    color: var(--ink-soft);
+  }
+
+  .settings-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* A sub-section inside a settings page: h3 and a mono meta over the 2 px rule. */
+  .settings-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    margin-top: var(--space-2);
+    padding-bottom: 6px;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .settings-sub h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 700;
+  }
+
+  .settings-foot {
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--ink-soft);
+  }
+
+  /* Older page parts inside the frame: cards and section headers take the ledger frame. */
+  .settings-content .card {
+    margin-top: 0;
+  }
+
+  .settings-content .section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .settings-content > section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .settings-content > section > .notice:empty,
+  .settings-content > section > p[role='status']:empty {
+    display: none;
+  }
+
+  /* Rows inside a framed block (suppliers' plants, holidays, shelves). */
+  .ledger-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ledger-rows > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .ledger-rows > li:last-child {
+    border-bottom: 0;
+  }
+
+  /* Staff and access: access requests are dashed rows above the people table. */
+  .access-requests {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .access-requests-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .access-requests-head h3 {
+    margin: 0;
+    flex: 1 1 auto;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section, 1.75rem);
+    font-weight: 700;
+  }
+
+  .access-request {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-width) dashed var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--paper);
+  }
+
+  .access-request-who {
+    flex: 1 1 15rem;
+    min-width: 0;
+  }
+
+  .access-request-who strong {
+    display: block;
+  }
+
+  .access-request-who span {
+    font-size: var(--fs-small);
+    color: var(--ink-soft);
+  }
+
+  /* Initials block in the people table. */
+  .person-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
   }
 
   .initials-block {
-    border: 1px solid CanvasText;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-control);
+    background: var(--selected);
+    color: var(--on-selected);
+    font: 600 var(--fs-label) / 1 var(--font-mono);
+  }
+
+  /* Locations: one row group per area, rail head; shelf cells beside the count. */
+  .locations-table tbody th[scope='rowgroup'] {
+    padding: var(--space-3) var(--space-4);
+    background: var(--rail);
+    border-bottom: var(--rule-width) solid var(--rule);
+    text-align: left;
+    font-family: var(--font-sans);
+    font-size: 1.125rem;
+    font-weight: 700;
+    text-transform: none;
+  }
+
+  .table-stack .locations-table tbody th[scope='rowgroup'] {
+    white-space: normal;
+  }
+
+  .locations-table tbody + tbody th[scope='rowgroup'] {
+    border-top: var(--rule-width) solid var(--rule);
+  }
+
+  .locations-area-meta {
+    margin-left: var(--space-3);
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    color: var(--ink-soft);
+  }
+
+  .shelf-fill {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* YES / NO list of what an account can do (My access, a project's Team page). */
+  .yes-no-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+    overflow: hidden;
+  }
+
+  .yes-no-list > li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: 10px var(--space-4);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .yes-no-list > li:last-child {
+    border-bottom: 0;
+  }
+
+  .yes-no-list .badge {
+    flex: 0 0 2.75rem;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .yes-no-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .yes-no-what {
+    font-weight: 600;
+  }
+
+  .yes-no-note {
+    font-size: var(--fs-small);
+    color: var(--ink-soft);
+  }
+
+  .settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  /* Holidays: the "flag only" rule in one strip. */
+  .flag-only-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
+  /* Report header: the fields on the left, a paper preview of the printed header on the right. */
+  .report-header-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .report-header-preview {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .report-header-paper {
+    padding: var(--space-5);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
+  .report-header-paper p {
+    margin: 0;
+  }
+
+  .report-header-company {
+    font-size: var(--fs-section);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+  }
+
+  .report-header-line {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  .report-header-rule {
+    margin: var(--space-3) 0 !important;
+    border-top: var(--rule-width) solid var(--rule);
+  }
+
+  /* Templates: the tests as outlined chips. */
+  .test-chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .test-chips > li {
+    display: inline-flex;
+    gap: var(--space-2);
+    align-items: baseline;
+    padding: 4px var(--space-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-tag);
+    font-size: var(--fs-small);
+  }
+
+  /* Settings dialogs (add, edit, retire a location): the framed dialog with Close in its head. */
+  .settings-dialog {
+    width: min(36rem, calc(100% - 2rem));
+  }
+
+  .settings-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .settings-dialog .drawer-section {
+    padding: 0;
+    border: 0;
+  }
+
+  .settings-dialog input,
+  .settings-dialog select,
+  .settings-dialog textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* System status: four framed cards, state only. */
+  .status-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--space-4);
+  }
+
+  .status-cards > * {
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    .settings-frame {
+      gap: var(--space-4);
+    }
+
+    .settings-head-actions,
+    .settings-head-actions > * {
+      width: 100%;
+    }
+
+    .report-header-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .settings-nav a[aria-current='page'] {
+      forced-color-adjust: none;
+      background: Highlight;
+      color: HighlightText;
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+
+    .initials-block {
+      border: 1px solid CanvasText;
+    }
   }
 }

@@ -14,7 +14,7 @@ import {
   SectionHead,
   SidePanel,
   StatusBadge,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { shortDateTime } from '../../dashboard/format';
 import {
   ConcreteApiError,

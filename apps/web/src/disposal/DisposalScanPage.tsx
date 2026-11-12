@@ -8,7 +8,7 @@ import {
   SidePanel,
   StatusBadge,
   type CountedCellState,
-} from '../components/ui';
+} from '../components/app-ui';
 import { ContextRow } from '../layout/ContextRow';
 import { useOnline } from '../lib/online';
 import { useMe } from '../session/context';

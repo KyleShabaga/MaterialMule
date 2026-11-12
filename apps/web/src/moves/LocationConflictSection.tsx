@@ -6,7 +6,7 @@ import {
   type StorageLocation,
 } from '@materialmule/shared';
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { BandedCard, ErrorState } from '../components/ui';
+import { BandedCard, ErrorState } from '../components/app-ui';
 import { fetchAllLocations, fetchConflict, resolveConflict } from './api';
 import { indexedDbMoveStore, type QueuedMove } from './store';
 import './moves.css';

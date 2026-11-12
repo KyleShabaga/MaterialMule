@@ -43,5 +43,10 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // shadcn/ui source (Strata): each file exports its variants beside the component, as generated.
+    files: ['apps/web/src/components/ui/**/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
   prettier,
 );

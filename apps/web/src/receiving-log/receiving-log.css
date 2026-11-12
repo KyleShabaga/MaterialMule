@@ -1,153 +1,155 @@
-/* ---- Receiving log and receipt detail (MM-T51, Field Ledger "ReceivingLog") ---- */
+@layer legacy {
+  /* ---- Receiving log and receipt detail (MM-T51, Field Ledger "ReceivingLog") ---- */
 
-.receiving-log,
-.receipt-detail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.receiving-log-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-4);
-}
-
-.receiving-log-title h1 {
-  margin: 0;
-  font-size: var(--fs-page-title);
-  line-height: var(--lh-page-title);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.receiving-log-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* Tag, section title and meta on one rule; the view selector at the right. */
-.receiving-log-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  border-bottom: var(--rule-width) solid var(--rule);
-  padding-bottom: var(--space-2);
-}
-
-.receiving-log-head .section-head {
-  flex: 1 1 12rem;
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
-/* Drafts: dashed frames, because nothing about them is final yet. */
-.receiving-log-drafts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.receiving-log-draft {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-  padding: 14px var(--space-4);
-  background: var(--sheet);
-  border: var(--rule-width) dashed var(--rule);
-  border-radius: var(--radius-card);
-}
-
-.receiving-log-draft-main {
-  display: flex;
-  flex: 2 1 15rem;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.receiving-log-draft-project {
-  font-size: var(--fs-row-id);
-  font-weight: 600;
-}
-
-.receiving-log-draft-fact {
-  display: flex;
-  flex: 1 1 10rem;
-  flex-direction: column;
-  font-weight: 600;
-}
-
-.receipt-secondary {
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-  color: var(--ink-soft);
-}
-
-.receiving-log-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-  align-items: start;
-}
-
-/* Inputs line up even when one field (Received by) has a hint under it. */
-.receiving-log-filters .form-field {
-  align-content: start;
-  min-width: 0;
-}
-
-.receiving-log-table {
-  overflow-wrap: break-word;
-}
-
-.receipt-project {
-  font-weight: 600;
-}
-
-/* A .table-stack (MM-T66 UI-07): narrower than 48rem, as at 770–870px beside the menu, the rows
-   stack into cards instead of widening the page. Storage unit IDs, dates and times never break
-   mid-token. */
-.receiving-log-table .receipt-unit-id,
-.receiving-log-table time,
-.receipt-date {
-  white-space: nowrap;
-}
-
-.receipt-date,
-.receipt-unit-id {
-  font-family: var(--font-mono);
-}
-
-.receipt-corrected {
-  gap: var(--space-1);
-}
-
-.receipt-context .back-link {
-  margin: 0;
-}
-
-@media (max-width: 640px) {
-  .receiving-log-filters {
-    grid-template-columns: 1fr;
+  .receiving-log,
+  .receipt-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
   }
 
-  .receiving-log-table .data-table td::before {
-    min-width: 7rem;
+  .receiving-log-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-4);
   }
 
   .receiving-log-title h1 {
-    font-size: var(--fs-phone-title);
-    line-height: var(--fs-phone-title);
+    margin: 0;
+    font-size: var(--fs-page-title);
+    line-height: var(--lh-page-title);
+    font-weight: 800;
+    letter-spacing: -0.02em;
   }
 
-  .receiving-log-draft .button {
-    flex: 1 1 100%;
-    min-height: var(--control-phone);
+  .receiving-log-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /* Tag, section title and meta on one rule; the view selector at the right. */
+  .receiving-log-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    border-bottom: var(--rule-width) solid var(--rule);
+    padding-bottom: var(--space-2);
+  }
+
+  .receiving-log-head .section-head {
+    flex: 1 1 12rem;
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  /* Drafts: dashed frames, because nothing about them is final yet. */
+  .receiving-log-drafts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .receiving-log-draft {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    padding: 14px var(--space-4);
+    background: var(--sheet);
+    border: var(--rule-width) dashed var(--rule);
+    border-radius: var(--radius-card);
+  }
+
+  .receiving-log-draft-main {
+    display: flex;
+    flex: 2 1 15rem;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .receiving-log-draft-project {
+    font-size: var(--fs-row-id);
+    font-weight: 600;
+  }
+
+  .receiving-log-draft-fact {
+    display: flex;
+    flex: 1 1 10rem;
+    flex-direction: column;
+    font-weight: 600;
+  }
+
+  .receipt-secondary {
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--ink-soft);
+  }
+
+  .receiving-log-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    align-items: start;
+  }
+
+  /* Inputs line up even when one field (Received by) has a hint under it. */
+  .receiving-log-filters .form-field {
+    align-content: start;
+    min-width: 0;
+  }
+
+  .receiving-log-table {
+    overflow-wrap: break-word;
+  }
+
+  .receipt-project {
+    font-weight: 600;
+  }
+
+  /* A .table-stack (MM-T66 UI-07): narrower than 48rem, as at 770–870px beside the menu, the rows
+   stack into cards instead of widening the page. Storage unit IDs, dates and times never break
+   mid-token. */
+  .receiving-log-table .receipt-unit-id,
+  .receiving-log-table time,
+  .receipt-date {
+    white-space: nowrap;
+  }
+
+  .receipt-date,
+  .receipt-unit-id {
+    font-family: var(--font-mono);
+  }
+
+  .receipt-corrected {
+    gap: var(--space-1);
+  }
+
+  .receipt-context .back-link {
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    .receiving-log-filters {
+      grid-template-columns: 1fr;
+    }
+
+    .receiving-log-table .data-table td::before {
+      min-width: 7rem;
+    }
+
+    .receiving-log-title h1 {
+      font-size: var(--fs-phone-title);
+      line-height: var(--fs-phone-title);
+    }
+
+    .receiving-log-draft .button {
+      flex: 1 1 100%;
+      min-height: var(--control-phone);
+    }
   }
 }

@@ -1,7 +1,7 @@
 import type { LabelPreview } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { EmptyState, ErrorState } from '../components/ui';
+import { EmptyState, ErrorState } from '../components/app-ui';
 import { fetchLabelPreview, fetchReceiptLabelPreviews, type PreviewResult } from './api';
 import { LabelImage } from './LabelImage';
 import { MAX_CHOSEN_LABELS } from './print-paths';

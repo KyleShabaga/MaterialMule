@@ -5,7 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../api/client';
-import { RequiredMarker } from './ui';
+import { RequiredMarker } from './app-ui';
 import { useListHighlight } from './useListHighlight';
 
 const SEARCH_DELAY_MS = 150;

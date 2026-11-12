@@ -9,7 +9,7 @@ import {
   type TestRequest,
 } from '@materialmule/shared';
 import { useId, useState } from 'react';
-import { StatusBadge } from '../components/ui';
+import { StatusBadge } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import {
   cancelTest,

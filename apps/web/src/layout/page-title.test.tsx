@@ -2,7 +2,7 @@ import { act, render } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { describe, expect, it } from 'vitest';
-import { PageHeader } from '../components/ui';
+import { PageHeader } from '../components/app-ui';
 import { applyPageTitle, pageTitle, usePageTitle } from './page-title';
 
 // MTR-134: unique tab titles per page, with the record ID on detail pages.

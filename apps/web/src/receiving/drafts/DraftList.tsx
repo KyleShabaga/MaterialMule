@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ConfirmDialog, StatusBadge } from '../../components/ui';
+import { ConfirmDialog, StatusBadge } from '../../components/app-ui';
 import { formatUnitCount } from '../draft';
 import { daysUntilAutoDelete, type DraftAutoDelete } from './auto-delete';
 import { draftTitle, formatSavedDateTime, receiverText } from './format';

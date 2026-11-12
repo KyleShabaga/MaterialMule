@@ -1,4 +1,4 @@
-import type { BadgeTone, CountedCellState } from '../components/ui';
+import type { BadgeTone, CountedCellState } from '../components/app-ui';
 
 // Today (Field Ledger, canvas Main and PhoneToday): what the greeting block says and how the
 // "Needs you" queue is ordered. Pure, so the wording and the order are unit tested.

@@ -27,7 +27,7 @@ import {
   TableScroll,
   TableViewSelector,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { useMediaQuery } from '../../components/useMediaQuery';
 import { PHONE_QUERY, useTableView } from '../../components/useTableView';
 import { FEATURES } from '../../features';

@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { listActiveStaff } from '../api/projects';
-import { BandedCard, ConfirmDialog, ErrorState } from '../components/ui';
+import { BandedCard, ConfirmDialog, ErrorState } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import { decideLeadNomination, fetchLeadNominations, nominateLead } from './api';
 import { StaffOptionGroups } from './StaffOptionGroups';

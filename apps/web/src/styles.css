@@ -1,107 +1,99 @@
-/* Material Mule styles: the Field Ledger design (docs/redesign/design.md). Paper ground, ink
-   rules, one flag colour for the next action, IDs in mono. Light by default, dark when the
-   operating system asks for it or the person picks it. Nothing is pill-shaped; radii are 3, 4, 6.
-   Raw colour values live only in these token blocks; feature CSS uses the variables. The old
-   variable names are kept where the meaning matches (design.md, "Implementation map"). */
+/* Material Mule styles. Strata (DESIGN.md) is the design: Tailwind v4 and shadcn/ui, with the theme in
+   strata-theme.css. The Field Ledger stylesheets (this file's rules and each feature's CSS) sit in
+   the `legacy` layer until their pages are rebuilt in Strata: above Tailwind's base reset, below
+   shadcn components and utilities. Their variable names are kept and re-pointed at Strata values,
+   so every page wears the Strata colours, type and shape now. Raw colours live only in
+   strata-theme.css. --muted and --accent meant text and link colours in Field Ledger, which clash
+   with shadcn's surfaces of the same names, so those two are --fl-muted and --fl-accent. */
+@layer theme, base, legacy, components, utilities;
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './strata-theme.css';
 
 :root {
-  /* Field Ledger palette */
-  --paper: #f4f4ef;
-  --sheet: #ffffff;
-  --rail: #e8e9e2;
-  --hairline: #cfcfc4;
-  --flag: #ff5a1f;
-  --flag-wash: #fff0e8;
-  --on-flag: #14140f;
-  --link: #a8340a;
-  /* The 2 px rule that draws frames, section heads and control edges */
-  --rule: #14140f;
-  /* Selected / toggled-on fills (segments, current rail link, view selector) */
-  --selected: #14140f;
-  --on-selected: #f4f4ef;
-  /* Ink panels: the Today greeting, unit label header strips, selection action bars */
-  --inverse: #14140f;
-  --on-inverse: #f4f4ef;
-  --on-inverse-soft: #cfcfc4;
-  /* The five status tags: fill and text */
-  --tag-storage-bg: #ddefe8;
-  --tag-storage-fg: #0b5d4b;
-  --tag-lab-bg: #e9e3f7;
-  --tag-lab-fg: #4a2d8f;
-  --tag-waiting-bg: #fbebc2;
-  --tag-waiting-fg: #7a4e00;
-  --tag-danger-bg: #f9dfdc;
-  --tag-danger-fg: #a3201a;
-  --tag-closed-bg: #e6e6de;
-  --tag-closed-fg: #55564e;
-
-  /* Surfaces, back to front (kept names) */
-  --shell: #e8e9e2;
-  --page: #f4f4ef;
-  --card: #ffffff;
-  --card-head: #e8e9e2;
-  --inset: #f4f4ef;
-  /* Lines: --line is a hairline divider; --line-control is a control's 2 px ink edge */
-  --line: #cfcfc4;
-  --line-shell: #14140f;
-  --line-control: #14140f;
-  /* Text */
-  --ink: #14140f;
-  --ink-soft: #45463e;
-  --muted: #45463e;
-  --disabled: #6b6c63;
-  /* Actions: --accent is the text-link colour; --primary is the flag fill with ink text */
-  --accent: #a8340a;
-  --accent-ink: #14140f;
-  --accent-bg: #fff0e8;
-  --accent-line: #ff5a1f;
-  --primary: #ff5a1f;
-  --on-primary: #14140f;
-  --focus: #14140f;
-  /* Picker options (MM-T78): the keyboard highlight is a solid fill with a bar in its own ink,
-     at least 3:1 against the list (--card-head); hover is a lighter tint without the bar. */
-  --option-active: #14140f;
-  --on-option-active: #f4f4ef;
-  --option-hover: #fff0e8;
-  /* Status tones: text, fill, edge (mapped onto the five tags) */
-  --success: #0b5d4b;
-  --success-bg: #ddefe8;
-  --success-line: #0b5d4b;
-  --warning: #7a4e00;
-  --warning-bg: #fbebc2;
-  --warning-line: #7a4e00;
-  --warning-panel: #fbebc2;
-  --warning-panel-ink: #7a4e00;
-  --danger: #a3201a;
-  --danger-line: #a3201a;
-  --danger-panel: #f9dfdc;
-  --danger-panel-ink: #a3201a;
-  --info: #4a2d8f;
-  --info-bg: #e9e3f7;
-  --info-line: #4a2d8f;
+  /* Field Ledger names → Strata (light and dark both follow strata-theme.css) */
+  --paper: var(--background);
+  --sheet: var(--card);
+  --rail: var(--sidebar);
+  --hairline: var(--border);
+  --flag: var(--primary);
+  --flag-wash: var(--accent);
+  --on-flag: var(--primary-foreground);
+  --rule: var(--border);
+  --selected: var(--primary);
+  --on-selected: var(--primary-foreground);
+  --inverse: var(--muted);
+  --on-inverse: var(--foreground);
+  --on-inverse-soft: var(--muted-foreground);
+  --tag-storage-bg: var(--stage-storage-bg);
+  --tag-storage-fg: var(--stage-storage-fg);
+  --tag-lab-bg: var(--stage-lab-bg);
+  --tag-lab-fg: var(--stage-lab-fg);
+  --tag-waiting-bg: var(--stage-due-bg);
+  --tag-waiting-fg: var(--stage-due-fg);
+  --tag-danger-bg: var(--stage-danger-bg);
+  --tag-danger-fg: var(--stage-danger-fg);
+  --tag-closed-bg: var(--stage-closed-bg);
+  --tag-closed-fg: var(--stage-closed-fg);
+  --shell: var(--sidebar);
+  --page: var(--background);
+  --card-head: var(--muted);
+  --inset: var(--muted);
+  --line: var(--border);
+  --line-shell: var(--border);
+  --line-control: var(--input);
+  --ink: var(--foreground);
+  --ink-soft: var(--muted-foreground);
+  --fl-muted: var(--muted-foreground);
+  --disabled: var(--muted-foreground);
+  --fl-accent: var(--link);
+  --accent-ink: var(--accent-foreground);
+  --accent-bg: var(--accent);
+  --accent-line: var(--primary);
+  --on-primary: var(--primary-foreground);
+  --focus: var(--ring);
+  /* Ring, not primary: dark primary on the list is only 2.9:1 (MM-T78 needs 3:1). */
+  --option-active: var(--ring);
+  --on-option-active: var(--background);
+  --option-hover: var(--accent);
+  --success: var(--stage-storage-fg);
+  --success-bg: var(--stage-storage-bg);
+  --success-line: var(--stage-storage-mark);
+  --warning: var(--stage-due-fg);
+  --warning-bg: var(--stage-due-bg);
+  --warning-line: var(--stage-due-fg);
+  --warning-panel: var(--stage-due-bg);
+  --warning-panel-ink: var(--stage-due-fg);
+  --danger: var(--destructive-text);
+  --danger-line: var(--destructive);
+  --danger-panel: var(--stage-danger-bg);
+  --danger-panel-ink: var(--stage-danger-fg);
+  --info: var(--stage-lab-fg);
+  --info-bg: var(--stage-lab-bg);
+  --info-line: var(--stage-lab-mark);
+  /* Printed labels and tags are physical output: always black on white. */
   --label-paper: #ffffff;
-  --scrim: rgb(20 20 15 / 50%);
-  /* Hover (desktop only): one tint over any fill; ink fills lighten instead */
-  --tint-hover: rgb(20 20 15 / 10%);
-  --tint-row: rgb(20 20 15 / 5%);
-  --tint-selected: rgb(244 244 239 / 20%);
-  --ring-hover: #cfcfc4;
+  --scrim: rgb(0 0 0 / 50%);
+  /* Hover (desktop only): one tint over any fill */
+  --tint-hover: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --tint-row: color-mix(in srgb, var(--foreground) 4%, transparent);
+  --tint-selected: color-mix(in srgb, var(--primary-foreground) 20%, transparent);
+  --ring-hover: var(--border);
 
-  /* Shape, size */
-  --radius-tag: 3px;
-  --radius-control: 4px;
-  --radius-card: 6px;
-  --rule-width: 2px;
+  /* Shape and size (Strata: --radius 0.375rem; 1 px borders) */
+  --radius-tag: calc(var(--radius) - 2px);
+  --radius-control: calc(var(--radius) - 2px);
+  --radius-card: calc(var(--radius) + 4px);
+  --rule-width: 1px;
   --target: 44px;
   --target-primary-phone: 60px;
   --control: 44px;
   --control-phone: 48px;
   --control-compact: 28px;
-  /* MM-T66 UI-02/03: one badge height, one gap between buttons, one gap between button groups. */
   --badge-height: 1.5rem;
   --gap-button: 0.5rem;
   --gap-group: 1rem;
-  /* Spacing scale: 4, 8, 12, 16, 20, 24, 32, 48 */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -114,2335 +106,2194 @@
   --content-max: 1240px;
   --page-pad: 32px;
 
-  /* Archivo and IBM Plex Mono are bundled (see main.tsx); the rest are fallbacks while they load. */
-  --font-sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  /* Type scale (size / line height) */
-  --fs-page-title: 2.75rem;
-  --lh-page-title: 2.75rem;
-  --fs-phone-title: 2.25rem;
-  --fs-section: 1.25rem;
+  /* Atkinson Hyperlegible Next and Mono, bundled (main.tsx); also Tailwind's font-sans/font-mono. */
+  --font-sans:
+    'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  /* Type scale (size / line height); Strata page titles are 24/32 */
+  --fs-page-title: 1.5rem;
+  --lh-page-title: 2rem;
+  --fs-phone-title: 1.5rem;
+  --fs-section: 1.125rem;
   --lh-section: 1.75rem;
-  --fs-body: 0.9375rem;
-  --lh-body: 1.3125rem;
+  --fs-body: 0.875rem;
+  --lh-body: 1.25rem;
   --fs-small: 0.8125rem;
   --lh-small: 1.125rem;
-  --fs-row-id: 1rem;
-  --fs-unit-id: 1.875rem;
-  --lh-unit-id: 2.0625rem;
+  --fs-row-id: 0.875rem;
+  --fs-unit-id: 1.5rem;
+  --lh-unit-id: 2rem;
   --fs-data: 0.8125rem;
-  --fs-label: 0.75rem;
-  --fs-big-count: 2.5rem;
+  --fs-label: 0.8125rem;
+  --fs-big-count: 2rem;
 
   font-family: var(--font-sans);
   color: var(--ink);
   background: var(--page);
 }
 
-/* MISC-09: dark follows the operating system until someone picks a theme in the rail footer;
-   the choice is stored as data-theme on <html> (see index.html and theme/theme.ts). The dark
-   variant is derived from Field Ledger (design.md, "Dark variant (proposed)"): ink ground, paper
-   text, flag unchanged, tag fills darkened. Keep the two dark blocks identical. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --paper: #14140f;
-    --sheet: #1d1d17;
-    --rail: #26261f;
-    --hairline: #4a4b42;
-    --flag: #ff5a1f;
-    --flag-wash: #3b2417;
-    --on-flag: #14140f;
-    --link: #ff9466;
-    --rule: #d9d9cf;
-    --selected: #f4f4ef;
-    --on-selected: #14140f;
-    --inverse: #000000;
-    --on-inverse: #f4f4ef;
-    --on-inverse-soft: #cfcfc4;
-    --tag-storage-bg: #14382f;
-    --tag-storage-fg: #8fd9c2;
-    --tag-lab-bg: #2d2450;
-    --tag-lab-fg: #cdbdf5;
-    --tag-waiting-bg: #3d2f0a;
-    --tag-waiting-fg: #f2c866;
-    --tag-danger-bg: #4a1915;
-    --tag-danger-fg: #f7a79e;
-    --tag-closed-bg: #2f2f28;
-    --tag-closed-fg: #c2c2b6;
-    --shell: #26261f;
-    --page: #14140f;
-    --card: #1d1d17;
-    --card-head: #26261f;
-    --inset: #14140f;
-    --line: #4a4b42;
-    --line-shell: #d9d9cf;
-    --line-control: #d9d9cf;
-    --ink: #f4f4ef;
-    --ink-soft: #c9c9be;
-    --muted: #c9c9be;
-    --disabled: #9a9b90;
-    --accent: #ff9466;
-    --accent-ink: #f4f4ef;
-    --accent-bg: #3b2417;
-    --accent-line: #ff5a1f;
-    --primary: #ff5a1f;
-    --on-primary: #14140f;
-    --focus: #f4f4ef;
-    --option-active: #f4f4ef;
-    --on-option-active: #14140f;
-    --option-hover: #3b2417;
-    --success: #8fd9c2;
-    --success-bg: #14382f;
-    --success-line: #8fd9c2;
-    --warning: #f2c866;
-    --warning-bg: #3d2f0a;
-    --warning-line: #f2c866;
-    --warning-panel: #3d2f0a;
-    --warning-panel-ink: #f2c866;
-    --danger: #f7a79e;
-    --danger-line: #f7a79e;
-    --danger-panel: #4a1915;
-    --danger-panel-ink: #f7a79e;
-    --info: #cdbdf5;
-    --info-bg: #2d2450;
-    --info-line: #cdbdf5;
-    --scrim: rgb(0 0 0 / 60%);
-    --tint-hover: rgb(244 244 239 / 10%);
-    --tint-row: rgb(244 244 239 / 5%);
-    --tint-selected: rgb(20 20 15 / 20%);
-    --ring-hover: #6b6c63;
-    color-scheme: dark;
+@layer legacy {
+  /* Tailwind's base reset zeroes every margin, which pins native modal <dialog>s to the top-left
+     corner. The Field Ledger pages still use them; centre them again as the browser does. */
+  dialog:modal {
+    margin: auto;
   }
-}
 
-:root[data-theme='dark'] {
-  --paper: #14140f;
-  --sheet: #1d1d17;
-  --rail: #26261f;
-  --hairline: #4a4b42;
-  --flag: #ff5a1f;
-  --flag-wash: #3b2417;
-  --on-flag: #14140f;
-  --link: #ff9466;
-  --rule: #d9d9cf;
-  --selected: #f4f4ef;
-  --on-selected: #14140f;
-  --inverse: #000000;
-  --on-inverse: #f4f4ef;
-  --on-inverse-soft: #cfcfc4;
-  --tag-storage-bg: #14382f;
-  --tag-storage-fg: #8fd9c2;
-  --tag-lab-bg: #2d2450;
-  --tag-lab-fg: #cdbdf5;
-  --tag-waiting-bg: #3d2f0a;
-  --tag-waiting-fg: #f2c866;
-  --tag-danger-bg: #4a1915;
-  --tag-danger-fg: #f7a79e;
-  --tag-closed-bg: #2f2f28;
-  --tag-closed-fg: #c2c2b6;
-  --shell: #26261f;
-  --page: #14140f;
-  --card: #1d1d17;
-  --card-head: #26261f;
-  --inset: #14140f;
-  --line: #4a4b42;
-  --line-shell: #d9d9cf;
-  --line-control: #d9d9cf;
-  --ink: #f4f4ef;
-  --ink-soft: #c9c9be;
-  --muted: #c9c9be;
-  --disabled: #9a9b90;
-  --accent: #ff9466;
-  --accent-ink: #f4f4ef;
-  --accent-bg: #3b2417;
-  --accent-line: #ff5a1f;
-  --primary: #ff5a1f;
-  --on-primary: #14140f;
-  --focus: #f4f4ef;
-  --option-active: #f4f4ef;
-  --on-option-active: #14140f;
-  --option-hover: #3b2417;
-  --success: #8fd9c2;
-  --success-bg: #14382f;
-  --success-line: #8fd9c2;
-  --warning: #f2c866;
-  --warning-bg: #3d2f0a;
-  --warning-line: #f2c866;
-  --warning-panel: #3d2f0a;
-  --warning-panel-ink: #f2c866;
-  --danger: #f7a79e;
-  --danger-line: #f7a79e;
-  --danger-panel: #4a1915;
-  --danger-panel-ink: #f7a79e;
-  --info: #cdbdf5;
-  --info-bg: #2d2450;
-  --info-line: #cdbdf5;
-  --scrim: rgb(0 0 0 / 60%);
-  --tint-hover: rgb(244 244 239 / 10%);
-  --tint-row: rgb(244 244 239 / 5%);
-  --tint-selected: rgb(20 20 15 / 20%);
-  --ring-hover: #6b6c63;
-  color-scheme: dark;
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-}
-
-/* Body text is 15 px on a 16 px root, so every rem token (label 12, small 13, body 15) is the size
+  /* Body text is 15 px on a 16 px root, so every rem token (label 12, small 13, body 15) is the size
    design.md names; setting it on :root made 1rem 15 px and shrank them all. */
-body {
-  margin: 0;
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
-  background: var(--page);
-}
+  body {
+    margin: 0;
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    background: var(--page);
+  }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-sans);
-}
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-sans);
+  }
 
-/* Records (IDs, projects, holes, depths, dates in tables) are mono. */
-code,
-kbd,
-.mono {
-  font-family: var(--font-mono);
-}
+  /* Records (IDs, projects, holes, depths, dates in tables) are mono. */
+  code,
+  kbd,
+  .mono {
+    font-family: var(--font-mono);
+  }
 
-a {
-  color: var(--accent);
-  text-underline-offset: 3px;
-}
+  a {
+    color: var(--fl-accent);
+    text-underline-offset: 3px;
+  }
 
-/* MM-T66 UI-01, Field Ledger "Hover states": the underline thickens to 2 px and a link without
+  /* MM-T66 UI-01, Field Ledger "Hover states": the underline thickens to 2 px and a link without
    its own colour turns ink. Nothing moves; focus keeps its outline. Button-shaped links get the
    button tint instead (below). */
-a:hover {
-  color: var(--accent-ink);
-  text-decoration-line: underline;
-  text-decoration-thickness: 2px;
-}
-
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-/* Pointer cursor on everything you can press; not-allowed on disabled controls. */
-a,
-button,
-select,
-summary,
-label:has(input[type='checkbox']),
-label:has(input[type='radio']),
-input[type='checkbox'],
-input[type='radio'] {
-  cursor: pointer;
-}
-
-/* ---- Buttons: 44 px, 2 px ink edge, 4 px radius, sans 700 ---- */
-
-button,
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: var(--control);
-  box-sizing: border-box;
-  padding: 0 18px;
-  border: var(--rule-width) solid var(--line-control);
-  border-radius: var(--radius-control);
-  background-color: var(--sheet);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-/* Primary: the one next action on a screen. Flag fill, ink text. */
-button.primary,
-.button.primary {
-  border-color: var(--rule);
-  background-color: var(--primary);
-  color: var(--on-primary);
-}
-
-/* Selected / toggled on: ink fill, paper text. */
-button.ink,
-.button.ink,
-button[aria-pressed='true'] {
-  border-color: var(--rule);
-  background-color: var(--selected);
-  color: var(--on-selected);
-}
-
-/* Destructive: borderless, danger text. */
-button.danger,
-.button.danger {
-  border-color: transparent;
-  background-color: transparent;
-  color: var(--danger);
-  padding: 0 14px;
-}
-
-/* A square icon-only button (needs an aria-label). */
-.icon-button {
-  width: var(--control);
-  padding: 0;
-  flex: 0 0 auto;
-}
-
-/* Disabled: dimmed text and edge, never opacity alone; no hover tint. */
-button:disabled,
-.button[aria-disabled='true'] {
-  border-color: var(--disabled);
-  background-color: var(--card-head);
-  background-image: none;
-  color: var(--disabled);
-  cursor: not-allowed;
-}
-
-/* ---- Hover (desktop only): one tint over every fill, so nothing needs its own hover colour ---- */
-
-@media (hover: hover) {
-  button:not(:disabled):hover,
-  .button:not([aria-disabled='true']):hover {
-    background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+  a:hover {
+    color: var(--accent-ink);
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
   }
 
-  /* Ink-filled controls lighten instead. */
-  button.ink:not(:disabled):hover,
-  .button.ink:hover,
-  button[aria-pressed='true']:not(:disabled):hover {
-    background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
   }
 
-  .button:hover {
+  /* Pointer cursor on everything you can press; not-allowed on disabled controls. */
+  a,
+  button,
+  select,
+  summary,
+  label:has(input[type='checkbox']),
+  label:has(input[type='radio']),
+  input[type='checkbox'],
+  input[type='radio'] {
+    cursor: pointer;
+  }
+
+  /* ---- Buttons: 44 px, 2 px ink edge, 4 px radius, sans 700 ---- */
+
+  button,
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control);
+    box-sizing: border-box;
+    padding: 0 18px;
+    border: var(--rule-width) solid var(--line-control);
+    border-radius: var(--radius-control);
+    background-color: var(--sheet);
     color: var(--ink);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 700;
     text-decoration: none;
+    cursor: pointer;
   }
 
-  .button.ink:hover {
-    color: var(--on-selected);
-  }
-
-  .button.primary:hover {
+  /* Primary: the one next action on a screen. Flag fill, ink text. */
+  button.primary,
+  .button.primary {
+    border-color: var(--rule);
+    background-color: var(--primary);
     color: var(--on-primary);
   }
 
-  /* Table and list rows: a 5 % tint across the whole row, as a reading aid. */
-  .data-table tbody tr:hover > *,
-  [data-row]:hover {
-    background-image: linear-gradient(var(--tint-row), var(--tint-row));
+  /* Selected / toggled on: ink fill, paper text. */
+  button.ink,
+  .button.ink,
+  button[aria-pressed='true'] {
+    border-color: var(--rule);
+    background-color: var(--selected);
+    color: var(--on-selected);
   }
 
-  /* Fields: a 3 px hairline ring outside the ink edge. */
-  input:not([type='checkbox'], [type='radio']):not(:disabled):hover,
-  select:not(:disabled):hover,
-  textarea:not(:disabled):hover {
-    box-shadow: 0 0 0 3px var(--ring-hover);
+  /* Destructive: borderless, danger text. */
+  button.danger,
+  .button.danger {
+    border-color: transparent;
+    background-color: transparent;
+    color: var(--danger);
+    padding: 0 14px;
   }
 
-  input[type='checkbox']:not(:disabled):hover,
-  input[type='radio']:not(:disabled):hover {
-    outline: 3px solid var(--ring-hover);
-    outline-offset: 1px;
+  /* A square icon-only button (needs an aria-label). */
+  .icon-button {
+    width: var(--control);
+    padding: 0;
+    flex: 0 0 auto;
   }
-}
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
+  /* Disabled: dimmed text and edge, never opacity alone; no hover tint. */
+  button:disabled,
+  .button[aria-disabled='true'] {
+    border-color: var(--disabled);
+    background-color: var(--card-head);
+    background-image: none;
+    color: var(--disabled);
+    cursor: not-allowed;
+  }
 
-.muted {
-  color: var(--muted);
-}
+  /* ---- Hover (desktop only): one tint over every fill, so nothing needs its own hover colour ---- */
 
-/* ---- Standalone pages (sign-in, access pending, errors) ---- */
+  @media (hover: hover) {
+    button:not(:disabled):hover,
+    .button:not([aria-disabled='true']):hover {
+      background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+    }
 
-.shell {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-}
+    /* Ink-filled controls lighten instead. */
+    button.ink:not(:disabled):hover,
+    .button.ink:hover,
+    button[aria-pressed='true']:not(:disabled):hover {
+      background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
+    }
 
-.subtitle {
-  color: var(--muted);
-  margin-top: -0.5rem;
-}
+    .button:hover {
+      color: var(--ink);
+      text-decoration: none;
+    }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--gap-group);
-}
+    .button.ink:hover {
+      color: var(--on-selected);
+    }
 
-/* Buttons beside a page title wrap as a group, never touching (MM-T66 UI-03). */
-.page-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--gap-button);
-}
+    .button.primary:hover {
+      color: var(--on-primary);
+    }
 
-/* Page title: Archivo 800, 44/44 (36 on a phone). */
-.page-header h1 {
-  margin: 0.5rem 0;
-  font-size: var(--fs-page-title);
-  line-height: var(--lh-page-title);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
+    /* Table and list rows: a 5 % tint across the whole row, as a reading aid. */
+    .data-table tbody tr:hover > *,
+    [data-row]:hover {
+      background-image: linear-gradient(var(--tint-row), var(--tint-row));
+    }
 
-/* Section heading over a 2 px ink rule, with optional mono meta at the right. */
-.section-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: var(--rule-width) solid var(--rule);
-}
+    /* Fields: a 3 px hairline ring outside the ink edge. */
+    input:not([type='checkbox'], [type='radio']):not(:disabled):hover,
+    select:not(:disabled):hover,
+    textarea:not(:disabled):hover {
+      box-shadow: 0 0 0 3px var(--ring-hover);
+    }
 
-.section-head h2,
-.section-head h3 {
-  margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-  font-weight: 700;
-}
+    input[type='checkbox']:not(:disabled):hover,
+    input[type='radio']:not(:disabled):hover {
+      outline: 3px solid var(--ring-hover);
+      outline-offset: 1px;
+    }
+  }
 
-.section-meta,
-.field-label {
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 
-/* Settings pages and other sub-areas: links styled as underlined tabs. */
-.sub-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  margin-bottom: var(--space-5);
-  border-bottom: var(--rule-width) solid var(--rule);
-}
+  .muted {
+    color: var(--fl-muted);
+  }
 
-.sub-nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target);
-  box-sizing: border-box;
-  padding: 0 0.875rem;
-  margin-bottom: -2px;
-  border-bottom: 4px solid transparent;
-  color: var(--ink);
-  font-weight: 600;
-  text-decoration: none;
-}
+  /* ---- Standalone pages (sign-in, access pending, errors) ---- */
 
-.sub-nav a.active,
-.sub-nav a[aria-current='page'] {
-  border-bottom-color: var(--rule);
-  font-weight: 800;
-}
+  .shell {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
 
-@media (hover: hover) {
-  .sub-nav a:hover {
-    background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+  .subtitle {
+    color: var(--fl-muted);
+    margin-top: -0.5rem;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap-group);
+  }
+
+  /* Buttons beside a page title wrap as a group, never touching (MM-T66 UI-03). */
+  .page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--gap-button);
+  }
+
+  /* Page title: Archivo 800, 44/44 (36 on a phone). */
+  .page-header h1 {
+    margin: 0.5rem 0;
+    font-size: var(--fs-page-title);
+    line-height: var(--lh-page-title);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  /* Section heading over a 2 px ink rule, with optional mono meta at the right. */
+  .section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .section-head h2,
+  .section-head h3 {
+    margin: 0;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+    font-weight: 700;
+  }
+
+  .section-meta,
+  .field-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* Settings pages and other sub-areas: links styled as underlined tabs. */
+  .sub-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: var(--space-5);
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .sub-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target);
+    box-sizing: border-box;
+    padding: 0 0.875rem;
+    margin-bottom: -2px;
+    border-bottom: 4px solid transparent;
     color: var(--ink);
+    font-weight: 600;
     text-decoration: none;
   }
-}
 
-/* A framed card: sheet in a 2 px ink frame, 6 px radius. */
-.card {
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--card);
-  padding: var(--space-4);
-  margin-top: var(--space-4);
-}
+  .sub-nav a.active,
+  .sub-nav a[aria-current='page'] {
+    border-bottom-color: var(--rule);
+    font-weight: 800;
+  }
 
-.card h2 {
-  font-size: 1.125rem;
-  margin-top: 0;
-}
+  @media (hover: hover) {
+    .sub-nav a:hover {
+      background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+      color: var(--ink);
+      text-decoration: none;
+    }
+  }
 
-/* Look-up, search and filter cards above a list (MM-T50): mono uppercase labels. */
-.tool-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--card);
-}
+  /* A framed card: sheet in a 2 px ink frame, 6 px radius. */
+  .card {
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--card);
+    padding: var(--space-4);
+    margin-top: var(--space-4);
+  }
 
-.tool-card label {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink);
-}
+  .card h2 {
+    font-size: 1.125rem;
+    margin-top: 0;
+  }
 
-.tool-card .field-hint {
-  margin: 0;
-}
+  /* Look-up, search and filter cards above a list (MM-T50): mono uppercase labels. */
+  .tool-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--card);
+  }
 
-/* ---- Card with a header band (MM-T55, canvas "card header bands") ---- */
+  .tool-card label {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
 
-/* Side panel / banded card: 2 px ink frame with a rail-coloured head ("On confirm",
+  .tool-card .field-hint {
+    margin: 0;
+  }
+
+  /* ---- Card with a header band (MM-T55, canvas "card header bands") ---- */
+
+  /* Side panel / banded card: 2 px ink frame with a rail-coloured head ("On confirm",
    "Disposal list", dialogs). */
-.banded-card,
-.side-panel {
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--card);
-  margin-top: var(--space-4);
-  overflow: hidden;
-}
-
-.side-panel {
-  min-width: min(300px, 100%);
-}
-
-/* Attention cards keep the ink frame; the head turns waiting-yellow and the heading says why. */
-.banded-card-attention .banded-card-head {
-  background: var(--warning-bg);
-}
-
-.banded-card-head,
-.side-panel-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-3) 18px;
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--card-head);
-}
-
-.side-panel-body {
-  padding: var(--space-4) 18px;
-}
-
-.banded-card-titles {
-  min-width: 0;
-}
-
-.banded-card-title,
-.side-panel-head h2,
-.side-panel-head h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-}
-
-.banded-card-subtitle {
-  margin: 0.125rem 0 0;
-  color: var(--muted);
-}
-
-.banded-card-aside {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-  color: var(--muted);
-}
-
-.banded-card-body {
-  padding: var(--space-4) 18px;
-}
-
-@media (max-width: 640px) {
-  .banded-card-head {
-    padding: 0.75rem 1rem;
+  .banded-card,
+  .side-panel {
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--card);
+    margin-top: var(--space-4);
+    overflow: hidden;
   }
 
-  .banded-card-body {
-    padding: 1rem;
-  }
-}
-
-/* ---- Dashboard activity ---- */
-
-.activity {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-/* Empty: a dashed 2 px frame on paper; one bold sentence, one line, at most one action. */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-5);
-  border: var(--rule-width) dashed var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--paper);
-  color: var(--ink-soft);
-}
-
-.empty-state-title {
-  margin: 0;
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 1rem;
-}
-
-.empty-state p {
-  margin: 0;
-}
-
-/* Error: a solid 2 px frame on sheet; tag, bold sentence, what was kept, one way forward. */
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-5);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-.error-state p {
-  margin: 0;
-  color: var(--ink);
-}
-
-.error-state-title {
-  font-weight: 700;
-}
-
-/* ---- Status panel ---- */
-
-.status {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 1rem;
-}
-
-.status dd {
-  margin: 0;
-  font-weight: 600;
-}
-
-/* ---- Badges: text first, 2px corners ---- */
-
-/* Status tag: mono 12/600 caps on a tinted fill, 3 px radius. Always written, never colour
-   alone. The edge is transparent so forced-colours mode still draws a box. */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--badge-height);
-  padding: 2px var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-tag);
-  background: var(--tag-closed-bg);
-  color: var(--tag-closed-fg);
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  vertical-align: middle;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  /* Some statuses are a sentence (the offline notice); they wrap rather than widen the page. */
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.badge-neutral,
-.badge-closed {
-  background: var(--tag-closed-bg);
-  color: var(--tag-closed-fg);
-}
-
-.badge-info,
-.badge-lab {
-  background: var(--tag-lab-bg);
-  color: var(--tag-lab-fg);
-}
-
-.badge-success,
-.badge-storage {
-  background: var(--tag-storage-bg);
-  color: var(--tag-storage-fg);
-}
-
-.badge-warning,
-.badge-waiting {
-  background: var(--tag-waiting-bg);
-  color: var(--tag-waiting-fg);
-}
-
-.badge-danger {
-  background: var(--tag-danger-bg);
-  color: var(--tag-danger-fg);
-}
-
-/* In progress / due: flag fill behind ink text. */
-.badge-flag {
-  background: var(--flag);
-  color: var(--on-flag);
-}
-
-/* ---- Forms, tables, dialogs ---- */
-
-/* Fields: mono caps label above a 44 px input with a 2 px ink edge. */
-.form-field {
-  display: grid;
-  gap: 6px;
-  margin-bottom: var(--space-4);
-}
-
-.form-field > label {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-/* A field with an error: label in danger colour, message under it. */
-.form-field:has([aria-invalid='true']) > label {
-  color: var(--danger);
-}
-
-.field-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--fs-small);
-}
-
-.field-error {
-  margin: 0;
-  color: var(--danger);
-  font-size: var(--fs-small);
-  font-weight: 600;
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  min-height: var(--target);
-  margin: 0;
-}
-
-.checkbox input,
-.radio input {
-  width: 22px;
-  height: 22px;
-  margin: 0;
-  accent-color: var(--selected);
-}
-
-.form-actions,
-.print-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-button);
-}
-
-.printer-form input:not([type='checkbox']) {
-  width: 100%;
-}
-
-/* Label printing status (MM-T15) */
-.print-panel,
-.print-status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-/* Tables: sheet in a 2 px ink frame, rail mono caps head over a 2 px rule, hairline rows,
-   flag-wash for selected rows. Separate borders so the frame keeps its 6 px corners. */
-.data-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--card);
-  overflow: hidden;
-}
-
-.data-table th {
-  text-align: left;
-  padding: 10px var(--space-3);
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--card-head);
-  color: var(--ink);
-  font: 600 var(--fs-label) / 1.4 var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.data-table td {
-  text-align: left;
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-
-.data-table tbody tr:last-child > td {
-  border-bottom: none;
-}
-
-.data-table tbody tr[aria-selected='true'] > *,
-.data-table tbody tr.is-selected > * {
-  background-color: var(--flag-wash);
-}
-
-/* Compact view (desktop, mouse): 3 px cell padding, 13 px IDs, 28 px row actions. */
-.data-table.is-compact td {
-  padding-top: 3px;
-  padding-bottom: 3px;
-}
-
-.data-table.is-compact td .mono,
-.data-table.is-compact td .unit-id {
-  font-size: var(--fs-data);
-}
-
-.data-table.is-compact td button,
-.data-table.is-compact td .button {
-  min-height: var(--control-compact);
-  padding: 0 10px;
-}
-
-/* A table wrapped in its own frame (TableScroll) drops the table's frame so there is one. */
-.table-frame {
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--card);
-  overflow-x: auto;
-}
-
-.table-frame > .data-table {
-  border: none;
-  border-radius: 0;
-}
-
-/* Selection: an ink action bar above the table. */
-.selection-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-card);
-  background: var(--inverse);
-  color: var(--on-inverse);
-}
-
-.selection-bar-count {
-  flex: 1 1 140px;
-  font-weight: 700;
-}
-
-.selection-bar button:not(.primary),
-.selection-bar .button:not(.primary) {
-  border-color: var(--on-inverse);
-  background-color: transparent;
-  color: var(--on-inverse);
-}
-
-/* Table view selector: comfortable / compact, joined in one 2 px frame. */
-.segmented {
-  display: inline-flex;
-  flex-wrap: wrap;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-  background: var(--sheet);
-}
-
-.segmented > button {
-  border: none;
-  border-radius: 0;
-  border-right: 1px solid var(--rule);
-}
-
-.segmented > button:last-child {
-  border-right: none;
-}
-
-.table-view {
-  margin-left: auto;
-}
-
-.table-view > button {
-  width: var(--control);
-  padding: 0;
-}
-
-/* Counted cells: one bordered cell per real thing (done = ink, current/due = flag, empty = sheet). */
-.counted-cells {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.counted-cells-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(10px, 1fr);
-  gap: 3px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.counted-cell {
-  height: 16px;
-  box-sizing: border-box;
-  border: 1px solid var(--rule);
-  background: var(--sheet);
-}
-
-.counted-cell-done {
-  background: var(--selected);
-}
-
-.counted-cell-current {
-  background: var(--flag);
-}
-
-.counted-cells-count {
-  font-family: var(--font-mono);
-  font-size: var(--fs-data);
-  font-weight: 600;
-}
-
-/* Unit label block: the same block on screen and on the printed label. */
-.unit-label {
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-  overflow: hidden;
-}
-
-.unit-label-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 14px;
-  background: var(--inverse);
-  color: var(--on-inverse);
-}
-
-.unit-label-holder {
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.unit-label-project {
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-}
-
-.unit-label-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-}
-
-.unit-label-id,
-.unit-id {
-  font-family: var(--font-mono);
-  font-weight: 600;
-}
-
-.unit-label-id {
-  font-size: var(--fs-unit-id);
-  line-height: var(--lh-unit-id);
-  overflow-wrap: anywhere;
-}
-
-.unit-label-line {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-1) var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--fs-data);
-}
-
-.unit-label-line > :first-child {
-  font-weight: 600;
-}
-
-/* A disposed unit keeps its label, drawn grey. */
-.unit-label-closed .unit-label-head {
-  background: var(--tag-closed-bg);
-  color: var(--tag-closed-fg);
-}
-
-/* Dialogs: a 2 px framed panel, rail head naming the record, Cancel + one flag action. */
-.confirm-dialog {
-  width: min(32rem, calc(100% - 2rem));
-  box-sizing: border-box;
-  padding: 0;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  color: var(--ink);
-  background: var(--sheet);
-}
-
-.confirm-dialog::backdrop {
-  background: var(--scrim);
-}
-
-.dialog-head {
-  padding: var(--space-3) 18px;
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--card-head);
-}
-
-.dialog-head h2 {
-  margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-}
-
-.dialog-body {
-  padding: var(--space-4) 18px;
-}
-
-.dialog-body > :first-child {
-  margin-top: 0;
-}
-
-.dialog-body > :last-child {
-  margin-bottom: 0;
-}
-
-.confirm-dialog .dialog-actions {
-  margin: 0;
-  padding: 0 18px var(--space-4);
-}
-
-.dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--gap-button);
-  margin-top: var(--space-4);
-}
-
-/* ---- Inputs: 16px text so phones don't zoom ---- */
-
-input[type='text'],
-input[type='search'],
-input[type='email'],
-input[type='password'],
-input[type='number'],
-input[type='date'],
-input[type='datetime-local'],
-input[type='time'],
-input[type='tel'],
-input:not([type]),
-select,
-textarea {
-  min-height: var(--control);
-  font: inherit;
-  font-size: 1rem;
-  padding: 0.4rem 14px;
-  border: var(--rule-width) solid var(--line-control);
-  border-radius: var(--radius-control);
-  background: var(--sheet);
-  color: var(--ink);
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-select {
-  font-weight: 600;
-}
-
-[aria-invalid='true'] {
-  border: 3px solid var(--danger-line);
-}
-
-textarea {
-  width: 100%;
-  min-height: 4rem;
-}
-
-/* ---- Receiver selector (MM-T07) ---- */
-
-.receiver-select {
-  max-width: 28rem;
-}
-
-.receiver-anchor {
-  position: relative;
-}
-
-.receiver-select input {
-  width: 100%;
-  font-size: 1rem;
-}
-
-.receiver-options {
-  position: absolute;
-  z-index: 10;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  margin: 0;
-  padding: 0.25rem 0;
-  list-style: none;
-  max-height: 16rem;
-  overflow-y: auto;
-  border: 1px solid var(--line-control);
-  border-radius: var(--radius-control);
-  background: var(--card-head);
-}
-
-.receiver-options[hidden] {
-  display: none;
-}
-
-.receiver-options li {
-  padding: 0.6rem 0.75rem;
-  cursor: pointer;
-}
-
-.receiver-status {
-  margin: 0;
-  min-height: 1.25rem;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-/* ---- Staff & access (MM-T07) ---- */
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-/* Notices: a framed strip; the tone sets the fill. Partial success uses waiting, not danger. */
-.notice {
-  margin-top: 0;
-  padding: var(--space-3) var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.notice-info {
-  background: var(--tag-lab-bg);
-  color: var(--ink);
-}
-
-.notice-danger {
-  background: var(--danger-panel);
-  color: var(--danger-panel-ink);
-}
-
-.notice:empty {
-  display: none;
-}
-
-.pending-staff {
-  border-color: var(--warning-line);
-}
-
-.pending-staff h3 {
-  margin-top: 0;
-  font-size: 1rem;
-}
-
-.pending-staff ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-/* MTR-12: who approved, disabled or re-enabled someone, in the staff drawer. */
-.status-history {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.25rem;
-}
-
-.pending-staff li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-button);
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 1rem;
-  margin-top: 1rem;
-}
-
-.drawer {
-  margin: 0 0 0 auto;
-  height: 100%;
-  max-height: 100%;
-  width: min(32rem, 100%);
-  box-sizing: border-box;
-  border: none;
-  border-left: 1px solid var(--line-shell);
-  padding: 1rem 1.25rem;
-  color: var(--ink);
-  background: var(--card);
-}
-
-.drawer::backdrop,
-.confirm-dialog::backdrop {
-  background: var(--scrim);
-}
-
-.drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: -1rem -1.25rem 0;
-  padding: 1rem 1.25rem;
-  background: var(--card-head);
-  border-bottom: 1px solid var(--line);
-}
-
-.drawer-header h2 {
-  margin: 0;
-}
-
-.drawer-section {
-  margin-top: 1.25rem;
-  display: grid;
-  gap: 0.5rem;
-  justify-items: start;
-}
-
-.drawer-section fieldset {
-  display: grid;
-  gap: 0.5rem;
-  justify-items: start;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--inset);
-}
-
-.drawer-section .form-field {
-  width: 100%;
-}
-
-/* Label/value list used across pages. minmax(0, …) and overflow-wrap keep a long value (a receipt
-   description, an email) inside the column; at phone width each label sits above its value. */
-.details {
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
-  gap: 0.5rem 1.5rem;
-  overflow-wrap: anywhere;
-}
-
-.details dt {
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.details dd {
-  margin: 0;
-  min-width: 0;
-}
-
-@media (max-width: 640px) {
-  .details {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.1rem;
+  .side-panel {
+    min-width: min(300px, 100%);
   }
 
-  .details dd {
-    margin-bottom: 0.5rem;
+  /* Attention cards keep the ink frame; the head turns waiting-yellow and the heading says why. */
+  .banded-card-attention .banded-card-head {
+    background: var(--warning-bg);
   }
-}
 
-/* ---- Receiving: project and test-hole pickers (MM-T08) ---- */
-.picker {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--inset);
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
-  min-width: 0;
-}
-
-.picker legend {
-  padding: 0 0.375rem;
-  font: 600 var(--fs-label) / 1.4 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.readonly-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
-  gap: 0 1rem;
-}
-
-/* Inputs fill their cell and may shrink with it, so none spills out of the box (MM-T66 UI-07:
-   at 770–870px the Lead Project Engineer field overflowed the Project box). */
-.readonly-grid input {
-  width: 100%;
-  min-width: 0;
-}
-
-.combobox {
-  position: relative;
-}
-
-.combobox-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.combobox-row input {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-
-.listbox {
-  list-style: none;
-  margin: 0;
-  padding: 0.25rem 0;
-  border: 1px solid var(--line-control);
-  border-radius: var(--radius-control);
-  background: var(--card-head);
-  max-height: 16rem;
-  overflow-y: auto;
-  /* Overlay, so opening or closing the list never moves the buttons below it. */
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 10;
-}
-
-.listbox li {
-  min-height: 40px;
-  box-sizing: border-box;
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-}
-
-.listbox li.muted,
-.listbox li[aria-disabled='true'] {
-  color: var(--muted);
-  cursor: default;
-}
-
-.listbox li.add-option {
-  border-top: 1px solid var(--line);
-  font-weight: 600;
-  color: var(--accent);
-}
-
-/* MM-T78: one highlight for every picker (receiver, project, test hole, Correct details).
-   Hover is a tint with an underline; the keyboard highlight (aria-activedescendant, marked
-   aria-selected) is a solid fill plus a left bar, so the two never look alike and the highlight
-   does not rely on colour alone. Hover skips the highlighted option, so the pointer resting on
-   it never hides the highlight. These come after the option rules above so they win. */
-.listbox li:not([aria-disabled='true'], [aria-selected='true']):hover,
-.receiver-options li:not([aria-selected='true']):hover {
-  background: var(--option-hover);
-  text-decoration: underline;
-}
-
-.listbox li[aria-selected='true'],
-.receiver-options li[aria-selected='true'] {
-  background: var(--option-active);
-  color: var(--on-option-active);
-  box-shadow: inset 4px 0 0 currentColor;
-  text-decoration: none;
-}
-
-.chips {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
-  padding: 0;
-}
-
-.chips li {
-  display: inline-flex;
-  align-items: center;
-  padding-left: 0.625rem;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius-tag);
-  background: var(--accent-bg);
-  color: var(--accent-ink);
-  font-family: var(--font-mono);
-}
-
-/* The remove (×) button is a 36px target on desktop, 44px on phones. */
-.chips button {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-}
-
-.inline-form {
-  border-top: 1px solid var(--line);
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-}
-
-.inline-form h3 {
-  font-size: 1rem;
-  margin: 0 0 0.5rem;
-}
-
-/* Square step numbers (no circles or pills). */
-.step-number {
-  display: inline-grid;
-  place-items: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: var(--radius-tag);
-  background: var(--card-head);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.wizard-step .card,
-.wizard-step > .card {
-  margin-bottom: 1rem;
-}
-
-.error-summary {
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--danger-panel);
-  color: var(--danger-panel-ink);
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-}
-
-.error-summary h2 {
-  font-size: 1rem;
-  margin: 0 0 0.5rem;
-}
-
-.error-summary ul {
-  margin: 0;
-  padding-left: 1.25rem;
-}
-
-.error-summary a {
-  color: var(--danger-panel-ink);
-}
-
-/* Each link is a 24px-tall target with a gap to the next (WCAG 2.5.8, MTR-128-2). */
-.error-summary li + li {
-  margin-top: 0.25rem;
-}
-
-.error-summary li a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-}
-
-.unit-list {
-  display: grid;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.unit-body {
-  min-width: 0;
-}
-
-.hole-summary {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--inset);
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
-  min-width: 0;
-}
-
-.hole-summary legend {
-  padding: 0 0.375rem;
-  font: 600 var(--fs-label) / 1.4 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.range {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 1rem;
-  align-items: flex-start;
-}
-
-.range .form-field {
-  flex: 1 1 8rem;
-  min-width: 0;
-}
-
-.range input {
-  width: 100%;
-}
-
-.depth-unit {
-  display: flex;
-  gap: 1rem;
-  padding: 0.4rem 0;
-}
-
-.radio {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 36px;
-}
-
-/* MM-T36: each unit row's physical holder and Bulk soil sample box, and the sampling source
-   choice (Test hole / Standalone sampling location) inside a tube's or bulk sample's fields. */
-.unit-kind {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--gap-group);
-  align-items: flex-start;
-}
-
-.unit-kind .form-field {
-  flex: 0 1 14rem;
-  min-width: 0;
-}
-
-.checkbox-field .checkbox {
-  margin: 0;
-}
-
-.source-type {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 1rem;
-  padding: 0.4rem 0;
-}
-
-/* "Bulk sample · B1 · bucket 1 of 2": app metadata only, never on the sticker. */
-.badge-bulk {
-  background: var(--info-bg);
-  border-color: var(--info-line);
-  color: var(--info);
-}
-
-.quantity {
-  margin: 0;
-  font-weight: 600;
-  font-family: var(--font-mono);
-}
-
-.wizard-problems {
-  font-weight: 600;
-  color: var(--danger);
-}
-
-.wizard-problems + .draft-status::before {
-  content: '| ';
-  color: var(--line-control);
-}
-
-.link-button {
-  min-height: var(--control);
-  border: none;
-  background: none;
-  color: var(--accent);
-  text-decoration: underline;
-  padding: 0 0.5rem;
-}
-
-.link-button:hover {
-  background: none;
-}
-
-.offline-notice {
-  border-color: var(--warning-line);
-  background: var(--warning-panel);
-  color: var(--warning-panel-ink);
-}
-
-/* ---- Receiving drafts (MM-T11) ---- */
-
-.draft-status {
-  margin: 0.25rem 0 0.75rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  overflow-wrap: anywhere;
-}
-
-.draft-status-error {
-  color: var(--warning-panel-ink);
-  background: var(--warning-panel);
-  border: 1px solid var(--warning-line);
-  border-radius: var(--radius-control);
-  padding: 0.5rem 0.75rem;
-}
-
-.handover {
-  border-color: var(--warning-line);
-  margin-bottom: 1rem;
-}
-
-.draft-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.draft-item {
-  border-top: 1px solid var(--line);
-  padding-top: 0.75rem;
-}
-
-.draft-item h3 {
-  margin: 0;
-  font-size: 1rem;
-  overflow-wrap: anywhere;
-}
-
-.draft-facts {
-  margin: 0.25rem 0;
-  color: var(--muted);
-}
-
-.draft-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-button);
-}
-
-.spinner {
-  display: inline-block;
-  width: 0.9em;
-  height: 0.9em;
-  box-sizing: border-box;
-  border: 2px solid currentcolor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  vertical-align: -0.1em;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  .banded-card-head,
+  .side-panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) 18px;
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--card-head);
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation: none;
+  .side-panel-body {
+    padding: var(--space-4) 18px;
   }
-}
 
-.issued-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--gap-button);
-}
-
-@media (max-width: 640px) {
-  /* Status text on its own row(s); the buttons share the last row. */
-  .wizard-problems {
-    flex: 1 1 100%;
+  .banded-card-titles {
     min-width: 0;
   }
 
-  .wizard-problems + .draft-status::before {
-    content: none;
+  .banded-card-title,
+  .side-panel-head h2,
+  .side-panel-head h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 700;
   }
-}
 
-/* ---- Test sign-in ---- */
+  .banded-card-subtitle {
+    margin: 0.125rem 0 0;
+    color: var(--fl-muted);
+  }
 
-.fixtures {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
+  .banded-card-aside {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--fl-muted);
+  }
 
-.fixtures button {
-  min-width: 10rem;
-  justify-content: flex-start;
-}
+  .banded-card-body {
+    padding: var(--space-4) 18px;
+  }
 
-/* ---- Phone width: tables become cards, 44 px targets, 48 px fields, 36 px titles ---- */
+  @media (max-width: 640px) {
+    .banded-card-head {
+      padding: 0.75rem 1rem;
+    }
 
-@media (max-width: 640px) {
-  button,
-  .button {
+    .banded-card-body {
+      padding: 1rem;
+    }
+  }
+
+  /* ---- Dashboard activity ---- */
+
+  .activity {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  /* Empty: a dashed 2 px frame on paper; one bold sentence, one line, at most one action. */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-5);
+    border: var(--rule-width) dashed var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--paper);
+    color: var(--ink-soft);
+  }
+
+  .empty-state-title {
+    margin: 0;
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .empty-state p {
+    margin: 0;
+  }
+
+  /* Error: a solid 2 px frame on sheet; tag, bold sentence, what was kept, one way forward. */
+  .error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-5);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
+  .error-state p {
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .error-state-title {
+    font-weight: 700;
+  }
+
+  /* ---- Status panel ---- */
+
+  .status {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+  }
+
+  .status dd {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  /* ---- Badges: text first, 2px corners ---- */
+
+  /* Status tag: mono 12/600 caps on a tinted fill, 3 px radius. Always written, never colour
+   alone. The edge is transparent so forced-colours mode still draws a box. */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--badge-height);
+    padding: 2px var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-tag);
+    background: var(--tag-closed-bg);
+    color: var(--tag-closed-fg);
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    /* Some statuses are a sentence (the offline notice); they wrap rather than widen the page. */
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .badge-neutral,
+  .badge-closed {
+    background: var(--tag-closed-bg);
+    color: var(--tag-closed-fg);
+  }
+
+  .badge-info,
+  .badge-lab {
+    background: var(--tag-lab-bg);
+    color: var(--tag-lab-fg);
+  }
+
+  .badge-success,
+  .badge-storage {
+    background: var(--tag-storage-bg);
+    color: var(--tag-storage-fg);
+  }
+
+  .badge-warning,
+  .badge-waiting {
+    background: var(--tag-waiting-bg);
+    color: var(--tag-waiting-fg);
+  }
+
+  .badge-danger {
+    background: var(--tag-danger-bg);
+    color: var(--tag-danger-fg);
+  }
+
+  /* In progress / due: flag fill behind ink text. */
+  .badge-flag {
+    background: var(--flag);
+    color: var(--on-flag);
+  }
+
+  /* ---- Forms, tables, dialogs ---- */
+
+  /* Fields: mono caps label above a 44 px input with a 2 px ink edge. */
+  .form-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: var(--space-4);
+  }
+
+  .form-field > label {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* A field with an error: label in danger colour, message under it. */
+  .form-field:has([aria-invalid='true']) > label {
+    color: var(--danger);
+  }
+
+  .field-hint {
+    margin: 0;
+    color: var(--fl-muted);
+    font-size: var(--fs-small);
+  }
+
+  .field-error {
+    margin: 0;
+    color: var(--danger);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
     min-height: var(--target);
+    margin: 0;
   }
+
+  .checkbox input,
+  .radio input {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    accent-color: var(--selected);
+  }
+
+  .form-actions,
+  .print-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-button);
+  }
+
+  .printer-form input:not([type='checkbox']) {
+    width: 100%;
+  }
+
+  /* Label printing status (MM-T15) */
+  .print-panel,
+  .print-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Tables: sheet in a 2 px ink frame, rail mono caps head over a 2 px rule, hairline rows,
+   flag-wash for selected rows. Separate borders so the frame keeps its 6 px corners. */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--card);
+    overflow: hidden;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: 10px var(--space-3);
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--card-head);
+    color: var(--ink);
+    font: 600 var(--fs-label) / 1.4 var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .data-table td {
+    text-align: left;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  .data-table tbody tr:last-child > td {
+    border-bottom: none;
+  }
+
+  .data-table tbody tr[aria-selected='true'] > *,
+  .data-table tbody tr.is-selected > * {
+    background-color: var(--flag-wash);
+  }
+
+  /* Compact view (desktop, mouse): 3 px cell padding, 13 px IDs, 28 px row actions. */
+  .data-table.is-compact td {
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+
+  .data-table.is-compact td .mono,
+  .data-table.is-compact td .unit-id {
+    font-size: var(--fs-data);
+  }
+
+  .data-table.is-compact td button,
+  .data-table.is-compact td .button {
+    min-height: var(--control-compact);
+    padding: 0 10px;
+  }
+
+  /* A table wrapped in its own frame (TableScroll) drops the table's frame so there is one. */
+  .table-frame {
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--card);
+    overflow-x: auto;
+  }
+
+  .table-frame > .data-table {
+    border: none;
+    border-radius: 0;
+  }
+
+  /* Selection: an ink action bar above the table. */
+  .selection-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-card);
+    background: var(--inverse);
+    color: var(--on-inverse);
+  }
+
+  .selection-bar-count {
+    flex: 1 1 140px;
+    font-weight: 700;
+  }
+
+  .selection-bar button:not(.primary),
+  .selection-bar .button:not(.primary) {
+    border-color: var(--on-inverse);
+    background-color: transparent;
+    color: var(--on-inverse);
+  }
+
+  /* Table view selector: comfortable / compact, joined in one 2 px frame. */
+  .segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    background: var(--sheet);
+  }
+
+  .segmented > button {
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid var(--rule);
+  }
+
+  .segmented > button:last-child {
+    border-right: none;
+  }
+
+  .table-view {
+    margin-left: auto;
+  }
+
+  .table-view > button {
+    width: var(--control);
+    padding: 0;
+  }
+
+  /* Counted cells: one bordered cell per real thing (done = ink, current/due = flag, empty = sheet). */
+  .counted-cells {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .counted-cells-row {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(10px, 1fr);
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .counted-cell {
+    height: 16px;
+    box-sizing: border-box;
+    border: 1px solid var(--rule);
+    background: var(--sheet);
+  }
+
+  .counted-cell-done {
+    background: var(--selected);
+  }
+
+  .counted-cell-current {
+    background: var(--flag);
+  }
+
+  .counted-cells-count {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-weight: 600;
+  }
+
+  /* Unit label block: the same block on screen and on the printed label. */
+  .unit-label {
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+    overflow: hidden;
+  }
+
+  .unit-label-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 14px;
+    background: var(--inverse);
+    color: var(--on-inverse);
+  }
+
+  .unit-label-holder {
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .unit-label-project {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+  }
+
+  .unit-label-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .unit-label-id,
+  .unit-id {
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  .unit-label-id {
+    font-size: var(--fs-unit-id);
+    line-height: var(--lh-unit-id);
+    overflow-wrap: anywhere;
+  }
+
+  .unit-label-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-1) var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+  }
+
+  .unit-label-line > :first-child {
+    font-weight: 600;
+  }
+
+  /* A disposed unit keeps its label, drawn grey. */
+  .unit-label-closed .unit-label-head {
+    background: var(--tag-closed-bg);
+    color: var(--tag-closed-fg);
+  }
+
+  /* Dialogs: a 2 px framed panel, rail head naming the record, Cancel + one flag action. */
+  .confirm-dialog {
+    width: min(32rem, calc(100% - 2rem));
+    box-sizing: border-box;
+    padding: 0;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    color: var(--ink);
+    background: var(--sheet);
+  }
+
+  .confirm-dialog::backdrop {
+    background: var(--scrim);
+  }
+
+  .dialog-head {
+    padding: var(--space-3) 18px;
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--card-head);
+  }
+
+  .dialog-head h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 700;
+  }
+
+  .dialog-body {
+    padding: var(--space-4) 18px;
+  }
+
+  .dialog-body > :first-child {
+    margin-top: 0;
+  }
+
+  .dialog-body > :last-child {
+    margin-bottom: 0;
+  }
+
+  .confirm-dialog .dialog-actions {
+    margin: 0;
+    padding: 0 18px var(--space-4);
+  }
+
+  .dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--gap-button);
+    margin-top: var(--space-4);
+  }
+
+  /* ---- Inputs: 16px text so phones don't zoom ---- */
 
   input[type='text'],
   input[type='search'],
   input[type='email'],
   input[type='password'],
   input[type='number'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='time'],
+  input[type='tel'],
   input:not([type]),
+  select,
+  textarea {
+    min-height: var(--control);
+    font: inherit;
+    font-size: 1rem;
+    padding: 0.4rem 14px;
+    border: var(--rule-width) solid var(--line-control);
+    border-radius: var(--radius-control);
+    background: var(--sheet);
+    color: var(--ink);
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   select {
-    min-height: var(--control-phone);
+    font-weight: 600;
   }
 
-  .page-header h1 {
-    font-size: var(--fs-phone-title);
-    line-height: var(--fs-phone-title);
+  [aria-invalid='true'] {
+    border: 3px solid var(--danger-line);
   }
 
-  /* Phones always use comfortable rows. */
-  .data-table.is-compact td {
-    padding-top: var(--space-3);
-    padding-bottom: var(--space-3);
+  textarea {
+    width: 100%;
+    min-height: 4rem;
   }
 
-  .data-table.is-compact td button,
-  .data-table.is-compact td .button {
-    min-height: var(--target);
+  /* ---- Receiver selector (MM-T07) ---- */
+
+  .receiver-select {
+    max-width: 28rem;
   }
 
-  .chips button {
-    min-width: var(--target);
-    min-height: var(--target);
+  .receiver-anchor {
+    position: relative;
   }
 
-  /* MTR-94: the rest of what a phone user taps gets the 44px target too. */
-  input[type='date'] {
-    min-height: var(--target);
+  .receiver-select input {
+    width: 100%;
+    font-size: 1rem;
   }
 
-  .action-bell {
-    min-width: var(--target);
-    min-height: var(--target);
+  .receiver-options {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0.25rem 0;
+    list-style: none;
+    max-height: 16rem;
+    overflow-y: auto;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-control);
+    background: var(--card-head);
   }
 
-  /* A checkbox's label is its hit area: the whole row is 44px tall. */
-  .checkbox,
-  .checkbox-option,
-  .checkbox-label,
-  .scan-sound {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    min-height: var(--target);
-  }
-
-  .radio {
-    min-height: var(--target);
-  }
-
-  /* Links that stand on their own line (Back, See all) are 44px tall. */
-  .back-link a,
-  .see-all-link {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--target);
-  }
-
-  .data-table {
-    border: none;
-    background: none;
-  }
-
-  .data-table thead {
+  .receiver-options[hidden] {
     display: none;
   }
 
-  .data-table tr {
-    display: block;
+  .receiver-options li {
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+  }
+
+  .receiver-status {
+    margin: 0;
+    min-height: 1.25rem;
+    color: var(--fl-muted);
+    font-size: 0.875rem;
+  }
+
+  /* ---- Staff & access (MM-T07) ---- */
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  /* Notices: a framed strip; the tone sets the fill. Partial success uses waiting, not danger. */
+  .notice {
+    margin-top: 0;
+    padding: var(--space-3) var(--space-4);
     border: var(--rule-width) solid var(--rule);
     border-radius: var(--radius-card);
     background: var(--card);
-    margin-bottom: 0.5rem;
+    color: var(--ink);
   }
 
-  .data-table tbody tr:nth-child(even) {
+  .notice-info {
+    background: var(--tag-lab-bg);
+    color: var(--ink);
+  }
+
+  .notice-danger {
+    background: var(--danger-panel);
+    color: var(--danger-panel-ink);
+  }
+
+  .notice:empty {
+    display: none;
+  }
+
+  .pending-staff {
+    border-color: var(--warning-line);
+  }
+
+  .pending-staff h3 {
+    margin-top: 0;
+    font-size: 1rem;
+  }
+
+  .pending-staff ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  /* MTR-12: who approved, disabled or re-enabled someone, in the staff drawer. */
+  .status-history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .pending-staff li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-button);
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1rem;
+    margin-top: 1rem;
+  }
+
+  .drawer {
+    margin: 0 0 0 auto;
+    height: 100%;
+    max-height: 100%;
+    width: min(32rem, 100%);
+    box-sizing: border-box;
+    border: none;
+    border-left: 1px solid var(--line-shell);
+    padding: 1rem 1.25rem;
+    color: var(--ink);
     background: var(--card);
   }
 
-  .data-table td {
+  .drawer::backdrop,
+  .confirm-dialog::backdrop {
+    background: var(--scrim);
+  }
+
+  .drawer-header {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: -1rem -1.25rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--card-head);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .drawer-header h2 {
+    margin: 0;
+  }
+
+  .drawer-section {
+    margin-top: 1.25rem;
+    display: grid;
     gap: 0.5rem;
-    border-bottom: none;
+    justify-items: start;
   }
 
-  .data-table td::before {
-    content: attr(data-label);
-    font: 600 var(--fs-label) / 1.5rem var(--font-mono);
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    min-width: 6rem;
-  }
-}
-
-/* ---- Wide tables that stack by their own width (MM-T58, MM-T60) ---- */
-
-/* At tablet widths the side menu leaves a wide table too little room, so it stacks into the phone
-   cards whenever its box is narrower than 48rem, whatever the viewport. Text wraps only between
-   words: headers, badges, IDs, numbers and dates stay whole. */
-.table-stack {
-  container-type: inline-size;
-  overflow-wrap: break-word;
-}
-
-.table-stack th,
-.table-stack .badge {
-  white-space: nowrap;
-}
-
-/* A wide table scrolls inside its own box, never the page (MTR-58, MTR-93). The box is a
-   focusable region (TableScroll), so keyboard users can scroll it with the arrow keys. */
-.table-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-.table-scroll:focus-visible {
-  outline-offset: -2px;
-}
-
-@container (max-width: 47.99rem) {
-  .table-stack .data-table {
-    border: none;
-    background: none;
+  .drawer-section fieldset {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: start;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--inset);
   }
 
-  /* Stacked cards take the box's width; long badges (a bulk bucket, "Disposed after testing")
-     wrap between words instead of pushing the card past its box (MTR-58). */
-  .table-stack .data-table td > * {
+  .drawer-section .form-field {
+    width: 100%;
+  }
+
+  /* Label/value list used across pages. minmax(0, …) and overflow-wrap keep a long value (a receipt
+   description, an email) inside the column; at phone width each label sits above its value. */
+  .details {
+    display: grid;
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    gap: 0.5rem 1.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .details dt {
+    font-weight: 500;
+    color: var(--fl-muted);
+  }
+
+  .details dd {
+    margin: 0;
     min-width: 0;
   }
 
-  .table-stack .badge {
-    white-space: normal;
+  @media (max-width: 640px) {
+    .details {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.1rem;
+    }
+
+    .details dd {
+      margin-bottom: 0.5rem;
+    }
   }
 
-  .table-stack .data-table thead {
-    display: none;
+  /* ---- Receiving: project and test-hole pickers (MM-T08) ---- */
+  .picker {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--inset);
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    min-width: 0;
   }
 
-  .table-stack .data-table tr {
-    display: block;
-    border: var(--rule-width) solid var(--rule);
-    border-radius: var(--radius-card);
-    background: var(--card);
-    margin: 0.5rem;
-  }
-
-  .table-stack .data-table tbody tr:nth-child(even) {
-    background: var(--card);
-  }
-
-  /* A value too wide to sit beside its label (a date and time at 320 px) goes under it (MTR-93). */
-  .table-stack .data-table td {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.5rem;
-    border-bottom: none;
-  }
-
-  .table-stack .data-table td::before {
-    content: attr(data-label);
-    flex: 0 0 auto;
-    min-width: 6rem;
-    font: 600 var(--fs-label) / 1.5rem var(--font-mono);
+  .picker legend {
+    padding: 0 0.375rem;
+    font: 600 var(--fs-label) / 1.4 var(--font-mono);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-soft);
   }
-}
 
-/* ---- Settings layouts (MM-T55 part D) ---- */
-
-/* Tiles: a small label over a value, on the shell ground inside a banded card. */
-.stat-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.75rem;
-  margin: 0 0 1rem;
-}
-
-.stat-tiles-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.stat-tiles-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 0;
-}
-
-.stat-tiles > div {
-  padding: 0.75rem 0.875rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--shell);
-  min-width: 0;
-}
-
-.stat-tiles dt {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.stat-tiles dd {
-  margin: 0.25rem 0 0;
-  overflow-wrap: anywhere;
-}
-
-.stat-number {
-  font: 700 1.625rem/2rem var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-note {
-  font-size: 0.75rem;
-  color: var(--ink-soft);
-}
-
-.stat-mono {
-  font-family: var(--font-mono);
-}
-
-.stat-tiles > .stat-tile-warning {
-  border-color: var(--warning-line);
-}
-
-.stat-tile-warning dt,
-.stat-tile-warning dd {
-  color: var(--warning);
-}
-
-.stat-tiles > .stat-tile-danger {
-  border-color: var(--danger-line);
-}
-
-.stat-tile-danger dt,
-.stat-tile-danger dd {
-  color: var(--danger);
-}
-
-.text-success {
-  color: var(--success);
-}
-
-.text-warning {
-  color: var(--warning);
-}
-
-.notice-success {
-  background: var(--success-bg);
-  color: var(--ink);
-}
-
-.notice-warning {
-  background: var(--warning-panel);
-  color: var(--warning-panel-ink);
-}
-
-.status-alert,
-.profile-warning {
-  border-color: var(--warning-line);
-  background: var(--warning-panel);
-  color: var(--warning-panel-ink);
-}
-
-/* My profile: who is signed in beside the banded profile card. */
-.profile-warning {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1rem;
-}
-
-.profile-warning p {
-  flex: 1 1 20rem;
-  margin: 0;
-}
-
-.profile-card .banded-card-body {
-  padding: 0;
-}
-
-.profile-unconfirmed {
-  color: var(--warning);
-}
-
-/* Staff & access */
-.filter-bar {
-  padding: 0.875rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--card);
-}
-
-.field-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 1rem;
-}
-
-.lab-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--gap-button);
-  padding-top: 0.875rem;
-  border-top: 1px solid var(--line);
-}
-
-/* Printers: the configured printers beside a dashed "Add a printer" card. */
-.printers-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
-}
-
-.printers-layout .banded-card {
-  margin-top: 0;
-}
-
-.printers-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.printer-form-new {
-  border-style: dashed;
-  border-color: var(--line-control);
-}
-
-.printer-form .banded-card-body {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.field-pair-port {
-  grid-template-columns: minmax(0, 1fr) 7.5rem;
-}
-
-.checkbox-group {
-  margin: 0.25rem 0 0.5rem;
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.disk-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 1.25rem;
-}
-
-.disk-label {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.disk-label .stat-mono {
-  font-size: 0.8125rem;
-  color: var(--ink-soft);
-}
-
-.disk-bar {
-  height: 0.625rem;
-  border: 1px solid var(--line-control);
-  border-radius: var(--radius-tag);
-  background: var(--shell);
-  overflow: hidden;
-}
-
-.disk-bar > div {
-  height: 100%;
-  background: var(--primary);
-}
-
-@media (max-width: 1024px) {
-  .printers-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .stat-tiles-2,
-  .stat-tiles-3,
-  .field-pair,
-  .field-pair-port {
-    grid-template-columns: minmax(0, 1fr);
+  .readonly-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+    gap: 0 1rem;
   }
 
-  .lab-actions button {
-    flex: 1 1 100%;
+  /* Inputs fill their cell and may shrink with it, so none spills out of the box (MM-T66 UI-07:
+   at 770–870px the Lead Project Engineer field overflowed the Project box). */
+  .readonly-grid input {
+    width: 100%;
+    min-width: 0;
   }
-}
 
-/* Notification center: unread rows say "Unread" and are bold; read rows lose the accent edge. */
-.notification-read {
-  border-left-color: var(--line-control);
-}
+  .combobox {
+    position: relative;
+  }
 
-.notification-unread .notification-event {
-  font-weight: 700;
-}
+  .combobox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 
-.notification-event {
-  font-weight: 600;
-}
+  .combobox-row input {
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
 
-.notifications-message:empty {
-  display: none;
-}
+  .listbox {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-control);
+    background: var(--card-head);
+    max-height: 16rem;
+    overflow-y: auto;
+    /* Overlay, so opening or closing the list never moves the buttons below it. */
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+  }
 
-/* Retention (MM-T29): holds, extensions, requests. */
-.retention-history {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-  padding: 0;
-  list-style: none;
-}
+  .listbox li {
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+  }
 
-.retention-item {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--line-control);
-  border-radius: var(--radius-control);
-  overflow-wrap: anywhere;
-}
+  .listbox li.muted,
+  .listbox li[aria-disabled='true'] {
+    color: var(--fl-muted);
+    cursor: default;
+  }
 
-.retention-item p {
-  margin: 0 0 0.25rem;
-}
+  .listbox li.add-option {
+    border-top: 1px solid var(--line);
+    font-weight: 600;
+    color: var(--fl-accent);
+  }
 
-.retention-form {
-  display: grid;
-  gap: 0.5rem;
-  max-width: 32rem;
-  margin-top: 0.75rem;
-}
+  /* MM-T78: one highlight for every picker (receiver, project, test hole, Correct details).
+   Hover is a tint with an underline; the keyboard highlight (aria-activedescendant, marked
+   aria-selected) is a solid fill plus a left bar, so the two never look alike and the highlight
+   does not rely on colour alone. Hover skips the highlighted option, so the pointer resting on
+   it never hides the highlight. These come after the option rules above so they win. */
+  .listbox li:not([aria-disabled='true'], [aria-selected='true']):hover,
+  .receiver-options li:not([aria-selected='true']):hover {
+    background: var(--option-hover);
+    text-decoration: underline;
+  }
 
-.retention-form fieldset,
-.retention-amount {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.retention-summary {
-  margin: 0 0 0.5rem;
-  font-weight: 600;
-}
-
-/* Disposal (MM-T30): approval lists and the distinct disposal scan mode. */
-.disposal-list {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
-  padding: 0;
-  list-style: none;
-  overflow-wrap: anywhere;
-}
-
-.disposal-scan-banner {
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--danger);
-  border-radius: var(--radius-control);
-  background: var(--card);
-}
-
-.disposal-scan-banner h1 {
-  margin: 0 0 0.25rem;
-  color: var(--danger);
-}
-
-.disposal-scan-form {
-  display: grid;
-  gap: 0.5rem;
-  max-width: 28rem;
-}
-
-.disposal-scan-results {
-  display: grid;
-  gap: 0.25rem;
-  margin-top: 1rem;
-  padding: 0;
-  list-style: none;
-}
-
-/* Access summaries (MM-AO06): My access and the Staff drawer's read-only view. */
-.access-summary {
-  display: grid;
-  gap: 1rem;
-}
-
-.access-list {
-  margin: 0;
-  padding-left: 1.25rem;
-}
-
-.access-list li + li {
-  margin-top: 0.5rem;
-}
-
-.access-projects li {
-  display: grid;
-  gap: 0.25rem;
-}
-
-/* ---- Windows contrast themes (MTR-131) ---- */
-
-/* Forced colours replace the backgrounds and border colours that mark a selection, so every
-   chip, segment, tab and menu item looked the same. The selected one is drawn in the system
-   Highlight colours, with a thicker edge and an underline as cues that need no colour. */
-@media (forced-colors: active) {
-  .sub-nav a[aria-current='page'],
-  .sub-nav a.active,
   .listbox li[aria-selected='true'],
   .receiver-options li[aria-selected='true'] {
-    forced-color-adjust: none;
-    border-color: Highlight;
-    background: Highlight;
-    color: HighlightText;
+    background: var(--option-active);
+    color: var(--on-option-active);
+    box-shadow: inset 4px 0 0 currentColor;
+    text-decoration: none;
+  }
+
+  .chips {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem;
+    padding: 0;
+  }
+
+  .chips li {
+    display: inline-flex;
+    align-items: center;
+    padding-left: 0.625rem;
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius-tag);
+    background: var(--accent-bg);
+    color: var(--accent-ink);
+    font-family: var(--font-mono);
+  }
+
+  /* The remove (×) button is a 36px target on desktop, 44px on phones. */
+  .chips button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+  }
+
+  .inline-form {
+    border-top: 1px solid var(--line);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+  }
+
+  .inline-form h3 {
+    font-size: 1rem;
+    margin: 0 0 0.5rem;
+  }
+
+  /* Square step numbers (no circles or pills). */
+  .step-number {
+    display: inline-grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: var(--radius-tag);
+    background: var(--card-head);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .wizard-step .card,
+  .wizard-step > .card {
+    margin-bottom: 1rem;
+  }
+
+  .error-summary {
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--danger-panel);
+    color: var(--danger-panel-ink);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .error-summary h2 {
+    font-size: 1rem;
+    margin: 0 0 0.5rem;
+  }
+
+  .error-summary ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .error-summary a {
+    color: var(--danger-panel-ink);
+  }
+
+  /* Each link is a 24px-tall target with a gap to the next (WCAG 2.5.8, MTR-128-2). */
+  .error-summary li + li {
+    margin-top: 0.25rem;
+  }
+
+  .error-summary li a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+  }
+
+  .unit-list {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .unit-body {
+    min-width: 0;
+  }
+
+  .hole-summary {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--inset);
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.75rem;
+    min-width: 0;
+  }
+
+  .hole-summary legend {
+    padding: 0 0.375rem;
+    font: 600 var(--fs-label) / 1.4 var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .range {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1rem;
+    align-items: flex-start;
+  }
+
+  .range .form-field {
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+
+  .range input {
+    width: 100%;
+  }
+
+  .depth-unit {
+    display: flex;
+    gap: 1rem;
+    padding: 0.4rem 0;
+  }
+
+  .radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 36px;
+  }
+
+  /* MM-T36: each unit row's physical holder and Bulk soil sample box, and the sampling source
+   choice (Test hole / Standalone sampling location) inside a tube's or bulk sample's fields. */
+  .unit-kind {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--gap-group);
+    align-items: flex-start;
+  }
+
+  .unit-kind .form-field {
+    flex: 0 1 14rem;
+    min-width: 0;
+  }
+
+  .checkbox-field .checkbox {
+    margin: 0;
+  }
+
+  .source-type {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1rem;
+    padding: 0.4rem 0;
+  }
+
+  /* "Bulk sample · B1 · bucket 1 of 2": app metadata only, never on the sticker. */
+  .badge-bulk {
+    background: var(--info-bg);
+    border-color: var(--info-line);
+    color: var(--info);
+  }
+
+  .quantity {
+    margin: 0;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .wizard-problems {
+    font-weight: 600;
+    color: var(--danger);
+  }
+
+  .wizard-problems + .draft-status::before {
+    content: '| ';
+    color: var(--line-control);
+  }
+
+  .link-button {
+    min-height: var(--control);
+    border: none;
+    background: none;
+    color: var(--fl-accent);
     text-decoration: underline;
-    text-underline-offset: 0.2em;
+    padding: 0 0.5rem;
   }
 
-  .sub-nav a[aria-current='page'],
-  .sub-nav a.active {
-    border-bottom-width: 4px;
+  .link-button:hover {
+    background: none;
   }
 
-  .sub-nav a:not([aria-current='page'], .active) {
-    border-bottom-color: Canvas;
+  .offline-notice {
+    border-color: var(--warning-line);
+    background: var(--warning-panel);
+    color: var(--warning-panel-ink);
   }
-}
 
-/* Field Ledger parts in Windows contrast themes: counted cells and toggled buttons carry their
+  /* ---- Receiving drafts (MM-T11) ---- */
+
+  .draft-status {
+    margin: 0.25rem 0 0.75rem;
+    color: var(--fl-muted);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+  }
+
+  .draft-status-error {
+    color: var(--warning-panel-ink);
+    background: var(--warning-panel);
+    border: 1px solid var(--warning-line);
+    border-radius: var(--radius-control);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .handover {
+    border-color: var(--warning-line);
+    margin-bottom: 1rem;
+  }
+
+  .draft-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .draft-item {
+    border-top: 1px solid var(--line);
+    padding-top: 0.75rem;
+  }
+
+  .draft-item h3 {
+    margin: 0;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .draft-facts {
+    margin: 0.25rem 0;
+    color: var(--fl-muted);
+  }
+
+  .draft-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-button);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    box-sizing: border-box;
+    border: 2px solid currentcolor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    vertical-align: -0.1em;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
+  }
+
+  .issued-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--gap-button);
+  }
+
+  @media (max-width: 640px) {
+    /* Status text on its own row(s); the buttons share the last row. */
+    .wizard-problems {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+
+    .wizard-problems + .draft-status::before {
+      content: none;
+    }
+  }
+
+  /* ---- Test sign-in ---- */
+
+  .fixtures {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .fixtures button {
+    min-width: 10rem;
+    justify-content: flex-start;
+  }
+
+  /* ---- Phone width: tables become cards, 44 px targets, 48 px fields, 36 px titles ---- */
+
+  @media (max-width: 640px) {
+    button,
+    .button {
+      min-height: var(--target);
+    }
+
+    input[type='text'],
+    input[type='search'],
+    input[type='email'],
+    input[type='password'],
+    input[type='number'],
+    input:not([type]),
+    select {
+      min-height: var(--control-phone);
+    }
+
+    .page-header h1 {
+      font-size: var(--fs-phone-title);
+      line-height: var(--fs-phone-title);
+    }
+
+    /* Phones always use comfortable rows. */
+    .data-table.is-compact td {
+      padding-top: var(--space-3);
+      padding-bottom: var(--space-3);
+    }
+
+    .data-table.is-compact td button,
+    .data-table.is-compact td .button {
+      min-height: var(--target);
+    }
+
+    .chips button {
+      min-width: var(--target);
+      min-height: var(--target);
+    }
+
+    /* MTR-94: the rest of what a phone user taps gets the 44px target too. */
+    input[type='date'] {
+      min-height: var(--target);
+    }
+
+    .action-bell {
+      min-width: var(--target);
+      min-height: var(--target);
+    }
+
+    /* A checkbox's label is its hit area: the whole row is 44px tall. */
+    .checkbox,
+    .checkbox-option,
+    .checkbox-label,
+    .scan-sound {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      min-height: var(--target);
+    }
+
+    .radio {
+      min-height: var(--target);
+    }
+
+    /* Links that stand on their own line (Back, See all) are 44px tall. */
+    .back-link a,
+    .see-all-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: var(--target);
+    }
+
+    .data-table {
+      border: none;
+      background: none;
+    }
+
+    .data-table thead {
+      display: none;
+    }
+
+    .data-table tr {
+      display: block;
+      border: var(--rule-width) solid var(--rule);
+      border-radius: var(--radius-card);
+      background: var(--card);
+      margin-bottom: 0.5rem;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+      background: var(--card);
+    }
+
+    .data-table td {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      border-bottom: none;
+    }
+
+    .data-table td::before {
+      content: attr(data-label);
+      font: 600 var(--fs-label) / 1.5rem var(--font-mono);
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      min-width: 6rem;
+    }
+  }
+
+  /* ---- Wide tables that stack by their own width (MM-T58, MM-T60) ---- */
+
+  /* At tablet widths the side menu leaves a wide table too little room, so it stacks into the phone
+   cards whenever its box is narrower than 48rem, whatever the viewport. Text wraps only between
+   words: headers, badges, IDs, numbers and dates stay whole. */
+  .table-stack {
+    container-type: inline-size;
+    overflow-wrap: break-word;
+  }
+
+  .table-stack th,
+  .table-stack .badge {
+    white-space: nowrap;
+  }
+
+  /* A wide table scrolls inside its own box, never the page (MTR-58, MTR-93). The box is a
+   focusable region (TableScroll), so keyboard users can scroll it with the arrow keys. */
+  .table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .table-scroll:focus-visible {
+    outline-offset: -2px;
+  }
+
+  @container (max-width: 47.99rem) {
+    .table-stack .data-table {
+      border: none;
+      background: none;
+    }
+
+    /* Stacked cards take the box's width; long badges (a bulk bucket, "Disposed after testing")
+     wrap between words instead of pushing the card past its box (MTR-58). */
+    .table-stack .data-table td > * {
+      min-width: 0;
+    }
+
+    .table-stack .badge {
+      white-space: normal;
+    }
+
+    .table-stack .data-table thead {
+      display: none;
+    }
+
+    .table-stack .data-table tr {
+      display: block;
+      border: var(--rule-width) solid var(--rule);
+      border-radius: var(--radius-card);
+      background: var(--card);
+      margin: 0.5rem;
+    }
+
+    .table-stack .data-table tbody tr:nth-child(even) {
+      background: var(--card);
+    }
+
+    /* A value too wide to sit beside its label (a date and time at 320 px) goes under it (MTR-93). */
+    .table-stack .data-table td {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.5rem;
+      border-bottom: none;
+    }
+
+    .table-stack .data-table td::before {
+      content: attr(data-label);
+      flex: 0 0 auto;
+      min-width: 6rem;
+      font: 600 var(--fs-label) / 1.5rem var(--font-mono);
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+  }
+
+  /* ---- Settings layouts (MM-T55 part D) ---- */
+
+  /* Tiles: a small label over a value, on the shell ground inside a banded card. */
+  .stat-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+  }
+
+  .stat-tiles-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-tiles-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 0;
+  }
+
+  .stat-tiles > div {
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--shell);
+    min-width: 0;
+  }
+
+  .stat-tiles dt {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fl-muted);
+  }
+
+  .stat-tiles dd {
+    margin: 0.25rem 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .stat-number {
+    font: 700 1.625rem/2rem var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-note {
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+  }
+
+  .stat-mono {
+    font-family: var(--font-mono);
+  }
+
+  .stat-tiles > .stat-tile-warning {
+    border-color: var(--warning-line);
+  }
+
+  .stat-tile-warning dt,
+  .stat-tile-warning dd {
+    color: var(--warning);
+  }
+
+  .stat-tiles > .stat-tile-danger {
+    border-color: var(--danger-line);
+  }
+
+  .stat-tile-danger dt,
+  .stat-tile-danger dd {
+    color: var(--danger);
+  }
+
+  .text-success {
+    color: var(--success);
+  }
+
+  .text-warning {
+    color: var(--warning);
+  }
+
+  .notice-success {
+    background: var(--success-bg);
+    color: var(--ink);
+  }
+
+  .notice-warning {
+    background: var(--warning-panel);
+    color: var(--warning-panel-ink);
+  }
+
+  .status-alert,
+  .profile-warning {
+    border-color: var(--warning-line);
+    background: var(--warning-panel);
+    color: var(--warning-panel-ink);
+  }
+
+  /* My profile: who is signed in beside the banded profile card. */
+  .profile-warning {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+  }
+
+  .profile-warning p {
+    flex: 1 1 20rem;
+    margin: 0;
+  }
+
+  .profile-card .banded-card-body {
+    padding: 0;
+  }
+
+  .profile-unconfirmed {
+    color: var(--warning);
+  }
+
+  /* Staff & access */
+  .filter-bar {
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--card);
+  }
+
+  .field-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1rem;
+  }
+
+  .lab-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--gap-button);
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* Printers: the configured printers beside a dashed "Add a printer" card. */
+  .printers-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .printers-layout .banded-card {
+    margin-top: 0;
+  }
+
+  .printers-list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .printer-form-new {
+    border-style: dashed;
+    border-color: var(--line-control);
+  }
+
+  .printer-form .banded-card-body {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .field-pair-port {
+    grid-template-columns: minmax(0, 1fr) 7.5rem;
+  }
+
+  .checkbox-group {
+    margin: 0.25rem 0 0.5rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .disk-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  .disk-label {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .disk-label .stat-mono {
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+  }
+
+  .disk-bar {
+    height: 0.625rem;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-tag);
+    background: var(--shell);
+    overflow: hidden;
+  }
+
+  .disk-bar > div {
+    height: 100%;
+    background: var(--primary);
+  }
+
+  @media (max-width: 1024px) {
+    .printers-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .stat-tiles-2,
+    .stat-tiles-3,
+    .field-pair,
+    .field-pair-port {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lab-actions button {
+      flex: 1 1 100%;
+    }
+  }
+
+  /* Notification center: unread rows say "Unread" and are bold; read rows lose the accent edge. */
+  .notification-read {
+    border-left-color: var(--line-control);
+  }
+
+  .notification-unread .notification-event {
+    font-weight: 700;
+  }
+
+  .notification-event {
+    font-weight: 600;
+  }
+
+  .notifications-message:empty {
+    display: none;
+  }
+
+  /* Retention (MM-T29): holds, extensions, requests. */
+  .retention-history {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .retention-item {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-control);
+    overflow-wrap: anywhere;
+  }
+
+  .retention-item p {
+    margin: 0 0 0.25rem;
+  }
+
+  .retention-form {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 32rem;
+    margin-top: 0.75rem;
+  }
+
+  .retention-form fieldset,
+  .retention-amount {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .retention-summary {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+
+  /* Disposal (MM-T30): approval lists and the distinct disposal scan mode. */
+  .disposal-list {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem;
+    padding: 0;
+    list-style: none;
+    overflow-wrap: anywhere;
+  }
+
+  .disposal-scan-banner {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--danger);
+    border-radius: var(--radius-control);
+    background: var(--card);
+  }
+
+  .disposal-scan-banner h1 {
+    margin: 0 0 0.25rem;
+    color: var(--danger);
+  }
+
+  .disposal-scan-form {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 28rem;
+  }
+
+  .disposal-scan-results {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 1rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Access summaries (MM-AO06): My access and the Staff drawer's read-only view. */
+  .access-summary {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .access-list {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .access-list li + li {
+    margin-top: 0.5rem;
+  }
+
+  .access-projects li {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  /* ---- Windows contrast themes (MTR-131) ---- */
+
+  /* Forced colours replace the backgrounds and border colours that mark a selection, so every
+   chip, segment, tab and menu item looked the same. The selected one is drawn in the system
+   Highlight colours, with a thicker edge and an underline as cues that need no colour. */
+  @media (forced-colors: active) {
+    .sub-nav a[aria-current='page'],
+    .sub-nav a.active,
+    .listbox li[aria-selected='true'],
+    .receiver-options li[aria-selected='true'] {
+      forced-color-adjust: none;
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+
+    .sub-nav a[aria-current='page'],
+    .sub-nav a.active {
+      border-bottom-width: 4px;
+    }
+
+    .sub-nav a:not([aria-current='page'], .active) {
+      border-bottom-color: Canvas;
+    }
+  }
+
+  /* Field Ledger parts in Windows contrast themes: counted cells and toggled buttons carry their
    state in fills, which forced colours remove, so they are drawn in system colours instead. */
-@media (forced-colors: active) {
-  .counted-cell {
-    forced-color-adjust: none;
-    border-color: CanvasText;
-    background: Canvas;
+  @media (forced-colors: active) {
+    .counted-cell {
+      forced-color-adjust: none;
+      border-color: CanvasText;
+      background: Canvas;
+    }
+
+    .counted-cell-done {
+      background: CanvasText;
+    }
+
+    .counted-cell-current {
+      background: Highlight;
+    }
+
+    button[aria-pressed='true'],
+    button.ink {
+      forced-color-adjust: none;
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+      text-decoration: underline;
+    }
+
+    .data-table tbody tr[aria-selected='true'] > *,
+    .data-table tbody tr.is-selected > * {
+      border-bottom-color: Highlight;
+    }
   }
 
-  .counted-cell-done {
-    background: CanvasText;
-  }
-
-  .counted-cell-current {
-    background: Highlight;
-  }
-
-  button[aria-pressed='true'],
-  button.ink {
-    forced-color-adjust: none;
-    border-color: Highlight;
-    background: Highlight;
-    color: HighlightText;
-    text-decoration: underline;
-  }
-
-  .data-table tbody tr[aria-selected='true'] > *,
-  .data-table tbody tr.is-selected > * {
-    border-bottom-color: Highlight;
-  }
-}
-
-/* Lane B (pure addition): on phones, anything scrolled into view or focused stops above the fixed
+  /* Lane B (pure addition): on phones, anything scrolled into view or focused stops above the fixed
    bottom bar instead of under it (WCAG 2.4.11 Focus Not Obscured). */
-html:has(.app-phone) {
-  scroll-padding-bottom: calc(
-    var(--target-primary-phone) + var(--rule-width) + var(--space-4) + env(safe-area-inset-bottom)
-  );
-}
+  html:has(.app-phone) {
+    scroll-padding-bottom: calc(
+      var(--target-primary-phone) + var(--rule-width) + var(--space-4) + env(safe-area-inset-bottom)
+    );
+  }
 
-/* A text field with its button on one line (search, add test hole, scan or type an ID). Shared by
+  /* A text field with its button on one line (search, add test hole, scan or type an ID). Shared by
    Inventory, Projects, Receiving log, concrete tabs, the camera scanner and disposal scan. */
-.inline-input {
-  display: flex;
-  gap: var(--space-2);
-  min-width: 0;
-}
+  .inline-input {
+    display: flex;
+    gap: var(--space-2);
+    min-width: 0;
+  }
 
-.inline-input input {
-  flex: 1 1 auto;
-  min-width: 0;
+  .inline-input input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }

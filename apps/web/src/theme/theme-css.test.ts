@@ -2,25 +2,21 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { declarationsFor, themeSources } from './css-tokens.testing';
 import { THEME_STORAGE_KEY } from './theme';
 
 // MISC-09: the stylesheet and index.html side of the light/dark choice. Read from disk: Vitest
 // doesn't load stylesheet contents.
 
-describe('styles.css theme blocks', () => {
-  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
-  const tokens = (block: string) =>
-    [...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => `${m[1]}=${m[2]}`);
+describe('strata-theme.css theme blocks', () => {
+  const css = themeSources.strata;
 
-  it('the OS dark block yields to an explicit light choice, and the explicit dark block matches it', () => {
-    const mediaStart = css.indexOf('@media (prefers-color-scheme: dark)');
-    const media = css.slice(mediaStart, css.indexOf('color-scheme: dark;', mediaStart));
-    expect(media).toContain(":root:not([data-theme='light'])");
-    const explicitStart = css.indexOf(":root[data-theme='dark'] {");
-    expect(explicitStart).toBeGreaterThan(mediaStart);
-    const explicit = css.slice(explicitStart, css.indexOf('color-scheme: dark;', explicitStart));
-    expect(tokens(explicit)).toEqual(tokens(media));
-    expect(tokens(media).length).toBeGreaterThan(20);
+  it('the OS dark blocks yield to an explicit light choice, and the explicit dark blocks match them', () => {
+    const media = declarationsFor(css, ":root:not([data-theme='light'])");
+    const explicit = declarationsFor(css, ":root[data-theme='dark']");
+    expect(media.length).toBeGreaterThan(100);
+    expect(explicit).toEqual(media);
+    expect(css).toContain('@media (prefers-color-scheme: dark)');
   });
 
   it('index.html applies the stored choice before the app loads', () => {

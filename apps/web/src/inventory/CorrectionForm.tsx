@@ -20,7 +20,7 @@ import {
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { listActiveStaff } from '../api/projects';
-import { FormField } from '../components/ui';
+import { FormField } from '../components/app-ui';
 import { useOnline } from '../lib/online';
 import {
   emptySample,

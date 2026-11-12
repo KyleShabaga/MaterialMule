@@ -1,6 +1,6 @@
 import type { Printer } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
-import { EmptyState, ErrorState, FormField, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, FormField, StatusBadge } from '../components/app-ui';
 import { useMe } from '../session/context';
 import { SettingsHead } from '../settings/SettingsHead';
 import { fetchPrinters, savePrinters } from './api';

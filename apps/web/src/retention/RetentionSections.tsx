@@ -4,7 +4,7 @@ import {
   type StorageUnitRetention,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { BandedCard, StatusBadge } from '../components/ui';
+import { BandedCard, StatusBadge } from '../components/app-ui';
 import { formatExpiry } from '../lib/format';
 import { fetchProjectRetention, fetchUnitRetention, postRetention } from './api';
 import { RetentionForm, RetentionHistory } from './RetentionParts';
