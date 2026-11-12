@@ -5,6 +5,10 @@ import * as React from "react"
 import * as Lucide from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers"
+import { CSS } from "@dnd-kit/utilities"
 import * as Accordion from "@/components/ui/accordion"
 import * as Alert from "@/components/ui/alert"
 import * as AlertDialog from "@/components/ui/alert-dialog"
@@ -320,6 +324,250 @@ function PeekSplit({ children, peekSize = "44%", minPeek = "30%", maxPeek = "65%
   )
 }
 
+/*
+ * Sidebar layout: section order, hidden sections and which sections are folded. The app saves
+ * this per person on the server; the canvas keeps it in this browser's localStorage so a board
+ * comes back as it was left. Recent starts folded, everything else open.
+ */
+type SidebarLayout = { order: string[]; hidden: string[]; open: Record<string, boolean> }
+const SECTION_INFO: Record<string, { label: string; icon: string }> = {
+  pinned: { label: "Pinned", icon: "pin" },
+  recent: { label: "Recent", icon: "history" },
+  storage: { label: "Storage units", icon: "package" },
+  soils: { label: "Soils", icon: "flask-conical" },
+  concrete: { label: "Concrete", icon: "cylinder" },
+}
+const LAYOUT_KEY = "strata.sidebar-layout.v1"
+const defaultLayout = (): SidebarLayout => ({
+  order: ["pinned", "recent", "storage", "soils", "concrete"],
+  hidden: [],
+  open: { pinned: true, recent: false, storage: true, soils: true, concrete: true },
+})
+function readLayout(): SidebarLayout {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(LAYOUT_KEY) || "null")
+    if (saved && Array.isArray(saved.order)) {
+      const d = defaultLayout()
+      const order = saved.order.filter((id: string) => id in SECTION_INFO)
+      for (const id of d.order) if (!order.includes(id)) order.push(id)
+      return { order, hidden: Array.isArray(saved.hidden) ? saved.hidden : [], open: { ...d.open, ...saved.open } }
+    }
+  } catch {
+    /* storage blocked: use the default */
+  }
+  return defaultLayout()
+}
+let layout: SidebarLayout | null = null
+const layoutListeners = new Set<() => void>()
+function getLayout(): SidebarLayout {
+  if (!layout) layout = readLayout()
+  return layout
+}
+function setLayout(next: SidebarLayout) {
+  layout = next
+  try {
+    window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(next))
+  } catch {
+    /* not saved */
+  }
+  layoutListeners.forEach((fn) => fn())
+}
+function useSidebarLayout() {
+  return React.useSyncExternalStore((fn) => {
+    layoutListeners.add(fn)
+    return () => {
+      layoutListeners.delete(fn)
+    }
+  }, getLayout)
+}
+
+/**
+ * A sidebar section whose heading folds it, like Notion's. The fold is saved, so the section is
+ * as the person left it. Its place and visibility come from Customize sidebar. Collapsed (icon)
+ * sidebar: work sections show their icons; with `flyout` (Pinned, Recent) the section is one icon
+ * that opens its second child (DropdownMenuItems) as a menu.
+ */
+function NavSection({ id, label, flyout, children }: {
+  id: string; label?: string; flyout?: boolean; children?: React.ReactNode
+}) {
+  const { state, isMobile } = Sidebar.useSidebar()
+  const l = useSidebarLayout()
+  const info = SECTION_INFO[id] || { label: label || id, icon: "folder" }
+  const name = label || info.label
+  if (l.hidden.includes(id)) return null
+  const parts = React.Children.toArray(children).filter((c) => typeof c !== "string" || c.trim() !== "")
+  const style = { order: l.order.indexOf(id) + 1 }
+  if (state === "collapsed" && !isMobile) {
+    return (
+      <S.SidebarGroup style={style}>
+        {flyout ? (
+          <S.SidebarMenu>
+            <NavFlyout icon={info.icon} label={name}>{parts[1]}</NavFlyout>
+          </S.SidebarMenu>
+        ) : (
+          parts[0]
+        )}
+      </S.SidebarGroup>
+    )
+  }
+  const open = l.open[id] !== false
+  const setOpen = (o: boolean) => setLayout({ ...getLayout(), open: { ...getLayout().open, [id]: o } })
+  return (
+    <S.Collapsible open={open} onOpenChange={setOpen} asChild className="group/section">
+      <S.SidebarGroup style={style}>
+        <S.SidebarGroupLabel asChild>
+          <S.CollapsibleTrigger className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full gap-1 text-left">
+            <span>{name}</span>
+            <Icon
+              name="chevron-right"
+              aria-hidden="true"
+              className="size-3.5! opacity-0 transition-[transform,opacity] duration-150 ease-out group-hover/section:opacity-100 group-focus-within/section:opacity-100 group-data-[state=closed]/section:opacity-100 group-data-[state=open]/section:rotate-90 motion-reduce:transition-none"
+            />
+          </S.CollapsibleTrigger>
+        </S.SidebarGroupLabel>
+        <S.CollapsibleContent>{parts[0]}</S.CollapsibleContent>
+      </S.SidebarGroup>
+    </S.Collapsible>
+  )
+}
+
+function SortableSection({ id }: { id: string }) {
+  const l = useSidebarLayout()
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const info = SECTION_INFO[id]
+  const shown = !l.hidden.includes(id)
+  const toggle = () =>
+    setLayout({
+      ...getLayout(),
+      hidden: shown ? [...getLayout().hidden, id] : getLayout().hidden.filter((h) => h !== id),
+    })
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        "bg-background flex h-11 items-center gap-2 rounded-md pr-1",
+        isDragging && "ring-border relative z-10 shadow-md ring-1",
+      )}
+    >
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={"Move " + info.label}
+        className="text-muted-foreground hover:bg-accent focus-visible:ring-ring/50 flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md outline-none focus-visible:ring-[3px] active:cursor-grabbing"
+      >
+        <Icon name="grip-vertical" />
+      </button>
+      <Icon name={info.icon} className={cn("shrink-0", !shown && "text-muted-foreground")} />
+      <span className={cn("flex-1 text-sm", !shown && "text-muted-foreground")}>{info.label}</span>
+      <S.Button
+        variant="ghost"
+        size="icon"
+        className="size-11"
+        aria-pressed={shown}
+        aria-label={"Show " + info.label + " in the sidebar"}
+        onClick={toggle}
+      >
+        <Icon name={shown ? "eye" : "eye-off"} className={cn(!shown && "text-muted-foreground")} />
+      </S.Button>
+    </li>
+  )
+}
+
+type DndId = { id: string | number }
+const sectionLabel = (a: DndId) => SECTION_INFO[String(a.id)]?.label || String(a.id)
+
+/**
+ * "Customize sidebar" at the bottom of the sidebar and its dialog: drag sections into a new order
+ * (or focus the grip, press Space and use the arrow keys) and show or hide them. Changes apply at
+ * once and are saved for the person. Today, Projects and Inbox stay at the top.
+ */
+function SidebarCustomize({ defaultOpen }: { defaultOpen?: boolean }) {
+  const [open, setOpen] = React.useState(!!defaultOpen)
+  const l = useSidebarLayout()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const order = getLayout().order
+    setLayout({
+      ...getLayout(),
+      order: arrayMove(order, order.indexOf(String(active.id)), order.indexOf(String(over.id))),
+    })
+  }
+  const announcements = {
+    onDragStart: ({ active }: { active: DndId }) => "Picked up " + sectionLabel(active) + ".",
+    onDragOver: ({ active, over }: { active: DndId; over: DndId | null }) =>
+      over
+        ? sectionLabel(active) + " is now at place " + (getLayout().order.indexOf(String(over.id)) + 1) + " of " + getLayout().order.length + "."
+        : "",
+    onDragEnd: ({ active }: { active: DndId }) => "Dropped " + sectionLabel(active) + ".",
+    onDragCancel: ({ active }: { active: DndId }) => "Moving " + sectionLabel(active) + " was cancelled.",
+  }
+  return (
+    <>
+      <S.SidebarMenu>
+        <S.SidebarMenuItem>
+          <S.SidebarMenuButton
+            tooltip="Customize sidebar"
+            aria-haspopup="dialog"
+            onClick={() => setOpen(true)}
+            className="text-muted-foreground"
+          >
+            <Icon name="sliders-horizontal" />
+            <span>Customize sidebar</span>
+          </S.SidebarMenuButton>
+        </S.SidebarMenuItem>
+      </S.SidebarMenu>
+      <S.Dialog open={open} onOpenChange={setOpen}>
+        <S.DialogContent className="gap-5 sm:max-w-md">
+          <S.DialogHeader>
+            <S.DialogTitle>Customize sidebar</S.DialogTitle>
+            <S.DialogDescription>
+              Drag sections into the order you want and hide the ones you don&apos;t use. Today, Projects and Inbox stay at the top.
+            </S.DialogDescription>
+          </S.DialogHeader>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+            onDragEnd={onDragEnd}
+            accessibility={{
+              announcements,
+              screenReaderInstructions: {
+                draggable: "To move a section, press Space. Use the up and down arrow keys to move it, Space to drop it, or Escape to cancel.",
+              },
+            }}
+          >
+            <SortableContext items={l.order} strategy={verticalListSortingStrategy}>
+              <ul aria-label="Sidebar sections" className="-mx-1 flex flex-col">
+                {l.order.map((id) => (
+                  <SortableSection key={id} id={id} />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
+          <S.DialogFooter className="sm:justify-between">
+            <S.Button variant="ghost" onClick={() => setLayout(defaultLayout())}>
+              <Icon name="rotate-ccw" />
+              Reset to default
+            </S.Button>
+            <S.Button onClick={() => setOpen(false)}>Done</S.Button>
+          </S.DialogFooter>
+        </S.DialogContent>
+      </S.Dialog>
+    </>
+  )
+}
+
+
+Strata.NavSection = NavSection
+Strata.SidebarCustomize = SidebarCustomize
 Strata.PeekSplit = PeekSplit
 Strata.NavCollapsible = NavCollapsible
 Strata.NavFlyout = NavFlyout

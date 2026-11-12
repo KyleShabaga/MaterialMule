@@ -476,33 +476,37 @@ Navigation labels are the seven destinations above.
 
 Kyle's standing rule: choose the recommendation and note it. Each row can be overruled on its own.
 
-| What came up             | Choice                                                                                                                            | Why                                                                                | Alternative                                |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------ |
-| Where the new spec lives | Repo-root `DESIGN.md` (moved from `docs/strata/` 2026-11-11 so Impeccable reads it); Field Ledger's `docs/redesign/` is untouched | The shipped app and its code comments still point at Field Ledger                  | Replace `docs/redesign/design.md` in place |
-| Name                     | Strata                                                                                                                            | Geotechnical layers; records shown by their stage                                  | Any other name                             |
-| Theme variable names     | shadcn's names, plus `link` and `stage-*`                                                                                         | Kyle chose shadcn; its components read these names directly                        | Strata's own names with a mapping layer    |
-| Radix steps used         | 9 primary, 3 accent, 12 accent text, 11 links; gray 2/3/6/9/11/12                                                                 | The roles Radix documents for each step                                            | Other steps                                |
-| Stage colour scales      | Radix amber, grass, cyan, orange, red and the custom gray                                                                         | Same system as the palette; cyan keeps the lab apart from the indigo action colour | Indigo for lab (clashes with primary)      |
-| Light tag text           | Step 12 for amber, cyan and orange; step 11 for grass, red and gray                                                               | Step 11 on step 3 fails 4.5:1 for the first three                                  | Darker tag fills                           |
-| Input border             | Gray 9, not shadcn's lighter default                                                                                              | Inputs need 3:1 against the card (WCAG 1.4.11)                                     | Gray 7 (fails 3:1)                         |
-| Destructive              | Radix red 11 in both themes                                                                                                       | White text on red 9 is only 3.9:1                                                  | Red 9                                      |
-| Buttons                  | shadcn's 8 px radius; tags, avatars and search stay fully round                                                                   | Matches shadcn; replaces the earlier all-pill buttons                              | Pill buttons via a variant                 |
-| Inputs                   | 8 px radius (shadcn `rounded-md`)                                                                                                 | Matches shadcn                                                                     | 10 px                                      |
-| Sizes                    | 44 px buttons and inputs (48 on phone), not shadcn's 36 px                                                                        | The app's 44 px touch-target rule                                                  | shadcn defaults                            |
-| Fonts                    | Atkinson Hyperlegible Next + Mono, not shadcn's Geist                                                                             | Distinct 0/O and 1/l/I in IDs; legible on phones; OFL and bundled                  | Geist + Geist Mono                         |
-| Caps labels              | Dropped; sentence case labels                                                                                                     | Easier to read, and a clear break from Field Ledger                                | Keep mono caps labels                      |
-| Rail icons               | Icons beside labels, collapsible `Sidebar`                                                                                        | Lets the rail collapse on tablets; matches the phone bar                           | Text-only rail (Field Ledger decision)     |
-| Shadows                  | Floating layers only                                                                                                              | Depth tells you what sits above the page; cards stay flat                          | No shadows                                 |
-| Progress display         | "n of m" with a `Progress` bar; shelf capacity keeps cells                                                                        | Cells grew long on big programs; a shelf's places are real, countable things       | Keep counted cells everywhere              |
-| Detail sheet             | Rows open a `Sheet` on desktop with `?open=` in the URL                                                                           | Keeps the list and filters while checking records                                  | Always navigate to the full page           |
-| Scan from anywhere       | Unfocused wedge scans open the record                                                                                             | The scanner is the fastest input in the storage room                               | Scans only in scan fields                  |
-| Undo vs confirm          | Undo toasts for reversible actions; `AlertDialog` for irreversible ones                                                           | Fewer interruptions without hiding anything permanent                              | Confirm everything                         |
-| Logo                     | White donkey on an indigo tile                                                                                                    | Indigo is the brand action colour; paths unchanged as Kyle decided                 | Ink donkey on orange (Field Ledger)        |
-| Icon set                 | `lucide-react`                                                                                                                    | shadcn's default; outline style; ISC; per-icon imports                             | Phosphor                                   |
-| `ui.tsx` clash           | Rename to `components/app-ui.tsx` in wave 0                                                                                       | shadcn's CLI writes to `components/ui/`                                            | Point the shadcn alias at another folder   |
-| Today storage room       | One fill bar per place with the count written; cells stay for a shelf                                                             | Today summarises places, not shelf slots; the shelf page keeps countable cells     | Cells on Today too                         |
-| Needs you actions        | The first card's action is the primary, the others outline                                                                        | One primary per screen, and it matches the greeting's choice                       | All outline                                |
-| Canvas tooling           | Today boards here, Sign in boards by a parallel agent, one canvas                                                                 | Kyle allowed multiple agents; separate files never overlap                         | One session draws everything               |
+| What came up              | Choice                                                                                                                            | Why                                                                                  | Alternative                                       |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Where the new spec lives  | Repo-root `DESIGN.md` (moved from `docs/strata/` 2026-11-11 so Impeccable reads it); Field Ledger's `docs/redesign/` is untouched | The shipped app and its code comments still point at Field Ledger                    | Replace `docs/redesign/design.md` in place        |
+| Name                      | Strata                                                                                                                            | Geotechnical layers; records shown by their stage                                    | Any other name                                    |
+| Theme variable names      | shadcn's names, plus `link` and `stage-*`                                                                                         | Kyle chose shadcn; its components read these names directly                          | Strata's own names with a mapping layer           |
+| Radix steps used          | 9 primary, 3 accent, 12 accent text, 11 links; gray 2/3/6/9/11/12                                                                 | The roles Radix documents for each step                                              | Other steps                                       |
+| Stage colour scales       | Radix amber, grass, cyan, orange, red and the custom gray                                                                         | Same system as the palette; cyan keeps the lab apart from the indigo action colour   | Indigo for lab (clashes with primary)             |
+| Light tag text            | Step 12 for amber, cyan and orange; step 11 for grass, red and gray                                                               | Step 11 on step 3 fails 4.5:1 for the first three                                    | Darker tag fills                                  |
+| Input border              | Gray 9, not shadcn's lighter default                                                                                              | Inputs need 3:1 against the card (WCAG 1.4.11)                                       | Gray 7 (fails 3:1)                                |
+| Destructive               | Radix red 11 in both themes                                                                                                       | White text on red 9 is only 3.9:1                                                    | Red 9                                             |
+| Buttons                   | shadcn's 8 px radius; tags, avatars and search stay fully round                                                                   | Matches shadcn; replaces the earlier all-pill buttons                                | Pill buttons via a variant                        |
+| Inputs                    | 8 px radius (shadcn `rounded-md`)                                                                                                 | Matches shadcn                                                                       | 10 px                                             |
+| Sizes                     | 44 px buttons and inputs (48 on phone), not shadcn's 36 px                                                                        | The app's 44 px touch-target rule                                                    | shadcn defaults                                   |
+| Fonts                     | Atkinson Hyperlegible Next + Mono, not shadcn's Geist                                                                             | Distinct 0/O and 1/l/I in IDs; legible on phones; OFL and bundled                    | Geist + Geist Mono                                |
+| Caps labels               | Dropped; sentence case labels                                                                                                     | Easier to read, and a clear break from Field Ledger                                  | Keep mono caps labels                             |
+| Rail icons                | Icons beside labels, collapsible `Sidebar`                                                                                        | Lets the rail collapse on tablets; matches the phone bar                             | Text-only rail (Field Ledger decision)            |
+| Shadows                   | Floating layers only                                                                                                              | Depth tells you what sits above the page; cards stay flat                            | No shadows                                        |
+| Progress display          | "n of m" with a `Progress` bar; shelf capacity keeps cells                                                                        | Cells grew long on big programs; a shelf's places are real, countable things         | Keep counted cells everywhere                     |
+| Detail sheet              | Rows open a `Sheet` on desktop with `?open=` in the URL                                                                           | Keeps the list and filters while checking records                                    | Always navigate to the full page                  |
+| Scan from anywhere        | Unfocused wedge scans open the record                                                                                             | The scanner is the fastest input in the storage room                                 | Scans only in scan fields                         |
+| Undo vs confirm           | Undo toasts for reversible actions; `AlertDialog` for irreversible ones                                                           | Fewer interruptions without hiding anything permanent                                | Confirm everything                                |
+| Logo                      | White donkey on an indigo tile                                                                                                    | Indigo is the brand action colour; paths unchanged as Kyle decided                   | Ink donkey on orange (Field Ledger)               |
+| Icon set                  | `lucide-react`                                                                                                                    | shadcn's default; outline style; ISC; per-icon imports                               | Phosphor                                          |
+| `ui.tsx` clash            | Rename to `components/app-ui.tsx` in wave 0                                                                                       | shadcn's CLI writes to `components/ui/`                                              | Point the shadcn alias at another folder          |
+| Today storage room        | One fill bar per place with the count written; cells stay for a shelf                                                             | Today summarises places, not shelf slots; the shelf page keeps countable cells       | Cells on Today too                                |
+| Needs you actions         | The first card's action is the primary, the others outline                                                                        | One primary per screen, and it matches the greeting's choice                         | All outline                                       |
+| Canvas tooling            | Today boards here, Sign in boards by a parallel agent, one canvas                                                                 | Kyle allowed multiple agents; separate files never overlap                           | One session draws everything                      |
+| What customizing covers   | Reorder and hide the five sections; Today, Projects and Inbox stay fixed at the top                                               | The three are how every person starts work; Inbox is the one place for requests      | Reorder every row, or custom sections like Notion |
+| Where the layout is saved | Per person on the server (folds, order, hidden), not per browser                                                                  | Kyle asked for it to be as they left it when they return; people share LAB computers | localStorage per browser                          |
+| Drag and drop library     | dnd kit (sortable, keyboard sensor, announcements)                                                                                | Emil Kowalski's list; accessible keyboard reordering                                 | Hand-rolled HTML drag and drop                    |
+| Recent                    | The last 8 records opened, newest first; starts folded                                                                            | Kyle: Recent closed by default                                                       | Pages as well as records                          |
 
 ## Screens
 
@@ -552,23 +556,42 @@ shell, fix all five issues, leave the top bar as it is.
   - **Actions:** Receive storage units, Move storage units, Print labels, New project.
   - **Go to:** pages.
   - **No match:** "Nothing matches. Check the ID, or scan the label again."
-  
+
   Quick actions' "Scan" (top bar) should open the same menu; the mock doesn't wire them
   together yet.
-- **Pages, never folded** (the old collapsible "Lab" group is gone): Today, Projects, Inbox;
-  **Storage units:** Receive (`arrow-down-to-line`), Inventory (`package`), Retention
-  (`hourglass`); **Soils:** Lab programs (`flask-conical`), Workboard (`square-kanban`; today's
-  Lab Testing Worklist, renamed); **Concrete:** Breaks (`hammer`), Receiving (`truck`), Specimens
-  (`cylinder`), Holds (`octagon-pause`), Review (`clipboard-check`). Kyle split the earlier
-  "Testing" group into Soils and Concrete (2026-11-11), so Concrete's pages are rows of their own,
-  not a sub-menu. Section labels are fixed `SidebarGroupLabel`s at 13 px. Retention (Due and
-  overdue, Disposal scan) unfolds its sub-pages in place, closed by default.
+
+- **Order, top to bottom** (Kyle, 2026-11-11: "move pinned and recent to the top"): Today,
+  Projects, Inbox; then **Pinned** and **Recent**; then the work sections **Storage units:**
+  Receive (`arrow-down-to-line`), Inventory (`package`), Retention (`hourglass`); **Soils:** Lab
+  programs (`flask-conical`), Workboard (`square-kanban`; today's Lab Testing Worklist, renamed);
+  **Concrete:** Breaks (`hammer`), Receiving (`truck`), Specimens (`cylinder`), Holds
+  (`octagon-pause`), Review (`clipboard-check`). Kyle split the earlier "Testing" group into Soils
+  and Concrete (2026-11-11). Retention (Due and overdue, Disposal scan) unfolds its sub-pages in
+  place, closed by default. **Customize sidebar** (`sliders-horizontal`, muted) is the last row of
+  the scrolling list, above the footer.
+- **Sections fold, like Notion's** (`Strata.NavSection`): clicking a section heading (13 px) folds
+  or unfolds it; a 14 px chevron shows on hover or focus and always while folded. **Recent starts
+  folded**; everything else starts open. Each fold is **saved for the person** (with the layout
+  below), so the sidebar comes back exactly as they left it on any computer they sign in to.
+  Today, Projects and Inbox have no heading and never fold.
+- **Recent:** the last records the person opened, newest first (storage units, sets, projects),
+  in the Pinned row style. The app keeps the last 8.
+- **Customize sidebar** (dialog, `Strata.SidebarCustomize`; board "Shell — Customize sidebar"):
+  the five sections in their current order, each a 44 px row with a grip (`grip-vertical`), its
+  icon and name, and an eye toggle ("Show Pinned in the sidebar", `aria-pressed`). Drag a grip
+  to reorder (dnd kit, vertical only), or focus it, press Space, use the arrow keys and press
+  Space to drop (Escape cancels; every step is announced). Changes apply at once; "Reset to
+  default" puts back the order above, all shown, Recent folded; "Done" closes. Today, Projects and
+  Inbox always stay at the top and can't be hidden. A hidden section's pages stay reachable from
+  search (Ctrl K). On a LAB station the sidebar follows the picked person's layout, because it is
+  saved per person.
 - **Inbox** (`inbox`; was My requests, renamed by Kyle 2026-11-11) is the one place for every
   notification and every action request. Its row shows the unread count in a small `primary`
   badge. The bell's hover card is a preview of the same items (rows link to their records, unread
   rows say "Unread" to screen readers), and its "Open Inbox" and the bell itself go here. The Inbox
   page is shaped next.
-- **Pinned** records: stage-tinted square, mono ID, short name.
+- **Pinned** records: stage-tinted square, mono ID (never wraps), short name. Pinning is done from
+  a record's page.
 - **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
 - **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): above the
   account a "Recording as Pat Example" control (no end time: D38 is deferred) that opens a person picker (Who is
@@ -588,8 +611,8 @@ shell, fix all five issues, leave the top bar as it is.
   (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
   2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
   content" link comes first.
-- **Collapsed** (Ctrl B): 60 px wide, every item a 44 px icon with a tooltip. Retention
-  and Pinned open their pages in a menu to the right (`Strata.NavCollapsible`, `Strata.NavFlyout`
+- **Collapsed** (Ctrl B): 60 px wide, every item a 44 px icon with a tooltip. Retention,
+  Pinned and Recent open their pages in a menu to the right (`Strata.NavCollapsible`, `Strata.NavFlyout`
   in the bundle), so nothing is unreachable.
 - **Browser surfaces:** `color-scheme` follows the theme and scrollbars use `input`, thin in the
   sidebar.
@@ -659,6 +682,7 @@ customisable per computer, and no greeting (the sidebar shows who is recording).
   - Labels to print.
 
   A zero shows a muted 0 and "Nothing waiting." (the row stays). Counts over 99 show "99+".
+
 - **Customize this station** (outline button at the list's top right) opens a popover: "Shown on
   this station", one switch per row with a drag handle for order, "Saved on this computer only."
   Hidden rows leave a small note ("2 rows are hidden on this station.").
@@ -700,6 +724,7 @@ shortcuts; Needs you; Last 24 hours (no Storage room); drawn for a project lead 
     - a lab request waiting on an answer.
 
     More than six shows the first six and "Show all 11".
+
   - **Last 24 hours** (right): this person's projects only. Each line has a time in mono, a stage
     dot and a sentence; then "All activity".
 - **States:** a clear day (a calm panel: "Nothing needs you right now." with what will appear
@@ -724,6 +749,7 @@ chose the content from PRODUCT.md's description of the role, and Kyle approved i
   - storage units approved for disposal (Start disposal).
 
   A longer list adds draft receipts older than 7 days and location checks that disagree.
+
 - **Last 24 hours** covers the whole lab, not one person's projects.
 - **Boards:** busy, long list ("Show all 9"), clear day, dark. `TodayManagerContent.dc.html`
   (`variant` tweak); in the shell, `SidebarLive`'s `today` tweak takes `manager-*` values and the
@@ -733,6 +759,7 @@ chose the content from PRODUCT.md's description of the role, and Kyle approved i
 
 Shaped with Impeccable on 2026-11-11. Inbox is the one place for every action request and
 notification. Kyle chose:
+
 - list and detail;
 - one stream that tells requests and updates apart at a glance;
 - tabs at the top;
@@ -809,6 +836,7 @@ Claude chose the content from PRODUCT.md, and Kyle approved it ("Looks right", 2
   - a label that didn't print (Print again).
 
   A longer list adds a move waiting to be confirmed and tests waiting on a sample you received.
+
 - **Last 24 hours** is the person's own work, in the second person ("You received 2 buckets…").
 - **Boards:** busy, long list ("Show all 8"), clear day, dark. `TodayTechContent.dc.html`; in the
   shell, `tech-*` values, and the account row reads "Pat Example · Technician".

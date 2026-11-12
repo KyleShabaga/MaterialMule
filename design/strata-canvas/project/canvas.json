@@ -35,7 +35,7 @@
       "h": 800,
       "is_interactive": true,
       "page": "shell",
-      "title": "Shell — real shadcn/ui (Dark and Station tweaks)",
+      "title": "Shell — real shadcn/ui (Dark, Station and Customizing tweaks)",
       "w": 1280,
       "x": 0,
       "y": 0
@@ -487,6 +487,15 @@
       "title": "Inbox — Table view, a request open in the drawer",
       "page": "inbox",
       "is_interactive": true
+    },
+    "SidebarCustomizeOpen.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "shell",
+      "title": "Shell — Customize sidebar (drag to reorder, show or hide sections)",
+      "w": 1280,
+      "x": 3200,
+      "y": 0
     }
   },
   "createdOnFiles": {
@@ -505,7 +514,8 @@
     "about",
     "settingsNotes",
     "rowSignIn",
-    "signinNotes"
+    "signinNotes",
+    "sidebarLayout"
   ],
   "notes": {
     "about": {
@@ -651,6 +661,14 @@
       "fill": "yellow",
       "page": "inbox",
       "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. The list fills the page; opening an item slides a resizable drawer in from the right (Notion's side peek: Close, Open as full page, Previous, Next). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream, Grouped or Table (compact), here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: each person chooses, in Settings > Preferences > Privacy, whether their Inbox opens on shared LAB computers (off by default). Off: the station shows that it stays private, and work is still recorded under their name."
+    },
+    "sidebarLayout": {
+      "fill": "yellow",
+      "page": "shell",
+      "w": 380,
+      "x": 3200,
+      "y": 840,
+      "text": "Sidebar layout (2026-11-11): Pinned and Recent sit right under Today, Projects and Inbox. Every section heading folds its section; Recent starts folded. Folds, order and hidden sections are saved per person, so the sidebar comes back as they left it (the canvas keeps them in this browser; Reset to default in Customize sidebar). Drag a grip, or focus it and press Space and the arrow keys."
     }
   },
   "order": [
@@ -658,6 +676,7 @@
     "MainDark.dc.html",
     "SidebarLive.dc.html",
     "SidebarStation.dc.html",
+    "SidebarCustomizeOpen.dc.html",
     "SidebarVariants.dc.html",
     "SidebarNav.dc.html",
     "SettingsModal.dc.html",

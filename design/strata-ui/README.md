@@ -32,6 +32,13 @@ the redesign's wave 0. Not an npm workspace; excluded from ESLint and Prettier.
 - Libraries that find their parts as direct DOM children break under the same wrappers.
   `Resizable` (react-resizable-panels) is one: a board can't nest `ResizablePanel`s itself, so use
   `Strata.PeekSplit` (its first child is the list, its second the drawer).
+- Sidebar sections are `Strata.NavSection` (`id` = pinned, recent, storage, soils or concrete;
+  its first child is the section's menu, and with `flyout` its second child holds the
+  `DropdownMenuItem`s for the collapsed sidebar). Their folds, order and hidden state live in one
+  small store saved to localStorage (`strata.sidebar-layout.v1`), shared by every board in the
+  browser; "Reset to default" in `Strata.SidebarCustomize` clears it. Sections are ordered with CSS
+  `order`, which works through the `display: contents` wrappers. The app saves the same layout
+  per person on the server instead.
 - A `style` attribute may hold only one `{{…}}` hole; with two, the runtime drops the style.
 - Wrap each board in `Strata.Theme` (dark mode, and the TooltipProvider that Tooltip needs).
 - New Tailwind classes in a board only exist after a rebuild (`npm run build`).
