@@ -66,10 +66,10 @@ body{margin:0}
 <h3 id="drawer-where" class="text-sm font-semibold">Where it is</h3>
 <sc-if value="{{onShelf}}" hint-placeholder-val="{{ true }}">
 <dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
-<dt class="text-muted-foreground">Place</dt><dd><x-import component-from-global-scope="Strata.Button" variant="link" class-name="text-link h-auto p-0 has-[>svg]:px-0">Warehouse A · Bay 2 · Shelf 3</x-import></dd>
-<dt class="text-muted-foreground">Code</dt><dd class="font-mono whitespace-nowrap">WH-A-B2-S3</dd>
+<dt class="text-muted-foreground">Place</dt><dd><x-import component-from-global-scope="Strata.Button" variant="link" class-name="text-link h-auto p-0 has-[>svg]:px-0">{{placeName}}</x-import></dd>
+<dt class="text-muted-foreground">Code</dt><dd class="font-mono whitespace-nowrap">{{placeCode}}</dd>
 <dt class="text-muted-foreground">Storage</dt><dd>{{storageTerm}}</dd>
-<dt class="text-muted-foreground">Here since</dt><dd><span class="font-mono whitespace-nowrap">2026-11-03</span> · from the lab</dd>
+<dt class="text-muted-foreground">Here since</dt><dd><span class="font-mono whitespace-nowrap">{{hereDate}}</span> · {{hereText}}</dd>
 </dl>
 </sc-if>
 <sc-if value="{{inlab}}" hint-placeholder-val="{{ false }}">
@@ -132,6 +132,10 @@ class Component extends DCLogic {
       conflict: v === 'conflict',
       inlab: v === 'inlab',
       storageTerm: v === 'due' ? 'Long-term' : 'Short-term',
+      placeName: v === 'due' ? 'Warehouse D1 · Bay 1 · Shelf 2' : 'Warehouse A · Bay 2 · Shelf 3',
+      placeCode: v === 'due' ? 'WH-D1-B1-S2' : 'WH-A-B2-S3',
+      hereDate: v === 'due' ? '2026-11-07' : '2026-11-03',
+      hereText: v === 'due' ? 'moved to long-term storage' : 'from the lab',
       due: v === 'due',
       onShelf: v !== 'inlab',
       retainPlain: v !== 'due'

@@ -1017,6 +1017,38 @@ Round 1 is drawn from its brief (below). The page holds 23 screen boards and 4 c
     PDF isn't recorded as a print.
   - Below 896 px of content the preview drops under the form.
 
+### Receiving (page: Receiving), round 2, designed 2026-11-12
+
+Drawn in its own session from the round 2 brief: 34 boards and 6 components (`R2EntryContent`,
+`R2DoneContent`, `R2LogContent`, `R2ReceiptContent`, `R2ReceiptDrawerContent` and the
+`Round2Content` router).
+
+- **Receive samples:** one page with a row per storage unit. A unit with more than one test hole
+  gets "Also holds" lines, one SAMPLE#/DEPTH summary per hole. Bulk samples and location
+  references are a row option.
+  - Enter on the last row adds a unit. Shift+Enter copies the previous one.
+  - Received by is read-only. On a station it's the picked person.
+  - Add project is a Dialog with today's nomination wording.
+  - Errors are counted in the sticky bar ("2 things to fix before confirming…"), and each row
+    shows its own.
+  - Confirm is an AlertDialog. It lists each unit with the prefix it will get ("New BKT- ID"),
+    never a guessed number.
+- **Done page:** the issued IDs large in mono, with each label "Sent to printer" (never "Printed").
+  The steps are Stick each label, then Put away (primary). If a print fails, Print again becomes
+  the primary.
+  - The preference "After confirming a receipt" is per person.
+  - Go straight to Put away is drawn as a stand-in for round 3's Move screen. A failed print still
+    stops on the done page.
+- **Receiving log:** receipts have no number, so the received date and time is the row's link.
+  - Confirmed and Corrected tags share the storage stage.
+  - Drafts on this computer are Items with Continue and Delete draft.
+- **Receipt page:** follows the record pattern. Units and the original record sit on the left,
+  corrections and history on the right. A corrected value is highlighted in the original record.
+- **Open for Kyle** (on Notion as decisions):
+  - may anyone change Received by?
+  - who may delete a draft on a shared computer?
+  - should bulk samples and location references stay as row options?
+
 ## Briefs still to design
 
 Shaped one round at a time ([Strata screens and shaping plan](https://app.notion.com/p/4161bd4b6bde810f8f74f5f4f81607ff)

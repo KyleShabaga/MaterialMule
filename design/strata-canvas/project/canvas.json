@@ -748,6 +748,312 @@
    "title": "Label printing content component (variant tweak)",
    "page": "unit",
    "is_interactive": true
+  },
+  "R2Entry.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — draft, 4 units",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryStation.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — LAB station, recording as Pat Example",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryNew.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — new, nothing entered",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryErrors.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — errors in the bar and on rows",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryConfirm.dc.html": {
+   "x": 5440,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — Confirm (AlertDialog)",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryNewProject.dc.html": {
+   "x": 0,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — Add project with lead nomination",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryBulk.dc.html": {
+   "x": 1360,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — bulk bucket, choosing its bulk sample",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryLoadFail.dc.html": {
+   "x": 2720,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — projects and holes couldn’t load",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryExpired.dc.html": {
+   "x": 4080,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — session expired, draft saved",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryDark.dc.html": {
+   "x": 5440,
+   "y": 920,
+   "w": 1280,
+   "h": 800,
+   "title": "Receive samples — dark",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Entry1024.dc.html": {
+   "x": 0,
+   "y": 1840,
+   "w": 1024,
+   "h": 768,
+   "title": "Receive samples — 1024 px (rows wrap to two lines)",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Done.dc.html": {
+   "x": 0,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Done — 4 units received, labels sending",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2DoneFailed.dc.html": {
+   "x": 1360,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Done — IDs issued, labels didn’t print",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2PutAway.dc.html": {
+   "x": 2720,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Straight to Put away (preference on)",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2DoneDark.dc.html": {
+   "x": 4080,
+   "y": 3060,
+   "w": 1280,
+   "h": 800,
+   "title": "Done — dark",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Done1024.dc.html": {
+   "x": 5440,
+   "y": 3060,
+   "w": 1024,
+   "h": 768,
+   "title": "Done — 1024 px",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Log.dc.html": {
+   "x": 0,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving log — drafts on this computer and receipts",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2LogPeek.dc.html": {
+   "x": 1360,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving log — receipt open in the drawer",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2LogLoading.dc.html": {
+   "x": 2720,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving log — loading drafts on this computer",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2LogEmpty.dc.html": {
+   "x": 4080,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving log — no receipts yet",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2LogNoMatch.dc.html": {
+   "x": 5440,
+   "y": 4280,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving log — no matches for the filters",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2LogDark.dc.html": {
+   "x": 0,
+   "y": 5200,
+   "w": 1280,
+   "h": 800,
+   "title": "Receiving log — dark, drawer open",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Log1024.dc.html": {
+   "x": 1360,
+   "y": 5200,
+   "w": 1024,
+   "h": 768,
+   "title": "Receiving log — 1024 px",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Receipt.dc.html": {
+   "x": 0,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Receipt — corrected, one unit disposed",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2ReceiptDraft.dc.html": {
+   "x": 1360,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Receipt — draft, not confirmed yet",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2ReceiptDark.dc.html": {
+   "x": 2720,
+   "y": 6420,
+   "w": 1280,
+   "h": 800,
+   "title": "Receipt — dark",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Receipt1024.dc.html": {
+   "x": 4080,
+   "y": 6420,
+   "w": 1024,
+   "h": 768,
+   "title": "Receipt — 1024 px (history below)",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "Round2Content.dc.html": {
+   "x": 0,
+   "y": 7640,
+   "w": 1024,
+   "h": 744,
+   "title": "Round2Content — router (variant tweak)",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2EntryContent.dc.html": {
+   "x": 1360,
+   "y": 7640,
+   "w": 1024,
+   "h": 744,
+   "title": "R2EntryContent — component",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2DoneContent.dc.html": {
+   "x": 2720,
+   "y": 7640,
+   "w": 1024,
+   "h": 744,
+   "title": "R2DoneContent — component",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2LogContent.dc.html": {
+   "x": 4080,
+   "y": 7640,
+   "w": 1024,
+   "h": 744,
+   "title": "R2LogContent — component",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2ReceiptContent.dc.html": {
+   "x": 5440,
+   "y": 7640,
+   "w": 1024,
+   "h": 744,
+   "title": "R2ReceiptContent — component",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2ReceiptDrawerContent.dc.html": {
+   "x": 0,
+   "y": 8560,
+   "w": 560,
+   "h": 744,
+   "title": "Receipt drawer — component",
+   "page": "round2",
+   "is_interactive": true
+  },
+  "R2Preference.dc.html": {
+   "x": 1360,
+   "y": 8560,
+   "w": 640,
+   "h": 400,
+   "title": "Settings › Preferences › Receiving",
+   "page": "round2",
+   "is_interactive": true
   }
  },
  "createdOnFiles": {
@@ -772,7 +1078,13 @@
   "rowUnit",
   "rowShelf",
   "rowLabels",
-  "unitNotes"
+  "unitNotes",
+  "r2Title0",
+  "r2Title1",
+  "r2Title2",
+  "r2Title3",
+  "r2Title4",
+  "r2Notes"
  ],
  "notes": {
   "about": {
@@ -966,6 +1278,54 @@
    "fill": "yellow",
    "page": "unit",
    "text": "Round 1, the storage unit record (shaped 2026-11-12, DESIGN.md › Briefs still to design › Round 1). Kyle chose: History beside the facts, Inbox's resizable drawer when a unit opens from a list, and a main action that changes with the stage (Stored: Move; In lab: Move back to storage; Retention due: Decide; Disposed: none). Print label, Correct and Copy link sit in More. This page sets the record pattern that sets, lab programs and projects reuse. All data is fictional (DEMO-2601, TH26-01)."
+  },
+  "r2Title0": {
+   "x": 0,
+   "y": -300,
+   "text": "Receive samples",
+   "kind": "title1",
+   "maxW": 6720,
+   "page": "round2"
+  },
+  "r2Title1": {
+   "x": 0,
+   "y": 2760,
+   "text": "Done page and Put away",
+   "kind": "title1",
+   "maxW": 6720,
+   "page": "round2"
+  },
+  "r2Title2": {
+   "x": 0,
+   "y": 3980,
+   "text": "Receiving log",
+   "kind": "title1",
+   "maxW": 6720,
+   "page": "round2"
+  },
+  "r2Title3": {
+   "x": 0,
+   "y": 6120,
+   "text": "Receipt page",
+   "kind": "title1",
+   "maxW": 6720,
+   "page": "round2"
+  },
+  "r2Title4": {
+   "x": 0,
+   "y": 7340,
+   "text": "Round 2 components",
+   "kind": "title1",
+   "maxW": 6720,
+   "page": "round2"
+  },
+  "r2Notes": {
+   "x": 6880,
+   "y": 0,
+   "w": 420,
+   "fill": "yellow",
+   "page": "round2",
+   "text": "Round 2: receiving.\n\nReceive samples (one page, a row per storage unit, sticky Confirm and print labels bar), the done page with Put away, the preference 'After confirming a receipt' (Settings › Preferences › Receiving), the Receiving log with Drafts on this computer and a receipt drawer, and the receipt page in round 1's record pattern.\n\nStates: new, errors, Confirm dialog, Add project, a bulk bucket choosing its bulk sample, projects and holes couldn't load, session expired (LAB station), labels didn't print, straight to Put away, log loading drafts, empty, no matches, corrected receipt with a disposed unit, draft receipt. Each family has a dark and a 1024 px board.\n\nIDs appear only after confirm; no individual samples; fictional data only. The Put away board is a stand-in for round 3's Move screen."
   }
  },
  "order": [
@@ -1051,7 +1411,41 @@
   "UnitContent.dc.html",
   "UnitDrawerContent.dc.html",
   "ShelfContent.dc.html",
-  "LabelPrintContent.dc.html"
+  "LabelPrintContent.dc.html",
+  "R2Entry.dc.html",
+  "R2EntryStation.dc.html",
+  "R2EntryNew.dc.html",
+  "R2EntryErrors.dc.html",
+  "R2EntryConfirm.dc.html",
+  "R2EntryNewProject.dc.html",
+  "R2EntryBulk.dc.html",
+  "R2EntryLoadFail.dc.html",
+  "R2EntryExpired.dc.html",
+  "R2EntryDark.dc.html",
+  "R2Entry1024.dc.html",
+  "R2Done.dc.html",
+  "R2DoneFailed.dc.html",
+  "R2PutAway.dc.html",
+  "R2DoneDark.dc.html",
+  "R2Done1024.dc.html",
+  "R2Log.dc.html",
+  "R2LogPeek.dc.html",
+  "R2LogLoading.dc.html",
+  "R2LogEmpty.dc.html",
+  "R2LogNoMatch.dc.html",
+  "R2LogDark.dc.html",
+  "R2Log1024.dc.html",
+  "R2Receipt.dc.html",
+  "R2ReceiptDraft.dc.html",
+  "R2ReceiptDark.dc.html",
+  "R2Receipt1024.dc.html",
+  "Round2Content.dc.html",
+  "R2EntryContent.dc.html",
+  "R2DoneContent.dc.html",
+  "R2LogContent.dc.html",
+  "R2ReceiptContent.dc.html",
+  "R2ReceiptDrawerContent.dc.html",
+  "R2Preference.dc.html"
  ],
  "pages": [
   {
@@ -1077,6 +1471,10 @@
   {
    "id": "unit",
    "name": "Storage unit"
+  },
+  {
+   "id": "round2",
+   "name": "Receiving"
   }
  ],
  "title": "Material Mule — Strata"

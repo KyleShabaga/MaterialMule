@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Round 2 — receiving</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* The canvas mounts this board in a block host; let the host fill its flex parent so this board can scroll inside it. */
+.sc-host:has(> .r2-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- Round 2 router for SidebarLive (today="r2-<variant>"). entry-* → R2EntryContent, done-* and putaway → R2DoneContent, log-* → R2LogContent, receipt-* → R2ReceiptContent. -->
+<div class="r2-root flex min-h-0 flex-1 flex-col" style="height: 100%;">
+<sc-if value="{{entry}}" hint-placeholder-val="{{ true }}"><dc-import name="R2EntryContent" variant="{{sub}}" station="{{station}}" hint-size="100%,744px"></dc-import></sc-if>
+<sc-if value="{{done}}" hint-placeholder-val="{{ false }}"><dc-import name="R2DoneContent" variant="{{sub}}" station="{{station}}" hint-size="100%,744px"></dc-import></sc-if>
+<sc-if value="{{log}}" hint-placeholder-val="{{ false }}"><dc-import name="R2LogContent" variant="{{sub}}" hint-size="100%,744px"></dc-import></sc-if>
+<sc-if value="{{receipt}}" hint-placeholder-val="{{ false }}"><dc-import name="R2ReceiptContent" variant="{{sub}}" hint-size="100%,744px"></dc-import></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["entry","entry-new","entry-errors","entry-loadfail","entry-expired","entry-confirm","entry-newproject","entry-bulk","done","done-failed","putaway","log","log-peek","log-loading","log-empty","log-nomatch","receipt","receipt-draft"],"default":"entry"},"station":{"editor":"boolean","default":false},"dark":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'entry';
+    var fam = v === 'putaway' ? 'done' : v.split('-')[0];
+    var sub = v === 'putaway' ? 'putaway' : v.indexOf('-') > 0 ? v.slice(v.indexOf('-') + 1) : ({ entry: 'draft', done: 'done', log: 'log', receipt: 'confirmed' })[fam];
+    return { entry: fam === 'entry', done: fam === 'done', log: fam === 'log', receipt: fam === 'receipt', sub: sub, station: !!this.props.station };
+  }
+}
+</script>
+</body>
+</html>
