@@ -541,10 +541,13 @@ shell, fix all five issues, leave the top bar as it is.
   "Material Mule" and the lab; no switcher or buttons. Under it one 44 px search-or-scan field
   (`scan-search`, rounded-full, `Ctrl K`).
 - **Pages, never folded** (the old collapsible "Lab" group is gone): Today, Projects, My requests;
-  **Storage units:** Receive, Inventory, Retention; **Testing:** Lab programs, Concrete. Section
-  labels are fixed `SidebarGroupLabel`s at 13 px. Retention (Due and overdue, Disposal scan) and
-  Concrete (Breaks, Receiving, Specimens, Holds, Review) unfold their sub-pages in place, closed by
-  default.
+  **Storage units:** Receive (`arrow-down-to-line`), Inventory (`package`), Retention
+  (`hourglass`); **Soils:** Lab programs (`flask-conical`), Workboard (`square-kanban`; today's
+  Lab Testing Worklist, renamed); **Concrete:** Breaks (`hammer`), Receiving (`truck`), Specimens
+  (`cylinder`), Holds (`octagon-pause`), Review (`clipboard-check`). Kyle split the earlier
+  "Testing" group into Soils and Concrete (2026-11-11), so Concrete's pages are rows of their own,
+  not a sub-menu. Section labels are fixed `SidebarGroupLabel`s at 13 px. Retention (Due and
+  overdue, Disposal scan) unfolds its sub-pages in place, closed by default.
 - **No Inbox row:** the bell is the inbox. Its panel's rows link to their records, unread rows say
   "Unread" to screen readers, and "See all notifications" opens the full list.
 - **Pinned** records: stage-tinted square, mono ID, short name.
@@ -557,7 +560,7 @@ shell, fix all five issues, leave the top bar as it is.
   (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
   2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
   content" link comes first.
-- **Collapsed** (Ctrl B): 60 px wide, every item a 44 px icon with a tooltip. Retention, Concrete
+- **Collapsed** (Ctrl B): 60 px wide, every item a 44 px icon with a tooltip. Retention
   and Pinned open their pages in a menu to the right (`Strata.NavCollapsible`, `Strata.NavFlyout`
   in the bundle), so nothing is unreachable.
 - **Browser surfaces:** `color-scheme` follows the theme and scrollbars use `input`, thin in the

@@ -114,7 +114,7 @@
       "y": 0,
       "w": 400,
       "fill": "green",
-      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Testing: Lab programs, Concrete), 44 px rows, one 44 px search-or-scan field, Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention, Concrete and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, session end, Switch user). Press Play to try it.",
+      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 44 px rows, one 44 px search-or-scan field, Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, session end, Switch user). Press Play to try it.",
       "page": "shell"
     },
     "sidebarNotes": {
