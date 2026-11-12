@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { positionSchema } from './profile';
+import { stageKeySchema } from './stage';
 import { PROJECT_INVOLVEMENTS, leadNominationSchema, nominationNoteSchema } from './project-access';
 
 // Projects and test holes for receiving (MM-T08). The API and the web app share these so both
@@ -247,6 +248,8 @@ export const projectListItemSchema = projectSummarySchema.extend({
   inStockUnitCount: z.number(),
   /** Latest receipt's received date (YYYY-MM-DD), or null before the first receipt. */
   lastReceiptDate: z.string().nullable(),
+  /** STRATA-58: the row's stage (optional until the API sends it on every row). */
+  stage: stageKeySchema.optional(),
 });
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 

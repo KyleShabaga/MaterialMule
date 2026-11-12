@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FieldError } from './receipts';
+import { stageKeySchema } from './stage';
 import { formatPerson } from './staff';
 
 // Testing programs, testing lines and test requests (MM-T23).
@@ -383,6 +384,8 @@ export const labProgramSummarySchema = z.object({
     notStarted: z.number().int(),
     cancelled: z.number().int(),
   }),
+  /** STRATA-58: the row's stage (optional until the API sends it on every row). */
+  stage: stageKeySchema.optional(),
 });
 export type LabProgramSummary = z.infer<typeof labProgramSummarySchema>;
 /** Programs per page of GET /api/lab-programs (`?page=`, from 1). */
