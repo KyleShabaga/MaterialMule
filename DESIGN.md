@@ -555,8 +555,12 @@ shell, fix all five issues, leave the top bar as it is.
 - **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
 - **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): above the
   account a "Recording as Pat Example" control (no end time: D38 is deferred) that opens a person picker (Who is
-  working here?, the station's people, Someone else…); the account row reads "LAB station ·
-  Shared · Receiving lab" and its menu starts with Switch user and ends with End station session.
+  working here?, the station's people, Someone else…) and ends with **Sign off Pat Example**
+  ("Back to Who is working here?"). Signing off ends that person's turn, not the station: LAB
+  stays signed in and the station returns to the sign-in step 2 page (Kyle, 2026-11-11). The
+  account row reads "LAB station · Shared · Receiving lab"; its menu holds Settings, Help,
+  Feedback & bugs and End station session (Switch user was dropped as a duplicate of the person
+  menu).
 - **Spacing** (Kyle, 2026-11-11: tighter, then "Try 36 px rows"): rows are 36 px and touch,
   with no gap between them (was 44 px rows with 4 px gaps), and groups sit closer (4 px vertical
   group padding, no gap between groups). This is a deliberate exception to the 44 px control

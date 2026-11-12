@@ -113,6 +113,9 @@ body{margin:0}
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="user-plus"></x-import>Someone else…</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<!-- Signing off ends this person's turn, not the LAB station: the station goes back to "Who is working here?" -->
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="items-start"><x-import component-from-global-scope="Strata.Icon" name="log-out" class-name="mt-0.5"></x-import><span class="grid leading-tight"><span>Sign off Pat Example</span><span class="text-muted-foreground text-[13px]">Back to Who is working here?</span></span></x-import>
 </x-import>
 </x-import>
 </sc-if>
@@ -148,8 +151,6 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuContent" side="top" align="start" side-offset="{{four}}" class-name="w-60">
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="users"></x-import>Switch user</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuGroup">
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="settings"></x-import>Settings</x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="circle-question-mark"></x-import>Help</x-import>
