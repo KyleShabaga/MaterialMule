@@ -1234,6 +1234,49 @@ view; the Workboard as both a board by status and a list, as two views.
   (never at receiving); review is never by the requester; tests come from the catalogue;
   fictional data.
 
+### Round 6: retention and disposal (shaped 2026-11-12)
+
+Kyle chose: the Retention page as pipeline tabs in the order the work flows; Decide opens one
+decision drawer for the whole group.
+
+- **Job and audience:** project leads deciding what happens when retention ends (extend, hold,
+  dispose) and approving disposal; the Lab Manager running the disposal list; the person at the
+  shelf scanning units out. Nothing is disposed until it is scanned out.
+- **Retention** (`/disposal-retention`, sidebar "Due and overdue"):
+  - **Tabs**, each with a count: Coming up, Eligible, On disposal list, Approved (waiting for the
+    scan), Disposed.
+  - **Coming up** is grouped in bands: Overdue, Within 30 days, Within 90 days ("Nothing in this
+    band." when empty). Rows: ID (stage stripe), project, test hole, where, "Retention ends Nov 18"
+    or "On hold until Mar 2027", holds and extensions as small tags, and Decide.
+  - **Eligible:** "Each is eligible: retain-until reached, no hold, programs closed." Add to
+    disposal list (selection bar).
+  - **On disposal list** and **Approved:** grouped by project with the lead; leads Approve or
+    Revoke approval (reason required); "Approval doesn't dispose anything; the units stay in
+    stock until scanned out."
+  - **Disposed:** read-only, each keeps its ID and history.
+  - Tested units follow their own route: "Retention doesn't apply. Open each unit and use
+    'Confirm removal after testing'." (listed separately, not in the bands).
+  - Table tools throughout (Filter by project, lead, band; Sort; Search); rows open the unit
+    drawer.
+- **Decision drawer** (Decide on a row, a band, a project, from Today or Inbox): the units listed,
+  all ticked (untick to decide some separately), their effective and minimum retain-until, and
+  three choices: **Extend** (months to add, or a new retain-until date), **Place a hold** (until a
+  date or until released), **Add to disposal list**. Reason required. Leads and admins decide;
+  others send a request ("Request hold or extension", "Send request") that appears in the lead's
+  Inbox. Whole-project holds and extensions from the project page use the same drawer.
+- **Disposal scan** (`/disposal-retention/scan`): the Move screen pattern (round 3) for scanning
+  out: "Scan each unit as it leaves the shelf"; each scan shows the unit and whether it's
+  approved; not approved, on hold or unknown IDs are flagged on their row and not disposed. Then
+  **Record disposal of n units**, which opens the confirmation that lists every ID (the critique step 5 rule) and says it can't be undone.
+- **States and ranges:** units per project 0–500; bands empty; nothing approved; approved units
+  couldn't load; a request declined (with the reason); a hold released; offline scanning queues
+  like Move.
+- **Interaction and layout:** tab counts stay live; the drawer is the Inbox drawer; at 1024 px rows
+  drop the location column.
+- **Constraints:** a unit is disposable only when retain-until is reached, there is no hold and
+  its programs are closed; approval and disposal are separate steps; disposal keeps the ID and
+  history forever; reasons are required; authority is project-scoped and server-enforced.
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
