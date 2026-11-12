@@ -760,7 +760,7 @@ customisable per computer, and no greeting (the sidebar shows who is recording).
   - nothing shown;
   - dark.
 - **Open:**
-  - who may customise a station (proposed: anyone at it);
+  - who may customise a station: decided, Lab Managers only (Kyle, 2026-11-12);
   - whether the two buttons become customisable too (fixed for now);
   - which further rows exist.
 
