@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Staff — drawer at 1024 px</title>
+<title>Staff page — drawer at 1024 px</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="strata-ui/strata-ui.css">
 <script src="strata-ui/strata-ui.js"></script>
@@ -15,11 +15,8 @@
 body{margin:0}
 </style>
 </helmet>
-<div class="text-foreground relative font-sans" style="width: 1024px; height: 768px; overflow: hidden;">
-<dc-import name="SidebarLive" today="lead-busy" size="1024" hint-size="1024px,768px"></dc-import>
-<div aria-hidden="true" class="absolute inset-0 z-40 bg-black/50"></div>
-<div class="absolute inset-4 z-50 flex"><dc-import name="Round9Content" variant="staff-drawer" role="admin" size="1024" hint-size="992px,736px"></dc-import></div>
-</div>
+<!-- Lab admin page (Kyle 2026-11-12: Staff, Locations and Lab tests left the Settings modal). Round9Content renders the page for staff-, locations- and labtests- variants. -->
+<dc-import name="SidebarLive" size="1024" today="r9-staff-drawer" title="Lab admin" person="lead" hint-size="1024px,768px"></dc-import>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1024,"height":768}}'>
 class Component extends DCLogic {

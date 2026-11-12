@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Locations — the tree</title>
+<title>Locations page — tree, inherited and overridden storage terms</title>
 <script src="./support.js"></script>
 <link rel="stylesheet" href="strata-ui/strata-ui.css">
 <script src="strata-ui/strata-ui.js"></script>
@@ -15,11 +15,8 @@
 body{margin:0}
 </style>
 </helmet>
-<div class="text-foreground relative font-sans" style="width: 1280px; height: 800px; overflow: hidden;">
-<dc-import name="SidebarLive" today="manager-busy" hint-size="1280px,800px"></dc-import>
-<div aria-hidden="true" class="absolute inset-0 z-40 bg-black/50"></div>
-<div class="absolute top-[60px] left-[100px] z-50 flex h-[680px] w-[1080px]"><dc-import name="Round9Content" variant="locations-tree" role="manager" hint-size="1080px,680px"></dc-import></div>
-</div>
+<!-- Lab admin page (Kyle 2026-11-12: Staff, Locations and Lab tests left the Settings modal). Round9Content renders the page for staff-, locations- and labtests- variants. -->
+<dc-import name="SidebarLive" today="r9-locations-tree" title="Lab admin" person="manager" hint-size="1280px,800px"></dc-import>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {

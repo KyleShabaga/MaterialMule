@@ -154,6 +154,14 @@ colour; it maps its status onto one of these.
 | `danger`  | Retention overdue                   | HOLD, overdue break, returned for correction | Failed print, blocked step     |
 | `closed`  | Disposed (keeps its ID and history) | Issued, disposed without testing             | Closed project, closed program |
 
+**Red means act now** (Kyle, 2026-11-12): `danger` is only for states someone must act on
+(retention overdue, hold period ended, overdue break, returned for correction, failed print,
+calibration overdue). Waiting states are neutral: a HOLD still inside its period is a `secondary`
+tag with an `hourglass` and a neutral stripe. Priority is not a status: "Urgent · Priority" is an
+outline tag with a `flag` icon. Progress bars are neutral (`foreground` at 70 % on `muted`);
+indigo stays for actions. Warning alerts are a card surface with a `due` stripe, border and icon
+and normal text, never a lemon fill.
+
 The **lifecycle track** shows where a storage unit is: five squared segments (2 px corners), in
 the order Kyle set on 2026-11-12: **Received, In lab, Short-term storage, Long-term storage,
 Disposed**. Lab testing comes first; once it's done a unit goes to short-term storage, then to
@@ -350,6 +358,23 @@ stay readable on a phone in a dim storage room.
   the page's actions at the right of the title. One primary action at most.
 - **Content** is capped at 1280 px with 32 px padding. Two-column pages split 2:1 and wrap to one
   column below 1180 px.
+
+### Canvas fixtures (one sheet for every board)
+
+The boards share one fictional data set, so the canvas never contradicts itself (critique
+2026-11-12):
+
+- **People:** Alex Tester, Project lead (Lead Project Engineer on DEMO-2601), also an
+  administrator in Staff; Sam Sample, Lab Manager; Pat Example, Technician (the person picked on
+  LAB station boards); Jordan Lab, Technician. Boards without a role use Alex as Project lead.
+- **Receipts** are named by date and receiver: "Receipt 2026-11-11 · Pat Example".
+  BKT-2026-000019 came in on "Receipt 2026-10-14 · Pat Example"; its label says RECEIVED
+  2026-10-14.
+- **Printers** (Zebra ZD621): Receiving bench (default at receiving), Soils lab, Concrete room.
+- **Lab programs:** LP-2026-0012 has 5 tests.
+- **Shelves:** WH-A-B2-S3 is short-term; retention tags appear only on long-term shelves.
+- **Concrete:** mix 0425-32 (revision 2 in effect); air meter AM-03's calibration was due
+  2026-11-01 and is overdue (the open exception on the 2026-11-09 field report).
 
 ### Tables: column priority (tables fix after the 2026-11-12 critique)
 
@@ -690,10 +715,11 @@ shell, fix all five issues, leave the top bar as it is.
 - **Pinned** records: stage-tinted square, mono ID (never wraps), short name. Pinning is done from
   a record's page.
 - **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
-- **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): above the
-  account a "Recording as Pat Example" control (no end time: D38 is deferred) that opens a person picker (Who is
-  working here?, the station's people, Someone else…) and ends with **Sign off Pat Example**
-  ("Back to Who is working here?"). Signing off ends that person's turn, not the station: LAB
+- **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): the top bar's
+  "Recording as Pat Example" chip (no end time: D38 is deferred) opens a person picker (Who is
+  working here?, the station's people, Someone else…) with **Sign off Pat Example**
+  ("Back to Who is working here?"). The sidebar footer no longer repeats it (see One recording
+  identity below). Signing off ends that person's turn, not the station: LAB
   stays signed in and the station returns to the sign-in step 2 page (Kyle, 2026-11-11). The
   account row reads "LAB station · Shared · Receiving lab"; its menu holds Settings, Help,
   Feedback & bugs and End station session (Switch user was dropped as a duplicate of the person
@@ -702,12 +728,21 @@ shell, fix all five issues, leave the top bar as it is.
   app and make it safer):
   - **Recording as, always in view:** on a station the top bar carries a chip left of quick
     actions: avatar, "Recording as **Pat Example**", chevron (`accent` fill, `primary` border,
-    44 px, fully round). It opens the same menu as the sidebar footer control. Station Today also
-    opens with "Work started here is recorded as Pat Example. Not you? Switch person…".
+    44 px, fully round). Station Today also opens with "Work started here is recorded as Pat
+    Example. Not you? Switch person…".
+  - **One recording identity** (critique 2026-11-12, P1): the chip is the only picker and the one
+    state every screen reads. The sidebar footer shows only the LAB account; pages carry no second
+    "Recording as" banner or meta line; the Testing table's Tested by is the picked person
+    (disabled, follows the chip); the station profile's Name on records is "The person picked".
+    Results, receipts, moves and labels are always credited to the person in the chip.
   - **Person menu:** "Recording as Pat Example" label, then **Sign off Pat Example** first ("Back
     to Who is working here?"), a separator, then "Switch person" with avatar, name and role for
     each person (44 px rows), then Someone else…. Sign off is no longer next to Someone else….
-  - **Signing off** shows a toast: "Signed off Pat Example. Back to Who is working here?"
+  - **Signing off** shows a toast with **Undo** for 8 seconds: "Signed off Pat Example", "Back to
+    Who is working here? Nothing was recorded by signing off."
+  - **Station hides what LAB can't do** (critique 2026-11-12): decisions the shared account can't
+    make (Decide on retention, Add test hole, Team & permissions) are not shown on a station,
+    rather than shown and refused.
   - **Not on stations:** Pinned and Recent (a shared computer shows no one's). Counts stay hidden
     unless the person shares their Inbox there (see Inbox).
   - **Comfortable density on stations:** sidebar rows and sub-rows are 44 px, and the compact
@@ -1111,7 +1146,7 @@ Drawn in its own session from the round 5 brief: 56 boards (light, dark and 1024
 - Kyle 2026-11-12: no Start on Workboard cards; tests start on the program page. Cards keep Review, Pull list and Open.
 - Kyle 2026-11-12: the requester, the project lead or the Lab Manager can close a Ready program. Close program is the requester's and lead's main action; the Lab Manager closes it from More (board: Program page — Ready, seen by the Lab Manager).
 - Kyle 2026-11-12: long programs (up to 60 lines) get a filter bar above the Lines view once there are more than about 12 lines: Show All / each test hole / Standalone with counts, and a Go to line field. All lines stay in one list, no paging; problems on hidden lines still show in the sticky bar (board: Program editor — long program).
-- Program status tags follow "<Stage> · <domain>": Draft · Lab program, Due · Review, In lab · Pull units, In lab · Testing, Due · Ready to close, Closed · Lab program. Priority shows as Urgent · Priority (danger); Normal is plain text.
+- Program status tags follow "<Stage> · <domain>": Draft · Lab program, Due · Review, In lab · Pull units, In lab · Testing, Due · Ready to close, Closed · Lab program. Priority shows as Urgent · Priority (an outline tag with a `flag`, not a status colour; Kyle 2026-11-12); Normal is plain text.
 - Test states on a line are record words on stage colours: Waiting (due), Accepted and In testing (lab), Done (closed, with a check), Cancelled (closed, name struck through, reason shown). Not submitted (draft) on a draft.
 - Drafts show no LP number ("Draft lab program"); the number is issued on submit, as the app does today. The Drafts tab says so.
 
@@ -1171,6 +1206,8 @@ Drawn in its own session from the round 9 brief: 74 boards (light, dark and 1024
 
 - Lab Managers and administrators manage Staff and Printers (Kyle); Lab Managers don't see Make/Remove admin ('Only administrators can make or remove admins.').
 - Round9Content is the modal itself (nav + panel slot) with variant, role (tech/manager/admin), size (1080/1024), dark and station props; each section is its own R9*Panel component.
+- **Staff, Locations and Lab tests are full pages** (Kyle, 2026-11-12, after the critique: up to 150 people and 2,000 locations don't fit a 1080 × 680 modal). They sit under **Lab admin** in the app shell, with line tabs Staff · Locations · Lab tests across the top (tabs, not a left sub-nav, so the table keeps the whole page container) and a ghost button "Printers, templates and receiving" that opens the modal for the rest. Each page: h1, one-line description, toolbar, full-width table, the right drawer for one record, and a footer pager that stays in view (Staff 20 per page; Locations paged by top-level place, 10 per page, so a branch never splits; Lab tests grouped, unpaged). In the modal those three nav items carry an `arrow-up-right` and "Opens as a page". Routes: `/admin/staff`, `/admin/locations`, `/admin/lab-tests`. The rail has no Lab admin item (few people use it; it opens from Settings), so nothing in the rail is current there. `Round9Content` renders the page layout for `staff-`, `locations-` and `labtests-` variants.
+- Locations shows where each storage term comes from: "Set here", "From WH-A" (inherited, muted) or "Overrides WH-B".
 - Profile is read-only: name and email come from Microsoft (Refresh from Microsoft), initials and position are set by an administrator, as the app does today.
 - On a LAB station, Settings shows Account sections for the shared LAB account; Profile says the picked person's own preferences are changed from their own computer.
 - A technician opening /settings/staff lands on My access with an info alert ('Staff isn't available to you'), since hidden sections have no page.
@@ -1670,7 +1707,8 @@ and the nav shows only the sections a person can open.
   saved toast; a change someone else made meanwhile (reload); not permitted (the section isn't in
   the nav at all).
 - **Interaction and layout:** the modal keeps its size; panels scroll inside; at 1024 px the modal
-  fills the window with the nav as a narrow column.
+  fills the window with the nav as a narrow column. Staff, Locations and Lab tests open as full
+  pages under Lab admin (2026-11-12).
 - **Constraints:** permissions server-side; reasons for destructive changes; no secrets shown;
   D38 session length stays deferred (no session settings); fictional data.
 

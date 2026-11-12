@@ -1149,7 +1149,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — People (administrator nav: everything)",
+   "title": "Staff page — People, 20 per page (administrator)",
    "page": "round9",
    "is_interactive": true
   },
@@ -1158,7 +1158,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — person drawer (roles, admin, access)",
+   "title": "Staff page — person drawer (roles, admin, access)",
    "page": "round9",
    "is_interactive": true
   },
@@ -1167,7 +1167,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — Lab Manager's drawer (admin locked)",
+   "title": "Staff page — Lab Manager's drawer (admin locked)",
    "page": "round9",
    "is_interactive": true
   },
@@ -1176,7 +1176,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — Pending applicant",
+   "title": "Staff page — Pending applicant",
    "page": "round9",
    "is_interactive": true
   },
@@ -1185,7 +1185,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — Disabled",
+   "title": "Staff page — Disabled",
    "page": "round9",
    "is_interactive": true
   },
@@ -1194,7 +1194,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — Disable access, reason required",
+   "title": "Staff page — Disable access, reason required",
    "page": "round9",
    "is_interactive": true
   },
@@ -1203,7 +1203,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — No changes to save",
+   "title": "Staff page — No changes to save",
    "page": "round9",
    "is_interactive": true
   },
@@ -1212,7 +1212,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — changed by someone else meanwhile",
+   "title": "Staff page — changed by someone else meanwhile",
    "page": "round9",
    "is_interactive": true
   },
@@ -1221,7 +1221,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — roles saved (toast)",
+   "title": "Staff page — roles saved (toast)",
    "page": "round9",
    "is_interactive": true
   },
@@ -1230,7 +1230,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — loading",
+   "title": "Staff page — loading",
    "page": "round9",
    "is_interactive": true
   },
@@ -1239,7 +1239,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — couldn't load",
+   "title": "Staff page — couldn't load",
    "page": "round9",
    "is_interactive": true
   },
@@ -1248,7 +1248,7 @@
    "y": 1220,
    "w": 1280,
    "h": 800,
-   "title": "Staff — drawer, dark",
+   "title": "Staff page — drawer, dark",
    "page": "round9",
    "is_interactive": true
   },
@@ -1257,7 +1257,7 @@
    "y": 1220,
    "w": 1024,
    "h": 768,
-   "title": "Staff — drawer at 1024 px",
+   "title": "Staff page — drawer at 1024 px",
    "page": "round9",
    "is_interactive": true
   },
@@ -1266,7 +1266,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — the tree",
+   "title": "Locations page — tree, inherited and overridden storage terms",
    "page": "round9",
    "is_interactive": true
   },
@@ -1275,7 +1275,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — shelf drawer",
+   "title": "Locations page — shelf drawer",
    "page": "round9",
    "is_interactive": true
   },
@@ -1284,7 +1284,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — Retire, reason required",
+   "title": "Locations page — Retire Shelf 4, reason required",
    "page": "round9",
    "is_interactive": true
   },
@@ -1293,7 +1293,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — can't retire a shelf holding units",
+   "title": "Locations page — can't retire a shelf holding units",
    "page": "round9",
    "is_interactive": true
   },
@@ -1302,7 +1302,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — Add location",
+   "title": "Locations page — Add location",
    "page": "round9",
    "is_interactive": true
   },
@@ -1311,7 +1311,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — the system location (code locked)",
+   "title": "Locations page — the system location (code locked)",
    "page": "round9",
    "is_interactive": true
   },
@@ -1320,7 +1320,7 @@
    "y": 2440,
    "w": 1280,
    "h": 800,
-   "title": "Locations — drawer, dark",
+   "title": "Locations page — drawer, dark",
    "page": "round9",
    "is_interactive": true
   },
@@ -1329,7 +1329,7 @@
    "y": 2440,
    "w": 1024,
    "h": 768,
-   "title": "Locations — tree at 1024 px",
+   "title": "Locations page — tree at 1024 px",
    "page": "round9",
    "is_interactive": true
   },
@@ -1464,7 +1464,7 @@
    "y": 4880,
    "w": 1280,
    "h": 800,
-   "title": "Lab tests — catalogue by group",
+   "title": "Lab tests page — catalogue by group",
    "page": "round9",
    "is_interactive": true
   },
@@ -1473,7 +1473,7 @@
    "y": 4880,
    "w": 1280,
    "h": 800,
-   "title": "Lab tests — test drawer",
+   "title": "Lab tests page — test drawer",
    "page": "round9",
    "is_interactive": true
   },
@@ -1482,7 +1482,7 @@
    "y": 4880,
    "w": 1280,
    "h": 800,
-   "title": "Lab tests — Templates tab",
+   "title": "Lab tests page — Templates tab",
    "page": "round9",
    "is_interactive": true
   },
@@ -1491,7 +1491,7 @@
    "y": 4880,
    "w": 1280,
    "h": 800,
-   "title": "Lab tests — couldn't load",
+   "title": "Lab tests page — couldn't load",
    "page": "round9",
    "is_interactive": true
   },
@@ -1500,7 +1500,7 @@
    "y": 4880,
    "w": 1280,
    "h": 800,
-   "title": "Lab tests — dark",
+   "title": "Lab tests page — drawer, dark",
    "page": "round9",
    "is_interactive": true
   },
@@ -1509,7 +1509,7 @@
    "y": 4880,
    "w": 1024,
    "h": 768,
-   "title": "Lab tests at 1024 px",
+   "title": "Lab tests page — drawer at 1024 px",
    "page": "round9",
    "is_interactive": true
   },
@@ -1635,7 +1635,7 @@
    "y": 8540,
    "w": 1080,
    "h": 680,
-   "title": "Round 9 — Settings modal (variant, role, size)",
+   "title": "Round 9 — Settings modal and Lab admin pages (variant, role, size)",
    "page": "round9",
    "is_interactive": true
   },
@@ -1773,6 +1773,15 @@
    "w": 1280,
    "x": -1440,
    "y": 0
+  },
+  "R9StaffPage1024List.dc.html": {
+   "x": 0,
+   "y": 9440,
+   "w": 1024,
+   "h": 768,
+   "title": "Staff page — People at 1024 px (collapsed rail, every column)",
+   "page": "round9",
+   "is_interactive": true
   }
  },
  "order": [
@@ -1969,7 +1978,8 @@
   "TodayManagerContent.dc.html",
   "TodayLeadContent.dc.html",
   "TodayStationContent.dc.html",
-  "SettingsModal.dc.html"
+  "SettingsModal.dc.html",
+  "R9StaffPage1024List.dc.html"
  ],
  "notes": {
   "r8Row0": {
