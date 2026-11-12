@@ -1334,6 +1334,59 @@ can compare them.
   defaults; HOLD and review authority as in docs/concrete.md and docs/permissions.md; specimens
   never change storage-unit rules; fictional data (DEMO-2616).
 
+### Round 8: concrete review and reports (shaped 2026-11-12)
+
+Kyle chose: review shows the report beside a review panel; issuing is the last step on the same
+report page (Review, then Issue); a project's Concrete tab has sub-tabs.
+
+- **Job and audience:** the project lead or a designated `concrete_field` reviewer reviewing field
+  reports (never their own); report issuers issuing reviewed reports; field technicians correcting
+  returned reports; the lead managing mixes. Authority is project-scoped and never implicit
+  (docs/concrete.md, docs/permissions.md).
+- **Review queue** (`/concrete/review`): tabs Waiting for review, Returned, Reviewed (not yet
+  issued), Exceptions; rows: project, report date, report type, technician (avatar), routed to
+  ("Any designated reviewer" or a person), version (Revised tag), with or without exceptions;
+  "Nothing here needs your action." when empty. Table tools; rows open the report page.
+- **Report page** (`/concrete/review/:id`, Issue at `/concrete/review/:id/issue`):
+  - Steps across the top: **Review**, then **Issue**; the header shows the report's status
+    (Submitted, Returned for correction, Reviewed awaiting issuance, Issued, Recalled) and version.
+  - **Left:** the report as it would be issued, paper-like and true to the printed layout, with
+    comment markers on its sections; changes since the last version highlighted; "None on this
+    version" when nothing changed.
+  - **Right, the review panel:** exceptions (each resolved or documented with a note: "Enter a
+    note explaining how it was addressed."), comments, routing, history; the decision: **Return
+    for correction** (comment required: "Enter a comment explaining the changes needed.") or
+    **Mark reviewed** ("Marked reviewed. It now awaits issuance."). Not shown to the report's own
+    author as a reviewer.
+  - **Issue step:** "Before it goes out": issue options (each Included or not, with the project
+    default; "The project hasn't set a default, so it's omitted unless you choose Include."),
+    documented exceptions, "The version that will be issued", then **Issue report**. Issued
+    reports show "As issued"; a revision starts a new draft ("Revision started. The report is a
+    draft again.") and never changes the issued version.
+- **Strength report** (`/concrete/strength/:setId`): **gated by G2.** The provisional design
+  (one report per set, cumulative) may be drawn only as clearly marked provisional; the
+  structure follows the report page (report left, panel right): specimens with Exclude from /
+  Reinstate in the strength test (reason), Mark reviewed, Return for correction, Resubmit; "Not
+  calculated" until the rules exist. Nothing here invents limits, units or numbering.
+- **Project › Concrete tab** (round 4's Concrete tab), sub-tabs:
+  - **Field reports:** status, review state, technician, date; the technician's draft, submit and
+    correct flow stays as it is today (offline field entry and final reports are not built).
+  - **Sets:** each set with test ages and "n of m tested"; opens the set page (round 7).
+  - **Mixes:** each mix with its approved revision and any draft; the **mix page** shows the
+    revision (cement type, max aggregate, supplier…), drafts with changes marked, Change this mix /
+    Edit as a new revision, and history. Only the project's lead edits mixes.
+  - **Change propagation** (from a mix revision): records grouped as **Can be updated**, **Your
+    call** and **Won't change** (with "Why it stays"); Approve all or choose records; a note kept
+    in the history; Apply. "This mix has no approved revision yet, so there is nothing to update."
+- **States and ranges:** 0–100 reports in the queue; reports with 0–10 exceptions; versions 1–5;
+  the report changed while loading (Reload); couldn't load; not available at this stage; not the
+  reviewer's own report.
+- **Interaction and layout:** comment markers link to their comments; at 1024 px the review panel
+  becomes a drawer over the report; keyboard: J/K between queue items.
+- **Constraints and open decisions:** G2 strength report, report templates and set numbering stay
+  gates; never review one's own report; issued versions are immutable; mixes are the lead's only;
+  fictional data (DEMO-2616).
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
