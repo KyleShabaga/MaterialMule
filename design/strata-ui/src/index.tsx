@@ -662,9 +662,10 @@ function TableToolbar({
   views = "",
   view = "",
   searchOpen = false,
+  columns = "",
   children,
 }: {
-  placeholder?: string; filters?: string; sorts?: string; views?: string; view?: string; searchOpen?: boolean; children?: React.ReactNode
+  placeholder?: string; filters?: string; sorts?: string; views?: string; view?: string; searchOpen?: boolean; columns?: string; children?: React.ReactNode
 }) {
   const split = (v: string) => v.split("|").filter(Boolean)
   const [open, setOpen] = React.useState(!!searchOpen)
@@ -693,6 +694,14 @@ function TableToolbar({
     </S.Tooltip>
   )
   const filterOn = on.length > 0
+  const cols = split(columns).map((c) => ({ label: c.replace(/!$/, ""), fixed: c.endsWith("!") }))
+  const slug = (label: string) => label.toLowerCase().replace(/\s+/g, "-")
+  const [hiddenCols, setHiddenCols] = React.useState<string[]>([])
+  const toggleCol = (label: string, show: boolean) => {
+    const next = show ? hiddenCols.filter((h) => h !== label) : [...hiddenCols, label]
+    setHiddenCols(next)
+    document.querySelectorAll("table").forEach((t) => t.toggleAttribute("data-hide-" + slug(label), !show))
+  }
   return (
     // TableToolbar children first: page actions such as Mark all read, then a divider.
     <S.TooltipProvider delayDuration={300}>
@@ -754,7 +763,7 @@ function TableToolbar({
         </S.DropdownMenuContent>
       </S.DropdownMenu>
 
-      {split(views).length ? (
+      {split(views).length || cols.length ? (
         <S.DropdownMenu>
           {tip(
             "View",
@@ -762,13 +771,35 @@ function TableToolbar({
               <Icon name="sliders-horizontal" />
             </S.DropdownMenuTrigger>,
           )}
-          <S.DropdownMenuContent align="end" className="w-52">
-            <S.DropdownMenuLabel>View</S.DropdownMenuLabel>
-            <S.DropdownMenuRadioGroup value={current} onValueChange={setCurrent}>
-              {split(views).map((v) => (
-                <S.DropdownMenuRadioItem key={v} value={v}>{v}</S.DropdownMenuRadioItem>
-              ))}
-            </S.DropdownMenuRadioGroup>
+          <S.DropdownMenuContent align="end" className="w-56">
+            {split(views).length ? (
+              <>
+                <S.DropdownMenuLabel>View</S.DropdownMenuLabel>
+                <S.DropdownMenuRadioGroup value={current} onValueChange={setCurrent}>
+                  {split(views).map((v) => (
+                    <S.DropdownMenuRadioItem key={v} value={v}>{v}</S.DropdownMenuRadioItem>
+                  ))}
+                </S.DropdownMenuRadioGroup>
+              </>
+            ) : null}
+            {cols.length ? (
+              <>
+                {split(views).length ? <S.DropdownMenuSeparator /> : null}
+                <S.DropdownMenuLabel>Columns</S.DropdownMenuLabel>
+                {cols.map((c) => (
+                  <S.DropdownMenuCheckboxItem
+                    key={c.label}
+                    checked={c.fixed || !hiddenCols.includes(c.label)}
+                    disabled={c.fixed}
+                    onSelect={(e: Event) => e.preventDefault()}
+                    onCheckedChange={(v: boolean) => toggleCol(c.label, v)}
+                  >
+                    <span className="flex-1">{c.label}</span>
+                    {c.fixed ? <span className="text-muted-foreground text-[12px]">Always shown</span> : null}
+                  </S.DropdownMenuCheckboxItem>
+                ))}
+              </>
+            ) : null}
           </S.DropdownMenuContent>
         </S.DropdownMenu>
       ) : null}

@@ -214,6 +214,11 @@ stay readable on a phone in a dim storage room.
   checkboxes with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its
   name says how many ("Filter, 1 on"). Sort and View are radio menus; View lists that page's
   views. Search and filters apply as you type (server side for long lists).
+- **People in tables** (Kyle, 2026-11-11): wherever a table shows a person, a shadcn `Avatar`
+  comes before the name: 20 px in compact tables (24 px in normal ones), initials in the
+  fallback (photos when the directory has them), name truncating beside it. Material Mule itself
+  (system messages) uses a `primary` avatar with "MM". The Components board's table gains a
+  "Received by" column to show it.
 - **Buttons** (`Button`). 44 px high (48 px on phone, 56 px for the pinned phone primary), 8 px
   radius, 20 px side padding, sans 600. `default`: indigo fill, white text, one per screen.
   `outline`: `card` fill with a 1.5 px `input` border, for the other actions. `ghost` and `link`
@@ -801,8 +806,10 @@ notification. Kyle chose:
   Notion"): 28 px rows (32 px header) at 13 px with no vertical padding, a 20 px kind icon and a
   16 px-high pill. **Notion borders, on this view only:** a line under every row, a vertical line
   between columns (none after Received), lines above and below the table, no row stripes; the
-  header is plain (`background`) with a 14 px Lucide icon before each muted label (Kind `tag`,
-  Title `type`, Record `hash`, From `user`, Received `clock`). The other Inbox views and other
+  header is plain (`background`) with a 14 px Lucide icon before each muted label (Task `tag`,
+  Title `type`, Job number `folder`, Record `hash`, From `user`, Received `clock`). The leading
+  checkbox and kind-icon cells have no lines at all, like Notion's gutter: no line beside them and
+  none under them in the header. The other Inbox views and other
   tables keep shadcn's plain rows. **Row checkboxes** sit in a 40 px column at the left: hidden
   until the pointer is over the row (or over the header, for Select all), then they fade in and
   out in 100 ms (none with reduced motion); a focused or ticked checkbox stays visible, and once
@@ -811,7 +818,11 @@ notification. Kyle chose:
   back to the default (newest first). One column at a time; an `arrow-up` or `arrow-down` in
   `primary` shows it, a faint `arrow-up-down` appears on hover, and the `th` carries `aria-sort`.
   Received ascending means oldest first. Sorting by a heading and the toolbar's Sort menu are one
-  setting. Columns: checkbox 40 px, kind icon 36 px, Kind 176 px, Received 128 px. Record truncates with
+  setting. Columns (Kyle, 2026-11-11): checkbox 40 px, kind icon 36 px, **Task** 176 px (was Kind), Title,
+  **Job number** 128 px (the project number, mono), Record 160 px, From 144 px, Received 128 px.
+  **Columns are customizable** in the toolbar's View menu under Columns: Task, Title and Job number
+  are always shown (checked, disabled, "Always shown"); Record, From and Received can be hidden,
+  and the choice is saved per person. With the drawer open only the three fixed columns show. Record truncates with
   an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
   then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
   drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a

@@ -686,7 +686,7 @@
       "w": 380,
       "x": 2720,
       "y": 3680,
-      "text": "Table tools (2026-11-11, Kyle, Notion as reference): every table and list page has Mark all read (or the page action) as an icon with a tooltip, then Filter, Sort, View, and Search at the far right (Strata.TableToolbar). Opening Search grows it to the left and pushes the others left; Escape or an empty box closes it. The compact table alone has Notion borders (lines between rows and columns, plain header with column icons) and row checkboxes that fade in on hover (100 ms) and stay once any row is ticked. The mock does not filter the rows."
+      "text": "Table tools (2026-11-11, Kyle, Notion as reference): every table and list page has Mark all read (or the page action) as an icon with a tooltip, then Filter, Sort, View, and Search at the far right (Strata.TableToolbar). Opening Search grows it to the left and pushes the others left; Escape or an empty box closes it. The compact table alone has Notion borders (lines between rows and columns, plain header with column icons) and row checkboxes that fade in on hover (100 ms) and stay once any row is ticked. The mock does not filter the rows. Compact table columns: Task, Title, Job number (always shown), Record, From, Received; hide or show the others in View › Columns. People in every table show a shadcn Avatar before the name."
     }
   },
   "order": [
