@@ -19,12 +19,12 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
 <!-- Background: large angled planes in the indigo scale, laid like rock strata. Decoration only. -->
 <div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden">
-<!-- Two large planes mirror each other and meet under the card, so the composition centres on it -->
-<div class="from-primary/12 to-primary/3 dark:from-accent/70 dark:to-accent/15 absolute inset-0 bg-linear-to-r" style="clip-path: polygon(0 0, 30% 0, 50% 100%, 0 100%);"></div>
-<div class="from-primary/15 to-primary/5 dark:from-accent dark:to-accent/30 absolute inset-0 bg-linear-to-bl" style="clip-path: polygon(70% 0, 100% 0, 100% 100%, 50% 100%);"></div>
-<!-- Narrower strata on each outer edge, darker, for depth -->
-<div class="from-primary/12 to-primary/4 dark:from-accent/80 dark:to-accent/20 absolute inset-0 bg-linear-to-t" style="clip-path: polygon(0 34%, 20% 100%, 0 100%);"></div>
-<div class="from-primary/10 to-primary/3 dark:from-accent/60 dark:to-accent/10 absolute inset-0 bg-linear-to-b" style="clip-path: polygon(80% 0, 100% 0, 100% 66%);"></div>
+<!-- Two large planes slope the same way (/) at different steepness, like tilted strata -->
+<div class="from-primary/12 to-primary/3 dark:from-accent/70 dark:to-accent/15 absolute inset-0 bg-linear-to-r" style="clip-path: polygon(0 0, 36% 0, 16% 100%, 0 100%);"></div>
+<div class="from-primary/15 to-primary/5 dark:from-accent dark:to-accent/30 absolute inset-0 bg-linear-to-bl" style="clip-path: polygon(88% 0, 100% 0, 100% 100%, 60% 100%);"></div>
+<!-- Two shallow wedges cut across the other way (), one per opposite corner, so it balances -->
+<div class="from-primary/12 to-primary/4 dark:from-accent/80 dark:to-accent/20 absolute inset-0 bg-linear-to-t" style="clip-path: polygon(0 58%, 48% 100%, 0 100%);"></div>
+<div class="from-primary/10 to-primary/3 dark:from-accent/60 dark:to-accent/10 absolute inset-0 bg-linear-to-b" style="clip-path: polygon(50% 0, 100% 0, 100% 40%);"></div>
 </div>
 <main class="relative z-10 flex flex-1 flex-col items-center justify-center px-4" style="height: 800px;">
 <div class="flex w-full max-w-[440px] flex-col gap-6">

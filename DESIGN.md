@@ -592,9 +592,11 @@ straight on to a person picker, and the first pass covers the page plus every st
   draft belonged to the old palette).
 - **Background** (Kyle's reference, 2026-11-11; centred the same day): four large angled planes
   cut with `clip-path`, laid like rock strata, in the indigo scale with soft linear gradients.
-  Two big planes mirror each other (left 0–30 % at the top to 50 % at the bottom; right 70–100 %
-  to 50 %) and meet under the card, leaving a centred V of plain ground; a narrower, darker
-  plane sits on each outer edge. Light: `primary`
+  Kyle then asked for the planes to angle different ways: two large planes slope the same way
+  (/) at different steepness (left: 36 % at the top to 16 % at the bottom; right: 88 % to 60 %),
+  and two shallow wedges cut across the other way (\) from opposite corners (bottom left, top
+  right). The planes are balanced on both sides of the card without mirroring each other, and
+  leave a tilted clear area around it. Light: `primary`
   at 4–15 %. Dark: `accent` (deep indigo) at 20–100 %, close to the reference. They're decoration
   (`aria-hidden`, no pointer events), sit behind the card and never under text.
 - **A normal computer:** "Sign in", the hint "Use your own work account. What you do is recorded

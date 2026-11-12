@@ -1,189 +1,252 @@
 {
   "v": 3,
-  "createdOnFiles": {
-    "v": 1,
-    "at": "2026-11-11T18:00:00Z"
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 5300,
+      "is_interactive": true,
+      "page": "components",
+      "title": "Components — light (Dark tweak)",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "MainDark.dc.html": {
+      "expand": "fill",
+      "h": 5300,
+      "is_interactive": true,
+      "page": "components",
+      "title": "Components — dark",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "SettingsModal.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "shell",
+      "title": "Settings — modal mock-up (Dark tweak)",
+      "w": 1280,
+      "x": 1360,
+      "y": 920
+    },
+    "SidebarLive.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "shell",
+      "title": "Shell — real shadcn/ui (Dark and Station tweaks)",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "SidebarNav.dc.html": {
+      "h": 900,
+      "page": "shell",
+      "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)",
+      "w": 256,
+      "x": 1400,
+      "y": 1840
+    },
+    "SidebarStation.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "shell",
+      "title": "Shell — shared LAB station (recording as, Switch user)",
+      "w": 1280,
+      "x": 0,
+      "y": 920
+    },
+    "SidebarVariants.dc.html": {
+      "h": 1040,
+      "page": "shell",
+      "title": "Sidebar — mock variants",
+      "w": 1320,
+      "x": 0,
+      "y": 1840
+    },
+    "SignIn.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "Sign in — normal computer (Dark, mode, state, dev tweaks)",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "SignInDark.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "Dark, with the development test link",
+      "w": 1280,
+      "x": 4080,
+      "y": 0
+    },
+    "SignInLab.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "LAB station computer",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "SignInLabExpired.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: LAB session expired",
+      "w": 1280,
+      "x": 1360,
+      "y": 920
+    },
+    "SignInNoMethods.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: no sign-in method set up",
+      "w": 1280,
+      "x": 1360,
+      "y": 1840
+    },
+    "SignInOptionsFailed.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: sign-in options could not load",
+      "w": 1280,
+      "x": 0,
+      "y": 1840
+    },
+    "SignInPaused.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: paused after failed attempts",
+      "w": 1280,
+      "x": 4080,
+      "y": 920
+    },
+    "SignInPicker.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "LAB step 2: who is working here?",
+      "w": 1280,
+      "x": 2720,
+      "y": 0
+    },
+    "SignInPickerEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: no one listed for the station",
+      "w": 1280,
+      "x": 2720,
+      "y": 1840
+    },
+    "SignInSessionEnded.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: session ended",
+      "w": 1280,
+      "x": 0,
+      "y": 920
+    },
+    "SignInWrongPassword.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "signin",
+      "title": "State: wrong password",
+      "w": 1280,
+      "x": 2720,
+      "y": 920
+    }
   },
-  "title": "Material Mule — Strata",
+  "createdOnFiles": {
+    "at": "2026-11-11T18:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
   "launch": {
     "view": "canvas"
   },
-  "pages": [
-    {
-      "id": "shell",
-      "name": "Shell"
-    },
-    {
-      "id": "components",
-      "name": "Components"
-    },
-    {
-      "id": "signin",
-      "name": "Sign in"
-    }
+  "noteOrder": [
+    "rowComponents",
+    "rowSidebar",
+    "liveNotes",
+    "sidebarNotes",
+    "about",
+    "settingsNotes",
+    "rowSignIn",
+    "signinNotes"
   ],
-  "boards": {
-    "Main.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1440,
-      "h": 5300,
-      "title": "Components — light (Dark tweak)",
-      "expand": "fill",
-      "is_interactive": true,
-      "page": "components"
-    },
-    "SidebarLive.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Shell — real shadcn/ui (Dark and Station tweaks)",
-      "is_interactive": true,
-      "page": "shell"
-    },
-    "SidebarVariants.dc.html": {
-      "x": 0,
-      "y": 1840,
-      "w": 1320,
-      "h": 1040,
-      "title": "Sidebar — mock variants",
-      "page": "shell"
-    },
-    "SidebarNav.dc.html": {
-      "x": 1400,
-      "y": 1840,
-      "w": 256,
-      "h": 900,
-      "title": "Sidebar — mock component (Dark, Collapsed, Menu open tweaks)",
-      "page": "shell"
-    },
-    "MainDark.dc.html": {
-      "x": 1520,
-      "y": 0,
-      "w": 1440,
-      "h": 5300,
-      "title": "Components — dark",
-      "expand": "fill",
-      "is_interactive": true,
-      "page": "components"
-    },
-    "SidebarStation.dc.html": {
-      "x": 0,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Shell — shared LAB station (recording as, Switch user)",
-      "is_interactive": true,
-      "page": "shell"
-    },
-    "SettingsModal.dc.html": {
-      "x": 1360,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "Settings — modal mock-up (Dark tweak)",
+  "notes": {
+    "about": {
+      "fill": "blue",
       "page": "shell",
-      "is_interactive": true
+      "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional.",
+      "w": 380,
+      "x": 1840,
+      "y": 0
     },
-    "SignIn.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Sign in — normal computer (Dark, mode, state, dev tweaks)",
-      "page": "signin",
-      "is_interactive": true
-    },
-    "SignInLab.dc.html": {
+    "liveNotes": {
+      "fill": "green",
+      "page": "shell",
+      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 44 px rows, one 44 px search-or-scan field, Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, Switch user). Press Play to try it.",
+      "w": 400,
       "x": 1360,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "LAB station computer",
-      "page": "signin",
-      "is_interactive": true
+      "y": 0
     },
-    "SignInPicker.dc.html": {
-      "x": 2720,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "LAB step 2: who is working here?",
-      "page": "signin",
-      "is_interactive": true
-    },
-    "SignInDark.dc.html": {
-      "x": 4080,
-      "y": 0,
-      "w": 1280,
-      "h": 800,
-      "title": "Dark, with the development test link",
-      "page": "signin",
-      "is_interactive": true
-    },
-    "SignInSessionEnded.dc.html": {
+    "rowComponents": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "components",
+      "text": "Components",
+      "w": 240,
       "x": 0,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "State: session ended",
-      "page": "signin",
-      "is_interactive": true
+      "y": -300
     },
-    "SignInLabExpired.dc.html": {
-      "x": 1360,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "State: LAB session expired",
-      "page": "signin",
-      "is_interactive": true
-    },
-    "SignInWrongPassword.dc.html": {
-      "x": 2720,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "State: wrong password",
-      "page": "signin",
-      "is_interactive": true
-    },
-    "SignInPaused.dc.html": {
-      "x": 4080,
-      "y": 920,
-      "w": 1280,
-      "h": 800,
-      "title": "State: paused after failed attempts",
-      "page": "signin",
-      "is_interactive": true
-    },
-    "SignInOptionsFailed.dc.html": {
+    "rowSidebar": {
+      "kind": "title1",
+      "maxW": 1656,
+      "page": "shell",
+      "text": "Shell",
+      "w": 240,
       "x": 0,
-      "y": 1840,
-      "w": 1280,
-      "h": 800,
-      "title": "State: sign-in options could not load",
-      "page": "signin",
-      "is_interactive": true
+      "y": -300
     },
-    "SignInNoMethods.dc.html": {
-      "x": 1360,
-      "y": 1840,
-      "w": 1280,
-      "h": 800,
-      "title": "State: no sign-in method set up",
+    "rowSignIn": {
+      "kind": "title1",
+      "maxW": 5360,
       "page": "signin",
-      "is_interactive": true
+      "text": "Sign in",
+      "w": 240,
+      "x": 0,
+      "y": -300
     },
-    "SignInPickerEmpty.dc.html": {
+    "settingsNotes": {
+      "page": "shell",
+      "text": "Settings mock-up: a modal over the shell (shadcn Dialog), opened from the account menu. Left: search and the app's real settings sections (You: Profile, Preferences, Notifications, My access; Lab: Staff, Locations, Printers, Receiving, Lab tests, Templates; Concrete: Equipment, Suppliers, Holidays, Report header; Admin: System status). Sections a person can't use would be hidden. Right: the open page, here a new Preferences page (theme, table rows, sidebar start, date format, week start, lab time zone, scan behaviour). Proposed: Preferences and its options are new; the rest exist today as /settings pages.",
+      "w": 400,
       "x": 2720,
-      "y": 1840,
-      "w": 1280,
-      "h": 800,
-      "title": "State: no one listed for the station",
+      "y": 920
+    },
+    "sidebarNotes": {
+      "page": "shell",
+      "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number.",
+      "w": 400,
+      "x": 1736,
+      "y": 1840
+    },
+    "signinNotes": {
       "page": "signin",
-      "is_interactive": true
+      "text": "Sign in, shaped 2026-11-11. Each computer remembers its kind: a normal computer shows Sign in with Microsoft; a computer set up as the LAB station opens straight to the LAB form. Each links to the other. After LAB, step 2 asks Who is working here? and the app opens under that name. This changes today's model, where LAB picks the person on each receipt. Proposed and open: an admin marks a computer as the station (a setting saved in that browser); the picker lists receiving-lab staff; Someone else… finds any staff member. Session length (D38) is deferred, so no end time is shown. Wording of every state is the app's current wording.",
+      "w": 420,
+      "x": 5440,
+      "y": 0
     }
   },
   "order": [
@@ -206,71 +269,19 @@
     "SignInNoMethods.dc.html",
     "SignInPickerEmpty.dc.html"
   ],
-  "notes": {
-    "rowComponents": {
-      "x": 0,
-      "y": -300,
-      "text": "Components",
-      "kind": "title1",
-      "maxW": 2960,
-      "page": "components"
+  "pages": [
+    {
+      "id": "shell",
+      "name": "Shell"
     },
-    "rowSidebar": {
-      "x": 0,
-      "y": -300,
-      "text": "Shell",
-      "kind": "title1",
-      "maxW": 1656,
-      "page": "shell"
+    {
+      "id": "components",
+      "name": "Components"
     },
-    "liveNotes": {
-      "x": 1360,
-      "y": 0,
-      "w": 400,
-      "fill": "green",
-      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 44 px rows, one 44 px search-or-scan field, Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, Switch user). Press Play to try it.",
-      "page": "shell"
-    },
-    "sidebarNotes": {
-      "x": 1736,
-      "y": 1840,
-      "w": 400,
-      "fill": "yellow",
-      "text": "Sidebar mock, for revision. shadcn Sidebar: SidebarHeader (lab switcher + New), search, SidebarGroup with collapsible labels, SidebarMenuSub for Concrete, SidebarFooter holds only the account row; clicking it opens the account menu (Settings, Help, Feedback & bugs, Sign out), as in Notion and Linear. From Linear: lab switcher at the top, Inbox and My requests above the groups, collapsible group labels, dense 32 px rows. From Notion: search field in the sidebar with Ctrl K, Pinned records, folded Recent. Collapses to icons (48 px). Open questions: search moves from the top bar into the sidebar; Inbox replaces the bell; Inbox shows a dot, not a number.",
-      "page": "shell"
-    },
-    "about": {
-      "x": 1840,
-      "y": 0,
-      "w": 380,
-      "fill": "blue",
-      "text": "Strata on shadcn/ui. Spec: DESIGN.md (repo root). Components and the live sidebar are real shadcn/ui 4.23 (Radix, Tailwind v4) from the Strata UI bundle (design/strata-ui), themed with the Radix custom palette from #21206D, Atkinson Hyperlegible, 44 px controls and Lucide icons. Press Play to use them. Today and Sign in are set aside for now. All data is fictional.",
-      "page": "shell"
-    },
-    "settingsNotes": {
-      "x": 2720,
-      "y": 920,
-      "w": 400,
-      "fill": "yellow",
-      "page": "shell",
-      "text": "Settings mock-up: a modal over the shell (shadcn Dialog), opened from the account menu. Left: search and the app's real settings sections (You: Profile, Preferences, Notifications, My access; Lab: Staff, Locations, Printers, Receiving, Lab tests, Templates; Concrete: Equipment, Suppliers, Holidays, Report header; Admin: System status). Sections a person can't use would be hidden. Right: the open page, here a new Preferences page (theme, table rows, sidebar start, date format, week start, lab time zone, scan behaviour). Proposed: Preferences and its options are new; the rest exist today as /settings pages."
-    },
-    "rowSignIn": {
-      "x": 0,
-      "y": -300,
-      "text": "Sign in",
-      "kind": "title1",
-      "maxW": 5360,
-      "page": "signin"
-    },
-    "signinNotes": {
-      "x": 5440,
-      "y": 0,
-      "w": 420,
-      "fill": "yellow",
-      "page": "signin",
-      "text": "Sign in, shaped 2026-11-11. Each computer remembers its kind: a normal computer shows Sign in with Microsoft; a computer set up as the LAB station opens straight to the LAB form. Each links to the other. After LAB, step 2 asks Who is working here? and the app opens under that name. This changes today's model, where LAB picks the person on each receipt. Proposed and open: an admin marks a computer as the station (a setting saved in that browser); the picker lists receiving-lab staff; Someone else… finds any staff member. Session length (D38) is deferred, so no end time is shown. Wording of every state is the app's current wording."
+    {
+      "id": "signin",
+      "name": "Sign in"
     }
-  },
-  "designSystems": []
+  ],
+  "title": "Material Mule — Strata"
 }
