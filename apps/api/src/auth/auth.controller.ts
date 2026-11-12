@@ -63,6 +63,8 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'notification.read',
   // MM-T29
   'retention.request',
+  // Strata 1C: own sidebar layout, pins, recents, preferences and columns
+  'personal_settings.manage',
   'test_catalog.manage',
   'program.priority.set',
   'program.reopen',

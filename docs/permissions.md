@@ -46,6 +46,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | action_item.read (T27)                                                                                                                                   |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | notification.read (T91)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | retention.request (T29)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
+| personal_settings.manage (Strata 1C)                                                                                                                     |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | test_catalog.manage (D37)                                                                                                                                |     |                   |      ✓      |                |   ✓   |                       |                     |
 | program.priority.set (D50)                                                                                                                               |     |                   |      ✓      |                |       |           ✓           |                     |
 | program.reopen                                                                                                                                           |     |                   |      ✓      |                |       |           ✓           |                     |
@@ -1438,6 +1439,33 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   first). Following a notification's link grants nothing: the target page checks.
 - **LAB:** 403 on every route above, whoever its station selects. LAB never receives
   notifications (the database refuses them).
+
+## Personal settings, pins and recents (Strata 1C)
+
+| Route                                  | Policy                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/me/sidebar-layout?personId=` | Any active session; LAB gets defaults, or with `personId` that person's layout, read-only |
+| `PUT /api/me/sidebar-layout`           | `personal_settings.manage`; own layout; stale version 409 `version_conflict`              |
+| `GET /api/me/pins`                     | `personal_settings.manage`; own pins, oldest first, access rechecked per record           |
+| `PUT`/`DELETE /api/me/pins/:kind/:id`  | `personal_settings.manage`; idempotent; 404 when not openable; 409 `pin_limit`            |
+| `GET`/`POST /api/me/recents`           | `personal_settings.manage`; own last 8, newest first; 404 when not openable               |
+| `GET /api/me/preferences`              | Any active session; LAB gets defaults read-only                                           |
+| `PATCH /api/me/preferences`            | `personal_settings.manage`; changed fields; stale version 409 `version_conflict`          |
+| `GET /api/me/table-columns`            | Any active session; LAB gets defaults read-only                                           |
+| `PUT /api/me/table-columns/:tableId`   | `personal_settings.manage`; 400 `unknown_table` / `invalid_column`; one version           |
+
+- **Always one's own.** No route takes a user ID from the browser; a body with extra keys is 400.
+  A personal account passing `?personId=` is 400 `person_id_not_allowed`.
+- **LAB** never saves anyone's settings and never reads anyone's pins, recents, preferences or
+  columns. The one exception is the sidebar layout with `?personId=` (the station's picked
+  person, an active personal or test account; anything else is 404 `person_not_found`), read-only
+  (`source: 'station_person'`). The picked person stays attribution only.
+- **Record access** for pins and recents follows each detail route: storage units, projects and
+  specimen sets are open to every active internal user (`inventory.read`), so existence is the
+  check; a draft lab program only to the account that created it. Reads recheck it per record:
+  one no longer openable (or gone) comes back `available: false` with no label, name, stage or
+  link, and can still be unpinned.
+- `/api/me/notification-preferences` is unchanged (its email switch, `action_item.read`).
 
 ## Retention (MM-T29)
 

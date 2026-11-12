@@ -48,6 +48,9 @@ import { LabelsController } from './labels/labels.controller.js';
 import { LocationsController } from './locations/locations.controller.js';
 import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { MeRecordsService } from './me-settings/me-records.service.js';
+import { MeSettingsController } from './me-settings/me-settings.controller.js';
+import { MeSettingsService } from './me-settings/me-settings.service.js';
 import { MovesController } from './moves/moves.controller.js';
 import { ActionItemsController } from './notifications/action-items.controller.js';
 import { DisposalController } from './disposal/disposal.controller.js';
@@ -156,6 +159,7 @@ export class AppModule {
         LabAdminController,
         MicrosoftAuthController,
         ProfileController,
+        MeSettingsController,
         ActivityController,
         FeedbackController,
         PrintingController,
@@ -223,6 +227,8 @@ export class AppModule {
         MicrosoftSignInService,
         MicrosoftSignInRateLimit,
         ProfileService,
+        MeSettingsService,
+        MeRecordsService,
         FeedbackService,
         UsersService,
         StaffService,
