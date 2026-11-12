@@ -440,3 +440,26 @@ describe('useTableDensity', () => {
     set.mockRestore();
   });
 });
+
+describe('DataTable column widths', () => {
+  it('sizes a mono column in mono characters plus the cell padding, with a sans label', () => {
+    render(
+      <DataTable
+        columns={COLUMNS}
+        data={UNITS}
+        getRowId={(u) => u.id}
+        rowLabel={(u) => u.id}
+        caption="Storage units"
+        sort={null}
+        onSortChange={() => undefined}
+      />,
+    );
+    const th = screen.getByRole('columnheader', { name: /^Received$/ });
+    expect(th.className).toContain('font-mono');
+    expect(th.className).toContain('text-sm');
+    expect(th.getAttribute('style')).toContain('calc(11ch + 1.5rem)');
+    expect(within(th).getByText('Received').closest('.font-sans')).not.toBeNull();
+    // The sort button carries a data-slot, so wave 0's legacy bare-button rules skip it.
+    expect(within(th).getByRole('button').getAttribute('data-slot')).toBe('table-sort-button');
+  });
+});

@@ -74,7 +74,11 @@ export interface DataTableColumn<Row> {
   fold?: (row: Row) => React.ReactNode;
   /** Column id to fold into; default the first identity column. */
   foldInto?: string;
-  /** Fixed width, e.g. '11ch' (a mono ISO date) or '8rem'. The free column has none (keep ≥ 7rem). */
+  /**
+   * Fixed content width (the cell padding is added), e.g. '10ch' for a mono ISO date or '8rem'.
+   * On a `mono` column, `ch` counts mono characters, so give the full value's length: IDs and
+   * dates are never cut. The free column has none (keep ≥ 7rem).
+   */
   width?: string;
   /** Makes the heading a SortableTableHead for this server sort key. */
   sortKey?: string;
@@ -146,6 +150,14 @@ const HOVER_CHECKBOX =
 
 /** 44 px hit area on touch screens only (Kyle: 44 px is touch-only). */
 const TOUCH_TARGET = 'relative pointer-coarse:after:absolute pointer-coarse:after:-inset-3.5';
+
+/**
+ * A column's CSS width. `width` is the content width (e.g. '10ch' for an ISO date in mono);
+ * cells are border-box, so the cell's side padding is added, and the value is never cut.
+ */
+function columnWidth(width: string, dense: boolean): string {
+  return `calc(${width} + ${dense ? '1rem' : '1.5rem'})`;
+}
 
 function effectiveHide<Row>(column: DataTableColumn<Row>): HideBreakpoint | undefined {
   return column.priority === 'attribute' ? column.hideBelow : undefined;
@@ -388,9 +400,18 @@ export function DataTable<Row>({
               const classes = cn(
                 headBase,
                 columnClasses(column, index, true),
+                column.mono && cn('font-mono', dense ? 'text-[13px]' : 'text-sm'),
                 column.headClassName,
               );
-              const style = column.width ? { width: column.width } : undefined;
+              const style = column.width ? { width: columnWidth(column.width, dense) } : undefined;
+              // Mono columns: the th uses the record font at body size, so a `ch` width counts
+              // the mono characters the cells show (an ISO date is 10ch, DEMO-2601 9ch); the
+              // label itself stays sans 13 px.
+              const label = column.mono ? (
+                <span className="font-sans text-[13px]">{content}</span>
+              ) : (
+                content
+              );
               if (column.sortKey && onSortChange) {
                 return (
                   <SortableTableHead
@@ -402,13 +423,13 @@ export function DataTable<Row>({
                     className={classes}
                     style={style}
                   >
-                    {content}
+                    {label}
                   </SortableTableHead>
                 );
               }
               return (
                 <TableHead key={header.id} className={classes} style={style}>
-                  {content}
+                  {label}
                 </TableHead>
               );
             })}

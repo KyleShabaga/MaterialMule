@@ -193,7 +193,7 @@ const COLUMNS: DataTableColumn<InboxRow>[] = [
     priority: 'attribute',
     hideBelow: '35rem',
     mono: true,
-    width: '12ch',
+    width: '10ch',
     sortKey: 'received',
     cell: (row) => row.received,
   },

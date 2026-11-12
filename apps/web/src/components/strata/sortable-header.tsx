@@ -35,6 +35,8 @@ export function SortableTableHead({
     >
       <button
         type="button"
+        // data-slot keeps wave 0's legacy bare-button rules off it (they skip [data-slot]).
+        data-slot="table-sort-button"
         onClick={() => onSortChange(nextHeadingSort(sort, sortKey))}
         className={cn(
           'group/sort -mx-1 inline-flex max-w-full items-center gap-1 rounded-sm px-1 py-0.5 font-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
