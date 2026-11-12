@@ -35,7 +35,7 @@ body{margin:0}
 </x-import>
 
 <x-import component-from-global-scope="Strata.SidebarContent">
-<nav aria-label="Main" class="flex flex-col gap-2">
+<nav aria-label="Main" class="flex flex-col gap-2 in-data-[sidebar-editing=true]:hidden">
 <x-import component-from-global-scope="Strata.SidebarGroup">
 <x-import component-from-global-scope="Strata.SidebarMenu">
 <x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{todayActive}}" aria-current="{{todayCurrent}}" tooltip="Today"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import><span>Today</span></x-import></x-import>
@@ -91,8 +91,8 @@ body{margin:0}
 </x-import></div>
 </x-import>
 </nav>
-<!-- Customize sidebar: reorder and hide sections (Strata.SidebarCustomize). -->
-<x-import component-from-global-scope="Strata.SidebarGroup" class-name="mt-auto"><x-import component-from-global-scope="Strata.SidebarCustomize" default-open="{{customizing}}"></x-import></x-import>
+<!-- Customize sidebar: like Notion, it turns the sidebar itself into an editor (Strata.SidebarCustomize); the page list above hides meanwhile. -->
+<x-import component-from-global-scope="Strata.SidebarGroup" class-name="mt-auto in-data-[sidebar-editing=true]:mt-0 in-data-[sidebar-editing=true]:flex-1"><x-import component-from-global-scope="Strata.SidebarCustomize" default-open="{{customizing}}"></x-import></x-import>
 
 </x-import>
 

@@ -576,15 +576,19 @@ shell, fix all five issues, leave the top bar as it is.
   Today, Projects and Inbox have no heading and never fold.
 - **Recent:** the last records the person opened, newest first (storage units, sets, projects),
   in the Pinned row style. The app keeps the last 8.
-- **Customize sidebar** (dialog, `Strata.SidebarCustomize`; board "Shell — Customize sidebar"):
-  the five sections in their current order, each a 44 px row with a grip (`grip-vertical`), its
-  icon and name, and an eye toggle ("Show Pinned in the sidebar", `aria-pressed`). Drag a grip
-  to reorder (dnd kit, vertical only), or focus it, press Space, use the arrow keys and press
-  Space to drop (Escape cancels; every step is announced). Changes apply at once; "Reset to
-  default" puts back the order above, all shown, Recent folded; "Done" closes. Today, Projects and
-  Inbox always stay at the top and can't be hidden. A hidden section's pages stay reachable from
-  search (Ctrl K). On a LAB station the sidebar follows the picked person's layout, because it is
-  saved per person.
+- **Customize sidebar is a mode of the sidebar itself, like Notion's** (Kyle, 2026-11-11: not a
+  modal; `Strata.SidebarCustomize`; board "Shell — customize mode in the sidebar"). The row swaps
+  the page list for an editor in the same column (a collapsed sidebar opens first): a
+  "Customize sidebar" heading and one-line hint; **Always at the top** (Today, Projects, Inbox,
+  each with a `lock`, not movable or hideable); a separator; **Sections** in their current order,
+  each a 36 px row with a grip (`grip-vertical`), its icon and name, and an eye toggle ("Show
+  Pinned in the sidebar", `aria-pressed`; a hidden one is muted and struck through); "Reset to
+  default"; and a full-width primary **Done** at the bottom, above the account row. Drag a grip
+  to reorder (dnd kit, vertical only), or press Space on it, use the arrow keys and Space to drop
+  (Escape cancels the move; every step is announced). Changes apply at once. Escape (when nothing
+  is picked up) or Done leaves the mode and puts focus back on "Customize sidebar"; entering it
+  focuses the first grip. A hidden section's pages stay reachable from search (Ctrl K). On a LAB
+  station the sidebar follows the picked person's layout, because it is saved per person.
 - **Inbox** (`inbox`; was My requests, renamed by Kyle 2026-11-11) is the one place for every
   notification and every action request. Its row shows the unread count in a small `primary`
   badge. The bell's hover card is a preview of the same items (rows link to their records, unread

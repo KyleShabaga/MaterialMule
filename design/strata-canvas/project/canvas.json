@@ -492,7 +492,7 @@
       "h": 800,
       "is_interactive": true,
       "page": "shell",
-      "title": "Shell — Customize sidebar (drag to reorder, show or hide sections)",
+      "title": "Shell — customize mode in the sidebar (drag to reorder, show or hide sections)",
       "w": 1280,
       "x": 3200,
       "y": 0
@@ -668,7 +668,7 @@
       "w": 380,
       "x": 3200,
       "y": 840,
-      "text": "Sidebar layout (2026-11-11): Pinned and Recent sit right under Today, Projects and Inbox. Every section heading folds its section; Recent starts folded. Folds, order and hidden sections are saved per person, so the sidebar comes back as they left it (the canvas keeps them in this browser; Reset to default in Customize sidebar). Drag a grip, or focus it and press Space and the arrow keys."
+      "text": "Sidebar layout (2026-11-11): Pinned and Recent sit right under Today, Projects and Inbox. Every section heading folds its section; Recent starts folded. Customize sidebar turns the sidebar itself into an editor, like Notion: Today, Projects and Inbox locked at the top, the sections with grips and eye toggles, Reset to default, and Done (or Escape). Folds, order and hidden sections are saved per person, so the sidebar comes back as they left it (the canvas keeps them in this browser)."
     }
   },
   "order": [

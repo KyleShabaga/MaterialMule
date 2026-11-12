@@ -446,8 +446,8 @@ function SortableSection({ id }: { id: string }) {
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "bg-background flex h-11 items-center gap-2 rounded-md pr-1",
-        isDragging && "ring-border relative z-10 shadow-md ring-1",
+        "bg-sidebar flex h-9 items-center gap-1 rounded-md pr-0.5",
+        isDragging && "ring-sidebar-border relative z-10 shadow-md ring-1",
       )}
     >
       <button
@@ -456,22 +456,22 @@ function SortableSection({ id }: { id: string }) {
         {...attributes}
         {...listeners}
         aria-label={"Move " + info.label}
-        className="text-muted-foreground hover:bg-accent focus-visible:ring-ring/50 flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md outline-none focus-visible:ring-[3px] active:cursor-grabbing"
+        data-customize-grip=""
+        className="text-muted-foreground hover:bg-sidebar-accent ring-sidebar-ring flex h-9 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md outline-hidden focus-visible:ring-2 active:cursor-grabbing"
       >
         <Icon name="grip-vertical" />
       </button>
-      <Icon name={info.icon} className={cn("shrink-0", !shown && "text-muted-foreground")} />
-      <span className={cn("flex-1 text-sm", !shown && "text-muted-foreground")}>{info.label}</span>
-      <S.Button
-        variant="ghost"
-        size="icon"
-        className="size-11"
+      <Icon name={info.icon} className={cn("mx-1 shrink-0", !shown && "text-muted-foreground")} />
+      <span className={cn("flex-1 truncate text-sm", !shown && "text-muted-foreground line-through decoration-1")}>{info.label}</span>
+      <button
+        type="button"
         aria-pressed={shown}
         aria-label={"Show " + info.label + " in the sidebar"}
         onClick={toggle}
+        className="text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ring-sidebar-ring flex size-8 shrink-0 items-center justify-center rounded-md outline-hidden focus-visible:ring-2"
       >
-        <Icon name={shown ? "eye" : "eye-off"} className={cn(!shown && "text-muted-foreground")} />
-      </S.Button>
+        <Icon name={shown ? "eye" : "eye-off"} />
+      </button>
     </li>
   )
 }
@@ -479,14 +479,63 @@ function SortableSection({ id }: { id: string }) {
 type DndId = { id: string | number }
 const sectionLabel = (a: DndId) => SECTION_INFO[String(a.id)]?.label || String(a.id)
 
+/*
+ * Customize mode, like Notion's: "Customize sidebar" turns the sidebar itself into an editor. The
+ * page list is swapped for the fixed pages and the sections with grips and eye toggles; Done (or
+ * Escape) puts the sidebar back. The page root gets data-sidebar-editing="true" so markup can hide
+ * the normal list with `in-data-[sidebar-editing=true]:hidden`.
+ */
+let editing = false
+const editingListeners = new Set<() => void>()
+function setEditing(on: boolean) {
+  editing = on
+  try {
+    if (on) document.documentElement.setAttribute("data-sidebar-editing", "true")
+    else document.documentElement.removeAttribute("data-sidebar-editing")
+  } catch {
+    /* no document */
+  }
+  editingListeners.forEach((fn) => fn())
+}
+function useEditing() {
+  return React.useSyncExternalStore((fn) => {
+    editingListeners.add(fn)
+    return () => {
+      editingListeners.delete(fn)
+    }
+  }, () => editing)
+}
+
+const FIXED_PAGES = [
+  { label: "Today", icon: "house" },
+  { label: "Projects", icon: "folder" },
+  { label: "Inbox", icon: "inbox" },
+]
+
 /**
- * "Customize sidebar" at the bottom of the sidebar and its dialog: drag sections into a new order
- * (or focus the grip, press Space and use the arrow keys) and show or hide them. Changes apply at
- * once and are saved for the person. Today, Projects and Inbox stay at the top.
+ * The "Customize sidebar" row at the bottom of the sidebar, and the customize mode it opens in the
+ * sidebar itself. Drag a grip (or focus it, press Space and use the arrow keys) to reorder
+ * sections; the eye shows or hides one. Changes apply at once and are saved for the person.
  */
 function SidebarCustomize({ defaultOpen }: { defaultOpen?: boolean }) {
-  const [open, setOpen] = React.useState(!!defaultOpen)
+  const on = useEditing()
   const l = useSidebarLayout()
+  const { setOpen: setSidebarOpen, state } = Sidebar.useSidebar()
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const rowRef = React.useRef<HTMLButtonElement>(null)
+  const wasOn = React.useRef(false)
+  React.useLayoutEffect(() => {
+    if (defaultOpen) setEditing(true)
+    return () => setEditing(false)
+  }, [defaultOpen])
+  React.useEffect(() => {
+    if (on) {
+      panelRef.current?.querySelector<HTMLElement>("[data-customize-grip]")?.focus()
+    } else if (wasOn.current) {
+      rowRef.current?.focus()
+    }
+    wasOn.current = on
+  }, [on])
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -509,14 +558,18 @@ function SidebarCustomize({ defaultOpen }: { defaultOpen?: boolean }) {
     onDragEnd: ({ active }: { active: DndId }) => "Dropped " + sectionLabel(active) + ".",
     onDragCancel: ({ active }: { active: DndId }) => "Moving " + sectionLabel(active) + " was cancelled.",
   }
-  return (
-    <>
+
+  if (!on) {
+    return (
       <S.SidebarMenu>
         <S.SidebarMenuItem>
           <S.SidebarMenuButton
+            ref={rowRef}
             tooltip="Customize sidebar"
-            aria-haspopup="dialog"
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              if (state === "collapsed") setSidebarOpen(true)
+              setEditing(true)
+            }}
             className="text-muted-foreground"
           >
             <Icon name="sliders-horizontal" />
@@ -524,47 +577,76 @@ function SidebarCustomize({ defaultOpen }: { defaultOpen?: boolean }) {
           </S.SidebarMenuButton>
         </S.SidebarMenuItem>
       </S.SidebarMenu>
-      <S.Dialog open={open} onOpenChange={setOpen}>
-        <S.DialogContent className="gap-5 sm:max-w-md">
-          <S.DialogHeader>
-            <S.DialogTitle>Customize sidebar</S.DialogTitle>
-            <S.DialogDescription>
-              Drag sections into the order you want and hide the ones you don&apos;t use. Today, Projects and Inbox stay at the top.
-            </S.DialogDescription>
-          </S.DialogHeader>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-            onDragEnd={onDragEnd}
-            accessibility={{
-              announcements,
-              screenReaderInstructions: {
-                draggable: "To move a section, press Space. Use the up and down arrow keys to move it, Space to drop it, or Escape to cancel.",
-              },
-            }}
-          >
-            <SortableContext items={l.order} strategy={verticalListSortingStrategy}>
-              <ul aria-label="Sidebar sections" className="-mx-1 flex flex-col">
-                {l.order.map((id) => (
-                  <SortableSection key={id} id={id} />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
-          <S.DialogFooter className="sm:justify-between">
-            <S.Button variant="ghost" onClick={() => setLayout(defaultLayout())}>
-              <Icon name="rotate-ccw" />
-              Reset to default
-            </S.Button>
-            <S.Button onClick={() => setOpen(false)}>Done</S.Button>
-          </S.DialogFooter>
-        </S.DialogContent>
-      </S.Dialog>
-    </>
+    )
+  }
+
+  return (
+    <div
+      ref={panelRef}
+      role="region"
+      aria-label="Customize sidebar"
+      className="flex min-h-0 flex-1 flex-col gap-2"
+      onKeyDown={(e) => {
+        // Escape leaves customize mode, except while a section is picked up (dnd kit cancels that drag).
+        if (e.key === "Escape" && !panelRef.current?.querySelector("[data-customize-grip][aria-pressed='true']")) setEditing(false)
+      }}
+    >
+      <div className="px-2 pt-1">
+        <p className="text-sm font-semibold">Customize sidebar</p>
+        <p className="text-muted-foreground text-[13px]">Drag to reorder. The eye shows or hides a section.</p>
+      </div>
+      <div>
+        <p className="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">Always at the top</p>
+        <ul aria-label="Fixed pages" className="flex flex-col">
+          {FIXED_PAGES.map((p) => (
+            <li key={p.label} className="text-muted-foreground flex h-9 items-center gap-1 pr-0.5">
+              <span aria-hidden="true" className="flex h-9 w-7 shrink-0 items-center justify-center">
+                <Icon name="lock" className="size-3.5" />
+              </span>
+              <Icon name={p.icon} className="mx-1 shrink-0" />
+              <span className="text-sm">{p.label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <S.SidebarSeparator className="mx-2" />
+      <div>
+        <p className="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">Sections</p>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+          onDragEnd={onDragEnd}
+          accessibility={{
+            announcements,
+            screenReaderInstructions: {
+              draggable: "To move a section, press Space. Use the up and down arrow keys to move it, Space to drop it, or Escape to cancel.",
+            },
+          }}
+        >
+          <SortableContext items={l.order} strategy={verticalListSortingStrategy}>
+            <ul aria-label="Sidebar sections" className="flex flex-col">
+              {l.order.map((id) => (
+                <SortableSection key={id} id={id} />
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
+        <button
+          type="button"
+          onClick={() => setLayout(defaultLayout())}
+          className="text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ring-sidebar-ring mt-1 flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm outline-hidden focus-visible:ring-2"
+        >
+          <Icon name="rotate-ccw" />
+          Reset to default
+        </button>
+      </div>
+      <S.Button className="mt-auto w-full" onClick={() => setEditing(false)}>
+        Done
+      </S.Button>
+    </div>
   )
 }
-
 
 Strata.NavSection = NavSection
 Strata.SidebarCustomize = SidebarCustomize
