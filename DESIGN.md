@@ -658,8 +658,8 @@ shell, fix all five issues, leave the top bar as it is.
     Inbox table's rows are 44 px, for gloved hands. Personal computers keep 36 px and 28 px.
   - **Station Today** gains a third tile, **Record breaks**, beside Receive samples and Receive
     concrete; the tiles stack icon, title and line so three fit.
-  - **Customize this station is for Lab Managers** (recommended, pending Kyle's confirmation of
-    the open "who may customise a station" decision): others see "Set up by Sam Sample, Lab
+  - **Customize this station is for Lab Managers** (Kyle decided 2026-11-12; closes the "who may
+    customise a station" decision): others see "Set up by Sam Sample, Lab
     Manager" with a lock instead of the button; the popover says "Applies to everyone at this
     computer. Only Lab Managers can change it."
 - **Spacing** (Kyle, 2026-11-11: tighter, then "Try 36 px rows"): rows are 36 px and touch,
