@@ -964,6 +964,72 @@ Claude chose the content from PRODUCT.md, and Kyle approved it ("Looks right", 2
 
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
+## Briefs still to design
+
+Shaped one round at a time ([Strata screens and shaping plan](https://app.notion.com/p/4161bd4b6bde810f8f74f5f4f81607ff)
+on Notion), then designed in the same order. Each brief is what the design must do, not how it
+looks; the visual world is the rest of this file.
+
+### Round 1: storage unit record (shaped 2026-11-12)
+
+Kyle chose: history beside the facts, Inbox's resizable drawer when a unit opens from a list, and
+a main action that changes with the stage.
+
+- **Job and audience:** a technician or station user who scanned or clicked a unit and needs to
+  know what it is, where it is and what to do with it; a lead checking where a project's samples
+  are; the Lab Manager sorting out a location conflict. Operate mode: one glance, one action.
+- **Outcome:** in one look, the ID, the holder, the project and hole, the stage and the place;
+  the next action is one click. This page sets the record pattern that sets, lab programs and
+  projects reuse.
+- **Storage unit page** (`/sample-storage/:id`):
+  - Context row: "Inventory › BKT-2026-000019" (back to the list it came from).
+  - Header: the unit label block on the left (holder type and project, the ID in `unit-id`, test
+    hole, SAMPLE#/DEPTH summary, depth range in mono, never a bar); on the right the stage tag,
+    the lifecycle track under it, and the actions.
+  - **Main action changes with the stage:** Stored → Move; In lab → Move back to storage; Retention
+    due or overdue → Decide; Disposed → none (read-only). Print label, Correct and Copy link sit
+    in a More menu. Only one primary.
+  - Body, 2 : 1. Left, the facts, each a section with its own heading: **Where it is** (location
+    path linking to its shelf, the code, "here since", a pending move note, a location conflict
+    as a `danger` alert with what to do); **Test hole summaries** (per hole: SAMPLE# range and
+    depth; never individual samples); **Receipt** (receipt link, received date and by whom);
+    **Retention** (retain until, extensions, the decision when due); **Lab programs** (each with
+    "n of m" progress). Right, **History**: a timeline, newest first, each event with the
+    person's avatar, what happened and when, paged; it stays in view while the facts scroll.
+- **Unit drawer** (from Inventory, a shelf, a project, search): Inbox's resizable drawer
+  (`PeekSplit`, 44 %, 30–65 %), with Close, Open as full page and Previous/Next (K/J). Shows the
+  label block (compact), stage tag, compact track (five dots with the current stage written),
+  Where it is, Retention and the main action; History and Lab programs only on the full page.
+  The list keeps Title-equivalent columns visible as in Inbox.
+- **Shelf page** (`/sample-storage/locations/:code`):
+  - Header: the location code large in mono, its path (Warehouse A · Bay 2 · Shelf 3) and counts
+    ("12 of 16 places used").
+  - **On this shelf:** counted cells, one per place, each a unit ID with its stage stripe; empty
+    places outlined. Clicking a cell opens the unit drawer.
+  - **Units here:** a table (ID, project, hole, stage, here since, retention due) with the table
+    tools.
+  - **Comings and goings:** the last 30 days, as in History.
+  - States: nothing stored ("Nothing is stored here."), unknown code ("No location has this
+    code." with Scan again), a conflict on one of its units.
+- **Label printing** (`/labels/print/unit|receipt|units`): choose the labels (one unit, a
+  receipt's units, a selection), a true-size preview of the printed label (black on white, not
+  restyled), the printer (Zebra printers from Settings › Printers) and copies; Print. Save as PDF
+  is the fallback. Failure: "The printer didn't answer" with Try again and Save as PDF; IDs are
+  never affected by printing.
+- **States and ranges:** loading (skeleton of the header and sections); not found (the ID and
+  Scan again); Disposed (read-only, keeps its ID and full history, no main action); location
+  conflict; pending move; in a lab program; retention due and overdue; done by a test account
+  (the existing badge); Correct on a LAB station without a personal account is shown disabled
+  with "Corrections need a personal account." Ranges: 1–20 hole summaries, 0–6 lab programs,
+  history from 1 to hundreds of events (paged), shelves of 4–40 places.
+- **Interaction and layout:** at 1024 px History moves below the facts; Esc closes the drawer and
+  returns focus to the row; Ctrl K and a scan land on this page; Print label never changes
+  anything else.
+- **Constraints:** IDs never change after issue and are never recycled; no individual sample
+  inventory at receiving; corrections need a personal account and are enforced on the server;
+  the printed label stays as it is; stage colours and words from Lifecycle; fictional data
+  (DEMO-2601, TH26-01).
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
