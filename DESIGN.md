@@ -590,8 +590,11 @@ straight on to a person picker, and the first pass covers the page plus every st
   testing", then the form on a card (`card`, border, 12 px radius, `shadow-sm`, 32 px padding),
   then "Works on the office network only". No brand panel (the teal split screen of the first
   draft belonged to the old palette).
-- **Background** (Kyle's reference, 2026-11-11): four large angled planes cut with
-  `clip-path`, laid like rock strata, in the indigo scale with soft linear gradients. Light: `primary`
+- **Background** (Kyle's reference, 2026-11-11; centred the same day): four large angled planes
+  cut with `clip-path`, laid like rock strata, in the indigo scale with soft linear gradients.
+  Two big planes mirror each other (left 0–30 % at the top to 50 % at the bottom; right 70–100 %
+  to 50 %) and meet under the card, leaving a centred V of plain ground; a narrower, darker
+  plane sits on each outer edge. Light: `primary`
   at 4–15 %. Dark: `accent` (deep indigo) at 20–100 %, close to the reference. They're decoration
   (`aria-hidden`, no pointer events), sit behind the card and never under text.
 - **A normal computer:** "Sign in", the hint "Use your own work account. What you do is recorded
