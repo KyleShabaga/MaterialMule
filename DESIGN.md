@@ -582,9 +582,14 @@ open the same palette).
 Shaped with Impeccable on 2026-11-11. Kyle chose: the computer remembers its kind, LAB goes
 straight on to a person picker, and the first pass covers the page plus every state.
 
-- **One centred 400 px column** on `background`: the donkey tile and "Material Mule · Sample
-  storage and lab testing", then the form, then "Works on the office network only". No brand
-  panel (the teal split screen of the first draft belonged to the old palette).
+- **One centred 440 px column**: the donkey tile and "Material Mule · Sample storage and lab
+  testing", then the form on a card (`card`, border, 12 px radius, `shadow-sm`, 32 px padding),
+  then "Works on the office network only". No brand panel (the teal split screen of the first
+  draft belonged to the old palette).
+- **Background** (Kyle's reference, 2026-11-11): four large angled planes cut with
+  `clip-path`, laid like rock strata, in the indigo scale with soft linear gradients. Light: `primary`
+  at 4–15 %. Dark: `accent` (deep indigo) at 20–100 %, close to the reference. They're decoration
+  (`aria-hidden`, no pointer events), sit behind the card and never under text.
 - **A normal computer:** "Sign in", the hint "Use your own work account. What you do is recorded
   under your name.", a full-width "Sign in with Microsoft" button (Microsoft's four-square mark,
   the one non-Lucide mark, as today), then "Shared receiving station? Sign in as LAB".
