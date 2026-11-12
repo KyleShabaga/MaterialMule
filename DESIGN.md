@@ -758,7 +758,6 @@ customisable per computer, and no greeting (the sidebar shows who is recording).
 - **At this station:** one card list, a row per kind of waiting work, each a link: a big count
   in mono figures, a title and a plain line. Rows:
   - Draft receipts to finish ("Started here, not confirmed yet. IDs are issued on confirm.").
-  - Deliveries waiting.
   - Breaks due today.
   - Labels to print.
 
@@ -1029,6 +1028,58 @@ a main action that changes with the stage.
   inventory at receiving; corrections need a personal account and are enforced on the server;
   the printed label stays as it is; stage colours and words from Lifecycle; fictional data
   (DEMO-2601, TH26-01).
+
+### Round 2: receiving (shaped 2026-11-12)
+
+Kyle chose: one page with a row per storage unit (not a wizard); after confirming, a done page
+and then Put away, with a Settings preference to go straight into Put away; no separate "log a
+delivery at the door" step (drafts are enough, so "Deliveries waiting" leaves station Today).
+
+- **Job and audience:** the person at the receiving bench (often on a LAB station, recording as
+  the picked person) turning a delivery of buckets, Shelby tubes and core boxes into storage
+  units with permanent IDs and labels; leads and the Lab Manager looking up what arrived.
+- **Outcome:** several units received in one pass, mostly from the keyboard and scanner; nothing
+  is in inventory, and no ID exists, until Confirm.
+- **Receive samples** (`/receiving-log/new`), one page:
+  - Header: "Receive samples", the draft state ("Draft · saved 09:41 on this computer") and who
+    it is recorded as on a station.
+  - **Project** (find by number or name; Add project when allowed, with the lead nomination as
+    today: "No nomination: leave it to an admin").
+  - **Storage units:** one row per unit: holder type (Bucket, Shelby tube, Core box, Other
+    container), test hole ("Match the test hole written on the holder"), the SAMPLE#/DEPTH
+    summary for that hole, core runs for core boxes, description. Add unit, Copy previous unit
+    (same hole, next unit), remove a row. One summary per test hole per unit; never individual
+    samples.
+  - **Received** (date, received by) at the foot.
+  - A sticky bar: "3 storage units · IDs issue on confirm" and the primary **Confirm and print
+    labels**; errors summarised in the bar and inline on their rows.
+- **Done page:** "3 storage units received", each new ID in `unit-id` with its prefix (BKT-, ST-,
+  CRE-, CT-), "Sending the labels to the printer…", then "Stick each label on its unit". Next:
+  **Put away** (scan the units, then the shelf) as the primary, Print all labels again, Receive
+  more. Units not put away show at Receiving until shelved.
+- **Preference** (Settings › Preferences › Receiving): "After confirming a receipt": Show the
+  done page (default) / Go straight to Put away.
+- **Receiving log** (`/receiving-log`): every delivery, newest first, in the table tools pattern
+  (Search, Filter by project, received by, status; Sort; View). Columns: receipt, project,
+  storage units (count and IDs), received, received by, status (Confirmed, Corrected). Drafts
+  on this computer show above the list as "Drafts on this computer" with Continue and Delete
+  draft. Rows open the receipt in the drawer.
+- **Receipt page** (`/receiving-log/:id`): the record pattern from round 1: header (receipt,
+  project, received date and by, status tag), main action Print all labels (Reprint), body:
+  storage units in this receipt (each opens the unit drawer), the original receipt record
+  (as confirmed), corrections and history beside it. Draft receipts show "Not confirmed yet",
+  started by, last saved, Continue.
+- **States and ranges:** 1–30 units per receipt, 1–10 test holes; loading drafts on this
+  computer; project or test holes couldn't load (rows stay editable; Try again); session expired
+  ("Your session has expired. Your draft is saved. Sign in to confirm."); IDs issued but labels
+  didn't print (due alert, Print again); a unit later disposed (its label can't be reprinted);
+  no receipts yet; no matches for filters.
+- **Interaction and layout:** Enter on the last row adds a unit; Copy previous with a shortcut;
+  the scanner fills project or test hole when focused; the confirm bar stays in view; at 1024 px
+  the row wraps to two lines (holder and hole, then summary and description).
+- **Constraints:** IDs are issued only on confirm, per prefix and year (America/Edmonton), never
+  changed or recycled; drafts never get IDs; no individual sample inventory; labels stay as
+  printed today; on a LAB station everything records under the picked person.
 
 ## Next
 
