@@ -1,6 +1,6 @@
 import type { RetentionExtension, RetentionHold } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
-import { StatusBadge } from '../components/ui';
+import { StatusBadge } from '../components/app-ui';
 import { formatExpiry } from '../lib/format';
 import { postRetention } from './api';
 

@@ -18,7 +18,13 @@ import {
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { CountedCells, ErrorState, SectionHead, SidePanel, StatusBadge } from '../components/ui';
+import {
+  CountedCells,
+  ErrorState,
+  SectionHead,
+  SidePanel,
+  StatusBadge,
+} from '../components/app-ui';
 import { progressCells, progressLabel } from './format';
 import { shortDateTime, shortTime } from '../dashboard/format';
 import { useMe } from '../session/context';

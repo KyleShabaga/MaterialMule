@@ -14,7 +14,7 @@ import {
   type StaffMember,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { ConfirmDialog, EmptyState, ErrorState } from '../../components/ui';
+import { ConfirmDialog, EmptyState, ErrorState } from '../../components/app-ui';
 import { shortDateTime } from '../../dashboard/format';
 import { AccessSummaryView } from '../access/AccessSummaryView';
 import {

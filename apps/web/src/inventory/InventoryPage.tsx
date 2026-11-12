@@ -24,7 +24,7 @@ import {
   Segmented,
   SelectionBar,
   TableViewSelector,
-} from '../components/ui';
+} from '../components/app-ui';
 import { useTableView } from '../components/useTableView';
 import { ContextRow } from '../layout/ContextRow';
 import type { MoveLinkState } from '../moves/move-link';

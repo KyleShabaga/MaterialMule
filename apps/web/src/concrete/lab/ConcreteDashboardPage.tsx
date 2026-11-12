@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
-import { ErrorState, PageHeader, SectionHead } from '../../components/ui';
+import { ErrorState, PageHeader, SectionHead } from '../../components/app-ui';
 import { ContextRow } from '../../layout/ContextRow';
 import { TileBody } from '../ledger';
 import { fetchDashboardCounts, type ConcreteDashboardCounts, type LoadResult } from './api';

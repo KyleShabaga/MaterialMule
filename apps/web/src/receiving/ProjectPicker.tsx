@@ -9,7 +9,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createProject, fetchMyGrants, searchProjects } from '../api/projects';
-import { FormField, RequiredMarker } from '../components/ui';
+import { FormField, RequiredMarker } from '../components/app-ui';
 import { prefillFromQuery } from './prefill';
 import { useListHighlight } from '../components/useListHighlight';
 import { StaffOptionGroups } from '../projects/StaffOptionGroups';

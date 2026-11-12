@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
-import { ConfirmDialog } from '../components/ui';
+import { ConfirmDialog } from '../components/app-ui';
 
 /**
  * A confirmation that needs a reason (D15): removals, revocations and decisions on the Team &

@@ -52,3 +52,4 @@ export * from './concrete-testing-table';
 export * from './concrete-lab';
 export * from './concrete-reports';
 export * from './feedback';
+export * from './date-format';

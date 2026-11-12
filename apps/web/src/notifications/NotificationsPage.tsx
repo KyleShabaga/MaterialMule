@@ -7,7 +7,13 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { EmptyState, ErrorState, PageHeader, StatusBadge, type BadgeTone } from '../components/ui';
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  StatusBadge,
+  type BadgeTone,
+} from '../components/app-ui';
 import { labDate } from '../dashboard/format';
 import { formatAge, formatExpiry } from '../lib/format';
 import { useMe } from '../session/context';

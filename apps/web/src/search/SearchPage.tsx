@@ -1,7 +1,7 @@
 import { locationKindLabel, type ConcreteSearch, type LabProgramList } from '@materialmule/shared';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/app-ui';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { fetchConcreteSearch, LAB_SEARCH_PREVIEW, type LoadResult } from '../concrete/lab/api';
 import { ConcreteSearchResults } from '../concrete/lab/ConcreteSearch';

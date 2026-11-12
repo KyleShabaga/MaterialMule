@@ -5,7 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { BandedCard, ErrorState, StatusBadge } from '../../components/ui';
+import { BandedCard, ErrorState, StatusBadge } from '../../components/app-ui';
 import { useMe } from '../../session/context';
 import { fetchReviewers } from '../../projects/team-api';
 import { ConcreteApiError, concreteProblem, fetchSettings, saveSettings } from './api';

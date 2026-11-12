@@ -1,654 +1,656 @@
-/* MM-V2-C28 / C39: concrete review queue, review, issue and strength report views, in the Field
+@layer legacy {
+  /* MM-V2-C28 / C39: concrete review queue, review, issue and strength report views, in the Field
    Ledger design (docs/redesign/design.md, "Concrete (V2)" and "Concrete pages"). Tokens only;
    radii 3/4/6 px, never fully rounded. Class names start with `crv-` so they never meet the
    storage-unit receiving or lab review styles (`review-*`); `review-changed-mark` stays because
    the E2E specs count changed fields by it. */
 
-.crv-page,
-.crv-queue {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-width: 0;
-}
-
-.crv-page > .page-header h1,
-.crv-queue > .page-header h1 {
-  margin: 0;
-}
-
-.crv-muted {
-  color: var(--ink-soft);
-}
-
-.crv-lede {
-  margin: calc(-1 * var(--space-3)) 0 0;
-  color: var(--ink-soft);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-}
-
-.crv-reason {
-  margin: 0;
-  color: var(--tag-waiting-fg);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-}
-
-.crv-who {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-}
-
-.crv-subhead {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--fs-body);
-  font-weight: 700;
-}
-
-.crv-subhead:first-child {
-  margin-top: 0;
-}
-
-.crv-message {
-  margin: 0;
-}
-
-/* ---- Queue: status tiles, filters, the chosen status's band ---------------------------------- */
-
-/* The label is first in the DOM (each tab reads "Awaiting review (1)"); the count shows on top. */
-.crv-status-tiles .view-tile-count {
-  order: -1;
-}
-
-.crv-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3) var(--space-4);
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-.crv-filters > label:not(.crv-check) {
-  display: grid;
-  gap: var(--space-1);
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.crv-filters input:not([type='checkbox']),
-.crv-filters select {
-  font-family: var(--font-sans);
-  font-size: var(--fs-body);
-  text-transform: none;
-}
-
-.crv-check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control);
-  font-weight: 600;
-}
-
-.crv-flags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.crv-band {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.crv-band-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: var(--rule-width) solid var(--rule);
-}
-
-.crv-band-head h2 {
-  flex: 1 1 auto;
-  margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-  font-weight: 700;
-}
-
-/* ---- Review, issue and strength pages: facts, two columns --------------------------------- */
-
-.crv-facts {
-  min-width: 0;
-}
-
-.crv-version-pick {
-  min-height: var(--control);
-  max-width: 100%;
-  font-weight: 400;
-}
-
-.crv-fact-value {
-  display: block;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-  font-weight: 800;
-}
-
-.crv-fact-value.mono {
-  font-weight: 600;
-}
-
-.crv-fact-note {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--ink-soft);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-  font-weight: 400;
-}
-
-.crv-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
-  gap: var(--space-6);
-  align-items: start;
-}
-
-.crv-main,
-.crv-side,
-.crv-first {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-width: 0;
-}
-
-.crv-side > .side-panel,
-.crv-layout > .side-panel,
-.crv-first > .banded-card,
-.crv-card {
-  margin-top: 0;
-}
-
-.crv-action-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.crv-decision .side-panel-body,
-.crv-side .side-panel-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.crv-action {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.crv-action > button,
-.crv-action-stack > .button {
-  width: 100%;
-}
-
-/* ---- Exceptions checklist -------------------------------------------------------------------- */
-
-.crv-checklist,
-.crv-checks {
-  display: grid;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.crv-check-item {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--hairline);
-  border-left: 4px solid var(--hairline);
-  border-radius: var(--radius-control);
-  background: var(--sheet);
-}
-
-.crv-check-open {
-  border-left-color: var(--tag-danger-fg);
-}
-
-.crv-check-documented,
-.crv-check-resolved {
-  border-left-color: var(--tag-storage-fg);
-}
-
-.crv-check-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.crv-messages,
-.crv-history,
-.crv-list {
-  margin: var(--space-2) 0 0;
-  padding-left: 1.25rem;
-}
-
-.crv-history {
-  margin: 0;
-  display: grid;
-  gap: var(--space-1);
-}
-
-.crv-note {
-  margin: var(--space-2) 0 0;
-  color: var(--ink-soft);
-  font-style: italic;
-}
-
-.crv-note-form {
-  display: grid;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.crv-note-form textarea,
-.confirm-dialog textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.crv-inline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-/* Issue checks: tag, then what was checked. */
-.crv-check-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-3);
-  align-items: start;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.crv-check-row:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-/* ---- Interim preview (never the issued format) ------------------------------------------ */
-
-.crv-preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-width: 0;
-  padding: var(--space-5);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-.crv-preview-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.crv-preview-head h2 {
-  margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-  font-weight: 700;
-}
-
-.crv-preview-notice {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-tag);
-  background: var(--tag-lab-bg);
-  color: var(--tag-lab-fg);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-}
-
-.crv-preview-section h3 {
-  margin: 0 0 var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: var(--rule-width) solid var(--rule);
-  font-size: var(--fs-body);
-  font-weight: 700;
-}
-
-.crv-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-  gap: var(--space-2) var(--space-4);
-  margin: 0;
-}
-
-.crv-fields-stack {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.crv-field {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-tag);
-}
-
-.crv-field dt {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.crv-field dd {
-  margin: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-/* A field changed since the previous submitted version: waiting fill plus the written mark. */
-.crv-changed,
-.crv-row-changed > * {
-  background: var(--tag-waiting-bg);
-  outline: 1px solid var(--tag-waiting-fg);
-}
-
-.review-changed-mark {
-  display: block;
-  color: var(--tag-waiting-fg);
-  font-size: var(--fs-small);
-  font-weight: 700;
-}
-
-/* Tables inside the preview and the strength report: rail mono caps head, hairline rows. They
-   scroll inside their frame on a phone instead of stacking. */
-.crv-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--sheet);
-}
-
-.crv-table th,
-.crv-table td {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--hairline);
-  text-align: left;
-  vertical-align: top;
-}
-
-.crv-table thead th {
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--rail);
-  font: 600 var(--fs-label) / 1.4 var(--font-mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.crv-table tbody th {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.crv-table tbody tr:last-child > * {
-  border-bottom: 0;
-}
-
-.crv-table td.mono {
-  font-size: var(--fs-data);
-}
-
-.crv-table td.crv-strong {
-  font-size: var(--fs-body);
-  font-weight: 600;
-}
-
-@media (hover: hover) {
-  .crv-table tbody tr:hover > * {
-    background-image: linear-gradient(var(--tint-row), var(--tint-row));
-  }
-}
-
-/* Specimens: one line per set, then its letters as small ink cards. */
-.crv-sets {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.crv-set {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
-.crv-letters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* ---- Issue: the preview as a paper sheet ------------------------------------------------- */
-
-.crv-paper-label {
-  margin: 0 0 calc(-1 * var(--space-3));
-}
-
-.crv-paper {
-  min-width: 0;
-  box-shadow: 4px 4px 0 var(--hairline);
-  border-radius: var(--radius-card);
-}
-
-.crv-paper > .crv-preview {
-  padding: var(--space-6);
-}
-
-.crv-issued-file {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin: 0;
-}
-
-.crv-options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-.crv-option-disabled {
-  color: var(--disabled);
-}
-
-.crv-option-label {
-  margin: var(--space-2) 0 0;
-}
-
-.crv-radios {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-}
-
-.crv-issue-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: var(--rule-width) solid var(--rule);
-}
-
-/* ---- Strength report: one framed table per test age ------------------------------------- */
-
-.crv-ages {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.crv-age {
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-  overflow: hidden;
-}
-
-.crv-age-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--rail);
-}
-
-.crv-age-head h3 {
-  flex: 1 1 8rem;
-  margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-  font-weight: 700;
-}
-
-.crv-age-average {
-  font-size: var(--fs-body);
-  font-weight: 600;
-}
-
-.crv-age-count {
-  color: var(--ink-soft);
-  font-size: var(--fs-small);
-}
-
-.crv-age-assessment {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.crv-age-empty {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  color: var(--ink-soft);
-}
-
-.crv-age > .table-scroll:focus-visible {
-  outline-offset: -3px;
-}
-
-.crv-locked {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
-  background: var(--paper);
-  font-size: var(--fs-small);
-}
-
-.crv-advisory {
-  margin: 0;
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-}
-
-/* MM-V2-C24: an excluded specimen stays listed, struck from its age's average. */
-.crv-struck {
-  text-decoration: line-through;
-}
-
-.crv-excluded {
-  display: block;
-  font-family: var(--font-sans);
-  font-size: var(--fs-small);
-  font-weight: 400;
-}
-
-/* ---- Narrow screens ------------------------------------------------------------------------ */
-
-@media (max-width: 900px) {
-  .crv-layout {
-    grid-template-columns: minmax(0, 1fr);
+  .crv-page,
+  .crv-queue {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
   }
 
-  /* Issue and strength report: the checks and actions come before the long preview. The review
-     page keeps its order (exceptions, the report, then the decision). */
-  .crv-strength .crv-layout > .crv-side,
-  .crv-layout > aside.crv-side {
+  .crv-page > .page-header h1,
+  .crv-queue > .page-header h1 {
+    margin: 0;
+  }
+
+  .crv-muted {
+    color: var(--ink-soft);
+  }
+
+  .crv-lede {
+    margin: calc(-1 * var(--space-3)) 0 0;
+    color: var(--ink-soft);
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+  }
+
+  .crv-reason {
+    margin: 0;
+    color: var(--tag-waiting-fg);
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+  }
+
+  .crv-who {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+  }
+
+  .crv-subhead {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: var(--fs-body);
+    font-weight: 700;
+  }
+
+  .crv-subhead:first-child {
+    margin-top: 0;
+  }
+
+  .crv-message {
+    margin: 0;
+  }
+
+  /* ---- Queue: status tiles, filters, the chosen status's band ---------------------------------- */
+
+  /* The label is first in the DOM (each tab reads "Awaiting review (1)"); the count shows on top. */
+  .crv-status-tiles .view-tile-count {
     order: -1;
   }
-}
 
-@media (max-width: 640px) {
+  .crv-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3) var(--space-4);
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
   .crv-filters > label:not(.crv-check) {
-    flex: 1 1 100%;
+    display: grid;
+    gap: var(--space-1);
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
   .crv-filters input:not([type='checkbox']),
   .crv-filters select {
+    font-family: var(--font-sans);
+    font-size: var(--fs-body);
+    text-transform: none;
+  }
+
+  .crv-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--control);
+    font-weight: 600;
+  }
+
+  .crv-flags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .crv-band {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .crv-band-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .crv-band-head h2 {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+    font-weight: 700;
+  }
+
+  /* ---- Review, issue and strength pages: facts, two columns --------------------------------- */
+
+  .crv-facts {
+    min-width: 0;
+  }
+
+  .crv-version-pick {
+    min-height: var(--control);
+    max-width: 100%;
+    font-weight: 400;
+  }
+
+  .crv-fact-value {
+    display: block;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+    font-weight: 800;
+  }
+
+  .crv-fact-value.mono {
+    font-weight: 600;
+  }
+
+  .crv-fact-note {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--ink-soft);
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    font-weight: 400;
+  }
+
+  .crv-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .crv-main,
+  .crv-side,
+  .crv-first {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
+  }
+
+  .crv-side > .side-panel,
+  .crv-layout > .side-panel,
+  .crv-first > .banded-card,
+  .crv-card {
+    margin-top: 0;
+  }
+
+  .crv-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .crv-decision .side-panel-body,
+  .crv-side .side-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .crv-action {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .crv-action > button,
+  .crv-action-stack > .button {
+    width: 100%;
+  }
+
+  /* ---- Exceptions checklist -------------------------------------------------------------------- */
+
+  .crv-checklist,
+  .crv-checks {
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .crv-check-item {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--hairline);
+    border-left: 4px solid var(--hairline);
+    border-radius: var(--radius-control);
+    background: var(--sheet);
+  }
+
+  .crv-check-open {
+    border-left-color: var(--tag-danger-fg);
+  }
+
+  .crv-check-documented,
+  .crv-check-resolved {
+    border-left-color: var(--tag-storage-fg);
+  }
+
+  .crv-check-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .crv-messages,
+  .crv-history,
+  .crv-list {
+    margin: var(--space-2) 0 0;
+    padding-left: 1.25rem;
+  }
+
+  .crv-history {
+    margin: 0;
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .crv-note {
+    margin: var(--space-2) 0 0;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  .crv-note-form {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+
+  .crv-note-form textarea,
+  .confirm-dialog textarea {
     width: 100%;
     box-sizing: border-box;
   }
 
-  .crv-preview,
-  .crv-paper > .crv-preview {
-    padding: var(--space-4);
+  .crv-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* Issue checks: tag, then what was checked. */
+  .crv-check-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .crv-check-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  /* ---- Interim preview (never the issued format) ------------------------------------------ */
+
+  .crv-preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
+    padding: var(--space-5);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
+  .crv-preview-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .crv-preview-head h2 {
+    margin: 0;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+    font-weight: 700;
+  }
+
+  .crv-preview-notice {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-tag);
+    background: var(--tag-lab-bg);
+    color: var(--tag-lab-fg);
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+  }
+
+  .crv-preview-section h3 {
+    margin: 0 0 var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: var(--rule-width) solid var(--rule);
+    font-size: var(--fs-body);
+    font-weight: 700;
+  }
+
+  .crv-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+  }
+
+  .crv-fields-stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .crv-field {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-tag);
+  }
+
+  .crv-field dt {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .crv-field dd {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  /* A field changed since the previous submitted version: waiting fill plus the written mark. */
+  .crv-changed,
+  .crv-row-changed > * {
+    background: var(--tag-waiting-bg);
+    outline: 1px solid var(--tag-waiting-fg);
+  }
+
+  .review-changed-mark {
+    display: block;
+    color: var(--tag-waiting-fg);
+    font-size: var(--fs-small);
+    font-weight: 700;
+  }
+
+  /* Tables inside the preview and the strength report: rail mono caps head, hairline rows. They
+   scroll inside their frame on a phone instead of stacking. */
+  .crv-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--sheet);
+  }
+
+  .crv-table th,
+  .crv-table td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--hairline);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .crv-table thead th {
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--rail);
+    font: 600 var(--fs-label) / 1.4 var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .crv-table tbody th {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .crv-table tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  .crv-table td.mono {
+    font-size: var(--fs-data);
+  }
+
+  .crv-table td.crv-strong {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+
+  @media (hover: hover) {
+    .crv-table tbody tr:hover > * {
+      background-image: linear-gradient(var(--tint-row), var(--tint-row));
+    }
+  }
+
+  /* Specimens: one line per set, then its letters as small ink cards. */
+  .crv-sets {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .crv-set {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-control);
+  }
+
+  .crv-letters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* ---- Issue: the preview as a paper sheet ------------------------------------------------- */
+
+  .crv-paper-label {
+    margin: 0 0 calc(-1 * var(--space-3));
   }
 
   .crv-paper {
-    box-shadow: none;
-  }
-}
-
-@media (forced-colors: active) {
-  .crv-changed,
-  .crv-row-changed > * {
-    outline-color: Highlight;
+    min-width: 0;
+    box-shadow: 4px 4px 0 var(--hairline);
+    border-radius: var(--radius-card);
   }
 
-  .crv-check-item,
-  .crv-check-open,
-  .crv-check-documented,
-  .crv-check-resolved {
-    border-left-color: CanvasText;
+  .crv-paper > .crv-preview {
+    padding: var(--space-6);
+  }
+
+  .crv-issued-file {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: 0;
+  }
+
+  .crv-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .crv-option-disabled {
+    color: var(--disabled);
+  }
+
+  .crv-option-label {
+    margin: var(--space-2) 0 0;
+  }
+
+  .crv-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+
+  .crv-issue-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: var(--rule-width) solid var(--rule);
+  }
+
+  /* ---- Strength report: one framed table per test age ------------------------------------- */
+
+  .crv-ages {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .crv-age {
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+    overflow: hidden;
+  }
+
+  .crv-age-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--rail);
+  }
+
+  .crv-age-head h3 {
+    flex: 1 1 8rem;
+    margin: 0;
+    font-size: var(--fs-section);
+    line-height: var(--lh-section);
+    font-weight: 700;
+  }
+
+  .crv-age-average {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+
+  .crv-age-count {
+    color: var(--ink-soft);
+    font-size: var(--fs-small);
+  }
+
+  .crv-age-assessment {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .crv-age-empty {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    color: var(--ink-soft);
+  }
+
+  .crv-age > .table-scroll:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .crv-locked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-control);
+    background: var(--paper);
+    font-size: var(--fs-small);
+  }
+
+  .crv-advisory {
+    margin: 0;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+  }
+
+  /* MM-V2-C24: an excluded specimen stays listed, struck from its age's average. */
+  .crv-struck {
+    text-decoration: line-through;
+  }
+
+  .crv-excluded {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--fs-small);
+    font-weight: 400;
+  }
+
+  /* ---- Narrow screens ------------------------------------------------------------------------ */
+
+  @media (max-width: 900px) {
+    .crv-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Issue and strength report: the checks and actions come before the long preview. The review
+     page keeps its order (exceptions, the report, then the decision). */
+    .crv-strength .crv-layout > .crv-side,
+    .crv-layout > aside.crv-side {
+      order: -1;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .crv-filters > label:not(.crv-check) {
+      flex: 1 1 100%;
+    }
+
+    .crv-filters input:not([type='checkbox']),
+    .crv-filters select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .crv-preview,
+    .crv-paper > .crv-preview {
+      padding: var(--space-4);
+    }
+
+    .crv-paper {
+      box-shadow: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .crv-changed,
+    .crv-row-changed > * {
+      outline-color: Highlight;
+    }
+
+    .crv-check-item,
+    .crv-check-open,
+    .crv-check-documented,
+    .crv-check-resolved {
+      border-left-color: CanvasText;
+    }
   }
 }

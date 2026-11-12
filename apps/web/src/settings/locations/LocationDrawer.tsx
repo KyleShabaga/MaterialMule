@@ -11,7 +11,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { ReceiverSelect } from '../../components/ReceiverSelect';
-import { DataTable, ErrorState, StatusBadge } from '../../components/ui';
+import { DataTable, ErrorState, StatusBadge } from '../../components/app-ui';
 import { confirmPhysicalPrint } from '../../printing/api';
 import { PrintJobStatus } from '../../printing/PrintJobStatus';
 import { PRINT_POLL_MS } from '../../printing/usePrintJob';

@@ -12,7 +12,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { BandedCard, EmptyState, StatusBadge } from '../components/ui';
+import { BandedCard, EmptyState, StatusBadge } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import { ReasonDialog } from './ReasonDialog';
 import {

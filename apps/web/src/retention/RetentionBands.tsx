@@ -1,7 +1,7 @@
 import type { InventoryItem, InventoryPage } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { EmptyState, ErrorState, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, StatusBadge } from '../components/app-ui';
 import { fetchInventory } from '../inventory/api';
 import { bandInventoryLink, bandParams, type Band } from './bands';
 

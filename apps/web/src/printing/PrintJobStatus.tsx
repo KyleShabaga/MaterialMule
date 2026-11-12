@@ -1,5 +1,5 @@
 import { printJobStatusText, type PrintJob } from '@materialmule/shared';
-import { StatusBadge } from '../components/ui';
+import { StatusBadge } from '../components/app-ui';
 
 /**
  * One print job's honest status (MM-T15): a chip, what to do next and the follow-up actions.

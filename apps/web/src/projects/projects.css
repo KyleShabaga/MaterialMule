@@ -1,608 +1,610 @@
-/* ---- Projects list and detail (MM-T35) ---- */
+@layer legacy {
+  /* ---- Projects list and detail (MM-T35) ---- */
 
-/* Field Ledger (canvas Projects): Mine / All, then a grid of project cards. */
-.project-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-.project-filters .inventory-count {
-  margin: 0;
-}
-
-.project-cards {
-  list-style: none;
-  margin: var(--space-5) 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 21.25rem), 1fr));
-  gap: var(--space-4);
-}
-
-.project-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--sheet);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-}
-
-.project-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) 10px;
-  padding: 10px var(--space-4);
-  background: var(--rail);
-  border-bottom: var(--rule-width) solid var(--rule);
-}
-
-.project-card .project-link {
-  font: 600 1.125rem/1.5rem var(--font-mono);
-  color: var(--ink);
-}
-
-/* The whole card is the number link's click target; its focus ring is drawn on the card. */
-.project-card .project-link::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-}
-
-.project-card:focus-within {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.project-card .badge {
-  position: relative;
-}
-
-@media (hover: hover) {
-  .project-card:hover {
-    background-image: linear-gradient(var(--tint-row), var(--tint-row));
-  }
-}
-
-.project-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: 14px var(--space-4);
-}
-
-.project-card-body p {
-  margin: 0;
-}
-
-.project-card-name {
-  font-size: var(--fs-row-id);
-  font-weight: 700;
-  overflow-wrap: break-word;
-}
-
-.project-card-meta,
-.project-card-next {
-  font-size: var(--fs-small);
-  color: var(--ink-soft);
-  overflow-wrap: break-word;
-}
-
-.project-card-counts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
-.project-card-counts > div {
-  padding: var(--space-2) 10px;
-  min-width: 0;
-}
-
-.project-card-counts > div + div {
-  border-left: 1px solid var(--hairline);
-}
-
-.project-card-counts dt {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.project-card-counts dd {
-  margin: 0;
-  font-size: var(--fs-section);
-  font-weight: 800;
-  font-family: var(--font-sans);
-}
-
-.project-card-counts .project-card-date {
-  font: 600 var(--fs-data) / 1.75rem var(--font-mono);
-}
-
-/* Project page (canvas Project): Overview / Concrete / Team switch, links in one 2 px frame. */
-.project-switch {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-self: flex-start;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-  background: var(--sheet);
-}
-
-.project-switch a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target);
-  box-sizing: border-box;
-  padding: 0 var(--space-4);
-  font-weight: 700;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.project-switch a + a {
-  border-left: 1px solid var(--rule);
-}
-
-.project-switch a[aria-current='page'] {
-  background: var(--selected);
-  color: var(--on-selected);
-}
-
-@media (hover: hover) {
-  .project-switch a:hover {
-    background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
-    text-decoration: none;
-  }
-
-  .project-switch a[aria-current='page']:hover {
-    background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
-  }
-}
-
-@media (forced-colors: active) {
-  .project-switch a[aria-current='page'] {
-    forced-color-adjust: none;
-    background: Highlight;
-    color: HighlightText;
-    text-decoration: underline;
-  }
-}
-
-.project-context {
-  justify-content: space-between;
-}
-
-.project-context .back-link {
-  margin: 0;
-}
-
-.project-context-start {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* Mono caption over the title: "PROJECT · LEAD …". */
-.project-caption {
-  margin: 0;
-  font: 600 var(--fs-data) / 1.125rem var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.project-title {
-  margin: 6px 0 0;
-  font-size: var(--fs-page-title);
-  line-height: var(--lh-page-title);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  overflow-wrap: break-word;
-}
-
-.project-title .mono {
-  font-weight: 600;
-}
-
-/* Team & Permissions (canvas ProjectTeam): the lists on the left, the viewer's own YES / NO
-   panel at the side; one column below 1100 px. */
-.team-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(18.75rem, 1fr);
-  gap: var(--space-6);
-  align-items: start;
-}
-
-.team-main,
-.team-side {
-  min-width: 0;
-}
-
-.team-side .yes-no-list {
-  border-width: 1px;
-}
-
-@media (max-width: 1100px) {
-  .team-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* Counts strip: one framed row of big counts. */
-.project-counts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10.625rem, 1fr));
-  margin: var(--space-5) 0 0;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-  overflow: hidden;
-}
-
-.project-counts > div {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: 14px 18px;
-  border-right: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-  margin-right: -1px;
-  margin-bottom: -1px;
-}
-
-.project-counts dt {
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.project-counts dd {
-  margin: 0;
-  font-size: 2rem;
-  line-height: 1;
-  font-weight: 800;
-}
-
-@media (max-width: 640px) {
-  .project-title {
-    font-size: var(--fs-phone-title);
-    line-height: var(--fs-phone-title);
-  }
-
-  .project-switch {
+  /* Field Ledger (canvas Projects): Mine / All, then a grid of project cards. */
+  .project-filters {
     display: flex;
-    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+  }
+
+  .project-filters .inventory-count {
+    margin: 0;
+  }
+
+  .project-cards {
+    list-style: none;
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21.25rem), 1fr));
+    gap: var(--space-4);
+  }
+
+  .project-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--sheet);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+
+  .project-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) 10px;
+    padding: 10px var(--space-4);
+    background: var(--rail);
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .project-card .project-link {
+    font: 600 1.125rem/1.5rem var(--font-mono);
+    color: var(--ink);
+  }
+
+  /* The whole card is the number link's click target; its focus ring is drawn on the card. */
+  .project-card .project-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .project-card:focus-within {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .project-card .badge {
+    position: relative;
+  }
+
+  @media (hover: hover) {
+    .project-card:hover {
+      background-image: linear-gradient(var(--tint-row), var(--tint-row));
+    }
+  }
+
+  .project-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: 14px var(--space-4);
+  }
+
+  .project-card-body p {
+    margin: 0;
+  }
+
+  .project-card-name {
+    font-size: var(--fs-row-id);
+    font-weight: 700;
+    overflow-wrap: break-word;
+  }
+
+  .project-card-meta,
+  .project-card-next {
+    font-size: var(--fs-small);
+    color: var(--ink-soft);
+    overflow-wrap: break-word;
+  }
+
+  .project-card-counts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-control);
+  }
+
+  .project-card-counts > div {
+    padding: var(--space-2) 10px;
+    min-width: 0;
+  }
+
+  .project-card-counts > div + div {
+    border-left: 1px solid var(--hairline);
+  }
+
+  .project-card-counts dt {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .project-card-counts dd {
+    margin: 0;
+    font-size: var(--fs-section);
+    font-weight: 800;
+    font-family: var(--font-sans);
+  }
+
+  .project-card-counts .project-card-date {
+    font: 600 var(--fs-data) / 1.75rem var(--font-mono);
+  }
+
+  /* Project page (canvas Project): Overview / Concrete / Team switch, links in one 2 px frame. */
+  .project-switch {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-self: flex-start;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    background: var(--sheet);
   }
 
   .project-switch a {
-    flex: 1 1 auto;
-    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target);
+    box-sizing: border-box;
+    padding: 0 var(--space-4);
+    font-weight: 700;
+    color: var(--ink);
+    text-decoration: none;
   }
-}
 
-/* Search, Only mine and Sort by on one filter card; they stack on phones. */
-.tool-card.project-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 16.25rem);
-  align-items: end;
-  gap: 1rem;
-  margin-top: 1.25rem;
-}
+  .project-switch a + a {
+    border-left: 1px solid var(--rule);
+  }
 
-.projects-search,
-.add-hole {
-  display: grid;
-  gap: 0.375rem;
-  min-width: 0;
-}
+  .project-switch a[aria-current='page'] {
+    background: var(--selected);
+    color: var(--on-selected);
+  }
 
-.add-hole button {
-  white-space: nowrap;
-}
+  @media (hover: hover) {
+    .project-switch a:hover {
+      background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+      text-decoration: none;
+    }
 
-.project-tools .form-field {
-  margin: 0;
-}
+    .project-switch a[aria-current='page']:hover {
+      background-image: linear-gradient(var(--tint-selected), var(--tint-selected));
+    }
+  }
 
-.project-tools select {
-  width: 100%;
-}
+  @media (forced-colors: active) {
+    .project-switch a[aria-current='page'] {
+      forced-color-adjust: none;
+      background: Highlight;
+      color: HighlightText;
+      text-decoration: underline;
+    }
+  }
 
-/* The checkbox label stays in sentence case, unlike the card's field labels. */
-.tool-card .only-mine {
-  min-height: 2.5rem;
-  font: inherit;
-  letter-spacing: normal;
-  text-transform: none;
-  color: var(--ink);
-}
+  .project-context {
+    justify-content: space-between;
+  }
 
-.project-link {
-  font: 700 0.875rem/1.25rem var(--font-mono);
-  white-space: nowrap;
-}
+  .project-context .back-link {
+    margin: 0;
+  }
 
-.number {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  /* MM-T58: a count or date stays whole (IBM Plex Mono is wider than the old mono). */
-  white-space: nowrap;
-}
+  .project-context-start {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
 
-.project-header {
-  margin-top: var(--space-5);
-}
+  /* Mono caption over the title: "PROJECT · LEAD …". */
+  .project-caption {
+    margin: 0;
+    font: 600 var(--fs-data) / 1.125rem var(--font-mono);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
 
-.project-counts + .notice {
-  margin-top: 1rem;
-}
+  .project-title {
+    margin: 6px 0 0;
+    font-size: var(--fs-page-title);
+    line-height: var(--lh-page-title);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    overflow-wrap: break-word;
+  }
 
-/* Wrap between words only (MM-T58); the list table itself is a .table-stack. */
-.project-section,
-.project-name {
-  overflow-wrap: break-word;
-}
+  .project-title .mono {
+    font-weight: 600;
+  }
 
-.project-section {
-  margin-top: 1.25rem;
-  min-width: 0;
-}
+  /* Team & Permissions (canvas ProjectTeam): the lists on the left, the viewer's own YES / NO
+   panel at the side; one column below 1100 px. */
+  .team-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(18.75rem, 1fr);
+    gap: var(--space-6);
+    align-items: start;
+  }
 
-.project-tiles {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
-}
+  .team-main,
+  .team-side {
+    min-width: 0;
+  }
 
-/* Flush sections: rows run edge to edge inside the frame, on hairlines (canvas "Project"). */
-.project-section-flush .banded-card-body {
-  padding: 0;
-}
+  .team-side .yes-no-list {
+    border-width: 1px;
+  }
 
-.project-section-flush .banded-card-body > :is(.empty-state, .field-hint, p) {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-}
+  @media (max-width: 1100px) {
+    .team-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 
-.project-facts > div {
-  align-items: center;
-}
+  /* Counts strip: one framed row of big counts. */
+  .project-counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.625rem, 1fr));
+    margin: var(--space-5) 0 0;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+    overflow: hidden;
+  }
 
-.project-section-flush .project-holes {
-  margin: 0;
-}
+  .project-counts > div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: 14px 18px;
+    border-right: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+    margin-right: -1px;
+    margin-bottom: -1px;
+  }
 
-.project-section-flush .project-holes li {
-  align-items: center;
-  padding: 10px var(--space-4);
-}
+  .project-counts dt {
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
 
-.project-section-flush .add-hole {
-  padding: var(--space-3) var(--space-4) var(--space-4);
-}
+  .project-counts dd {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1;
+    font-weight: 800;
+  }
 
-.project-section-flush .data-table,
-.project-section-flush .table-scroll {
-  border: none;
-  border-radius: 0;
-  margin: 0;
-}
+  @media (max-width: 640px) {
+    .project-title {
+      font-size: var(--fs-phone-title);
+      line-height: var(--fs-phone-title);
+    }
 
-.project-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 0 1.25rem;
-  align-items: start;
-}
+    .project-switch {
+      display: flex;
+      width: 100%;
+    }
 
-/* One row per test hole: the name on the left, its unit count on the right. */
-.project-holes {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
-}
+    .project-switch a {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+  }
 
-.project-holes li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.625rem 0;
-  border-bottom: 1px solid var(--line);
-  font-family: var(--font-mono);
-}
-
-.hole-name {
-  font-weight: 600;
-}
-
-.folder-path {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-  min-width: 0;
-}
-
-.folder-path code {
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-
-.edit-project {
-  width: min(32rem, calc(100% - 2rem));
-  box-sizing: border-box;
-}
-
-.edit-project input,
-.edit-project select,
-.edit-project textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.edit-project-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-}
-
-.edit-project-head h2 {
-  margin: 0;
-}
-
-.edit-project-head .project-number {
-  font: 600 var(--fs-data) / 1.125rem var(--font-mono);
-}
-
-.edit-project-lede {
-  margin: 0 0 var(--space-2);
-}
-
-.edit-project form {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.edit-project input[readonly] {
-  background: var(--card);
-  font-family: var(--font-mono);
-}
-
-.field-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 1rem;
-}
-
-@media (max-width: 1024px) {
+  /* Search, Only mine and Sort by on one filter card; they stack on phones. */
   .tool-card.project-tools {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 16.25rem);
+    align-items: end;
+    gap: 1rem;
+    margin-top: 1.25rem;
   }
 
-  .project-tools .projects-search {
-    grid-column: 1 / -1;
+  .projects-search,
+  .add-hole {
+    display: grid;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .add-hole button {
+    white-space: nowrap;
+  }
+
+  .project-tools .form-field {
+    margin: 0;
+  }
+
+  .project-tools select {
+    width: 100%;
+  }
+
+  /* The checkbox label stays in sentence case, unlike the card's field labels. */
+  .tool-card .only-mine {
+    min-height: 2.5rem;
+    font: inherit;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--ink);
+  }
+
+  .project-link {
+    font: 700 0.875rem/1.25rem var(--font-mono);
+    white-space: nowrap;
+  }
+
+  .number {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    /* MM-T58: a count or date stays whole (IBM Plex Mono is wider than the old mono). */
+    white-space: nowrap;
+  }
+
+  .project-header {
+    margin-top: var(--space-5);
+  }
+
+  .project-counts + .notice {
+    margin-top: 1rem;
+  }
+
+  /* Wrap between words only (MM-T58); the list table itself is a .table-stack. */
+  .project-section,
+  .project-name {
+    overflow-wrap: break-word;
+  }
+
+  .project-section {
+    margin-top: 1.25rem;
+    min-width: 0;
   }
 
   .project-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
   }
-}
 
-@media (max-width: 640px) {
-  .project-columns,
-  .tool-card.project-tools,
-  .project-tiles,
+  /* Flush sections: rows run edge to edge inside the frame, on hairlines (canvas "Project"). */
+  .project-section-flush .banded-card-body {
+    padding: 0;
+  }
+
+  .project-section-flush .banded-card-body > :is(.empty-state, .field-hint, p) {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .project-facts > div {
+    align-items: center;
+  }
+
+  .project-section-flush .project-holes {
+    margin: 0;
+  }
+
+  .project-section-flush .project-holes li {
+    align-items: center;
+    padding: 10px var(--space-4);
+  }
+
+  .project-section-flush .add-hole {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+  }
+
+  .project-section-flush .data-table,
+  .project-section-flush .table-scroll {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  .project-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 0 1.25rem;
+    align-items: start;
+  }
+
+  /* One row per test hole: the name on the left, its unit count on the right. */
+  .project-holes {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+  }
+
+  .project-holes li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+  }
+
+  .hole-name {
+    font-weight: 600;
+  }
+
+  .folder-path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    min-width: 0;
+  }
+
+  .folder-path code {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .edit-project {
+    width: min(32rem, calc(100% - 2rem));
+    box-sizing: border-box;
+  }
+
+  .edit-project input,
+  .edit-project select,
+  .edit-project textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .edit-project-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+  }
+
+  .edit-project-head h2 {
+    margin: 0;
+  }
+
+  .edit-project-head .project-number {
+    font: 600 var(--fs-data) / 1.125rem var(--font-mono);
+  }
+
+  .edit-project-lede {
+    margin: 0 0 var(--space-2);
+  }
+
+  .edit-project form {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .edit-project input[readonly] {
+    background: var(--card);
+    font-family: var(--font-mono);
+  }
+
   .field-pair {
-    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1rem;
   }
-}
 
-/* Acceptance delegates on the project page (MM-T25). */
-.delegate-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
+  @media (max-width: 1024px) {
+    .tool-card.project-tools {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
 
-.delegate-list li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line);
-}
+    .project-tools .projects-search {
+      grid-column: 1 / -1;
+    }
 
-/* Team & Permissions (MM-AO05). */
-.section-heading {
-  margin: 2rem 0 0;
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-}
+    .project-tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 
-.reviewer-scope + .reviewer-scope {
-  margin-top: 1rem;
-}
+  @media (max-width: 640px) {
+    .project-columns,
+    .tool-card.project-tools,
+    .project-tiles,
+    .field-pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 
-.reviewer-scope h3 {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.5rem;
-}
+  /* Acceptance delegates on the project page (MM-T25). */
+  .delegate-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
 
-.team-history li {
-  display: block;
-}
+  .delegate-list li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+  }
 
-/* MTR-26: names the fields that differ from the saved project. */
-.edit-project-changed {
-  margin: 0.5rem 0 0;
-}
+  /* Team & Permissions (MM-AO05). */
+  .section-heading {
+    margin: 2rem 0 0;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
 
-/* MTR-21: each person's permissions on Team & Permissions, folded until opened. */
-.person-permissions ul {
-  margin: 0.5rem 0 0;
-  padding-left: 1.25rem;
-  display: grid;
-  gap: 0.25rem;
-}
+  .reviewer-scope + .reviewer-scope {
+    margin-top: 1rem;
+  }
 
-/* MTR-25: inherited grants waiting for the new lead's review. */
-.grant-reviews {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
+  .reviewer-scope h3 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
 
-.grant-reviews li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
+  .team-history li {
+    display: block;
+  }
 
-/* Field Ledger (canvas Project): "Units by test hole", one framed unit table per hole. */
-.project-hole-groups {
-  display: grid;
-  gap: var(--space-4);
-}
+  /* MTR-26: names the fields that differ from the saved project. */
+  .edit-project-changed {
+    margin: 0.5rem 0 0;
+  }
 
-.project-hole-group {
-  min-width: 0;
-}
+  /* MTR-21: each person's permissions on Team & Permissions, folded until opened. */
+  .person-permissions ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.25rem;
+  }
 
-.project-hole-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-  margin-bottom: var(--space-2);
-}
+  /* MTR-25: inherited grants waiting for the new lead's review. */
+  .grant-reviews {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
 
-.project-hole-head h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-}
+  .grant-reviews li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
 
-.project-hole-head span {
-  font-size: var(--fs-small);
+  /* Field Ledger (canvas Project): "Units by test hole", one framed unit table per hole. */
+  .project-hole-groups {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .project-hole-group {
+    min-width: 0;
+  }
+
+  .project-hole-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+
+  .project-hole-head h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .project-hole-head span {
+    font-size: var(--fs-small);
+  }
 }

@@ -2,7 +2,7 @@ import type { ActivityItem, MeResponse, StorageLocation } from '@materialmule/sh
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchOpenCount } from '../action-requests/api';
-import { EmptyState, ErrorState, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, StatusBadge } from '../components/app-ui';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { FEATURES } from '../features';
 import { PHONE_QUERY } from '../layout/AppLayout';

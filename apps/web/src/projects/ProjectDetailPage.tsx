@@ -9,7 +9,7 @@ import { ProjectRetentionSection } from '../retention/RetentionSections';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { createTestHole } from '../api/projects';
-import { BandedCard, DataTable, EmptyState, ErrorState, PageHeader } from '../components/ui';
+import { BandedCard, DataTable, EmptyState, ErrorState, PageHeader } from '../components/app-ui';
 import { fetchInventory } from '../inventory/api';
 import '../inventory/inventory.css';
 import { StorageUnitTable, type StorageUnitLinkState } from '../inventory/StorageUnitTable';

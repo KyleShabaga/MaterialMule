@@ -1,4 +1,4 @@
-import type { BadgeTone } from '../components/ui';
+import type { BadgeTone } from '../components/app-ui';
 
 /** Rows each Retention band loads; a fuller list is one link away in Inventory. */
 export const BAND_SIZE = 50;

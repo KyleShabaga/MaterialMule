@@ -1,7 +1,7 @@
 import { isPrintJobActive, type ConfirmReceiptResponse, type PrintJob } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Notice, SidePanel, UnitLabel } from '../components/ui';
+import { Notice, SidePanel, UnitLabel } from '../components/app-ui';
 import { confirmPhysicalPrint, requestPrint } from '../printing/api';
 import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
 import { PrintJobStatus } from '../printing/PrintJobStatus';

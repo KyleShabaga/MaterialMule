@@ -1,7 +1,7 @@
 import { LAB_USERNAME, signInLockedResponseSchema } from '@materialmule/shared';
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '../api/client';
-import { FormField } from '../components/ui';
+import { FormField } from '../components/app-ui';
 import { AuthStrip } from './AuthLayout';
 
 interface SignInFailure {

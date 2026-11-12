@@ -14,7 +14,7 @@ import {
   StatusBadge,
   TableScroll,
   type Column,
-} from '../components/ui';
+} from '../components/app-ui';
 import '../inventory/inventory.css';
 import { StorageUnitStatusBadge } from '../inventory/StorageUnitStatusBadge';
 import { ContextRow } from '../layout/ContextRow';

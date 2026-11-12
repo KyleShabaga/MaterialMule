@@ -1,7 +1,7 @@
 import { authProvidersResponseSchema, type AuthProvidersResponse } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router';
-import { ErrorState } from '../components/ui';
+import { ErrorState } from '../components/app-ui';
 import { safeReturnTo } from '../lib/return-to';
 import { useSession } from '../session/context';
 import { wasLabStation } from '../session/station';

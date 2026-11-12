@@ -13,7 +13,7 @@ import {
   PageHeader,
   SidePanel,
   StatusBadge,
-} from '../components/ui';
+} from '../components/app-ui';
 import { FactCells } from '../concrete/ledger';
 import { shortDateTime } from '../dashboard/format';
 import { ContextRow } from '../layout/ContextRow';

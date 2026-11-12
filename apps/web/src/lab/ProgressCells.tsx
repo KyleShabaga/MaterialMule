@@ -1,5 +1,5 @@
 import type { TestProgress } from '@materialmule/shared';
-import { CountedCells } from '../components/ui';
+import { CountedCells } from '../components/app-ui';
 import { progressCells, progressLabel } from './format';
 
 // Field Ledger progress (docs/redesign/design.md, "Counted cells"): one cell per test, ink =

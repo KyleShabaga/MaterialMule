@@ -12,7 +12,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ReceiverSelect } from '../../components/ReceiverSelect';
-import { DataTable, EmptyState, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { DataTable, EmptyState, ErrorState, FormField, StatusBadge } from '../../components/app-ui';
 import { SettingsHead } from '../SettingsHead';
 import {
   fetchEquipment,

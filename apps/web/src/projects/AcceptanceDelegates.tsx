@@ -6,7 +6,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { ReceiverSelect } from '../components/ReceiverSelect';
-import { BandedCard, ConfirmDialog, EmptyState, ErrorState } from '../components/ui';
+import { BandedCard, ConfirmDialog, EmptyState, ErrorState } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import { fetchDelegates, grantDelegate, revokeDelegate, type WriteResult } from '../lab/api';
 

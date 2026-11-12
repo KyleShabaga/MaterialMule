@@ -7,7 +7,7 @@ import {
   ErrorState,
   StatusBadge,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { formatAge, formatBytes, formatExpiry } from '../../lib/format';
 import { useMe } from '../../session/context';
 import { SettingsHead } from '../SettingsHead';

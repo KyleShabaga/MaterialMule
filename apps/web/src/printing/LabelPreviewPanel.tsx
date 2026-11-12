@@ -1,7 +1,7 @@
 import type { LabelPreview } from '@materialmule/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { BandedCard, EmptyState, ErrorState } from '../components/ui';
+import { BandedCard, EmptyState, ErrorState } from '../components/app-ui';
 import { fetchLabelPreview, type PreviewResult } from './api';
 import { LabelImage } from './LabelImage';
 import { DISPOSED_NOTE, LabelPrintSteps } from './LabelPrintPage';

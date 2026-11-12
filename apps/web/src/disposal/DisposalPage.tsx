@@ -15,7 +15,7 @@ import {
   Segmented,
   SidePanel,
   StatusBadge,
-} from '../components/ui';
+} from '../components/app-ui';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { PHONE_QUERY } from '../components/useTableView';
 import { ContextRow } from '../layout/ContextRow';

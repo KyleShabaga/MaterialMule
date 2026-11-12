@@ -19,7 +19,7 @@ import {
   StatusBadge,
   TableScroll,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { useMe } from '../../session/context';
 import { SettingsHead, SettingsSub } from '../SettingsHead';
 import { StaffApiError, listStaff, staffApi } from './api';

@@ -1,6 +1,6 @@
 import type { ConcreteMixDetail, ConcreteSupplier } from '@materialmule/shared';
 import { useEffect, useId, useState } from 'react';
-import { ConfirmDialog } from '../../components/ui';
+import { ConfirmDialog } from '../../components/app-ui';
 import { fetchSuppliers } from '../../settings/reference/api';
 import { concreteProblem, discardMixDraft, linkMixSupplier } from './api';
 

@@ -7,7 +7,7 @@ import {
 } from '@materialmule/shared';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/app-ui';
 import '../inventory/inventory.css';
 import { useMe } from '../session/context';
 import { fetchProjects, type LoadResult } from './api';

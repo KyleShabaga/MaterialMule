@@ -19,7 +19,7 @@ import {
   TableViewSelector,
   type Column,
   type TableView,
-} from '../components/ui';
+} from '../components/app-ui';
 import { useTableView } from '../components/useTableView';
 import { fetchProject } from '../inventory/api';
 import '../inventory/inventory.css';

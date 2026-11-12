@@ -325,7 +325,7 @@ panels).
 
 ## Components
 
-The shared React components live in `apps/web/src/components/ui.tsx`. Use them before writing new
+The shared React components live in `apps/web/src/components/app-ui.tsx`. Use them before writing new
 markup; add a variant there rather than restyling one screen.
 
 ### Buttons

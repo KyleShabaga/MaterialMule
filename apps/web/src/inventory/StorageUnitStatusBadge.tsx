@@ -4,7 +4,7 @@ import {
   type StorageUnitStatus,
   type TestedRemovalReason,
 } from '@materialmule/shared';
-import { StatusBadge, type BadgeTone } from '../components/ui';
+import { StatusBadge, type BadgeTone } from '../components/app-ui';
 
 const TONES: Record<StorageUnitStatus, BadgeTone> = {
   in_stock: 'success',

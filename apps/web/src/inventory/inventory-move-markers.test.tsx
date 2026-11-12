@@ -7,7 +7,7 @@ import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { indexedDbMoveStore, type NewMove, type QueuedMove } from '../moves/store';
 import { pendingMovesByUnit, usePendingMoves } from '../moves/usePendingMoves';
-import type { TableView } from '../components/ui';
+import type { TableView } from '../components/app-ui';
 import { StorageUnitTable } from './StorageUnitTable';
 
 // MM-T81: Conflict tag and this device's Pending marker on Sample Storage rows. Fictional data only.

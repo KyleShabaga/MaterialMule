@@ -1,7 +1,7 @@
 import type { MeResponse, ReceiverOption } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ErrorState, PageHeader } from '../components/ui';
+import { ErrorState, PageHeader } from '../components/app-ui';
 import { useMe } from '../session/context';
 import { newDraft } from './draft';
 import { fetchDraftSettings } from '../settings/receiving/api';

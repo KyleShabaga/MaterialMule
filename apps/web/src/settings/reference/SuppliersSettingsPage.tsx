@@ -1,6 +1,6 @@
 import type { ConcreteSupplier, ConcreteSupplierList, FieldError } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/app-ui';
 import { SettingsHead } from '../SettingsHead';
 import { createSupplier, fetchSuppliers, updateSupplier, type SaveResult } from './api';
 import './reference-settings.css';

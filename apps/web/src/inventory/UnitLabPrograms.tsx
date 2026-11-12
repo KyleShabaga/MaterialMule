@@ -7,7 +7,7 @@ import {
   ErrorState,
   SectionHead,
   type CountedCellState,
-} from '../components/ui';
+} from '../components/app-ui';
 import { fetchStorageUnitLabPrograms, type InventoryResult } from './api';
 
 /** The tests on the lines covering this unit as counted cells: done, in progress, not started. */

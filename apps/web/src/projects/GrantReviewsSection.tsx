@@ -5,7 +5,7 @@ import {
   type ProjectGrantReviews,
 } from '@materialmule/shared';
 import { useState } from 'react';
-import { BandedCard, StatusBadge } from '../components/ui';
+import { BandedCard, StatusBadge } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import { ReasonDialog } from './ReasonDialog';
 import { decideGrantReview } from './team-api';

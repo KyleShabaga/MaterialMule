@@ -6,7 +6,7 @@ import {
   type FieldError,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/ui';
+import { DataTable, ErrorState, FormField, StatusBadge } from '../../components/app-ui';
 import { createHoliday, fetchHolidays, removeHoliday, renameHoliday, type SaveResult } from './api';
 import { SettingsHead } from '../SettingsHead';
 import './reference-settings.css';

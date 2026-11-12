@@ -1,4 +1,4 @@
-import type { BadgeTone } from '../components/ui';
+import type { BadgeTone } from '../components/app-ui';
 import type { QueuedMove } from './store';
 
 // Wording and formats shared by the Move screen and its tests (MM-T28).

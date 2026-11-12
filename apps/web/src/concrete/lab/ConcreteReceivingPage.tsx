@@ -15,7 +15,7 @@ import {
   SectionHead,
   StatusBadge,
   type Column,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { LetterCells, type LedgerTone } from '../ledger';
 import { fetchReceivingQueue, type LoadResult } from './api';
 import { labDateTime, setLabel, setLookupPath, workflowLabel, workflowTone } from './format';

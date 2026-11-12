@@ -18,7 +18,7 @@ import {
   StatusBadge,
   TableScroll,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { useMe } from '../../session/context';
 import { SpecimenLabel } from '../worklist/specimen';
 import { specimenText } from '../worklist/specimen-text';

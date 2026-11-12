@@ -1,577 +1,579 @@
-/* ---- Standalone pages: sign-in split screen, access pending, test sign-in (Field Ledger) ---- */
-
-.auth-page {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
-}
-
-/* Rail-coloured band with the brand (AccessPending board). */
-.auth-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: 18px var(--space-7);
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--rail);
-}
-
-.auth-body {
-  display: flex;
-  flex: 1 1 auto;
-  justify-content: center;
-  padding: var(--space-8) var(--space-6);
-}
-
-.auth-main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  width: 100%;
-  max-width: 30rem;
-  box-sizing: border-box;
-}
-
-.auth-main-wide {
-  max-width: 40rem;
-}
-
-.auth-main > *,
-.auth-main h1,
-.auth-main .notice {
-  margin: 0;
-}
-
-.auth-main h1 {
-  font-size: var(--fs-page-title);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-/* Brand: the donkey (ink, drawn in currentColor) on the flag tile, then the wordmark. */
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.auth-mark {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  box-sizing: border-box;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background: var(--flag);
-  color: var(--on-flag);
-}
-
-.auth-mark svg {
-  width: 28px;
-  height: 22px;
-}
-
-.auth-wordmark {
-  font-weight: 800;
-  font-size: 1rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-/* On the ink panel: a 52 px tile with a paper border; the donkey stays ink. */
-.auth-brand-large {
-  gap: var(--space-3);
-}
-
-.auth-brand-large .auth-mark {
-  width: 52px;
-  height: 52px;
-  border-color: var(--on-inverse);
-}
-
-.auth-brand-large .auth-mark svg {
-  width: 38px;
-  height: 30px;
-}
-
-.auth-brand-large .auth-wordmark {
-  font-size: var(--fs-section);
-}
-
-/* ---- Sign-in split screen ---- */
-
-.auth-split {
-  display: flex;
-  flex-wrap: wrap;
-  min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
-}
-
-.auth-panel {
-  display: flex;
-  flex: 1 1 420px;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-8);
-  box-sizing: border-box;
-  padding: var(--space-8);
-  background: var(--inverse);
-  color: var(--on-inverse);
-}
-
-.auth-panel p {
-  margin: 0;
-}
-
-.auth-panel-lines {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.auth-panel-line {
-  font-size: 4rem;
-  font-weight: 800;
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-}
-
-.auth-panel-steps,
-.auth-panel-note {
-  font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  color: var(--on-inverse-soft);
-}
-
-.auth-panel-note {
-  font-size: var(--fs-label);
-  text-transform: uppercase;
-}
-
-.auth-split-form {
-  display: flex;
-  flex: 1 1 480px;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: var(--space-8) var(--space-7);
-}
-
-.auth-main-split {
-  max-width: 440px;
-}
-
-/* Notice strips with a mono caps tag (States, "Sign-in"). */
-.auth-strip {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) 14px;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  color: var(--ink);
-}
-
-.auth-strip-waiting {
-  background: var(--tag-waiting-bg);
-}
-
-.auth-strip-danger {
-  background: var(--tag-danger-bg);
-}
-
-.auth-strip-tag {
-  flex: 0 0 auto;
-  padding-top: 2px;
-  font: 600 var(--fs-label) / 1.2 var(--font-mono);
-  text-transform: uppercase;
-}
-
-.auth-strip-waiting .auth-strip-tag {
-  color: var(--tag-waiting-fg);
-}
-
-.auth-strip-danger .auth-strip-tag {
-  color: var(--tag-danger-fg);
-}
-
-.auth-strip-text {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.auth-strip-text p {
-  margin: 0;
-}
-
-/* Microsoft first (the flag action), then "or", then the LAB panel, then the dashed test link. */
-.sign-in-options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.auth-microsoft-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.button.auth-microsoft {
-  justify-content: center;
-  gap: var(--space-3);
-  min-height: 56px;
-  font-size: 1rem;
-  font-weight: 800;
-}
-
-.auth-hint {
-  margin: 0;
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-  color: var(--ink-soft);
-}
-
-.auth-or {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font: 600 var(--fs-label) / 1 var(--font-mono);
-  text-transform: uppercase;
-}
-
-.auth-or::before,
-.auth-or::after {
-  content: '';
-  flex: 1 1 0;
-  height: var(--rule-width);
-  background: var(--rule);
-}
-
-.button.auth-test-link {
-  justify-content: center;
-  border-style: dashed;
-  background: transparent;
-  font-family: var(--font-mono);
-}
-
-/* A framed panel (the LAB form, test identity, sign-in problems). */
-.auth-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-}
-
-.auth-card h2 {
-  margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-}
-
-.auth-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap-button) var(--gap-group);
-}
-
-.auth-card-head .field-hint,
-.auth-card .notice p {
-  margin: 0.125rem 0 0;
-}
-
-/* The LAB form: a rail-coloured head over the fields, secondary weight. */
-.lab-sign-in {
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-.lab-sign-in .auth-card-head {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: var(--rule-width) solid var(--rule);
-  background: var(--rail);
-}
-
-.auth-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: var(--space-4);
-}
-
-.lab-sign-in form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.lab-sign-in input {
-  width: 100%;
-  min-height: var(--control-phone);
-}
-
-.lab-sign-in button[type='submit'] {
-  width: 100%;
-  min-height: var(--control-phone);
-  margin-top: var(--space-3);
-}
-
-/* Access pending: tag, title, line, the framed facts, then Check again. */
-.auth-pending-tag {
-  align-self: flex-start;
-}
-
-.auth-lead-line {
-  font-size: 1rem;
-}
-
-.auth-facts {
-  margin: 0;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-card);
-  background: var(--sheet);
-  overflow: hidden;
-}
-
-.auth-facts > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.auth-facts > div:last-child {
-  border-bottom: none;
-}
-
-.auth-facts dt {
-  padding-top: 2px;
-  font: 600 var(--fs-label) / 1.2 var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.auth-facts dd {
-  margin: 0;
-  font-weight: 600;
-  text-align: right;
-}
-
-.auth-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-4);
-}
-
-.auth-actions .primary {
-  min-height: var(--control-phone);
-}
-
-/* Microsoft sign-in problems: a waiting-tone icon box beside the title, body and next step. */
-.auth-problem {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-
-.auth-problem-icon {
-  display: inline-grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  box-sizing: border-box;
-  border: var(--rule-width) solid var(--rule);
-  border-radius: var(--radius-control);
-  background: var(--tag-waiting-bg);
-  color: var(--tag-waiting-fg);
-}
-
-.auth-problem-text {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.auth-problem-text > * {
-  margin: 0;
-}
-
-.auth-problem h1 {
-  font-size: 1.75rem;
-  line-height: 2rem;
-}
-
-.auth-eyebrow {
-  margin: 0 0 var(--space-1);
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.auth-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* Test sign-in: who is signed in, then one row per fictional person. */
-.test-identity .signed-in {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 0;
-}
-
-.test-initials {
-  display: inline-grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  box-sizing: border-box;
-  border-radius: var(--radius-control);
-  background: var(--selected);
-  font: 600 1rem/1 var(--font-mono);
-  color: var(--on-selected);
-}
-
-.auth-main .banded-card {
-  margin-top: 0;
-}
-
-.fixtures {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.fixtures li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px var(--space-3);
-  padding: 10px 0;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.fixtures li:last-child {
-  border-bottom: none;
-}
-
-.fixtures button {
-  min-width: 10rem;
-  justify-content: flex-start;
-}
-
-.fixture-initials {
-  font: 600 var(--fs-data) / 1.25rem var(--font-mono);
-}
-
-.fixture-summary {
-  color: var(--ink-soft);
-}
-
-.fixture-current {
-  margin-left: auto;
-  color: var(--tag-storage-fg);
-  font: 600 var(--fs-label) / 1rem var(--font-mono);
-}
-
-@media (max-width: 640px) {
-  .auth-header {
-    padding: var(--space-3) var(--space-4);
+@layer legacy {
+  /* ---- Standalone pages: sign-in split screen, access pending, test sign-in (Field Ledger) ---- */
+
+  .auth-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
   }
 
-  .auth-body,
-  .auth-split-form {
-    padding: var(--space-6) var(--space-4);
+  /* Rail-coloured band with the brand (AccessPending board). */
+  .auth-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: 18px var(--space-7);
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--rail);
+  }
+
+  .auth-body {
+    display: flex;
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: var(--space-8) var(--space-6);
+  }
+
+  .auth-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    width: 100%;
+    max-width: 30rem;
+    box-sizing: border-box;
+  }
+
+  .auth-main-wide {
+    max-width: 40rem;
+  }
+
+  .auth-main > *,
+  .auth-main h1,
+  .auth-main .notice {
+    margin: 0;
   }
 
   .auth-main h1 {
-    font-size: var(--fs-phone-title);
-    line-height: 1;
+    font-size: var(--fs-page-title);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
   }
 
-  .auth-problem h1 {
-    font-size: 1.5rem;
-    line-height: 2rem;
+  /* Brand: the donkey (ink, drawn in currentColor) on the flag tile, then the wordmark. */
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
-  /* The ink panel becomes a short band above the form. */
-  .auth-panel {
-    flex-basis: 100%;
-    gap: var(--space-3);
-    padding: var(--space-4);
-  }
-
-  .auth-panel-line {
-    font-size: var(--fs-section);
-    line-height: var(--lh-section);
-    letter-spacing: 0;
-  }
-
-  .auth-panel-steps,
-  .auth-panel-note {
-    display: none;
-  }
-
-  .auth-brand-large .auth-mark {
+  .auth-mark {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
     width: 38px;
     height: 38px;
+    box-sizing: border-box;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background: var(--flag);
+    color: var(--on-flag);
   }
 
-  .auth-brand-large .auth-mark svg {
+  .auth-mark svg {
     width: 28px;
     height: 22px;
   }
 
-  .auth-split-form {
-    flex-basis: 100%;
-    align-items: flex-start;
+  .auth-wordmark {
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  .auth-facts dd {
-    text-align: left;
+  /* On the ink panel: a 52 px tile with a paper border; the donkey stays ink. */
+  .auth-brand-large {
+    gap: var(--space-3);
   }
 
-  .auth-problem {
+  .auth-brand-large .auth-mark {
+    width: 52px;
+    height: 52px;
+    border-color: var(--on-inverse);
+  }
+
+  .auth-brand-large .auth-mark svg {
+    width: 38px;
+    height: 30px;
+  }
+
+  .auth-brand-large .auth-wordmark {
+    font-size: var(--fs-section);
+  }
+
+  /* ---- Sign-in split screen ---- */
+
+  .auth-split {
+    display: flex;
+    flex-wrap: wrap;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .auth-panel {
+    display: flex;
+    flex: 1 1 420px;
     flex-direction: column;
+    justify-content: space-between;
+    gap: var(--space-8);
+    box-sizing: border-box;
+    padding: var(--space-8);
+    background: var(--inverse);
+    color: var(--on-inverse);
   }
 
-  .auth-actions > .button,
-  .auth-actions > button {
-    flex: 1 1 auto;
+  .auth-panel p {
+    margin: 0;
+  }
+
+  .auth-panel-lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .auth-panel-line {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+
+  .auth-panel-steps,
+  .auth-panel-note {
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--on-inverse-soft);
+  }
+
+  .auth-panel-note {
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+  }
+
+  .auth-split-form {
+    display: flex;
+    flex: 1 1 480px;
+    align-items: center;
     justify-content: center;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: var(--space-8) var(--space-7);
   }
 
-  .fixtures button {
+  .auth-main-split {
+    max-width: 440px;
+  }
+
+  /* Notice strips with a mono caps tag (States, "Sign-in"). */
+  .auth-strip {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) 14px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    color: var(--ink);
+  }
+
+  .auth-strip-waiting {
+    background: var(--tag-waiting-bg);
+  }
+
+  .auth-strip-danger {
+    background: var(--tag-danger-bg);
+  }
+
+  .auth-strip-tag {
+    flex: 0 0 auto;
+    padding-top: 2px;
+    font: 600 var(--fs-label) / 1.2 var(--font-mono);
+    text-transform: uppercase;
+  }
+
+  .auth-strip-waiting .auth-strip-tag {
+    color: var(--tag-waiting-fg);
+  }
+
+  .auth-strip-danger .auth-strip-tag {
+    color: var(--tag-danger-fg);
+  }
+
+  .auth-strip-text {
+    display: grid;
+    gap: var(--space-2);
     min-width: 0;
   }
 
+  .auth-strip-text p {
+    margin: 0;
+  }
+
+  /* Microsoft first (the flag action), then "or", then the LAB panel, then the dashed test link. */
+  .sign-in-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .auth-microsoft-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .button.auth-microsoft {
+    justify-content: center;
+    gap: var(--space-3);
+    min-height: 56px;
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  .auth-hint {
+    margin: 0;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--ink-soft);
+  }
+
+  .auth-or {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font: 600 var(--fs-label) / 1 var(--font-mono);
+    text-transform: uppercase;
+  }
+
+  .auth-or::before,
+  .auth-or::after {
+    content: '';
+    flex: 1 1 0;
+    height: var(--rule-width);
+    background: var(--rule);
+  }
+
+  .button.auth-test-link {
+    justify-content: center;
+    border-style: dashed;
+    background: transparent;
+    font-family: var(--font-mono);
+  }
+
+  /* A framed panel (the LAB form, test identity, sign-in problems). */
+  .auth-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+  }
+
+  .auth-card h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+  }
+
+  .auth-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--gap-button) var(--gap-group);
+  }
+
+  .auth-card-head .field-hint,
+  .auth-card .notice p {
+    margin: 0.125rem 0 0;
+  }
+
+  /* The LAB form: a rail-coloured head over the fields, secondary weight. */
+  .lab-sign-in {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .lab-sign-in .auth-card-head {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: var(--rule-width) solid var(--rule);
+    background: var(--rail);
+  }
+
+  .auth-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: var(--space-4);
+  }
+
+  .lab-sign-in form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .lab-sign-in input {
+    width: 100%;
+    min-height: var(--control-phone);
+  }
+
+  .lab-sign-in button[type='submit'] {
+    width: 100%;
+    min-height: var(--control-phone);
+    margin-top: var(--space-3);
+  }
+
+  /* Access pending: tag, title, line, the framed facts, then Check again. */
+  .auth-pending-tag {
+    align-self: flex-start;
+  }
+
+  .auth-lead-line {
+    font-size: 1rem;
+  }
+
+  .auth-facts {
+    margin: 0;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-card);
+    background: var(--sheet);
+    overflow: hidden;
+  }
+
+  .auth-facts > div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .auth-facts > div:last-child {
+    border-bottom: none;
+  }
+
+  .auth-facts dt {
+    padding-top: 2px;
+    font: 600 var(--fs-label) / 1.2 var(--font-mono);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .auth-facts dd {
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .auth-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+  }
+
+  .auth-actions .primary {
+    min-height: var(--control-phone);
+  }
+
+  /* Microsoft sign-in problems: a waiting-tone icon box beside the title, body and next step. */
+  .auth-problem {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .auth-problem-icon {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    box-sizing: border-box;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-control);
+    background: var(--tag-waiting-bg);
+    color: var(--tag-waiting-fg);
+  }
+
+  .auth-problem-text {
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .auth-problem-text > * {
+    margin: 0;
+  }
+
+  .auth-problem h1 {
+    font-size: 1.75rem;
+    line-height: 2rem;
+  }
+
+  .auth-eyebrow {
+    margin: 0 0 var(--space-1);
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .auth-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  /* Test sign-in: who is signed in, then one row per fictional person. */
+  .test-identity .signed-in {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0;
+  }
+
+  .test-initials {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    box-sizing: border-box;
+    border-radius: var(--radius-control);
+    background: var(--selected);
+    font: 600 1rem/1 var(--font-mono);
+    color: var(--on-selected);
+  }
+
+  .auth-main .banded-card {
+    margin-top: 0;
+  }
+
+  .fixtures {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .fixtures li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px var(--space-3);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .fixtures li:last-child {
+    border-bottom: none;
+  }
+
+  .fixtures button {
+    min-width: 10rem;
+    justify-content: flex-start;
+  }
+
+  .fixture-initials {
+    font: 600 var(--fs-data) / 1.25rem var(--font-mono);
+  }
+
+  .fixture-summary {
+    color: var(--ink-soft);
+  }
+
   .fixture-current {
-    margin-left: 0;
+    margin-left: auto;
+    color: var(--tag-storage-fg);
+    font: 600 var(--fs-label) / 1rem var(--font-mono);
+  }
+
+  @media (max-width: 640px) {
+    .auth-header {
+      padding: var(--space-3) var(--space-4);
+    }
+
+    .auth-body,
+    .auth-split-form {
+      padding: var(--space-6) var(--space-4);
+    }
+
+    .auth-main h1 {
+      font-size: var(--fs-phone-title);
+      line-height: 1;
+    }
+
+    .auth-problem h1 {
+      font-size: 1.5rem;
+      line-height: 2rem;
+    }
+
+    /* The ink panel becomes a short band above the form. */
+    .auth-panel {
+      flex-basis: 100%;
+      gap: var(--space-3);
+      padding: var(--space-4);
+    }
+
+    .auth-panel-line {
+      font-size: var(--fs-section);
+      line-height: var(--lh-section);
+      letter-spacing: 0;
+    }
+
+    .auth-panel-steps,
+    .auth-panel-note {
+      display: none;
+    }
+
+    .auth-brand-large .auth-mark {
+      width: 38px;
+      height: 38px;
+    }
+
+    .auth-brand-large .auth-mark svg {
+      width: 28px;
+      height: 22px;
+    }
+
+    .auth-split-form {
+      flex-basis: 100%;
+      align-items: flex-start;
+    }
+
+    .auth-facts dd {
+      text-align: left;
+    }
+
+    .auth-problem {
+      flex-direction: column;
+    }
+
+    .auth-actions > .button,
+    .auth-actions > button {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+
+    .fixtures button {
+      min-width: 0;
+    }
+
+    .fixture-current {
+      margin-left: 0;
+    }
   }
 }

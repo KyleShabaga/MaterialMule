@@ -13,7 +13,7 @@ import {
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { listBulkGroups } from '../api/projects';
-import { BandedCard, FormField } from '../components/ui';
+import { BandedCard, FormField } from '../components/app-ui';
 import { useOnline } from '../lib/online';
 import {
   newSummary,

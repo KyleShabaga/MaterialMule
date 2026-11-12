@@ -14,7 +14,7 @@ import {
   TableScroll,
   TableViewSelector,
   type BadgeTone,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { useTableView } from '../../components/useTableView';
 import { concreteProblem, fetchProjectSpecimens } from './api';
 import { Pager } from './Pager';

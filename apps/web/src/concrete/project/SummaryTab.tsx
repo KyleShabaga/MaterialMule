@@ -5,7 +5,7 @@ import {
   type ProjectDetail,
 } from '@materialmule/shared';
 import { useId, useState } from 'react';
-import { ConfirmDialog, DataTable, ErrorState, TableScroll } from '../../components/ui';
+import { ConfirmDialog, DataTable, ErrorState, TableScroll } from '../../components/app-ui';
 import { shortDateTime } from '../../dashboard/format';
 import {
   concreteProblem,

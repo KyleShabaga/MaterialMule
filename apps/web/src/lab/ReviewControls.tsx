@@ -8,7 +8,7 @@ import {
   type ReviewState,
 } from '@materialmule/shared';
 import { useId, useState } from 'react';
-import { StatusBadge, type BadgeTone } from '../components/ui';
+import { StatusBadge, type BadgeTone } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import { acceptTest, markCorrectionDone, reviewDecision, type WriteResult } from './api';
 import { problemText } from './problem-text';

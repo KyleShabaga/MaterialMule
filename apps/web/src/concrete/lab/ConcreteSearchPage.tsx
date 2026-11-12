@@ -1,7 +1,7 @@
 import type { ConcreteSearch } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ErrorState, PageHeader } from '../../components/ui';
+import { ErrorState, PageHeader } from '../../components/app-ui';
 import { ContextRow } from '../../layout/ContextRow';
 import { fetchConcreteSearch, type LoadResult } from './api';
 import { ConcreteSearchForm, ConcreteSearchResults } from './ConcreteSearch';

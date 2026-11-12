@@ -1,5 +1,5 @@
 import { CONCRETE_HOLD_AGE, type ConcreteSpecimenAge } from '@materialmule/shared';
-import type { BadgeTone } from '../../components/ui';
+import type { BadgeTone } from '../../components/app-ui';
 
 // Display helpers for the Concrete Lab workspace (MM-V2-C31).
 

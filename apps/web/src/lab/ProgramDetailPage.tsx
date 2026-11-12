@@ -9,7 +9,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
-import { BandedCard, ErrorState, StatusBadge, type BadgeTone } from '../components/ui';
+import { BandedCard, ErrorState, StatusBadge, type BadgeTone } from '../components/app-ui';
 import { shortDateTime } from '../dashboard/format';
 import { fetchProgram } from './api';
 import { lineTitle, requestName } from './format';

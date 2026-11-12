@@ -26,7 +26,7 @@ import {
   SectionHead,
   StatusBadge,
   UnitLabel,
-} from '../components/ui';
+} from '../components/app-ui';
 import { FEATURES } from '../features';
 import { ContextRow } from '../layout/ContextRow';
 import { LocationConflictSection, PendingMoveNote } from '../moves/LocationConflictSection';

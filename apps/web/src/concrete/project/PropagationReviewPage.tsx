@@ -16,7 +16,7 @@ import {
   SidePanel,
   StatusBadge,
   TableScroll,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { ConcreteApiError, applyPropagation, concreteProblem, fetchPropagation } from './api';
 import { mixPath, propagationPath } from './paths';
 import { propagationValue } from './mix-format';

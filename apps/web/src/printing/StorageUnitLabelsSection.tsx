@@ -5,7 +5,7 @@ import {
   type PrintJob,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { BandedCard, DataTable, ErrorState } from '../components/ui';
+import { BandedCard, DataTable, ErrorState } from '../components/app-ui';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
 import { PrintLabelsPanel } from './PrintLabelsPanel';
