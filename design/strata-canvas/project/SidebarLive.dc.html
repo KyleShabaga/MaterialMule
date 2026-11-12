@@ -40,7 +40,7 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.SidebarMenu">
 <x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{yes}}" aria-current="page" tooltip="Today"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import><span>Today</span></x-import></x-import>
 <x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Projects"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import><span>Projects</span></x-import></x-import>
-<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="My requests"><x-import component-from-global-scope="Strata.Icon" name="square-check-big"></x-import><span>My requests</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Inbox" aria-label="Inbox, 2 unread"><x-import component-from-global-scope="Strata.Icon" name="inbox"></x-import><span>Inbox</span></x-import><x-import component-from-global-scope="Strata.SidebarMenuBadge" aria-hidden="true" class-name="bg-primary text-primary-foreground top-1/2 right-2 -translate-y-1/2 rounded-full px-1.5 font-mono text-[11px]">2</x-import></x-import>
 </x-import>
 </x-import>
 
@@ -189,20 +189,22 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="folder-plus"></x-import>New project</x-import>
 </x-import>
 </x-import>
-<!-- Notifications: always the last item on the right -->
-<x-import component-from-global-scope="Strata.Popover">
-<x-import component-from-global-scope="Strata.PopoverTrigger" aria-label="Notifications, 2 unread" title="Notifications" class-name="bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
+<!-- Notifications: always the last item on the right. Hover (or keyboard focus) previews the
+     latest in a hover card; clicking the bell opens Inbox, where every notification and action
+     request lives. -->
+<x-import component-from-global-scope="Strata.HoverCard" open-delay="{{hoverOpen}}" close-delay="{{hoverClose}}">
+<x-import component-from-global-scope="Strata.HoverCardTrigger" href="#" aria-label="Notifications, 2 unread. Open Inbox" class-name="bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
 <x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-5"></x-import>
 <span aria-hidden="true" class="bg-primary text-primary-foreground ring-background absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-[11px] leading-none font-bold tabular-nums ring-2">2</span>
 </x-import>
-<x-import component-from-global-scope="Strata.PopoverContent" align="end" side-offset="{{four}}" class-name="w-96 p-0">
+<x-import component-from-global-scope="Strata.HoverCardContent" align="end" side-offset="{{four}}" class-name="w-96 p-0">
 <div class="flex items-center justify-between border-b py-1 pr-1 pl-4"><h2 class="text-sm font-semibold">Notifications</h2><button type="button" class="text-link hover:bg-accent focus-visible:ring-ring/50 h-11 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-[3px]">Mark all read</button></div>
 <ul class="max-h-80 divide-y overflow-y-auto text-sm">
 <li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><span class="grid gap-0.5"><span class="font-medium"><span class="sr-only">Unread: </span>Lab request assigned to you</span><span class="text-muted-foreground">Atterberg limits · TH26-02 · DEMO-2612</span><span class="text-muted-foreground text-[13px]">12 min ago</span></span></a></li>
 <li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"></span><span class="grid gap-0.5"><span class="font-medium"><span class="sr-only">Unread: </span>Break due today</span><span class="text-muted-foreground">Set 4, 28-day · DEMO-2616</span><span class="text-muted-foreground text-[13px]">8:00 AM</span></span></a></li>
 <li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="mt-1.5 size-2 shrink-0"></span><span class="grid gap-0.5"><span class="font-medium">Retention ends in 7 days</span><span class="text-muted-foreground">BKT-2026-000143 · DEMO-2610</span><span class="text-muted-foreground text-[13px]">Yesterday</span></span></a></li>
 </ul>
-<div class="border-t p-1"><a href="#" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-11 w-full items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-[3px]">See all notifications</a></div>
+<div class="border-t p-1"><a href="#" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-11 w-full items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-[3px]">Open Inbox</a></div>
 </x-import>
 </x-import>
 </div>
@@ -232,7 +234,7 @@ class Component extends DCLogic {
   renderVals() {
     var station = !!this.props.station;
     var today = this.props.today || "none";
-    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, today: today, placeholder: today === "none", todayStation: today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0, todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), role: today.indexOf("lead-") === 0 ? "Project lead" : today.indexOf("manager-") === 0 ? "Lab Manager" : "Technician", personName: today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
+    return { dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, hoverOpen: 150, hoverClose: 200, today: today, placeholder: today === "none", todayStation: today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0, todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), role: today.indexOf("lead-") === 0 ? "Project lead" : today.indexOf("manager-") === 0 ? "Lab Manager" : "Technician", personName: today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
   }
 }
 </script>

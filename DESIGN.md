@@ -288,8 +288,10 @@ stay readable on a phone in a dim storage room.
     - The label and chevron fade in (200 ms ease-out) once the width is under way, at 200 ms.
     - Leaving closes at once and faster (200 ms; text out in 100 ms).
     - No transitions under `prefers-reduced-motion`.
-  - **Notifications** (`bell`, a `Popover` listing recent notifications with Mark all read and
-    Open Inbox): a 44 px outline icon button (border, `background` fill, `shadow-xs`). When any
+  - **Notifications** (`bell`, a shadcn `HoverCard`, Kyle 2026-11-11): hovering the bell, or
+    focusing it from the keyboard, previews the latest notifications after 150 ms (closes 200 ms
+    after leaving), with Mark all read and Open Inbox. The bell itself is a link: clicking it opens
+    Inbox. It's a 44 px outline icon button (border, `background` fill, `shadow-xs`). When any
     are unread, a 20 px `primary` count badge sits on its top-right corner, e.g. "2", "9+" past
     nine.
 - **Page head:** a context row (back link, record tags, step control) above the page title, with
@@ -462,7 +464,7 @@ Navigation labels are the seven destinations above.
 - **Icons:** Lucide only (https://lucide.dev/icons/, Kyle 2026-11-11): `lucide-react` in the app, the
   exact Lucide SVGs on the canvas (currently lucide-static 1.72.0), never hand-drawn look-alikes.
   Lucide's default 2 px stroke; 16 px in the sidebar and menus, 20 px elsewhere. Names in use:
-  `house` Today, `inbox` Inbox, `square-check-big` My requests, `folder` Projects,
+  `house` Today, `inbox` Inbox, `folder` Projects,
   `arrow-down-to-line` Receive, `package` Inventory, `flask-conical` Lab programs, `hourglass`
   Retention, `cylinder` Concrete, `search`, `scan-line`, `zap` Quick actions, `bell`, `settings`,
   `circle-question-mark` Help, `bug` Feedback & bugs, `log-out` Sign out, `chevrons-up-down`,
@@ -553,7 +555,7 @@ shell, fix all five issues, leave the top bar as it is.
   
   Quick actions' "Scan" (top bar) should open the same menu; the mock doesn't wire them
   together yet.
-- **Pages, never folded** (the old collapsible "Lab" group is gone): Today, Projects, My requests;
+- **Pages, never folded** (the old collapsible "Lab" group is gone): Today, Projects, Inbox;
   **Storage units:** Receive (`arrow-down-to-line`), Inventory (`package`), Retention
   (`hourglass`); **Soils:** Lab programs (`flask-conical`), Workboard (`square-kanban`; today's
   Lab Testing Worklist, renamed); **Concrete:** Breaks (`hammer`), Receiving (`truck`), Specimens
@@ -561,8 +563,11 @@ shell, fix all five issues, leave the top bar as it is.
   "Testing" group into Soils and Concrete (2026-11-11), so Concrete's pages are rows of their own,
   not a sub-menu. Section labels are fixed `SidebarGroupLabel`s at 13 px. Retention (Due and
   overdue, Disposal scan) unfolds its sub-pages in place, closed by default.
-- **No Inbox row:** the bell is the inbox. Its panel's rows link to their records, unread rows say
-  "Unread" to screen readers, and "See all notifications" opens the full list.
+- **Inbox** (`inbox`; was My requests, renamed by Kyle 2026-11-11) is the one place for every
+  notification and every action request. Its row shows the unread count in a small `primary`
+  badge. The bell's hover card is a preview of the same items (rows link to their records, unread
+  rows say "Unread" to screen readers), and its "Open Inbox" and the bell itself go here. The Inbox
+  page is shaped next.
 - **Pinned** records: stage-tinted square, mono ID, short name.
 - **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
 - **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): above the

@@ -411,7 +411,7 @@
     "liveNotes": {
       "fill": "green",
       "page": "shell",
-      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, My requests; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 36 px rows, a 36 px Search or scan field that opens the Ctrl K command menu (clicking it does the same), Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox row removed: the bell is the inbox. The board below shows the shared LAB station (recording as, Switch user). Press Play to try it.",
+      "text": "Real shadcn/ui shell after the 2026-11-11 critique: seven pages always shown (Today, Projects, Inbox; Storage units: Receive, Inventory, Retention; Soils: Lab programs, Workboard; Concrete: Breaks, Receiving, Specimens, Holds, Review), 36 px rows, a 36 px Search or scan field that opens the Ctrl K command menu (clicking it does the same), Pinned records. Collapsed (Ctrl+B) every item is a 44 px icon with a tooltip; Retention and Pinned open their pages in a menu to the right. Inbox (was My requests) holds every notification and action request; hovering the bell previews the latest, clicking it opens Inbox. The board below shows the shared LAB station (recording as, Switch user). Press Play to try it.",
       "w": 400,
       "x": 1360,
       "y": 0
