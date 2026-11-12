@@ -614,7 +614,7 @@
       "w": 420,
       "fill": "yellow",
       "page": "inbox",
-      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. List and detail (like Linear). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream or Grouped, here and in Settings > Preferences. Requests close on their own when the real action is done. FLAG: on the LAB station anyone who picks a name can open that person's Inbox (no per-person password). Options: keep it, show the station only requests, or confirm before opening."
+      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. List and detail (like Linear). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream or Grouped, here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: the picked person's full Inbox (Kyle accepted that anyone who picks a name can open it, 2026-11-11)."
     }
   },
   "order": [

@@ -762,9 +762,10 @@ notification. Kyle chose:
   every notification." (Updates); with nothing selected, "Select an item to see it here."
 - **View setting:** Settings › Preferences gains an "Inbox" section with "Inbox view" (One stream
   / Grouped), the same choice as on the page.
-- **LAB station:** shows the picked person's Inbox, with a line saying whose it is. *Flag:* the
-  station has no per-person password, so anyone who picks a name can open that person's Inbox.
-  Options: keep it; show the station only requests; or confirm before it opens.
+- **LAB station:** shows the picked person's full Inbox, with a line saying whose it is. The
+  station has no per-person password, so anyone who picks a name can open that person's Inbox;
+  Kyle accepted that and chose to keep the full Inbox (2026-11-11), rather than showing only
+  requests or confirming first.
 - **Built as** `InboxContent.dc.html` (`variant`, `station` tweaks). In the shell, `SidebarLive`'s
   page tweak takes `inbox-*` values: the top bar title reads "Inbox" and the sidebar marks Inbox
   as the current page. Boards:
