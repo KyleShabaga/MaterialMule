@@ -9,6 +9,7 @@
 // - Call clearIdentityToasts() when the signed-in account or the "Recording as" person changes,
 //   so nothing from the previous person stays on screen.
 
+import { UNDO_BLOCKED_MESSAGES, type UndoBlockedReason } from '@materialmule/shared';
 import { toast, type ExternalToast, type ToasterProps } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -30,7 +31,19 @@ export interface SuccessOptions {
   undo?: UndoOptions;
 }
 
+function isBlockedReason(value: unknown): value is UndoBlockedReason {
+  return typeof value === 'string' && Object.hasOwn(UNDO_BLOCKED_MESSAGES, value);
+}
+
+/**
+ * The words for a failure. A refused Undo (409 `undo_blocked`, shared undo.ts) carries its
+ * `blockedReason`, possibly on the error itself or on its `body`; it reads the shared message.
+ */
 function errorMessage(error: unknown): string {
+  for (const holder of [error, (error as { body?: unknown } | null)?.body]) {
+    const reason = (holder as { blockedReason?: unknown } | null | undefined)?.blockedReason;
+    if (isBlockedReason(reason)) return UNDO_BLOCKED_MESSAGES[reason];
+  }
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string' && error) return error;
   return '';

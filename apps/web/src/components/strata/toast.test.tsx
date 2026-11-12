@@ -84,6 +84,25 @@ describe('notifySuccess', () => {
   });
 });
 
+describe('a refused undo', () => {
+  it("reads the server's blocked reason in the shared words", async () => {
+    const user = userEvent.setup();
+    renderToaster();
+    const refused = { code: 'undo_blocked', blockedReason: 'changed_since', message: 'x' };
+    act(() => {
+      notifySuccess('Moved BKT-2026-000019', {
+        undo: { run: () => Promise.reject({ status: 409, body: refused }) },
+      });
+    });
+    await user.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(
+      await screen.findByText(
+        "Couldn't undo. It changed after this action, so undoing would overwrite newer work.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('notifyError and clearIdentityToasts', () => {
   it('creates an error toast that never auto-dismisses', () => {
     const spy = vi.spyOn(toast, 'error');
