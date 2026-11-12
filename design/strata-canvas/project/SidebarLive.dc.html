@@ -96,12 +96,12 @@ body{margin:0}
 </x-import>
 
 <x-import component-from-global-scope="Strata.SidebarFooter">
-<!-- Shared LAB station: who the work is recorded as, and when the session ends -->
+<!-- Shared LAB station: who the work is recorded as. Session length (D38) is deferred, so no end time. -->
 <sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
 <x-import component-from-global-scope="Strata.DropdownMenu">
-<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as Pat Example until 4:30 PM. Change person" class-name="ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent border-sidebar-border bg-background flex w-full items-center gap-2 overflow-hidden rounded-md border p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as Pat Example. Change person" class-name="ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent border-sidebar-border bg-background flex w-full items-center gap-2 overflow-hidden rounded-md border p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
 <span class="bg-stage-storage-bg text-stage-storage-fg flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">PE</span>
-<span class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden"><span class="text-muted-foreground text-[13px]">Recording as</span><span class="truncate font-semibold">Pat Example</span><span class="text-muted-foreground text-[13px]">Until 4:30 PM</span></span>
+<span class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden"><span class="text-muted-foreground text-[13px]">Recording as</span><span class="truncate font-semibold">Pat Example</span></span>
 <x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
 </x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuContent" side="right" align="end" side-offset="{{four}}" class-name="w-64">

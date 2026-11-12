@@ -267,7 +267,8 @@ stay readable on a phone in a dim storage room.
   parent (Concrete, Retention), indented, with a chevron button. The rail collapses to icons
   (`collapsible="icon"`, labels as tooltips); the choice is remembered per browser.
 - **Rail footer:** Settings, Help & Feedback, then the account row (initials avatar, name, role,
-  sign-out icon button). Shared LAB stations show "Switch user" and the session end under it.
+  sign-out icon button). Shared LAB stations show "Switch user" (no session end time: session
+  length is decision D38, deferred).
 - **Top bar**, 56 px, `background`, bottom border: the sidebar toggle and the page title at the
   left; at the right, on every page, the quick actions button and, always last, the notification bell, 8 px apart. Search lives in
   the sidebar.
@@ -553,7 +554,7 @@ shell, fix all five issues, leave the top bar as it is.
 - **Pinned** records: stage-tinted square, mono ID, short name.
 - **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
 - **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): above the
-  account a "Recording as Pat Example · Until 4:30 PM" control that opens a person picker (Who is
+  account a "Recording as Pat Example" control (no end time: D38 is deferred) that opens a person picker (Who is
   working here?, the station's people, Someone else…); the account row reads "LAB station ·
   Shared · Receiving lab" and its menu starts with Switch user and ends with End station session.
 - **Spacing** (Kyle, 2026-11-11: tighter, then "Try 36 px rows"): rows are 36 px and touch,
@@ -575,6 +576,39 @@ shell, fix all five issues, leave the top bar as it is.
 Left as they are because the top bar is out of scope: the 28 px sidebar toggle and its
 "Toggle Sidebar" label, and Ctrl K shown on both the search field and quick actions' Scan (both
 open the same palette).
+
+### Sign in (canvas page "Sign in": the page, LAB, picker, dark, and every state)
+
+Shaped with Impeccable on 2026-11-11. Kyle chose: the computer remembers its kind, LAB goes
+straight on to a person picker, and the first pass covers the page plus every state.
+
+- **One centred 400 px column** on `background`: the donkey tile and "Material Mule · Sample
+  storage and lab testing", then the form, then "Works on the office network only". No brand
+  panel (the teal split screen of the first draft belonged to the old palette).
+- **A normal computer:** "Sign in", the hint "Use your own work account. What you do is recorded
+  under your name.", a full-width "Sign in with Microsoft" button (Microsoft's four-square mark,
+  the one non-Lucide mark, as today), then "Shared receiving station? Sign in as LAB".
+- **The LAB station computer** opens straight to "Shared receiving station": Username (LAB
+  filled in), Password, "Sign in as LAB", "Forgot password? Ask an administrator.", then "Not the
+  station? Sign in with your Microsoft account instead".
+- **Step 2 on LAB: "Who is working here?"** "Signed in as LAB. Receipts, moves and labels are
+  recorded under the name you pick." One 48 px row per person (initials avatar, name, role),
+  then "Someone else…", then "Wrong station? Sign out of LAB". This changes today's model, where
+  LAB picks the person on each receipt. Empty: a dashed panel ("No one is listed for this station
+  yet.") with Someone else….
+- **States, in the app's current wording:**
+  - Session ended (info).
+  - LAB session expired (amber `due`).
+  - Wrong password (red field error under Password, `aria-invalid`).
+  - Paused after failed attempts (amber alert with the pause help; Sign in as LAB disabled).
+  - Sign-in options couldn't load (red alert and Try again; no methods shown).
+  - No sign-in method set up.
+  - Development builds add "Test sign-in (development only)" above the footer.
+- **Open, proposed on the boards:**
+  - How a computer becomes the LAB station: an admin setting, saved in that browser.
+  - Who the picker lists: receiving-lab staff.
+  - What Someone else… searches: all staff.
+  - Session length stays D38 (deferred), so nothing shows an end time.
 
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
