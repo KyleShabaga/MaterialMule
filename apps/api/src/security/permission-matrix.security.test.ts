@@ -163,6 +163,12 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/concrete/specimen-sets/:setId/strength-report/versions/:versionNo/exception-notes':
     'concrete.review',
   'GET /api/me/grants': null,
+  // Strata 1C: every active session reads these; the shared LAB account gets defaults read-only
+  // (sidebar layout: or the picked person's with ?personId=, read-only). Writes need
+  // personal_settings.manage.
+  'GET /api/me/sidebar-layout': null,
+  'GET /api/me/preferences': null,
+  'GET /api/me/table-columns': null,
   // Field Ledger Help & Feedback: every active session (LAB included) may send feedback; it is
   // kept as an audit event on the host. Reading it is staff.manage (admins).
   'POST /api/feedback': null,

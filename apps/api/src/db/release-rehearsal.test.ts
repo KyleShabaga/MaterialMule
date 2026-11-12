@@ -149,6 +149,8 @@ const INTERNAL_PERMISSIONS = [
   'label.print',
   'location_conflict.resolve',
   'notification.read',
+  // Strata 1C: one's own sidebar layout, pins, recents, preferences and columns.
+  'personal_settings.manage',
   'program.close_request',
   'project.create',
   'project_access.read',

@@ -110,6 +110,13 @@ export const updateUserPreferencesSchema = z
   });
 export type UpdateUserPreferences = z.output<typeof updateUserPreferencesSchema>;
 
+/** 409 body of a stale `PATCH /api/me/preferences`: the preferences as they now stand. */
+export const userPreferencesVersionConflictSchema = z.object({
+  code: z.literal('version_conflict'),
+  current: userPreferencesResponseSchema,
+});
+export type UserPreferencesVersionConflict = z.infer<typeof userPreferencesVersionConflictSchema>;
+
 // ---------------------------------------------------------------------------------------------
 // STRATA-51: table columns per person per table.
 
@@ -202,3 +209,10 @@ export const updateTableColumnsSchema = z.strictObject({
   version: z.number({ error: 'is required' }).int().min(0),
 });
 export type UpdateTableColumns = z.output<typeof updateTableColumnsSchema>;
+
+/** 409 body of a stale `PUT /api/me/table-columns/:tableId`: every table as it now stands. */
+export const tableColumnsVersionConflictSchema = z.object({
+  code: z.literal('version_conflict'),
+  current: tableColumnsResponseSchema,
+});
+export type TableColumnsVersionConflict = z.infer<typeof tableColumnsVersionConflictSchema>;

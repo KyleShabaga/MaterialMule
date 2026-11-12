@@ -129,6 +129,13 @@ export const updateSidebarLayoutSchema = z.strictObject({
 });
 export type UpdateSidebarLayout = z.output<typeof updateSidebarLayoutSchema>;
 
+/** 409 body of a stale `PUT /api/me/sidebar-layout`: the layout as it now stands. */
+export const sidebarLayoutVersionConflictSchema = z.object({
+  code: z.literal('version_conflict'),
+  current: sidebarLayoutResponseSchema,
+});
+export type SidebarLayoutVersionConflict = z.infer<typeof sidebarLayoutVersionConflictSchema>;
+
 // ---------------------------------------------------------------------------------------------
 // Pins (STRATA-11) and recents (STRATA-40).
 

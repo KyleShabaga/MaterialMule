@@ -917,6 +917,20 @@ owns which fields: [concrete.md](concrete.md).
   clock stepped back between retries can't make a save fail). Existing jobs are backfilled from what the old summary counted as an attempt. Proven in
   `apps/api/src/db/schema-print-contact.test.ts`.
 
+## Personal settings, pins and recents (Strata 1C, `0038_person_settings.sql`)
+
+- **`person_setting`**: one JSON object per person per area (`sidebar_layout`, `preferences`,
+  `table_columns`), keyed by `(user_id, area)`, with its own `version` (from 1; the API reports 0
+  for "never saved"). The API normalizes every value on read with the shared contracts, so a
+  document from another release never breaks a screen; a save writes the normalized document.
+- **`person_pin`** / **`person_recent`**: records a person pinned or opened, unique per person
+  and `(record_kind, record_id)`; `record_kind` is one of `SIDEBAR_RECORD_KINDS`. No foreign key
+  to the record (polymorphic), so reads handle missing records. The pin limit (20) and the
+  recents trim (8, in the same transaction) are enforced by the API under a per-person advisory
+  lock.
+- **Owner guard** (`person_settings_owner_personal`): no row ever belongs to the shared LAB
+  account, on insert or by moving a row. Proven in `apps/api/src/db/schema-person-settings.test.ts`.
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`
