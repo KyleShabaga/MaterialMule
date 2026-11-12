@@ -556,10 +556,13 @@ shell, fix all five issues, leave the top bar as it is.
   account a "Recording as Pat Example · Until 4:30 PM" control that opens a person picker (Who is
   working here?, the station's people, Someone else…); the account row reads "LAB station ·
   Shared · Receiving lab" and its menu starts with Switch user and ends with End station session.
-- **Spacing** (Kyle, 2026-11-11: tighter): rows touch, with no gap between them (44 px pitch,
-  was 48), and groups sit closer (4 px vertical group padding, no gap between groups). The 44 px
-  row height stays, because it is the touch target.
-- **Sizes and access:** every row, sub-row and the account row is at least 44 px; rows are links
+- **Spacing** (Kyle, 2026-11-11: tighter, then "Try 36 px rows"): rows are 36 px and touch,
+  with no gap between them (was 44 px rows with 4 px gaps), and groups sit closer (4 px vertical
+  group padding, no gap between groups). This is a deliberate exception to the 44 px control
+  rule for the expanded sidebar's rows and sub-rows (36 px still clears the 24 px minimum). The
+  search-or-scan field stays 44 px, the account row 48 px, and the collapsed sidebar's icons
+  44 px.
+- **Sizes and access:** rows are links
   (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
   2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
   content" link comes first.
