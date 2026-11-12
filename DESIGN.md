@@ -726,8 +726,8 @@ chose the content from PRODUCT.md's description of the role, and Kyle approved i
 
 ### Today for a technician (canvas page "Today", fourth row)
 
-The same layout again, drawn as Pat Example. Kyle asked for the technician next (2026-11-11);
-Claude chose the content from PRODUCT.md, for Kyle's review.
+The same layout again, drawn as Pat Example. Kyle asked for the technician next (2026-11-11).
+Claude chose the content from PRODUCT.md, and Kyle approved it ("Looks right", 2026-11-11).
 
 - **Shortcuts:** Receive, Move storage units, Print labels, My tests.
 - **Needs you:**
