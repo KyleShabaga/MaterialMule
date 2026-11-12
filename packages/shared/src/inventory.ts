@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { locationConflictSummarySchema } from './moves';
+import { stageKeySchema, storageUnitRecordStatusSchema } from './stage';
 import { HOLE_SUMMARY_TYPES } from './receipts';
 import { bulkGroupDetailSchema, bulkMembershipSchema, sampleIdentitySchema } from './samples';
 import { TESTED_REMOVAL_REASONS, storageUnitTestingSchema } from './tested-removal';
@@ -305,6 +306,12 @@ export const inventoryItemSchema = z.object({
       retentionExempt: z.boolean(),
     })
     .optional(),
+  /**
+   * STRATA-58: the unit's record status words and stage, derived on the server. Optional until
+   * the API sends them on every row (lane 1C).
+   */
+  recordStatus: storageUnitRecordStatusSchema.optional(),
+  stage: stageKeySchema.optional(),
 });
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 
