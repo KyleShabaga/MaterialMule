@@ -208,7 +208,8 @@ stay readable on a phone in a dim storage room.
   comes first: clicking it opens a 224 px search box (`Input` styling, search icon, Clear) in its
   place, which pushes Filter, Sort and View to the right (200 ms ease-out width transition, CSS
   only; none with reduced motion). The page keeps room for it so nothing else moves. Escape closes
-  it and returns focus to the icon; so does leaving it while empty. Filter is a menu of checkboxes
+  it and returns focus to the icon; leaving it while empty also closes it. The 36 px icons are an
+  exception to the 44 px rule, like the sidebar rows. Filter is a menu of checkboxes
   with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its name says
   how many ("Filter, 1 on"). Sort and View are radio menus; View lists that page's views. The
   search and filters apply as you type (server side for long lists).
