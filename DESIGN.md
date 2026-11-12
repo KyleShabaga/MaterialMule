@@ -1134,6 +1134,55 @@ with the phone screens); Inventory with stage tabs and filter chips.
 - **Constraints:** IDs never change; disposed units can't move; moves record who and when and
   are enforced on the server; offline moves are queued, never lost; fictional data.
 
+### Round 4: projects (shaped 2026-11-12)
+
+Kyle chose: a project page with a header and tabs; the Projects list opening on My projects; Team
+& permissions as a people table with a person drawer.
+
+- **Job and audience:** project leads and team members checking everything about their job in one
+  place; technicians finding a project's units or holes; admins appointing leads and reviewing
+  grants. Authority is project-scoped and never implicit (docs/permissions.md).
+- **Projects list** (`/projects`): tabs My projects (lead or on the team; default), All projects,
+  Waiting for a lead (with a count). Table tools; table: number (mono), name, lead (avatar and
+  name, or "Waiting for a lead" tag), test holes, units in stock, last receipt. Rows open the
+  project page. States: no projects yet ("Projects are added while receiving samples."), no
+  matches. Projects are created while receiving (round 2), not here.
+- **Project page** (`/projects/:id`):
+  - Header: number in mono and name, the lead (or "Waiting for a lead" with the nomination
+    state), counts (test holes, units in stock, units received), main action Receive for this
+    project, More (Edit project, Copy link).
+  - **Tabs:** Overview; Storage units (count); Lab programs (count); Concrete (only when the
+    project has concrete work; round 8 shapes its contents); Team & permissions.
+  - **Overview:** Test holes (each: units, SAMPLE# range, depth range; Add test hole; a hole opens
+    its units), Recent receipts (last 5, link to the log), Retention coming up (units due in the
+    next 30 days with Decide), Lab programs (each with "n of m").
+  - **Storage units:** the Inventory table (round 3) filtered to the project, with stage tabs and
+    chips; rows open the unit drawer.
+  - **Lab programs:** the project's programs (round 5 list pattern).
+- **Team & permissions** (tab):
+  - **Leadership:** the Lead Project Engineer, or the nomination flow (Nominate a Lead Project
+    Engineer, note for the admin, Withdraw; admins Confirm or Reject with a reason). "An admin
+    confirms it. Nominating gives nobody authority."
+  - **Your permissions here:** what you can do on this project and where it comes from, as the
+    server reports it.
+  - **Needs review** (only to the lead or an admin, with a count): join requests and grant
+    reviews, each with Approve or Decline and a reason.
+  - **People:** a table: person (avatar, name), job title, responsibilities, grants as tags.
+    Clicking a person opens the drawer: their responsibilities and grants with where each comes
+    from, change a grant (reason required, "The grant ends now. Earlier work keeps their name."),
+    acceptance delegate (lead only), and their history on this project. Job titles and team
+    places grant no approvals (said once, near the table).
+  - **History:** assignments and grants as recorded, who and why, paged.
+- **States and ranges:** projects 1–2,000; holes 0–80 per project; people 1–40; project not found;
+  waiting for a lead (Receive still works; approvals don't); no assignment ("You have no
+  assignment on this project. You can still see it."); couldn't load (Try again); a reason is
+  required for every grant change.
+- **Interaction and layout:** tabs keep their own URL; at 1024 px the Overview's sections stack;
+  the person drawer is the Inbox drawer.
+- **Constraints:** permissions are enforced on the server and shown as reported; the lead manages
+  acceptance delegates; review is never one's own work; concrete authority is project-scoped
+  (CLAUDE.md, docs/concrete.md); fictional data.
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
