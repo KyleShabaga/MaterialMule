@@ -1,3 +1,4 @@
+import { initialsFromName, personPhotoUrl } from '@materialmule/shared';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -12,26 +13,22 @@ const SIZE_CLASS: Record<PersonAvatarSize, string> = {
 };
 
 /**
- * Initials for an avatar fallback: the first letter of the first and last words, upper case.
- * One word gives one letter; parenthesised notes such as "(LAB)" and extra spaces are ignored;
- * an empty name gives "?".
+ * Initials for an avatar fallback: the shared `initialsFromName`, after dropping parenthesised
+ * notes such as "(LAB)" (which would otherwise give "P(" for "Pat Example (LAB)").
  */
 // eslint-disable-next-line react-refresh/only-export-components -- tiny pure helper beside its component
 export function initialsFor(name: string | null | undefined): string {
-  const words = (name ?? '')
-    .replace(/\([^)]*\)/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-  const first = words[0];
-  if (!first) return '?';
-  const last = words.length > 1 ? words[words.length - 1] : undefined;
-  // Array.from keeps a letter outside the BMP whole.
-  return `${Array.from(first)[0] ?? ''}${last ? (Array.from(last)[0] ?? '') : ''}`.toUpperCase();
+  return initialsFromName((name ?? '').replace(/\([^)]*\)/g, ' '));
 }
 
 export interface PersonAvatarProps {
   name?: string | null;
-  /** Directory photo URL when there is one (photo storage is lane 1C); initials otherwise. */
+  /**
+   * The person's user ID: loads their cached directory photo (`personPhotoUrl`, a 404 falls back
+   * to initials). Ignored when `photoUrl` is given.
+   */
+  userId?: string | null;
+  /** An explicit photo URL; overrides `userId`. */
   photoUrl?: string | null;
   size?: PersonAvatarSize;
   /** Material Mule itself (system messages): a `primary` avatar reading "MM". */
@@ -45,14 +42,16 @@ export interface PersonAvatarProps {
  */
 export function PersonAvatar({
   name,
+  userId,
   photoUrl,
   size = 'default',
   system = false,
   className,
 }: PersonAvatarProps) {
+  const src = photoUrl ?? (userId ? personPhotoUrl(userId) : null);
   return (
     <Avatar aria-hidden="true" data-person-size={size} className={cn(SIZE_CLASS[size], className)}>
-      {photoUrl && !system ? <AvatarImage src={photoUrl} alt="" /> : null}
+      {src && !system ? <AvatarImage src={src} alt="" /> : null}
       <AvatarFallback
         className={cn(
           'text-[11px] font-semibold',

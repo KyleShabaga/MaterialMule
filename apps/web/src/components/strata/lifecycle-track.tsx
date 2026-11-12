@@ -1,12 +1,7 @@
+import type { StageKey } from '@materialmule/shared';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  STAGE_MARK_BG,
-  STAGE_MARK_RING,
-  STAGE_SOLID_CLASS,
-  STAGE_TAG_CLASS,
-  type Stage,
-} from './stage';
+import { STAGE_MARK_BG, STAGE_MARK_RING, STAGE_SOLID_CLASS, STAGE_TAG_CLASS } from './stage';
 
 export interface LifecycleStep {
   /** Stable key; `current` names one of these (the API returns it, DESIGN.md › Lifecycle). */
@@ -15,7 +10,7 @@ export interface LifecycleStep {
   name: string;
   /** Optional shorter visible label ("Short-term" for "Short-term storage"). */
   short?: string;
-  stage: Stage;
+  stage: StageKey;
 }
 
 /** Storage unit lifecycle in Kyle's order (2026-11-12): lab testing first, then storage terms. */

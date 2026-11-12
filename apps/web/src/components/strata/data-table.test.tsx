@@ -9,14 +9,14 @@ import {
   type DataTableColumn,
   type DataTableDensity,
 } from './data-table';
-import type { Stage } from './stage';
+import type { StageKey } from '@materialmule/shared';
 import type { SortState } from './table-query';
 
 interface Unit {
   id: string;
   project: string;
   status: string;
-  stage: Stage;
+  stage: StageKey;
   receivedBy: string;
   received: string;
 }

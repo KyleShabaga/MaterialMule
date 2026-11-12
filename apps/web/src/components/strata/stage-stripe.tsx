@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
-import { STAGE_MARK_BG, type Stage } from './stage';
+import type { StageKey } from '@materialmule/shared';
+import { STAGE_MARK_BG } from './stage';
 
 export type StageStripeVariant = 'row' | 'dense' | 'edge';
 
@@ -23,7 +24,7 @@ export function StageStripe({
   variant = 'row',
   className,
 }: {
-  stage: Stage;
+  stage: StageKey;
   variant?: StageStripeVariant;
   className?: string;
 }) {

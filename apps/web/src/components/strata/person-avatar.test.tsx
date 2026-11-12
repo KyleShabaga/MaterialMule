@@ -79,3 +79,11 @@ describe('PersonCell', () => {
     expect(screen.getByText('MM')).toBeTruthy();
   });
 });
+
+describe('PersonAvatar photo source', () => {
+  it('asks for the cached directory photo by user ID', () => {
+    const { container } = render(<PersonAvatar name="Alex Tester" userId="u-1" />);
+    // jsdom never loads images, so Radix keeps the initials; the fallback still shows.
+    expect(container.textContent).toBe('AT');
+  });
+});

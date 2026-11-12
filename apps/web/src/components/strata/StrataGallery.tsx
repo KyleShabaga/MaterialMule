@@ -9,7 +9,7 @@ import { DataTable, DENSITY_VIEW_OPTIONS, type DataTableColumn } from './data-ta
 import { LifecycleTrack, CONCRETE_SET_STEPS, STORAGE_UNIT_STEPS } from './lifecycle-track';
 import { PeekSplit, PeekToolbar, peekNeighbours, usePeekKeys, usePeekParam } from './peek';
 import { PersonAvatar, PersonCell } from './person-avatar';
-import { STAGES, type Stage } from './stage';
+import { STAGE_KEYS, type StageKey, type WorkDomain } from '@materialmule/shared';
 import { StageStripe } from './stage-stripe';
 import { StageSrText, StageTag } from './stage-tag';
 import { TableToolbar } from './table-toolbar';
@@ -25,8 +25,8 @@ interface InboxRow {
   job: string;
   kind: 'Request' | 'Update';
   task: string;
-  stage: Stage;
-  domain: string;
+  stage: StageKey;
+  domain: WorkDomain;
   from: string | null;
   received: string;
 }
@@ -39,7 +39,7 @@ const ROWS: InboxRow[] = [
     kind: 'Request',
     task: 'Extension',
     stage: 'due',
-    domain: 'Retention',
+    domain: 'retention',
     from: 'Alex Tester',
     received: '2026-11-12',
   },
@@ -50,7 +50,7 @@ const ROWS: InboxRow[] = [
     kind: 'Update',
     task: 'Hold',
     stage: 'danger',
-    domain: 'Hold',
+    domain: 'concrete',
     from: null,
     received: '2026-11-11',
   },
@@ -61,7 +61,7 @@ const ROWS: InboxRow[] = [
     kind: 'Update',
     task: 'Breaks',
     stage: 'lab',
-    domain: 'Breaks',
+    domain: 'concrete',
     from: 'Sam Sample',
     received: '2026-11-10',
   },
@@ -72,7 +72,7 @@ const ROWS: InboxRow[] = [
     kind: 'Request',
     task: 'Receipt',
     stage: 'draft',
-    domain: 'Receipt',
+    domain: 'receipt',
     from: 'Pat Example',
     received: '2026-11-09',
   },
@@ -83,7 +83,7 @@ const ROWS: InboxRow[] = [
     kind: 'Request',
     task: 'Correction',
     stage: 'due',
-    domain: 'Review',
+    domain: 'correction',
     from: 'Jordan Lab',
     received: '2026-11-08',
   },
@@ -94,7 +94,7 @@ const ROWS: InboxRow[] = [
     kind: 'Update',
     task: 'Program',
     stage: 'closed',
-    domain: 'Program',
+    domain: 'lab',
     from: 'Sam Sample',
     received: '2026-11-07',
   },
@@ -105,7 +105,7 @@ const ROWS: InboxRow[] = [
     kind: 'Update',
     task: 'Move',
     stage: 'storage',
-    domain: 'Move',
+    domain: 'storage',
     from: 'Pat Example',
     received: '2026-11-06',
   },
@@ -353,8 +353,8 @@ export function StrataGallery() {
 
         <Section title="Stage tags">
           <div className="flex flex-wrap gap-2">
-            {STAGES.map((stage) => (
-              <StageTag key={stage} stage={stage} domain="Retention" />
+            {STAGE_KEYS.map((stage) => (
+              <StageTag key={stage} stage={stage} domain="retention" />
             ))}
           </div>
           <div className="flex flex-wrap gap-2">

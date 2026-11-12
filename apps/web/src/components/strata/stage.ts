@@ -1,32 +1,11 @@
-// Strata stage vocabulary (DESIGN.md › Lifecycle). Every status colour in the app maps onto one
-// of these six stages; a screen never invents its own status colour.
-//
-// Lane 1C may add the same keys to packages/shared with the API's stage field. When it lands,
-// re-export that type here instead of keeping a second list.
+import type { StageKey } from '@materialmule/shared';
 
-export const STAGES = ['draft', 'storage', 'lab', 'due', 'danger', 'closed'] as const;
-
-export type Stage = (typeof STAGES)[number];
-
-export function isStage(value: unknown): value is Stage {
-  return typeof value === 'string' && (STAGES as readonly string[]).includes(value);
-}
-
-/**
- * The six stage words used on work items (Today, Inbox, program and receipt tags):
- * "<Stage> · <domain>", e.g. "Due · Retention". Records use their own status words instead.
- */
-export const WORK_STAGE_WORDS: Record<Stage, string> = {
-  draft: 'Draft',
-  storage: 'Stored',
-  lab: 'In lab',
-  due: 'Due',
-  danger: 'Urgent',
-  closed: 'Closed',
-};
+// Colour classes for the Strata stages (DESIGN.md › Lifecycle). The stage keys, the six work-item
+// words and the record status words live in packages/shared (stage.ts, lane 1C); this file only
+// maps each key to literal Tailwind classes so Tailwind finds them.
 
 /** Stripe and dot fill (`mark`, step 9) per stage. Literal class names so Tailwind finds them. */
-export const STAGE_MARK_BG: Record<Stage, string> = {
+export const STAGE_MARK_BG: Record<StageKey, string> = {
   draft: 'bg-stage-draft-mark',
   storage: 'bg-stage-storage-mark',
   lab: 'bg-stage-lab-mark',
@@ -36,7 +15,7 @@ export const STAGE_MARK_BG: Record<Stage, string> = {
 };
 
 /** Tag fill and text (`bg` step 3, `fg` step 11/12) per stage. */
-export const STAGE_TAG_CLASS: Record<Stage, string> = {
+export const STAGE_TAG_CLASS: Record<StageKey, string> = {
   draft: 'bg-stage-draft-bg text-stage-draft-fg',
   storage: 'bg-stage-storage-bg text-stage-storage-fg',
   lab: 'bg-stage-lab-bg text-stage-lab-fg',
@@ -46,7 +25,7 @@ export const STAGE_TAG_CLASS: Record<Stage, string> = {
 };
 
 /** Solid current-step fill with its contrast text (lifecycle track). */
-export const STAGE_SOLID_CLASS: Record<Stage, string> = {
+export const STAGE_SOLID_CLASS: Record<StageKey, string> = {
   draft: 'bg-stage-draft-mark text-stage-draft-contrast',
   storage: 'bg-stage-storage-mark text-stage-storage-contrast',
   lab: 'bg-stage-lab-mark text-stage-lab-contrast',
@@ -56,7 +35,7 @@ export const STAGE_SOLID_CLASS: Record<Stage, string> = {
 };
 
 /** Ring colour in the stage mark (compact lifecycle track's current square). */
-export const STAGE_MARK_RING: Record<Stage, string> = {
+export const STAGE_MARK_RING: Record<StageKey, string> = {
   draft: 'ring-stage-draft-mark',
   storage: 'ring-stage-storage-mark',
   lab: 'ring-stage-lab-mark',
@@ -66,7 +45,7 @@ export const STAGE_MARK_RING: Record<Stage, string> = {
 };
 
 /** Border in the stage mark (banners and cards with a stage edge). */
-export const STAGE_MARK_BORDER: Record<Stage, string> = {
+export const STAGE_MARK_BORDER: Record<StageKey, string> = {
   draft: 'border-stage-draft-mark',
   storage: 'border-stage-storage-mark',
   lab: 'border-stage-lab-mark',

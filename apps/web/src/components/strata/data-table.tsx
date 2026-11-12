@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../useMediaQuery';
 import { SortableTableHead } from './sortable-header';
-import type { Stage } from './stage';
+import type { StageKey, TableDensity } from '@materialmule/shared';
 import { StageStripe } from './stage-stripe';
 import type { SortState } from './table-query';
 
@@ -110,7 +110,7 @@ export interface DataTableProps<Row> {
   sort?: SortState | null;
   onSortChange?: (next: SortState | null) => void;
   /** Draws the stage stripe in the first cell; `null` for rows without a stage. */
-  stage?: (row: Row) => Stage | null;
+  stage?: (row: Row) => StageKey | null;
   /** Both given: adds a leading checkbox column. */
   selectedIds?: ReadonlySet<string>;
   onSelectedIdsChange?: (next: Set<string>) => void;
@@ -320,7 +320,7 @@ export function DataTable<Row>({
     content: React.ReactNode,
     row: Row,
     isFirst: boolean,
-    rowStage: Stage | null,
+    rowStage: StageKey | null,
   ) => {
     const folds = foldsByTarget.get(column.id);
     return (
@@ -538,7 +538,8 @@ export function DataTable<Row>({
 // ---------------------------------------------------------------------------------------------
 // Density choice
 
-export type TableDensityChoice = 'comfortable' | 'compact';
+/** Comfortable or compact (shared `TableDensity`, the person's Preferences default). */
+export type TableDensityChoice = TableDensity;
 
 export const TABLE_DENSITY_STORAGE_PREFIX = 'materialmule:strata-table-density:';
 

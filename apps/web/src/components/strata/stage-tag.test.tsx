@@ -5,16 +5,16 @@ import { StageSrText, StageTag, stageTagText } from './stage-tag';
 
 describe('StageTag', () => {
   it('writes a work item as "<Stage> · <domain>"', () => {
-    render(<StageTag stage="due" domain="Retention" />);
+    render(<StageTag stage="due" domain="retention" />);
     const tag = screen.getByText('Due · Retention');
     expect(tag.getAttribute('data-slot')).toBe('badge');
     expect(tag.getAttribute('data-variant')).toBe('due');
   });
 
   it('uses the six work stage words', () => {
-    expect(stageTagText('storage', { domain: 'Receipt' })).toBe('Stored · Receipt');
-    expect(stageTagText('danger', { domain: 'Hold' })).toBe('Urgent · Hold');
-    expect(stageTagText('lab', { domain: 'Breaks' })).toBe('In lab · Breaks');
+    expect(stageTagText('storage', { domain: 'receipt' })).toBe('Stored · Receipt');
+    expect(stageTagText('danger', { domain: 'concrete' })).toBe('Urgent · Concrete');
+    expect(stageTagText('lab', { domain: 'lab' })).toBe('In lab · Lab');
     expect(stageTagText('closed')).toBe('Closed');
   });
 
@@ -58,7 +58,22 @@ describe('StageTag', () => {
 
 describe('StageSrText', () => {
   it('writes the stage for screen readers only', () => {
-    render(<StageSrText stage="due" domain="Review" />);
+    render(<StageSrText stage="due" domain="review" />);
     expect(screen.getByText('Due · Review').className).toBe('sr-only');
+  });
+});
+
+describe('UnitStatusTag', () => {
+  it('writes the record status word in its stage colour', async () => {
+    const { UnitStatusTag } = await import('./stage-tag');
+    render(<UnitStatusTag status="retention_overdue" />);
+    const tag = screen.getByText('Retention overdue');
+    expect(tag.getAttribute('data-stage')).toBe('danger');
+  });
+
+  it('shows a confirmed unit not yet put away as Received in the draft hue', async () => {
+    const { UnitStatusTag } = await import('./stage-tag');
+    render(<UnitStatusTag status="received" />);
+    expect(screen.getByText('Received').getAttribute('data-stage')).toBe('draft');
   });
 });
