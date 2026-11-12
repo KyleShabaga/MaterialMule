@@ -551,7 +551,7 @@ Kyle's standing rule: choose the recommendation and note it. Each row can be ove
 | Recent                        | The last 8 records opened, newest first; starts folded                                                                                                                                                                                                                                             | Kyle: Recent closed by default                                                       | Pages as well as records                              |
 | Record pattern (round 1)      | Header: label block left; stage tag, lifecycle track and one primary action right; More menu for the rest; facts 2:1 beside a sticky History. Sets, lab programs and projects reuse it                                                                                                             |
 | Disabled menu items           | The reason sits on its own line under the item (aria-describedby), because a disabled item's text drops below 4.5:1                                                                                                                                                                                |
-| Label preview                 | The sticker exactly as printed today (template-v1), black on white at true size; Strata never restyles it                                                                                                                                                                                          |
+| Label preview                 | The sticker exactly as printed today (template-v1), black on white at true size, no SAMPLE#/DEPTH (Kyle, 2026-11-12); Strata never restyles it                                                                                                                                                     |
 
 ## Screens
 
@@ -1001,7 +1001,7 @@ Round 1 is drawn from its brief (below). The page holds 23 screen boards and 4 c
   - The preview is the real sticker (`apps/api/src/labels/template-v1.ts`): ID, project number and
     name, test holes, Code 128, QR and the received date, black on white at true size (3.5 × 1.5
     in) in both themes.
-  - The preview has **no SAMPLE#/DEPTH**, because the template must not change.
+  - The preview has **no SAMPLE#/DEPTH** (Kyle confirmed, 2026-11-12), because the template must not change.
   - Failure: "The printer didn't answer." Try again replaces the primary and Save as PDF stays. A
     PDF isn't recorded as a print.
   - Below 896 px of content the preview drops under the form.
