@@ -780,9 +780,15 @@ notification. Kyle chose:
   - With nothing open, the list uses the full width.
 - **Header:** tabs All, Requests, Updates and Done, each with a count. Then View (One stream,
   Grouped or Table, `Select`) and Mark all read.
-- **Table** (compact, 36 px rows; shadcn `Table`): Kind (icon, then the Request pill or "Update",
+- **Table** (compact; shadcn `Table`; Kyle 2026-11-11: "borders or background", "even more compact"): 28 px
+  rows (32 px header) at 13 px with no vertical padding, a 20 px kind icon and a 16 px-high pill;
+  rows separated three ways: a bottom border, every other row tinted `muted` at 40 %, and a
+  vertical `border` line between columns (none after Received); the header row is `muted` with
+  muted 13 px labels. Record truncates with an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
   then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
-  drawer is open, Record and From hide so the title keeps its room. The selected row has `accent`.
+  drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a
+  deliberate exception to the 44 px rule for this dense view (still above the 24 px minimum); the
+  other views keep their size.
 - **One stream,** newest first, under day headings (Today, Tuesday, Monday…), with requests above
   updates on the same day. **Grouped:** "Needs action · 3" first, then "Updates · 3".
 - **Telling them apart, never by colour alone:**
