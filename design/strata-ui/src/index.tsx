@@ -209,8 +209,96 @@ function NavFlyout({ icon, label, children }: { icon: string; label: string; chi
   )
 }
 
+/**
+ * The sidebar's "Search or scan" field and the Ctrl K command menu (shadcn CommandDialog). Clicking
+ * the field and pressing Ctrl K open the same menu with the cursor in its input; a scanned label
+ * types into that input like any other text, so scanning while it is open finds the record.
+ * Fictional data only.
+ */
+function NavSearch() {
+  const [open, setOpen] = React.useState(false)
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        setOpen((o) => !o)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+  const close = () => setOpen(false)
+  const item = (icon: string, label: React.ReactNode, extra?: React.ReactNode, value?: string) => (
+    <S.CommandItem key={value || String(label)} value={value || String(label)} onSelect={close}>
+      <Icon name={icon} />
+      {label}
+      {extra}
+    </S.CommandItem>
+  )
+  const unit = (id: string, where: string) =>
+    item(
+      "package",
+      <span className="font-mono text-[13px]">{id}</span>,
+      <span className="text-muted-foreground truncate">{where}</span>,
+      id + " " + where,
+    )
+  return (
+    <>
+      <S.SidebarMenuItem>
+        <S.SidebarMenuButton
+          variant="outline"
+          tooltip="Search or scan a label (Ctrl K)"
+          aria-keyshortcuts="Control+K"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+          className="text-muted-foreground rounded-full px-4 group-data-[collapsible=icon]:rounded-md"
+        >
+          <Icon name="scan-search" />
+          <span>Search or scan</span>
+          <S.Kbd className="ml-auto text-[13px] group-data-[collapsible=icon]:hidden">Ctrl K</S.Kbd>
+        </S.SidebarMenuButton>
+      </S.SidebarMenuItem>
+      <S.CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Search or scan"
+        description="Find a storage unit, project or page, or scan a label."
+      >
+        <S.CommandInput placeholder="Search or scan a label…" />
+        <S.CommandList>
+          <S.CommandEmpty>Nothing matches. Check the ID, or scan the label again.</S.CommandEmpty>
+          <S.CommandGroup heading="Storage units">
+            {unit("BKT-2026-000019", "DEMO-2601 · TH26-01 · Shelf A3")}
+            {unit("ST-2026-000004", "DEMO-2601 · TH26-02 · Tube rack 2")}
+            {unit("CRE-2026-000002", "DEMO-2612 · TH26-01 · Core shelf")}
+          </S.CommandGroup>
+          <S.CommandGroup heading="Projects">
+            {item("folder", <span className="font-mono text-[13px]">DEMO-2601</span>, <span className="text-muted-foreground">Riverbank</span>, "DEMO-2601 Riverbank")}
+            {item("folder", <span className="font-mono text-[13px]">DEMO-2616</span>, <span className="text-muted-foreground">Riverside apts</span>, "DEMO-2616 Riverside apts")}
+          </S.CommandGroup>
+          <S.CommandSeparator />
+          <S.CommandGroup heading="Actions">
+            {item("arrow-down-to-line", "Receive storage units")}
+            {item("arrow-right-left", "Move storage units")}
+            {item("printer", "Print labels")}
+            {item("folder-plus", "New project")}
+          </S.CommandGroup>
+          <S.CommandGroup heading="Go to">
+            {item("house", "Today")}
+            {item("package", "Inventory")}
+            {item("flask-conical", "Lab programs")}
+            {item("hammer", "Breaks")}
+            {item("settings", "Settings")}
+          </S.CommandGroup>
+        </S.CommandList>
+      </S.CommandDialog>
+    </>
+  )
+}
+
 Strata.NavCollapsible = NavCollapsible
 Strata.NavFlyout = NavFlyout
+Strata.NavSearch = NavSearch
 
 ;(window as unknown as { Strata: typeof Strata }).Strata = Strata
 

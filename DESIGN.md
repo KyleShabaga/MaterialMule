@@ -539,8 +539,20 @@ shadcn `Sidebar`, desk-style (Linear and Notion), reworked after the shell criti
 shell, fix all five issues, leave the top bar as it is.
 
 - **Header:** a static logo (the donkey mark from `apps/web/src/layout/DonkeyMark.tsx` in a tile),
-  "Material Mule" and the lab; no switcher or buttons. Under it one 44 px search-or-scan field
-  (`scan-search`, rounded-full, `Ctrl K`).
+  "Material Mule" and the lab; no switcher or buttons. Under it one 36 px "Search or scan" field
+  (`scan-search`, rounded-full, `Ctrl K` hint), the same height as the rows (Kyle, 2026-11-11).
+- **Search is a command menu** (shadcn `CommandDialog`, `Strata.NavSearch` in the bundle).
+  Clicking the field and pressing Ctrl K (or ⌘K) open the same menu, with the cursor in "Search
+  or scan a label…"; Ctrl K again or Escape closes it. A USB scanner types into that input like
+  a keyboard, so scanning a label while it's open finds the record. Groups:
+  - **Storage units:** ID in mono, then project, hole and place.
+  - **Projects:** number in mono and name.
+  - **Actions:** Receive storage units, Move storage units, Print labels, New project.
+  - **Go to:** pages.
+  - **No match:** "Nothing matches. Check the ID, or scan the label again."
+  
+  Quick actions' "Scan" (top bar) should open the same menu; the mock doesn't wire them
+  together yet.
 - **Pages, never folded** (the old collapsible "Lab" group is gone): Today, Projects, My requests;
   **Storage units:** Receive (`arrow-down-to-line`), Inventory (`package`), Retention
   (`hourglass`); **Soils:** Lab programs (`flask-conical`), Workboard (`square-kanban`; today's
@@ -565,8 +577,8 @@ shell, fix all five issues, leave the top bar as it is.
   with no gap between them (was 44 px rows with 4 px gaps), and groups sit closer (4 px vertical
   group padding, no gap between groups). This is a deliberate exception to the 44 px control
   rule for the expanded sidebar's rows and sub-rows (36 px still clears the 24 px minimum). The
-  search-or-scan field stays 44 px, the account row 48 px, and the collapsed sidebar's icons
-  44 px.
+  search field is 36 px like the rows; the account row stays 48 px and the collapsed sidebar's
+  icons 44 px.
 - **Sizes and access:** rows are links
   (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
   2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
