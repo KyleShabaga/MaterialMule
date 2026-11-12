@@ -705,6 +705,24 @@ shortcuts; Needs you; Last 24 hours (no Storage room); drawn for a project lead 
 - **Open:** what the other roles see in Needs you and their shortcuts; whether shortcuts can be
   changed (fixed for now).
 
+### Today for the Lab Manager (canvas page "Today", third row)
+
+The same layout as the project lead's. Kyle asked for the Lab Manager next (2026-11-11). The
+content is Claude's choice, taken from PRODUCT.md's description of the role; drawn as Sam Sample.
+
+- **Shortcuts:** Workboard, Breaks due today, Retention due, Disposal scan.
+- **Needs you:**
+  - concrete sets on HOLD (Review holds, the one `primary`);
+  - lab requests not assigned yet (Assign);
+  - breaks due today with how many aren't started (Open breaks);
+  - storage units approved for disposal (Start disposal).
+
+  A longer list adds draft receipts older than 7 days and location checks that disagree.
+- **Last 24 hours** covers the whole lab, not one person's projects.
+- **Boards:** busy, long list ("Show all 9"), clear day, dark. `TodayManagerContent.dc.html`
+  (`variant` tweak); in the shell, `SidebarLive`'s `today` tweak takes `manager-*` values and the
+  account row reads "Sam Sample · Lab Manager".
+
 Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
 
 ## Next

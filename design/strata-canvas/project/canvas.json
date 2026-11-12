@@ -289,6 +289,51 @@
       "title": "Project-lead Today content component (variant tweak)",
       "page": "today",
       "is_interactive": true
+    },
+    "TodayManager.dc.html": {
+      "x": 0,
+      "y": 4280,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — Lab Manager (own account)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayManagerLong.dc.html": {
+      "x": 1360,
+      "y": 4280,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — Lab Manager, 9 things (Show all)",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayManagerClear.dc.html": {
+      "x": 2720,
+      "y": 4280,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — Lab Manager, nothing needs you",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayManagerDark.dc.html": {
+      "x": 4080,
+      "y": 4280,
+      "w": 1280,
+      "h": 800,
+      "title": "Today — Lab Manager, dark",
+      "page": "today",
+      "is_interactive": true
+    },
+    "TodayManagerContent.dc.html": {
+      "x": 2720,
+      "y": 5200,
+      "w": 1024,
+      "h": 744,
+      "title": "Lab Manager Today content component (variant tweak)",
+      "page": "today",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -405,6 +450,22 @@
       "fill": "yellow",
       "page": "today",
       "text": "Own-account Today, shaped 2026-11-11, drawn for a project lead first. Welcome with the date and a one-line summary; shortcuts (Request lab testing, Review concrete reports, My projects, New project); then Needs you (two thirds: stage tag, sentence, IDs in mono, one action, most urgent first, first six then Show all) beside Last 24 hours on their projects (one third). No Storage room. Open: what other roles see; whether shortcuts can be changed (fixed for now)."
+    },
+    "rowTodayManager": {
+      "x": 0,
+      "y": 3980,
+      "text": "Today — own account (Lab Manager)",
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "today"
+    },
+    "todayManagerNotes": {
+      "x": 5440,
+      "y": 4280,
+      "w": 420,
+      "fill": "yellow",
+      "page": "today",
+      "text": "Lab Manager Today, 2026-11-11: the project lead's layout with the manager's content (Claude's choices, from PRODUCT.md's description of the role). Shortcuts: Workboard, Breaks due today, Retention due, Disposal scan. Needs you: concrete sets on HOLD, unassigned lab requests, breaks due today, units approved for disposal; longer lists add old draft receipts and location checks that disagree. Last 24 hours covers the whole lab, not one person's projects."
     }
   },
   "order": [
@@ -439,7 +500,12 @@
     "TodayLeadLong.dc.html",
     "TodayLeadFailed.dc.html",
     "TodayLeadDark.dc.html",
-    "TodayLeadContent.dc.html"
+    "TodayLeadContent.dc.html",
+    "TodayManager.dc.html",
+    "TodayManagerLong.dc.html",
+    "TodayManagerClear.dc.html",
+    "TodayManagerDark.dc.html",
+    "TodayManagerContent.dc.html"
   ],
   "pages": [
     {
