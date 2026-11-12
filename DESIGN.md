@@ -642,6 +642,26 @@ shell, fix all five issues, leave the top bar as it is.
   account row reads "LAB station · Shared · Receiving lab"; its menu holds Settings, Help,
   Feedback & bugs and End station session (Switch user was dropped as a duplicate of the person
   menu).
+- **LAB station safety** (critique 2026-11-12; Kyle chose to keep the station inside the personal
+  app and make it safer):
+  - **Recording as, always in view:** on a station the top bar carries a chip left of quick
+    actions: avatar, "Recording as **Pat Example**", chevron (`accent` fill, `primary` border,
+    44 px, fully round). It opens the same menu as the sidebar footer control. Station Today also
+    opens with "Work started here is recorded as Pat Example. Not you? Switch person…".
+  - **Person menu:** "Recording as Pat Example" label, then **Sign off Pat Example** first ("Back
+    to Who is working here?"), a separator, then "Switch person" with avatar, name and role for
+    each person (44 px rows), then Someone else…. Sign off is no longer next to Someone else….
+  - **Signing off** shows a toast: "Signed off Pat Example. Back to Who is working here?"
+  - **Not on stations:** Pinned and Recent (a shared computer shows no one's). Counts stay hidden
+    unless the person shares their Inbox there (see Inbox).
+  - **Comfortable density on stations:** sidebar rows and sub-rows are 44 px, and the compact
+    Inbox table's rows are 44 px, for gloved hands. Personal computers keep 36 px and 28 px.
+  - **Station Today** gains a third tile, **Record breaks**, beside Receive samples and Receive
+    concrete; the tiles stack icon, title and line so three fit.
+  - **Customize this station is for Lab Managers** (recommended, pending Kyle's confirmation of
+    the open "who may customise a station" decision): others see "Set up by Sam Sample, Lab
+    Manager" with a lock instead of the button; the popover says "Applies to everyone at this
+    computer. Only Lab Managers can change it."
 - **Spacing** (Kyle, 2026-11-11: tighter, then "Try 36 px rows"): rows are 36 px and touch,
   with no gap between them (was 44 px rows with 4 px gaps), and groups sit closer (4 px vertical
   group padding, no gap between groups). This is a deliberate exception to the 44 px control

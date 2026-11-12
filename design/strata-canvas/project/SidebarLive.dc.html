@@ -18,7 +18,8 @@ body{margin:0}
 <div class="bg-background text-foreground font-sans" style="width: 1280px; height: 800px; overflow: hidden;">
 <a href="#main" class="bg-primary text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-3">Skip to content</a>
 <x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
-<x-import component-from-global-scope="Strata.SidebarProvider" class-name="min-h-0 h-[800px]">
+<x-import component-from-global-scope="Strata.Toaster" position="bottom-right" theme="{{toastTheme}}"></x-import>
+<x-import component-from-global-scope="Strata.SidebarProvider" class-name="min-h-0 h-[800px] {{stationDensity}}">
 <x-import component-from-global-scope="Strata.Sidebar" collapsible="icon" class-name="h-[800px]">
 
 <x-import component-from-global-scope="Strata.SidebarHeader">
@@ -44,6 +45,8 @@ body{margin:0}
 </x-import>
 </x-import>
 
+<!-- Not on LAB stations: a shared computer shows no one's Pinned or Recent. -->
+<sc-if value="{{individual}}" hint-placeholder-val="{{ true }}">
 <!-- Pinned and Recent sit under the main pages. Recent starts folded; every fold is saved for the person. -->
 <x-import component-from-global-scope="Strata.NavSection" id="pinned" flyout="{{yes}}">
 <div><x-import component-from-global-scope="Strata.SidebarMenu">
@@ -68,6 +71,7 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2612</span><span class="text-muted-foreground truncate">Northgate</span></x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="package" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">ST-2026-000021</span><span class="text-muted-foreground truncate">DEMO-2611</span></x-import></div>
 </x-import>
+</sc-if>
 <x-import component-from-global-scope="Strata.NavSection" id="storage">
 <div><x-import component-from-global-scope="Strata.SidebarMenu">
 <x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" tooltip="Receive"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span>Receive</span></x-import></x-import>
@@ -100,24 +104,25 @@ body{margin:0}
 <!-- Shared LAB station: who the work is recorded as. Session length (D38) is deferred, so no end time. -->
 <sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
 <x-import component-from-global-scope="Strata.DropdownMenu">
-<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as Pat Example. Change person" class-name="ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent border-sidebar-border bg-background flex w-full items-center gap-2 overflow-hidden rounded-md border p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
-<span class="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">PE</span>
-<span class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden"><span class="text-muted-foreground text-[13px]">Recording as</span><span class="truncate font-semibold">Pat Example</span></span>
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as {{stationName}}. Sign off or switch person" class-name="ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent border-sidebar-border bg-background flex w-full items-center gap-2 overflow-hidden rounded-md border p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">{{stationInitials}}</span>
+<span class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden"><span class="text-muted-foreground text-[13px]">Recording as</span><span class="truncate font-semibold">{{stationName}}</span></span>
 <x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
 </x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuContent" side="right" align="end" side-offset="{{four}}" class-name="w-64">
-<x-import component-from-global-scope="Strata.DropdownMenuLabel">Who is working here?</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuRadioGroup" value="pat">
-<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="pat">Pat Example</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="alex">Alex Tester</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="sam">Sam Sample</x-import>
-</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="right" align="end" side-offset="{{four}}" class-name="w-72">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="text-muted-foreground text-[13px] font-normal">Recording as {{stationName}}</x-import>
+<!-- Sign off comes first and stands apart from the person list, so it isn't hit by mistake. -->
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="min-h-11 items-start" onClick="{{signOff}}"><x-import component-from-global-scope="Strata.Icon" name="log-out" class-name="mt-0.5"></x-import><span class="grid leading-tight"><span class="font-medium">Sign off {{stationName}}</span><span class="text-muted-foreground text-[13px]">Back to Who is working here?</span></span></x-import>
 <x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="user-plus"></x-import>Someone else…</x-import>
-<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
-<!-- Signing off ends this person's turn, not the LAB station: the station goes back to "Who is working here?" -->
-<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="items-start"><x-import component-from-global-scope="Strata.Icon" name="log-out" class-name="mt-0.5"></x-import><span class="grid leading-tight"><span>Sign off Pat Example</span><span class="text-muted-foreground text-[13px]">Back to Who is working here?</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="text-muted-foreground text-[13px] font-normal">Switch person</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioGroup" value="{{stationKey}}">
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="pat" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">PE</span><span class="grid leading-tight"><span>Pat Example</span><span class="text-muted-foreground text-[13px]">Technician</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="alex" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">AT</span><span class="grid leading-tight"><span>Alex Tester</span><span class="text-muted-foreground text-[13px]">Project lead</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="sam" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">SS</span><span class="grid leading-tight"><span>Sam Sample</span><span class="text-muted-foreground text-[13px]">Lab Manager</span></span></x-import>
 </x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="min-h-11 gap-3"><x-import component-from-global-scope="Strata.Icon" name="user-plus"></x-import>Someone else…</x-import>
+</x-import>
+
 </x-import>
 </sc-if>
 <x-import component-from-global-scope="Strata.SidebarMenu">
@@ -173,6 +178,23 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.SidebarTrigger" class-name="-ml-1"></x-import>
 <span class="text-sm font-semibold">{{pageTitle}}</span>
 <div class="ml-auto flex items-center gap-2">
+<!-- LAB station: who the work is recorded as, always in view (critique step 3). Same menu as the sidebar footer. -->
+<sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.DropdownMenu"><x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as {{stationName}}. Sign off or switch person" class-name="bg-accent text-accent-foreground border-primary/30 hover:bg-accent/80 focus-visible:ring-ring/50 flex h-11 items-center gap-2 rounded-full border pr-3 pl-1.5 text-sm outline-none focus-visible:ring-[3px]"><span aria-hidden="true" class="bg-muted text-foreground flex size-8 text-[13px] shrink-0 items-center justify-center rounded-full font-mono font-bold">{{stationInitials}}</span><span>Recording as <span class="font-semibold">{{stationName}}</span></span><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="bottom" align="end" side-offset="{{four}}" class-name="w-72">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="text-muted-foreground text-[13px] font-normal">Recording as {{stationName}}</x-import>
+<!-- Sign off comes first and stands apart from the person list, so it isn't hit by mistake. -->
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="min-h-11 items-start" onClick="{{signOff}}"><x-import component-from-global-scope="Strata.Icon" name="log-out" class-name="mt-0.5"></x-import><span class="grid leading-tight"><span class="font-medium">Sign off {{stationName}}</span><span class="text-muted-foreground text-[13px]">Back to Who is working here?</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="text-muted-foreground text-[13px] font-normal">Switch person</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioGroup" value="{{stationKey}}">
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="pat" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">PE</span><span class="grid leading-tight"><span>Pat Example</span><span class="text-muted-foreground text-[13px]">Technician</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="alex" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">AT</span><span class="grid leading-tight"><span>Alex Tester</span><span class="text-muted-foreground text-[13px]">Project lead</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="sam" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">SS</span><span class="grid leading-tight"><span>Sam Sample</span><span class="text-muted-foreground text-[13px]">Lab Manager</span></span></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="min-h-11 gap-3"><x-import component-from-global-scope="Strata.Icon" name="user-plus"></x-import>Someone else…</x-import>
+</x-import></x-import>
+</sc-if>
 <!-- Quick actions: start common work from any page -->
 <x-import component-from-global-scope="Strata.DropdownMenu">
 <!-- At rest a 44 px bolt. Hover (after a 100 ms intent delay), keyboard focus or an open menu
@@ -218,7 +240,7 @@ body{margin:0}
 <div class="border-t p-1"><a href="#" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-11 w-full items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-[3px]">Open Inbox</a></div>
 </sc-if>
 <sc-if value="{{inboxPrivate}}" hint-placeholder-val="{{ false }}">
-<div class="flex items-start gap-3 p-4 text-sm"><x-import component-from-global-scope="Strata.Icon" name="lock" class-name="text-muted-foreground mt-0.5"></x-import><span class="text-muted-foreground">Pat Example's notifications stay private on shared computers.</span></div>
+<div class="flex items-start gap-3 p-4 text-sm"><x-import component-from-global-scope="Strata.Icon" name="lock" class-name="text-muted-foreground mt-0.5"></x-import><span class="text-muted-foreground">{{stationName}}'s notifications stay private on shared computers.</span></div>
 </sc-if>
 </x-import>
 </x-import>
@@ -257,8 +279,10 @@ class Component extends DCLogic {
     var clear = /-clear$/.test(today);
     var unread = clear ? 0 : 3;
     var inboxPage = today.indexOf("inbox-") === 0;
+    var customizing = station && today === 'customize';
+    var who = customizing ? { key: 'sam', name: 'Sam Sample', ini: 'SS' } : { key: 'pat', name: 'Pat Example', ini: 'PE' };
     var privateHere = today === "inbox-private" || (station && !inboxPage);
-    return { customizing: !!this.props.customizing, dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, hoverOpen: 150, hoverClose: 200, today: today, placeholder: today === "none", todayStation: today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0 && today.indexOf("inbox-") !== 0, inbox: today.indexOf("inbox-") === 0, inboxVariant: today.replace("inbox-", ""), pageTitle: today.indexOf("inbox-") === 0 ? "Inbox" : "Today", todayActive: today.indexOf("inbox-") !== 0, inboxActive: today.indexOf("inbox-") === 0, todayCurrent: today.indexOf("inbox-") === 0 ? "false" : "page", inboxCurrent: today.indexOf("inbox-") === 0 ? "page" : "false", todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), unreadCount: unread, inboxPrivate: privateHere, showCounts: !privateHere && unread > 0, caughtUp: !privateHere && !unread, inboxLabel: privateHere || !unread ? "Inbox" : "Inbox, " + unread + " unread", bellLabel: privateHere || !unread ? "Notifications. Open Inbox" : "Notifications, " + unread + " unread. Open Inbox", role: today.indexOf("lead-") === 0 || inboxPage ? "Project lead" : today.indexOf("manager-") === 0 ? "Lab Manager" : "Technician", personName: today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
+    return { stationName: who.name, stationInitials: who.ini, stationKey: who.key, toastTheme: this.props.dark ? 'dark' : 'light', stationDensity: station ? '[&_[data-sidebar=menu-button]]:h-11 [&_[data-sidebar=menu-sub-button]]:h-11' : '', signOff: function () { var S = window.Strata; if (S && S.toast) S.toast('Signed off ' + who.name + '. Back to Who is working here?'); }, customizing: !!this.props.customizing, dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, hoverOpen: 150, hoverClose: 200, today: today, placeholder: today === "none", todayStation: today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0 && today.indexOf("inbox-") !== 0, inbox: today.indexOf("inbox-") === 0, inboxVariant: today.replace("inbox-", ""), pageTitle: today.indexOf("inbox-") === 0 ? "Inbox" : "Today", todayActive: today.indexOf("inbox-") !== 0, inboxActive: today.indexOf("inbox-") === 0, todayCurrent: today.indexOf("inbox-") === 0 ? "false" : "page", inboxCurrent: today.indexOf("inbox-") === 0 ? "page" : "false", todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), unreadCount: unread, inboxPrivate: privateHere, showCounts: !privateHere && unread > 0, caughtUp: !privateHere && !unread, inboxLabel: privateHere || !unread ? "Inbox" : "Inbox, " + unread + " unread", bellLabel: privateHere || !unread ? "Notifications. Open Inbox" : "Notifications, " + unread + " unread. Open Inbox", role: today.indexOf("lead-") === 0 || inboxPage ? "Project lead" : today.indexOf("manager-") === 0 ? "Lab Manager" : "Technician", personName: today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
   }
 }
 </script>

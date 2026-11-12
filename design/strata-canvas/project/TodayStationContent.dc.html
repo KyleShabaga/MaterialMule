@@ -21,37 +21,32 @@ body{margin:0}
 <div class="mx-auto flex max-w-[880px] flex-col gap-10 px-8 py-10">
 <h1 class="sr-only">Today</h1>
 
-<!-- The two jobs a station starts most: big, equal, one click each -->
-<nav aria-label="Start receiving" class="grid grid-cols-2 gap-4">
-<a href="#" class="group bg-card text-card-foreground hover:border-primary focus-visible:ring-ring/50 flex min-h-36 items-start gap-5 rounded-xl border p-6 shadow-xs outline-none transition-colors duration-150 focus-visible:ring-[3px] motion-reduce:transition-none">
-<span class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-lg"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line" class-name="size-6"></x-import></span>
-<span class="grid flex-1 gap-1"><span class="text-lg font-semibold">Receive samples</span><span class="text-muted-foreground text-sm">Buckets, Shelby tubes and core boxes arriving at the lab.</span></span>
-<x-import component-from-global-scope="Strata.Icon" name="arrow-right" class-name="text-muted-foreground group-hover:text-primary mt-1 size-5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"></x-import>
-</a>
-<a href="#" class="group bg-card text-card-foreground hover:border-primary focus-visible:ring-ring/50 flex min-h-36 items-start gap-5 rounded-xl border p-6 shadow-xs outline-none transition-colors duration-150 focus-visible:ring-[3px] motion-reduce:transition-none">
-<span class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-lg"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-6"></x-import></span>
-<span class="grid flex-1 gap-1"><span class="text-lg font-semibold">Receive concrete</span><span class="text-muted-foreground text-sm">Specimen sets arriving from site.</span></span>
-<x-import component-from-global-scope="Strata.Icon" name="arrow-right" class-name="text-muted-foreground group-hover:text-primary mt-1 size-5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"></x-import>
-</a>
+<!-- Whose name the work goes under, before anything is started (critique step 3) -->
+<p class="bg-accent text-accent-foreground -mb-6 flex items-center gap-3 rounded-lg px-4 py-3 text-sm"><span aria-hidden="true" class="bg-background text-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">{{stationInitials}}</span><span>Work started here is recorded as <span class="font-semibold">{{stationName}}</span>. Not you? Switch person from <span class="font-semibold">Recording as</span> at the top.</span></p>
+<!-- The jobs a station starts most: big, equal, one click each. Breaks joined the two receive tiles (critique step 3). -->
+<nav aria-label="Start work" class="grid grid-cols-3 gap-4">
+<a href="#" class="group bg-card text-card-foreground hover:border-primary focus-visible:ring-ring/50 flex min-h-40 flex-col gap-4 rounded-xl border p-5 shadow-xs outline-none transition-colors duration-150 focus-visible:ring-[3px] motion-reduce:transition-none"><span class="flex items-start justify-between"><span class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-lg"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line" class-name="size-6"></x-import></span><x-import component-from-global-scope="Strata.Icon" name="arrow-right" class-name="text-muted-foreground group-hover:text-primary size-5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"></x-import></span><span class="grid gap-1"><span class="text-lg font-semibold">Receive samples</span><span class="text-muted-foreground text-sm">Buckets, Shelby tubes and core boxes arriving at the lab.</span></span></a>
+<a href="#" class="group bg-card text-card-foreground hover:border-primary focus-visible:ring-ring/50 flex min-h-40 flex-col gap-4 rounded-xl border p-5 shadow-xs outline-none transition-colors duration-150 focus-visible:ring-[3px] motion-reduce:transition-none"><span class="flex items-start justify-between"><span class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-lg"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-6"></x-import></span><x-import component-from-global-scope="Strata.Icon" name="arrow-right" class-name="text-muted-foreground group-hover:text-primary size-5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"></x-import></span><span class="grid gap-1"><span class="text-lg font-semibold">Receive concrete</span><span class="text-muted-foreground text-sm">Specimen sets arriving from site.</span></span></a>
+<a href="#" class="group bg-card text-card-foreground hover:border-primary focus-visible:ring-ring/50 flex min-h-40 flex-col gap-4 rounded-xl border p-5 shadow-xs outline-none transition-colors duration-150 focus-visible:ring-[3px] motion-reduce:transition-none"><span class="flex items-start justify-between"><span class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-lg"><x-import component-from-global-scope="Strata.Icon" name="hammer" class-name="size-6"></x-import></span><x-import component-from-global-scope="Strata.Icon" name="arrow-right" class-name="text-muted-foreground group-hover:text-primary size-5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"></x-import></span><span class="grid gap-1"><span class="text-lg font-semibold">Record breaks</span><span class="text-muted-foreground text-sm">Specimen breaks due today at this station.</span></span></a>
 </nav>
 
 <!-- This station's work, chosen per computer -->
 <section aria-labelledby="station-work" class="flex flex-col gap-4">
 <div class="relative flex items-center justify-between gap-4">
 <h2 id="station-work" class="text-base font-semibold">At this station</h2>
-<x-import component-from-global-scope="Strata.Button" variant="outline" size="sm" aria-expanded="{{customizeOpen}}"><x-import component-from-global-scope="Strata.Icon" name="sliders-horizontal"></x-import>Customize this station</x-import>
+<sc-if value="{{canCustomize}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Button" variant="outline" size="sm" aria-expanded="{{customizeOpen}}"><x-import component-from-global-scope="Strata.Icon" name="sliders-horizontal"></x-import>Customize this station</x-import></sc-if><sc-if value="{{cannotCustomize}}" hint-placeholder-val="{{ true }}"><p class="text-muted-foreground flex items-center gap-1.5 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="lock" class-name="size-3.5"></x-import>Set up by Sam Sample, Lab Manager</p></sc-if>
 
 <sc-if value="{{customize}}" hint-placeholder-val="{{ false }}">
 <!-- In the app this is a Popover; drawn open here -->
 <div role="dialog" aria-labelledby="customize-title" class="bg-popover text-popover-foreground absolute top-11 right-0 z-20 flex w-80 flex-col gap-3 rounded-lg border p-4 shadow-md">
-<div class="grid gap-1"><h3 id="customize-title" class="text-sm font-semibold">Shown on this station</h3><p class="text-muted-foreground text-[13px]">Pick what this bench needs. Drag to reorder.</p></div>
+<div class="grid gap-1"><h3 id="customize-title" class="text-sm font-semibold">Shown on this station</h3><p class="text-muted-foreground text-[13px]">Pick what this station shows. Drag to reorder.</p></div>
 <ul class="flex flex-col">
 <li class="flex h-11 items-center gap-3"><x-import component-from-global-scope="Strata.Icon" name="grip-vertical" class-name="text-muted-foreground"></x-import><label for="cs-drafts" class="flex-1 text-sm">Draft receipts to finish</label><x-import component-from-global-scope="Strata.Switch" id="cs-drafts" default-checked="{{yes}}"></x-import></li>
 <li class="flex h-11 items-center gap-3"><x-import component-from-global-scope="Strata.Icon" name="grip-vertical" class-name="text-muted-foreground"></x-import><label for="cs-deliveries" class="flex-1 text-sm">Deliveries waiting</label><x-import component-from-global-scope="Strata.Switch" id="cs-deliveries" default-checked="{{yes}}"></x-import></li>
 <li class="flex h-11 items-center gap-3"><x-import component-from-global-scope="Strata.Icon" name="grip-vertical" class-name="text-muted-foreground"></x-import><label for="cs-breaks" class="flex-1 text-sm">Breaks due today</label><x-import component-from-global-scope="Strata.Switch" id="cs-breaks" default-checked="{{yes}}"></x-import></li>
 <li class="flex h-11 items-center gap-3"><x-import component-from-global-scope="Strata.Icon" name="grip-vertical" class-name="text-muted-foreground"></x-import><label for="cs-labels" class="flex-1 text-sm">Labels to print</label><x-import component-from-global-scope="Strata.Switch" id="cs-labels" default-checked="{{yes}}"></x-import></li>
 </ul>
-<p class="text-muted-foreground border-t pt-3 text-[13px]">Saved on this computer only.</p>
+<p class="text-muted-foreground border-t pt-3 text-[13px]">Applies to everyone at this computer. Only Lab Managers can change it.</p>
 </div>
 </sc-if>
 </div>
@@ -107,6 +102,10 @@ class Component extends DCLogic {
     var vals = {
       yes: true,
       customize: v === 'customize',
+      canCustomize: v === 'customize',
+      cannotCustomize: v !== 'customize',
+      stationName: v === 'customize' ? 'Sam Sample' : 'Pat Example',
+      stationInitials: v === 'customize' ? 'SS' : 'PE',
       customizeOpen: v === 'customize' ? 'true' : 'false',
       failed: v === 'failed',
       noneShown: v === 'none-shown',
