@@ -1441,13 +1441,63 @@ and the nav shows only the sections a person can open.
 - **Constraints:** permissions server-side; reasons for destructive changes; no secrets shown;
   D38 session length stays deferred (no session settings); fictional data.
 
+### Round 10: system pages (shaped 2026-11-12)
+
+Kyle chose: Help as a drawer from anywhere (? or the account menu) plus a full page; Feedback &
+bugs as a dialog from anywhere.
+
+- **Job and audience:** anyone stuck, new, or locked out: a first-day technician, someone whose
+  sign-in failed, a new person waiting to be approved, anyone who hit a broken address.
+  Reassurance first, then one clear next step.
+- **Help drawer** (press ?, or account menu › Help): the Inbox drawer on the right. It opens on
+  **help for the page you're on** (e.g. on Inventory: find a unit, move units, print labels),
+  then all guides grouped (Receiving, Shelves, labels and retention, Lab tests, Concrete, Access
+  and accounts), a search, and **Keyboard shortcuts** (Ctrl K, Ctrl B, ?, J/K, Esc). Answers
+  are short task steps in the app's words and follow the shaped screens (e.g. Move: "Scan the
+  units and the shelf, in either order."). Common questions stay ("Does an ID ever change? No. A
+  correction changes the details and keeps the ID." "Does it work from home? No. It runs on the
+  office network only.").
+- **Help page** (`/help`): the same guides as a full page, for links from sign-in, the station
+  picker ("How LAB stations work") and Customize sidebar ("How the sidebar works"); the app
+  version at the foot.
+- **Feedback & bugs** (account menu): a dialog over the current page: what kind (Problem,
+  Idea, Question), what happened, "Include the page I was on" (on by default), Send to the
+  administrator; "Stays inside the office. Nothing is sent outside the building." then "Sent. An
+  administrator will read it here in the office."
+- **Microsoft sign-in return** (`/sign-in/microsoft/callback`): the sign-in layout (gradient,
+  card): "Finishing Microsoft sign-in…" with a spinner, then on failure one card per case, each
+  with a title, one plain sentence and the next step (Try again or Back to sign in): cancelled,
+  permission not granted, link expired, took too long or another browser, account can't sign in
+  here, guest accounts, access removed, too many attempts, not set up on this server, something
+  went wrong.
+- **Waiting for approval** (`/access-pending`): the sign-in layout: "You are signed in, but not
+  set up yet.", signed in as (name, email), who approves ("An administrator, in Settings, Staff
+  and access"), "This page opens the app by itself once you are approved.", Check again, Sign
+  out.
+- **Page not found:** inside the shell (sidebar and top bar stay): "This page doesn't exist.
+  Check the address, or go back to Today." with Go to Today and Search (Ctrl K). A record that
+  doesn't exist (a unit, a project) uses its own not-found state from its round instead.
+- **Something went wrong** (a page crashed): inside the shell: "Something went wrong while
+  showing this page." with Reload and Go to Today; the rest of the app keeps working.
+- **Material Mule is unavailable** (the server can't be reached): the sign-in layout: what
+  happened, that work in progress on this computer is kept (drafts, queued moves), Try again;
+  it retries by itself.
+- **States:** each page in light and dark; long names and emails truncate; screen readers get
+  the heading first, then the message.
+- **Constraints:** no off-site access, so nothing links outside the office except Microsoft
+  sign-in itself; no secrets or stack traces shown; D38 session length stays deferred (no "your
+  session ends at" text); fictional data.
+
 ## Next
 
-1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
-   the UX changes).
-2. More boards on the same canvas: foundations (tokens, type, the shadcn components in both
-   themes), then Receive, Inventory and the unit page, then the remaining phone screens and the
-   rest of the routes in `apps/web/src/routes.tsx`. Screens are recorded here as they are approved.
-3. An implementation plan in the same shape as Field Ledger's (wave 0 Tailwind, shadcn, tokens
-   and shell; parallel lanes by folder; an integration branch). Nothing is merged without Kyle
-   (Kyle, 2026-11-11: "Do not merge anything").
+All 47 remaining screens are shaped (rounds 1–10, 2026-11-12). Next:
+
+1. **Design phase,** in the same order as the shaping rounds, each area on its own canvas page:
+   every screen, its empty, loading, error and permission states, dark, and a 1024 px version
+   (audit P1). Kyle reviews each area before the next starts. Round 7 draws both Breaks variants
+   for Kyle to pick.
+2. **Gates stay gates:** D38, billing D16–D18, G2, G8, report templates, offline field entry and
+   set numbering are drawn only as marked open items.
+3. **Implementation plan** in the same shape as Field Ledger's (wave 0 Tailwind, shadcn, tokens
+   and shell; parallel lanes by folder; an integration branch), from the build board on Notion.
+   Nothing is merged without Kyle (Kyle, 2026-11-11: "Do not merge anything").
