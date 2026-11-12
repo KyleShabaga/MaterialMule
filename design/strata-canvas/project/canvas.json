@@ -379,6 +379,78 @@
       "title": "Technician Today content component (variant tweak)",
       "page": "today",
       "is_interactive": true
+    },
+    "Inbox.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — one stream, a request open",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxUpdate.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — one stream, an update open",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxGrouped.dc.html": {
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — Grouped view",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxRequestsEmpty.dc.html": {
+      "x": 4080,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — Requests tab, nothing waiting",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxUpdatesRead.dc.html": {
+      "x": 0,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — Updates tab, all read",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxStation.dc.html": {
+      "x": 1360,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — Pat's Inbox on the LAB station",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxDark.dc.html": {
+      "x": 2720,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — dark",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxContent.dc.html": {
+      "x": 4080,
+      "y": 920,
+      "w": 1024,
+      "h": 744,
+      "title": "Inbox content component (variant, station tweaks)",
+      "page": "inbox",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -527,6 +599,22 @@
       "fill": "yellow",
       "page": "today",
       "text": "Technician Today, 2026-11-11: the same layout with a technician's content (Claude's choices, from PRODUCT.md). Shortcuts: Receive, Move storage units, Print labels, My tests. Needs you: tests assigned today, units to pull for a lab program, own draft receipts, a label that didn't print; longer lists add a move to confirm and tests waiting on a sample. Last 24 hours is the person's own work ('You received…')."
+    },
+    "rowInbox": {
+      "x": 0,
+      "y": -300,
+      "text": "Inbox",
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "inbox"
+    },
+    "inboxNotes": {
+      "x": 5440,
+      "y": 0,
+      "w": 420,
+      "fill": "yellow",
+      "page": "inbox",
+      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. List and detail (like Linear). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream or Grouped, here and in Settings > Preferences. Requests close on their own when the real action is done. FLAG: on the LAB station anyone who picks a name can open that person's Inbox (no per-person password). Options: keep it, show the station only requests, or confirm before opening."
     }
   },
   "order": [
@@ -571,7 +659,15 @@
     "TodayTechLong.dc.html",
     "TodayTechClear.dc.html",
     "TodayTechDark.dc.html",
-    "TodayTechContent.dc.html"
+    "TodayTechContent.dc.html",
+    "Inbox.dc.html",
+    "InboxUpdate.dc.html",
+    "InboxGrouped.dc.html",
+    "InboxRequestsEmpty.dc.html",
+    "InboxUpdatesRead.dc.html",
+    "InboxStation.dc.html",
+    "InboxDark.dc.html",
+    "InboxContent.dc.html"
   ],
   "pages": [
     {
@@ -589,6 +685,10 @@
     {
       "id": "today",
       "name": "Today"
+    },
+    {
+      "id": "inbox",
+      "name": "Inbox"
     }
   ],
   "title": "Material Mule — Strata"

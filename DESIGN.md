@@ -729,6 +729,53 @@ chose the content from PRODUCT.md's description of the role, and Kyle approved i
   (`variant` tweak); in the shell, `SidebarLive`'s `today` tweak takes `manager-*` values and the
   account row reads "Sam Sample · Lab Manager".
 
+### Inbox (canvas page "Inbox")
+
+Shaped with Impeccable on 2026-11-11. Inbox is the one place for every action request and
+notification. Kyle chose:
+- list and detail;
+- one stream that tells requests and updates apart at a glance;
+- tabs at the top;
+- a view the person can change, on the page and in Settings;
+- the picked person's Inbox on the LAB station.
+
+- **Layout:** the list on the left (400 px) and the selected item open on the right. In the
+  app, arrow keys or J/K move through the list and Enter takes the main action.
+- **Header:** tabs All, Requests, Updates and Done, each with a count. Then View (One stream or
+  Grouped, `Select`) and Mark all read.
+- **One stream,** newest first, under day headings (Today, Tuesday, Monday…), with requests above
+  updates on the same day. **Grouped:** "Needs action · 3" first, then "Updates · 3".
+- **Telling them apart, never by colour alone:**
+  - A **request** has a filled `primary` circle with `circle-dot`, a filled "Request" pill and its
+    kind (Correction, Close a program, Retention…).
+  - An **update** has an outline circle with `bell`, no pill and its kind (Your request was
+    decided, Returned for correction, Ready to submit).
+  - Unread rows have a dot, "Unread" for screen readers and a bold title. The selected row has
+    `accent`.
+- **Detail, a request:** the pill and kind; the title; "From Sam Sample · 12 min ago · waiting on
+  you"; the record as a short definition list with IDs in mono; the main action (Make the
+  correction) and Open the unit; "This request closes on its own when the correction is saved.";
+  History.
+- **Detail, an update:** the bell and kind; the title; who it's from; a sentence; Open retention
+  and Dismiss.
+- **Empty states, in the app's wording:** "Nothing is waiting on you." (Requests); "You have read
+  every notification." (Updates); with nothing selected, "Select an item to see it here."
+- **View setting:** Settings › Preferences gains an "Inbox" section with "Inbox view" (One stream
+  / Grouped), the same choice as on the page.
+- **LAB station:** shows the picked person's Inbox, with a line saying whose it is. *Flag:* the
+  station has no per-person password, so anyone who picks a name can open that person's Inbox.
+  Options: keep it; show the station only requests; or confirm before it opens.
+- **Built as** `InboxContent.dc.html` (`variant`, `station` tweaks). In the shell, `SidebarLive`'s
+  page tweak takes `inbox-*` values: the top bar title reads "Inbox" and the sidebar marks Inbox
+  as the current page. Boards:
+  - a request open;
+  - an update open;
+  - Grouped;
+  - Requests empty;
+  - Updates all read;
+  - the LAB station;
+  - dark.
+
 ### Today for a technician (canvas page "Today", fourth row)
 
 The same layout again, drawn as Pat Example. Kyle asked for the technician next (2026-11-11).

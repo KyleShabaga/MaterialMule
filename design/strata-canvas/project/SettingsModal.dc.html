@@ -102,6 +102,20 @@ body{margin:0}
 </div>
 </section>
 
+<section aria-labelledby="pref-inbox" class="mt-8">
+<h2 id="pref-inbox" class="border-b pb-3 text-base font-semibold">Inbox</h2>
+<div class="flex items-center justify-between gap-8 py-5">
+<div class="grid gap-1"><span id="pref-inbox-view" class="text-sm font-medium">Inbox view</span><span class="text-muted-foreground text-sm">One stream, newest first, or requests grouped above updates. Also on the Inbox page.</span></div>
+<x-import component-from-global-scope="Strata.Select" default-value="stream">
+<x-import component-from-global-scope="Strata.SelectTrigger" aria-labelledby="pref-inbox-view" class-name="w-52"><x-import component-from-global-scope="Strata.SelectValue"></x-import></x-import>
+<x-import component-from-global-scope="Strata.SelectContent" align="end">
+<x-import component-from-global-scope="Strata.SelectItem" value="stream">One stream</x-import>
+<x-import component-from-global-scope="Strata.SelectItem" value="grouped">Grouped</x-import>
+</x-import>
+</x-import>
+</div>
+</section>
+
 <section aria-labelledby="pref-time" class="mt-8">
 <h2 id="pref-time" class="border-b pb-3 text-base font-semibold">Dates and time</h2>
 <div class="flex items-center justify-between gap-8 py-5">
