@@ -217,7 +217,11 @@ stay readable on a phone in a dim storage room.
   icons left (200 ms ease-out width transition, CSS only; none with reduced motion). Escape closes
   it and returns focus to the icon; leaving it while empty also closes it. Filter is a menu of
   checkboxes with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its
-  name says how many ("Filter, 1 on"). Sort and View are radio menus; View lists that page's
+  name says how many ("Filter, 1 on"). **Active sort and filters show as chips** before the
+  icons (critique 2026-11-12): a heading sort shows "Title A–Z" (or "Received oldest first"), a
+  non-default Sort menu choice shows its name, each filter its own chip; each chip's × clears it. A
+  heading sort and the Sort menu are one setting, and the Sort button's name always says the
+  current sort ("Sort, Title A–Z"). Sort and View are radio menus; View lists that page's
   views. Search and filters apply as you type (server side for long lists).
 - **People in tables** (Kyle, 2026-11-11): wherever a table shows a person, a shadcn `Avatar`
   comes before the name: 20 px in compact tables (24 px in normal ones), initials in the
@@ -276,7 +280,8 @@ stay readable on a phone in a dim storage room.
 - **Banners** (`Alert`). A stage stripe, an icon, one bold sentence and one line. Info uses
   `accent`; warnings `due`; errors `danger`; partial success `due` and says what worked.
 - **Dialogs** (`Dialog`, `AlertDialog`). 480 px, 20 px radius, `overlay` shadow, 50 % black
-  scrim. Title says the action and the record; one sentence on what will change; only the needed
+  scrim. An irreversible action on several records lists them (IDs in mono, scrolling past about
+  six) and its button repeats the count ("Record disposal of 3 units"). Title says the action and the record; one sentence on what will change; only the needed
   fields; Cancel (`outline`) and one primary at the bottom right. Irreversible actions use
   `AlertDialog` and name what cannot be undone.
 - **Empty states.** A small line drawing of the donkey or a storage unit in `muted-foreground`, one
@@ -586,6 +591,7 @@ shell, fix all five issues, leave the top bar as it is.
   - **Projects:** number in mono and name.
   - **Actions:** Receive storage units, Move storage units, Print labels, New project.
   - **Go to:** pages.
+  - **Help** (critique 2026-11-12): Keyboard shortcuts () and Help and how-tos.
   - **No match:** "Nothing matches. Check the ID, or scan the label again."
 
   Quick actions' "Scan" (top bar) should open the same menu; the mock doesn't wire them
@@ -714,8 +720,13 @@ straight on to a person picker, and the first pass covers the page plus every st
   - LAB session expired (amber `due`).
   - Wrong password (red field error under Password, `aria-invalid`).
   - Paused after failed attempts (amber alert with the pause help; Sign in as LAB disabled).
-  - Sign-in options couldn't load (red alert and Try again; no methods shown).
-  - No sign-in method set up.
+  - Sign-in options couldn't load (red alert and Try again; no methods shown). Next step
+    (critique 2026-11-12, new wording for apps/web): "Check that this computer is on the office
+    network, then try again. If it keeps failing, tell your Lab Manager."
+  - No sign-in method set up. Next step: "An administrator turns on Microsoft sign-in or the LAB
+    account on the host PC. Ask your Lab Manager to arrange it."
+  - The person picker adds "…until you sign off" and a "How LAB stations work" help link;
+    Customize sidebar has "How the sidebar works".
   - Development builds add "Test sign-in (development only)" above the footer.
 - **Open, proposed on the boards:**
   - How a computer becomes the LAB station: an admin setting, saved in that browser.

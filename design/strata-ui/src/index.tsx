@@ -302,6 +302,10 @@ function NavSearch() {
             {item("hammer", "Breaks")}
             {item("settings", "Settings")}
           </S.CommandGroup>
+          <S.CommandGroup heading="Help">
+            {item("keyboard", "Keyboard shortcuts", <S.Kbd className="ml-auto">?</S.Kbd>)}
+            {item("circle-help", "Help and how-tos")}
+          </S.CommandGroup>
         </S.CommandList>
       </S.CommandDialog>
     </>
@@ -602,6 +606,7 @@ function SidebarCustomize({ defaultOpen }: { defaultOpen?: boolean }) {
       <div className="px-2 pt-1">
         <p className="text-sm font-semibold">Customize sidebar</p>
         <p className="text-muted-foreground text-[13px]">Drag to reorder. The eye shows or hides a section.</p>
+        <a href="#" className="text-link text-[13px] font-medium underline-offset-4 hover:underline">How the sidebar works</a>
       </div>
       <div>
         <p className="text-sidebar-foreground/70 flex h-8 items-center px-2 text-[13px] font-medium">Always at the top</p>
@@ -702,6 +707,31 @@ function TableToolbar({
     </S.Tooltip>
   )
   const filterOn = on.length > 0
+  // A heading sort (SortHeader) overrides the menu's sort; both show as a chip that clears them.
+  const [headSort, setHeadSort] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    const onSort = (e: Event) => {
+      const d = (e as CustomEvent).detail as { dir: string; text: string }
+      setHeadSort(d.dir === "none" ? null : d.text)
+    }
+    document.addEventListener("strata:sort", onSort)
+    return () => document.removeEventListener("strata:sort", onSort)
+  }, [])
+  const clearHeadSort = () => document.querySelectorAll("table").forEach((t) => t.dispatchEvent(new CustomEvent("strata:sort-clear")))
+  const defaultSort = split(sorts)[0] || ""
+  const sortName = headSort || sort
+  const chip = (label: string, clearLabel: string, onClear: () => void) => (
+    <span key={label} className="bg-accent text-accent-foreground mr-1 inline-flex h-7 items-center gap-1 rounded-full pr-0.5 pl-2.5 text-[13px] font-medium">
+      {label}
+      <button type="button" aria-label={clearLabel} onClick={onClear} className="hover:bg-background/60 focus-visible:ring-ring/50 flex size-6 items-center justify-center rounded-full outline-none focus-visible:ring-[3px]">
+        <Icon name="x" className="size-3.5" />
+      </button>
+    </span>
+  )
+  const chips = [
+    ...(headSort ? [chip(headSort, "Clear sort " + headSort, clearHeadSort)] : sort !== defaultSort ? [chip(sort, "Clear sort " + sort, () => setSort(defaultSort))] : []),
+    ...on.map((f) => chip(f, "Clear filter " + f, () => setOn((o) => o.filter((x) => x !== f)))),
+  ]
   const cols = split(columns).map((c) => ({ label: c.replace(/!$/, ""), fixed: c.endsWith("!") }))
   const slug = (label: string) => label.toLowerCase().replace(/\s+/g, "-")
   const [hiddenCols, setHiddenCols] = React.useState<string[]>([])
@@ -714,6 +744,7 @@ function TableToolbar({
     // TableToolbar children first: page actions such as Mark all read, then a divider.
     <S.TooltipProvider delayDuration={300}>
     <div role="toolbar" aria-label="Table tools" className="flex items-center gap-0.5">
+      {chips.length ? <div aria-label="Active sort and filters" role="group" className="mr-1 flex items-center">{chips}</div> : null}
       {children ? (
         <>
           {children}
@@ -757,13 +788,13 @@ function TableToolbar({
       <S.DropdownMenu>
         {tip(
           "Sort",
-          <S.DropdownMenuTrigger aria-label={"Sort, " + sort} className={iconButton}>
+          <S.DropdownMenuTrigger aria-label={"Sort, " + sortName} className={cn(iconButton, sortName !== defaultSort && "text-primary")}>
             <Icon name="arrow-up-down" />
           </S.DropdownMenuTrigger>,
         )}
         <S.DropdownMenuContent align="end" className="w-52">
           <S.DropdownMenuLabel>Sort</S.DropdownMenuLabel>
-          <S.DropdownMenuRadioGroup value={sort} onValueChange={setSort}>
+          <S.DropdownMenuRadioGroup value={headSort ? "" : sort} onValueChange={(v: string) => { clearHeadSort(); setSort(v) }}>
             {split(sorts).map((s) => (
               <S.DropdownMenuRadioItem key={s} value={s}>{s}</S.DropdownMenuRadioItem>
             ))}
@@ -891,17 +922,27 @@ function SortHeader({ label, icon, col, by, align }: {
       const d = (e as CustomEvent).detail as { col: number; dir: "none" | "ascending" | "descending" }
       setDir(d.col === index ? d.dir : "none")
     }
+    const onClear = () => {
+      if (dirRef.current !== "none") sortRef.current("none")
+    }
     table.addEventListener("strata:sort", onSort)
-    return () => table.removeEventListener("strata:sort", onSort)
+    table.addEventListener("strata:sort-clear", onClear)
+    return () => {
+      table.removeEventListener("strata:sort", onSort)
+      table.removeEventListener("strata:sort-clear", onClear)
+    }
   }, [index])
   React.useEffect(() => {
     ref.current?.closest("th")?.setAttribute("aria-sort", dir)
   }, [dir])
-  const sort = () => {
+  const dirRef = React.useRef(dir)
+  dirRef.current = dir
+  const sortRef = React.useRef<(force?: "none" | "ascending" | "descending") => void>(() => {})
+  const sort = (force?: "none" | "ascending" | "descending") => {
     const table = ref.current?.closest("table")
     const body = table?.querySelector("tbody")
     if (!table || !body) return
-    const next = dir === "none" ? "ascending" : dir === "ascending" ? "descending" : "none"
+    const next = force || (dir === "none" ? "ascending" : dir === "ascending" ? "descending" : "none")
     const rows = Array.from(body.querySelectorAll("tr"))
     rows.forEach((tr, i) => {
       if (tr.dataset.order === undefined) tr.dataset.order = String(i)
@@ -925,14 +966,16 @@ function SortHeader({ label, icon, col, by, align }: {
       while (el.parentElement && el.parentElement !== body) el = el.parentElement
       body.appendChild(el)
     })
-    table.dispatchEvent(new CustomEvent("strata:sort", { detail: { col: index, dir: next } }))
+    const words = by === "order" ? (next === "ascending" ? "oldest first" : "newest first") : next === "ascending" ? "A–Z" : "Z–A"
+    table.dispatchEvent(new CustomEvent("strata:sort", { bubbles: true, detail: { col: index, dir: next, text: label + " " + words } }))
   }
+  sortRef.current = sort
   const arrow = dir === "ascending" ? "arrow-up" : dir === "descending" ? "arrow-down" : "arrow-up-down"
   return (
     <button
       ref={ref}
       type="button"
-      onClick={sort}
+      onClick={() => sort()}
       className={cn(
         "group/sort hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 -mx-2 flex h-8 w-[calc(100%+1rem)] items-center gap-1.5 px-2 text-[13px] font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-inset",
         align === "right" && "justify-end",

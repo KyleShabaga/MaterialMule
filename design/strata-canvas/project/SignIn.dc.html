@@ -40,11 +40,11 @@ body{margin:0}
 <x-import component-from-global-scope="Strata.Alert" class-name="bg-stage-due-bg text-stage-due-fg grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3 border-transparent"><x-import component-from-global-scope="Strata.Icon" name="clock" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertDescription" class-name="text-stage-due-fg">The LAB session has expired. Your draft is saved. Sign in to confirm.</x-import></x-import>
 </sc-if>
 <sc-if value="{{sFailed}}" hint-placeholder-val="{{ false }}">
-<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">Sign-in options couldn't load.</x-import></x-import>
+<x-import component-from-global-scope="Strata.Alert" variant="destructive" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><x-import component-from-global-scope="Strata.Icon" name="circle-alert" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">Sign-in options couldn't load.</x-import><x-import component-from-global-scope="Strata.AlertDescription">Check that this computer is on the office network, then try again. If it keeps failing, tell your Lab Manager.</x-import></x-import>
 <x-import component-from-global-scope="Strata.Button" variant="outline" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="rotate-cw"></x-import>Try again</x-import>
 </sc-if>
 <sc-if value="{{sNone}}" hint-placeholder-val="{{ false }}">
-<x-import component-from-global-scope="Strata.Alert" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><x-import component-from-global-scope="Strata.Icon" name="info" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">No sign-in method is set up on this server yet.</x-import></x-import>
+<x-import component-from-global-scope="Strata.Alert" class-name="grid-cols-[calc(var(--spacing)*4)_1fr] gap-x-3"><x-import component-from-global-scope="Strata.Icon" name="info" class-name="translate-y-0.5"></x-import><x-import component-from-global-scope="Strata.AlertTitle" class-name="line-clamp-none">No sign-in method is set up on this server yet.</x-import><x-import component-from-global-scope="Strata.AlertDescription">An administrator turns on Microsoft sign-in or the LAB account on the host PC. Ask your Lab Manager to arrange it.</x-import></x-import>
 </sc-if>
 
 <!-- A normal computer: Microsoft first -->
@@ -87,7 +87,7 @@ body{margin:0}
 <!-- Step 2 on the LAB station: who is working here -->
 <sc-if value="{{pickerList}}" hint-placeholder-val="{{ false }}">
 <section aria-labelledby="who-title" class="flex flex-col gap-6">
-<div class="grid gap-1"><h1 id="who-title" class="text-2xl font-semibold">Who is working here?</h1><p class="text-muted-foreground text-sm">Signed in as LAB. Receipts, moves and labels are recorded under the name you pick.</p></div>
+<div class="grid gap-1"><h1 id="who-title" class="text-2xl font-semibold">Who is working here?</h1><p class="text-muted-foreground text-sm">Signed in as LAB. Receipts, moves and labels are recorded under the name you pick, until you sign off.</p><a href="#" class="text-link justify-self-start text-sm font-medium underline-offset-4 hover:underline">How LAB stations work</a></div>
 <ul class="flex flex-col gap-1" aria-label="Receiving lab staff">
 <li><button type="button" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-12 w-full items-center gap-3 rounded-md px-3 text-left text-sm outline-none focus-visible:ring-[3px]"><span aria-hidden="true" class="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">PE</span><span class="grid flex-1 leading-tight"><span class="font-medium">Pat Example</span><span class="text-muted-foreground text-[13px]">Technician</span></span><x-import component-from-global-scope="Strata.Icon" name="chevron-right" class-name="text-muted-foreground"></x-import></button></li>
 <li><button type="button" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-12 w-full items-center gap-3 rounded-md px-3 text-left text-sm outline-none focus-visible:ring-[3px]"><span aria-hidden="true" class="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">AT</span><span class="grid flex-1 leading-tight"><span class="font-medium">Alex Tester</span><span class="text-muted-foreground text-[13px]">Technician</span></span><x-import component-from-global-scope="Strata.Icon" name="chevron-right" class-name="text-muted-foreground"></x-import></button></li>
@@ -100,7 +100,7 @@ body{margin:0}
 </sc-if>
 <sc-if value="{{pickerEmpty}}" hint-placeholder-val="{{ false }}">
 <section aria-labelledby="who-title-empty" class="flex flex-col gap-6">
-<div class="grid gap-1"><h1 id="who-title-empty" class="text-2xl font-semibold">Who is working here?</h1><p class="text-muted-foreground text-sm">Signed in as LAB. Receipts, moves and labels are recorded under the name you pick.</p></div>
+<div class="grid gap-1"><h1 id="who-title-empty" class="text-2xl font-semibold">Who is working here?</h1><p class="text-muted-foreground text-sm">Signed in as LAB. Receipts, moves and labels are recorded under the name you pick, until you sign off.</p><a href="#" class="text-link justify-self-start text-sm font-medium underline-offset-4 hover:underline">How LAB stations work</a></div>
 <div class="border-border flex flex-col items-start gap-3 rounded-lg border border-dashed p-5">
 <x-import component-from-global-scope="Strata.Icon" name="users" class-name="text-muted-foreground size-5"></x-import>
 <div class="grid gap-1"><p class="text-sm font-medium">No one is listed for this station yet.</p><p class="text-muted-foreground text-sm">An administrator adds receiving-lab staff in Settings, Staff. Until then, find your name yourself.</p></div>
