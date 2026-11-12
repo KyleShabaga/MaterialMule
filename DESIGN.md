@@ -1387,6 +1387,60 @@ report page (Review, then Issue); a project's Concrete tab has sub-tabs.
   gates; never review one's own report; issued versions are immutable; mixes are the lead's only;
   fictional data (DEMO-2616).
 
+### Round 9: settings (shaped 2026-11-12)
+
+Kyle chose: everything lives in the one Settings modal (admin sections as wide panels inside it),
+and the nav shows only the sections a person can open.
+
+- **Job and audience:** everyone setting their own preferences; Lab Managers running staff,
+  locations, printers, templates and receiving; administrators running concrete reference data
+  and the system. Rare, deliberate visits; mistakes here affect everyone.
+- **The modal** (the existing mock-up, 1080 × 680, nav matching the sidebar): Settings opens from
+  the account menu or Ctrl K, on the last section visited; each section has its own URL
+  (`/settings/staff` opens the modal on Staff over the current page); Esc closes it.
+- **Nav by permission:** a technician sees **Account** only (Profile, Preferences, Notifications,
+  My access); Lab Managers also see **Lab** (Staff, Locations, Printers, Templates, Receiving, Lab
+  tests) and the **Concrete** reference sections they manage; administrators see everything,
+  including **System** (System status). Hidden, not locked; the server enforces every change.
+- **Account sections:**
+  - **Profile:** name, initials, position, avatar (initials; photos are a separate open
+    decision), personal vs Shared LAB account shown read-only.
+  - **Preferences:** Appearance (theme, table rows Comfortable/Compact), Inbox (Inbox view),
+    Privacy (Show my Inbox on shared LAB computers, off by default), Receiving (After confirming a
+    receipt: Show the done page / Go straight to Put away), Dates and time (date format, time
+    zone America/Edmonton), Scanning (Open a scanned label's record), Sidebar (Start with the
+    sidebar collapsed; Reset sidebar layout).
+  - **Notifications:** which kinds of Inbox items raise the bell badge (requests always; updates
+    on or off). In-app only; nothing is emailed (no off-site access).
+  - **My access:** "What you can do" by area and where it comes from, as the server reports it.
+- **Admin sections** (each a wide panel: a header with the main action, the table tools, a table,
+  rows opening the Inbox drawer to edit; every destructive change asks for a reason):
+  - **Staff:** tabs People, Pending (applicants waiting for approval, with a count), Disabled;
+    columns person (avatar), position, roles, account (Personal / Shared LAB), last sign-in,
+    status; drawer: roles (Save roles), Make or Remove admin, Disable / Re-enable, reason
+    required. "No changes to save." guards empty saves.
+  - **Locations:** the location tree (warehouse › bay › shelf) with code, places, in stock,
+    retired; Add location; Retire location (reason; can't retire one holding units); the system
+    location's code can't change.
+  - **Printers:** Zebra printers with address, status (Connected, Unavailable, "Not sure if
+    printed"), Test print, default printer per computer.
+  - **Templates:** label and tag templates with a true-size preview (printed labels unchanged).
+  - **Receiving:** receiving draft settings ("Only Lab Managers and administrators can change
+    this.").
+  - **Lab tests:** the soils test catalogue and templates used by the program editor.
+  - **Concrete reference:** Equipment (testing machines; "No testing machine is registered"
+    elsewhere links here), Suppliers, Holidays (non-test days), Report header; values the gates
+    leave open (G8 units/methods, report templates) are not invented.
+  - **System status:** database, backups (last run, last success, backup owner), alerts go to,
+    checked time; Unavailable and "Not set up" states.
+- **States and ranges:** staff 5–150, locations 10–2,000, printers 1–10; loading; couldn't load;
+  saved toast; a change someone else made meanwhile (reload); not permitted (the section isn't in
+  the nav at all).
+- **Interaction and layout:** the modal keeps its size; panels scroll inside; at 1024 px the modal
+  fills the window with the nav as a narrow column.
+- **Constraints:** permissions server-side; reasons for destructive changes; no secrets shown;
+  D38 session length stays deferred (no session settings); fictional data.
+
 ## Next
 
 1. Kyle reviews this file and the Today and Sign in boards (palette mapping, shadcn shapes, fonts,
