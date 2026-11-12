@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res } from 
 import {
   createLabProgramRequestSchema,
   discardLabProgramRequestSchema,
-  LAB_PROGRAM_SEARCH_MAX,
+  labProgramListQuerySchema,
   labSourceRefSchema,
   submitLabProgramRequestSchema,
   updateLabProgramRequestSchema,
@@ -32,22 +32,9 @@ export class LabProgramsController {
 
   @Get('lab-programs')
   @RequirePermission('lab_program.read')
-  list(
-    @CurrentUser() user: AuthUser,
-    @Query('status') status?: string,
-    @Query('projectId') projectId?: string,
-    @Query('page') page?: string,
-    @Query('search') search?: string,
-  ): Promise<LabProgramList> {
-    const pageNumber = Number(page);
-    return this.programs.list(user, {
-      status,
-      projectId,
-      // Field Ledger top-bar search: program number, project number or project name.
-      search:
-        typeof search === 'string' ? search.trim().slice(0, LAB_PROGRAM_SEARCH_MAX) : undefined,
-      page: Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1,
-    });
+  list(@CurrentUser() user: AuthUser, @Query() query: unknown): Promise<LabProgramList> {
+    // STRATA-47: allowlisted sort and direction, bounded paging; anything else is a 400.
+    return this.programs.list(user, parseBody(labProgramListQuerySchema, query ?? {}));
   }
 
   @Get('lab-programs/:id')

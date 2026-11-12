@@ -392,6 +392,69 @@ export type LabProgramSummary = z.infer<typeof labProgramSummarySchema>;
 export const LAB_PROGRAM_PAGE_SIZE = 50;
 /** Longest `?search=` the list uses (program number, project number or project name). */
 export const LAB_PROGRAM_SEARCH_MAX = 100;
+/** Largest `?pageSize=` the list accepts. */
+export const LAB_PROGRAM_PAGE_SIZE_MAX = 100;
+/**
+ * STRATA-47 list sorts. `recent` (the default) keeps this account's drafts first, then the newest
+ * submission or edit; `number` and `project` read A–Z by default, `submitted` newest first. The
+ * program's ID always ends the order so pages never overlap or skip rows with equal keys.
+ */
+export const LAB_PROGRAM_LIST_SORTS = ['recent', 'number', 'project', 'submitted'] as const;
+export type LabProgramListSort = (typeof LAB_PROGRAM_LIST_SORTS)[number];
+
+const blankQueryParam = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
+/**
+ * `GET /api/lab-programs?status=&projectId=&search=&sort=&dir=&page=&pageSize=`. Search
+ * (program number, project number or project name; contains, ignoring case) and paging cover
+ * every visible program; `total` counts all matches whatever the page size.
+ */
+export const labProgramListQuerySchema = z.object({
+  status: z.preprocess(
+    blankQueryParam,
+    z.enum(LAB_PROGRAM_STATUSES, { error: 'must be draft, submitted or closed' }).optional(),
+  ),
+  projectId: z.preprocess(blankQueryParam, z.uuid({ error: 'must be a project ID' }).optional()),
+  /** Longer input is cut to LAB_PROGRAM_SEARCH_MAX (the top-bar search sends what was typed). */
+  search: z.preprocess(
+    blankQueryParam,
+    z
+      .string()
+      .trim()
+      .transform((value) => value.slice(0, LAB_PROGRAM_SEARCH_MAX))
+      .optional(),
+  ),
+  sort: z.preprocess(
+    blankQueryParam,
+    z
+      .enum(LAB_PROGRAM_LIST_SORTS, { error: 'must be recent, number, project or submitted' })
+      .default('recent'),
+  ),
+  dir: z.preprocess(
+    blankQueryParam,
+    z.enum(['asc', 'desc'], { error: 'must be asc or desc' }).optional(),
+  ),
+  page: z.preprocess(
+    blankQueryParam,
+    z.coerce.number({ error: 'must be a number' }).int().min(1).max(100_000).default(1),
+  ),
+  pageSize: z.preprocess(
+    blankQueryParam,
+    z.coerce
+      .number({ error: 'must be a number' })
+      .int()
+      .min(1)
+      .max(LAB_PROGRAM_PAGE_SIZE_MAX, { error: `must be at most ${LAB_PROGRAM_PAGE_SIZE_MAX}` })
+      .default(LAB_PROGRAM_PAGE_SIZE),
+  ),
+});
+export type LabProgramListQuery = z.output<typeof labProgramListQuerySchema>;
+
+export function labProgramListSortDirection(query: Pick<LabProgramListQuery, 'sort' | 'dir'>) {
+  return query.dir ?? (query.sort === 'number' || query.sort === 'project' ? 'asc' : 'desc');
+}
+
 export const labProgramListSchema = z.object({
   items: z.array(labProgramSummarySchema),
   total: z.number().int(),

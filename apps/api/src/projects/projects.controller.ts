@@ -8,8 +8,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
+  LIST_TOTAL_HEADER,
   PROJECT_SEARCH_DEFAULT_LIMIT,
   createProjectRequestSchema,
   projectListQuerySchema,
@@ -46,12 +49,19 @@ export class ProjectsController {
   /** Search by project number or name, prefix or contains, ignoring case (MM-T08). */
   @Get('search')
   @RequirePermission('inventory.read')
-  search(@Query('q') q?: string, @Query('limit') limit?: string): Promise<ProjectSummary[]> {
+  async search(
+    @Res({ passthrough: true }) response: Response,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ): Promise<ProjectSummary[]> {
     const requested = Number.parseInt(limit ?? '', 10);
-    return this.projects.search(
+    const { items, total } = await this.projects.searchWithTotal(
       typeof q === 'string' ? q : '',
       Number.isFinite(requested) ? requested : PROJECT_SEARCH_DEFAULT_LIMIT,
     );
+    // STRATA-47: the body stays a capped array; the header carries every match (as locations).
+    response.setHeader(LIST_TOTAL_HEADER, String(total));
+    return items;
   }
 
   /** Project detail (MM-T35); a superset of the T08 summary. */

@@ -10,6 +10,7 @@ import {
   PROJECT_NUMBER_LOCKED_MESSAGE,
   PROJECT_SEARCH_DEFAULT_LIMIT,
   PROJECT_SEARCH_MAX_LIMIT,
+  PROJECT_STAGE,
   projectNumberKey,
   type FieldError,
   type ProjectConflictResponse,
@@ -136,23 +137,35 @@ export class ProjectsService {
    * first, then number prefixes, then name prefixes, then other matches.
    */
   async search(query: string, limit = PROJECT_SEARCH_DEFAULT_LIMIT): Promise<ProjectSummary[]> {
+    return (await this.searchWithTotal(query, limit)).items;
+  }
+
+  /**
+   * The capped search and how many projects match in all (STRATA-47: the search page's group
+   * count is authoritative, not the length of the capped list). The window count is taken
+   * before LIMIT, so it never depends on the cap.
+   */
+  async searchWithTotal(
+    query: string,
+    limit = PROJECT_SEARCH_DEFAULT_LIMIT,
+  ): Promise<{ items: ProjectSummary[]; total: number }> {
     const key = projectNumberKey(query);
     if (key === '') {
-      return [];
+      return { items: [], total: 0 };
     }
     const bounded = Math.min(Math.max(Math.trunc(limit) || 1, 1), PROJECT_SEARCH_MAX_LIMIT);
     const escaped = likeEscape(key);
-    const { rows } = await this.database.pool.query<ProjectRow>(
-      `${SELECT_PROJECT}
+    const { rows } = await this.database.pool.query<ProjectRow & { total: number }>(
+      `${SELECT_PROJECT.replace('SELECT p.id,', 'SELECT count(*) OVER ()::int AS total, p.id,')}
        WHERE p.project_number_normalized LIKE $1 ESCAPE '\\' OR lower(p.name) LIKE $1 ESCAPE '\\'
        ORDER BY p.project_number_normalized = $2 DESC,
                 p.project_number_normalized LIKE $3 ESCAPE '\\' DESC,
                 lower(p.name) LIKE $3 ESCAPE '\\' DESC,
-                p.project_number_normalized
+                p.project_number_normalized, p.id
        LIMIT $4`,
       [`%${escaped}%`, key, `${escaped}%`, bounded],
     );
-    return rows.map(toSummary);
+    return { items: rows.map(toSummary), total: rows[0]?.total ?? 0 };
   }
 
   async findById(client: Pool | PoolClient, id: string): Promise<ProjectSummary | null> {
@@ -339,6 +352,8 @@ export class ProjectsService {
         testHoleCount: row.test_hole_count,
         inStockUnitCount: row.in_stock_unit_count,
         lastReceiptDate: row.last_receipt_date,
+        // STRATA-58: projects have no closed state yet, so every row is an active one.
+        stage: PROJECT_STAGE,
       })),
       total: count.rows[0]!.total,
       page: query.page,
