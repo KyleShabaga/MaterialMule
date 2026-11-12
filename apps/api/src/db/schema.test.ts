@@ -118,6 +118,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'notification',
       'notification_preference',
       'oidc_sign_in_attempt',
+      'person_photo',
       'person_pin',
       'person_recent',
       'person_setting',

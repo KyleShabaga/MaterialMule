@@ -83,6 +83,7 @@ import { StaffGrantsService } from './project-access/staff-grants.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
+import { PeopleController } from './people/people.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
 import { BulkGroupsController } from './storage-units/bulk-groups/bulk-groups.controller.js';
@@ -171,6 +172,7 @@ export class AppModule {
         AccessSummaryController,
         TestHolesController,
         StaffDirectoryController,
+        PeopleController,
         StaffController,
         ReceiptsController,
         ReceivingLogController,

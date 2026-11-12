@@ -195,10 +195,11 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 | `GET /api/staff/:id/access` (MM-AO06)                                        | `staff.manage` (read-only)                   |
 | `GET /api/me/access` (MM-AO06)                                               | active personal session (one's own); LAB 403 |
 | `GET /api/staff/receivers?search=`                                           | any active session, LAB too                  |
+| `GET /api/people/:userId/photo` (STRATA-52, cached photo; 404 `no_photo`)    | any active session, LAB too                  |
 
 - **Approval** makes a pending account active; their existing session works on the next request.
 - **Disabling** needs a reason and revokes every session in the same transaction; the person
-  drops out of the receiver selector. Re-enabling doesn't revive old sessions, and revokes every
+  drops out of the receiver selector, and their cached directory photo is deleted. Re-enabling doesn't revive old sessions, and revokes every
   technical grant the person still holds for revalidation (D08, MM-AO03; see "Team & permissions").
 - **Role changes** need a reason (D15, MM-AO03; 400 without one, nothing changes).
 - **Last admin:** a change that would leave no active (non-LAB) admin, whether removing the admin
