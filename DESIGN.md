@@ -762,10 +762,16 @@ notification. Kyle chose:
   every notification." (Updates); with nothing selected, "Select an item to see it here."
 - **View setting:** Settings › Preferences gains an "Inbox" section with "Inbox view" (One stream
   / Grouped), the same choice as on the page.
-- **LAB station:** shows the picked person's full Inbox, with a line saying whose it is. The
-  station has no per-person password, so anyone who picks a name can open that person's Inbox;
-  Kyle accepted that and chose to keep the full Inbox (2026-11-11), rather than showing only
-  requests or confirming first.
+- **LAB station:** each person chooses whether their Inbox opens on shared LAB computers (Kyle,
+  2026-11-11). Anyone at the station can see it while that person is picked, because there's no
+  per-person password.
+  - **The setting:** Settings › Preferences › **Privacy** › "Show my Inbox on shared LAB
+    computers", with the explanation. It's **off by default** (it's a choice to share).
+  - **On:** the station shows their full Inbox, with a line saying whose it is.
+  - **Off:** the Inbox page shows a lock and "Pat Example's Inbox stays private here" (how to turn
+    it on, and that work is still recorded under their name). The shell hides every count (the
+    sidebar badge and the bell's), and the bell's hover card only says the notifications stay
+    private.
 - **Built as** `InboxContent.dc.html` (`variant`, `station` tweaks). In the shell, `SidebarLive`'s
   page tweak takes `inbox-*` values: the top bar title reads "Inbox" and the sidebar marks Inbox
   as the current page. Boards:

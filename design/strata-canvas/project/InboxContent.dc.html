@@ -20,6 +20,18 @@ body{margin:0}
      bell and no pill. All data is fictional. -->
 <div class="bg-background text-foreground flex font-sans" style="height: 744px;">
 <h1 class="sr-only">Inbox</h1>
+<sc-if value="{{private}}" hint-placeholder-val="{{ false }}">
+<!-- The picked person keeps their Inbox off shared computers (Settings > Preferences > Privacy) -->
+<div class="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+<span class="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="lock" class-name="size-5"></x-import></span>
+<div class="grid max-w-[420px] gap-1">
+<h2 class="text-lg font-semibold">Pat Example's Inbox stays private here</h2>
+<p class="text-muted-foreground text-sm">Pat has chosen not to show their Inbox on shared LAB computers. They can see it on their own computer, or turn it on in Settings, Preferences, Privacy.</p>
+</div>
+<p class="text-muted-foreground text-[13px]">Work at the station is still recorded under Pat's name.</p>
+</div>
+</sc-if>
+<sc-if value="{{notPrivate}}" hint-placeholder-val="{{ true }}">
 
 <div class="flex w-[400px] shrink-0 flex-col border-r">
 <div class="flex flex-col gap-3 border-b px-4 pt-4 pb-3">
@@ -221,15 +233,18 @@ body{margin:0}
 <div class="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-center text-sm"><x-import component-from-global-scope="Strata.Icon" name="inbox" class-name="size-6"></x-import><p>Select an item to see it here.</p></div>
 </sc-if>
 </div>
+</sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stream-request","stream-update","grouped","requests-empty","updates-read"],"default":"stream-request"},"station":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["stream-request","stream-update","grouped","requests-empty","updates-read","private"],"default":"stream-request"},"station":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
 class Component extends DCLogic {
   renderVals() {
     var v = this.props.variant || 'stream-request';
     var selected = v === 'stream-update' ? 'u1' : (v === 'stream-request' || v === 'grouped') ? 'r1' : '';
     var vals = {
       station: !!this.props.station,
+      private: v === 'private',
+      notPrivate: v !== 'private',
       tab: v === 'requests-empty' ? 'requests' : v === 'updates-read' ? 'updates' : 'all',
       view: v === 'grouped' ? 'grouped' : 'stream',
       requestCount: v === 'requests-empty' ? '0' : '3',

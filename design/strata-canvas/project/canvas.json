@@ -430,7 +430,7 @@
       "y": 920,
       "w": 1280,
       "h": 800,
-      "title": "Inbox — Pat's Inbox on the LAB station",
+      "title": "Inbox — LAB station, Pat chose to show it",
       "page": "inbox",
       "is_interactive": true
     },
@@ -449,6 +449,15 @@
       "w": 1024,
       "h": 744,
       "title": "Inbox content component (variant, station tweaks)",
+      "page": "inbox",
+      "is_interactive": true
+    },
+    "InboxStationPrivate.dc.html": {
+      "x": 4080,
+      "y": 1840,
+      "w": 1280,
+      "h": 800,
+      "title": "Inbox — LAB station, Pat keeps it private",
       "page": "inbox",
       "is_interactive": true
     }
@@ -614,7 +623,7 @@
       "w": 420,
       "fill": "yellow",
       "page": "inbox",
-      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. List and detail (like Linear). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream or Grouped, here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: the picked person's full Inbox (Kyle accepted that anyone who picks a name can open it, 2026-11-11)."
+      "text": "Inbox, shaped 2026-11-11: every action request and notification in one place. List and detail (like Linear). One stream, newest first, requests above updates on the same day; a request has a filled Request pill and a filled circle-dot, an update an outline bell. Tabs: All, Requests, Updates, Done. View: One stream or Grouped, here and in Settings > Preferences. Requests close on their own when the real action is done. LAB station: each person chooses, in Settings > Preferences > Privacy, whether their Inbox opens on shared LAB computers (off by default). Off: the station shows that it stays private, and work is still recorded under their name."
     }
   },
   "order": [
@@ -667,7 +676,8 @@
     "InboxUpdatesRead.dc.html",
     "InboxStation.dc.html",
     "InboxDark.dc.html",
-    "InboxContent.dc.html"
+    "InboxContent.dc.html",
+    "InboxStationPrivate.dc.html"
   ],
   "pages": [
     {
