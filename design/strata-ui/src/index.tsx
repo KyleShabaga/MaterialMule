@@ -128,8 +128,8 @@ const S = Strata as Record<string, any>
  * sub-pages in place. Collapsed (icon) sidebar: a 44 px icon with a tooltip that opens the
  * sub-pages in a menu to the right, so every page stays reachable. `items` is "A|B|C".
  */
-function NavCollapsible({ icon, label, items, defaultOpen, isActive }: {
-  icon: string; label: string; items?: string; defaultOpen?: boolean; isActive?: boolean
+function NavCollapsible({ icon, label, items, defaultOpen, isActive, current }: {
+  icon: string; label: string; items?: string; defaultOpen?: boolean; isActive?: boolean; current?: string
 }) {
   const { state, isMobile } = Sidebar.useSidebar()
   const list = (items || "").split("|").filter(Boolean)
@@ -159,7 +159,7 @@ function NavCollapsible({ icon, label, items, defaultOpen, isActive }: {
     )
   }
   return (
-    <S.Collapsible defaultOpen={defaultOpen} asChild className="group/collapsible">
+    <S.Collapsible defaultOpen={defaultOpen || !!current} asChild className="group/collapsible">
       <S.SidebarMenuItem>
         <S.CollapsibleTrigger asChild>
           <S.SidebarMenuButton isActive={isActive}>
@@ -175,7 +175,7 @@ function NavCollapsible({ icon, label, items, defaultOpen, isActive }: {
           <S.SidebarMenuSub>
             {list.map((item) => (
               <S.SidebarMenuSubItem key={item}>
-                <S.SidebarMenuSubButton href="#">
+                <S.SidebarMenuSubButton href="#" isActive={item === current} aria-current={item === current ? "page" : undefined}>
                   <span>{item}</span>
                 </S.SidebarMenuSubButton>
               </S.SidebarMenuSubItem>
@@ -399,6 +399,20 @@ function useSidebarLayout() {
  * sidebar: work sections show their icons; with `flyout` (Pinned, Recent) the section is one icon
  * that opens its second child (DropdownMenuItems) as a menu.
  */
+/** Keep the current page's item in view: when a section holds the active item, scroll the sidebar
+ * content (not the page) so the item is visible. */
+function revealActive(el: HTMLElement | null) {
+  if (!el) return
+  setTimeout(() => {
+    const item = el.querySelector<HTMLElement>("[data-active=true]")
+    const box = el.closest<HTMLElement>("[data-sidebar=content]")
+    if (!item || !box) return
+    const i = item.getBoundingClientRect(), b = box.getBoundingClientRect()
+    if (i.bottom > b.bottom) box.scrollTop += i.bottom - b.bottom + 8
+    else if (i.top < b.top) box.scrollTop -= b.top - i.top + 8
+  }, 0)
+}
+
 function NavSection({ id, label, flyout, children }: {
   id: string; label?: string; flyout?: boolean; children?: React.ReactNode
 }) {
@@ -426,7 +440,7 @@ function NavSection({ id, label, flyout, children }: {
   const setOpen = (o: boolean) => setLayout({ ...getLayout(), open: { ...getLayout().open, [id]: o } })
   return (
     <S.Collapsible open={open} onOpenChange={setOpen} asChild className="group/section">
-      <S.SidebarGroup style={style}>
+      <S.SidebarGroup style={style} ref={revealActive}>
         <S.SidebarGroupLabel asChild>
           <S.CollapsibleTrigger className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full gap-1 text-left">
             <span>{name}</span>

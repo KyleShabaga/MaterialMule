@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>R9 — Receiving panel</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}"><div class="bg-background text-foreground relative flex min-h-0 w-full flex-1 flex-col font-sans" style="{{rootStyle}}">
+<sc-if value="{{v_form}}" hint-placeholder-val="{{ true }}">
+<div class="flex min-h-0 flex-1 flex-col"><header class="flex shrink-0 items-start gap-4 px-8 pt-7 pr-16 pb-4"><div class="grid min-w-0 flex-1 gap-1"><h1 class="text-2xl font-semibold tracking-tight">Receiving</h1><p class="text-muted-foreground max-w-[34rem] text-sm">Only Lab Managers and administrators can change this.</p></div><div class="flex shrink-0 items-center gap-2"></div></header><div class="min-h-0 flex-1 overflow-y-auto"><div class="max-w-[640px] px-8 pb-12"><section aria-labelledby="rd" class="flex flex-col gap-5"><h2 id="rd" class="border-b pb-3 text-base font-semibold">Receiving drafts</h2><p class="text-sm">Drafts of receipts are kept only on the computer where they were started. When clean-up is on, each computer deletes its own drafts that haven't been saved for the chosen number of days, the next time Receive samples is opened there, and says how many it deleted. Drafts whose confirmation was interrupted are never deleted.</p><x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.Checkbox" id="rd-on" default-checked="{{yes}}"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="rd-on" class-name="font-normal">Delete drafts automatically</x-import></x-import><x-import component-from-global-scope="Strata.Field"><x-import component-from-global-scope="Strata.FieldLabel" html-for="rd-days">After this many days without changes</x-import><x-import component-from-global-scope="Strata.Input" id="rd-days" default-value="90" class-name="font-mono"></x-import><x-import component-from-global-scope="Strata.FieldDescription">30 to 365 days</x-import></x-import><div><x-import component-from-global-scope="Strata.Button" size="sm">Save</x-import></div></section></div></div></div>
+</sc-if>
+<sc-if value="{{v_error}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><header class="flex shrink-0 items-start gap-4 px-8 pt-7 pr-16 pb-4"><div class="grid min-w-0 flex-1 gap-1"><h1 class="text-2xl font-semibold tracking-tight">Receiving</h1><p class="text-muted-foreground max-w-[34rem] text-sm">Only Lab Managers and administrators can change this.</p></div><div class="flex shrink-0 items-center gap-2"></div></header><div class="min-h-0 flex-1 overflow-y-auto"><div class="max-w-[640px] px-8 pb-12"><section aria-labelledby="rd" class="flex flex-col gap-5"><h2 id="rd" class="border-b pb-3 text-base font-semibold">Receiving drafts</h2><p class="text-sm">Drafts of receipts are kept only on the computer where they were started. When clean-up is on, each computer deletes its own drafts that haven't been saved for the chosen number of days, the next time Receive samples is opened there, and says how many it deleted. Drafts whose confirmation was interrupted are never deleted.</p><x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.Checkbox" id="rd-on" default-checked="{{yes}}"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="rd-on" class-name="font-normal">Delete drafts automatically</x-import></x-import><x-import component-from-global-scope="Strata.Field" data-invalid="true"><x-import component-from-global-scope="Strata.FieldLabel" html-for="rd-days">After this many days without changes</x-import><x-import component-from-global-scope="Strata.Input" id="rd-days" default-value="12" class-name="font-mono" aria-invalid="true" aria-describedby="rd-days-err"></x-import><x-import component-from-global-scope="Strata.FieldError" id="rd-days-err">Enter a whole number of days from 30 to 365</x-import><x-import component-from-global-scope="Strata.FieldDescription">30 to 365 days</x-import></x-import><div><x-import component-from-global-scope="Strata.Button" size="sm">Save</x-import></div></section></div></div></div>
+</sc-if>
+<sc-if value="{{v_saved}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><header class="flex shrink-0 items-start gap-4 px-8 pt-7 pr-16 pb-4"><div class="grid min-w-0 flex-1 gap-1"><h1 class="text-2xl font-semibold tracking-tight">Receiving</h1><p class="text-muted-foreground max-w-[34rem] text-sm">Only Lab Managers and administrators can change this.</p></div><div class="flex shrink-0 items-center gap-2"></div></header><div class="min-h-0 flex-1 overflow-y-auto"><div class="max-w-[640px] px-8 pb-12"><section aria-labelledby="rd" class="flex flex-col gap-5"><h2 id="rd" class="border-b pb-3 text-base font-semibold">Receiving drafts</h2><p class="text-sm">Drafts of receipts are kept only on the computer where they were started. When clean-up is on, each computer deletes its own drafts that haven't been saved for the chosen number of days, the next time Receive samples is opened there, and says how many it deleted. Drafts whose confirmation was interrupted are never deleted.</p><x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.Checkbox" id="rd-on" default-checked="{{yes}}"></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="rd-on" class-name="font-normal">Delete drafts automatically</x-import></x-import><x-import component-from-global-scope="Strata.Field"><x-import component-from-global-scope="Strata.FieldLabel" html-for="rd-days">After this many days without changes</x-import><x-import component-from-global-scope="Strata.Input" id="rd-days" default-value="90" class-name="font-mono"></x-import><x-import component-from-global-scope="Strata.FieldDescription">30 to 365 days</x-import></x-import><div><x-import component-from-global-scope="Strata.Button" size="sm">Save</x-import></div></section></div></div></div><div role="status" class="bg-popover text-popover-foreground absolute right-4 bottom-4 z-50 flex w-[356px] items-start gap-3 rounded-lg border px-4 py-3 shadow-lg"><span class="text-stage-storage-fg mt-0.5"><x-import component-from-global-scope="Strata.Icon" name="circle-check"></x-import></span><div class="grid gap-0.5"><p class="text-sm font-semibold">Draft setting saved.</p><p class="text-muted-foreground text-[13px]">Each computer applies it the next time Receive samples opens.</p></div></div>
+</sc-if>
+</div></x-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["form","error","saved"],"default":"form"},"dark":{"editor":"boolean","default":false},"$preview":{"width":824,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || "form";
+    return { dark: !!this.props.dark, yes: true, rootStyle: this.props.embedded ? "" : "width: 824px; height: 680px;", v_form: v === "form", v_error: v === "error", v_saved: v === "saved" };
+  }
+}
+</script>
+</body>
+</html>

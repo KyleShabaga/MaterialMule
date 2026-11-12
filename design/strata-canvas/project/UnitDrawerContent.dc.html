@@ -49,7 +49,7 @@ body{margin:0}
 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
 <div class="flex flex-wrap items-center gap-2">
 <x-import component-from-global-scope="Strata.Badge" variant="{{stage}}" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="{{dot}} size-1.5 rounded-full"></span>{{stageTag}}</x-import>
-<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Badge" variant="danger" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Location</x-import></sc-if>
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Badge" variant="danger" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-danger-mark size-1.5 rounded-full"></span>Location conflict</x-import></sc-if>
 </div>
 <x-import component-from-global-scope="Strata.LifecycleTrack" compact="{{yes}}" current="{{track}}" label="Lifecycle of BKT-2026-000019"></x-import>
 </div>
@@ -123,7 +123,7 @@ class Component extends DCLogic {
       position: v === 'stored' ? '1 of 12' : '3 of 12',
       prevOff: v === 'stored',
       stage: st,
-      stageTag: { storage: 'Stored · Storage', lab: 'In lab · Lab program', due: 'Due · Retention' }[st],
+      stageTag: { storage: 'Short-term', lab: 'In lab', due: 'Retention due' }[st],
       dot: 'bg-stage-' + st + '-mark',
       stripe: 'bg-stage-' + st + '-mark',
       track: { storage: 2, lab: 1, due: 3 }[st],

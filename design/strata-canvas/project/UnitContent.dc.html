@@ -96,7 +96,7 @@ body{margin:0}
 <div class="flex min-w-0 flex-col justify-center gap-4">
 <div class="flex flex-wrap items-center gap-2">
 <x-import component-from-global-scope="Strata.Badge" variant="{{stage}}" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="{{dot}} size-1.5 rounded-full"></span>{{stageTag}}</x-import>
-<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Badge" variant="danger" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-danger-mark size-1.5 rounded-full"></span>Urgent · Location</x-import></sc-if>
+<sc-if value="{{conflict}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.Badge" variant="danger" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-danger-mark size-1.5 rounded-full"></span>Location conflict</x-import></sc-if>
 </div>
 <x-import component-from-global-scope="Strata.LifecycleTrack" current="{{track}}" label="Lifecycle of BKT-2026-000019"></x-import>
 <div class="flex flex-wrap items-center gap-2">
@@ -265,7 +265,7 @@ class Component extends DCLogic {
     var v = this.props.variant || 'stored';
     var station = !!this.props.station;
     var st = { stored: 'storage', conflict: 'storage', inlab: 'lab', due: 'due', disposed: 'closed' }[v] || 'storage';
-    var tag = { storage: 'Stored · Storage', lab: 'In lab · Lab program', due: 'Due · Retention', closed: 'Closed · Disposed' }[st];
+    var tag = { storage: 'Short-term', lab: 'In lab', due: 'Retention due', closed: 'Disposed' }[st];
     var track = { storage: 2, lab: 1, due: 3, closed: 4 }[st];
     var primary = { stored: ['Move', 'move'], conflict: ['Move', 'move'], inlab: ['Move back to storage', 'undo-2'], due: ['Decide', 'gavel'] }[v] || ['', 'move'];
     var disposed = v === 'disposed';

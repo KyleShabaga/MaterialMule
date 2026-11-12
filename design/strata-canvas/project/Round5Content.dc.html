@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Round 5 content (soils lab)</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.sc-host:has(> .r5-content-root){flex:1 1 0%;min-height:0;height:100%;display:flex;flex-direction:column}
+</style>
+</helmet>
+<!-- Round 5 (soils lab): the shell routes today="r5-<family>-<state>" here. Families: list (Lab programs),
+     editor (program editor, Lines and Grid), program (program page and review), board (Workboard, Board and
+     List), tags (sample ID tags). Each family is its own component; this file only routes. -->
+<div class="r5-content-root flex min-h-0 flex-1 flex-col" style="height: 100%;">
+<sc-if value="{{f_list}}" hint-placeholder-val="{{ true }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="R5List" variant="{{sub}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{f_editor}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="R5Editor" variant="{{sub}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{f_program}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="R5Program" variant="{{sub}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{f_board}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="R5Workboard" variant="{{sub}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{f_tags}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="R5Tags" variant="{{sub}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["list-open","list-peek","list-drafts","list-closed","list-empty","list-loading","list-failed","editor-lines","editor-addtest","editor-grid","editor-gridwide","editor-problems","editor-catalogue","editor-changed","editor-others","editor-amend","editor-long","program-testing","program-nopull","program-draft","program-submitted","program-review","program-requester","program-ready","program-readymanager","program-closed","program-noperm","program-loading","board-board","board-list","board-empty","board-loading","board-failed","tags-tags","tags-partial","tags-notsubmitted","tags-none"],"default":"list-open"},"station":{"editor":"boolean","default":false},"dark":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'list-open';
+    var i = v.indexOf('-');
+    var fam = i > 0 ? v.slice(0, i) : 'list';
+    return {
+      sub: i > 0 ? v.slice(i + 1) : 'open',
+      f_list: fam === 'list',
+      f_editor: fam === 'editor',
+      f_program: fam === 'program',
+      f_board: fam === 'board',
+      f_tags: fam === 'tags'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Staff — drawer at 1024 px</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="text-foreground relative font-sans" style="width: 1024px; height: 768px; overflow: hidden;">
+<dc-import name="SidebarLive" today="lead-busy" size="1024" hint-size="1024px,768px"></dc-import>
+<div aria-hidden="true" class="absolute inset-0 z-40 bg-black/50"></div>
+<div class="absolute inset-4 z-50 flex"><dc-import name="Round9Content" variant="staff-drawer" role="admin" size="1024" hint-size="992px,736px"></dc-import></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1024,"height":768}}'>
+class Component extends DCLogic {
+  renderVals() { return { yes: true }; }
+}
+</script>
+</body>
+</html>
