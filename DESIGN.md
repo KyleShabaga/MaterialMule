@@ -590,21 +590,13 @@ straight on to a person picker, and the first pass covers the page plus every st
   testing", then the form on a card (`card`, border, 12 px radius, `shadow-sm`, 32 px padding),
   then "Works on the office network only". No brand panel (the teal split screen of the first
   draft belonged to the old palette).
-- **Background, gradient (current default; Kyle: "maybe try a gradient", 2026-11-11):** two soft
+- **Background: gradient** (Kyle chose it over the angled planes, 2026-11-11). Two soft
   radial glows of `primary` (22 % at the top left, 16 % at the bottom right) over a 135° wash
   from `accent` through `background` to `accent`. Built from the theme variables with
   `color-mix`, so light (pale indigo on white) and dark (navy glow on near-black) follow on their
-  own. The board's Background tweak switches between gradient and planes, and the board
-  "Previous background: angled planes" keeps the planes for comparison.
-- **Background, planes** (Kyle's reference, 2026-11-11; centred the same day): four large angled planes
-  cut with `clip-path`, laid like rock strata, in the indigo scale with soft linear gradients.
-  Kyle then asked for the planes to angle different ways: two large planes slope the same way
-  (/) at different steepness (left: 36 % at the top to 16 % at the bottom; right: 88 % to 60 %),
-  and two shallow wedges cut across the other way (\) from opposite corners (bottom left, top
-  right). The planes are balanced on both sides of the card without mirroring each other, and
-  leave a tilted clear area around it. Light: `primary`
-  at 4–15 %. Dark: `accent` (deep indigo) at 20–100 %, close to the reference. They're decoration
-  (`aria-hidden`, no pointer events), sit behind the card and never under text.
+  own. Decoration only (`aria-hidden`, no pointer events), behind the card. The angled
+  "strata" planes tried before it (from Kyle's reference) are in this file's history (commit
+  a5188cf).
 - **A normal computer:** "Sign in", the hint "Use your own work account. What you do is recorded
   under your name.", a full-width "Sign in with Microsoft" button (Microsoft's four-square mark,
   the one non-Lucide mark, as today), then "Shared receiving station? Sign in as LAB".
