@@ -18,6 +18,12 @@ body{margin:0}
 <div class="bg-background text-foreground relative flex flex-col font-sans" style="width: 1280px; height: 800px; overflow: hidden;">
 <x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
 <!-- Background: large angled planes in the indigo scale, laid like rock strata. Decoration only. -->
+<!-- Gradient: soft indigo light from the top left and bottom right over a diagonal wash. Uses the theme
+     variables, so light and dark follow automatically. Decoration only. -->
+<sc-if value="{{bgGradient}}" hint-placeholder-val="{{ true }}">
+<div aria-hidden="true" class="pointer-events-none absolute inset-0" style="background: radial-gradient(60% 70% at 12% 8%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 70%), radial-gradient(55% 65% at 92% 96%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 70%), linear-gradient(135deg, var(--accent) 0%, var(--background) 55%, var(--accent) 100%);"></div>
+</sc-if>
+<sc-if value="{{bgPlanes}}" hint-placeholder-val="{{ false }}">
 <div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden">
 <!-- Two large planes slope the same way (/) at different steepness, like tilted strata -->
 <div class="from-primary/12 to-primary/3 dark:from-accent/70 dark:to-accent/15 absolute inset-0 bg-linear-to-r" style="clip-path: polygon(0 0, 36% 0, 16% 100%, 0 100%);"></div>
@@ -26,6 +32,7 @@ body{margin:0}
 <div class="from-primary/12 to-primary/4 dark:from-accent/80 dark:to-accent/20 absolute inset-0 bg-linear-to-t" style="clip-path: polygon(0 58%, 48% 100%, 0 100%);"></div>
 <div class="from-primary/10 to-primary/3 dark:from-accent/60 dark:to-accent/10 absolute inset-0 bg-linear-to-b" style="clip-path: polygon(50% 0, 100% 0, 100% 40%);"></div>
 </div>
+</sc-if>
 <main class="relative z-10 flex flex-1 flex-col items-center justify-center px-4" style="height: 800px;">
 <div class="flex w-full max-w-[440px] flex-col gap-6">
 
@@ -129,7 +136,7 @@ body{margin:0}
 </x-import>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"mode":{"editor":"select","options":["microsoft","lab","picker"],"default":"microsoft"},"state":{"editor":"select","options":["none","session-ended","lab-expired","wrong-password","paused","options-failed","no-methods","picker-empty"],"default":"none"},"dev":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"mode":{"editor":"select","options":["microsoft","lab","picker"],"default":"microsoft"},"state":{"editor":"select","options":["none","session-ended","lab-expired","wrong-password","paused","options-failed","no-methods","picker-empty"],"default":"none"},"dev":{"editor":"boolean","default":false},"background":{"editor":"select","options":["gradient","planes"],"default":"gradient"},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   renderVals() {
     var mode = this.props.mode || 'microsoft';
@@ -141,6 +148,8 @@ class Component extends DCLogic {
     var empty = st === 'picker-empty';
     return {
       dark: !!this.props.dark,
+      bgGradient: (this.props.background || "gradient") === "gradient",
+      bgPlanes: this.props.background === "planes",
       dev: !!this.props.dev && methods,
       sEnded: st === 'session-ended',
       sExpired: st === 'lab-expired',

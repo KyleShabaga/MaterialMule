@@ -590,7 +590,13 @@ straight on to a person picker, and the first pass covers the page plus every st
   testing", then the form on a card (`card`, border, 12 px radius, `shadow-sm`, 32 px padding),
   then "Works on the office network only". No brand panel (the teal split screen of the first
   draft belonged to the old palette).
-- **Background** (Kyle's reference, 2026-11-11; centred the same day): four large angled planes
+- **Background, gradient (current default; Kyle: "maybe try a gradient", 2026-11-11):** two soft
+  radial glows of `primary` (22 % at the top left, 16 % at the bottom right) over a 135° wash
+  from `accent` through `background` to `accent`. Built from the theme variables with
+  `color-mix`, so light (pale indigo on white) and dark (navy glow on near-black) follow on their
+  own. The board's Background tweak switches between gradient and planes, and the board
+  "Previous background: angled planes" keeps the planes for comparison.
+- **Background, planes** (Kyle's reference, 2026-11-11; centred the same day): four large angled planes
   cut with `clip-path`, laid like rock strata, in the indigo scale with soft linear gradients.
   Kyle then asked for the planes to angle different ways: two large planes slope the same way
   (/) at different steepness (left: 36 % at the top to 16 % at the bottom; right: 88 % to 60 %),

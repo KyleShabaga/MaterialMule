@@ -69,7 +69,7 @@
       "h": 800,
       "is_interactive": true,
       "page": "signin",
-      "title": "Sign in — normal computer (Dark, mode, state, dev tweaks)",
+      "title": "Sign in — normal computer (Dark, mode, state, dev, background tweaks)",
       "w": 1280,
       "x": 0,
       "y": 0
@@ -163,6 +163,15 @@
       "w": 1280,
       "x": 2720,
       "y": 920
+    },
+    "SignInPlanes.dc.html": {
+      "x": 4080,
+      "y": 1840,
+      "w": 1280,
+      "h": 800,
+      "title": "Previous background: angled planes (Background tweak)",
+      "page": "signin",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -267,7 +276,8 @@
     "SignInPaused.dc.html",
     "SignInOptionsFailed.dc.html",
     "SignInNoMethods.dc.html",
-    "SignInPickerEmpty.dc.html"
+    "SignInPickerEmpty.dc.html",
+    "SignInPlanes.dc.html"
   ],
   "pages": [
     {
