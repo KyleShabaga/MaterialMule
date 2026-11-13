@@ -45,8 +45,8 @@ function summaryOf(unit: Locator, hole: string) {
 }
 
 /**
- * The newest stored draft (this browser's IndexedDB) whose entries or receiver contain `text`:
- * its lastSavedAt, or null while no stored draft has it yet.
+ * The newest stored draft (this browser's IndexedDB) whose entries, receiver or history contain
+ * `text`: its lastSavedAt, or null while no stored draft has it yet.
  */
 async function storedDraftWith(page: Page, text: string): Promise<string | null> {
   return page.evaluate(
@@ -61,10 +61,17 @@ async function storedDraftWith(page: Page, text: string): Promise<string | null>
           all.onerror = () => reject(all.error);
           all.onsuccess = () => {
             const times = (
-              all.result as { data: unknown; receiver: unknown; lastSavedAt: string }[]
+              all.result as {
+                data: unknown;
+                receiver: unknown;
+                history: unknown;
+                lastSavedAt: string;
+              }[]
             )
               .filter((d) =>
-                JSON.stringify({ data: d.data, receiver: d.receiver }).includes(needle),
+                JSON.stringify({ data: d.data, receiver: d.receiver, history: d.history }).includes(
+                  needle,
+                ),
               )
               .map((d) => d.lastSavedAt)
               .sort();
@@ -316,7 +323,8 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
     /^AT · /,
   );
   await chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/);
-  await savedWith(page, '"initials":"PE"');
+  // The change itself is in history; PE may already appear in the draft (the station's pick).
+  await savedWith(page, '"type":"receiver_changed"');
   await expect(page.getByText('Receiver changed to PE.')).toBeVisible();
   await expect(draftStatus(page)).toContainText('Receiver: PE');
 
