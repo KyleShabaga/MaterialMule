@@ -334,6 +334,8 @@ describe('Settings → Printers', () => {
     stubApi((url) => (url === '/api/admin/printers' ? json(200, printers) : undefined));
     renderRoute('/settings/printers', me({ roles: ['admin'], permissions: ['printer.manage'] }));
     expect(await screen.findByRole('link', { name: 'Printers' })).toBeInTheDocument();
+    // STRATA-102: the Printers panel lists printers; a row opens its details.
+    await userEvent.click(await screen.findByText('Receiving ZD621'));
     expect(await screen.findByDisplayValue('10.0.0.50')).toBeInTheDocument();
   });
 

@@ -9,3 +9,8 @@ export const NOT_ALLOWED_TEXT = 'Only Lab Managers and administrators can add or
 export function inventoryLink(location: Pick<StorageLocation, 'id'>): string {
   return `/sample-storage?locationId=${encodeURIComponent(location.id)}`;
 }
+
+/** The location's shelf page (what is on it, comings and goings). */
+export function shelfLink(location: Pick<StorageLocation, 'code'>): string {
+  return `/sample-storage/locations/${encodeURIComponent(location.code)}`;
+}

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { formatAge, formatBytes } from '../../lib/format';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
+import { SystemStatusPanel } from './SystemStatusPanel';
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   id: 'u1',
@@ -166,6 +167,77 @@ describe('Settings → System status (MM-T21)', () => {
     expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(
       '/api/admin/system-status',
     );
+  });
+});
+
+function renderPanel(user: MeResponse) {
+  render(
+    <SessionContext.Provider
+      value={{
+        session: { status: 'active', me: user },
+        refresh: vi.fn(async () => undefined),
+        signOut: vi.fn(async () => undefined),
+      }}
+    >
+      <SystemStatusPanel />
+    </SessionContext.Provider>,
+  );
+}
+
+describe('System status panel (STRATA-102)', () => {
+  it('says the database is unavailable and the print queue with it', async () => {
+    stub(status({ database: 'down', printQueue: null }));
+    renderPanel(me());
+    const service = await screen.findByRole('region', { name: 'Service' });
+    expect(within(service).getByText('Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('The database is unavailable.')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: 'Print queue' })).getByText(
+        'Unavailable while the database is down.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the default printer’s last attempt in the app’s own words', async () => {
+    stub(
+      status({
+        defaultPrinter: {
+          key: 'receiving',
+          name: 'Receiving ZD621',
+          enabled: true,
+          checkStatus: true,
+          lastAttempt: {
+            outcome: 'uncertain',
+            at: '2026-10-26T17:58:00.000Z',
+            error: 'No reply after sending',
+            printerMessage: null,
+          },
+          failingSince: null,
+          lastJobFailure: null,
+        },
+      }),
+    );
+    renderPanel(me());
+    const queue = await screen.findByRole('region', { name: 'Print queue' });
+    expect(within(queue).getByText('Receiving ZD621')).toBeInTheDocument();
+    expect(within(queue).getAllByText('Not sure if printed').length).toBe(2);
+  });
+
+  it('ends with the LAB station switch and shows no secret', async () => {
+    stub(status());
+    renderPanel(me());
+    await screen.findByRole('region', { name: 'Service' });
+    expect(
+      screen.getAllByRole('switch', { name: 'This computer is the LAB station' }),
+    ).toHaveLength(1);
+    expect(screen.queryByText(/password|DATABASE_URL/i)).toBeNull();
+  });
+
+  it('without system.status.read says so and never calls the API', async () => {
+    const fetchMock = stub(status());
+    renderPanel(me({ roles: [], permissions: ['inventory.read'] }));
+    expect(screen.getByText('Only administrators can see system status.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

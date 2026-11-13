@@ -121,21 +121,27 @@ test('MTR-93: table pages never scroll sideways from 320 to 1440 px', async ({ p
   await signInAs(page, 'at');
   await receiveThroughApi(page, { description: tag });
   const [receipt] = await receiptsDescribed(tag);
-  const routes: [Parameters<typeof signInAs>[1], string, string][] = [
+  // `null`: a Strata DataTable page (STRATA-102), which has no scroll region; only the page
+  // overflow is swept.
+  const routes: [Parameters<typeof signInAs>[1], string, string | null][] = [
     ['at', '/receiving-log', 'Receipt table'],
     ['at', `/receiving-log/${receipt!.receipt_id}`, 'Storage unit table'],
     ['at', '/lab-testing?view=list', 'Workboard table'],
     ['lab', '/lab-testing?view=list', 'Workboard table'],
-    ['admin', '/settings/tests', 'Lab tests'],
-    ['admin', '/settings/staff', 'Staff table'],
+    ['admin', '/admin/lab-tests', null],
+    ['admin', '/admin/staff', null],
   ];
   for (const [who, route, table] of routes) {
     await signInAs(page, who);
     await page.setViewportSize({ width: SWEEP[0]!, height: 900 });
     await page.goto(route);
-    const region = page.getByRole('region', { name: table, exact: true });
-    await expect(region).toBeVisible();
-    await expect(region).toHaveAttribute('tabindex', '0');
+    if (table) {
+      const region = page.getByRole('region', { name: table, exact: true });
+      await expect(region).toBeVisible();
+      await expect(region).toHaveAttribute('tabindex', '0');
+    } else {
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    }
     for (const width of SWEEP) {
       await page.setViewportSize({ width, height: 900 });
       await expect

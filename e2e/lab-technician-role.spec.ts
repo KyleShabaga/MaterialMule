@@ -25,35 +25,35 @@ test('an admin assigns and removes the Lab Technician role', async ({ page }) =>
     return members.find((m) => m.id === id)?.roles;
   };
 
-  await page.goto('/settings/staff');
-  await page.getByLabel('Search staff').fill(name);
+  await page.goto('/admin/staff');
+  const search = page.getByRole('searchbox', { name: 'Search staff' });
+  await page
+    .getByRole('toolbar', { name: 'Staff tools' })
+    .getByRole('button', { name: 'Search', exact: true })
+    .click();
+  await search.fill(name);
   await page.getByRole('button', { name: `Manage ${name}` }).click();
-  const drawer = page.getByRole('dialog', { name });
+  // STRATA-102: beside the table from 1024 px, a sheet on phones.
+  const drawer = page
+    .getByRole('region', { name, exact: true })
+    .or(page.getByRole('dialog', { name, exact: true }));
   const roles = drawer.getByRole('group', { name: 'Roles' });
   const labTechnician = roles.getByRole('checkbox', { name: 'Lab Technician' });
   await expect(labTechnician).not.toBeChecked();
 
+  // Round 9: the reason is given inline, beside Save roles.
   await labTechnician.check();
+  await roles.getByRole('textbox', { name: 'Reason' }).fill('Fictional lab staff onboarding');
   await roles.getByRole('button', { name: 'Save roles' }).click();
-  let confirm = page.getByRole('dialog', { name: `Change roles for ${name}?` });
-  await confirm.getByRole('textbox', { name: 'Reason' }).fill('Fictional lab staff onboarding');
-  await confirm.getByRole('button', { name: 'Save roles' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: `Roles updated for ${name}.` }),
-  ).toBeVisible();
+  await expect(page.getByText(`Roles updated for ${name}.`)).toBeVisible();
   await expect(labTechnician).toBeChecked();
 
   // The server holds it (the staff.roles_changed audit records who and why).
   await expect.poll(rolesOf).toEqual(['lab_technician']);
 
   await labTechnician.uncheck();
+  await roles.getByRole('textbox', { name: 'Reason' }).fill('Fictional role change');
   await roles.getByRole('button', { name: 'Save roles' }).click();
-  confirm = page.getByRole('dialog', { name: `Change roles for ${name}?` });
-  await confirm.getByRole('textbox', { name: 'Reason' }).fill('Fictional role change');
-  await confirm.getByRole('button', { name: 'Save roles' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: `Roles updated for ${name}.` }),
-  ).toBeVisible();
   await expect.poll(rolesOf).toEqual([]);
 });
 

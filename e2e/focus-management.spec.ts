@@ -48,9 +48,9 @@ test('MTR-136: removing a bucket focuses the bucket before it, then Add a storag
   await expect(page.getByRole('button', { name: 'Add a storage unit' })).toBeFocused();
 });
 
-test('MTR-136: closing the Add location panel returns focus to Add location', async ({ page }) => {
-  await signInAs(page, 'lab'); // Lab Manager: full Locations page
-  await page.goto('/settings/locations');
+test('MTR-136: closing the Add location dialog returns focus to Add location', async ({ page }) => {
+  await signInAs(page, 'lab'); // Lab Manager: Lab admin › Locations
+  await page.goto('/admin/locations');
   const trigger = page.getByRole('button', { name: 'Add location' });
   const panel = page.getByRole('dialog', { name: 'Add location' });
 
@@ -88,7 +88,7 @@ test('MTR-133: required fields are marked and a failed Add location focuses the 
   await expect(details.getByText('(required)')).toHaveCount(3);
 
   await signInAs(page, 'lab');
-  await page.goto('/settings/locations');
+  await page.goto('/admin/locations');
   await page.getByRole('button', { name: 'Add location' }).click();
   const panel = page.getByRole('dialog', { name: 'Add location' });
   await expect(panel.getByText('(required)')).toHaveCount(2);

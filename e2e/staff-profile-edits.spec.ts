@@ -25,29 +25,32 @@ test('an admin assigns initials and a position; the person sees the initials but
     page.getByRole('heading', { name: 'You are signed in, but not set up yet.' }),
   ).toBeVisible();
 
-  // The admin approves them, assigns official initials and sets the position.
+  // The admin approves them (Pending tab, their drawer), assigns official initials and sets the
+  // position.
   await signInAs(page, 'admin');
-  await page.goto('/settings/staff');
-  const pending = page.getByRole('region', { name: /Waiting for approval/ });
-  await pending.getByRole('button', { name: `Approve ${name}` }).click();
-  await expect(page.getByRole('status').filter({ hasText: `${name} is approved.` })).toBeVisible();
-  await page.getByLabel('Search staff').fill(name);
+  await page.goto('/admin/staff');
+  await page.getByRole('tab', { name: /^Pending/ }).click();
   await page.getByRole('button', { name: `Manage ${name}` }).click();
-  const drawer = page.getByRole('dialog', { name });
+  const drawer = page
+    .getByRole('region', { name, exact: true })
+    .or(page.getByRole('dialog', { name, exact: true }));
+  await drawer.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(page.getByText(`${name} is approved.`)).toBeVisible();
   await drawer.getByLabel('Official initials').fill(initials);
-  // Keyboard: choose Technologist on the focused select; exactly four positions and Not set.
-  const position = drawer.getByLabel('Position');
-  await expect(position.locator('option')).toHaveText([
+  // Exactly four positions and Not set; Technologist is chosen with the keyboard.
+  const position = drawer.getByRole('combobox', { name: 'Position' });
+  await position.click();
+  await expect(page.getByRole('option')).toHaveText([
     'Not set',
     'Technician',
     'Technologist',
     'Engineer',
     'Lab Manager',
   ]);
-  await position.focus();
-  await position.selectOption({ label: 'Technologist' });
+  await page.getByRole('option', { name: 'Technologist' }).press('Enter');
+  await expect(position).toHaveText('Technologist');
   await drawer.getByRole('button', { name: 'Save profile' }).press('Enter');
-  await expect(page.getByRole('status').filter({ hasText: `Saved ${name}.` })).toBeVisible();
+  await expect(page.getByText(`Saved ${name}.`)).toBeVisible();
   await expect(drawer.getByRole('button', { name: /Confirm initials/ })).toHaveCount(0);
 
   // Their next sign-in goes straight into the app.

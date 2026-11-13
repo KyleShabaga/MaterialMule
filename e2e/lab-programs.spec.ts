@@ -51,14 +51,25 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician is
   await signInAs(page, 'lab');
   await page.goto('/admin/lab-tests');
   await expect(page.getByRole('heading', { name: 'Lab tests', level: 1 })).toBeVisible();
+  // STRATA-128: Add test opens the drawer (a sheet on phones); the new test opens there once added.
+  await page.getByRole('button', { name: 'Add test' }).click();
   const form = page.getByRole('form', { name: 'Add a test' });
   await form.getByLabel('Code').fill(code);
   await form.getByLabel('Full description').fill('Fictional E2E description, kept in full.');
   await form.getByRole('button', { name: 'Add test' }).click();
   await expect(page.getByText(`Added ${code}.`)).toBeVisible();
+  await expect(page.getByRole('form', { name: `Edit ${code}` })).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByLabel('Search tests').fill(code);
-  const row = page.getByRole('table', { name: 'Lab tests' }).locator('tbody tr', { hasText: code });
-  await row.getByRole('button', { name: 'Retire' }).click();
+  const row = page.locator('tbody tr', { hasText: code });
+  await row.click();
+  await page.getByRole('button', { name: 'Retire', exact: true }).click();
+  await expect(page.getByText(`Retired ${code}.`)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore', exact: true })).toBeVisible();
+  // Retired tests leave the list until Include retired is ticked.
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole('checkbox', { name: /^Include retired/ }).check();
   await expect(row).toContainText('Retired');
 
   // MISC-04 / STRATA-100: a technician has no Lab tests or Templates section; a direct address

@@ -22,14 +22,14 @@ test('T6/AC4: an admin sets the LAB password; LAB stays signed in after the brow
   // Generated per run, never committed.
   const password = `e2e-${randomBytes(12).toString('base64url')}`;
 
-  // Admin: Settings → Staff & access → Reset LAB password, with confirmation.
+  // Admin: Lab admin › Staff → Reset LAB password, with confirmation.
   await signInAs(page, 'admin');
   await page.goto('/settings/staff');
   const card = page.getByRole('region', { name: 'Shared receiving account (LAB)' });
   await card.getByLabel('New LAB password').fill(password);
   await card.getByLabel('Repeat the new password').fill(password);
   await card.getByRole('button', { name: 'Reset LAB password' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Reset password' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Reset password' }).click();
   await expect(card.getByRole('status')).toContainText('LAB password reset');
 
   // The shared station signs in as LAB on the landing page.

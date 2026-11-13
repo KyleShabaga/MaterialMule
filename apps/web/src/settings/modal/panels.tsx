@@ -1,39 +1,23 @@
-import type { ComponentType, ReactNode } from 'react';
-import { PrintersSettingsPage } from '../../printing/PrintersSettingsPage';
+import type { ComponentType } from 'react';
 import { AccessPanel, NotificationsPanel, PreferencesPanel, ProfilePanel } from '../account';
-import { EquipmentSettingsPage } from '../equipment/EquipmentSettingsPage';
-import { TemplatesSettingsPage } from '../lab/LabCatalogueSettings';
-import { ReceivingSettingsPage } from '../receiving/ReceivingSettingsPage';
-import { HolidaysSettingsPage } from '../reference/HolidaysSettingsPage';
-import { ReportHeaderSettingsPage } from '../reference/ReportHeaderSettingsPage';
-import { SuppliersSettingsPage } from '../reference/SuppliersSettingsPage';
-import { LabStationSwitch } from '../system-status/LabStationSwitch';
-import { SystemStatusPage } from '../system-status/SystemStatusPage';
+import { EquipmentPanel } from '../equipment';
+import { TemplatesPanel } from '../lab';
+import { PrintersPanel } from '../printers';
+import { ReceivingPanel } from '../receiving';
+import { HolidaysPanel, ReportHeaderPanel, SuppliersPanel } from '../reference';
+import { SystemStatusPanel } from '../system-status';
 
-/**
- * A section's existing content inside the modal: it scrolls in the panel and keeps its own
- * heading and controls. Each admin section is restyled as a Strata panel by STRATA-102.
- */
-function Scrolling({ slug, children }: { slug: string; children: ReactNode }) {
-  return (
-    <div
-      className="min-h-0 flex-1 overflow-y-auto px-6 pt-10 pb-16 md:px-10"
-      data-settings-panel={slug}
-    >
-      <div className="settings-content mx-auto max-w-[1040px] pr-8">{children}</div>
-    </div>
-  );
-}
-
+/** Admin sections in the modal (STRATA-102): each renders one SettingsPanel that scrolls inside. */
 const ADMIN_PANELS: Record<string, ComponentType> = {
-  printers: PrintersSettingsPage,
-  templates: TemplatesSettingsPage,
-  receiving: ReceivingSettingsPage,
-  equipment: EquipmentSettingsPage,
-  suppliers: SuppliersSettingsPage,
-  holidays: HolidaysSettingsPage,
-  'report-header': ReportHeaderSettingsPage,
-  'system-status': SystemStatusPage,
+  printers: PrintersPanel,
+  templates: TemplatesPanel,
+  receiving: ReceivingPanel,
+  equipment: EquipmentPanel,
+  suppliers: SuppliersPanel,
+  holidays: HolidaysPanel,
+  'report-header': ReportHeaderPanel,
+  // Includes the administrator's "This computer is the LAB station" switch (STRATA-18).
+  'system-status': SystemStatusPanel,
 };
 
 /** The panel for one modal section (the three page sections never reach here). */
@@ -55,11 +39,5 @@ export function SettingsPanelFor({
       return <AccessPanel blockedSection={blockedSection} />;
   }
   const Panel = ADMIN_PANELS[slug];
-  if (!Panel) return null;
-  return (
-    <Scrolling slug={slug}>
-      <Panel />
-      {slug === 'system-status' ? <LabStationSwitch /> : null}
-    </Scrolling>
-  );
+  return Panel ? <Panel /> : null;
 }

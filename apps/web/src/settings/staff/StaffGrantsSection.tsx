@@ -13,8 +13,14 @@ import {
   type StaffGrants,
   type StaffMember,
 } from '@materialmule/shared';
+import { ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { ConfirmDialog, EmptyState, ErrorState } from '../../components/app-ui';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { notifySuccess } from '../../components/strata/toast';
 import { shortDateTime } from '../../dashboard/format';
 import { AccessSummaryView } from '../access/AccessSummaryView';
 import {
@@ -26,34 +32,86 @@ import {
   rulesApi,
 } from '../access/api';
 import { StaffApiError, staffApi } from './api';
+import {
+  ConfirmReasonDialog,
+  ErrorAlert,
+  LabelledSelect,
+  ReasonField,
+  SectionTitle,
+  TOUCH,
+} from './staff-ui';
 
 // The Staff drawer's MM-AO06 parts: the job-title override (D16), reviewer eligibility (D05) and
 // "Can create and lead projects" (D01), and a read-only summary of the person's current access.
 // Every change needs a reason and is confirmed by the server before it shows. A 403 means the
-// admin lost staff management; the drawer's `onForbidden` takes over.
+// viewer lost staff management; the drawer's `onForbidden` takes over.
 
 const message = (error: unknown) =>
   error instanceof StaffApiError ? error.message : 'Something went wrong. Try again.';
 const forbidden = (error: unknown) => error instanceof StaffApiError && error.forbidden;
 
-function ReasonInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const id = useId();
+const by = (person: { initials: string | null; name: string | null }, at: string) =>
+  `by ${formatPerson(person.initials, person.name)}, ${shortDateTime(at)}`;
+
+/** One held grant, rule or exclusion: what, who and when, and its end action. */
+function GrantRow({
+  label,
+  meta,
+  action,
+}: {
+  label: string;
+  meta: string;
+  action?: { label: string; onClick: () => void; disabled: boolean };
+}) {
   return (
-    <div className="form-field">
-      <label htmlFor={id}>Reason</label>
-      <textarea
-        id={id}
-        rows={2}
-        maxLength={2000}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+      <span className="min-w-0 flex-1">
+        <strong className="font-medium">{label}</strong>{' '}
+        <span className="text-sm text-muted-foreground">{meta}</span>
+      </span>
+      {action ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={TOUCH}
+          disabled={action.disabled}
+          onClick={action.onClick}
+        >
+          {action.label}
+        </Button>
+      ) : null}
+    </li>
+  );
+}
+
+/** A collapsed history list ("Grant history (3)"). */
+function History({ title, items }: { title: string; items: { key: string; text: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className={`group -ml-2 ${TOUCH}`}>
+          <ChevronRight
+            aria-hidden="true"
+            className="transition-transform group-data-[state=open]:rotate-90"
+          />
+          {title} ({items.length})
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="grid gap-1 pl-6 text-sm text-muted-foreground">
+          {items.map((item) => (
+            <li key={item.key}>{item.text}</li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Job title (D16): Microsoft's, and an administrator's override with a reason
+// Job title (D16): Microsoft's, and an override with a reason
 // ---------------------------------------------------------------------------------------------
 
 export function JobTitleSection({
@@ -70,6 +128,7 @@ export function JobTitleSection({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const titleId = useId();
+  const headingId = useId();
 
   async function save(value: string | null) {
     if (!reason.trim()) {
@@ -99,7 +158,7 @@ export function JobTitleSection({
   if (member.accountType === 'shared_lab') return null;
   return (
     <form
-      className="drawer-section"
+      className="grid gap-3"
       aria-label="Job title"
       onSubmit={(event: FormEvent) => {
         event.preventDefault();
@@ -107,41 +166,51 @@ export function JobTitleSection({
         else setError('Enter a job title, or clear the override.');
       }}
     >
-      <h3>Job title</h3>
-      <dl className="details">
-        <dt>From Microsoft</dt>
+      <SectionTitle id={headingId}>Job title</SectionTitle>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">From Microsoft</dt>
         <dd>{member.jobTitle ?? 'Not set'}</dd>
-        <dt>Override</dt>
+        <dt className="text-muted-foreground">Override</dt>
         <dd>
           {member.jobTitleOverride
-            ? `${member.jobTitleOverride} (set by ${member.jobTitleOverrideSetBy ?? 'an administrator'}, ${
-                member.jobTitleOverrideSetAt ? shortDateTime(member.jobTitleOverrideSetAt) : ''
+            ? `${member.jobTitleOverride} (set by ${member.jobTitleOverrideSetBy ?? 'an administrator'}${
+                member.jobTitleOverrideSetAt
+                  ? `, ${shortDateTime(member.jobTitleOverrideSetAt)}`
+                  : ''
               })`
             : 'None'}
         </dd>
       </dl>
-      <div className="form-field">
-        <label htmlFor={titleId}>Firm job title</label>
-        <input
+      <Field>
+        <FieldLabel htmlFor={titleId}>Firm job title</FieldLabel>
+        <Input
           id={titleId}
           value={title}
           maxLength={200}
+          className={TOUCH}
           onChange={(event) => setTitle(event.target.value)}
         />
-        <p className="field-hint">
+        <FieldDescription>
           Shown instead of Microsoft’s title. It describes the work; it grants nothing.
-        </p>
-      </div>
-      <ReasonInput value={reason} onChange={setReason} />
-      {error ? <p className="field-error">{error}</p> : null}
-      <div className="page-actions">
-        <button type="submit" disabled={busy}>
+        </FieldDescription>
+      </Field>
+      <ReasonField value={reason} onChange={setReason} />
+      {error ? <FieldError>{error}</FieldError> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" size="sm" variant="outline" className={TOUCH} disabled={busy}>
           Save job title
-        </button>
+        </Button>
         {member.jobTitleOverride ? (
-          <button type="button" disabled={busy} onClick={() => void save(null)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className={TOUCH}
+            disabled={busy}
+            onClick={() => void save(null)}
+          >
             Clear override
-          </button>
+          </Button>
         ) : null}
       </div>
     </form>
@@ -154,6 +223,67 @@ export function JobTitleSection({
 
 type Ending = { kind: 'eligibility' | 'capability' | 'exclusion'; id: string; label: string };
 
+/** A small "choose, give a reason, submit" form for one kind of grant. */
+function GrantForm({
+  name,
+  selectLabel,
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  description,
+  reason,
+  onReasonChange,
+  submitLabel,
+  busy,
+  onSubmit,
+}: {
+  name: string;
+  selectLabel: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  description?: string;
+  reason: string;
+  onReasonChange: (value: string) => void;
+  submitLabel: string;
+  busy: boolean;
+  onSubmit: () => void;
+}) {
+  return (
+    <form
+      aria-label={name}
+      className="grid gap-3 rounded-lg border p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (value && reason.trim()) onSubmit();
+      }}
+    >
+      <LabelledSelect
+        label={selectLabel}
+        value={value}
+        onValueChange={onValueChange}
+        options={options}
+        placeholder={placeholder}
+        description={description}
+      />
+      <ReasonField value={reason} onChange={onReasonChange} />
+      <div>
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className={TOUCH}
+          disabled={busy || !value || !reason.trim()}
+        >
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function StaffGrantsSection({
   member,
   onForbidden,
@@ -164,7 +294,7 @@ export function StaffGrantsSection({
   const [grants, setGrants] = useState<StaffGrants | null>(null);
   const [scopes, setScopes] = useState<ReviewScope[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [scope, setScope] = useState('');
   const [scopeReason, setScopeReason] = useState('');
   const [capability, setCapability] = useState<StaffCapability | ''>('');
@@ -176,14 +306,9 @@ export function StaffGrantsSection({
     capability: crypto.randomUUID(),
     exclusion: crypto.randomUUID(),
   }));
-  const excludeId = useId();
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState<Ending | null>(null);
-  const [endReason, setEndReason] = useState('');
-  const [endError, setEndError] = useState<string | null>(null);
-  const scopeId = useId();
-  const capabilityId = useId();
-  const endReasonId = useId();
+  const headingId = useId();
   // The drawer's handler may change identity on every render; loading mustn't re-run for that.
   const onForbiddenRef = useRef(onForbidden);
   useEffect(() => {
@@ -209,13 +334,14 @@ export function StaffGrantsSection({
     setBusy(true);
     try {
       setGrants(await action());
-      setNotice({ tone: 'success', text: success });
+      setWarning(null);
+      notifySuccess(success);
       return true;
     } catch (caught) {
       if (forbidden(caught)) {
         onForbidden();
       } else {
-        setNotice({ tone: 'warning', text: message(caught) });
+        setWarning(message(caught));
         load();
       }
       return false;
@@ -228,34 +354,39 @@ export function StaffGrantsSection({
   const canGrant = member.status === 'active' && Boolean(grants?.canManage);
   const heldCapabilities = new Set(grants?.capabilities.active.map((g) => g.capability));
   const heldScopes = new Set(grants?.reviewerEligibility.active.map((g) => g.scope.code));
+  const scopeLabel = (code: string) => scopes.find((s) => s.code === code)?.label ?? code;
+  const endAction = (target: Ending, label: string) =>
+    grants?.canManage ? { label, disabled: busy, onClick: () => setEnding(target) } : undefined;
 
   return (
-    <div className="drawer-section" role="group" aria-label="Eligibility and capabilities">
-      <h3>Eligibility and capabilities</h3>
-      <p className="field-hint">
+    <div className="grid gap-3" role="group" aria-labelledby={headingId}>
+      <SectionTitle id={headingId}>Eligibility and capabilities</SectionTitle>
+      <p className="text-sm text-muted-foreground">
         Granted to the person, not by their title or position. Each grant and revocation needs a
         reason.
       </p>
-      {loadError ? <ErrorState message={loadError} onRetry={load} /> : null}
-      {notice ? (
-        <p className={`notice notice-${notice.tone}`} role="status">
-          {notice.text}
-        </p>
+      {loadError ? <ErrorAlert title={loadError} onRetry={load} /> : null}
+      {warning ? (
+        <Alert role="status">
+          <AlertTitle className="line-clamp-none">{warning}</AlertTitle>
+        </Alert>
       ) : null}
       {!grants ? (
         loadError ? null : (
-          <p role="status">Loading…</p>
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading…
+          </p>
         )
       ) : (
         <>
           {/* MISC-08: effective eligibility per scope, with each source and any exclusion. */}
-          <ul className="access-list" aria-label="Effective review eligibility">
+          <ul className="divide-y" aria-label="Effective review eligibility">
             {grants.effectiveEligibility.map((e) => (
-              <li key={e.scope.code}>
-                <strong>
+              <li key={e.scope.code} className="py-2">
+                <strong className="font-medium">
                   {e.scope.label}: {e.eligible ? 'Eligible to review' : 'Not eligible'}
                 </strong>{' '}
-                <span className="field-hint">
+                <span className="text-sm text-muted-foreground">
                   {[
                     e.individualGrant ? 'individual grant' : null,
                     e.positionRule ? 'position rule' : null,
@@ -268,108 +399,81 @@ export function StaffGrantsSection({
             ))}
           </ul>
           {grants.exclusions.active.length > 0 ? (
-            <ul className="access-list" aria-label="Exclusions">
+            <ul className="divide-y" aria-label="Exclusions">
               {grants.exclusions.active.map((x) => {
                 const label = `Excluded from ${x.scope ? x.scope.label : 'all review scopes'}`;
                 return (
-                  <li key={x.id}>
-                    <strong>{label}</strong>{' '}
-                    <span className="field-hint">
-                      by {formatPerson(x.startedBy.initials, x.startedBy.name)},{' '}
-                      {shortDateTime(x.startedAt)}
-                      {x.startReason ? ` (${x.startReason})` : ''}
-                    </span>{' '}
-                    {grants.canManage ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          setEndReason('');
-                          setEndError(null);
-                          setEnding({ kind: 'exclusion', id: x.id, label });
-                        }}
-                      >
-                        Remove exclusion ({x.scope ? x.scope.label : 'all scopes'})
-                      </button>
-                    ) : null}
-                  </li>
+                  <GrantRow
+                    key={x.id}
+                    label={label}
+                    meta={`${by(x.startedBy, x.startedAt)}${x.startReason ? ` (${x.startReason})` : ''}`}
+                    action={endAction(
+                      { kind: 'exclusion', id: x.id, label },
+                      `Remove exclusion (${x.scope ? x.scope.label : 'all scopes'})`,
+                    )}
+                  />
                 );
               })}
             </ul>
           ) : null}
           {grants.capabilities.active.length + grants.reviewerEligibility.active.length === 0 ? (
-            <EmptyState>No reviewer eligibility or capabilities.</EmptyState>
+            <p className="text-sm text-muted-foreground">
+              No reviewer eligibility or capabilities.
+            </p>
           ) : (
-            <ul className="access-list" aria-label="Current grants">
+            <ul className="divide-y" aria-label="Current grants">
               {grants.capabilities.active.map((grant) => (
-                <li key={grant.id}>
-                  <strong>{STAFF_CAPABILITY_LABEL[grant.capability]}</strong>{' '}
-                  <span className="field-hint">
-                    by {formatPerson(grant.startedBy.initials, grant.startedBy.name)},{' '}
-                    {shortDateTime(grant.startedAt)}
-                    {grant.startReason ? ` (${grant.startReason})` : ''}
-                  </span>{' '}
-                  {grants.canManage ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setEndReason('');
-                        setEndError(null);
-                        setEnding({
-                          kind: 'capability',
-                          id: grant.id,
-                          label: STAFF_CAPABILITY_LABEL[grant.capability],
-                        });
-                      }}
-                    >
-                      Revoke {STAFF_CAPABILITY_LABEL[grant.capability]}
-                    </button>
-                  ) : null}
-                </li>
+                <GrantRow
+                  key={grant.id}
+                  label={STAFF_CAPABILITY_LABEL[grant.capability]}
+                  meta={`${by(grant.startedBy, grant.startedAt)}${grant.startReason ? ` (${grant.startReason})` : ''}`}
+                  action={endAction(
+                    {
+                      kind: 'capability',
+                      id: grant.id,
+                      label: STAFF_CAPABILITY_LABEL[grant.capability],
+                    },
+                    `Revoke ${STAFF_CAPABILITY_LABEL[grant.capability]}`,
+                  )}
+                />
               ))}
               {grants.reviewerEligibility.active.map((grant) => (
-                <li key={grant.id}>
-                  <strong>Eligible reviewer: {grant.scope.label}</strong>{' '}
-                  <span className="field-hint">
-                    by {formatPerson(grant.startedBy.initials, grant.startedBy.name)},{' '}
-                    {shortDateTime(grant.startedAt)}
-                    {grant.startReason ? ` (${grant.startReason})` : ''}
-                  </span>{' '}
-                  {grants.canManage ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setEndReason('');
-                        setEndError(null);
-                        setEnding({
-                          kind: 'eligibility',
-                          id: grant.id,
-                          label: `Eligible reviewer: ${grant.scope.label}`,
-                        });
-                      }}
-                    >
-                      Revoke {grant.scope.label} eligibility
-                    </button>
-                  ) : null}
-                </li>
+                <GrantRow
+                  key={grant.id}
+                  label={`Eligible reviewer: ${grant.scope.label}`}
+                  meta={`${by(grant.startedBy, grant.startedAt)}${grant.startReason ? ` (${grant.startReason})` : ''}`}
+                  action={endAction(
+                    {
+                      kind: 'eligibility',
+                      id: grant.id,
+                      label: `Eligible reviewer: ${grant.scope.label}`,
+                    },
+                    `Revoke ${grant.scope.label} eligibility`,
+                  )}
+                />
               ))}
             </ul>
           )}
 
           {canGrant ? (
             <>
-              <form
-                className="delegate-add"
-                aria-label="Grant reviewer eligibility"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  if (!scope || !scopeReason.trim()) return;
-                  const label = scopes.find((s) => s.code === scope)?.label ?? scope;
+              <GrantForm
+                name="Grant reviewer eligibility"
+                selectLabel="Reviewer eligibility"
+                value={scope}
+                onValueChange={setScope}
+                options={scopes
+                  .filter((s) => !heldScopes.has(s.code))
+                  .map((s) => ({ value: s.code, label: s.label }))}
+                placeholder="Choose a scope"
+                reason={scopeReason}
+                onReasonChange={setScopeReason}
+                submitLabel="Grant eligibility"
+                busy={busy}
+                onSubmit={async () => {
                   const ok = await run(
                     () => grantsApi.grantEligibility(member.id, scope, scopeReason, keys.scope),
-                    `${member.displayName} is now an eligible ${label} reviewer.`,
+                    `${member.displayName} is now an eligible ${scopeLabel(scope)} reviewer.`,
                   );
                   setKeys((k) => ({ ...k, scope: crypto.randomUUID() }));
                   if (ok) {
@@ -377,39 +481,29 @@ export function StaffGrantsSection({
                     setScopeReason('');
                   }
                 }}
-              >
-                <div className="form-field">
-                  <label htmlFor={scopeId}>Reviewer eligibility</label>
-                  <select id={scopeId} value={scope} onChange={(e) => setScope(e.target.value)}>
-                    <option value="">Choose a scope</option>
-                    {scopes
-                      .filter((s) => !heldScopes.has(s.code))
-                      .map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.label}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <ReasonInput value={scopeReason} onChange={setScopeReason} />
-                <button type="submit" disabled={busy || !scope || !scopeReason.trim()}>
-                  Grant eligibility
-                </button>
-              </form>
-              <form
-                className="delegate-add"
-                aria-label="Exclude from review"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  if (!excludeScope || !excludeReason.trim()) return;
+              />
+              <GrantForm
+                name="Exclude from review"
+                selectLabel="Exclude from review"
+                value={excludeScope}
+                onValueChange={setExcludeScope}
+                options={[
+                  { value: '*', label: 'All review scopes' },
+                  ...scopes.map((s) => ({ value: s.code, label: s.label })),
+                ]}
+                placeholder="Choose a scope"
+                description="Overrides position rules and individual grants. Ends their review approvals in that scope."
+                reason={excludeReason}
+                onReasonChange={setExcludeReason}
+                submitLabel="Exclude"
+                busy={busy}
+                onSubmit={async () => {
                   const scopeCode = excludeScope === '*' ? null : excludeScope;
                   const ok = await run(
                     () =>
                       grantsApi.addExclusion(member.id, scopeCode, excludeReason, keys.exclusion),
                     `${member.displayName} is excluded from ${
-                      scopeCode
-                        ? (scopes.find((s) => s.code === scopeCode)?.label ?? scopeCode)
-                        : 'all review scopes'
+                      scopeCode ? scopeLabel(scopeCode) : 'all review scopes'
                     }.`,
                   );
                   setKeys((k) => ({ ...k, exclusion: crypto.randomUUID() }));
@@ -418,39 +512,24 @@ export function StaffGrantsSection({
                     setExcludeReason('');
                   }
                 }}
-              >
-                <div className="form-field">
-                  <label htmlFor={excludeId}>Exclude from review</label>
-                  <select
-                    id={excludeId}
-                    value={excludeScope}
-                    onChange={(e) => setExcludeScope(e.target.value)}
-                  >
-                    <option value="">Choose a scope</option>
-                    <option value="*">All review scopes</option>
-                    {scopes.map((s) => (
-                      <option key={s.code} value={s.code}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="field-hint">
-                    Overrides position rules and individual grants. Ends their review approvals in
-                    that scope.
-                  </p>
-                </div>
-                <ReasonInput value={excludeReason} onChange={setExcludeReason} />
-                <button type="submit" disabled={busy || !excludeScope || !excludeReason.trim()}>
-                  Exclude
-                </button>
-              </form>
+              />
               {STAFF_CAPABILITIES.some((c) => !heldCapabilities.has(c)) ? (
-                <form
-                  className="delegate-add"
-                  aria-label="Grant capability"
-                  onSubmit={async (event) => {
-                    event.preventDefault();
-                    if (!capability || !capabilityReason.trim()) return;
+                <GrantForm
+                  name="Grant capability"
+                  selectLabel="Capability"
+                  value={capability}
+                  onValueChange={(value) => setCapability(value as StaffCapability | '')}
+                  options={STAFF_CAPABILITIES.filter((c) => !heldCapabilities.has(c)).map((c) => ({
+                    value: c,
+                    label: STAFF_CAPABILITY_LABEL[c],
+                  }))}
+                  placeholder="Choose a capability"
+                  reason={capabilityReason}
+                  onReasonChange={setCapabilityReason}
+                  submitLabel="Grant capability"
+                  busy={busy}
+                  onSubmit={async () => {
+                    if (!capability) return;
                     const ok = await run(
                       () =>
                         grantsApi.grantCapability(
@@ -467,115 +546,74 @@ export function StaffGrantsSection({
                       setCapabilityReason('');
                     }
                   }}
-                >
-                  <div className="form-field">
-                    <label htmlFor={capabilityId}>Capability</label>
-                    <select
-                      id={capabilityId}
-                      value={capability}
-                      onChange={(e) => setCapability(e.target.value as StaffCapability | '')}
-                    >
-                      <option value="">Choose a capability</option>
-                      {STAFF_CAPABILITIES.filter((c) => !heldCapabilities.has(c)).map((c) => (
-                        <option key={c} value={c}>
-                          {STAFF_CAPABILITY_LABEL[c]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <ReasonInput value={capabilityReason} onChange={setCapabilityReason} />
-                  <button type="submit" disabled={busy || !capability || !capabilityReason.trim()}>
-                    Grant capability
-                  </button>
-                </form>
+                />
               ) : null}
             </>
           ) : grants.canManage ? (
-            <p className="field-hint">Grants can be added once the account is active.</p>
+            <p className="text-sm text-muted-foreground">
+              Grants can be added once the account is active.
+            </p>
           ) : null}
 
-          {grants.capabilities.history.length + grants.reviewerEligibility.history.length > 0 ? (
-            <details className="delegate-history">
-              <summary>
-                Grant history (
-                {grants.capabilities.history.length + grants.reviewerEligibility.history.length})
-              </summary>
-              <ul className="delegate-list">
-                {[
-                  ...grants.capabilities.history.map((g) => ({
-                    ...g,
-                    label: STAFF_CAPABILITY_LABEL[g.capability],
-                  })),
-                  ...grants.reviewerEligibility.history.map((g) => ({
-                    ...g,
-                    label: `Eligible reviewer: ${g.scope.label}`,
-                  })),
-                ].map((g) => (
-                  <li key={g.id}>
-                    {g.label}: granted by {formatPerson(g.startedBy.initials, g.startedBy.name)},{' '}
-                    {shortDateTime(g.startedAt)}; revoked by{' '}
-                    {g.endedBy ? formatPerson(g.endedBy.initials, g.endedBy.name) : ''},{' '}
-                    {g.endedAt ? shortDateTime(g.endedAt) : ''}
-                    {g.endReason ? ` (${g.endReason})` : ''}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+          <History
+            title="Grant history"
+            items={[
+              ...grants.capabilities.history.map((g) => ({
+                ...g,
+                label: STAFF_CAPABILITY_LABEL[g.capability],
+              })),
+              ...grants.reviewerEligibility.history.map((g) => ({
+                ...g,
+                label: `Eligible reviewer: ${g.scope.label}`,
+              })),
+            ].map((g) => ({
+              key: g.id,
+              text: `${g.label}: granted by ${formatPerson(g.startedBy.initials, g.startedBy.name)}, ${shortDateTime(g.startedAt)}; revoked by ${
+                g.endedBy ? formatPerson(g.endedBy.initials, g.endedBy.name) : ''
+              }, ${g.endedAt ? shortDateTime(g.endedAt) : ''}${g.endReason ? ` (${g.endReason})` : ''}`,
+            }))}
+          />
         </>
       )}
-      <ConfirmDialog
+      <ConfirmReasonDialog
         open={ending !== null}
         title={
           ending?.kind === 'exclusion'
             ? `Remove: ${ending.label}?`
             : `Revoke ${ending?.label ?? ''}?`
         }
+        description={
+          ending?.kind === 'exclusion'
+            ? 'Eligibility is recalculated. Project review approvals that ended stay ended: the lead approves again.'
+            : 'It stops counting on their next request. Earlier work keeps their name.'
+        }
         confirmLabel={ending?.kind === 'exclusion' ? 'Remove' : 'Revoke'}
-        danger
-        onConfirm={async () => {
-          if (!ending) return;
-          if (!endReason.trim()) {
-            setEndError('Enter a reason.');
-            return;
-          }
+        destructive
+        requireReason
+        onCancel={() => setEnding(null)}
+        onConfirm={(reason) => {
           const target = ending;
+          if (!target) return;
           setEnding(null);
-          await run(
+          void run(
             () =>
               target.kind === 'capability'
-                ? grantsApi.revokeCapability(member.id, target.id, endReason)
+                ? grantsApi.revokeCapability(member.id, target.id, reason)
                 : target.kind === 'exclusion'
-                  ? grantsApi.removeExclusion(member.id, target.id, endReason)
-                  : grantsApi.revokeEligibility(member.id, target.id, endReason),
+                  ? grantsApi.removeExclusion(member.id, target.id, reason)
+                  : grantsApi.revokeEligibility(member.id, target.id, reason),
             target.kind === 'exclusion'
               ? `${target.label}: removed for ${member.displayName}.`
               : `${target.label} revoked for ${member.displayName}.`,
           );
         }}
-        onCancel={() => setEnding(null)}
-      >
-        <p>
-          {ending?.kind === 'exclusion'
-            ? 'Eligibility is recalculated. Project review approvals that ended stay ended: the lead approves again.'
-            : 'It stops counting on their next request. Earlier work keeps their name.'}
-        </p>
-        <label htmlFor={endReasonId}>Reason</label>
-        <textarea
-          id={endReasonId}
-          value={endReason}
-          maxLength={2000}
-          aria-invalid={Boolean(endError)}
-          onChange={(event) => setEndReason(event.target.value)}
-        />
-        {endError ? <p className="field-error">{endError}</p> : null}
-      </ConfirmDialog>
+      />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Read-only: the person's current access (admin view)
+// Read-only: the person's current access
 // ---------------------------------------------------------------------------------------------
 
 export function StaffAccessSummary({ member }: { member: StaffMember }) {
@@ -595,15 +633,26 @@ export function StaffAccessSummary({ member }: { member: StaffMember }) {
   }, [open, member.id]);
   if (member.accountType === 'shared_lab') return null;
   return (
-    <details
-      className="drawer-section"
-      onToggle={(event) => setOpen((event.target as HTMLDetailsElement).open)}
-    >
-      <summary>Current access</summary>
-      {error ? <ErrorState message={error} /> : null}
-      {!summary && !error && open ? <p role="status">Loading…</p> : null}
-      {summary ? <AccessSummaryView summary={summary} headingLevel={3} /> : null}
-    </details>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className={`group -ml-2 ${TOUCH}`}>
+          <ChevronRight
+            aria-hidden="true"
+            className="transition-transform group-data-[state=open]:rotate-90"
+          />
+          Current access
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-2 pt-2">
+        {error ? <ErrorAlert title={error} /> : null}
+        {!summary && !error && open ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading…
+          </p>
+        ) : null}
+        {summary ? <AccessSummaryView summary={summary} headingLevel={3} /> : null}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -620,11 +669,8 @@ export function PositionRulesSection({ onForbidden }: { onForbidden: () => void 
   const [reason, setReason] = useState('');
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [disabling, setDisabling] = useState<PositionRule | null>(null);
-  const [disableReason, setDisableReason] = useState('');
   const [busy, setBusy] = useState(false);
-  const positionId = useId();
-  const scopeId = useId();
-  const disableId = useId();
+  const headingId = useId();
   const onForbiddenRef = useRef(onForbidden);
   useEffect(() => {
     onForbiddenRef.current = onForbidden;
@@ -660,51 +706,42 @@ export function PositionRulesSection({ onForbidden }: { onForbidden: () => void 
   }
 
   return (
-    <section className="drawer-section" aria-label="Review eligibility by position">
-      <h2>Review eligibility by position</h2>
-      <p className="field-hint">
+    <section className="grid max-w-3xl gap-3" aria-labelledby={headingId}>
+      <SectionTitle as="h2" id={headingId}>
+        Review eligibility by position
+      </SectionTitle>
+      <p className="text-sm text-muted-foreground">
         No position is eligible to review until you enable it for a scope. A rule covers everyone
         with that position now and later. Each change needs a reason.
       </p>
-      {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorAlert title={error} /> : null}
       {!rules ? (
         error ? null : (
-          <p role="status">Loading…</p>
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading…
+          </p>
         )
       ) : rules.active.length === 0 ? (
-        <EmptyState>No position is eligible to review.</EmptyState>
+        <p className="text-sm text-muted-foreground">No position is eligible to review.</p>
       ) : (
-        <ul className="access-list" aria-label="Position rules">
+        <ul className="divide-y rounded-lg border px-3" aria-label="Position rules">
           {rules.active.map((rule) => (
-            <li key={rule.id}>
-              <strong>
-                {POSITION_LABELS[rule.position]}: {rule.scope.label}
-              </strong>{' '}
-              <span className="field-hint">
-                by {formatPerson(rule.startedBy.initials, rule.startedBy.name)},{' '}
-                {shortDateTime(rule.startedAt)} ({rule.startReason})
-              </span>{' '}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setDisableReason('');
-                  setDisabling(rule);
-                }}
-              >
-                Disable {POSITION_LABELS[rule.position]} ({rule.scope.label})
-              </button>
-            </li>
+            <GrantRow
+              key={rule.id}
+              label={`${POSITION_LABELS[rule.position]}: ${rule.scope.label}`}
+              meta={`${by(rule.startedBy, rule.startedAt)} (${rule.startReason})`}
+              action={{
+                label: `Disable ${POSITION_LABELS[rule.position]} (${rule.scope.label})`,
+                disabled: busy,
+                onClick: () => setDisabling(rule),
+              }}
+            />
           ))}
         </ul>
       )}
       <form
-        className="delegate-add"
         aria-label="Enable a position rule"
+        className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!position || !scope || !reason.trim()) return;
@@ -717,78 +754,61 @@ export function PositionRulesSection({ onForbidden }: { onForbidden: () => void 
           }
         }}
       >
-        <div className="form-field">
-          <label htmlFor={positionId}>Position</label>
-          <select
-            id={positionId}
-            value={position}
-            onChange={(e) => setPosition(e.target.value as Position | '')}
+        <LabelledSelect
+          label="Position"
+          value={position}
+          onValueChange={(value) => setPosition(value as Position | '')}
+          options={POSITIONS.map((p) => ({ value: p, label: POSITION_LABELS[p] }))}
+          placeholder="Choose a position"
+        />
+        <LabelledSelect
+          label="Review scope"
+          value={scope}
+          onValueChange={setScope}
+          options={scopes.map((s) => ({ value: s.code, label: s.label }))}
+          placeholder="Choose a scope"
+        />
+        <div className="sm:col-span-2">
+          <ReasonField value={reason} onChange={setReason} />
+        </div>
+        <div>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className={TOUCH}
+            disabled={busy || !position || !scope || !reason.trim()}
           >
-            <option value="">Choose a position</option>
-            {POSITIONS.map((p) => (
-              <option key={p} value={p}>
-                {POSITION_LABELS[p]}
-              </option>
-            ))}
-          </select>
+            Enable rule
+          </Button>
         </div>
-        <div className="form-field">
-          <label htmlFor={scopeId}>Review scope</label>
-          <select id={scopeId} value={scope} onChange={(e) => setScope(e.target.value)}>
-            <option value="">Choose a scope</option>
-            {scopes.map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <ReasonInput value={reason} onChange={setReason} />
-        <button type="submit" disabled={busy || !position || !scope || !reason.trim()}>
-          Enable rule
-        </button>
       </form>
-      {rules && rules.history.length > 0 ? (
-        <details className="delegate-history">
-          <summary>Rule history ({rules.history.length})</summary>
-          <ul className="delegate-list">
-            {rules.history.map((rule) => (
-              <li key={rule.id}>
-                {POSITION_LABELS[rule.position]}: {rule.scope.label}; enabled{' '}
-                {shortDateTime(rule.startedAt)}, disabled by{' '}
-                {rule.endedBy ? formatPerson(rule.endedBy.initials, rule.endedBy.name) : ''}{' '}
-                {rule.endedAt ? shortDateTime(rule.endedAt) : ''}
-                {rule.endReason ? ` (${rule.endReason})` : ''}
-              </li>
-            ))}
-          </ul>
-        </details>
+      {rules ? (
+        <History
+          title="Rule history"
+          items={rules.history.map((rule) => ({
+            key: rule.id,
+            text: `${POSITION_LABELS[rule.position]}: ${rule.scope.label}; enabled ${shortDateTime(rule.startedAt)}, disabled by ${
+              rule.endedBy ? formatPerson(rule.endedBy.initials, rule.endedBy.name) : ''
+            } ${rule.endedAt ? shortDateTime(rule.endedAt) : ''}${rule.endReason ? ` (${rule.endReason})` : ''}`,
+          }))}
+        />
       ) : null}
-      <ConfirmDialog
+      <ConfirmReasonDialog
         open={disabling !== null}
         title={`Disable ${disabling ? POSITION_LABELS[disabling.position] : ''} for ${disabling?.scope.label ?? ''}?`}
+        description="People left with no other source lose eligibility; their review approvals in this scope end and their leads are asked to reassign."
         confirmLabel="Disable"
-        danger
-        onConfirm={async () => {
-          const rule = disabling;
-          if (!rule || !disableReason.trim()) return;
-          setDisabling(null);
-          await run(() => rulesApi.disable(rule.id, disableReason));
-        }}
+        destructive
+        requireReason
         onCancel={() => setDisabling(null)}
-      >
-        <p>
-          People left with no other source lose eligibility; their review approvals in this scope
-          end and their leads are asked to reassign.
-        </p>
-        <label htmlFor={disableId}>Reason</label>
-        <textarea
-          id={disableId}
-          value={disableReason}
-          maxLength={2000}
-          onChange={(event) => setDisableReason(event.target.value)}
-        />
-      </ConfirmDialog>
+        onConfirm={(disableReason) => {
+          const rule = disabling;
+          if (!rule) return;
+          setDisabling(null);
+          void run(() => rulesApi.disable(rule.id, disableReason));
+        }}
+      />
     </section>
   );
 }

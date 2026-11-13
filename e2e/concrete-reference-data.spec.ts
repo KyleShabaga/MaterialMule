@@ -30,7 +30,7 @@ test('suppliers: the Lab Manager adds and edits one; everyone else reads it and 
   await expect(
     page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Suppliers' }),
   ).toBeVisible();
-  const section = page.getByRole('region', { name: 'Concrete suppliers' });
+  const section = page.getByRole('region', { name: 'Suppliers', exact: true });
   await section.getByRole('button', { name: 'Add a supplier' }).click();
   const form = section.getByRole('form', { name: 'Add a supplier' });
   await form.getByLabel(/Supplier name/).fill(name);
@@ -72,7 +72,7 @@ test('holidays: the Alberta list is seeded; an admin adds and removes a company 
   const date = `${year}-08-04`;
   await signInAs(page, 'admin');
   await page.goto('/settings/holidays');
-  const section = page.getByRole('region', { name: 'Holiday calendar' });
+  const section = page.getByRole('region', { name: 'Holidays', exact: true });
   await expect(section.getByRole('table', { name: /Holidays in 2026/ })).toBeVisible();
   await expect(section.getByText('Canada Day', { exact: true })).toBeVisible();
   await expect(section.getByText('Alberta Family Day', { exact: true })).toBeVisible();

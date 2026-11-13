@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
+import { ReceivingPanel } from './ReceivingPanel';
 
 // Settings → Receiving (MM-T45 T3). Fictional people only.
 
@@ -90,7 +91,7 @@ describe('Settings → Receiving (MM-T45)', () => {
     expect(screen.queryByRole('checkbox', { name: 'Delete drafts automatically' })).toBeNull();
   });
 
-  it('shows loading, then an error with Retry that loads again', async () => {
+  it('shows loading, then an error with Try again that loads again', async () => {
     const user = userEvent.setup();
     let calls = 0;
     renderSettings(me(), {
@@ -99,7 +100,7 @@ describe('Settings → Receiving (MM-T45)', () => {
     expect(screen.getByText('Loading receiving settings…')).toBeInTheDocument();
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent("The draft setting couldn't load.");
-    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     expect(
       await screen.findByRole('checkbox', { name: 'Delete drafts automatically' }),
     ).not.toBeChecked();
@@ -127,6 +128,9 @@ describe('Settings → Receiving (MM-T45)', () => {
     await user.type(days, '60');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Draft setting saved.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Each computer applies it the next time Receive samples opens.',
+    );
     expect(puts).toEqual([current(true, 60, 1)]);
     expect(screen.getByRole('checkbox', { name: 'Delete drafts automatically' })).toBeChecked();
     expect(screen.getByLabelText('After this many days without changes')).toHaveValue(60);
@@ -178,5 +182,32 @@ describe('Settings → Receiving (MM-T45)', () => {
       await screen.findByText(/Someone else changed this setting while you were editing/),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('After this many days without changes')).toHaveValue(200);
+  });
+
+  it('mounted for someone without the permission, shows the rule read-only with the reason', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(200, current(true, 120, 3))),
+    );
+    render(
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me: TECH },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <ReceivingPanel />
+      </SessionContext.Provider>,
+    );
+    const toggle = await screen.findByRole('checkbox', { name: 'Delete drafts automatically' });
+    expect(toggle).toBeChecked();
+    expect(toggle).toBeDisabled();
+    expect(screen.getByLabelText('After this many days without changes')).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Receiving drafts' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Only Lab Managers and administrators can change this.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 });

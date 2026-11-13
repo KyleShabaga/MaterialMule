@@ -18,6 +18,7 @@ test('T3: the Lab Manager registers the testing machine, records calibrations an
 
   const machine = page.getByRole('region', { name: 'Testing machine' });
   await expect(machine.getByText('No testing machine is registered.')).toBeVisible();
+  await machine.getByRole('button', { name: 'Register the testing machine' }).click();
   const register = machine.getByRole('form', { name: 'Register the testing machine' });
   await register.getByLabel('Make').fill('Example Instruments');
   await register.getByLabel('Model').fill('Compression 3000');
@@ -27,6 +28,7 @@ test('T3: the Lab Manager registers the testing machine, records calibrations an
   await expect(machine.getByText('No calibration recorded for this date')).toBeVisible();
 
   // AC1: an old calibration whose next-due date has passed flags use, and still saves.
+  await machine.getByRole('button', { name: 'Record calibration' }).click();
   const calibrate = machine.getByRole('form', { name: 'Record a calibration' });
   await calibrate.getByLabel(/Calibration date/).fill('2024-01-10');
   await calibrate.getByLabel(/Next calibration due/).fill('2025-01-10');
@@ -48,6 +50,7 @@ test('T3: the Lab Manager registers the testing machine, records calibrations an
   await expect(history.getByText('2025-01-10')).toBeVisible();
   await expect(history.getByText('2099-11-01')).toBeVisible();
   await expect(machine.getByText('No flags')).toBeVisible();
+  await calibrate.getByRole('button', { name: 'Done' }).click();
 
   // Edit the details: version-checked and audited.
   await machine.getByRole('button', { name: 'Edit details' }).click();
@@ -57,10 +60,10 @@ test('T3: the Lab Manager registers the testing machine, records calibrations an
   await edit.getByRole('button', { name: 'Save' }).click();
   await expect(machine.getByText('Compression 3000X', { exact: true })).toBeVisible();
 
-  // An air meter, registered and opened.
+  // An air meter, registered and opened (Register an air meter is the panel's main action).
   const meters = page.getByRole('region', { name: 'Air meters' });
   const meterId = `AM-E2E-${Date.now()}`;
-  await meters.getByRole('button', { name: 'Register an air meter' }).click();
+  await page.getByRole('button', { name: 'Register an air meter' }).click();
   const meterForm = meters.getByRole('form', { name: 'Register an air meter' });
   await meterForm.getByLabel(/Air meter ID/).fill(meterId);
   await meterForm.getByLabel('Description').fill('Type B pressure meter');
@@ -69,7 +72,8 @@ test('T3: the Lab Manager registers the testing machine, records calibrations an
   await expect(
     meters.getByRole('table', { name: 'Air meters' }).getByText(meterId, { exact: true }),
   ).toBeVisible();
-  await expect(meters.getByRole('region', { name: 'Air meter details' })).toBeVisible();
+  // The new meter opens in the drawer, named by its ID.
+  await expect(meters.getByRole('region', { name: meterId, exact: true })).toBeVisible();
 });
 
 test('T3/AC3: anyone else sees the register read-only, and the server refuses their edits', async ({
