@@ -496,6 +496,7 @@ to the capability list in the same change.
   | `GET /api/concrete-mixes/:id/propagation` (C30)                                         | `inventory.read`                                      |
   | `POST /api/concrete-mixes/:id/propagation {previewId, selection, idempotencyKey}` (C30) | active user; handler checks `concrete_mix.approve`    |
   | `GET /api/concrete/projects/:projectId/specimens` (C30)                                 | `inventory.read`                                      |
+  | `GET /api/concrete/projects/:projectId/specimen-sets` (STRATA-98)                       | `inventory.read`                                      |
 
   Reads follow the project (mixes are project data; field preparation caches them, CD-15). Order
   of checks as AO03: 401/403 from the guard; 403 when the caller isn't the project's lead (an
