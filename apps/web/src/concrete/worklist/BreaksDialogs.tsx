@@ -82,12 +82,14 @@ export function RescheduleDialog({
     setError(null);
     setBusy(true);
     const next: Record<string, Outcome> = { ...outcomes };
+    const targets = new Map<string, string>();
     for (const { row } of pending) {
       const body = { version: row.version, newAge: days, reason: reason.trim() };
       const result = await rescheduleSpecimen(row.specimenId, {
         idempotencyKey: keyFor(row.specimenId, JSON.stringify(body)),
         ...body,
       });
+      if (result.ok && result.data.targetDate) targets.set(row.specimenId, result.data.targetDate);
       next[row.specimenId] = result.ok
         ? {
             ok: true,
@@ -99,8 +101,12 @@ export function RescheduleDialog({
     setBusy(false);
     const failed = eligible.filter((p) => next[p.row.specimenId]?.ok !== true);
     if (failed.length === 0) {
+      const only = eligible.length === 1 ? eligible[0]!.row : null;
+      const target = only ? targets.get(only.specimenId) : null;
       onDone(
-        `Rescheduled ${eligible.length} ${eligible.length === 1 ? 'specimen' : 'specimens'} to ${days} days.`,
+        only && target
+          ? `Rescheduled ${specimenLabel(only)} to ${days} days (test date ${target}).`
+          : `Rescheduled ${eligible.length} specimens to ${days} days.`,
       );
     }
   }
@@ -114,7 +120,10 @@ export function RescheduleDialog({
   }
 
   const count = eligible.length;
-  const title = `Reschedule ${count} ${count === 1 ? 'specimen' : 'specimens'}`;
+  const title =
+    count === 0
+      ? 'Nothing to reschedule'
+      : `Reschedule ${count} ${count === 1 ? 'specimen' : 'specimens'}`;
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : close())}>
       <DialogContent className="sm:max-w-xl">
@@ -298,7 +307,10 @@ export function HoldUntilDialog({
   }
 
   const count = eligible.length;
-  const title = `Hold ${count} ${count === 1 ? 'specimen' : 'specimens'} until a date`;
+  const title =
+    count === 0
+      ? 'Nothing to put on HOLD'
+      : `Hold ${count} ${count === 1 ? 'specimen' : 'specimens'} until a date`;
   return (
     <Dialog open onOpenChange={(open) => (open || busy ? undefined : onClose())}>
       <DialogContent className="sm:max-w-xl">

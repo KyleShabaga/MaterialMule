@@ -68,8 +68,12 @@ async function castProjectSet(
 async function openFor(page: Page, projectNumber: string) {
   await page.goto('/lab-testing/concrete');
   await expect(page.getByRole('heading', { name: 'Concrete breaks', level: 1 })).toBeVisible();
-  await page.getByLabel('Project').selectOption({ label: projectNumber });
+  await page.getByRole('combobox', { name: 'Project' }).click();
+  await page.getByRole('option', { name: projectNumber, exact: true }).click();
 }
+
+/** The Breaks selection bar (STRATA-95), shown while specimens are ticked. */
+const selectionBar = (page: Page) => page.getByRole('region', { name: 'Selection' });
 
 test('T3: Today, Overdue and HOLD for one project; a technician reads but cannot reschedule', async ({
   page,
@@ -95,19 +99,26 @@ test('T3: Today, Overdue and HOLD for one project; a technician reads but cannot
   await expect(group.getByText(today).first()).toBeVisible();
   // AC1: a weekend target stays on the weekend, flagged.
   if (isWeekend(today)) await expect(group.getByText('Weekend target').first()).toBeVisible();
-  await expect(group.getByRole('button', { name: /Reschedule/ })).toHaveCount(0);
+  // A technician can tick specimens, but Reschedule is disabled with the reason.
+  await group.getByRole('checkbox', { name: 'Select 26-01B' }).check();
+  const reschedule = selectionBar(page).getByRole('button', { name: 'Reschedule' });
+  await expect(reschedule).toBeDisabled();
+  await expect(reschedule).toHaveAccessibleDescription(/Reschedule needs the project lead/);
+  await selectionBar(page).getByRole('button', { name: 'Clear selection' }).click();
 
   // AC2: the 7-day specimen is overdue and keeps its target.
   await tabs.getByRole('tab', { name: /Overdue/ }).click();
   await expect(group.getByText('26-01A')).toBeVisible();
   await expect(group.getByText(labDate(-21))).toBeVisible();
-  await expect(group.getByText('Overdue', { exact: true })).toBeVisible();
+  await expect(group.getByText('21 days late', { exact: true })).toBeVisible();
 
-  // Keyboard: arrow keys move between the views. AC3: HOLD shows its hold-until date.
+  // Keyboard: arrow keys move between the views (Overdue, Today, Next 7 days, On HOLD).
+  // AC3: HOLD shows its hold-until date.
   await tabs.getByRole('tab', { name: /Overdue/ }).focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
-  const holdTab = tabs.getByRole('tab', { name: /HOLD/ });
+  await page.keyboard.press('ArrowRight');
+  const holdTab = tabs.getByRole('tab', { name: /On HOLD/ });
   await expect(holdTab).toBeFocused();
   await expect(holdTab).toHaveAttribute('aria-selected', 'true');
   await expect(group.getByText('26-01D')).toBeVisible();
@@ -126,23 +137,29 @@ test('T3: the Lead Project Engineer reschedules a test with a reason; history is
   await openFor(page, projectNumber);
   const group = page.getByRole('region', { name: new RegExp(`${projectNumber} ·`) });
   await expect(group.getByText('2 specimens', { exact: true })).toBeVisible();
-  await group.getByRole('button', { name: 'Reschedule 26-01B' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Reschedule 26-01B' });
+  await group.getByRole('checkbox', { name: 'Select 26-01B' }).check();
+  await selectionBar(page).getByRole('button', { name: 'Reschedule' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reschedule 1 specimen' });
   await dialog.getByLabel('New test age (days)').fill('56');
-  await expect(dialog.getByText(new RegExp(`New target ${labDate(28)}`))).toBeVisible();
+  await expect(dialog.getByRole('list', { name: 'Specimens to reschedule' })).toContainText(
+    `→ 56-day ${labDate(28)}`,
+  );
   await dialog.getByLabel('Reason').fill('Engineer requested a 56-day break');
-  await dialog.getByRole('button', { name: 'Reschedule' }).click();
+  await dialog.getByRole('button', { name: 'Reschedule 1 specimen' }).click();
   await expect(
-    page.getByText(`Rescheduled 26-01B to 56 days (target ${labDate(28)}).`),
+    page.getByText(`Rescheduled 26-01B to 56 days (test date ${labDate(28)}).`),
   ).toBeVisible();
   await expect(group.getByText('1 specimen', { exact: true })).toBeVisible();
 
   // The other 28-day specimen is unchanged; the moved one carries its reschedule flag.
   const tabs = page.getByRole('tablist', { name: 'Concrete worklist views' });
   await tabs.getByRole('tab', { name: /Today/ }).click();
-  await group.getByRole('button', { name: 'Reschedule 26-01C' }).click();
-  const second = page.getByRole('dialog', { name: 'Reschedule 26-01C' });
-  await expect(second.getByText(/Now 28 d from casting/)).toBeVisible();
+  await group.getByRole('checkbox', { name: 'Select 26-01C' }).check();
+  await selectionBar(page).getByRole('button', { name: 'Reschedule' }).click();
+  const second = page.getByRole('dialog', { name: 'Reschedule 1 specimen' });
+  await expect(second.getByRole('list', { name: 'Specimens to reschedule' })).toContainText(
+    `26-01C28-day ${labDate()}`,
+  );
   await second.getByRole('button', { name: 'Cancel' }).click();
   const history = await page.request.get(
     `/api/concrete/lab-worklist?view=overdue&on=${labDate(29)}&projectId=${projectId}`,
@@ -161,7 +178,7 @@ test('T3: the Lead Project Engineer reschedules a test with a reason; history is
 
 // MM-V2-C38 (owner decision 2026-11-09): past draft, an unnumbered set can't be rescheduled. The
 // report is moved past draft with SQL, standing in for C09's submit.
-test('C38: Reschedule is disabled for an unnumbered set past draft, with the reason', async ({
+test('C38: Reschedule leaves out an unnumbered set past draft and names the reason', async ({
   page,
 }) => {
   const { projectNumber, reportId } = await castProjectSet(page, { numbered: false });
@@ -176,10 +193,13 @@ test('C38: Reschedule is disabled for an unnumbered set past draft, with the rea
   await openFor(page, projectNumber);
   const group = page.getByRole('region', { name: new RegExp(`${projectNumber} ·`) });
   await expect(group.getByText('2 specimens', { exact: true })).toBeVisible();
-  const buttons = group.getByRole('button', { name: /Reschedule/ });
-  await expect(buttons).toHaveCount(2);
-  for (const button of await buttons.all()) {
-    await expect(button).toBeDisabled();
-    await expect(button).toHaveAccessibleDescription('Number this set first');
+  await group.getByRole('checkbox', { name: /^Select set .* \(28-day\)$/ }).check();
+  await selectionBar(page).getByRole('button', { name: 'Reschedule' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nothing to reschedule' });
+  const left = dialog.getByRole('list', { name: 'Not included' }).getByRole('listitem');
+  await expect(left).toHaveCount(2);
+  for (const item of await left.all()) {
+    await expect(item).toContainText('its set isn’t numbered yet; number the set first');
   }
+  await expect(dialog.getByRole('button', { name: 'Nothing to reschedule' })).toBeDisabled();
 });

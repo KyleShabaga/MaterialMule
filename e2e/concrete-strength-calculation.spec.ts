@@ -76,7 +76,8 @@ test('enter a break in the testing table, see its P1 strength, issue the strengt
   await signInAs(page, 'lt');
   await page.goto('/concrete/testing');
   await expect(page.getByRole('heading', { name: 'Testing table', level: 1 })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Project' }).selectOption({ label: projectNumber });
+  await page.getByRole('combobox', { name: 'Project' }).click();
+  await page.getByRole('option', { name: projectNumber, exact: true }).click();
   const group = page.getByRole('region', { name: new RegExp(`${projectNumber} ·`) });
   const row = group.getByRole('row', { name: new RegExp(`${label}A`) });
   await group.getByRole('textbox', { name: `Max load ${label}A` }).fill('412.6');

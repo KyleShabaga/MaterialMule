@@ -152,10 +152,16 @@ test('AC3: dashboard counts match the lists they open, and My reports come first
   );
   await expect(page).toHaveURL(/stage=awaiting_receiving/);
 
-  // The HOLDs-due and overdue tiles open the worklist on that view.
+  // STRATA-93: the overdue tile opens Breaks on Overdue; On HOLD opens Holds; and Breaks still
+  // opens on the HOLDs due for review from a link (`?view=hold&holdDue=true`).
   await page.goto('/concrete');
-  await page.getByRole('link', { name: /HOLDs due for review/ }).click();
-  await expect(page.getByRole('tab', { name: /HOLD/ })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('link', { name: /^\d+ Tests overdue$/ }).click();
+  await expect(page.getByRole('tab', { name: /Overdue/ })).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/concrete');
+  await page.getByRole('link', { name: /^\d+ On HOLD/ }).click();
+  await expect(page).toHaveURL(/\/lab-testing\/concrete\/holds$/);
+  await page.goto('/lab-testing/concrete?view=hold&holdDue=true');
+  await expect(page.getByRole('tab', { name: /On HOLD/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('checkbox', { name: /Only HOLDs due for review/ })).toBeChecked();
 });
 
@@ -180,11 +186,17 @@ test('Search (Ctrl K) covers projects and concrete records', async ({ page }) =>
   await expect(concrete.getByText(/Matched on Project/).first()).toBeVisible();
   await expect(concrete.getByRole('link').first()).toBeVisible();
 
-  // Concrete search from the dashboard finds the ticket-less report by its set number too.
+  // STRATA-93: Find concrete records on the overview opens the same Ctrl K search with the
+  // query, which finds the ticket-less report by its set number too, in both projects.
   await page.goto('/concrete');
-  const search = page.getByRole('textbox', { name: 'Search concrete' });
+  const search = page.getByRole('textbox', { name: 'Find concrete records' });
   await search.fill(data.setNumber);
   await search.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Concrete search', level: 1 })).toBeVisible();
-  await expect(page.getByText(/2 field reports match .* in 2 projects/)).toBeVisible();
+  const menu = page.getByRole('dialog', { name: 'Search or scan' });
+  await expect(menu.getByRole('combobox', { name: 'Search or scan a label' })).toHaveValue(
+    data.setNumber,
+  );
+  for (const project of data.projects) {
+    await expect(menu.getByText(project.number).first()).toBeVisible();
+  }
 });

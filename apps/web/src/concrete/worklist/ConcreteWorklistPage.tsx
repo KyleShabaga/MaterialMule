@@ -35,7 +35,7 @@ import { useRecordingPerson } from '../../session/recording-person';
 import { fetchConcreteWorklist } from './api';
 import { HoldUntilDialog, RescheduleDialog } from './BreaksDialogs';
 import { BreaksGroup, ExceptionsPanel, HoldGroup } from './BreaksTables';
-import { holdBlock, rescheduleBlock, selectionSummary, type Picked } from './breaks-model';
+import { selectionSummary, type Picked } from './breaks-model';
 
 type Load =
   | { state: 'loading' }
@@ -425,16 +425,14 @@ function SelectionBar({
       : tooMany
         ? `Record breaks opens at most ${CONCRETE_TESTING_TABLE_SELECTION_MAX} specimens at once.`
         : null;
+  // Without the authority the action is disabled here; otherwise its dialog names each specimen
+  // it leaves out, with the reason, instead of dropping it silently.
   const rescheduleReason = picked.every((p) => !p.group.canReschedule)
     ? 'Reschedule needs the project lead, a designated reviewer or a Lab Manager with the project’s concrete grant.'
-    : picked.every((p) => rescheduleBlock(p) !== null)
-      ? 'None of the selected specimens can be rescheduled from here.'
-      : null;
+    : null;
   const holdReason = picked.every((p) => !p.group.canHoldUntil)
     ? 'Hold until needs the project lead or a Lab Manager.'
-    : picked.every((p) => holdBlock(p) !== null)
-      ? 'None of the selected specimens can go on HOLD from here.'
-      : null;
+    : null;
   const recordHint = recordReason
     ? null
     : `Record breaks opens the testing table with just these ${picked.length} ${

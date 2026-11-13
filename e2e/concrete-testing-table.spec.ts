@@ -98,9 +98,11 @@ test('T2: keyboard entry of 30 rows, a failed save, a correction needing a reaso
   await signInAs(page, 'lt');
   await page.goto('/concrete/testing');
   await expect(page.getByRole('heading', { name: 'Testing table', level: 1 })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Project' }).selectOption({ label: cast.projectNumber });
+  await page.getByRole('combobox', { name: 'Project' }).click();
+  await page.getByRole('option', { name: cast.projectNumber, exact: true }).click();
   const tester = page.getByRole('combobox', { name: /Tested by/ });
-  await expect(tester).toHaveValue('00000000-0000-4000-8000-000000000110');
+  // The lab technician (fixture 'lt') starts as the page tester.
+  await expect(tester).toContainText('TB · Taylor Bench');
   const group = page.getByRole('region', { name: new RegExp(`${cast.projectNumber} ·`) });
 
   // T1 in the browser: numeric set order, then letter.
@@ -149,7 +151,8 @@ test('T2: keyboard entry of 30 rows, a failed save, a correction needing a reaso
   await expect(failedRow.getByText('Saved', { exact: true })).toBeVisible();
 
   // AC1: changing the page tester leaves saved rows with their tester.
-  await tester.selectOption({ label: 'PE · Pat Example' });
+  await tester.click();
+  await page.getByRole('option', { name: 'PE · Pat Example' }).click();
   await expect(
     group.getByRole('row', { name: /26-01B/ }).getByText('TB', { exact: true }),
   ).toBeVisible();
