@@ -84,7 +84,8 @@ test('holidays: the Alberta list is seeded; an admin adds and removes a company 
   await expect(
     section
       .getByRole('table', { name: `Holidays in ${year}` })
-      .or(section.getByText(`No holidays are listed for ${year}.`)),
+      .or(section.getByText(`No holidays are listed for ${year}.`))
+      .first(),
   ).toBeVisible();
   await section.getByRole('button', { name: 'Add a holiday' }).click();
   const add = section.getByRole('form', { name: 'Add a holiday' });

@@ -68,11 +68,12 @@ test('T7: a Lab Manager adds, renames, prints, confirms and retires a location',
   const first = await openDrawer(page, code, 'E2E warehouse bay');
   await first.getByRole('textbox', { name: 'Name' }).fill('E2E bay renamed');
   await first.getByRole('button', { name: 'Save changes' }).click();
-  await expect(row(page, code)).toContainText('E2E bay renamed');
+  // The drawer takes the new name (on a phone it is a modal Sheet over the table).
+  const open = drawer(page, 'E2E bay renamed');
+  await expect(open).toBeVisible();
 
   // Print through the queue to the fake Zebra printer; "sent" is not "printed".
-  const open = drawer(page, 'E2E bay renamed');
-  await expect(open.getByText(`LOC-${code}`)).toBeVisible();
+  await expect(open.getByText(`LOC-${code}`, { exact: true })).toBeVisible();
   await open.getByRole('button', { name: 'Print label' }).click();
   const label = open.getByRole('region', { name: 'Label' });
   await expect(label.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });

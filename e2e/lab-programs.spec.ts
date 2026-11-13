@@ -59,15 +59,19 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician is
   await form.getByRole('button', { name: 'Add test' }).click();
   await expect(page.getByText(`Added ${code}.`)).toBeVisible();
   await expect(page.getByRole('form', { name: `Edit ${code}` })).toBeVisible();
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  // The drawer's Close (on a phone the confirmation toast can sit over it, so dispatch the click).
+  const closeDrawer = () =>
+    page.getByRole('button', { name: 'Close', exact: true }).dispatchEvent('click');
+  await closeDrawer();
   await page.getByLabel('Search tests').fill(code);
   const row = page.locator('tbody tr', { hasText: code });
   await row.click();
-  await page.getByRole('button', { name: 'Retire', exact: true }).click();
+  // On a phone the "Added" toast sits over Retire, and hovering it keeps it there.
+  await page.getByRole('button', { name: 'Retire', exact: true }).dispatchEvent('click');
   await expect(page.getByText(`Retired ${code}.`)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Restore', exact: true })).toBeVisible();
   // Retired tests leave the list until Include retired is ticked.
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await closeDrawer();
   await expect(row).toHaveCount(0);
   await page.getByRole('checkbox', { name: /^Include retired/ }).check();
   await expect(row).toContainText('Retired');

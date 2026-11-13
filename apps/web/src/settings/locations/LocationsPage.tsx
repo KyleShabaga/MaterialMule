@@ -122,6 +122,7 @@ function LocationRow({
       <TableCell className={cn('truncate', nested ? 'pl-10' : 'pl-4')}>
         <button
           type="button"
+          data-slot="location-name"
           data-peek-id={location.id}
           aria-current={openId === location.id ? 'true' : undefined}
           className={cn(
@@ -183,6 +184,7 @@ function PlaceRows({
           {/* The area's name is the toggle, so the row header reads as the area alone. */}
           <button
             type="button"
+            data-slot="location-area-toggle"
             aria-expanded={!collapsed}
             className={cn(
               'inline-flex max-w-full items-center gap-1.5 rounded-sm px-1 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
