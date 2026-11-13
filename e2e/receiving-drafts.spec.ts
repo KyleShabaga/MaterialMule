@@ -45,27 +45,47 @@ function summaryOf(unit: Locator, hole: string) {
 }
 
 /**
- * Waits until the indicator reports a save whose snapshot was taken after `since` (an ISO time).
- * Use `editThenSaved`: `since` must be taken just before the edit. The page can save on the edit's
- * own input event, so a time taken after the edit may already be later than that save.
+ * The newest stored draft (this browser's IndexedDB) whose entries or receiver contain `text`:
+ * its lastSavedAt, or null while no stored draft has it yet.
  */
-async function savedAfter(page: Page, since: string): Promise<string> {
-  const time = draftStatus(page).locator('time');
-  await expect
-    .poll(
-      async () => Date.parse(((await time.count()) && (await time.getAttribute('datetime'))) || ''),
-      { timeout: 10_000 },
-    )
-    .toBeGreaterThan(Date.parse(since));
-  await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: \w+$/);
-  return (await time.getAttribute('datetime'))!;
+async function storedDraftWith(page: Page, text: string): Promise<string | null> {
+  return page.evaluate(
+    (needle) =>
+      new Promise<string | null>((resolve, reject) => {
+        const open = indexedDB.open('materialmule-drafts');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('receiptDrafts')) return resolve(null);
+          const all = db.transaction('receiptDrafts').objectStore('receiptDrafts').getAll();
+          all.onerror = () => reject(all.error);
+          all.onsuccess = () => {
+            const times = (
+              all.result as { data: unknown; receiver: unknown; lastSavedAt: string }[]
+            )
+              .filter((d) =>
+                JSON.stringify({ data: d.data, receiver: d.receiver }).includes(needle),
+              )
+              .map((d) => d.lastSavedAt)
+              .sort();
+            resolve(times.at(-1) ?? null);
+          };
+        };
+      }),
+    text,
+  );
 }
 
-/** Makes `edit`, then waits for the draft save that includes it; returns that save's time. */
-async function editThenSaved(page: Page, edit: () => Promise<unknown>): Promise<string> {
-  const since = new Date().toISOString();
-  await edit();
-  return savedAfter(page, since);
+/**
+ * Waits until a stored draft holds `text` (the value just entered) and the indicator reports a
+ * save; returns that draft's save time. It checks the stored content, not a clock: the page saves
+ * about 1 s after the last change, but also sooner (when the draft is first registered), so no
+ * time taken by the test reliably separates the save that has the edit from one that doesn't.
+ */
+async function savedWith(page: Page, text: string): Promise<string> {
+  await expect.poll(() => storedDraftWith(page, text), { timeout: 10_000 }).not.toBeNull();
+  await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: \w+$/);
+  return (await storedDraftWith(page, text))!;
 }
 
 /** Signs the context out on the server only (cookie kept, so the next request gets a 401). */
@@ -119,9 +139,8 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await addUnit(page);
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
-  await editThenSaved(page, () =>
-    bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped'),
-  );
+  await bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped');
+  await savedWith(page, 'Lid taped');
   await page.close();
 
   const reopened = await context.newPage();
@@ -166,12 +185,10 @@ test(
     await expect(
       page.getByText('Offline: your entries are kept here.', { exact: false }),
     ).toBeVisible();
-    const savedFirst = await editThenSaved(page, () =>
-      page.getByLabel('Description (optional)').fill('Edited offline'),
-    );
-    const savedSecond = await editThenSaved(page, () =>
-      bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline'),
-    );
+    await page.getByLabel('Description (optional)').fill('Edited offline');
+    const savedFirst = await savedWith(page, 'Edited offline');
+    await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
+    const savedSecond = await savedWith(page, 'Still offline');
     expect(savedSecond > savedFirst).toBe(true);
 
     await context.setOffline(false);
@@ -283,7 +300,8 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await pickOnStationPicker(page);
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
-  await editThenSaved(page, () => page.getByLabel('Description (optional)').fill('Handover check'));
+  await page.getByLabel('Description (optional)').fill('Handover check');
+  await savedWith(page, 'Handover check');
 
   // The next person at the station opens the list.
   await page.goto('/receiving-log/new');
@@ -297,9 +315,8 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
     /^AT · /,
   );
-  await editThenSaved(page, () =>
-    chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/),
-  );
+  await chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/);
+  await savedWith(page, '"initials":"PE"');
   await expect(page.getByText('Receiver changed to PE.')).toBeVisible();
   await expect(draftStatus(page)).toContainText('Receiver: PE');
 
@@ -390,7 +407,8 @@ test('T8/AC7: a personal draft is not shown to another user on the same browser'
   await signInAs(page, 'at');
   await page.goto('/receiving-log/new');
   await chooseProject(page);
-  await editThenSaved(page, () => page.getByLabel('Description (optional)').fill("Alex's draft"));
+  await page.getByLabel('Description (optional)').fill("Alex's draft");
+  await savedWith(page, "Alex's draft");
 
   await signInAs(page, 'pe');
   await page.goto('/receiving-log/new');
