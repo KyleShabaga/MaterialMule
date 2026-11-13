@@ -70,7 +70,7 @@ test('T2: five tabs, add / copy / approve a mix, and approve only some affected 
   await expectProjectSections(page);
   await page
     .getByRole('navigation', { name: 'Project sections' })
-    .getByRole('link', { name: 'Concrete' })
+    .getByRole('tab', { name: 'Concrete' })
     .click();
   const tabs = page.getByRole('navigation', { name: 'Concrete' });
   for (const name of ['Reports', 'Specimens', 'Summary', 'Mixes', 'Settings']) {

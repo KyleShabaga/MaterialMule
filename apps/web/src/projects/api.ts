@@ -1,10 +1,14 @@
 import {
+  labProgramListSchema,
   messagesByField,
+  type LabProgramList,
   projectConflictResponseSchema,
   projectDetailSchema,
   projectLeadNominationsSchema,
   projectListPageSchema,
   projectVersionConflictResponseSchema,
+  SIDEBAR_PINS_MAX,
+  sidebarRecordListSchema,
   validationErrorResponseSchema,
   type ProjectDetail,
   type ProjectLeadNominations,
@@ -55,6 +59,11 @@ export function fetchProjects(params: URLSearchParams): Promise<LoadResult<Proje
 
 export function fetchProjectDetail(id: string): Promise<LoadResult<ProjectDetail>> {
   return getJson(`/api/projects/${encodeURIComponent(id)}`, projectDetailSchema);
+}
+
+/** A project's lab programs (`GET /api/lab-programs?projectId=`, STRATA-84); progress only. */
+export function fetchProjectPrograms(params: URLSearchParams): Promise<LoadResult<LabProgramList>> {
+  return getJson(`/api/lab-programs?${params.toString()}`, labProgramListSchema);
 }
 
 export type UpdateResult =
@@ -109,6 +118,56 @@ export async function updateProject(id: string, body: UpdateProjectRequest): Pro
     return { kind: 'failed', message: "You don't have permission to make this change." };
   }
   return { kind: 'failed', message: "The project wasn't saved. Try again." };
+}
+
+// Pins (STRATA-11): the project page's Pin button. The sidebar's Pinned list hears the change
+// through PINS_CHANGED_EVENT (detail: the new list), like Recent's RECENTS_CHANGED_EVENT.
+
+export const PINS_CHANGED_EVENT = 'materialmule:pins-changed';
+
+/** Whether the project is pinned; null when this account keeps no pins (LAB) or it failed. */
+export async function fetchProjectPinned(projectId: string): Promise<boolean | null> {
+  try {
+    const response = await apiFetch('/api/me/pins');
+    if (!response.ok) return null;
+    const list = sidebarRecordListSchema.safeParse(await response.json());
+    if (!list.success) return null;
+    return list.data.items.some((item) => item.kind === 'project' && item.id === projectId);
+  } catch {
+    return null;
+  }
+}
+
+export type PinResult = { ok: true; pinned: boolean } | { ok: false; message: string };
+
+/** Pins or unpins the project (idempotent on the server). */
+export async function setProjectPinned(projectId: string, pinned: boolean): Promise<PinResult> {
+  let response: Response;
+  try {
+    response = await apiFetch(`/api/me/pins/project/${encodeURIComponent(projectId)}`, {
+      method: pinned ? 'PUT' : 'DELETE',
+    });
+  } catch {
+    return { ok: false, message: UNREACHABLE };
+  }
+  const json: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const code = (json as { code?: unknown } | null)?.code;
+    return {
+      ok: false,
+      message:
+        code === 'pin_limit'
+          ? `You can pin up to ${SIDEBAR_PINS_MAX} records. Unpin one first.`
+          : pinned
+            ? "Couldn't pin this project. Try again."
+            : "Couldn't unpin this project. Try again.",
+    };
+  }
+  const list = sidebarRecordListSchema.safeParse(json);
+  if (list.success) {
+    window.dispatchEvent(new CustomEvent(PINS_CHANGED_EVENT, { detail: list.data.items }));
+  }
+  return { ok: true, pinned };
 }
 
 // Lead Project Engineer nominations (MM-AO04, D01/D02).

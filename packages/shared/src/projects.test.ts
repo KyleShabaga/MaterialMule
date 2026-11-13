@@ -11,6 +11,9 @@ import {
   projectLabel,
   projectNumberKey,
   testHoleNameKey,
+  formatDepthRanges,
+  formatSampleRange,
+  sampleNumberRange,
 } from './projects';
 
 const LEAD = '00000000-0000-4000-8000-000000000101';
@@ -148,5 +151,27 @@ describe('project edit request (MM-T35)', () => {
     expect(updateProjectRequestSchema.parse({ version: 1, reviewEngineerId: null })).toEqual({
       version: 1,
     });
+  });
+});
+
+describe('project page hole ranges (STRATA-84)', () => {
+  it('orders SAMPLE# naturally and formats the range', () => {
+    expect(sampleNumberRange(['SS10', 'ss2', 'SS1', 'SS14'])).toEqual({ from: 'SS1', to: 'SS14' });
+    expect(sampleNumberRange([])).toBeNull();
+    expect(formatSampleRange({ from: 'SS1', to: 'SS14' })).toBe('SS1–SS14');
+    expect(formatSampleRange({ from: 'ST1', to: 'st1' })).toBe('ST1');
+    expect(formatSampleRange(null, true)).toBe('All samples');
+    expect(formatSampleRange(null)).toBeNull();
+  });
+
+  it('formats depth ranges per unit', () => {
+    expect(formatDepthRanges([{ from: 0.8, to: 9.2, unit: 'm' }])).toBe('0.8–9.2 m');
+    expect(
+      formatDepthRanges([
+        { from: 1.5, to: 1.5, unit: 'm' },
+        { from: 2, to: 10, unit: 'ft' },
+      ]),
+    ).toBe('1.5 m · 2–10 ft');
+    expect(formatDepthRanges([])).toBeNull();
   });
 });

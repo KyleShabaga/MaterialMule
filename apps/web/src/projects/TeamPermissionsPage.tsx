@@ -1,41 +1,38 @@
-import {
-  BLOCKED_REASON_LABEL,
-  CAPABILITY_SOURCE_LABEL,
-  GRANT_REVIEW_KIND_LABEL,
-  PENDING_LPE_ACCEPTANCE,
-  PROJECT_CAPABILITY_ACTIONS,
-  PROJECT_CAPABILITY_ACTION_LABEL,
-  PROJECT_INVOLVEMENT_LABEL,
-  formatPerson,
-  type AcceptanceDelegates,
-  type Capability,
-  type ProjectCapabilities,
-  type ProjectCapabilityAction,
-  type ProjectDetail,
-  type ProjectGrantReviews,
-  type ProjectTeamJoinRequests,
-  type ProjectPeople,
-  type ProjectPerson,
-  type ProjectReportIssuers,
-  type ProjectReviewers,
-  type ProjectTeam,
-  type ReviewScope,
+import type {
+  AcceptanceDelegates,
+  ProjectCapabilities,
+  ProjectGrantReviews,
+  ProjectPeople,
+  ProjectReportIssuers,
+  ProjectReviewers,
+  ProjectTeam,
+  ProjectTeamJoinRequests,
+  ReviewScope,
 } from '@materialmule/shared';
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { BandedCard, DataTable, EmptyState, ErrorState, StatusBadge } from '../components/app-ui';
-import { ContextRow } from '../layout/ContextRow';
-import { YesNoList } from '../settings/access/YesNoList';
-import { ProjectSectionNav } from './ProjectSectionNav';
-import { shortDateTime } from '../dashboard/format';
-import { useMe } from '../session/context';
+import { Lock } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { notifyError, notifySuccess } from '@/components/strata/toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchDelegates } from '../lab/api';
-import { AcceptanceDelegatesSection } from './AcceptanceDelegates';
-import { fetchProjectDetail, type LoadResult } from './api';
-import { GrantReviewsSection, NEEDS_REVIEW } from './GrantReviewsSection';
-import { JoinRequestsSection } from './JoinRequestsSection';
+import { useMe } from '../session/context';
+import { NeedsReviewSection } from './GrantReviewsSection';
+import { JoinSelfSection } from './JoinRequestsSection';
 import { LeadSection } from './LeadSection';
-import { IssuersSection, ReviewersSection, TeamSection, type RunWrite } from './TeamSections';
+import { useProjectLayout } from './project-layout-context';
+import { TeamCard } from './TeamCard';
+import { HistoryList } from './TeamHistory';
+import { TeamPeopleSection } from './TeamPeopleTable';
+import type { GrantApply, RunWrite } from './TeamSections';
+import { YourPermissions } from './YourPermissions';
 import {
   fetchCapabilities,
   fetchGrantReviews,
@@ -46,116 +43,113 @@ import {
   fetchScopes,
   fetchTeam,
 } from './team-api';
-import '../inventory/inventory.css';
-import './projects.css';
+import { TeamFormContext, type TeamFormRegistry } from './team-form-open';
+import type { TeamData } from './team-people';
+import type { LoadResult } from './api';
 
 /**
- * Projects → project → Team & Permissions (MM-AO05). Leadership, the project team, review
- * responsibilities, scoped authorizations (acceptance delegates, report issuers), what the
- * signed-in person may do here and why, and the history of every change. Everything comes from
- * the MM-AO03/AO04 API: controls appear only where the server reports `canManage`, the
- * permissions table is the server's capability list, and nothing here infers access from labels.
- * After every change, and whenever the server refuses one, the capabilities are reloaded.
+ * Projects › project › Team & permissions tab (STRATA-85; MM-AO05; DESIGN.md › Briefs › Round 4,
+ * boards R4Team*). Rendered by the project layout (header and line tabs, STRATA-84) as the child
+ * route `/projects/:projectId/team`; the project comes from the layout. Sections: Leadership, Your
+ * permissions here, Needs review (lead or admin), People (table and person drawer) and History.
+ *
+ * Everything comes from the MM-AO03/AO04 API: controls appear only where the server reports
+ * `canManage` / `canDecide`, the permission lists are the server's capability lists, and nothing
+ * here infers access from labels or job titles. After every change, and whenever the server
+ * refuses one, the lists are read again.
  */
 
-interface Loaded {
-  project: ProjectDetail;
+interface Loaded extends Omit<TeamData, 'project'> {
   capabilities: ProjectCapabilities;
-  team: ProjectTeam;
-  reviewers: ProjectReviewers;
-  issuers: ProjectReportIssuers;
-  delegates: AcceptanceDelegates | null;
-  scopes: ReviewScope[];
-  /** MTR-21: null when it couldn't be loaded; the people list then shows no permissions. */
-  people: ProjectPeople | null;
-  /** MTR-25: inherited grants flagged for a new lead, and the lead changes; null if unloaded. */
-  grantReviews: ProjectGrantReviews | null;
-  /** MISC-07: self-join requests; null if unloaded. */
-  joinRequests: ProjectTeamJoinRequests | null;
+  /** When the capabilities were last read ("checked 10:42"). */
+  checkedAt: string;
 }
 
 type PageState =
-  | { state: 'loading' }
-  | { state: 'failed'; notFound: boolean; message: string }
-  | { state: 'ready'; data: Loaded };
+  { state: 'loading' } | { state: 'failed'; message: string } | { state: 'ready'; data: Loaded };
 
 function unwrap<T>(result: LoadResult<T>): T {
   if (!result.ok) throw result;
   return result.data;
 }
 
+const optional = <T,>(result: LoadResult<T> | null): T | null => (result?.ok ? result.data : null);
+
 async function loadAll(projectId: string): Promise<Loaded> {
-  const [
-    project,
-    capabilities,
-    team,
-    reviewers,
-    issuers,
-    scopes,
-    delegates,
-    people,
-    grantReviews,
-    joinRequests,
-  ] = await Promise.all([
-    fetchProjectDetail(projectId),
-    fetchCapabilities(projectId),
-    fetchTeam(projectId),
-    fetchReviewers(projectId),
-    fetchIssuers(projectId),
-    fetchScopes(),
-    fetchDelegates(projectId).catch(() => null),
-    fetchPeople(projectId).catch(() => null),
-    fetchGrantReviews(projectId).catch(() => null),
-    fetchJoinRequests(projectId).catch(() => null),
-  ]);
+  const [capabilities, team, reviewers, issuers, scopes, delegates, people, grantReviews, joins] =
+    await Promise.all([
+      fetchCapabilities(projectId),
+      fetchTeam(projectId),
+      fetchReviewers(projectId),
+      fetchIssuers(projectId),
+      fetchScopes(),
+      fetchDelegates(projectId).catch(() => null),
+      fetchPeople(projectId).catch(() => null),
+      fetchGrantReviews(projectId).catch(() => null),
+      fetchJoinRequests(projectId).catch(() => null),
+    ]);
   return {
-    project: unwrap(project),
     capabilities: unwrap(capabilities),
+    checkedAt: new Date().toISOString(),
     team: unwrap(team),
     reviewers: unwrap(reviewers),
     issuers: unwrap(issuers),
-    scopes: unwrap(scopes),
-    delegates,
-    people: people?.ok ? people.data : null,
-    grantReviews: grantReviews?.ok ? grantReviews.data : null,
-    joinRequests: joinRequests?.ok ? joinRequests.data : null,
+    scopes: unwrap<ReviewScope[]>(scopes),
+    delegates: delegates as AcceptanceDelegates | null,
+    people: optional<ProjectPeople>(people),
+    grantReviews: optional<ProjectGrantReviews>(grantReviews),
+    joinRequests: optional<ProjectTeamJoinRequests>(joins),
   };
 }
 
 export function TeamPermissionsPage() {
-  const { projectId = '' } = useParams();
   const me = useMe();
-  // MTR-2: the shared LAB account reads none of this; say so instead of six refused requests.
+  // MTR-2: the shared LAB account reads none of this; say so instead of refused requests.
   if (!me.permissions.includes('project_access.read')) {
     return (
-      <>
-        <p className="back-link">
-          <Link to={`/projects/${encodeURIComponent(projectId)}`}>← Back to project</Link>
-        </p>
-        <h1>Team &amp; Permissions</h1>
-        <EmptyState>
-          Team &amp; Permissions is for personal accounts. Sign in with your own account.
-        </EmptyState>
-      </>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Lock aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>Team &amp; permissions is for personal accounts</EmptyTitle>
+          <EmptyDescription>Sign in with your own account to see it.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
-  return <TeamPermissions projectId={projectId} />;
+  return <TeamPermissions meId={me.id} />;
 }
 
-function TeamPermissions({ projectId }: { projectId: string }) {
+function TeamPermissions({ meId }: { meId: string }) {
+  const { project, reloadProject, setFormOpen } = useProjectLayout();
+  const projectId = project.id;
   const [page, setPage] = useState<PageState>({ state: 'loading' });
   const [reloads, setReloads] = useState(0);
-  const [notice, setNotice] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
+
+  // One primary per screen: any open decision or form turns the header's primary outline.
+  const openForms = useRef(new Set<string>());
+  const registry = useMemo<TeamFormRegistry>(
+    () => ({
+      set(key, open) {
+        if (open) openForms.current.add(key);
+        else openForms.current.delete(key);
+        setFormOpen(openForms.current.size > 0);
+      },
+    }),
+    [setFormOpen],
+  );
+  useEffect(() => () => setFormOpen(false), [setFormOpen]);
 
   useEffect(() => {
     let cancelled = false;
     loadAll(projectId).then(
       (data) => !cancelled && setPage({ state: 'ready', data }),
-      (failure: { notFound?: boolean; message?: string }) =>
+      (failure: { message?: string }) =>
         !cancelled &&
         setPage({
           state: 'failed',
-          notFound: Boolean(failure.notFound),
           message: failure.message ?? 'Material Mule had a problem loading this. Try again.',
         }),
     );
@@ -164,10 +158,14 @@ function TeamPermissions({ projectId }: { projectId: string }) {
     };
   }, [projectId, reloads]);
 
-  const reload = useCallback(() => setReloads((n) => n + 1), []);
+  const reload = useCallback(() => {
+    setReloads((n) => n + 1);
+    setHistoryKey((n) => n + 1);
+  }, []);
 
-  /** Reloads only the capability lists (and the people summary's delegate list). */
+  /** Reads the capability lists (and the people, delegate and review lists) again. */
   const refreshCapabilities = useCallback(() => {
+    setHistoryKey((n) => n + 1);
     void Promise.all([
       fetchCapabilities(projectId),
       fetchDelegates(projectId).catch(() => null),
@@ -182,7 +180,8 @@ function TeamPermissions({ projectId }: { projectId: string }) {
               data: {
                 ...current.data,
                 capabilities: capabilities.data,
-                delegates,
+                checkedAt: new Date().toISOString(),
+                delegates: delegates ?? current.data.delegates,
                 people: people?.ok ? people.data : null,
                 grantReviews: grantReviews?.ok ? grantReviews.data : current.data.grantReviews,
               },
@@ -207,11 +206,11 @@ function TeamPermissions({ projectId }: { projectId: string }) {
       const outcome = await write;
       if (outcome.ok) {
         apply(outcome.value);
-        setNotice({ tone: 'success', text: success });
+        notifySuccess(success);
         refreshCapabilities();
         return true;
       }
-      setNotice({ tone: 'warning', text: outcome.message });
+      notifyError(outcome.message);
       // Authority or state changed under us: show the server's current view, never a guess.
       if (
         outcome.kind === 'forbidden' ||
@@ -225,537 +224,114 @@ function TeamPermissions({ projectId }: { projectId: string }) {
     [refreshCapabilities, reload],
   );
 
-  const back = (
-    <p className="back-link">
-      <Link to={`/projects/${encodeURIComponent(projectId)}`}>← Back to project</Link>
-    </p>
+  const apply: GrantApply = useMemo(
+    () => ({
+      team: (team: ProjectTeam) => update({ team }),
+      reviewers: (reviewers: ProjectReviewers) => update({ reviewers }),
+      issuers: (issuers: ProjectReportIssuers) => update({ issuers }),
+      delegates: (delegates: AcceptanceDelegates) => update({ delegates }),
+    }),
+    [update],
   );
 
   if (page.state === 'loading') {
     return (
-      <>
-        {back}
-        <h1>Team &amp; Permissions</h1>
-        <p role="status">Loading…</p>
-      </>
+      <div aria-busy="true" className="@container flex flex-col gap-6">
+        <p className="sr-only" role="status">
+          Loading team and permissions
+        </p>
+        <div className="grid gap-6 @min-[56rem]:grid-cols-2">
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
     );
   }
   if (page.state === 'failed') {
     return (
-      <>
-        {back}
-        <h1>Team &amp; Permissions</h1>
-        {page.notFound ? (
-          <EmptyState>Project not found.</EmptyState>
-        ) : (
-          <ErrorState message={page.message} onRetry={reload} />
-        )}
-      </>
+      <Alert>
+        <AlertTitle>Team &amp; permissions couldn’t be loaded</AlertTitle>
+        <AlertDescription className="flex flex-wrap items-center gap-3">
+          {page.message}
+          <Button variant="outline" size="sm" onClick={reload}>
+            Try again
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
-  const {
-    project,
-    capabilities,
-    team,
-    reviewers,
-    issuers,
-    delegates,
-    scopes,
-    people,
-    grantReviews,
-    joinRequests,
-  } = page.data;
+  const data: TeamData = { ...page.data, project };
+  const { capabilities, joinRequests, grantReviews } = page.data;
   return (
-    <>
-      {/* Field Ledger context row: back link and the Overview / Concrete / Team switch. */}
-      <ContextRow className="project-context">
-        <div className="project-context-start">
-          {back}
-          <ProjectSectionNav projectId={project.id} current="team" />
-        </div>
-      </ContextRow>
-      <div className="project-header">
-        <p className="project-caption">
-          <span className="number">{project.projectNumber}</span> · {project.name}
-        </p>
-        <h1 className="project-title">Team &amp; Permissions</h1>
-      </div>
-      <p className={notice ? `notice notice-${notice.tone}` : 'notice'} role="status">
-        {notice?.text}
-      </p>
-
-      <div className="team-layout">
-        <div className="team-main">
-          <BandedCard
-            className="project-section"
-            title="Leadership"
-            tone={project.leadProjectEngineer ? 'default' : 'attention'}
-            aside={
-              project.leadProjectEngineer ? null : (
-                <StatusBadge tone="warning">Waiting for a lead</StatusBadge>
-              )
-            }
-          >
-            <dl className="stat-tiles project-tiles">
-              <div>
-                <dt>Lead Project Engineer</dt>
-                <dd>
-                  {project.leadProjectEngineer
-                    ? formatPerson(
-                        project.leadProjectEngineer.initials,
-                        project.leadProjectEngineer.displayName,
-                      )
-                    : 'None yet'}
-                </dd>
-              </div>
-            </dl>
-            <p className="field-hint">
-              An administrator appoints or removes the lead (Edit project on the project page).
-            </p>
-          </BandedCard>
+    <TeamFormContext.Provider value={registry}>
+      <div className="@container flex flex-col gap-6">
+        <div className="grid items-start gap-6 @min-[56rem]:grid-cols-2">
           <LeadSection
-            projectId={project.id}
+            projectId={projectId}
             lead={project.leadProjectEngineer}
+            meId={meId}
+            leadChange={grantReviews?.leadChanges[0] ?? null}
             reloadKey={reloads}
             onChanged={(message) => {
-              setNotice({ tone: 'success', text: message });
+              notifySuccess(message);
+              reload();
+              reloadProject();
+            }}
+          />
+          <YourPermissions
+            capabilities={capabilities}
+            checkedAt={page.data.checkedAt}
+            onRefresh={reload}
+          />
+        </div>
+
+        <NeedsReviewSection
+          projectId={projectId}
+          joinRequests={joinRequests}
+          grantReviews={grantReviews}
+          run={run}
+          onJoinChange={(next) => {
+            update({ joinRequests: next });
+            // The team itself changed too (a member accepted or removed).
+            reload();
+          }}
+          onReviewChange={(next) => {
+            update({ grantReviews: next });
+            // Ending a grant ended a reviewer, issuer or delegate grant: read every list again.
+            reload();
+          }}
+        />
+
+        {joinRequests ? (
+          <JoinSelfSection
+            projectId={projectId}
+            data={joinRequests}
+            run={run}
+            onChange={(next) => {
+              update({ joinRequests: next });
               reload();
             }}
           />
+        ) : null}
 
-          {grantReviews ? (
-            <GrantReviewsSection
-              projectId={project.id}
-              data={grantReviews}
-              run={run}
-              onChange={(next) => {
-                update({ grantReviews: next });
-                // A Revoke ended a reviewer, issuer or delegate grant: reload every list that shows it.
-                reload();
-              }}
-            />
-          ) : null}
-
-          <PeopleSummary
-            project={project}
-            team={team}
-            reviewers={reviewers}
-            issuers={issuers}
-            delegates={delegates}
-            people={people}
-            grantReviews={grantReviews}
-            joinRequests={joinRequests}
-          />
-
-          {joinRequests ? (
-            <JoinRequestsSection
-              projectId={project.id}
-              data={joinRequests}
-              run={run}
-              onChange={(next) => {
-                update({ joinRequests: next });
-                // The team itself changed too (a member added or removed).
-                reload();
-              }}
-            />
-          ) : null}
-
-          <TeamSection
-            projectId={project.id}
-            data={team}
-            run={run}
-            onChange={(next) => update({ team: next })}
-          />
-          <ReviewersSection
-            projectId={project.id}
-            data={reviewers}
-            scopes={scopes}
-            run={run}
-            onChange={(next) => update({ reviewers: next })}
-          />
-
-          <h2 className="section-heading">Authorizations</h2>
-          <AcceptanceDelegatesSection
-            key={reloads}
-            projectId={project.id}
-            onChanged={refreshCapabilities}
-          />
-          <IssuersSection
-            projectId={project.id}
-            data={issuers}
-            scopes={scopes}
-            run={run}
-            onChange={(next) => update({ issuers: next })}
-          />
-
-          <HistorySection
-            team={team}
-            reviewers={reviewers}
-            issuers={issuers}
-            delegates={delegates}
-            grantReviews={grantReviews}
-          />
-        </div>
-        <aside className="team-side" aria-label="Your permissions">
-          <YourPermissions capabilities={capabilities} onRefresh={reload} />
-        </aside>
-      </div>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-// People on this project: responsibilities and grants side by side (AC1)
-// ---------------------------------------------------------------------------------------------
-
-interface PersonRow {
-  id: string;
-  name: string;
-  responsibilities: string[];
-  grants: string[];
-}
-
-/** MTR-21: what one person may do here, and why, as the server computes it for them. */
-function PersonPermissions({ person }: { person: ProjectPerson }) {
-  const known = new Set<string>(PROJECT_CAPABILITY_ACTIONS);
-  const allowed = person.capabilities.filter((c) => known.has(c.action) && c.allowed);
-  return (
-    <details className="person-permissions">
-      <summary>Permissions here ({allowed.length ? `${allowed.length} allowed` : 'none'})</summary>
-      <ul aria-label={`Permissions of ${person.name}`}>
-        {person.capabilities
-          .filter((c) => known.has(c.action))
-          .map((c) => (
-            <li key={c.action}>
-              <strong>
-                {PROJECT_CAPABILITY_ACTION_LABEL[c.action as ProjectCapabilityAction]}:
-              </strong>{' '}
-              {c.allowed ? 'Yes' : 'No'} · {whyFor(c)}
-            </li>
-          ))}
-      </ul>
-    </details>
-  );
-}
-
-function PeopleSummary({
-  project,
-  team,
-  reviewers,
-  issuers,
-  delegates,
-  people: peopleView,
-  grantReviews,
-  joinRequests,
-}: {
-  project: ProjectDetail;
-  team: ProjectTeam;
-  reviewers: ProjectReviewers;
-  issuers: ProjectReportIssuers;
-  delegates: AcceptanceDelegates | null;
-  people: ProjectPeople | null;
-  grantReviews: ProjectGrantReviews | null;
-  joinRequests: ProjectTeamJoinRequests | null;
-}) {
-  // MISC-07: self-joined members still waiting for the lead's acceptance.
-  const joining = new Set((joinRequests?.pending ?? []).map((r) => r.teamMemberId));
-  const details = new Map((peopleView?.people ?? []).map((p) => [p.userId, p]));
-  // MTR-25: grants still waiting for the new lead's review carry the badge text.
-  const flagged = new Set((grantReviews?.pending ?? []).map((r) => r.grantId));
-  const badge = (grantId: string) => (flagged.has(grantId) ? ` (${NEEDS_REVIEW})` : '');
-  const people = new Map<string, PersonRow>();
-  const person = (id: string, initials: string | null, name: string) => {
-    let row = people.get(id);
-    if (!row) {
-      row = { id, name: formatPerson(initials, name), responsibilities: [], grants: [] };
-      people.set(id, row);
-    }
-    return row;
-  };
-  const lead = project.leadProjectEngineer;
-  if (lead)
-    person(lead.id, lead.initials, lead.displayName).responsibilities.push('Lead Project Engineer');
-  for (const member of team.active) {
-    person(member.person.userId, member.person.initials, member.person.name).responsibilities.push(
-      joining.has(member.id) ? `Team member (${PENDING_LPE_ACCEPTANCE})` : 'Team member',
-    );
-  }
-  for (const assignment of reviewers.active) {
-    const r = assignment.reviewer;
-    person(r.userId, r.initials, r.name).responsibilities.push(
-      `Reviewer: ${assignment.scope.label}${assignment.effective ? '' : ' (not effective)'}${badge(
-        assignment.id,
-      )}`,
-    );
-  }
-  for (const grant of delegates?.active ?? []) {
-    const d = grant.delegate;
-    person(d.userId, d.initials, d.name).grants.push(`Acceptance delegate${badge(grant.id)}`);
-  }
-  for (const grant of issuers.active) {
-    const i = grant.issuer;
-    person(i.userId, i.initials, i.name).grants.push(
-      `Report issuer: ${grant.scope.label}${grant.effective ? '' : ' (not effective)'}${badge(
-        grant.id,
-      )}`,
-    );
-  }
-  const rows = [...people.values()];
-  return (
-    <BandedCard
-      className="project-section"
-      title="People on this project"
-      subtitle="Responsibilities and grants are separate. A job title or team place grants no approvals."
-    >
-      <DataTable
-        rows={rows}
-        rowKey={(row) => row.id}
-        caption="People on this project"
-        empty="Nobody is assigned to this project yet."
-        columns={[
-          { header: 'Person', cell: (row) => <strong>{row.name}</strong> },
-          {
-            header: 'Job title',
-            cell: (row) => details.get(row.id)?.jobTitle?.value ?? '—',
-          },
-          {
-            header: 'Responsibilities',
-            cell: (row) => (row.responsibilities.length ? row.responsibilities.join('; ') : '—'),
-          },
-          {
-            header: 'Grants',
-            cell: (row) => (row.grants.length ? row.grants.join('; ') : '—'),
-          },
-          {
-            header: 'Permissions',
-            cell: (row) => {
-              const person = details.get(row.id);
-              return person ? <PersonPermissions person={person} /> : '—';
-            },
-          },
-        ]}
-      />
-    </BandedCard>
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-// What the signed-in person may do here, and why (the server's capability list)
-// ---------------------------------------------------------------------------------------------
-
-/** The source of a permission held by someone else ("As …"), or who it's allowed for. */
-function whyFor(capability: Capability): string {
-  if (capability.allowed) {
-    return `As ${capability.sources.map((s) => CAPABILITY_SOURCE_LABEL[s]).join(', ')}`;
-  }
-  const grantedBy = capability.blocked?.grantedBy.map((s) => CAPABILITY_SOURCE_LABEL[s]) ?? [];
-  return grantedBy.length ? `Allowed for: ${grantedBy.join(', ')}` : 'Not allowed';
-}
-
-function why(capability: Capability): string {
-  if (capability.allowed) {
-    return `As ${capability.sources.map((s) => CAPABILITY_SOURCE_LABEL[s]).join(', ')}`;
-  }
-  if (!capability.blocked) return 'Not allowed';
-  const grantedBy = capability.blocked.grantedBy.map((s) => CAPABILITY_SOURCE_LABEL[s]);
-  return `${BLOCKED_REASON_LABEL[capability.blocked.code]}${
-    grantedBy.length ? ` Allowed for: ${grantedBy.join(', ')}.` : ''
-  }`;
-}
-
-function YourPermissions({
-  capabilities,
-  onRefresh,
-}: {
-  capabilities: ProjectCapabilities;
-  onRefresh: () => void;
-}) {
-  const known = new Set<string>(PROJECT_CAPABILITY_ACTIONS);
-  const rows = capabilities.capabilities.filter((c) => known.has(c.action));
-  return (
-    <BandedCard
-      className="project-section"
-      title="Your permissions here"
-      subtitle="What you can do on this project and where it comes from, as the server reports it."
-      aside={
-        <button type="button" onClick={onRefresh}>
-          Refresh
-        </button>
-      }
-    >
-      <p>
-        {capabilities.involvement.length
-          ? `Your part in this project: ${capabilities.involvement
-              .map((i) => PROJECT_INVOLVEMENT_LABEL[i])
-              .join(', ')}.`
-          : 'You have no assignment on this project. You can still see it.'}
-      </p>
-      {capabilities.reviewerScopes.length ? (
-        <p className="field-hint">
-          You review: {capabilities.reviewerScopes.map((s) => s.label).join(', ')}.
-        </p>
-      ) : null}
-      {capabilities.issuerScopes.length ? (
-        <p className="field-hint">
-          You may issue: {capabilities.issuerScopes.map((s) => s.label).join(', ')}.
-        </p>
-      ) : null}
-      {rows.length === 0 ? (
-        <EmptyState>No actions reported.</EmptyState>
-      ) : (
-        <YesNoList
-          label="Your permissions on this project"
-          items={rows.map((row) => ({
-            key: row.action,
-            yes: row.allowed,
-            what: PROJECT_CAPABILITY_ACTION_LABEL[row.action as ProjectCapabilityAction],
-            note: why(row),
-          }))}
+        <TeamPeopleSection
+          data={data}
+          meId={meId}
+          run={run}
+          apply={apply}
+          historyKey={historyKey}
         />
-      )}
-    </BandedCard>
-  );
-}
 
-// ---------------------------------------------------------------------------------------------
-// History: every start and end, newest first
-// ---------------------------------------------------------------------------------------------
-
-interface HistoryEvent {
-  key: string;
-  at: string;
-  text: string;
-}
-
-/** Events shown; each list returns its newest rows, so this is the newest of those. */
-const HISTORY_SHOWN = 100;
-
-function HistorySection({
-  team,
-  reviewers,
-  issuers,
-  delegates,
-  grantReviews,
-}: {
-  team: ProjectTeam;
-  reviewers: ProjectReviewers;
-  issuers: ProjectReportIssuers;
-  delegates: AcceptanceDelegates | null;
-  grantReviews: ProjectGrantReviews | null;
-}) {
-  const events: HistoryEvent[] = [];
-  // MTR-25: lead changes and the new lead's review of inherited grants.
-  for (const change of grantReviews?.leadChanges ?? []) {
-    const by = change.by ? ` by ${formatPerson(change.by.initials, change.by.name)}` : '';
-    const reason = change.reason ? ` (${change.reason})` : '';
-    events.push({
-      key: `lead:${change.at}`,
-      at: change.at,
-      text: change.lead
-        ? `Lead Project Engineer changed to ${formatPerson(change.lead.initials, change.lead.name)}${by}${reason}`
-        : `Lead Project Engineer removed${by}${reason}`,
-    });
-  }
-  for (const review of grantReviews?.history ?? []) {
-    if (!review.decidedAt || review.status === 'pending') continue;
-    const by = review.decidedBy
-      ? ` by ${formatPerson(review.decidedBy.initials, review.decidedBy.name)}`
-      : '';
-    events.push({
-      key: `review:${review.id}`,
-      at: review.decidedAt,
-      text: `Inherited ${GRANT_REVIEW_KIND_LABEL[review.kind].toLowerCase()} grant of ${
-        review.holder.name
-      } ${review.status === 'kept' ? 'kept' : 'revoked'}${by}${
-        review.reason ? ` (${review.reason})` : ''
-      }`,
-    });
-  }
-  const add = (
-    id: string,
-    what: string,
-    row: {
-      startedBy: { initials: string | null; name: string };
-      startedAt: string;
-      startReason: string | null;
-      endedBy: { initials: string | null; name: string } | null;
-      endedAt: string | null;
-      endReason: string | null;
-    },
-    verbs: [string, string],
-  ) => {
-    events.push({
-      key: `${id}:start`,
-      at: row.startedAt,
-      text: `${what} ${verbs[0]} by ${formatPerson(row.startedBy.initials, row.startedBy.name)}${
-        row.startReason ? ` (${row.startReason})` : ''
-      }`,
-    });
-    if (row.endedAt) {
-      const by = row.endedBy ? formatPerson(row.endedBy.initials, row.endedBy.name) : 'someone';
-      events.push({
-        key: `${id}:end`,
-        at: row.endedAt,
-        text: `${what} ${verbs[1]} by ${by}${row.endReason ? ` (${row.endReason})` : ''}`,
-      });
-    }
-  };
-  for (const m of [...team.active, ...team.history]) {
-    add(m.id, `Team member ${m.person.name}`, m, ['added', 'removed']);
-  }
-  for (const a of [...reviewers.active, ...reviewers.history]) {
-    add(a.id, `${a.scope.label} reviewer ${a.reviewer.name}`, a, ['assigned', 'removed']);
-  }
-  for (const g of [...issuers.active, ...issuers.history]) {
-    add(g.id, `${g.scope.label} issuer ${g.issuer.name}`, g, [
-      'authorized',
-      g.revocationKind === 'emergency' ? 'suspended (emergency)' : 'revoked',
-    ]);
-  }
-  for (const d of [...(delegates?.active ?? []), ...(delegates?.history ?? [])]) {
-    add(
-      d.id,
-      `Acceptance delegate ${d.delegate.name}`,
-      {
-        startedBy: d.grantedBy,
-        startedAt: d.grantedAt,
-        startReason: d.grantReason,
-        endedBy: d.revokedBy,
-        endedAt: d.revokedAt,
-        endReason: d.revokeReason,
-      },
-      ['added', 'revoked'],
-    );
-  }
-  events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : a.key.localeCompare(b.key)));
-  const shown = events.slice(0, HISTORY_SHOWN);
-  const hidden =
-    events.length -
-    shown.length +
-    Math.max(0, team.historyTotal - team.history.length) +
-    Math.max(0, reviewers.historyTotal - reviewers.history.length) +
-    Math.max(0, issuers.historyTotal - issuers.history.length);
-  return (
-    <BandedCard
-      className="project-section"
-      title="History"
-      subtitle="Assignments and grants as the server recorded them, with who and why."
-    >
-      {shown.length === 0 ? (
-        <EmptyState>No changes recorded yet.</EmptyState>
-      ) : (
-        <ol className="delegate-list team-history" aria-label="Team and permissions history">
-          {shown.map((event) => (
-            <li key={event.key}>
-              <span className="nowrap">{shortDateTime(event.at)}</span> {event.text}
-            </li>
-          ))}
-        </ol>
-      )}
-      {hidden > 0 ? (
-        <p className="field-hint">Older changes aren’t shown here ({hidden} more).</p>
-      ) : null}
-    </BandedCard>
+        <TeamCard id="team-history" title="History" meta="Assignments and grants as recorded">
+          <HistoryList
+            projectId={projectId}
+            reloadKey={historyKey}
+            label="Team and permissions history"
+          />
+        </TeamCard>
+      </div>
+    </TeamFormContext.Provider>
   );
 }

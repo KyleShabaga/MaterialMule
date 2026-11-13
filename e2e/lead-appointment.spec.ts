@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// MM-AO04: a project added while receiving waits for its Lead Project Engineer; an admin finds it
-// with "Waiting for a lead" and confirms the nomination; a reason is optional (MISC-03). Fictional
+// MM-AO04 / STRATA-85: a project added while receiving waits for its Lead Project Engineer. The
+// nomination grants nobody authority: the nominee still can't manage the team, and the API says
+// so. An admin finds the project under "Waiting for a lead" and confirms on the Team &
+// permissions tab; a reason is optional to confirm (MISC-03) and required to reject. Fictional
 // data only; the project number is unique per run and viewport.
 
 const CSRF = { 'x-materialmule-csrf': '1' };
@@ -32,35 +34,48 @@ test('a nominated lead waits for an admin, who confirms without a reason', async
   expect(created.status()).toBe(201);
   const projectId = ((await created.json()) as { id: string }).id;
 
-  await page.goto(`/projects/${projectId}`);
-  const section = page.getByRole('region', { name: 'Lead Project Engineer' });
-  await expect(section).toContainText('This project has no Lead Project Engineer yet.');
-  await expect(section).toContainText('Pat Example was nominated by');
-  await expect(section).toContainText('Note: Pat ran phase 1');
+  await page.goto(`/projects/${projectId}/team`);
+  const section = page.getByRole('region', { name: 'Leadership' });
+  await expect(section).toContainText('Waiting for a lead');
+  await expect(section).toContainText('Nomination waiting for an admin');
+  await expect(section).toContainText('Pat Example nominated by you');
+  await expect(section).toContainText('Note for the admin: “Pat ran phase 1”');
+  await expect(section).toContainText('An admin confirms it. Nominating gives nobody authority.');
   // Only an admin decides.
-  await expect(section.getByRole('button', { name: 'Confirm' })).toHaveCount(0);
+  await expect(section.getByRole('button', { name: /^Confirm / })).toHaveCount(0);
 
-  // The admin finds it under "Waiting for a lead" and confirms.
-  await signInAs(page, 'admin');
-  await page.goto(`/projects?waitingForLead=true&search=${projectNumber}`);
-  await expect(page.getByRole('checkbox', { name: 'Waiting for a lead' })).toBeChecked();
-  await page.getByRole('link', { name: `Open project ${projectNumber}` }).click();
-  const adminSection = page.getByRole('region', { name: 'Lead Project Engineer' });
-  await adminSection.getByRole('button', { name: 'Confirm' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Confirm as Lead Project Engineer?' });
-  await expect(dialog.getByRole('textbox', { name: 'Reason (optional)' })).toBeVisible();
-  // A click outside the box cancels it, like Escape: nothing changes.
-  await page.mouse.click(4, 4);
-  await expect(dialog).toBeHidden();
-  await expect(adminSection).toContainText('This project has no Lead Project Engineer yet.');
-  // Confirm with the reason left blank.
-  await adminSection.getByRole('button', { name: 'Confirm' }).click();
-  await dialog.getByRole('button', { name: 'Confirm' }).click();
+  // The nominee has no authority yet: no controls, and the API refuses.
+  await signInAs(page, 'pe');
+  await page.goto(`/projects/${projectId}/team`);
   await expect(
-    page.getByRole('status').filter({ hasText: 'is now the Lead Project Engineer' }),
-  ).toBeVisible();
-  await expect(adminSection).toContainText('Pat Example leads this project.');
-  await adminSection.getByText(/Nomination history/).click();
-  await expect(adminSection).toContainText('Confirmed by');
-  await expect(adminSection).not.toContainText('Enter a reason.');
+    page.getByRole('region', { name: 'People' }).getByRole('button', { name: 'Add a person' }),
+  ).toHaveCount(0);
+  const refused = await page.request.post(`/api/projects/${projectId}/team-members`, {
+    headers: CSRF,
+    data: { userId: pat.id, reason: 'Not yet the lead', idempotencyKey: crypto.randomUUID() },
+  });
+  expect(refused.status()).toBe(403);
+
+  // The admin finds it under "Waiting for a lead" and decides on the Team tab.
+  await signInAs(page, 'admin');
+  await page.goto(`/projects/${projectId}/team`);
+  const adminSection = page.getByRole('region', { name: 'Leadership' });
+  await expect(adminSection).toContainText('Nomination waiting for you, as an admin');
+  const decision = adminSection.getByRole('form', { name: 'Decide the nomination' });
+  await expect(decision).toContainText('Needed to reject. Optional when you confirm.');
+  // Rejecting needs a reason: nothing is sent without one.
+  await decision.getByRole('button', { name: 'Reject' }).click();
+  await expect(decision).toContainText('Enter a reason to reject.');
+  await expect(adminSection).toContainText('Waiting for a lead');
+  // Confirm with the reason left blank.
+  await decision.getByRole('button', { name: 'Confirm Pat Example as lead' }).click();
+  await expect(page.getByText('Pat Example is now the Lead Project Engineer.')).toBeVisible();
+  await expect(adminSection).toContainText('Pat Example · Lead Project Engineer');
+  await adminSection.getByRole('button', { name: /Nomination history/ }).click();
+  await expect(adminSection.getByRole('list', { name: 'Nomination history' })).toContainText(
+    'Pat Example: Confirmed by',
+  );
+  await expect(page.getByRole('region', { name: 'History' })).toContainText(
+    'appointed Pat Example as Lead Project Engineer',
+  );
 });

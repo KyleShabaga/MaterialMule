@@ -1,133 +1,191 @@
 import {
   GRANT_REVIEW_KIND_LABEL,
-  formatPerson,
   type GrantReview,
   type ProjectGrantReviews,
+  type ProjectTeamJoinRequests,
 } from '@materialmule/shared';
+import { Check } from 'lucide-react';
 import { useState } from 'react';
-import { BandedCard, StatusBadge } from '../components/app-ui';
-import { shortDateTime } from '../dashboard/format';
-import { ReasonDialog } from './ReasonDialog';
+import { PersonAvatar } from '@/components/strata/person-avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item';
+import { JoinRequestItem } from './JoinRequestsSection';
+import { ReasonForm } from './ReasonDialog';
+import { TeamCard } from './TeamCard';
 import { decideGrantReview } from './team-api';
+import { isoDate } from './team-format';
 import type { RunWrite } from './TeamSections';
 
-// MTR-25 (owner decision 2026-10-30): a new Lead Project Engineer inherits the project's delegate,
-// issuer and reviewer grants flagged "Needs review by new lead". The lead or an admin keeps or
-// revokes each, with a reason; controls appear only where the server reports `canDecide`.
+// Team & permissions › Needs review (STRATA-85; board R4Team): MISC-07 join requests and the
+// MTR-25 grants a new Lead Project Engineer inherited (owner decision 2026-10-30: flagged "Needs
+// review by new lead", in force until the lead or an admin keeps or ends each, with a reason).
+// Shown only to the people the server lets decide (`canDecide`).
 
 export const NEEDS_REVIEW = 'Needs review by new lead';
 
+/** "Report issuer: Concrete field · Taylor Sample": names a flagged grant in labels. */
 function what(review: GrantReview): string {
-  const kind = GRANT_REVIEW_KIND_LABEL[review.kind];
-  return `${kind}${review.scope ? `: ${review.scope}` : ''} · ${formatPerson(
-    review.holder.initials,
-    review.holder.name,
-  )}`;
+  return `${GRANT_REVIEW_KIND_LABEL[review.kind]}${review.scope ? `: ${review.scope}` : ''} · ${
+    review.holder.name
+  }`;
 }
 
-export function GrantReviewsSection({
+function GrantReviewItem({
   projectId,
-  data,
+  review,
   run,
   onChange,
 }: {
   projectId: string;
-  data: ProjectGrantReviews;
+  review: GrantReview;
   run: RunWrite;
   onChange: (next: ProjectGrantReviews) => void;
 }) {
-  const [deciding, setDeciding] = useState<{
-    review: GrantReview;
-    action: 'keep' | 'revoke';
-  } | null>(null);
+  const [deciding, setDeciding] = useState<'keep' | 'revoke' | null>(null);
   const [busy, setBusy] = useState(false);
-  if (data.pending.length === 0) return null;
-  const count = data.pending.length;
+  const kind = GRANT_REVIEW_KIND_LABEL[review.kind];
+  const label = what(review);
   return (
-    <BandedCard
-      id="grant-reviews"
-      className="project-section"
-      title="Inherited grants to review"
-      tone="attention"
-      aside={<StatusBadge tone="warning">{NEEDS_REVIEW}</StatusBadge>}
-    >
-      <p role="note" className="grant-review-banner">
-        This project has a new Lead Project Engineer. {count} grant{count === 1 ? '' : 's'} made
-        before the change {count === 1 ? 'needs' : 'need'} review: keep or revoke each one, with a
-        reason. They stay in force until then.
-      </p>
-      <ul className="grant-reviews" aria-label="Grants needing review">
-        {data.pending.map((review) => (
-          <li key={review.id}>
-            <span>
-              <strong>{what(review)}</strong>{' '}
-              <StatusBadge tone="warning">{NEEDS_REVIEW}</StatusBadge>
-              <span className="field-hint">
-                {' '}
-                Flagged for {formatPerson(
-                  review.flaggedFor.initials,
-                  review.flaggedFor.name,
-                )} on {shortDateTime(review.flaggedAt)}
-              </span>
-            </span>
-            {data.canDecide ? (
-              <span className="row-actions">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setDeciding({ review, action: 'keep' })}
-                  aria-label={`Keep ${what(review)}`}
-                >
-                  Keep
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  disabled={busy}
-                  onClick={() => setDeciding({ review, action: 'revoke' })}
-                  aria-label={`Revoke ${what(review)}`}
-                >
-                  Revoke
-                </button>
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      {data.canDecide ? null : (
-        <p className="field-hint">Only the Lead Project Engineer or an admin can review these.</p>
-      )}
-      <ReasonDialog
-        open={deciding !== null}
-        title={
-          deciding
-            ? `${deciding.action === 'keep' ? 'Keep' : 'Revoke'} ${what(deciding.review)}?`
-            : ''
-        }
-        confirmLabel={deciding?.action === 'keep' ? 'Keep' : 'Revoke'}
-        danger={deciding?.action === 'revoke'}
-        onConfirm={async (text) => {
-          const current = deciding;
-          setDeciding(null);
-          if (!current) return;
-          setBusy(true);
-          await run(
-            decideGrantReview(projectId, current.review.id, current.action, text),
-            current.action === 'keep'
-              ? `Kept ${what(current.review)}.`
-              : `Revoked ${what(current.review)}.`,
-            onChange,
-          );
-          setBusy(false);
-        }}
-        onCancel={() => setDeciding(null)}
-      >
-        <p>
-          {deciding?.action === 'keep'
+    <Item role="listitem" size="sm" className="px-0">
+      <ItemMedia>
+        <PersonAvatar name={review.holder.name} userId={review.holder.userId} />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="flex-wrap">
+          {review.holder.name}{' '}
+          <span className="font-normal text-muted-foreground">
+            holds {kind.toLowerCase()} grant made before the lead changed
+          </span>
+          <Badge variant="due">{NEEDS_REVIEW}</Badge>
+        </ItemTitle>
+        <ItemDescription className="line-clamp-none">
+          {kind}
+          {review.scope ? ` · ${review.scope}` : ''} · flagged for {review.flaggedFor.name} · keep
+          it or end it · <span className="font-mono">{isoDate(review.flaggedAt)}</span>
+        </ItemDescription>
+      </ItemContent>
+      {deciding === null ? (
+        <ItemActions>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            aria-label={`End ${label}`}
+            onClick={() => setDeciding('revoke')}
+          >
+            End grant
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            aria-label={`Keep ${label}`}
+            onClick={() => setDeciding('keep')}
+          >
+            <Check aria-hidden="true" />
+            Keep
+          </Button>
+        </ItemActions>
+      ) : (
+        <ReasonForm
+          title={`${deciding === 'keep' ? 'Keep' : 'End'} ${label}?`}
+          confirmLabel={deciding === 'keep' ? 'Keep grant' : 'End grant'}
+          busy={busy}
+          onCancel={() => setDeciding(null)}
+          onConfirm={async (reason) => {
+            const action = deciding;
+            setBusy(true);
+            const ok = await run(
+              decideGrantReview(projectId, review.id, action, reason),
+              action === 'keep' ? `Kept ${label}.` : `Ended ${label}.`,
+              onChange,
+            );
+            setBusy(false);
+            if (ok) setDeciding(null);
+          }}
+        >
+          {deciding === 'keep'
             ? 'The grant stays as it is; your reason is kept with the review.'
             : 'The grant ends now. Earlier work keeps their name.'}
+        </ReasonForm>
+      )}
+    </Item>
+  );
+}
+
+/** How many items wait for this viewer's decision (0 when they may decide none). */
+// eslint-disable-next-line react-refresh/only-export-components -- count beside its section
+export function needsReviewCount(
+  joinRequests: ProjectTeamJoinRequests | null,
+  grantReviews: ProjectGrantReviews | null,
+): number {
+  return (
+    (joinRequests?.canDecide ? joinRequests.pending.length : 0) +
+    (grantReviews?.canDecide ? grantReviews.pending.length : 0)
+  );
+}
+
+export function NeedsReviewSection({
+  projectId,
+  joinRequests,
+  grantReviews,
+  run,
+  onJoinChange,
+  onReviewChange,
+}: {
+  projectId: string;
+  joinRequests: ProjectTeamJoinRequests | null;
+  grantReviews: ProjectGrantReviews | null;
+  run: RunWrite;
+  onJoinChange: (next: ProjectTeamJoinRequests) => void;
+  onReviewChange: (next: ProjectGrantReviews) => void;
+}) {
+  const count = needsReviewCount(joinRequests, grantReviews);
+  if (count === 0) return null;
+  const joins = joinRequests?.canDecide ? joinRequests.pending : [];
+  const reviews = grantReviews?.canDecide ? grantReviews.pending : [];
+  return (
+    <TeamCard id="team-review" title="Needs review" count={count}>
+      {reviews.length > 0 ? (
+        <p role="note" className="text-sm">
+          This project has a new Lead Project Engineer. {reviews.length} grant
+          {reviews.length === 1 ? '' : 's'} made before the change{' '}
+          {reviews.length === 1 ? 'needs' : 'need'} review. They stay in force until then.
         </p>
-      </ReasonDialog>
-    </BandedCard>
+      ) : null}
+      <ItemGroup aria-label="Waiting for your review">
+        {joins.map((request) => (
+          <JoinRequestItem
+            key={request.id}
+            projectId={projectId}
+            request={request}
+            run={run}
+            onChange={onJoinChange}
+          />
+        ))}
+        {reviews.map((review) => (
+          <GrantReviewItem
+            key={review.id}
+            projectId={projectId}
+            review={review}
+            run={run}
+            onChange={onReviewChange}
+          />
+        ))}
+      </ItemGroup>
+      <p className="text-[13px] text-muted-foreground">
+        Only the lead and admins see this. Declining, keeping or ending a grant needs a reason;
+        accepting doesn’t.
+      </p>
+    </TeamCard>
   );
 }

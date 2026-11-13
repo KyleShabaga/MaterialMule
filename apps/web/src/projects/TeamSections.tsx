@@ -1,36 +1,51 @@
 import {
   formatPerson,
+  type AcceptanceDelegates,
   type ProjectReportIssuers,
   type ProjectReviewers,
   type ProjectTeam,
   type ReceiverOption,
-  type ReportIssuerGrant,
-  type ReviewApproval,
-  type ReviewerAssignment,
   type ReviewScope,
-  type TeamMember,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
-import { ReceiverSelect } from '../components/ReceiverSelect';
-import { BandedCard, EmptyState, StatusBadge } from '../components/app-ui';
-import { shortDateTime } from '../dashboard/format';
-import { ReasonDialog } from './ReasonDialog';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { PersonCell } from '@/components/strata/person-avatar';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { ReceiverSelect } from '../components/ReceiverSelect';
+import {
+  addDelegate,
   addTeamMember,
   assignReviewer,
   fetchEligibleReviewers,
   grantIssuer,
-  removeReviewer,
-  approveReviewer,
-  withdrawApproval,
-  removeTeamMember,
-  revokeIssuer,
   type WriteOutcome,
 } from './team-api';
+import { useTeamFormOpen } from './team-form-open';
 
-// The managed sections of Team & Permissions (MM-AO05). Each shows the server's list and offers
-// controls only when the server says this person may manage it (`canManage`). Nothing here claims
-// success before the server confirms it; a refused write keeps the form's entries.
+// Adding someone to the project (STRATA-85, MM-AO05): a team place (D04), a scoped reviewer
+// (D04/D05, from the people an admin made eligible), a report issuer grant (D06/D07, the lead
+// only) or an acceptance delegate (MM-T25, the lead only). One dialog for all four, opened from
+// the People table (choose a person) or the person drawer (the person is given). Every one needs
+// a reason (D15). Nothing claims success before the server confirms it; a refused write keeps the
+// entries. The server checks every permission again.
 
 /** Runs a write; on success applies the server's view. Resolves to whether it succeeded. */
 export type RunWrite = <T>(
@@ -39,244 +54,144 @@ export type RunWrite = <T>(
   apply: (value: T) => void,
 ) => Promise<boolean>;
 
-function who(person: { initials: string | null; name: string }): string {
-  return formatPerson(person.initials, person.name);
+export type GrantKind = 'team' | 'reviewer' | 'issuer' | 'delegate';
+
+const COPY: Record<
+  GrantKind,
+  { title: string; submit: string; person: string; description: string }
+> = {
+  team: {
+    title: 'Add to the team',
+    submit: 'Add to team',
+    person: 'Add a team member',
+    description:
+      'Supporting engineers and others working on the project. Being on the team grants no approvals by itself.',
+  },
+  reviewer: {
+    title: 'Assign a reviewer',
+    submit: 'Assign reviewer',
+    person: 'Reviewer',
+    description:
+      'A designated reviewer for one scope. Only people an admin has made eligible for the scope are listed; they review once they are an accepted team member and the lead approves them.',
+  },
+  issuer: {
+    title: 'Authorize a report issuer',
+    submit: 'Authorize issuer',
+    person: 'Issuer',
+    description:
+      'They may issue reports of one scope on this project. Admin status doesn’t grant this.',
+  },
+  delegate: {
+    title: 'Add an acceptance delegate',
+    submit: 'Add delegate',
+    person: 'Add a delegate',
+    description:
+      'Delegates may accept reviewed tests on this project. They can’t close programs or change priority.',
+  },
+};
+
+export interface GrantTarget {
+  userId: string;
+  name: string;
+  initials: string | null;
 }
 
-/** "Added by JS · Jordan Smith, 29 Oct 14:05" plus the reason, when there is one. */
-function Started({
-  row,
-  verb,
-}: {
-  row: TeamMember | ReviewerAssignment | ReportIssuerGrant;
-  verb: string;
-}) {
-  return (
-    <>
-      <span className="field-hint">
-        {verb} by {who(row.startedBy)}, {shortDateTime(row.startedAt)}
-      </span>
-      {row.startReason ? <span className="field-hint">Reason: {row.startReason}</span> : null}
-    </>
-  );
-}
-
-function ReasonField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const id = useId();
-  return (
-    <div className="form-field">
-      <label htmlFor={id}>Reason</label>
-      <textarea
-        id={id}
-        rows={2}
-        maxLength={2000}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
-  );
-}
-
-function ManageForm({
-  label,
-  submitLabel,
-  disabled,
-  onSubmit,
-  children,
-}: {
-  label: string;
-  submitLabel: string;
-  disabled: boolean;
-  onSubmit: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <form
-      className="delegate-add"
-      aria-label={label}
-      onSubmit={(event: FormEvent) => {
-        event.preventDefault();
-        if (!disabled) onSubmit();
-      }}
-    >
-      {children}
-      <button type="submit" disabled={disabled}>
-        {submitLabel}
-      </button>
-    </form>
-  );
+export interface GrantApply {
+  team: (next: ProjectTeam) => void;
+  reviewers: (next: ProjectReviewers) => void;
+  issuers: (next: ProjectReportIssuers) => void;
+  delegates: (next: AcceptanceDelegates) => void;
 }
 
 function ScopeSelect({
+  id,
   scopes,
   value,
   onChange,
-  label,
 }: {
+  id: string;
   scopes: ReviewScope[];
   value: string;
   onChange: (code: string) => void;
-  label: string;
 }) {
-  const id = useId();
   return (
-    <div className="form-field">
-      <label htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">Choose a scope</option>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger id={id} className="w-full">
+        <SelectValue placeholder="Choose a scope" />
+      </SelectTrigger>
+      <SelectContent>
         {scopes.map((scope) => (
-          <option key={scope.code} value={scope.code}>
+          <SelectItem key={scope.code} value={scope.code}>
             {scope.label}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-    </div>
+      </SelectContent>
+    </Select>
   );
 }
 
-// ---------------------------------------------------------------------------------------------
-// Project team (D04)
-// ---------------------------------------------------------------------------------------------
-
-export function TeamSection({
-  projectId,
-  data,
-  run,
-  onChange,
+function Labelled({
+  id,
+  label,
+  hint,
+  children,
 }: {
-  projectId: string;
-  data: ProjectTeam;
-  run: RunWrite;
-  onChange: (next: ProjectTeam) => void;
+  id: string;
+  label: string;
+  hint?: ReactNode;
+  children: ReactNode;
 }) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {children}
+      {hint ? <FieldDescription>{hint}</FieldDescription> : null}
+    </Field>
+  );
+}
+
+/**
+ * The add dialog. Rendered only while open (so every opening starts empty); closing it, by Cancel,
+ * Esc or after a confirmed write, calls `onClose`.
+ */
+export function AddGrantDialog({
+  kind,
+  projectId,
+  scopes,
+  target,
+  run,
+  apply,
+  onClose,
+}: {
+  kind: GrantKind;
+  projectId: string;
+  scopes: ReviewScope[];
+  /** The person, when opened from their drawer; otherwise the dialog asks for one. */
+  target: GrantTarget | null;
+  run: RunWrite;
+  apply: GrantApply;
+  onClose: () => void;
+}) {
+  const copy = COPY[kind];
+  const ids = { person: useId(), scope: useId(), reason: useId(), reference: useId() };
+  const expiresId = useId();
   const [person, setPerson] = useState<ReceiverOption | null>(null);
+  const [scope, setScope] = useState('');
+  const [reviewer, setReviewer] = useState(target?.userId ?? '');
   const [reason, setReason] = useState('');
+  const [reference, setReference] = useState('');
+  const [expires, setExpires] = useState('');
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState<TeamMember | null>(null);
-
-  return (
-    <BandedCard
-      className="project-section"
-      title="Project team"
-      subtitle="Supporting engineers and others working on the project. Being on the team grants no approvals by itself."
-    >
-      {data.active.length === 0 ? (
-        <EmptyState>No team members yet.</EmptyState>
-      ) : (
-        <ul className="delegate-list" aria-label="Team members">
-          {data.active.map((member) => (
-            <li key={member.id}>
-              <strong>{who(member.person)}</strong>
-              <Started row={member} verb="Added" />
-              {data.canManage ? (
-                <button type="button" disabled={busy} onClick={() => setRemoving(member)}>
-                  Remove {member.person.name}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-      {data.canManage ? (
-        <ManageForm
-          label="Add team member"
-          submitLabel="Add to team"
-          disabled={busy || !person || !reason.trim()}
-          onSubmit={async () => {
-            if (!person) return;
-            setBusy(true);
-            const ok = await run(
-              addTeamMember(projectId, { userId: person.id, reason, idempotencyKey: key }),
-              `Added ${person.displayName} to the team.`,
-              onChange,
-            );
-            setBusy(false);
-            setKey(crypto.randomUUID());
-            if (ok) {
-              setPerson(null);
-              setReason('');
-            }
-          }}
-        >
-          <ReceiverSelect
-            label="Add a team member"
-            value={person}
-            onChange={setPerson}
-            hint="Search by initials or name."
-          />
-          <ReasonField value={reason} onChange={setReason} />
-        </ManageForm>
-      ) : null}
-      <ReasonDialog
-        open={removing !== null}
-        title={`Remove ${removing?.person.name ?? ''} from the team?`}
-        confirmLabel="Remove"
-        onConfirm={async (text) => {
-          const member = removing;
-          setRemoving(null);
-          if (!member) return;
-          setBusy(true);
-          await run(
-            removeTeamMember(projectId, member.id, text),
-            `Removed ${member.person.name} from the team.`,
-            onChange,
-          );
-          setBusy(false);
-        }}
-        onCancel={() => setRemoving(null)}
-      >
-        <p>Their earlier work keeps their name. Other grants they hold here aren’t changed.</p>
-      </ReasonDialog>
-    </BandedCard>
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-// Review responsibilities (D04/D05)
-// ---------------------------------------------------------------------------------------------
-
-const REVIEWER_BLOCKED: Record<NonNullable<ReviewerAssignment['blockedReason']>, string> = {
-  account_not_active: 'Not effective: account isn’t active',
-  eligibility_revoked: 'Not effective: not eligible to review',
-  not_accepted_member: 'Not effective: not an accepted team member',
-  not_approved: 'Waiting for the lead’s review approval',
-};
-
-const APPROVAL_END: Record<NonNullable<ReviewApproval['endKind']>, string> = {
-  withdrawn: 'Approval withdrawn',
-  eligibility_lost: 'Eligibility lost',
-  assignment_ended: 'Assignment removed',
-};
-
-export function ReviewersSection({
-  projectId,
-  data,
-  scopes,
-  run,
-  onChange,
-}: {
-  projectId: string;
-  data: ProjectReviewers;
-  scopes: ReviewScope[];
-  run: RunWrite;
-  onChange: (next: ProjectReviewers) => void;
-}) {
-  const [scope, setScope] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
   const [lookup, setLookup] = useState<{
     scope: string;
     people: ReceiverOption[] | 'failed';
   } | null>(null);
-  const [reviewer, setReviewer] = useState('');
-  const [reason, setReason] = useState('');
-  const [key, setKey] = useState(() => crypto.randomUUID());
-  const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState<ReviewerAssignment | null>(null);
-  const [withdrawing, setWithdrawing] = useState<ReviewerAssignment | null>(null);
-  const reviewerId = useId();
+  useTeamFormOpen(true);
 
   useEffect(() => {
-    if (!scope || !data.canManage) return;
+    if (kind !== 'reviewer' || !scope) return;
     let cancelled = false;
     void fetchEligibleReviewers(scope).then((result) => {
       if (!cancelled) setLookup({ scope, people: result.ok ? result.data : 'failed' });
@@ -284,387 +199,201 @@ export function ReviewersSection({
     return () => {
       cancelled = true;
     };
-  }, [scope, data.canManage]);
+  }, [kind, scope]);
   const found = lookup?.scope === scope ? lookup.people : null;
-  const lookupFailed = found === 'failed';
   const candidates = found === 'failed' ? null : found;
+  const targetEligible = target ? (candidates?.some((c) => c.id === target.userId) ?? null) : null;
 
-  const byScope = scopes
-    .map((s) => ({ scope: s, rows: data.active.filter((row) => row.scope.code === s.code) }))
-    .filter((group) => group.rows.length > 0);
-  // Assignments to scopes no longer offered still show.
-  const other = data.active.filter((row) => !scopes.some((s) => s.code === row.scope.code));
+  const userId = kind === 'reviewer' ? reviewer : (target?.userId ?? person?.id ?? '');
+  const shownName =
+    target?.name ??
+    (kind === 'reviewer'
+      ? candidates?.find((c) => c.id === reviewer)?.displayName
+      : person?.displayName) ??
+    'them';
+  const ready =
+    !!userId &&
+    !!reason.trim() &&
+    ((kind !== 'reviewer' && kind !== 'issuer') || !!scope) &&
+    (kind !== 'reviewer' || !target || targetEligible === true);
 
-  const row = (assignment: ReviewerAssignment) => (
-    <li key={assignment.id}>
-      <strong>{who(assignment.reviewer)}</strong>
-      {assignment.effective ? (
-        <StatusBadge tone="success">Effective</StatusBadge>
-      ) : (
-        <StatusBadge tone="warning">
-          {assignment.blockedReason ? REVIEWER_BLOCKED[assignment.blockedReason] : 'Not effective'}
-        </StatusBadge>
-      )}
-      <Started row={assignment} verb="Assigned" />
-      {/* MISC-08: eligibility, accepted membership and the lead's approval, each shown apart. */}
-      <span className="field-hint">
-        {assignment.eligible ? 'Eligible' : 'Not eligible'} ·{' '}
-        {assignment.acceptedMember ? 'Accepted team member' : 'Not an accepted team member'} ·{' '}
-        {assignment.approval
-          ? `Approved to review by ${who(assignment.approval.approvedBy)}`
-          : 'Not approved to review'}
-      </span>
-      {data.canApprove && !assignment.approval ? (
-        <button
-          type="button"
-          disabled={busy || !assignment.eligible || !assignment.acceptedMember}
-          onClick={async () => {
-            setBusy(true);
-            await run(
-              approveReviewer(projectId, assignment.id, crypto.randomUUID()),
-              `Approved ${assignment.reviewer.name} to review ${assignment.scope.label}.`,
-              onChange,
-            );
-            setBusy(false);
-          }}
-        >
-          Approve {assignment.reviewer.name} to review ({assignment.scope.label})
-        </button>
-      ) : null}
-      {data.canApprove && assignment.approval ? (
-        <button type="button" disabled={busy} onClick={() => setWithdrawing(assignment)}>
-          Withdraw approval ({assignment.reviewer.name}, {assignment.scope.label})
-        </button>
-      ) : null}
-      {data.canManage ? (
-        <button type="button" disabled={busy} onClick={() => setRemoving(assignment)}>
-          Remove {assignment.reviewer.name} ({assignment.scope.label})
-        </button>
-      ) : null}
-    </li>
-  );
+  async function submit() {
+    if (!ready) return;
+    setBusy(true);
+    let ok: boolean;
+    if (kind === 'team') {
+      ok = await run(
+        addTeamMember(projectId, { userId, reason, idempotencyKey: key }),
+        `Added ${shownName} to the team.`,
+        apply.team,
+      );
+    } else if (kind === 'reviewer') {
+      ok = await run(
+        assignReviewer(projectId, {
+          reviewerUserId: userId,
+          scopeCode: scope,
+          reason,
+          idempotencyKey: key,
+        }),
+        `Assigned ${shownName} as reviewer.`,
+        apply.reviewers,
+      );
+    } else if (kind === 'issuer') {
+      ok = await run(
+        grantIssuer(projectId, {
+          issuerUserId: userId,
+          scopeCode: scope,
+          reason,
+          approvalReference: reference.trim() || null,
+          expiresAt: expires ? new Date(expires).toISOString() : null,
+          idempotencyKey: key,
+        }),
+        `Authorized ${shownName} to issue reports.`,
+        apply.issuers,
+      );
+    } else {
+      ok = await run(
+        addDelegate(projectId, { delegateUserId: userId, reason, idempotencyKey: key }),
+        `Added ${shownName} as an acceptance delegate.`,
+        apply.delegates,
+      );
+    }
+    setBusy(false);
+    setKey(crypto.randomUUID());
+    if (ok) onClose();
+    else setProblem('Nothing was saved. Your entries are kept.');
+  }
 
   return (
-    <BandedCard
-      className="project-section"
-      title="Review responsibilities"
-      subtitle="Designated reviewers, each for an explicit scope. One eligible review is enough unless a workflow says otherwise."
-    >
-      {data.active.length === 0 ? (
-        <EmptyState>No designated reviewers.</EmptyState>
-      ) : (
-        <>
-          {byScope.map((group) => (
-            <div key={group.scope.code} className="reviewer-scope">
-              <h3>{group.scope.label}</h3>
-              <ul className="delegate-list" aria-label={`Reviewers: ${group.scope.label}`}>
-                {group.rows.map(row)}
-              </ul>
-            </div>
-          ))}
-          {other.length > 0 ? (
-            <ul className="delegate-list" aria-label="Reviewers: other scopes">
-              {other.map(row)}
-            </ul>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <form
+          aria-label={copy.title}
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{copy.title}</DialogTitle>
+            <DialogDescription>{copy.description}</DialogDescription>
+          </DialogHeader>
+          {problem ? (
+            <Alert variant="destructive">
+              <AlertDescription>{problem}</AlertDescription>
+            </Alert>
           ) : null}
-        </>
-      )}
-      {data.canManage ? (
-        <ManageForm
-          label="Assign reviewer"
-          submitLabel="Assign reviewer"
-          disabled={busy || !scope || !reviewer || !reason.trim()}
-          onSubmit={async () => {
-            const chosen = candidates?.find((c) => c.id === reviewer);
-            setBusy(true);
-            const ok = await run(
-              assignReviewer(projectId, {
-                reviewerUserId: reviewer,
-                scopeCode: scope,
-                reason,
-                idempotencyKey: key,
-              }),
-              `Assigned ${chosen?.displayName ?? 'the reviewer'}.`,
-              onChange,
-            );
-            setBusy(false);
-            setKey(crypto.randomUUID());
-            if (ok) {
-              setReviewer('');
-              setReason('');
-            }
-          }}
-        >
-          <ScopeSelect
-            scopes={scopes}
-            value={scope}
-            onChange={(code) => {
-              setScope(code);
-              setReviewer('');
-            }}
-            label="Review scope"
-          />
-          <div className="form-field">
-            <label htmlFor={reviewerId}>Reviewer</label>
-            <select
-              id={reviewerId}
-              value={reviewer}
-              disabled={!candidates || candidates.length === 0}
-              onChange={(event) => setReviewer(event.target.value)}
+
+          {target ? (
+            <PersonCell name={target.name} userId={target.userId} />
+          ) : kind !== 'reviewer' ? (
+            <ReceiverSelect
+              label={copy.person}
+              value={person}
+              onChange={setPerson}
+              hint="Search by initials or name."
+            />
+          ) : null}
+
+          {kind === 'reviewer' || kind === 'issuer' ? (
+            <Labelled id={ids.scope} label={kind === 'reviewer' ? 'Review scope' : 'Report scope'}>
+              <ScopeSelect
+                id={ids.scope}
+                scopes={scopes}
+                value={scope}
+                onChange={(code) => {
+                  setScope(code);
+                  if (!target) setReviewer('');
+                }}
+              />
+            </Labelled>
+          ) : null}
+
+          {kind === 'reviewer' && !target ? (
+            <Labelled
+              id={ids.person}
+              label="Reviewer"
+              hint="Only people an admin has made eligible for this scope are listed."
             >
-              <option value="">
-                {!scope
-                  ? 'Choose a scope first'
-                  : lookupFailed
-                    ? 'Couldn’t load eligible reviewers'
-                    : !candidates
-                      ? 'Loading…'
-                      : candidates.length === 0
-                        ? 'Nobody is eligible for this scope'
-                        : 'Choose an eligible reviewer'}
-              </option>
-              {(candidates ?? []).map((person) => (
-                <option key={person.id} value={person.id}>
-                  {formatPerson(person.initials, person.displayName)}
-                </option>
-              ))}
-            </select>
-            <p className="field-hint">
-              Only people an admin has made eligible for this scope are listed.
+              <Select
+                value={reviewer}
+                onValueChange={setReviewer}
+                disabled={!candidates || candidates.length === 0}
+              >
+                <SelectTrigger id={ids.person} className="w-full">
+                  <SelectValue
+                    placeholder={
+                      !scope
+                        ? 'Choose a scope first'
+                        : found === 'failed'
+                          ? 'Couldn’t load eligible reviewers'
+                          : !candidates
+                            ? 'Loading…'
+                            : candidates.length === 0
+                              ? 'Nobody is eligible for this scope'
+                              : 'Choose an eligible reviewer'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {(candidates ?? []).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {formatPerson(c.initials, c.displayName)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Labelled>
+          ) : null}
+          {kind === 'reviewer' && target && scope && targetEligible === false ? (
+            <p role="note" className="text-sm text-destructive-text">
+              {target.name} isn’t eligible to review this scope. An admin makes people eligible.
             </p>
-          </div>
-          <ReasonField value={reason} onChange={setReason} />
-        </ManageForm>
-      ) : null}
-      <ReasonDialog
-        open={removing !== null}
-        title={`Remove ${removing?.reviewer.name ?? ''} as ${removing?.scope.label ?? ''} reviewer?`}
-        confirmLabel="Remove"
-        onConfirm={async (text) => {
-          const assignment = removing;
-          setRemoving(null);
-          if (!assignment) return;
-          setBusy(true);
-          await run(
-            removeReviewer(projectId, assignment.id, text),
-            `Removed ${assignment.reviewer.name} as ${assignment.scope.label} reviewer.`,
-            onChange,
-          );
-          setBusy(false);
-        }}
-        onCancel={() => setRemoving(null)}
-      >
-        <p>Reviews they already completed keep their name.</p>
-      </ReasonDialog>
-      <ReasonDialog
-        open={withdrawing !== null}
-        title={`Withdraw ${withdrawing?.reviewer.name ?? ''}’s approval to review ${withdrawing?.scope.label ?? ''}?`}
-        confirmLabel="Withdraw approval"
-        onConfirm={async (text) => {
-          const assignment = withdrawing;
-          setWithdrawing(null);
-          if (!assignment?.approval) return;
-          setBusy(true);
-          await run(
-            withdrawApproval(projectId, assignment.approval.id, text),
-            `Withdrew ${assignment.reviewer.name}’s approval to review ${assignment.scope.label}.`,
-            onChange,
-          );
-          setBusy(false);
-        }}
-        onCancel={() => setWithdrawing(null)}
-      >
-        <p>The assignment stays; they can review again only after a new approval.</p>
-      </ReasonDialog>
-      {data.approvalHistory.length > 0 ? (
-        <details>
-          <summary>Ended review approvals ({data.approvalHistory.length})</summary>
-          <ul className="delegate-list" aria-label="Ended review approvals">
-            {data.approvalHistory.map((approval) => (
-              <li key={approval.id}>
-                <strong>{who(approval.reviewer)}</strong> · {approval.scope.label} ·{' '}
-                {APPROVAL_END[approval.endKind ?? 'withdrawn']}
-                {approval.endReason ? `: ${approval.endReason}` : ''}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-    </BandedCard>
-  );
-}
+          ) : null}
 
-// ---------------------------------------------------------------------------------------------
-// Authorized report issuers (D06/D07)
-// ---------------------------------------------------------------------------------------------
-
-const ISSUER_BLOCKED: Record<NonNullable<ReportIssuerGrant['blockedReason']>, string> = {
-  account_not_active: 'Not effective: account isn’t active',
-  expired: 'Not effective: expired',
-};
-
-export function IssuersSection({
-  projectId,
-  data,
-  scopes,
-  run,
-  onChange,
-}: {
-  projectId: string;
-  data: ProjectReportIssuers;
-  scopes: ReviewScope[];
-  run: RunWrite;
-  onChange: (next: ProjectReportIssuers) => void;
-}) {
-  const [person, setPerson] = useState<ReceiverOption | null>(null);
-  const [scope, setScope] = useState('');
-  const [reason, setReason] = useState('');
-  const [reference, setReference] = useState('');
-  const [expires, setExpires] = useState('');
-  const [key, setKey] = useState(() => crypto.randomUUID());
-  const [busy, setBusy] = useState(false);
-  const [revoking, setRevoking] = useState<ReportIssuerGrant | null>(null);
-  const [emergency, setEmergency] = useState(false);
-  const referenceId = useId();
-  const expiresId = useId();
-
-  return (
-    <BandedCard
-      className="project-section"
-      title="Authorized report issuers"
-      subtitle="People the Lead Project Engineer has authorized to issue reports of a scope on this project. Admin status doesn’t grant this."
-    >
-      {data.active.length === 0 ? (
-        <EmptyState>
-          No authorized issuers. The Lead Project Engineer can issue every scope.
-        </EmptyState>
-      ) : (
-        <ul className="delegate-list" aria-label="Authorized report issuers">
-          {data.active.map((grant) => (
-            <li key={grant.id}>
-              <strong>{who(grant.issuer)}</strong>
-              <span>{grant.scope.label}</span>
-              {grant.effective ? (
-                <StatusBadge tone="success">Effective</StatusBadge>
-              ) : (
-                <StatusBadge tone="warning">
-                  {grant.blockedReason ? ISSUER_BLOCKED[grant.blockedReason] : 'Not effective'}
-                </StatusBadge>
-              )}
-              <Started row={grant} verb="Authorized" />
-              {grant.approvalReference ? (
-                <span className="field-hint">Approval: {grant.approvalReference}</span>
-              ) : null}
-              <span className="field-hint">
-                {grant.expiresAt ? `Expires ${shortDateTime(grant.expiresAt)}` : 'No expiry'}
-              </span>
-              {data.canManage ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setEmergency(false);
-                    setRevoking(grant);
-                  }}
-                >
-                  Revoke {grant.issuer.name} ({grant.scope.label})
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-      {data.canManage ? (
-        <ManageForm
-          label="Authorize report issuer"
-          submitLabel="Authorize issuer"
-          disabled={busy || !person || !scope || !reason.trim()}
-          onSubmit={async () => {
-            if (!person) return;
-            setBusy(true);
-            const ok = await run(
-              grantIssuer(projectId, {
-                issuerUserId: person.id,
-                scopeCode: scope,
-                reason,
-                approvalReference: reference.trim() || null,
-                expiresAt: expires ? new Date(expires).toISOString() : null,
-                idempotencyKey: key,
-              }),
-              `Authorized ${person.displayName} to issue reports.`,
-              onChange,
-            );
-            setBusy(false);
-            setKey(crypto.randomUUID());
-            if (ok) {
-              setPerson(null);
-              setScope('');
-              setReason('');
-              setReference('');
-              setExpires('');
-            }
-          }}
-        >
-          <ReceiverSelect
-            label="Issuer"
-            value={person}
-            onChange={setPerson}
-            hint="Search by initials or name."
-          />
-          <ScopeSelect scopes={scopes} value={scope} onChange={setScope} label="Report scope" />
-          <ReasonField value={reason} onChange={setReason} />
-          <div className="form-field">
-            <label htmlFor={referenceId}>Approval reference (optional)</label>
-            <input
-              id={referenceId}
-              type="text"
-              maxLength={200}
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
+          <Labelled id={ids.reason} label="Reason (required)">
+            <Textarea
+              id={ids.reason}
+              rows={2}
+              maxLength={2000}
+              value={reason}
+              placeholder="Say why. It’s kept with the change."
+              onChange={(event) => setReason(event.target.value)}
             />
-          </div>
-          <div className="form-field">
-            <label htmlFor={expiresId}>Expires (optional)</label>
-            <input
-              id={expiresId}
-              type="datetime-local"
-              value={expires}
-              onChange={(event) => setExpires(event.target.value)}
-            />
-          </div>
-        </ManageForm>
-      ) : null}
-      <ReasonDialog
-        open={revoking !== null}
-        title={`Revoke ${revoking?.issuer.name ?? ''} (${revoking?.scope.label ?? ''})?`}
-        confirmLabel="Revoke"
-        onConfirm={async (text) => {
-          const grant = revoking;
-          setRevoking(null);
-          if (!grant) return;
-          setBusy(true);
-          await run(
-            revokeIssuer(projectId, grant.id, {
-              reason: text,
-              kind: emergency ? 'emergency' : 'ordinary',
-            }),
-            `Revoked ${grant.issuer.name}’s ${grant.scope.label} issuing.`,
-            onChange,
-          );
-          setBusy(false);
-        }}
-        onCancel={() => setRevoking(null)}
-      >
-        <p>They can no longer issue these reports here. Reports already issued keep their name.</p>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={emergency}
-            onChange={(event) => setEmergency(event.target.checked)}
-          />
-          Emergency suspension
-        </label>
-      </ReasonDialog>
-    </BandedCard>
+          </Labelled>
+
+          {kind === 'issuer' ? (
+            <>
+              <Labelled id={ids.reference} label="Approval reference (optional)">
+                <Input
+                  id={ids.reference}
+                  maxLength={200}
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                />
+              </Labelled>
+              <Labelled id={expiresId} label="Expires (optional)">
+                <Input
+                  id={expiresId}
+                  type="datetime-local"
+                  value={expires}
+                  onChange={(event) => setExpires(event.target.value)}
+                />
+              </Labelled>
+            </>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy || !ready}>
+              {copy.submit}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -52,9 +52,7 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
   await expect(page.getByRole('link', { name: 'Team & Permissions' })).toHaveCount(0);
 
   await page.goto(`/projects/${DEMO_PROJECT_ID}/team`);
-  await expect(
-    page.getByText('Team & Permissions is for personal accounts. Sign in with your own account.'),
-  ).toBeVisible();
+  await expect(page.getByText('Team & permissions is for personal accounts')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
 
   await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}`);

@@ -237,6 +237,13 @@ export function projectListSortDirection(query: Pick<ProjectListQuery, 'sort' | 
   return query.dir ?? (query.sort === 'last_receipt' ? 'desc' : 'asc');
 }
 
+/** A pending Lead Project Engineer nomination as list rows show it (STRATA-83). */
+export const projectListNominationSchema = z.object({
+  nomineeName: z.string(),
+  nominatedByName: z.string(),
+});
+export type ProjectListNomination = z.infer<typeof projectListNominationSchema>;
+
 export const projectListItemSchema = projectSummarySchema.extend({
   /**
    * How the signed-in user is involved in this project now (D12), de-duplicated, in
@@ -250,28 +257,71 @@ export const projectListItemSchema = projectSummarySchema.extend({
   lastReceiptDate: z.string().nullable(),
   /** STRATA-58: the row's stage (optional until the API sends it on every row). */
   stage: stageKeySchema.optional(),
+  /**
+   * STRATA-83: while the project waits for a lead, the pending nomination (names only), or null
+   * when nobody is nominated. Null once a lead is appointed. Optional so older fixtures stay valid.
+   */
+  leadNomination: projectListNominationSchema.nullable().optional(),
 });
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
+
+/**
+ * STRATA-83: how many projects each Projects tab holds, with the same search applied: My
+ * projects (D12 involvement), All projects and Waiting for a lead.
+ */
+export const projectListTabCountsSchema = z.object({
+  mine: z.number(),
+  all: z.number(),
+  waitingForLead: z.number(),
+});
+export type ProjectListTabCounts = z.infer<typeof projectListTabCountsSchema>;
 
 export const projectListPageSchema = z.object({
   items: z.array(projectListItemSchema),
   total: z.number(),
   page: z.number(),
   pageSize: z.number(),
+  /** STRATA-83 tab counts; optional so older fixtures stay valid. */
+  tabCounts: projectListTabCountsSchema.optional(),
 });
 export type ProjectListPage = z.infer<typeof projectListPageSchema>;
+
+/** A depth interval in one unit, e.g. 0.8–9.2 m (STRATA-84). */
+export const projectDepthRangeSchema = z.object({
+  from: z.number(),
+  to: z.number(),
+  unit: z.enum(['ft', 'm']),
+});
+export type ProjectDepthRange = z.infer<typeof projectDepthRangeSchema>;
 
 export const projectDetailTestHoleSchema = testHoleSchema.extend({
   /** Storage units (any status) with a SAMPLE#/DEPTH summary for this hole. */
   unitCount: z.number(),
+  /**
+   * STRATA-84: the lowest and highest SAMPLE# recorded for the hole (hole summaries' sample
+   * ranges and tubes' own sample references, in natural order: SS2 before SS10), or null.
+   * Optional so older fixtures stay valid.
+   */
+  sampleRange: z.object({ from: z.string(), to: z.string() }).nullable().optional(),
+  /** True when a unit holds "All samples" of the hole. */
+  allSamples: z.boolean().optional(),
+  /** Shallowest to deepest recorded depth, one entry per depth unit (m first). */
+  depthRanges: z.array(projectDepthRangeSchema).optional(),
 });
 export type ProjectDetailTestHole = z.infer<typeof projectDetailTestHoleSchema>;
 
 export const projectDetailReceiptSchema = z.object({
   id: z.string(),
   receivedDate: z.string(),
-  receiver: z.object({ name: z.string(), initials: z.string() }),
+  receiver: z.object({
+    name: z.string(),
+    initials: z.string(),
+    /** STRATA-84: the receiver's user ID, for the avatar photo. Optional for older fixtures. */
+    userId: z.string().optional(),
+  }),
   unitCount: z.number(),
+  /** STRATA-84: the test holes the receipt's units came from, in hole order. */
+  testHoleNames: z.array(z.string()).optional(),
 });
 export type ProjectDetailReceipt = z.infer<typeof projectDetailReceiptSchema>;
 
@@ -294,6 +344,15 @@ export const projectDetailSchema = projectSummarySchema.extend({
   /** Newest first, at most PROJECT_DETAIL_RECEIPT_LIMIT; receiptCount is the full total. */
   receipts: z.array(projectDetailReceiptSchema),
   receiptCount: z.number(),
+  // STRATA-84 project page. Optional so older fixtures stay valid; the API always sends them.
+  /** How the signed-in user is involved now (D12); empty: "no assignment" (they can still see it). */
+  involvement: z.array(z.enum(PROJECT_INVOLVEMENTS)).optional(),
+  /** Submitted (open) and closed lab programs; drafts aren't counted. */
+  labProgramCounts: z.object({ open: z.number(), closed: z.number() }).optional(),
+  /** Any concrete field report, mix or concrete settings on the project. */
+  hasConcreteWork: z.boolean().optional(),
+  /** The signed-in user may start concrete work here (the project's lead manages mixes). */
+  canStartConcreteWork: z.boolean().optional(),
 });
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;
 
@@ -346,3 +405,41 @@ export const projectVersionConflictResponseSchema = z.object({
   current: projectDetailSchema,
 });
 export type ProjectVersionConflictResponse = z.infer<typeof projectVersionConflictResponseSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Project page test holes (STRATA-84)
+// ---------------------------------------------------------------------------------------------
+
+const SAMPLE_COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
+/** SAMPLE# in natural order, ignoring case: SS2 before SS10, G1 before S1. */
+export function compareSampleNumbers(a: string, b: string): number {
+  return SAMPLE_COLLATOR.compare(a, b);
+}
+
+/** The lowest and highest of `samples` in natural order, or null when there are none. */
+export function sampleNumberRange(samples: readonly string[]): { from: string; to: string } | null {
+  const sorted = samples.filter((s) => s.trim() !== '').sort(compareSampleNumbers);
+  if (sorted.length === 0) return null;
+  return { from: sorted[0]!, to: sorted[sorted.length - 1]! };
+}
+
+/** "SS1–SS14", "SS3" when one sample, "All samples" when a unit holds them all. */
+export function formatSampleRange(
+  range: { from: string; to: string } | null | undefined,
+  allSamples = false,
+): string | null {
+  if (allSamples) return 'All samples';
+  if (!range) return null;
+  return compareSampleNumbers(range.from, range.to) === 0
+    ? range.from
+    : `${range.from}–${range.to}`;
+}
+
+/** "0.8–9.2 m"; several units joined with " · "; null when no depth is recorded. */
+export function formatDepthRanges(ranges: readonly ProjectDepthRange[] | undefined): string | null {
+  if (!ranges || ranges.length === 0) return null;
+  return ranges
+    .map((r) => (r.from === r.to ? `${r.from} ${r.unit}` : `${r.from}–${r.to} ${r.unit}`))
+    .join(' · ');
+}

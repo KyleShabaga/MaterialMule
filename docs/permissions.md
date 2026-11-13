@@ -345,6 +345,7 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 | `GET /api/review-scopes`                                                                                                         | `project_access.read` (personal accounts)             |
 | `GET /api/review-scopes/:code/eligible-reviewers?search=` (MM-AO05)                                                              | `project_access.read`                                 |
 | `GET /api/projects/:projectId/capabilities`                                                                                      | `project_access.read`                                 |
+| `GET /api/projects/:projectId/access-history` (STRATA-85, paged)                                                                 | `project_access.read`                                 |
 | `GET /api/projects/:projectId/team-members`                                                                                      | `project_access.read`                                 |
 | `POST /api/projects/:projectId/team-members {userId, reason, idempotencyKey}`                                                    | active user; handler checks `project_team.manage`     |
 | `DELETE /api/projects/:projectId/team-members/:id {reason}`                                                                      | active user; handler checks `project_team.manage`     |

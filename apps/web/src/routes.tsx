@@ -26,7 +26,10 @@ import { DashboardPage } from './pages/DashboardPage';
 import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
 import { SignInPage } from './pages/SignInPage';
 import { LabelPrintPage } from './printing/LabelPrintPage';
-import { ProjectDetailPage } from './projects/ProjectDetailPage';
+import { ProjectLayout } from './projects/ProjectLayout';
+import { ProjectOverviewTab } from './projects/ProjectOverviewTab';
+import { ProjectProgramsTab } from './projects/ProjectProgramsTab';
+import { ProjectUnitsTab } from './projects/ProjectUnitsTab';
 import { ProjectsPage } from './projects/ProjectsPage';
 import {
   ProjectConcreteMixesRedirect,
@@ -217,10 +220,20 @@ export const routes: RouteObject[] = [
                           { path: 'help', element: <HelpPage /> },
                           // Field Ledger search across units, samples, projects and programs (top bar, Find).
                           { path: 'search', element: <SearchPage /> },
-                          // Projects list and detail (MM-T35).
+                          // Projects list (STRATA-83) and the project page with its tabs
+                          // (STRATA-84): each tab keeps its own URL. Concrete keeps its own
+                          // routes below (lane E); the layout's Concrete tab links there.
                           { path: 'projects', element: <ProjectsPage /> },
-                          { path: 'projects/:projectId', element: <ProjectDetailPage /> },
-                          { path: 'projects/:projectId/team', element: <TeamPermissionsPage /> },
+                          {
+                            path: 'projects/:projectId',
+                            element: <ProjectLayout />,
+                            children: [
+                              { index: true, element: <ProjectOverviewTab /> },
+                              { path: 'units', element: <ProjectUnitsTab /> },
+                              { path: 'programs', element: <ProjectProgramsTab /> },
+                              { path: 'team', element: <TeamPermissionsPage /> },
+                            ],
+                          },
                           // The project's Concrete section (MM-V2-C30): five tabs, mix detail and the mix
                           // propagation review.
                           {

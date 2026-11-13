@@ -23,6 +23,24 @@ const LAB: MeResponse = {
 };
 
 const PROJECT = '00000000-0000-4000-8000-000000000a01';
+const PROJECT_DETAIL = {
+  id: PROJECT,
+  projectNumber: 'DEMO-2601',
+  name: 'Riverbank investigation',
+  client: 'Example Client',
+  leadProjectEngineer: null,
+  serverFolderPath: null,
+  version: 1,
+  numberLocked: false,
+  leadNomination: null,
+  canEdit: false,
+  canChangeLeadProjectEngineer: false,
+  unitCount: 0,
+  inStockUnitCount: 0,
+  testHoles: [],
+  receipts: [],
+  receiptCount: 0,
+};
 const PERSONAL = [
   '/api/action-items',
   '/api/notifications',
@@ -42,7 +60,15 @@ function renderAsLab(path: string) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
-      urls.push(new URL(String(input), 'http://localhost').pathname);
+      const pathname = new URL(String(input), 'http://localhost').pathname;
+      urls.push(pathname);
+      // The project page's layout (STRATA-84) loads the project before its Team tab renders.
+      if (pathname === `/api/projects/${PROJECT}`) {
+        return new Response(JSON.stringify(PROJECT_DETAIL), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
       return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } });
     }),
   );
@@ -98,12 +124,10 @@ describe('MTR-2: LAB on personal-account pages', () => {
     expect(personalCalls(urls)).toEqual([]);
   });
 
-  it('Team & Permissions shows a refusal with no pointless Retry', async () => {
+  it('Team & permissions shows a refusal with no pointless Retry', async () => {
     const urls = renderAsLab(`/projects/${PROJECT}/team`);
     expect(
-      await screen.findByText(
-        'Team & Permissions is for personal accounts. Sign in with your own account.',
-      ),
+      await screen.findByText('Team & permissions is for personal accounts'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     expect(personalCalls(urls)).toEqual([]);

@@ -386,8 +386,8 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         canChangeLeadProjectEngineer: false,
       });
       expect(project.receipts.map((r) => [r.receivedDate, r.unitCount, r.receiver])).toEqual([
-        ['2026-10-20', 1, { name: 'User tech', initials: 'TECH' }],
-        ['2026-10-01', 2, { name: 'User tech', initials: 'TECH' }],
+        ['2026-10-20', 1, { name: 'User tech', initials: 'TECH', userId: users.tech }],
+        ['2026-10-01', 2, { name: 'User tech', initials: 'TECH', userId: users.tech }],
       ]);
       expect(project.testHoles.map((h) => [h.name, h.unitCount])).toEqual([
         ['TH26-01', 2],
@@ -436,6 +436,108 @@ describe.runIf(testDatabaseUrl)('projects list and detail (MM-T35)', () => {
         ['TH26-02', 2],
         ['TH26-03', 0],
       ]);
+    });
+  });
+
+  // STRATA-83/84: the Projects tabs and the project page's header, Overview and tab counts.
+  describe('Strata projects screens (STRATA-83, STRATA-84)', () => {
+    let ranged: string;
+    let waiting: string;
+
+    beforeAll(async () => {
+      ranged = await addProject('DEMO-2620', 'Ranged holes', 'Example Client', users.mine!);
+      const hole = await addHole(ranged, 'TH26-01');
+      await addHole(ranged, 'TH26-02');
+      const receipt = await addReceipt(ranged, '2026-11-02', [{ holes: [] }, { holes: [] }]);
+      const units = await db.pool.query<{ id: string }>(
+        'SELECT id FROM storage_unit WHERE receipt_id = $1 ORDER BY receipt_line NULLS LAST, id',
+        [receipt],
+      );
+      const [a, b] = units.rows.map((r) => r.id) as [string, string];
+      await db.pool.query(
+        `INSERT INTO storage_unit_hole_summary (storage_unit_id, project_id, test_hole_id,
+                                                summary_type, sample_from, sample_to)
+         VALUES ($1, $2, $3, 'sample_range', 'SS2', 'SS10')`,
+        [a, ranged, hole],
+      );
+      await db.pool.query(
+        `INSERT INTO storage_unit_hole_summary (storage_unit_id, project_id, test_hole_id,
+                                                summary_type, depth_from, depth_to, depth_unit)
+         VALUES ($1, $2, $3, 'depth_range', 0.8, 9.2, 'm')`,
+        [b, ranged, hole],
+      );
+      await db.pool.query(
+        `INSERT INTO lab_program (project_id, status, created_by_account_user_id,
+           created_by_account_type, requested_by_user_id, requested_by_name_snapshot,
+           create_idempotency_key)
+         VALUES ($1, 'draft', $2, 'personal', $2, 'User mine', gen_random_uuid())`,
+        [ranged, users.mine],
+      );
+
+      waiting = (
+        await db.pool.query<{ id: string }>(
+          `INSERT INTO project (project_number, name, client)
+           VALUES ('DEMO-2621', 'Waiting example', 'Example Client') RETURNING id`,
+        )
+      ).rows[0]!.id;
+      await db.pool.query(
+        `INSERT INTO project_lead_nomination (project_id, nominee_user_id, nominee_name_snapshot,
+           nominated_by_user_id, nominated_by_name_snapshot, nomination_idempotency_key,
+           nomination_request_hash)
+         VALUES ($1, $2, 'User pe', $3, 'User tech', gen_random_uuid(), 'h')`,
+        [waiting, users.pe, users.tech],
+      );
+    });
+
+    it('counts each tab under the same search and names the pending nomination', async () => {
+      const page = await listAll('search=DEMO-262', 'mine');
+      expect(page.tabCounts).toEqual({ mine: 1, all: 2, waitingForLead: 1 });
+      const row = page.items.find((p) => p.projectNumber === 'DEMO-2621')!;
+      expect(row.leadProjectEngineer).toBeNull();
+      expect(row.leadNomination).toEqual({
+        nomineeName: 'User pe',
+        nominatedByName: 'User tech',
+      });
+      expect(page.items.find((p) => p.projectNumber === 'DEMO-2620')!.leadNomination).toBeNull();
+      // The tab counts don't depend on which tab is open.
+      expect((await listAll('search=DEMO-262&waitingForLead=true', 'mine')).tabCounts).toEqual(
+        page.tabCounts,
+      );
+    });
+
+    it('gives each hole its SAMPLE# and depth ranges and each receipt its holes', async () => {
+      const project = await detail(ranged, 'mine');
+      expect(
+        project.testHoles.map((h) => [h.name, h.sampleRange, h.allSamples, h.depthRanges]),
+      ).toEqual([
+        ['TH26-01', { from: 'SS2', to: 'SS10' }, false, [{ from: 0.8, to: 9.2, unit: 'm' }]],
+        ['TH26-02', null, false, []],
+      ]);
+      expect(project.receipts[0]).toMatchObject({
+        testHoleNames: ['TH26-01'],
+        receiver: { userId: users.tech },
+      });
+      // "All samples" summaries on DEMO-2601.
+      expect((await detail(demo)).testHoles[0]).toMatchObject({ allSamples: true });
+    });
+
+    it('reports involvement, lab program counts and concrete work as the server sees them', async () => {
+      expect(await detail(ranged, 'mine')).toMatchObject({
+        involvement: ['lead_project_engineer'],
+        // Drafts aren't counted.
+        labProgramCounts: { open: 0, closed: 0 },
+        hasConcreteWork: false,
+        canStartConcreteWork: true,
+      });
+      expect(await detail(ranged, 'tech')).toMatchObject({
+        involvement: [],
+        canStartConcreteWork: false,
+      });
+      // Admins hold no concrete authority (CLAUDE.md): no implicit mix management.
+      expect((await detail(ranged, 'admin')).canStartConcreteWork).toBe(false);
+      expect((await detail(waiting, 'tech')).leadNomination).toMatchObject({
+        nominee: { name: 'User pe' },
+      });
     });
   });
 
