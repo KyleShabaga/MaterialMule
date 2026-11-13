@@ -354,6 +354,19 @@ describe.runIf(testDatabaseUrl)('LAB station API (Strata lane A)', () => {
       expect(await snapshot()).toBe(before);
     });
 
+    it("never opens LAB's way into the personal Inbox and notification routes", async () => {
+      const before = await snapshot();
+      for (const path of [
+        '/api/notifications',
+        '/api/inbox',
+        '/api/inbox/summary',
+        `/api/inbox?personId=${h.users.pe}`,
+      ]) {
+        expect((await h.get(path, 'lab')).status, path).toBe(403);
+      }
+      expect(await snapshot()).toBe(before);
+    });
+
     it('answers private with no items or counts when the person has not opted in', async () => {
       for (const person of [h.users.tech, h.users.lm]) {
         const listed = await page(person);

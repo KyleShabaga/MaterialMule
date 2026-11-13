@@ -66,7 +66,11 @@ function TopBar() {
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {recording ? <RecordingAsChip /> : null}
         <QuickActions />
-        {me.permissions.includes('notification.read') ? <NotificationsBell /> : null}
+        {/* A LAB station shows the picked person's bell through the consent-based station
+            summary only (STRATA-27); LAB itself never holds notification.read. */}
+        {me.permissions.includes('notification.read') || recording?.isStation ? (
+          <NotificationsBell />
+        ) : null}
       </div>
     </header>
   );

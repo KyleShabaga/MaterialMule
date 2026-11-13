@@ -412,6 +412,10 @@ describe('NotificationsBell on a LAB station (STRATA-27)', () => {
       privateFor(PAT, 'Pat Example'),
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    // The station reads only the consent-based summary, never LAB's own feed.
+    for (const [input] of fetchMock.mock.calls) {
+      expect(new URL(String(input), 'http://localhost').pathname).toBe(STATION_SUMMARY);
+    }
     const bell = screen.getByRole('link', { name: 'Notifications' });
     expect(bell.querySelector('[data-slot="bell-count"]')).toBeNull();
     expect(screen.getByRole('status', { name: 'Sidebar Inbox count' })).toHaveTextContent('hidden');
