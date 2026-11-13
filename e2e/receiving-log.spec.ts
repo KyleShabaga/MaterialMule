@@ -27,9 +27,17 @@ async function noHorizontalScroll(page: Page) {
 /** Body rows only. */
 const bodyRows = (table: Locator) => table.locator('tbody tr');
 
-async function printJobCount(): Promise<number> {
+/**
+ * Print jobs that include any of these units. Scoped to the test's own units: other specs print in
+ * parallel, so a count of every job would move under it.
+ */
+async function printJobCount(unitIds: string[]): Promise<number> {
   return withDatabase(async (client) => {
-    const { rows } = await client.query<{ n: number }>('SELECT count(*)::int AS n FROM print_job');
+    const { rows } = await client.query<{ n: number }>(
+      `SELECT count(DISTINCT print_job_id)::int AS n FROM print_job_item
+        WHERE storage_unit_id = ANY($1::uuid[])`,
+      [unitIds],
+    );
     return rows[0]!.n;
   });
 }
@@ -57,7 +65,8 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
     receivedDate: '2026-10-21',
   });
   const ids = units.map((u) => u.suNumber).sort();
-  const printJobs = await printJobCount();
+  const unitIds = units.map((u) => u.storageUnitId);
+  const printJobs = await printJobCount(unitIds);
 
   await page.goto('/receiving-log');
   await expect(page.getByRole('heading', { name: 'Receiving log', level: 1 })).toBeVisible();
@@ -129,7 +138,7 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
   await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
 
   // Reading and previewing queued no printing (AC8).
-  expect(await printJobCount()).toBe(printJobs);
+  expect(await printJobCount(unitIds)).toBe(printJobs);
 });
 
 test('T8: a local draft is not a receipt and is listed as a draft to continue', async ({
