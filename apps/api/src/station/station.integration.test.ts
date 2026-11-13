@@ -216,6 +216,47 @@ describe.runIf(testDatabaseUrl)('LAB station API (Strata lane A)', () => {
       });
     });
 
+    it('counts only open LAB drafts: never confirmed, expired or past the auto-delete age', async () => {
+      const count = async () => {
+        const response = await h.get('/api/station/today', 'lab');
+        expect(response.status, json(response.body)).toBe(200);
+        return stationTodaySchema.parse(response.body).draftReceipts;
+      };
+      const before = await count();
+      const insert = (id: string, age = 0) =>
+        h.db.pool.query(
+          `INSERT INTO receipt_draft_registry (draft_id, account_user_id, starter_user_id, created_at)
+           VALUES ($1, $2, $3, now() - make_interval(days => $4::int))`,
+          [id, h.users.lab, h.users.tech, age],
+        );
+      const [open, confirmed, expired, old] = [newKey(), newKey(), newKey(), newKey()];
+      await insert(open);
+      await insert(confirmed);
+      await insert(expired);
+      await insert(old, 45);
+      for (const [id, reason] of [
+        [confirmed, 'confirmed'],
+        [expired, 'expired'],
+      ] as const) {
+        await h.db.pool.query(
+          `UPDATE receipt_draft_registry SET closed_at = now(), closed_reason = $2
+           WHERE draft_id = $1`,
+          [id, reason],
+        );
+      }
+      // Clean-up off (the default): nothing is deleted for age, so the old draft still counts.
+      expect(await count()).toBe((before ?? 0) + 2);
+      // Clean-up on at 30 days: the 45-day-old draft was deleted by its browser, even offline.
+      await h.db.pool.query(`UPDATE draft_auto_delete_setting SET enabled = true, after_days = 30`);
+      try {
+        expect(await count()).toBe((before ?? 0) + 1);
+      } finally {
+        await h.db.pool.query(
+          `UPDATE draft_auto_delete_setting SET enabled = false, after_days = 90`,
+        );
+      }
+    });
+
     it('answers null for a count that fails and still returns the others', async () => {
       const pool = h.app.get(DatabaseService).pool;
       const original = pool.query.bind(pool);

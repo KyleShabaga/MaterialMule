@@ -304,9 +304,12 @@ describe('Receive samples on one page (STRATA-76)', () => {
 
     expect(posts).toHaveLength(1);
     const sent = posts[0] as {
+      draftId: string;
       description: string;
       units: { unitType: string; holeSummaries: unknown[] }[];
     };
+    // The browser draft's ID travels with the receipt, so the server closes its registry row.
+    expect(sent.draftId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     expect(sent.description).toBe('');
     expect(sent.units.map((u) => u.unitType)).toEqual(['bucket', 'bucket']);
     expect(sent.units[0]!.holeSummaries).toEqual([

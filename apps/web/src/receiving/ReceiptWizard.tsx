@@ -434,7 +434,8 @@ export function ReceiptWizard({
     // Stored as "confirming" before the request leaves, so a crash before the answer resumes by
     // resending with the same idempotency key (MM-T09 then returns the original IDs).
     await setStatus('confirming');
-    const outcome = await confirmReceipt(toConfirmRequest(draft));
+    // The draft's ID lets the server close its registry row with the receipt (migration 0049).
+    const outcome = await confirmReceipt({ ...toConfirmRequest(draft), draftId: record.draftId });
     setConfirming(false);
     switch (outcome.kind) {
       case 'confirmed':

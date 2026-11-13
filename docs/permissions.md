@@ -1634,12 +1634,13 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Receiving drafts and receipts (STRATA-78, STRATA-108)
 
-| Route                                                      | Policy                                                                   |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `POST /api/receipt-drafts {draftId, personUserId?}`        | `receipt.draft`                                                          |
-| `GET /api/receipt-drafts?ids=&personUserId=`               | `receipt.draft`                                                          |
-| `POST /api/receipt-drafts/:draftId/delete {personUserId?}` | `receipt.draft`; then the draft's starter or a verified Lab Manager only |
-| `GET /api/receipts/:receiptId/history?page=`               | `inventory.read`                                                         |
+| Route                                                        | Policy                                                                              |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `POST /api/receipt-drafts {draftId, personUserId?}`          | `receipt.draft`                                                                     |
+| `GET /api/receipt-drafts?ids=&personUserId=`                 | `receipt.draft`                                                                     |
+| `POST /api/receipt-drafts/:draftId/delete {personUserId?}`   | `receipt.draft`; then the draft's starter or a verified Lab Manager only            |
+| `POST /api/receipt-drafts/:draftId/close {reason:'expired'}` | `receipt.draft`; closes only a draft this account registered (else `closed: false`) |
+| `GET /api/receipts/:receiptId/history?page=`                 | `inventory.read`                                                                    |
 
 - **Drafts stay in the browser** (MM-T11). The server registry holds only who started each draft
   (account and person), never its contents. Changing Received by never changes the starter.
@@ -1649,6 +1650,13 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   borrows a role. A draft saved before the registry has no owner, so only a Lab Manager may delete
   it, recorded as a legacy row. Refused: 403 `draft_delete_forbidden`; a repeat delete is
   idempotent. Draft auto-delete (MM-T45) is an admin policy and is unchanged.
+- **Closing a draft** (migration 0049) is not a deletion and needs no starter or Lab Manager: it
+  only records that the draft is finished. `POST /api/receipts` closes the draft named by its
+  optional `draftId` as `confirmed` in the receipt's transaction, and the browser's automatic
+  clean-up closes a registered draft it deleted as `expired`. Either closes only a row the same
+  account registered (LAB's drafts on LAB, one's own on a personal account); an unknown, foreign,
+  legacy or deleted draft is ignored the same way (never fails the receipt, reveals nothing). A
+  close is recorded once (`receipt_draft.closed`); a repeat answers the first close.
 - **Received by** is staff attribution chosen per receipt (STRATA-107): editable, separate from
   the account that entered it; the receipt shows "Entered by X, for Y" when they differ. It
   grants no permissions.
