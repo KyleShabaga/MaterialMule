@@ -871,14 +871,17 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
 });
 
 async function waitForLockWait(h: LabHarness, table: string) {
-  for (let i = 0; i < 500; i += 1) {
+  // Up to 10 s of wall time, not a fixed number of event-loop turns: a slow CI runner may take
+  // longer to bring the request to its lock, but the assertion (something waits) is unchanged.
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
     const { rows } = await h.db.pool.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM pg_stat_activity
        WHERE wait_event_type = 'Lock' AND query ILIKE $1`,
       [`%${table}%`],
     );
     if (rows[0]!.n > 0) return;
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error(`nothing waited on ${table}`);
 }

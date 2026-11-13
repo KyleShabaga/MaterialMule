@@ -429,7 +429,8 @@ describe.runIf(testDatabaseUrl)('action item rerouting and the unresolved queue 
         )
       ).rows[0];
     const before = await counts();
-    for (const who of ['tech', 'lm', 'admin'] as const) {
+    // No authority to close: 403 before anything about the program is checked.
+    for (const who of ['jo', 'admin'] as const) {
       const refused = await h.send(
         'post',
         `/api/lab-programs/${p.id}/close`,
@@ -437,6 +438,17 @@ describe.runIf(testDatabaseUrl)('action item rerouting and the unresolved queue 
         who,
       );
       expect(refused.status, who).toBe(403);
+    }
+    // STRATA-87 (Kyle 2026-11-12): the requester ('tech' submitted it) and a Lab Manager may
+    // close, so they pass the authority check and are refused by the closure rule instead.
+    for (const who of ['tech', 'lm'] as const) {
+      const refused = await h.send(
+        'post',
+        `/api/lab-programs/${p.id}/close`,
+        { version: p.version, idempotencyKey: newKey() },
+        who,
+      );
+      expect(refused.status, who).toBe(422);
     }
     expect(await counts()).toEqual(before);
   });
