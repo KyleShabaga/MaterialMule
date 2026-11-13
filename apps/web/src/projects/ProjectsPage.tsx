@@ -142,7 +142,11 @@ export function ProjectsPage() {
         width: '12ch',
         sortKey: 'number',
         cell: (project) => (
-          <Button variant="link" asChild className="h-auto p-0 font-mono">
+          <Button
+            variant="link"
+            asChild
+            className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+          >
             <Link
               to={`/projects/${project.id}`}
               state={linkState}

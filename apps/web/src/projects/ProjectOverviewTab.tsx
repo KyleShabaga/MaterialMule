@@ -204,7 +204,11 @@ function TestHolesSection({
                     }}
                   >
                     <TableCell>
-                      <Button variant="link" asChild className="h-auto p-0 font-mono">
+                      <Button
+                        variant="link"
+                        asChild
+                        className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                      >
                         <Link to={to} aria-label={`${hole.name}: open its storage units`}>
                           {hole.name}
                         </Link>
@@ -230,7 +234,11 @@ function TestHolesSection({
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
             <span>A hole opens its units in Storage units.</span>
             {holes.length > HOLES_SHOWN ? (
-              <Button variant="link" className="h-auto p-0" onClick={() => setShowAll((v) => !v)}>
+              <Button
+                variant="link"
+                className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                onClick={() => setShowAll((v) => !v)}
+              >
                 {showAll ? `Show the first ${HOLES_SHOWN}` : `Show all ${holes.length} test holes`}
               </Button>
             ) : null}
@@ -352,7 +360,11 @@ function RecentReceipts({ project }: { project: ProjectDetail }) {
       meta={project.receiptCount > RECEIPTS_SHOWN ? `Last ${RECEIPTS_SHOWN}` : undefined}
       action={
         project.receiptCount > 0 ? (
-          <Button variant="link" asChild className="h-auto p-0">
+          <Button
+            variant="link"
+            asChild
+            className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+          >
             <Link to={`/receiving-log?projectId=${encodeURIComponent(project.id)}`}>
               Open the receiving log
             </Link>
@@ -368,7 +380,11 @@ function RecentReceipts({ project }: { project: ProjectDetail }) {
             <Item key={receipt.id} size="sm" role="listitem" className="px-0">
               <ItemContent>
                 <ItemTitle>
-                  <Button variant="link" asChild className="h-auto p-0">
+                  <Button
+                    variant="link"
+                    asChild
+                    className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                  >
                     <Link to={`/receiving-log/${encodeURIComponent(receipt.id)}`}>
                       {receipt.unitCount} {receipt.unitCount === 1 ? 'unit' : 'units'} on{' '}
                       <span className="font-mono">{receipt.receivedDate}</span>
@@ -458,7 +474,11 @@ function RetentionComingUp({ project }: { project: ProjectDetail }) {
                 />
                 <ItemContent>
                   <ItemTitle>
-                    <Button variant="link" asChild className="h-auto p-0 font-mono">
+                    <Button
+                      variant="link"
+                      asChild
+                      className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                    >
                       <Link to={`/sample-storage/${encodeURIComponent(item.readableId)}`}>
                         {item.readableId}
                       </Link>
@@ -484,7 +504,11 @@ function RetentionComingUp({ project }: { project: ProjectDetail }) {
           })}
         </ItemGroup>
       )}
-      <Button variant="link" asChild className="h-auto self-start p-0">
+      <Button
+        variant="link"
+        asChild
+        className="h-auto self-start p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+      >
         <Link to={`/disposal-retention?projectId=${encodeURIComponent(project.id)}`}>
           Open Retention for this project
         </Link>
@@ -539,7 +563,11 @@ function LabProgramsSummary({ project }: { project: ProjectDetail }) {
             <Item key={program.id} size="sm" role="listitem" className="px-0">
               <ItemContent>
                 <ItemTitle className="flex flex-wrap items-center gap-2">
-                  <Button variant="link" asChild className="h-auto p-0 font-mono">
+                  <Button
+                    variant="link"
+                    asChild
+                    className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                  >
                     <Link to={`/lab-testing/programs/${encodeURIComponent(program.id)}`}>
                       {programName(program)}
                     </Link>
@@ -555,7 +583,11 @@ function LabProgramsSummary({ project }: { project: ProjectDetail }) {
         </ItemGroup>
       )}
       {counts.open + counts.closed > 0 ? (
-        <Button variant="link" asChild className="h-auto self-start p-0">
+        <Button
+          variant="link"
+          asChild
+          className="h-auto self-start p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+        >
           <Link to={programsPath}>Open Lab programs</Link>
         </Button>
       ) : null}

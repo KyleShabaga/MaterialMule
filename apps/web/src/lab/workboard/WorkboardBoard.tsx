@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProgramCard } from './ProgramCard';
 
 const SCROLLER =
-  'relative flex gap-4 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+  'relative flex gap-4 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring';
 // Two columns at a time below a 60rem container (1024 px with the sidebar), sideways scroll;
 // all four share the width above it.
 const COLUMN =

@@ -155,33 +155,40 @@ export function NeedsReviewSection({
   const reviews = grantReviews?.canDecide ? grantReviews.pending : [];
   return (
     <TeamCard id="team-review" title="Needs review" count={count}>
-      {reviews.length > 0 ? (
-        <p role="note" className="text-sm">
-          This project has a new Lead Project Engineer. {reviews.length} grant
-          {reviews.length === 1 ? '' : 's'} made before the change{' '}
-          {reviews.length === 1 ? 'needs' : 'need'} review. They stay in force until then.
-        </p>
+      {joins.length > 0 ? (
+        <ItemGroup aria-label="Join requests">
+          {joins.map((request) => (
+            <JoinRequestItem
+              key={request.id}
+              projectId={projectId}
+              request={request}
+              run={run}
+              onChange={onJoinChange}
+            />
+          ))}
+        </ItemGroup>
       ) : null}
-      <ItemGroup aria-label="Waiting for your review">
-        {joins.map((request) => (
-          <JoinRequestItem
-            key={request.id}
-            projectId={projectId}
-            request={request}
-            run={run}
-            onChange={onJoinChange}
-          />
-        ))}
-        {reviews.map((review) => (
-          <GrantReviewItem
-            key={review.id}
-            projectId={projectId}
-            review={review}
-            run={run}
-            onChange={onReviewChange}
-          />
-        ))}
-      </ItemGroup>
+      {reviews.length > 0 ? (
+        // MTR-25's region and list names, kept from the earlier Team & Permissions page.
+        <section aria-label="Inherited grants to review" className="flex flex-col gap-2">
+          <p role="note" className="text-sm">
+            This project has a new Lead Project Engineer. {reviews.length} grant
+            {reviews.length === 1 ? '' : 's'} made before the change{' '}
+            {reviews.length === 1 ? 'needs' : 'need'} review. They stay in force until then.
+          </p>
+          <ItemGroup aria-label="Grants needing review">
+            {reviews.map((review) => (
+              <GrantReviewItem
+                key={review.id}
+                projectId={projectId}
+                review={review}
+                run={run}
+                onChange={onReviewChange}
+              />
+            ))}
+          </ItemGroup>
+        </section>
+      ) : null}
       <p className="text-[13px] text-muted-foreground">
         Only the lead and admins see this. Declining, keeping or ending a grant needs a reason;
         accepting doesn’t.

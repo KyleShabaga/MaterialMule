@@ -119,7 +119,11 @@ export function ProjectProgramsTab() {
         width: '17ch',
         sortKey: 'number',
         cell: (program) => (
-          <Button variant="link" asChild className="h-auto p-0 font-mono">
+          <Button
+            variant="link"
+            asChild
+            className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+          >
             <Link to={programPath(program)}>{programName(program)}</Link>
           </Button>
         ),

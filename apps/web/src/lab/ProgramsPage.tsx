@@ -401,7 +401,11 @@ function useProgramColumns(
       sortKey: tab === 'drafts' ? undefined : 'number',
       control: true,
       cell: (row) => (
-        <Button variant="link" asChild className="h-auto p-0 font-[inherit]">
+        <Button
+          variant="link"
+          asChild
+          className="h-auto p-0 font-[inherit] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+        >
           <Link
             to={`/lab-testing/programs/${row.id}`}
             onClick={(event) => rowLinkClick(event, () => openRow(row))}

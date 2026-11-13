@@ -188,7 +188,7 @@ function SameSourcePicker({
       <Button
         type="button"
         variant="link"
-        className="h-auto self-start p-0"
+        className="h-auto self-start p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
         onClick={() => setOpen(true)}
       >
         Used a unit from this source that isn’t listed?
@@ -573,7 +573,7 @@ export function CommentItem({
               <Button
                 type="button"
                 variant="link"
-                className="h-auto p-0"
+                className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
                 onClick={() => setEditing(true)}
               >
                 Edit
@@ -690,7 +690,11 @@ function TestRow({
                 // removal after testing (MM-T36).
                 <span key={unit.storageUnitId}>
                   {index > 0 ? ', ' : null}
-                  <Button variant="link" asChild className="h-auto p-0 font-mono">
+                  <Button
+                    variant="link"
+                    asChild
+                    className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                  >
                     <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
                       {unit.readableId}
                     </Link>
@@ -755,7 +759,11 @@ function ProgramLine({
             {included.map((unit, index) => (
               <span key={unit.storageUnitId}>
                 {index > 0 ? ', ' : null}
-                <Button variant="link" asChild className="h-auto p-0 font-mono">
+                <Button
+                  variant="link"
+                  asChild
+                  className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                >
                   <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
                     {unit.readableId}
                   </Link>
@@ -937,7 +945,11 @@ function SampleTagsPrompt({ program }: { program: LabProgram }) {
   const justSubmitted = (location.state as { submitted?: boolean } | null)?.submitted === true;
   if (!justSubmitted) {
     return (
-      <Button variant="link" asChild className="h-auto self-start p-0">
+      <Button
+        variant="link"
+        asChild
+        className="h-auto self-start p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+      >
         <Link to={`/lab-testing/programs/${program.id}/tags`}>Print sample ID tags</Link>
       </Button>
     );

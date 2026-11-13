@@ -188,7 +188,11 @@ export function ProjectUnitsTab() {
         width: '15ch',
         sortKey: 'id',
         cell: (item) => (
-          <Button variant="link" asChild className="h-auto p-0 font-mono">
+          <Button
+            variant="link"
+            asChild
+            className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+          >
             <Link to={`/sample-storage/${encodeURIComponent(item.readableId)}`}>
               {item.readableId}
             </Link>
