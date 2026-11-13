@@ -77,6 +77,36 @@ export const workStageSchema = z.object({ stage: stageKeySchema, domain: workDom
 export type WorkStage = z.infer<typeof workStageSchema>;
 
 // ---------------------------------------------------------------------------------------------
+// Storage term (STRATA-106): a location fact, separate from the stage colour.
+
+export const STORAGE_TERMS = ['short_term', 'long_term'] as const;
+export type StorageTerm = (typeof STORAGE_TERMS)[number];
+export const storageTermSchema = z.enum(STORAGE_TERMS);
+
+export const STORAGE_TERM_LABELS: Record<StorageTerm, string> = {
+  short_term: 'Short-term storage',
+  long_term: 'Long-term storage',
+};
+
+/**
+ * Where a location's effective storage term comes from: its own setting (`own`: a warehouse's
+ * default or a bay/shelf override), the nearest ancestor that has one (`inherited`), or nowhere
+ * yet (`unset`, an explicit configuration state; never guessed from the name).
+ */
+export const STORAGE_TERM_SOURCES = ['own', 'inherited', 'unset'] as const;
+export type StorageTermSource = (typeof STORAGE_TERM_SOURCES)[number];
+export const storageTermSourceSchema = z.enum(STORAGE_TERM_SOURCES);
+
+/** A location's effective storage term, as every read surface returns it (one server resolver). */
+export const effectiveStorageTermSchema = z.object({
+  term: storageTermSchema.nullable(),
+  source: storageTermSourceSchema,
+  /** The location the term comes from (itself or an ancestor); null when unset. */
+  fromLocation: z.object({ id: z.string(), code: z.string(), name: z.string() }).nullable(),
+});
+export type EffectiveStorageTerm = z.infer<typeof effectiveStorageTermSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // Storage units: record status words and their stage.
 
 /**
@@ -138,8 +168,12 @@ export interface StorageUnitStatusFacts {
   inLab: boolean;
   /** Confirmed but not yet put away (still at the receiving location). */
   awaitingPutAway: boolean;
-  /** The location's storage term; null until locations carry one (treated as short-term). */
-  storageTerm: 'short_term' | 'long_term' | null;
+  /**
+   * The location's effective storage term (STRATA-106: set on a warehouse, inherited by its bays
+   * and shelves, overridable on a bay or shelf). Null while no location in the chain has one: the
+   * unit then reads Short-term (DESIGN.md › Choices made) and the location shows "not set".
+   */
+  storageTerm: StorageTerm | null;
   /** Retention applies and the effective retain-until date is today or earlier. */
   retentionDue: boolean;
   /** Retention applies and the retain-until date has passed by more than the grace period. */
@@ -155,6 +189,29 @@ export function storageUnitRecordStatus(facts: StorageUnitStatusFacts): StorageU
   if (facts.openConflict) return 'location_conflict';
   if (facts.retentionOverdue) return 'retention_overdue';
   if (facts.retentionDue) return 'retention_due';
+  if (facts.inLab) return 'in_lab';
+  if (facts.awaitingPutAway) return 'received';
+  return facts.storageTerm === 'long_term' ? 'long_term' : 'short_term';
+}
+
+/**
+ * The five lifecycle track steps (DESIGN.md › Lifecycle, Kyle 2026-11-12): Received, In lab,
+ * Short-term storage, Long-term storage, Disposed. Retention and location conflicts are overlays
+ * on the record status and never create or move a step.
+ */
+export const STORAGE_UNIT_LIFECYCLE_STEPS = [
+  'received',
+  'in_lab',
+  'short_term',
+  'long_term',
+  'disposed',
+] as const;
+export type StorageUnitLifecycleStep = (typeof STORAGE_UNIT_LIFECYCLE_STEPS)[number];
+export const storageUnitLifecycleStepSchema = z.enum(STORAGE_UNIT_LIFECYCLE_STEPS);
+
+/** The one rule for the lifecycle step; the same facts as the record status. */
+export function storageUnitLifecycleStep(facts: StorageUnitStatusFacts): StorageUnitLifecycleStep {
+  if (facts.disposed) return 'disposed';
   if (facts.inLab) return 'in_lab';
   if (facts.awaitingPutAway) return 'received';
   return facts.storageTerm === 'long_term' ? 'long_term' : 'short_term';
