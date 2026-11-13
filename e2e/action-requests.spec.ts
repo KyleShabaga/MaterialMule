@@ -130,10 +130,12 @@ test('T6: LAB has no Action requests or Notifications control, inbox or preferen
 }) => {
   await signInAsLabStation(page);
   await page.goto('/');
-  // Today (Field Ledger): its queue heading, on desktop and phone.
-  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
+  // Today on a LAB station (STRATA-20): this station's work, on desktop and phone.
+  await expect(page.getByRole('heading', { level: 2, name: 'At this station' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Action requests/ })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
+  // STRATA-27: the bell may show the picked person's Inbox only with their consent; Alex Tester
+  // hasn't given it, so no count anywhere.
+  await expect(page.getByRole('link', { name: /^Notifications, / })).toHaveCount(0);
   for (const path of [
     '/api/action-items',
     '/api/action-items/count',
