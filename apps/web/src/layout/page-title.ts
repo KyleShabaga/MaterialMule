@@ -27,7 +27,7 @@ const ROUTE_LABELS: readonly [RegExp, string][] = [
   [/^\/receiving-log\/new$/, 'Receive samples'],
   [/^\/sample-storage$/, 'Inventory'],
   [/^\/sample-storage\/scan$/, 'Scan labels'],
-  [/^\/sample-storage\/move$/, 'Move units'],
+  [/^\/sample-storage\/move$/, 'Move storage units'],
   [/^\/lab-testing$/, 'Workboard'],
   [/^\/lab-testing\/programs$/, 'Programs'],
   [/^\/lab-testing\/programs\/new$/, 'New lab program'],

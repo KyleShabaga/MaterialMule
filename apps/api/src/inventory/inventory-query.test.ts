@@ -1,4 +1,4 @@
-import { inventoryQuerySchema } from '@materialmule/shared';
+import { inventoryListQuerySchema, inventoryQuerySchema } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
 import { buildInventoryQuery } from './inventory-query.js';
 
@@ -111,5 +111,65 @@ describe('inventory query builder (MM-T12 T1)', () => {
     expect(build({ sort: 'received', dir: 'asc' }).orderBy).toBe(
       'su.received_date ASC, su.readable_id COLLATE "C" ASC',
     );
+  });
+});
+
+const buildList = (input: Record<string, string>, ignoreStage = false) =>
+  buildInventoryQuery(inventoryListQuerySchema.parse(input), { asOf: '2026-11-13', ignoreStage });
+
+describe('inventory query builder: stage tabs and sorts (STRATA-79)', () => {
+  it('a stage tab replaces the status filter and matches record statuses as a parameter', () => {
+    const sql = buildList({ stage: 'retention_due' });
+    expect(sql.fromWhere).not.toContain(`su.status <> 'disposed'`);
+    expect(sql.hasRecordStatus).toBe(true);
+    expect(sql.fromWhere).toContain('CROSS JOIN LATERAL');
+    expect(sql.fromWhere).toContain('LEFT JOIN location_effective_storage_term st');
+    expect(sql.params).toEqual(['2026-11-13', ['retention_due', 'retention_overdue']]);
+    expect(sql.fromWhere).toContain('rs.record_status = ANY($2::text[])');
+  });
+
+  it('All and counts=1 apply no tab condition and include disposed units', () => {
+    const inputs: Record<string, string>[] = [
+      { stage: 'all' },
+      { counts: '1' },
+      { stage: 'disposed', counts: '1' },
+    ];
+    for (const input of inputs) {
+      const sql = buildList(input, true);
+      expect(sql.fromWhere).not.toContain('su.status <>');
+      expect(sql.fromWhere).not.toContain('rs.record_status = ANY');
+      expect(sql.hasRecordStatus).toBe(true);
+    }
+  });
+
+  it('without stage or counts the query is unchanged (Current stock, no record status)', () => {
+    const sql = buildList({});
+    expect(sql.hasRecordStatus).toBe(false);
+    expect(sql.fromWhere).toContain(`su.status <> 'disposed'`);
+    expect(sql.fromWhere).not.toContain('LATERAL');
+  });
+
+  it('sorts by project, type, where and stage with the ID tie-breaker', () => {
+    expect(buildList({ sort: 'project' }).orderBy).toBe(
+      'sp.project_number COLLATE "C" ASC, su.readable_id COLLATE "C" ASC',
+    );
+    expect(buildList({ sort: 'project' }).fromWhere).toContain('JOIN project sp');
+    expect(buildList({ sort: 'type', dir: 'desc' }).orderBy).toBe(
+      'su.unit_type DESC, su.readable_id COLLATE "C" DESC',
+    );
+    expect(buildList({ sort: 'where' }).fromWhere).toContain('JOIN location sl');
+    const stage = buildList({ sort: 'stage' });
+    expect(stage.orderBy).toBe(
+      `array_position(ARRAY['received', 'in_lab', 'short_term', 'long_term', 'retention_due', 'retention_overdue', 'disposed', 'location_conflict']::text[], rs.record_status) ASC, su.readable_id COLLATE "C" ASC`,
+    );
+    // Only the business date travels as a parameter.
+    expect(stage.params).toEqual(['2026-11-13']);
+  });
+
+  it('refuses unknown tabs, sorts and counts values', () => {
+    expect(inventoryListQuerySchema.safeParse({ stage: 'in_storage' }).success).toBe(false);
+    expect(inventoryListQuerySchema.safeParse({ sort: 'client' }).success).toBe(false);
+    expect(inventoryListQuerySchema.safeParse({ counts: 'yes' }).success).toBe(false);
+    expect(inventoryListQuerySchema.parse({ counts: '1' }).counts).toBe(true);
   });
 });

@@ -1,102 +1,199 @@
 import {
-  INVENTORY_CONFLICT_FILTERS,
-  INVENTORY_RETENTION_FILTERS,
-  INVENTORY_RETENTION_FILTER_LABEL,
-  STORAGE_UNIT_TYPES,
-  inventoryStatusFilterLabel,
-  inventorySortDirection,
-  storageUnitTypeLabel,
-  type InventoryItem,
+  INVENTORY_STAGE_TABS,
+  INVENTORY_STAGE_TAB_LABELS,
+  type InventoryListItem,
+  type InventoryListPage,
   type InventoryLocation,
-  type InventoryPage as InventoryPageData,
-  type InventoryQuery,
-  type InventoryStatusFilter,
-  type ProjectSummary,
-  type TestHole,
+  type InventoryStageCounts,
+  type InventoryStageTab,
 } from '@materialmule/shared';
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
-import { listTestHoles } from '../api/projects';
 import {
-  EmptyState,
-  ErrorState,
-  PageHeader,
-  Segmented,
-  SelectionBar,
-  TableViewSelector,
-} from '../components/app-ui';
-import { useTableView } from '../components/useTableView';
-import { ContextRow } from '../layout/ContextRow';
-import type { MoveLinkState } from '../moves/move-link';
+  ArrowDownToLine,
+  ChevronLeft,
+  ChevronRight,
+  Move,
+  PackageOpen,
+  Printer,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+import { DENSITY_VIEW_OPTIONS, useTableDensity } from '../components/strata/data-table';
+import {
+  PeekSplit,
+  peekNeighbours,
+  usePeekAvailable,
+  usePeekKeys,
+  usePeekParam,
+} from '../components/strata/peek';
+import type { QueryFilterOption } from '../components/strata/query-chips';
+import {
+  readTableQuery,
+  writeTableQuery,
+  type SortLabels,
+  type SortOption,
+  type TableQuery,
+} from '../components/strata/table-query';
+import { TableToolbar } from '../components/strata/table-toolbar';
+import { usePageTitle } from '../layout/page-title';
+import { movePathForUnits, type MoveLinkState } from '../moves/move-link';
 import { usePendingMoves } from '../moves/usePendingMoves';
-import { unitsLabelPrintPath } from '../printing/print-paths';
+import { MAX_CHOSEN_LABELS, unitsLabelPrintPath } from '../printing/print-paths';
+import { START_DELIVERY_PATH } from '../receiving-log/paths';
 import { CameraScanButton } from '../scanning/CameraScanButton';
 import { useMe } from '../session/context';
-import { fetchInventory, fetchLocations, fetchProject } from './api';
-import './inventory.css';
-import { LookUpId } from './LookUpId';
-import { ProjectFilter } from './ProjectFilter';
+import { fetchInventoryList, fetchLocations } from './api';
+import { STORAGE_UNIT_COLUMNS } from './list-columns';
+import { InventoryFilterChips } from './list-filter-chips';
 import { StorageUnitTable } from './StorageUnitTable';
+import { UnitDrawer } from './UnitDrawer';
+import { UNIT_DRAWER_TITLE_ID } from './unit-record';
 import { useLatestSearchParams } from './useLatestSearchParams';
 import {
-  clearedInventoryQuery,
+  INVENTORY_FILTERS,
+  INVENTORY_FILTER_LABELS,
+  clearedParams,
+  filterHasValue,
   hasActiveFilters,
-  inventorySearchParams,
-  readInventoryQuery,
+  inventoryRequest,
+  inventoryRequestParams,
+  readInventoryTable,
+  readStage,
+  selectionScope,
+  withPendingFilter,
+  withStage,
+  withoutFilter,
+  type InventoryFilter,
 } from './url-state';
-
-type Loaded<T> = { key: string; ok: true; data: T } | { key: string; ok: false; message: string };
 
 /** Where the detail page's "Back to inventory" link returns to. */
 export interface InventoryLinkState {
   from?: string;
 }
 
-const SORT_OPTIONS = [
-  { value: 'received:desc', label: 'Received (newest first)' },
-  { value: 'received:asc', label: 'Received (oldest first)' },
-  { value: 'id:asc', label: 'Storage unit ID (A–Z)' },
-  { value: 'id:desc', label: 'Storage unit ID (Z–A)' },
-] as const;
+type Loaded =
+  { key: string; ok: true; data: InventoryListPage } | { key: string; ok: false; message: string };
 
-/** The Status segmented filter, in reading order; "Current stock" is the default view. */
-const STATUS_OPTIONS: readonly InventoryStatusFilter[] = [
-  'current',
-  'in_stock',
-  'approved_for_disposal',
-  'disposed',
-  'all',
+const SORT_OPTIONS: readonly SortOption[] = [
+  { label: 'Received, newest first', sort: null },
+  { label: 'Received, oldest first', sort: { key: 'received', dir: 'asc' } },
+  { label: 'ID', sort: { key: 'id', dir: 'asc' } },
+  { label: 'Retain until, soonest first', sort: { key: 'retain_until', dir: 'asc' } },
+  { label: 'Where', sort: { key: 'where', dir: 'asc' } },
 ];
+const SORT_LABELS: SortLabels = {
+  received: { asc: 'Received, oldest first', desc: 'Received, newest first' },
+  id: { asc: 'ID A–Z', desc: 'ID Z–A' },
+  retain_until: { asc: 'Retain until, soonest first', desc: 'Retain until, latest first' },
+  project: { asc: 'Project A–Z', desc: 'Project Z–A' },
+  type: { asc: 'Type A–Z', desc: 'Type Z–A' },
+  where: { asc: 'Where A–Z', desc: 'Where Z–A' },
+  stage: { asc: 'Stage, lifecycle order', desc: 'Stage, reverse lifecycle order' },
+};
+
+const FILTER_OPTIONS: QueryFilterOption[] = INVENTORY_FILTERS.map((id) => ({
+  id,
+  label: INVENTORY_FILTER_LABELS[id],
+}));
+
+const COLUMNS_STORAGE_KEY = 'materialmule:inventory-hidden-columns';
+/** Searching waits this long after typing before asking the server. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+function useDebounced<T>(value: T, delay: number): T {
+  const [shown, setShown] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShown(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return shown;
+}
+
+/** Hidden columns, remembered in this browser (locked columns can't be hidden). */
+function useHiddenColumns(): [string[], (ids: string[]) => void] {
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try {
+      const value: unknown = JSON.parse(window.localStorage.getItem(COLUMNS_STORAGE_KEY) ?? '[]');
+      return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const set = useCallback((ids: string[]) => {
+    const allowed = ids.filter((id) =>
+      STORAGE_UNIT_COLUMNS.some((c) => c.id === id && !('locked' in c && c.locked)),
+    );
+    setHidden(allowed);
+    try {
+      window.localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(allowed));
+    } catch {
+      // Storage blocked: the choice lasts for this page only.
+    }
+  }, []);
+  return [hidden, set];
+}
 
 function countLabel(total: number): string {
   return `${total.toLocaleString('en-CA')} storage ${total === 1 ? 'unit' : 'units'}`;
 }
 
 /**
- * Inventory: one row per storage unit, searched, filtered and paged on the server (MM-T12).
- * Field Ledger: Status as a segmented filter, the table view selector, and a selection bar
- * (Move, Print labels, Add to lab request) over the selected rows.
+ * Inventory (`/sample-storage`, STRATA-79, canvas R3Inventory*): stage tabs with live counts in
+ * lifecycle order (a Stage select when the list is under 40rem wide), the filter chip row, the
+ * table tools, and the storage unit table, all searched, filtered, counted, sorted and paged on
+ * the server. Rows open the unit drawer (`?open=<ID>`) at 1024 px and wider, the unit page
+ * otherwise. Ticked rows show a selection bar (Move, Print labels, Clear). Selection is kept
+ * across pages of one query and cleared when the tab, search or a filter changes; a sort change
+ * keeps it (the same units).
  */
 export function InventoryPage() {
+  usePageTitle('Inventory');
   const [params, setParams] = useLatestSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
   const me = useMe();
+  const peek = usePeekParam();
+  const peekAvailable = usePeekAvailable();
+  const [density, setDensity] = useTableDensity('inventory');
+  const [hiddenColumns, setHiddenColumns] = useHiddenColumns();
+  const [openFilter, setOpenFilter] = useState<InventoryFilter | null>(null);
+
   // MM-T81: this device's unsaved moves for the signed-in account only. When one settles in
   // another tab, the rows are fetched again (same filters and page) for the new location or
   // conflict (review fix, #107).
   const [reloads, setReloads] = useState(0);
   const pendingMoves = usePendingMoves(me.id, { onSettled: () => setReloads((n) => n + 1) });
-  const query = useMemo(() => readInventoryQuery(params), [params]);
-  const [view, setView] = useTableView('inventory');
-  const requestKey = inventorySearchParams(query).toString();
-  /** Selected rows by unit ID; kept across pages and filters until cleared. */
-  const [selection, setSelection] = useState<ReadonlyMap<string, InventoryItem>>(new Map());
 
-  const [result, setResult] = useState<Loaded<InventoryPageData> | null>(null);
+  const stage = readStage(params);
+  const table = readInventoryTable(params);
+  const search = useDebounced(table.search, SEARCH_DEBOUNCE_MS);
+  const { query, ignored } = useMemo(() => inventoryRequest(params, search), [params, search]);
+  const requestKey = inventoryRequestParams(query).toString();
+
+  const [result, setResult] = useState<Loaded | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void fetchInventory(new URLSearchParams(requestKey)).then((response) => {
+    void fetchInventoryList(new URLSearchParams(requestKey)).then((response) => {
+      // Only the newest query's answer is shown; an older, slower one is dropped.
       if (cancelled) return;
       setResult(
         response.ok
@@ -120,559 +217,468 @@ export function InventoryPage() {
     };
   }, []);
 
-  const [project, setProject] = useState<ProjectSummary | null>(null);
-  const selectedProject = project && project.id === query.projectId ? project : null;
-  useEffect(() => {
-    if (!query.projectId || selectedProject) return;
-    let cancelled = false;
-    void fetchProject(query.projectId).then((response) => {
-      if (!cancelled && response.ok) setProject(response.data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [query.projectId, selectedProject]);
+  const loading = !result || result.key !== requestKey;
+  const failed = !loading && result && !result.ok ? result : null;
+  // While a newer query loads, the previous rows (and counts) stay, marked busy.
+  const [shown, setShown] = useState<InventoryListPage | null>(null);
+  if (result?.ok && result.data !== shown) setShown(result.data);
+  const page = shown;
+  const items = useMemo(() => page?.items ?? [], [page]);
+  const counts = page?.stageCounts ?? null;
+  const filtered = hasActiveFilters(params);
+  const totalPages = page ? Math.max(1, Math.ceil(page.total / page.pageSize)) : 1;
+  const linkState: InventoryLinkState = { from: location.search };
 
-  const [holes, setHoles] = useState<{ projectId: string; holes: TestHole[] } | null>(null);
-  const projectHoles = holes && holes.projectId === query.projectId ? holes.holes : [];
-  useEffect(() => {
-    const projectId = query.projectId;
-    if (!projectId) return;
-    let cancelled = false;
-    listTestHoles(projectId).then(
-      (list) => !cancelled && setHoles({ projectId, holes: list }),
-      () => undefined,
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [query.projectId]);
+  // Selection: readable ID → row, for the exact units ticked (STRATA-79).
+  const scope = selectionScope(query);
+  const [selection, setSelection] = useState<{
+    scope: string;
+    items: Map<string, InventoryListItem>;
+  }>(() => ({ scope, items: new Map() }));
+  if (selection.scope !== scope) setSelection({ scope, items: new Map() });
+  // Until the reset above renders, a selection from another scope reads as empty.
+  const selected = useMemo(
+    () => (selection.scope === scope ? selection.items : new Map<string, InventoryListItem>()),
+    [selection, scope],
+  );
+  const selectedIds = useMemo(() => new Set(selected.keys()), [selected]);
+  const onSelectedIdsChange = (next: Set<string>) => {
+    const map = new Map(selected);
+    for (const item of items) {
+      if (next.has(item.readableId)) map.set(item.readableId, item);
+      else map.delete(item.readableId);
+    }
+    setSelection({ scope, items: map });
+  };
+  const clearSelection = () => setSelection({ scope, items: new Map() });
+  const selectedItems = [...selected.values()];
+  // Disposed units are never moved or given a fresh label (MTR-48).
+  const movable = selectedItems.filter((item) => item.status !== 'disposed');
+  const canMove = me.permissions.includes('storage_unit.move');
+  const canPrint = me.permissions.includes('label.print');
 
-  /**
-   * Applies filter changes to the latest URL (not this render's, MM-T46); any change other than
-   * the page returns to page 1.
-   */
-  function update(changes: Partial<InventoryQuery>) {
-    setParams((prev) =>
-      inventorySearchParams({ ...readInventoryQuery(prev), page: 1, ...changes }),
-    );
+  // The drawer.
+  const openId = peekAvailable ? peek.openId : null;
+  const openItem = openId ? items.find((item) => item.readableId === openId) : undefined;
+  const nav = peekNeighbours(
+    items.map((item) => item.readableId),
+    openId,
+  );
+  usePeekKeys({
+    enabled: openId !== null,
+    onClose: peek.close,
+    onPrevious: nav.previousId ? () => peek.open(nav.previousId!) : undefined,
+    onNext: nav.nextId ? () => peek.open(nav.nextId!) : undefined,
+  });
+  const openRow = useCallback(
+    (item: InventoryListItem) => {
+      if (peekAvailable) peek.open(item.readableId);
+      else
+        navigate(`/sample-storage/${encodeURIComponent(item.readableId)}`, {
+          state: { from: location.search } satisfies InventoryLinkState,
+        });
+    },
+    [peekAvailable, peek, navigate, location.search],
+  );
+
+  // The table tools: the toolbar's Filter menu lists the chips; search and sort are lane 1B's
+  // URL keys. Every change builds on the newest URL (MM-T46).
+  const activeFilters = INVENTORY_FILTERS.filter(
+    (f) => filterHasValue(params, f) || table.filters.includes(f),
+  );
+  const toolbarQuery: TableQuery = { ...table, filters: activeFilters, view: density };
+  const onQueryChange = (patch: Partial<TableQuery>) => {
+    if (patch.view === 'comfortable' || patch.view === 'compact') setDensity(patch.view);
+    if (patch.filters) {
+      const next = patch.filters as InventoryFilter[];
+      setParams((prev) => {
+        let updated = prev;
+        for (const f of activeFilters) if (!next.includes(f)) updated = withoutFilter(updated, f);
+        for (const f of next) {
+          if (!activeFilters.includes(f)) updated = withPendingFilter(updated, f, true);
+        }
+        return updated;
+      });
+    }
+    if (patch.search !== undefined || patch.sort !== undefined) {
+      setParams(
+        (prev) => {
+          const current = readTableQuery(prev);
+          return writeTableQuery(prev, {
+            ...current,
+            ...(patch.search !== undefined ? { search: patch.search } : {}),
+            ...(patch.sort !== undefined ? { sort: patch.sort } : {}),
+          });
+        },
+        { replace: Object.keys(patch).every((key) => key === 'search') },
+      );
+    }
+  };
+
+  function setStage(next: InventoryStageTab) {
+    setParams((prev) => withStage(prev, next));
   }
 
   function turnPage(by: number) {
     setParams((prev) => {
-      const latest = readInventoryQuery(prev);
-      return inventorySearchParams({ ...latest, page: Math.max(1, latest.page + by) });
-    });
-  }
-
-  function toggle(items: InventoryItem[], checked: boolean) {
-    setSelection((current) => {
-      const next = new Map(current);
-      for (const item of items) {
-        if (checked) next.set(item.id, item);
-        else next.delete(item.id);
-      }
+      const next = new URLSearchParams(prev);
+      const current = Math.max(1, Number.parseInt(prev.get('page') ?? '1', 10) || 1);
+      const target = Math.max(1, current + by);
+      if (target === 1) next.delete('page');
+      else next.set('page', String(target));
       return next;
     });
   }
 
-  const chips = activeChips(query, selectedProject, projectHoles, locations);
-  const loading = !result || result.key !== requestKey;
-  const page = result && result.ok ? result.data : null;
-  const totalPages = page ? Math.max(1, Math.ceil(page.total / page.pageSize)) : 1;
-  const linkState: InventoryLinkState = { from: location.search };
-  const filtered = hasActiveFilters(query);
+  const clearFilters = () => setParams((prev) => clearedParams(prev));
 
-  const selectedItems = [...selection.values()];
-  const selectedProjects = new Set(selectedItems.map((item) => item.project.id));
-  // Disposed units are never moved or given a fresh label (MTR-48).
-  const current = selectedItems.filter((item) => item.status !== 'disposed');
+  const onListKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || selected.size === 0 || openId !== null) return;
+    if ((event.target as HTMLElement).closest('input, [role="menu"], [role="dialog"]')) return;
+    event.preventDefault();
+    clearSelection();
+  };
 
+  const firstRow = page ? (page.page - 1) * page.pageSize + 1 : 0;
+  const lastRow = page ? Math.min(page.total, page.page * page.pageSize) : 0;
+  const sortWords =
+    SORT_OPTIONS.find(
+      (o) =>
+        (o.sort === null && table.sort === null) ||
+        (o.sort && table.sort && o.sort.key === table.sort.key && o.sort.dir === table.sort.dir),
+    )?.label ??
+    (table.sort ? SORT_LABELS[table.sort.key]?.[table.sort.dir] : undefined) ??
+    'Received, newest first';
+
+  let body;
+  if (failed && !page) {
+    body = (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>Storage units couldn’t load.</EmptyTitle>
+          <EmptyDescription>
+            {failed.message} Check that this computer is on the office network, then try again. If
+            it keeps failing, tell your Lab Manager.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" onClick={() => setReloads((n) => n + 1)}>
+            Try again
+          </Button>
+        </EmptyContent>
+      </Empty>
+    );
+  } else if (page && page.total === 0 && !loading) {
+    body = filtered ? (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>No storage units match this search and these filters.</EmptyTitle>
+          <EmptyDescription>
+            Remove a filter, or check the ID and scan the label again.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </EmptyContent>
+      </Empty>
+    ) : stage === 'all' ? (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <PackageOpen aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>No storage units yet.</EmptyTitle>
+          <EmptyDescription>
+            Receive samples to add the first. Each unit gets its ID and label when the receipt is
+            confirmed.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button asChild>
+            <Link to={START_DELIVERY_PATH}>
+              <ArrowDownToLine aria-hidden="true" />
+              Receive samples
+            </Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
+    ) : (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>
+            {stage === 'conflicts'
+              ? 'No location conflicts.'
+              : `No storage units in ${INVENTORY_STAGE_TAB_LABELS[stage]}.`}
+          </EmptyTitle>
+          <EmptyDescription>
+            {stage === 'conflicts'
+              ? 'Every storage unit has one place recorded.'
+              : 'Units show here when they reach this stage.'}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  } else {
+    body = (
+      <div aria-busy={loading} onKeyDown={onListKeyDown}>
+        {stage === 'conflicts' ? (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Each unit has two places recorded. Scan it where it really is to fix it.
+          </p>
+        ) : null}
+        <StorageUnitTable
+          items={items}
+          caption="Storage units"
+          linkState={linkState}
+          density={density}
+          pendingMoves={pendingMoves}
+          selectedIds={selectedIds}
+          onSelectedIdsChange={onSelectedIdsChange}
+          sort={table.sort}
+          onSortChange={(sort) => onQueryChange({ sort })}
+          onOpenRow={openRow}
+          openRowId={openId}
+          hiddenColumns={hiddenColumns}
+          loading={!page}
+        />
+        {failed ? (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {failed.message}{' '}
+            <Button variant="link" className="h-auto p-0" onClick={() => setReloads((n) => n + 1)}>
+              Try again
+            </Button>
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const list = (
+    <div className="flex min-h-full flex-col gap-3 px-6 pt-5 pb-24 @max-[40rem]/list:px-4">
+      <h1 className="sr-only">Inventory</h1>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <StageTabs stage={stage} counts={counts} onChange={setStage} />
+        <div className="ml-auto flex items-center gap-1">
+          <Button asChild variant="outline" size="sm" className="sm:hidden">
+            <Link to="/sample-storage/scan">Scan labels</Link>
+          </Button>
+          <CameraScanButton />
+          <TableToolbar
+            label="Storage unit tools"
+            query={toolbarQuery}
+            onQueryChange={onQueryChange}
+            pageAction={{
+              label: 'Receive samples',
+              icon: ArrowDownToLine,
+              onClick: () => navigate(START_DELIVERY_PATH),
+            }}
+            filters={FILTER_OPTIONS}
+            filterChips={false}
+            sortOptions={SORT_OPTIONS}
+            sortLabels={SORT_LABELS}
+            views={DENSITY_VIEW_OPTIONS}
+            columns={STORAGE_UNIT_COLUMNS}
+            hiddenColumns={hiddenColumns}
+            onHiddenColumnsChange={setHiddenColumns}
+            searchPlaceholder="Search storage units…"
+          />
+        </div>
+      </div>
+
+      <InventoryFilterChips
+        params={params}
+        update={setParams}
+        locations={locations}
+        openFilter={openFilter}
+        onOpenFilterChange={setOpenFilter}
+        onClearFilters={clearFilters}
+        filtered={filtered}
+      />
+
+      {ignored ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Part of this link wasn’t valid and was left out.
+        </p>
+      ) : null}
+
+      {body}
+
+      {page && page.total > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[13px] text-muted-foreground">
+          <p>
+            <span className="tabular-nums">
+              {firstRow.toLocaleString('en-CA')}–{lastRow.toLocaleString('en-CA')} of{' '}
+            </span>
+            <span role="status" aria-live="polite" aria-busy={loading}>
+              {countLabel(page.total)}
+            </span>
+            <span> · {sortWords.charAt(0).toLowerCase() + sortWords.slice(1)}</span>
+          </p>
+          {page.total > page.pageSize ? (
+            <nav aria-label="Pages" className="flex items-center gap-2">
+              <span className="tabular-nums">
+                Page {page.page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Previous page"
+                disabled={page.page <= 1}
+                onClick={() => turnPage(-1)}
+              >
+                <ChevronLeft aria-hidden="true" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Next page"
+                disabled={page.page >= totalPages}
+                onClick={() => turnPage(1)}
+              >
+                <ChevronRight aria-hidden="true" />
+              </Button>
+            </nav>
+          ) : null}
+        </div>
+      ) : page && !loading ? (
+        <p className="sr-only" role="status">
+          {countLabel(page.total)}
+        </p>
+      ) : null}
+
+      {selected.size > 0 ? (
+        <div
+          role="group"
+          aria-label="Selection"
+          onKeyDown={onListKeyDown}
+          className="sticky bottom-4 z-20 mx-auto flex flex-wrap items-center gap-2 rounded-xl border bg-popover px-3 py-2 text-popover-foreground shadow-lg dark:shadow-none"
+        >
+          <span className="text-sm font-semibold whitespace-nowrap">{selected.size} selected</span>
+          <Separator orientation="vertical" className="mx-1 h-5!" />
+          {canMove ? (
+            <Button
+              size="sm"
+              disabled={movable.length === 0}
+              title={movable.length === 0 ? 'Disposed units can’t be moved' : undefined}
+              onClick={() => {
+                const units = movable.map((item) => item.readableId);
+                navigate(movePathForUnits(units), { state: { units } satisfies MoveLinkState });
+              }}
+            >
+              <Move aria-hidden="true" />
+              Move
+            </Button>
+          ) : null}
+          {canPrint ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={movable.length === 0 || movable.length > MAX_CHOSEN_LABELS}
+              title={
+                movable.length > MAX_CHOSEN_LABELS
+                  ? `Print up to ${MAX_CHOSEN_LABELS} labels at a time`
+                  : movable.length === 0
+                    ? 'Disposed units get no new label'
+                    : undefined
+              }
+              onClick={() => navigate(unitsLabelPrintPath(movable.map((item) => item.readableId)))}
+            >
+              <Printer aria-hidden="true" />
+              Print labels
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="sm" title="Clear selection (Esc)" onClick={clearSelection}>
+            <X aria-hidden="true" />
+            Clear
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <PeekSplit
+      className="h-full min-h-0"
+      open={openId !== null}
+      openId={openId}
+      listLabel="Storage units"
+      drawerLabelledBy={UNIT_DRAWER_TITLE_ID}
+      list={list}
+      drawer={
+        openId ? (
+          <UnitDrawer
+            key={openId}
+            readableId={openId}
+            retention={openItem?.retention}
+            toolbar={{
+              onClose: peek.close,
+              position: nav.index >= 0 ? { index: nav.index, total: nav.total } : undefined,
+              onPrevious: nav.previousId ? () => peek.open(nav.previousId!) : undefined,
+              onNext: nav.nextId ? () => peek.open(nav.nextId!) : undefined,
+            }}
+          />
+        ) : null
+      }
+    />
+  );
+}
+
+/**
+ * The stage tabs with their counts, in lifecycle order; under 40rem of list width (a drawer
+ * open, a narrow window) a Stage select with the same options and counts, so tabs never wrap.
+ */
+function StageTabs({
+  stage,
+  counts,
+  onChange,
+}: {
+  stage: InventoryStageTab;
+  counts: InventoryStageCounts | null;
+  onChange: (stage: InventoryStageTab) => void;
+}) {
+  const count = (tab: InventoryStageTab) =>
+    counts ? (
+      <span
+        className={cn(
+          'font-mono text-[11px] text-muted-foreground',
+          tab === 'conflicts' && counts.conflicts > 0 && 'font-semibold text-stage-danger-fg',
+        )}
+      >
+        {counts[tab].toLocaleString('en-CA')}
+      </span>
+    ) : null;
   return (
     <>
-      <ContextRow align="end">
-        <Link className="button" to="/sample-storage/scan">
-          Scan labels
-        </Link>
-        <Link className="button" to="/sample-storage/move">
-          Move units
-        </Link>
-        <Link className="button primary" to="/receiving-log/new">
-          Receive samples
-        </Link>
-      </ContextRow>
-      <div className="inventory-title">
-        <PageHeader title="Inventory" />
-        <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
-          {page ? countLabel(page.total) : 'Loading…'}
-        </p>
-      </div>
-
-      <div className="storage-tools">
-        <div className="tool-card">
-          <LookUpId />
-          <CameraScanButton />
-        </div>
-        <SearchForm
-          initial={query.search ?? ''}
-          onSearch={(search) => update({ search: search || undefined })}
-        />
-      </div>
-
-      <div className="inventory-filter-row">
-        <Segmented
-          label="Status"
-          className="inventory-status"
-          value={query.status}
-          onChange={(status) => update({ status })}
-          options={STATUS_OPTIONS.map((status) => ({
-            value: status,
-            label: status === 'all' ? 'All' : inventoryStatusFilterLabel(status),
-          }))}
-        />
-        <InlineSelect
-          label="Type"
-          value={query.type ?? ''}
-          onChange={(value) =>
-            update({ type: (value || undefined) as InventoryQuery['type'] | undefined })
-          }
-          options={[
-            { value: '', label: 'All types' },
-            ...STORAGE_UNIT_TYPES.map((type) => ({
-              value: type,
-              label: storageUnitTypeLabel(type),
-            })),
-          ]}
-        />
-        <InlineSelect
-          label="Location"
-          value={query.locationId ?? ''}
-          onChange={(value) => update({ locationId: value || undefined })}
-          options={[
-            { value: '', label: 'Anywhere' },
-            ...locations.map((item) => ({
-              value: item.id,
-              label: item.active ? item.name : `${item.name} (inactive)`,
-            })),
-          ]}
-        />
-        <TableViewSelector value={view} onChange={setView} />
-      </div>
-
-      <fieldset className="inventory-filters">
-        <legend className="field-label">More filters</legend>
-        <ProjectFilter
-          selected={selectedProject}
-          selectedId={query.projectId}
-          onSelect={(picked) => {
-            if (picked) setProject(picked);
-            update({ projectId: picked?.id, testHoleId: undefined });
-          }}
-        />
-        <SelectFilter
-          label="Test hole"
-          value={query.testHoleId ?? ''}
-          disabled={!query.projectId}
-          onChange={(value) => update({ testHoleId: value || undefined })}
-          options={[
-            { value: '', label: query.projectId ? 'All test holes' : 'Choose a project first' },
-            ...projectHoles.map((hole) => ({ value: hole.id, label: hole.name })),
-          ]}
-        />
-        <SelectFilter
-          label="Retention"
-          value={query.retention ?? ''}
-          onChange={(value) =>
-            update({ retention: (value || undefined) as InventoryQuery['retention'] })
-          }
-          options={[
-            { value: '', label: 'Any' },
-            ...INVENTORY_RETENTION_FILTERS.map((value) => ({
-              value,
-              label: INVENTORY_RETENTION_FILTER_LABEL[value],
-            })),
-          ]}
-        />
-        <SelectFilter
-          label="Conflict"
-          value={query.conflict ?? ''}
-          onChange={(value) =>
-            update({ conflict: (value || undefined) as InventoryQuery['conflict'] })
-          }
-          options={[
-            { value: '', label: 'Any' },
-            ...INVENTORY_CONFLICT_FILTERS.map((value) => ({
-              value,
-              label: 'Open location conflict',
-            })),
-          ]}
-        />
-        <DateFilter
-          label="Received from"
-          value={query.receivedFrom ?? ''}
-          onChange={(value) => update({ receivedFrom: value || undefined })}
-        />
-        <DateFilter
-          label="Received through"
-          value={query.receivedTo ?? ''}
-          onChange={(value) => update({ receivedTo: value || undefined })}
-        />
-        <SelectFilter
-          label="Sort by"
-          value={`${query.sort}:${inventorySortDirection(query)}`}
-          onChange={(value) => {
-            const [sort, dir] = value.split(':') as [InventoryQuery['sort'], InventoryQuery['dir']];
-            update({ sort, dir });
-          }}
-          options={SORT_OPTIONS.map((option) => ({ ...option }))}
-        />
-      </fieldset>
-
-      {chips.length > 0 || filtered ? (
-        <div className="inventory-summary">
-          {chips.length > 0 ? (
-            <ul className="chips" aria-label="Active filters">
-              {chips.map((chip) => (
-                <li key={chip.key}>
-                  {chip.label}
-                  <button
-                    type="button"
-                    aria-label={`Remove filter ${chip.label}`}
-                    onClick={() => update(chip.remove)}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {filtered ? (
-            <button
-              type="button"
-              onClick={() =>
-                setParams((prev) =>
-                  inventorySearchParams(clearedInventoryQuery(readInventoryQuery(prev))),
-                )
-              }
-            >
-              Clear filters
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {selection.size > 0 ? (
-        <SelectionBar count={selection.size}>
-          <button
-            type="button"
-            disabled={current.length === 0}
-            onClick={() =>
-              navigate('/sample-storage/move', {
-                state: { units: current.map((item) => item.readableId) } satisfies MoveLinkState,
-              })
-            }
-          >
-            Move
-          </button>
-          <button
-            type="button"
-            disabled={current.length === 0}
-            onClick={() => navigate(unitsLabelPrintPath(current.map((item) => item.readableId)))}
-          >
-            Print labels
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={selectedProjects.size !== 1}
-            title={
-              selectedProjects.size === 1
-                ? undefined
-                : 'A lab request covers one project: select units from one project'
-            }
-            onClick={() =>
-              navigate('/lab-testing/programs/new', {
-                state: {
-                  projectId: selectedItems[0]!.project.id,
-                  projectLabel: `${selectedItems[0]!.project.projectNumber} · ${selectedItems[0]!.project.name}`,
-                  storageUnitIds: selectedItems.map((item) => item.id),
-                },
-              })
-            }
-          >
-            Add to lab request
-          </button>
-          <button type="button" onClick={() => setSelection(new Map())}>
-            Clear selection
-          </button>
-        </SelectionBar>
-      ) : null}
-
-      {result && !result.ok ? (
-        <ErrorState message={result.message} onRetry={() => setReloads((count) => count + 1)} />
-      ) : null}
-
-      {page ? (
-        page.total === 0 ? (
-          <EmptyState
-            title={
-              filtered
-                ? 'No storage units match this search and these filters.'
-                : 'No storage units yet.'
-            }
-            action={
-              filtered ? undefined : (
-                <Link className="button primary" to="/receiving-log/new">
-                  Receive samples
-                </Link>
-              )
-            }
-          >
-            {filtered
-              ? 'Change the search, or clear the filters to see everything in stock.'
-              : 'Receive samples to add the first.'}
-          </EmptyState>
-        ) : (
-          <div className="inventory-results">
-            <StorageUnitTable
-              items={page.items}
-              linkState={linkState}
-              view={view}
-              pendingMoves={pendingMoves}
-              selection={{
-                selected: new Set(selection.keys()),
-                onToggle: (item, checked) => toggle([item], checked),
-                onToggleAll: toggle,
-              }}
-            />
-            {page.total > page.pageSize ? (
-              <nav className="pager" aria-label="Pages">
-                <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>
-                  Previous
-                </button>
-                <span className="mono">
-                  Page {query.page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={query.page >= totalPages}
-                  onClick={() => turnPage(1)}
-                >
-                  Next
-                </button>
-              </nav>
-            ) : null}
-          </div>
-        )
-      ) : null}
-    </>
-  );
-}
-
-interface Chip {
-  key: string;
-  label: string;
-  remove: Partial<InventoryQuery>;
-}
-
-function activeChips(
-  query: InventoryQuery,
-  project: ProjectSummary | null,
-  holes: TestHole[],
-  locations: InventoryLocation[],
-): Chip[] {
-  const chips: Chip[] = [];
-  if (query.search) {
-    chips.push({ key: 'search', label: `Search: ${query.search}`, remove: { search: undefined } });
-  }
-  if (query.projectId) {
-    chips.push({
-      key: 'project',
-      label: `Project: ${project?.projectNumber ?? '…'}`,
-      remove: { projectId: undefined, testHoleId: undefined },
-    });
-  }
-  if (query.testHoleId) {
-    const hole = holes.find((item) => item.id === query.testHoleId);
-    chips.push({
-      key: 'testHole',
-      label: `Test hole: ${hole?.name ?? '…'}`,
-      remove: { testHoleId: undefined },
-    });
-  }
-  if (query.type) {
-    chips.push({
-      key: 'type',
-      label: `Type: ${storageUnitTypeLabel(query.type)}`,
-      remove: { type: undefined },
-    });
-  }
-  if (query.locationId) {
-    const location = locations.find((item) => item.id === query.locationId);
-    chips.push({
-      key: 'location',
-      label: `Location: ${location?.name ?? '…'}`,
-      remove: { locationId: undefined },
-    });
-  }
-  if (query.receiptId) {
-    chips.push({ key: 'receipt', label: 'One receipt', remove: { receiptId: undefined } });
-  }
-  if (query.status !== 'current') {
-    chips.push({
-      key: 'status',
-      label: `Status: ${inventoryStatusFilterLabel(query.status)}`,
-      remove: { status: 'current' },
-    });
-  }
-  if (query.retention) {
-    chips.push({
-      key: 'retention',
-      label: `Retention: ${INVENTORY_RETENTION_FILTER_LABEL[query.retention]}`,
-      remove: { retention: undefined },
-    });
-  }
-  if (query.conflict) {
-    chips.push({
-      key: 'conflict',
-      label: 'Conflict: Open',
-      remove: { conflict: undefined },
-    });
-  }
-  if (query.retainUntilFrom || query.retainUntilTo) {
-    chips.push({
-      key: 'retainUntil',
-      label: `Retain until ${query.retainUntilFrom ?? '…'} to ${query.retainUntilTo ?? '…'}`,
-      remove: { retainUntilFrom: undefined, retainUntilTo: undefined },
-    });
-  }
-  if (query.receivedFrom) {
-    chips.push({
-      key: 'from',
-      label: `Received from ${query.receivedFrom}`,
-      remove: { receivedFrom: undefined },
-    });
-  }
-  if (query.receivedTo) {
-    chips.push({
-      key: 'to',
-      label: `Received through ${query.receivedTo}`,
-      remove: { receivedTo: undefined },
-    });
-  }
-  return chips;
-}
-
-function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: string) => void }) {
-  const id = useId();
-  const [text, setText] = useState(initial);
-  // Follow the URL's search (Clear filters, a removed chip, Back), but never wipe text typed since
-  // the box last matched it, e.g. typed right after Clear filters (MM-T46).
-  const [shown, setShown] = useState(initial);
-  if (initial !== shown) {
-    setShown(initial);
-    if (text === shown) setText(initial);
-  }
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSearch(text.trim());
-  }
-  return (
-    <form role="search" aria-label="Search inventory" className="tool-card" onSubmit={submit}>
-      <label htmlFor={id}>Search inventory</label>
-      <div className="inline-input">
-        <input
-          id={id}
-          type="search"
-          value={text}
-          aria-describedby={`${id}-hint`}
-          onChange={(event) => setText(event.target.value)}
-        />
-        <button type="submit">Search</button>
-      </div>
-      <p id={`${id}-hint`} className="field-hint">
-        Storage unit ID, project, client, test hole, summary or location
-      </p>
-    </form>
-  );
-}
-
-/** Field Ledger filter row: the mono caps label sits left of its select. */
-function InlineSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="inline-select">
-      <label htmlFor={id} className="field-label">
-        {label}
-      </label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function SelectFilter({
-  label,
-  value,
-  options,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const id = useId();
-  return (
-    <div className="form-field">
-      <label htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+      <Tabs
+        value={stage}
+        onValueChange={(value) => onChange(value as InventoryStageTab)}
+        className="max-w-full min-w-0 @max-[40rem]/list:hidden"
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function DateFilter({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="form-field">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} type="date" value={value} onChange={(event) => onChange(event.target.value)} />
-    </div>
+        <TabsList aria-label="Stage" className="h-auto max-w-full justify-start">
+          {INVENTORY_STAGE_TABS.map((tab) => (
+            <TabsTrigger key={tab} value={tab} className="flex-none gap-1.5">
+              {INVENTORY_STAGE_TAB_LABELS[tab]} {count(tab)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      <div className="hidden @max-[40rem]/list:block">
+        <Select value={stage} onValueChange={(value) => onChange(value as InventoryStageTab)}>
+          <SelectTrigger aria-label="Stage" className="h-9 w-52">
+            <span className="text-[13px] text-muted-foreground">Stage</span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {INVENTORY_STAGE_TABS.map((tab) => (
+              <SelectItem key={tab} value={tab}>
+                {INVENTORY_STAGE_TAB_LABELS[tab]} {count(tab)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
   );
 }

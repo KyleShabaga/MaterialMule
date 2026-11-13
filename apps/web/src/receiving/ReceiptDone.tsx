@@ -19,7 +19,7 @@ import { confirmPhysicalPrint, requestPrint } from '../printing/api';
 import { PrintJobStatus } from '../printing/PrintJobStatus';
 import { receiptPrintPath } from '../printing/print-paths';
 import { usePrintJob } from '../printing/usePrintJob';
-import type { MoveLinkState } from '../moves/move-link';
+import { movePathForUnits, type MoveLinkState } from '../moves/move-link';
 import { VerifyLabelsPanel } from '../scanning/VerifyLabelsPanel';
 import { useAfterReceipt } from './after-receipt';
 import { UNIT_KIND_LABEL, unitContentLines, unitKindOf, type ReceiptDraft } from './draft';
@@ -57,6 +57,7 @@ export function ReceiptDone({
   const print = useReceiptPrint(result.receiptId, ids);
   const [verifying, setVerifying] = useState(false);
   const moveState = { units: readableIds } satisfies MoveLinkState;
+  const putAwayPath = movePathForUnits(readableIds, result.receiptId);
 
   const job = print.job;
   const failed = print.error !== null || job?.status === 'failed' || job?.status === 'uncertain';
@@ -67,7 +68,7 @@ export function ReceiptDone({
   useEffect(() => {
     if (left.current || afterReceipt !== 'put_away' || job?.status !== 'sent') return;
     left.current = true;
-    void navigate(PUT_AWAY_PATH, { state: moveState });
+    void navigate(putAwayPath, { state: moveState });
   });
 
   const project = draft.project
@@ -217,7 +218,7 @@ export function ReceiptDone({
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button asChild variant={failed ? 'outline' : 'default'}>
-            <Link to={PUT_AWAY_PATH} state={moveState}>
+            <Link to={putAwayPath} state={moveState}>
               <ArrowDownToLine aria-hidden="true" />
               Put away
             </Link>

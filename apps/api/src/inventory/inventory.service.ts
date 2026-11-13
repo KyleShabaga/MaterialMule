@@ -1,5 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { InventoryItem, InventoryPage, InventoryQuery } from '@materialmule/shared';
+import {
+  inventoryUsesStageTabs,
+  type InventoryItem,
+  type InventoryListItem,
+  type InventoryListPage,
+  type InventoryListQuery,
+  type InventoryQuery,
+  type InventoryStageCounts,
+} from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
@@ -32,19 +40,56 @@ interface InventoryRow extends EffectiveTermRow {
   tested_removal_reason: InventoryItem['testedRemovalReason'];
   contents_destroyed: boolean;
   open_conflict: boolean;
+  location_path: string[];
 }
 
-/** One page of the inventory with its total (MM-T12). Never returns more than 100 units. */
+/**
+ * Every stage tab's count under the query's search and filters (STRATA-79): one aggregate over
+ * the same FROM … WHERE, without the tab itself.
+ */
+export async function queryInventoryStageCounts(
+  pool: Pool,
+  query: InventoryQuery | InventoryListQuery,
+  asOf: string,
+): Promise<InventoryStageCounts> {
+  const sql = buildInventoryQuery({ ...query, counts: true } as InventoryListQuery, {
+    asOf,
+    ignoreStage: true,
+  });
+  const tab = (statuses: string) =>
+    `count(*) FILTER (WHERE rs.record_status IN (${statuses}))::int`;
+  const { rows } = await pool.query<InventoryStageCounts>(
+    `SELECT count(*)::int AS "all",
+            ${tab(`'in_lab'`)} AS in_lab,
+            ${tab(`'short_term'`)} AS short_term,
+            ${tab(`'long_term'`)} AS long_term,
+            ${tab(`'retention_due', 'retention_overdue'`)} AS retention_due,
+            ${tab(`'disposed'`)} AS disposed,
+            ${tab(`'location_conflict'`)} AS conflicts
+     ${sql.fromWhere}`,
+    sql.params,
+  );
+  return rows[0]!;
+}
+
+/**
+ * One page of the inventory with its total (MM-T12). Never returns more than 100 units. With
+ * `counts=1` it also returns every stage tab's count (STRATA-79).
+ */
 export async function queryInventory(
   pool: Pool,
-  query: InventoryQuery,
+  query: InventoryQuery | InventoryListQuery,
   asOf: string = new Date().toISOString().slice(0, 10),
-): Promise<InventoryPage> {
+): Promise<InventoryListPage> {
   const sql = buildInventoryQuery(query, { asOf });
   const count = await pool.query<{ total: number }>(
     `SELECT count(*)::int AS total ${sql.fromWhere}`,
     sql.params,
   );
+  const stageCounts =
+    'counts' in query && query.counts === true && inventoryUsesStageTabs(query)
+      ? await queryInventoryStageCounts(pool, query, asOf)
+      : undefined;
   const limitParam = `$${sql.params.length + 1}`;
   const offsetParam = `$${sql.params.length + 2}`;
   const { rows } = await pool.query<InventoryRow>(
@@ -56,17 +101,20 @@ export async function queryInventory(
              AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed,
             EXISTS (SELECT 1 FROM location_conflict c
                     WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict,
+            array_remove(ARRAY[l2.name, l1.name, l.name], NULL) AS location_path,
             ${effectiveTermColumns('et')}
-     FROM (SELECT su.id ${sql.fromWhere}
+     FROM (SELECT su.id, row_number() OVER (ORDER BY ${sql.orderBy}) AS ord
+           ${sql.fromWhere}
            ORDER BY ${sql.orderBy}
            LIMIT ${limitParam} OFFSET ${offsetParam}) page
      JOIN storage_unit su ON su.id = page.id
      JOIN project p ON p.id = su.project_id
      JOIN location l ON l.id = su.current_location_id
+     LEFT JOIN location l1 ON l1.id = l.parent_location_id
+     LEFT JOIN location l2 ON l2.id = l1.parent_location_id
      ${effectiveTermJoin('et', 'l.id')}
      LEFT JOIN tested_unit_removal tr ON tr.storage_unit_id = su.id
-     ${sql.orderJoin}
-     ORDER BY ${sql.orderBy}`,
+     ORDER BY page.ord`,
     [...sql.params, sql.limit, sql.offset],
   );
   const ids = rows.map((row) => row.id);
@@ -74,7 +122,7 @@ export async function queryInventory(
   const identities = await loadSampleIdentities(pool, ids);
   const retention = await loadUnitRetention(pool, ids, asOf);
   return {
-    items: rows.map((row) => ({
+    items: rows.map((row): InventoryListItem => ({
       // STRATA-58: record status words and stage from the unit's real state.
       ...unitStage({
         status: row.status,
@@ -100,6 +148,8 @@ export async function queryInventory(
       sample: identities.get(row.id)?.sample ?? null,
       bulkGroup: membershipOf(identities.get(row.id)),
       location: { id: row.location_id, code: row.location_code, name: row.location_name },
+      // STRATA-79: warehouse › bay › shelf names for the Where column.
+      locationPath: row.location_path,
       openConflict: row.open_conflict,
       // MM-T36: "Disposed after testing" and a tested Shelby tube's destroyed contents.
       testedRemovalReason: row.tested_removal_reason,
@@ -115,6 +165,7 @@ export async function queryInventory(
     total: count.rows[0]!.total,
     page: query.page,
     pageSize: query.pageSize,
+    ...(stageCounts ? { stageCounts } : {}),
   };
 }
 
@@ -125,7 +176,7 @@ export class InventoryService {
     private readonly clock: BusinessClock,
   ) {}
 
-  query(query: InventoryQuery): Promise<InventoryPage> {
+  query(query: InventoryListQuery): Promise<InventoryListPage> {
     return queryInventory(this.database.pool, query, this.clock.today());
   }
 }
