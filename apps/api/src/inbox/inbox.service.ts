@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { InboxPage, InboxQuery, InboxSummary } from '@materialmule/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type {
+  InboxBulk,
+  InboxBulkResult,
+  InboxPage,
+  InboxQuery,
+  InboxSummary,
+} from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import type { AuthUser } from '../auth/policy.js';
@@ -19,6 +25,10 @@ import {
 
 const idSchema = z.uuid();
 const PREVIEW_SIZE = 3;
+/** A feed key: `request:<uuid>` or `update:<uuid>`. */
+const BULK_KEY =
+  /^(request|update):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const isRequestKey = (key: string) => key.startsWith('request:');
 
 /**
  * The single Inbox feed (STRATA-25/54/55/57) over action requests (MM-T27) and notifications
@@ -122,6 +132,87 @@ export class InboxService {
       await markOpenedNoticesRead(client, user.userId, requestIds);
     });
     return this.summary(user);
+  }
+
+  /**
+   * STRATA-48: read, unread or dismiss checked rows. Each key is checked as the signed-in
+   * person's (a request in their Inbox, an update addressed to them); anything else goes to
+   * `failed` and the rest still apply. Requests change read state only, never their workflow.
+   * Dismiss is for updates: any request key refuses the whole call before anything changes.
+   * An update can't be marked unread again (the notification table keeps read once, migration
+   * 0014's guard), so `unread` on a read update fails that key; an unread one counts as done.
+   */
+  async bulk(user: AuthUser, body: InboxBulk): Promise<InboxBulkResult> {
+    const requestIds = new Map<string, string>();
+    const updateIds = new Map<string, string>();
+    const failed: string[] = [];
+    for (const key of new Set(body.keys)) {
+      const match = BULK_KEY.exec(key);
+      if (!match) {
+        failed.push(key);
+        continue;
+      }
+      (match[1] === 'request' ? requestIds : updateIds).set(match[2]!.toLowerCase(), key);
+    }
+    // Any request key, well formed or not, refuses the whole dismiss before anything changes.
+    if (body.action === 'dismiss' && body.keys.some(isRequestKey)) {
+      throw new BadRequestException({ code: 'dismiss_requests' });
+    }
+    let updated = 0;
+    await withTransaction(this.database.pool, async (client) => {
+      if (requestIds.size > 0) {
+        const { rows } = await client.query<{ id: string }>(
+          `SELECT a.id FROM action_item a
+           LEFT JOIN test_request_review_event e ON e.id = a.opened_by_event_id
+           WHERE a.id = ANY($2::uuid[]) AND ${REQUEST_VISIBLE_SQL}`,
+          [user.userId, [...requestIds.keys()]],
+        );
+        const mine = rows.map((row) => row.id);
+        for (const [id, key] of requestIds) if (!mine.includes(id)) failed.push(key);
+        if (mine.length > 0) {
+          const read = body.action === 'read';
+          await client.query(
+            `INSERT INTO inbox_request_read (user_id, action_item_id, read_at)
+             SELECT $1, id, CASE WHEN $3::boolean THEN now() END FROM unnest($2::uuid[]) AS id
+             ON CONFLICT (user_id, action_item_id) DO UPDATE
+               SET read_at = CASE WHEN $3::boolean
+                                  THEN coalesce(inbox_request_read.read_at, now()) END,
+                   updated_at = now()`,
+            [user.userId, mine, read],
+          );
+          if (read) await markOpenedNoticesRead(client, user.userId, mine);
+          updated += mine.length;
+        }
+      }
+      if (updateIds.size > 0) {
+        const { rows } = await client.query<{ id: string; read: boolean }>(
+          `SELECT id, read_at IS NOT NULL AS read FROM notification
+           WHERE id = ANY($2::uuid[]) AND recipient_user_id = $1
+           FOR UPDATE`,
+          [user.userId, [...updateIds.keys()]],
+        );
+        const mine = new Map(rows.map((row) => [row.id, row.read]));
+        for (const [id, key] of updateIds) {
+          if (!mine.has(id) || (body.action === 'unread' && mine.get(id))) failed.push(key);
+        }
+        const ids = [...mine.keys()];
+        if (body.action === 'read' && ids.length > 0) {
+          await client.query(
+            `UPDATE notification SET read_at = now()
+             WHERE recipient_user_id = $1 AND id = ANY($2::uuid[]) AND read_at IS NULL`,
+            [user.userId, ids],
+          );
+        } else if (body.action === 'dismiss' && ids.length > 0) {
+          await client.query(
+            `UPDATE notification SET read_at = coalesce(read_at, now()), dismissed_at = now()
+             WHERE recipient_user_id = $1 AND id = ANY($2::uuid[]) AND dismissed_at IS NULL`,
+            [user.userId, ids],
+          );
+        }
+        updated += body.action === 'unread' ? ids.filter((id) => !mine.get(id)).length : ids.length;
+      }
+    });
+    return { updated, failed, summary: await this.summary(user) };
   }
 
   private async summaryOf(user: AuthUser, feed: FeedEntry[]): Promise<InboxSummary> {
