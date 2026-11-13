@@ -308,6 +308,25 @@ describe('NotificationsBell (STRATA-13)', () => {
     expect(await screen.findByLabelText('Inbox preview')).toBeVisible();
   });
 
+  it('never opens the hover preview on a touch screen (no hover)', async () => {
+    const real = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query === '(hover: none)',
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
+    try {
+      renderBell(me(), (url) => (url === SUMMARY ? json(200, summary(2, NEWEST)) : json(404, {})));
+      const bell = await screen.findByRole('link', { name: 'Notifications, 2 unread' });
+      await userEvent.hover(bell);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(screen.queryByText('Inbox · 2 unread')).toBeNull();
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+
   it('says so when the preview cannot load', async () => {
     // The count arrived; the preview's own read then fails.
     let calls = 0;

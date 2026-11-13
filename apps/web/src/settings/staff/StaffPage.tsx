@@ -376,7 +376,11 @@ function StaffDirectory({
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <TabsList variant="line" aria-label="Staff by status">
+        <TabsList
+          variant="line"
+          aria-label="Staff by status"
+          className="max-w-full overflow-x-auto"
+        >
           {(Object.keys(TAB_LABELS) as StaffTab[]).map((key) => (
             <TabsTrigger key={key} value={key} className={TOUCH}>
               {TAB_LABELS[key]}{' '}
