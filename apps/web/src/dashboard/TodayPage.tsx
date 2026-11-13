@@ -145,7 +145,7 @@ function Welcome({
 }) {
   const dateFormat = useDateFormat();
   return (
-    <header className="grid gap-1">
+    <div className="grid gap-1">
       <p className="text-sm text-muted-foreground">{welcomeDate(now, dateFormat)}</p>
       <h1 className="text-3xl font-semibold tracking-tight">
         {greetingText(firstName(me.displayName), now)}
@@ -157,7 +157,7 @@ function Welcome({
       ) : needs.state === 'loading' ? (
         <Skeleton className="h-6 w-64" aria-hidden="true" />
       ) : null}
-    </header>
+    </div>
   );
 }
 
