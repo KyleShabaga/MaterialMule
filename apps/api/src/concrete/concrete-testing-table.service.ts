@@ -87,9 +87,10 @@ export class ConcreteTestingTableService {
     const input = parseBody(concreteTestingTableQuerySchema, query);
     const db = this.database.pool;
     const today = input.on ?? concreteLabToday();
-    // The listed specimens ($1 today, $2 Include overdue, $3 the project or null for all).
+    // The listed specimens ($1 today, $2 Include overdue, $3 the project or null for all, $4 a
+    // specimen selection or null: STRATA-95, any target date, still only scheduled specimens).
     const listed = `FROM (SELECT $1::date AS today, $2::boolean AS include_overdue,
-                                 $3::uuid AS project_id) q
+                                 $3::uuid AS project_id, $4::uuid[] AS specimen_ids) q
        CROSS JOIN concrete_specimen sp
        JOIN concrete_specimen_set st ON st.id = sp.set_id
        JOIN concrete_field_report r ON r.id = st.field_report_id
@@ -98,9 +99,11 @@ export class ConcreteTestingTableService {
          AND sp.assigned_age IS NOT NULL AND sp.assigned_age <> 'HOLD'
          AND (q.project_id IS NULL OR sp.project_id = q.project_id)
          AND NOT EXISTS (SELECT 1 FROM concrete_specimen_disposal d WHERE d.specimen_id = sp.id)
-         AND (sp.target_date = q.today
-              OR (q.include_overdue AND sp.target_date < q.today
-                  AND NOT ${testedBeforeSql('sp', 'q.today')}))`;
+         AND (CASE WHEN q.specimen_ids IS NOT NULL THEN sp.id = ANY(q.specimen_ids)
+                   AND sp.target_date IS NOT NULL
+              ELSE sp.target_date = q.today
+                   OR (q.include_overdue AND sp.target_date < q.today
+                       AND NOT ${testedBeforeSql('sp', 'q.today')}) END)`;
     // Every project with a listed row, whatever the project filter and the row limit, so the
     // page can offer each one and read it on its own.
     const { rows: projects } = await db.query<{
@@ -110,7 +113,7 @@ export class ConcreteTestingTableService {
     }>(
       `SELECT DISTINCT p.id, p.project_number, p.name ${listed} WHERE ${listedWhere}
        ORDER BY p.project_number, p.id`,
-      [today, input.includeOverdue, null],
+      [today, input.includeOverdue, null, null],
     );
     const { rows } = await db.query<TableRowSql>(
       `SELECT sp.id AS specimen_id, sp.set_id, st.field_report_id, sp.project_id,
@@ -141,7 +144,7 @@ export class ConcreteTestingTableService {
        ORDER BY p.project_number, p.id, st.permanent_number NULLS LAST, st.temporary_id,
                 st.id, sp.letter
        LIMIT ${CONCRETE_TESTING_TABLE_MAX_ROWS + 1}`,
-      [today, input.includeOverdue, input.projectId ?? null],
+      [today, input.includeOverdue, input.projectId ?? null, input.specimenIds ?? null],
     );
     const truncated = rows.length > CONCRETE_TESTING_TABLE_MAX_ROWS;
     const holidays = await loadHolidayDates(db);

@@ -512,9 +512,25 @@ confirmed by Kyle).
   same result) and one history row plus one audit event per specimen
   (`concrete_specimen.hold_test_scheduled`, `concrete_specimen.disposal_authorized`,
   `concrete_specimen.disposed`): AC1.
-- **History:** `GET /api/concrete/specimens/:specimenId/hold-history` (failure hold, test
-  scheduled, disposal authorized, disposed; the recording account when it differs from the
-  performer).
+- **Hold until** (STRATA-121, Breaks selection bar; `POST /api/concrete/holds/hold-until`,
+  `{ idempotencyKey, items: [{ specimenId, version }], holdUntil, reason }`): puts scheduled
+  specimens on an ordinary HOLD until a calendar date after the lab's today (America/Edmonton,
+  400 `not_after_today`), reason required; `concrete_ordinary_hold.manage` (the lead or any Lab
+  Manager; never LAB). Eligible: an age in days with a target (casting known), a numbered set
+  (C38: `unnumbered_set`), no test entry at all (`tested_specimen`), not on HOLD already
+  (`already_on_hold`), no failed-specimen hold (`failed_hold`, that workflow stays separate), not
+  authorized for disposal or disposed, set and report not Void, version current. Same bulk shape
+  as the other HOLD commands (all-or-nothing, 403 `forbidden` with `specimens`, else 409
+  `not_eligible` with `problems`; exact retries replay; result `{ commandId, rows }` as HOLD
+  rows). Writes `concrete_specimen_hold_assignment` (previous age and target, hold-until date,
+  reason, who, command; migration 0045) and the audit event `concrete_specimen.hold_assigned` per
+  specimen; the specimen's HOLD expiry becomes the chosen date (`hold_until`, kept through a
+  casting correction) and it leaves Today / Overdue / Upcoming and the testing table. Reaching
+  the date flags `review_due` only. Released like any ordinary HOLD (Schedule test clears the
+  date; Authorize disposal, then Record disposal).
+- **History:** `GET /api/concrete/specimens/:specimenId/hold-history` (failure hold, held until a
+  date, test scheduled, disposal authorized, disposed; the recording account when it differs
+  from the performer).
 - **Not here:** placing failed-specimen holds and pass/fail (C24/C25); passing tested specimens
   entering disposal (no result is final and pass/fail is undefined until C23/C24; the disposal
   records and Record disposal are kind-agnostic, so that card adds an entry path); revoking a
@@ -663,8 +679,14 @@ Contracts in `packages/shared/src/concrete-lab.ts`; routes in
   testing table (`/lab-testing/concrete`).
 - **Receiving queue** (`GET /api/concrete/receiving-queue`): one row per set with specimens in the
   stage. A specimen is awaiting pickup until a completed pickup, awaiting receiving until its
-  receipt; a resolved Missing disposition takes it off both (C06's rule). Void sets and reports and
-  sets without a casting time are left out. **My reports** (the report's technician is the caller)
+  receipt; a resolved Missing disposition takes it off both (C06's rule). Void sets and reports are
+  left out. **Sets without a casting time are listed** (STRATA-120, Kyle 2026-11-12: "Casting time
+  not recorded · No test dates until it is"; `castAt: null`) and can be picked up and received
+  under C06's rules (the `before_casting` check has nothing to compare against). Their target
+  dates and HOLD expiry stay null until the casting time is recorded (C04's draft save, or C05's
+  casting correction for a numbered set, which accepts a null previous time); the dates trigger
+  then derives them once, receipts unchanged. Each section is ordered oldest casting first, sets
+  without a casting time last, then project, set number, temporary ID and set ID (stable pages). **My reports** (the report's technician is the caller)
   come first and are counted separately (`mineTotal`); the rest stay listed. The screen
   (`/concrete/receiving`) shows them as two sections.
 - **Concrete search** (`GET /api/concrete/search`): set aliases exactly (`26-05`, `TMP-D07-001`,
@@ -743,6 +765,9 @@ Concrete Lab → Testing table (`/concrete/testing`, also the dashboard's "Open 
 today's breaks for direct entry on the lab computers. No migration; it reads and writes C07's
 drafts. Contracts: `packages/shared/src/concrete-testing-table.ts`.
 
+- **Selection** (STRATA-95): `specimenIds=<id>,<id>…` (at most 200) lists just those specimens,
+  whatever their target date (a Breaks selection's Record breaks), still only scheduled ones (an
+  age in days, casting known, not Void, not authorized for disposal); `projects` is unchanged.
 - **Rows:** `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=` (`inventory.read`):
   C22's scheduled specimens (not HOLD) whose target is today; with Include overdue also those past
   their target with no complete entry tested before today. Overdue rows are flagged ("Overdue

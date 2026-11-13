@@ -1046,7 +1046,9 @@ async function castingEffects(
                  ELSE (concrete_casting_date($2::timestamptz) + sp.assigned_age::integer)::text
             END AS new_target_date,
             CASE WHEN sp.assigned_age = 'HOLD'
-                 THEN (concrete_casting_date($2::timestamptz) + s.hold_duration_days)::text
+                 -- A date chosen with Hold until (STRATA-121) never follows the casting time.
+                 THEN coalesce(sp.hold_until,
+                               concrete_casting_date($2::timestamptz) + s.hold_duration_days)::text
             END AS new_hold_expires_on
      FROM concrete_specimen sp
      JOIN concrete_specimen_set s ON s.id = sp.set_id

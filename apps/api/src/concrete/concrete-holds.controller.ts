@@ -49,6 +49,18 @@ export class ConcreteHoldsController {
     return this.holds.scheduleTest(body, user, actorFor(user), requestIdOf(request));
   }
 
+  /** STRATA-121: scheduled specimens onto an ordinary HOLD until a date (from Breaks). */
+  @Post('holds/hold-until')
+  @HttpCode(200)
+  @ActiveUser()
+  holdUntil(
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ConcreteHoldActionResult> {
+    return this.holds.holdUntil(body, user, actorFor(user), requestIdOf(request));
+  }
+
   @Post('holds/authorize-disposal')
   @HttpCode(200)
   @ActiveUser()

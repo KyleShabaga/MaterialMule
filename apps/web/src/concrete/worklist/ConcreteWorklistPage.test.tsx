@@ -77,6 +77,7 @@ const list = (
             projectName: 'Example tower',
             count: rows.length,
             canReschedule,
+            canHoldUntil: canReschedule,
             rows,
           },
         ],
