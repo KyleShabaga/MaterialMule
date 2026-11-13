@@ -626,6 +626,13 @@ under **Concrete Review** (`/concrete/review`). Source: Combined Plan "Review qu
   dates (America/Edmonton), with/without exceptions and "needs my action". Rows show project
   number, report type, report date, technician, submitted date and the latest version's exception
   flags (from its frozen snapshot).
+  STRATA-97 adds `status=open_exceptions` (awaiting review or returned, with exceptions on the
+  latest version not yet documented, counted per code and field; a row's own status stays one of
+  the four, and `openExceptionCount` counts it beside the status counts), `search` (project
+  number or name, technician name or set label; contains, any case, `%` and `_` literal) and
+  `sort=submitted|project|report_date` with `dir=asc|desc` (submission time breaks ties; without
+  a sort each status keeps its own order). The screen's tabs are Waiting for review, Returned,
+  Reviewed (not issued), Exceptions and Issued; rows open the exact report and version.
 - **Review view.** An interim HTML preview of the selected version's snapshot, labelled as a review
   preview and never as the issued format (C32 owns the final layout); changes since the previous
   submitted version highlighted (`diffConcreteReportSnapshots`: leaf paths, list items matched by

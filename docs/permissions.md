@@ -922,11 +922,11 @@ The review queue, documenting a submitted version's exceptions, the Mark reviewe
 issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migration 0025
 ([concrete.md](concrete.md#review-queue-and-issuance-c28)). Field reports only (G2).
 
-| Route                                                                                                                                           | Policy                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `GET /api/concrete/review-queue?status=&projectId=&technicianUserId=&reportType=&submittedFrom=&submittedTo=&exceptions=&mine=&page=&pageSize=` | `inventory.read` (every active session, LAB included)                                    |
-| `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                       | `inventory.read`                                                                         |
-| `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                  | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
+| Route                                                                                                                                                              | Policy                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `GET /api/concrete/review-queue?status=&projectId=&technicianUserId=&reportType=&submittedFrom=&submittedTo=&exceptions=&mine=&search=&sort=&dir=&page=&pageSize=` | `inventory.read` (every active session, LAB included)                                    |
+| `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                                          | `inventory.read`                                                                         |
+| `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                                     | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
 
 - **Queue.** Visible to every `inventory.read` session (confirmed by the owner, 2026-11-09). Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
   issuance, Issued; `counts` per status with the same filters. Each row's `canAct` says whether
