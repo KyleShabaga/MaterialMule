@@ -10,7 +10,6 @@ import {
   openWizard,
   receiptsDescribed,
   summaryOf,
-  toUnits,
   uniqueTag,
 } from '../support/receiving';
 
@@ -29,7 +28,6 @@ test(
     await chooseReceiver(page, 'AT', /^AT · Alex Tester/);
     await chooseDemoProject(page);
     await page.getByLabel('Description (optional)').fill(description);
-    await toUnits(page);
     await addHole(bucket(page, 1), 'TH26-01');
     await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
     await expect(page.locator('.draft-status')).toContainText('Receiver: AT');
@@ -39,7 +37,7 @@ test(
     await confirmDelivery(page);
     const expired = page.getByRole('alert').filter({ hasText: 'LAB session has expired' });
     await expect(expired).toContainText('Your draft is saved. Sign in to confirm.');
-    await expect(page.getByText(description)).toBeVisible();
+    await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
     expect(await receiptsDescribed(description)).toEqual([]);
     await expired.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/\/sign-in\?returnTo=%2Freceiving-log%2Fnew%3Fdraft%3D/);
@@ -51,7 +49,7 @@ test(
     await expect(
       page.getByRole('region', { name: 'This draft was started for AT. Change receiver?' }),
     ).toBeVisible();
-    await expect(page.getByText(description)).toBeVisible();
+    await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
     await confirmDelivery(page);
     const [id] = await issuedIds(page);
     expect(await receiptsDescribed(description)).toMatchObject([

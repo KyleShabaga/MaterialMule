@@ -147,7 +147,7 @@ describe('Receiving drafts (MM-T11)', () => {
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), 'river');
     await user.click(await screen.findByRole('option', { name: /DEMO-2601/ }));
     await user.type(screen.getByLabelText('Description (optional)'), 'Two buckets');
-    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
+    // One page (STRATA-76): the unit rows are already there.
     const bucket = screen.getByRole('region', { name: 'Bucket 1' });
     await user.type(within(bucket).getByLabelText('Bucket 1 note (optional)'), 'Lid taped');
     // Saved about 1 s after the last change, with the time and receiver shown.
@@ -163,13 +163,11 @@ describe('Receiving drafts (MM-T11)', () => {
     expect(screen.getByRole('button', { name: 'Start a delivery' })).toBeVisible();
 
     await user.click(within(list).getByRole('button', { name: /Resume draft DEMO-2601/ }));
-    // It opens on the step it was left at: Units.
+    // Every field is as it was left, on the one page.
     expect(screen.getByLabelText('Bucket 1 note (optional)')).toHaveValue('Lid taped');
-    expect(screen.getByText('Two buckets')).toBeInTheDocument();
     expect(screen.getByText(/Draft saved/)).toHaveTextContent(
       /^Draft saved \d{2}:\d{2} · Receiver: AT$/,
     );
-    await user.click(screen.getByRole('button', { name: 'Edit delivery' }));
     expect(screen.getByLabelText('Description (optional)')).toHaveValue('Two buckets');
     expect(screen.getByLabelText('Project number')).toHaveValue('DEMO-2601');
     expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
@@ -261,13 +259,19 @@ describe('Receiving drafts (MM-T11)', () => {
       { 'POST /api/receipts': () => json(401, { code: 'unauthenticated' }) },
       `/receiving-log/new?draft=${record.draftId}`,
     );
-    await user.click(await screen.findByRole('button', { name: 'Confirm and issue IDs' }));
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(
-      'Your session has expired. Your draft is saved. Sign in to confirm.',
+    await user.click(await screen.findByRole('button', { name: 'Confirm and print labels' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: /^Confirm \d+ units? and print labels$/,
+      }),
     );
+    const alert = (
+      await screen.findByText('Your session has expired. Your draft is saved. Sign in to confirm.')
+    ).closest('[role="alert"]') as HTMLElement;
     // Still on the draft.
-    expect(screen.getByText('Two buckets from the drill crew')).toBeInTheDocument();
+    expect(screen.getByLabelText('Description (optional)')).toHaveValue(
+      'Two buckets from the drill crew',
+    );
     await user.click(within(alert).getByRole('button', { name: 'Sign in' }));
     expect(refresh).toHaveBeenCalled();
     await closeTab();
@@ -308,8 +312,19 @@ describe('Receiving drafts (MM-T11)', () => {
 
   it('Discard asks first, then removes the draft from this computer', async () => {
     const user = userEvent.setup();
-    await stored(newRecord(filled(AT), me()));
-    renderPage(me());
+    const record = await stored(newRecord(filled(AT), me()));
+    const deletes: string[] = [];
+    // STRATA-108: the server authorizes the deletion before the local copy goes.
+    renderPage(me(), {
+      'POST /api/receipt-drafts/': () => {
+        deletes.push(record.draftId);
+        return json(200, {
+          draftId: record.draftId,
+          deletedAt: new Date().toISOString(),
+          reason: 'starter',
+        });
+      },
+    });
     const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
     await user.click(within(list).getByRole('button', { name: /Discard draft DEMO-2601/ }));
     expect((await store.list()).drafts).toHaveLength(1);
@@ -317,6 +332,27 @@ describe('Receiving drafts (MM-T11)', () => {
     await user.click(screen.getByRole('button', { name: 'Discard draft', hidden: true }));
     expect(await screen.findByText('No drafts on this computer.')).toBeInTheDocument();
     expect((await store.list()).drafts).toHaveLength(0);
+    expect(deletes).toEqual([record.draftId]);
+  });
+
+  it('STRATA-108: Discard is refused for someone else’s draft and the draft stays', async () => {
+    const user = userEvent.setup();
+    await stored(newRecord(filled(AT), me()));
+    renderPage(me(), {
+      'POST /api/receipt-drafts/': () =>
+        json(403, {
+          code: 'draft_delete_forbidden',
+          reason: 'not_starter',
+          starter: { userId: PE.id, initials: 'PE', name: 'Pat Example' },
+        }),
+    });
+    const list = await screen.findByRole('region', { name: 'Drafts on this computer' });
+    await user.click(within(list).getByRole('button', { name: /Discard draft DEMO-2601/ }));
+    await user.click(screen.getByRole('button', { name: 'Discard draft', hidden: true }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Only Pat Example or a Lab Manager can delete this draft.',
+    );
+    expect((await store.list()).drafts).toHaveLength(1);
   });
 });
 

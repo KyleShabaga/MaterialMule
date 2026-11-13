@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   receiptDetailSchema,
+  receiptHistoryPageSchema,
   receiptLogPageSchema,
   receiverListResponseSchema,
   type ConfirmReceiptResponse,
@@ -114,7 +115,17 @@ describe.runIf(testDatabaseUrl)('receiving log API (MM-T51)', () => {
     expect(Date.parse(item.confirmedAt)).not.toBeNaN();
     // Explicit response fields: no idempotency key, request hash or raw columns.
     expect(Object.keys(item).sort()).toEqual(
-      ['account', 'confirmedAt', 'id', 'project', 'quantity', 'receivedDate', 'receiver'].sort(),
+      [
+        'account',
+        'confirmedAt',
+        'id',
+        'project',
+        'quantity',
+        'receivedDate',
+        'receiver',
+        'status',
+        'unitIds',
+      ].sort(),
     );
     expect(JSON.stringify(page)).not.toContain(body.idempotencyKey);
 
@@ -241,6 +252,62 @@ describe.runIf(testDatabaseUrl)('receiving log API (MM-T51)', () => {
     expect(original.items[0]!.quantity).toBe(2);
     expect((await list(`?projectId=${otherProject}`)).total).toBe(0);
     expect((await list('?receivedFrom=2026-04-11&receivedTo=2026-04-30')).total).toBe(0);
+
+    // STRATA-78: the receipt is Corrected once a unit is; the status filter finds it.
+    expect(original.items[0]!.status).toBe('corrected');
+    expect(receipt.status).toBe('corrected');
+    expect(receipt.lastCorrection).toMatchObject({ by: 'Alex Tester' });
+    const april = '&receivedFrom=2026-04-10&receivedTo=2026-04-10';
+    expect((await list(`?status=corrected${april}`)).items.map((r) => r.id)).toEqual([
+      confirmed.receiptId,
+    ]);
+    expect((await list(`?status=confirmed${april}`)).total).toBe(0);
+    expect(original.items[0]!.unitIds).toEqual(confirmed.units.map((u) => u.suNumber).sort());
+
+    // Corrections and history: the receipt's and its units' events, newest first, each unit named.
+    const response = await h
+      .http()
+      .get(`/api/receipts/${confirmed.receiptId}/history`)
+      .set('Cookie', cookies.at!);
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const history = receiptHistoryPageSchema.parse(response.body);
+    expect(history.items[0]).toMatchObject({
+      action: 'storage_unit.corrected',
+      readableId: moved!.suNumber,
+      reason: 'Belongs to the second demo project',
+    });
+    expect(history.items.map((e) => e.action)).toContain('receipt.confirmed');
+    expect(history.total).toBe(history.items.length);
+    const unknown = await h
+      .http()
+      .get(`/api/receipts/${randomUUID()}/history`)
+      .set('Cookie', cookies.at!);
+    expect(unknown.status).toBe(404);
+  });
+
+  it('STRATA-78: sorts by received date, project and unit count; names at most three unit IDs', async () => {
+    const small = await confirm(1, { receivedDate: '2026-05-02' });
+    const big = await confirm(4, { receivedDate: '2026-05-01' });
+    const may = '&receivedFrom=2026-05-01&receivedTo=2026-05-31';
+    expect((await list(`?sort=received&dir=asc${may}`)).items.map((r) => r.id)).toEqual([
+      big.receiptId,
+      small.receiptId,
+    ]);
+    expect((await list(`?sort=units&dir=desc${may}`)).items.map((r) => r.id)).toEqual([
+      big.receiptId,
+      small.receiptId,
+    ]);
+    expect((await list(`?sort=units&dir=asc${may}`)).items.map((r) => r.id)).toEqual([
+      small.receiptId,
+      big.receiptId,
+    ]);
+    const bigRow = (await list(`?sort=units&dir=desc${may}`)).items[0]!;
+    expect(bigRow.quantity).toBe(4);
+    expect(bigRow.unitIds).toHaveLength(3);
+    expect(bigRow.status).toBe('confirmed');
+    expect((await list(`?sort=project${may}`)).total).toBe(2);
+    const bad = await h.http().get('/api/receipts?sort=colour').set('Cookie', cookies.at!);
+    expect(bad.status).toBe(400);
   });
 
   it('AC9: equal confirmation times page deterministically; a unit ID search returns its receipt once', async () => {

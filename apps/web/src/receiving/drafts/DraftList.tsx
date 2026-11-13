@@ -1,15 +1,24 @@
+import { receiptDraftDeleteHint } from '@materialmule/shared';
 import { useState } from 'react';
 import { ConfirmDialog, StatusBadge } from '../../components/app-ui';
+import { useOptionalRecordingPerson } from '../../session/recording-person-store';
 import { formatUnitCount } from '../draft';
 import { daysUntilAutoDelete, type DraftAutoDelete } from './auto-delete';
 import { draftTitle, formatSavedDateTime, receiverText } from './format';
+import {
+  DraftDeleteError,
+  authorizeDraftDelete,
+  deleteAvailability,
+  useDraftOwnership,
+} from './ownership';
 import { STALE_AFTER_DAYS, isStale, type StoredDraft } from './record';
 
 // "Drafts on this computer" on the receiving landing (MM-T11). Only drafts this session may
 // see are passed in (LAB drafts for LAB, personal drafts for their owner). With draft auto-delete
 // on (MM-T45) a line above the list states the rule, each draft in its last week says when it
 // goes, an interrupted confirmation says it is never deleted (MM-T61), and a notice reports a
-// clean-up.
+// clean-up. STRATA-108: only the person who started a draft or a Lab Manager may discard it;
+// the server authorizes first and `onDiscard` (which removes the local copy) runs only after.
 
 export function DraftList({
   drafts,
@@ -30,16 +39,24 @@ export function DraftList({
 }) {
   const [discarding, setDiscarding] = useState<StoredDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const station = useOptionalRecordingPerson();
+  const picked = station?.isStation ? (station.person?.id ?? null) : null;
+  const ownership = useDraftOwnership(drafts, picked);
 
   async function discard() {
     const record = discarding;
     setDiscarding(null);
     if (!record) return;
     try {
+      await authorizeDraftDelete(record.draftId, picked);
       await onDiscard(record);
       setError(null);
-    } catch {
-      setError("The draft couldn't be discarded. Try again.");
+    } catch (problem) {
+      setError(
+        problem instanceof DraftDeleteError
+          ? problem.message
+          : "The draft couldn't be discarded. Try again.",
+      );
     }
   }
 
@@ -67,6 +84,8 @@ export function DraftList({
             {drafts.map((record) => {
               const title = draftTitle(record);
               const daysLeft = autoDeleteOn ? daysUntilAutoDelete(record, autoDeleteOn) : null;
+              const { allowed, ownership: owned } = deleteAvailability(ownership, record.draftId);
+              const hint = owned && !allowed ? receiptDraftDeleteHint(owned) : null;
               return (
                 <li key={record.draftId} className="draft-item receive-draft-row">
                   <StatusBadge tone="waiting">DRAFT</StatusBadge>
@@ -107,11 +126,13 @@ export function DraftList({
                     <button
                       type="button"
                       aria-label={`Discard draft ${title}`}
+                      disabled={!allowed}
                       onClick={() => setDiscarding(record)}
                     >
                       Discard
                     </button>
                   </div>
+                  {hint ? <p className="field-hint">{hint}.</p> : null}
                 </li>
               );
             })}

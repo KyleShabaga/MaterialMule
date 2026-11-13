@@ -4,6 +4,7 @@ import {
   STORAGE_UNIT_TYPES,
   normalizeStorageUnitCode,
   splitSearchWords,
+  storageUnitHistoryEventSchema,
   storageUnitHoleSummarySchema,
 } from './inventory';
 import { bulkMembershipSchema, sampleIdentitySchema } from './samples';
@@ -37,6 +38,29 @@ const optionalParam = <S extends z.ZodType>(schema: S) =>
 const dateParam = optionalParam(z.iso.date({ error: 'must be a date (YYYY-MM-DD)' }));
 
 /**
+ * A receipt's status (STRATA-78): `confirmed` as received, or `corrected` once any of its storage
+ * units has had a correction (MM-T13). Both share the storage stage; the receipt header itself
+ * never changes.
+ */
+export const RECEIPT_LOG_STATUSES = ['confirmed', 'corrected'] as const;
+export type ReceiptLogStatus = (typeof RECEIPT_LOG_STATUSES)[number];
+export const RECEIPT_LOG_STATUS_LABELS: Record<ReceiptLogStatus, string> = {
+  confirmed: 'Confirmed',
+  corrected: 'Corrected',
+};
+
+/**
+ * Sort keys (STRATA-78, table tools): `received` (received date, then confirmation time),
+ * `project` (project number) and `units` (storage unit count). No key is the default: newest
+ * confirmation first.
+ */
+export const RECEIPT_LOG_SORT_KEYS = ['received', 'project', 'units'] as const;
+export type ReceiptLogSortKey = (typeof RECEIPT_LOG_SORT_KEYS)[number];
+
+/** How many storage unit IDs a log row names (the rest are counted: "+3"). */
+export const RECEIPT_LOG_UNIT_ID_LIMIT = 3;
+
+/**
  * `GET /api/receipts` query. The web app parses its URL with the same schema, so a shared link
  * shows exactly what the server returns. Dates are inclusive and apply to the original receipt
  * header's received date; the project filter applies to the receipt's own project.
@@ -57,6 +81,14 @@ export const receiptLogQuerySchema = z
     receiverUserId: optionalParam(z.uuid({ error: 'must be a staff member ID' })),
     receivedFrom: dateParam,
     receivedTo: dateParam,
+    /** One status; both or neither means every receipt. */
+    status: optionalParam(
+      z.enum(RECEIPT_LOG_STATUSES, { error: 'must be confirmed or corrected' }),
+    ),
+    sort: optionalParam(
+      z.enum(RECEIPT_LOG_SORT_KEYS, { error: 'must be received, project or units' }),
+    ),
+    dir: optionalParam(z.enum(['asc', 'desc'], { error: 'must be asc or desc' })),
     page: z.preprocess(
       blankToUndefined,
       z.coerce.number({ error: 'must be a number' }).int().min(1).max(100_000).default(1),
@@ -116,6 +148,10 @@ export const receiptLogItemSchema = z.object({
   /** Physical storage units in the receipt (D41). */
   quantity: z.number(),
   confirmedAt: z.string(),
+  /** Optional so an older server's rows still parse; this server always sends them. */
+  status: z.enum(RECEIPT_LOG_STATUSES).optional(),
+  /** The first storage unit IDs in ID order (at most RECEIPT_LOG_UNIT_ID_LIMIT). */
+  unitIds: z.array(z.string()).optional(),
 });
 export type ReceiptLogItem = z.infer<typeof receiptLogItemSchema>;
 
@@ -150,8 +186,38 @@ export const receiptDetailSchema = receiptLogItemSchema.extend({
   description: z.string().nullable(),
   /** Every storage unit the receipt created, disposed and corrected ones included. */
   units: z.array(receiptUnitSchema),
+  /** The newest correction of any of its units, or null. Optional for older servers. */
+  lastCorrection: z.object({ at: z.string(), by: z.string().nullable() }).nullable().optional(),
 });
 export type ReceiptDetail = z.infer<typeof receiptDetailSchema>;
+
+export const RECEIPT_HISTORY_PAGE_SIZE = 20;
+
+/** `GET /api/receipts/:receiptId/history?page=` query. */
+export const receiptHistoryQuerySchema = z.object({
+  page: z.preprocess(
+    blankToUndefined,
+    z.coerce.number({ error: 'must be a number' }).int().min(1).max(100_000).default(1),
+  ),
+});
+
+/** One event about the receipt or one of its units; `readableId` names the unit, if any. */
+export const receiptHistoryEventSchema = storageUnitHistoryEventSchema.extend({
+  readableId: z.string().nullable(),
+});
+export type ReceiptHistoryEvent = z.infer<typeof receiptHistoryEventSchema>;
+
+/**
+ * `GET /api/receipts/:receiptId/history?page=`: corrections first-class with everything else that
+ * happened to the receipt and its units, newest first, 20 per page.
+ */
+export const receiptHistoryPageSchema = z.object({
+  items: z.array(receiptHistoryEventSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+export type ReceiptHistoryPage = z.infer<typeof receiptHistoryPageSchema>;
 
 /** `GET /api/receipts/:receiptId` path parameter. */
 export const receiptIdParamSchema = z.object({

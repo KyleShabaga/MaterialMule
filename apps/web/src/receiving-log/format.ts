@@ -14,31 +14,27 @@ export function formatConfirmedAt(iso: string): string {
   return timeFormat.format(new Date(iso));
 }
 
+const clockFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Edmonton',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
+/** Time of day in the firm's local time, e.g. "2:05 p.m.". */
+export function formatClock(iso: string): string {
+  return clockFormat.format(new Date(iso));
+}
+
 /** "JS · Jordan Smith": initials with the name, so people sharing initials are told apart. */
 export function formatReceiver(receiver: ReceiptLogItem['receiver']): string {
   return `${receiver.initials} · ${receiver.name}`;
 }
 
-/** The confirming account: "LAB (shared station)" or a person's initials and name. */
-export function formatAccount(account: ReceiptLogItem['account']): string {
-  if (account.sharedStation) return `${account.name} (shared station)`;
-  return account.initials ? `${account.initials} · ${account.name}` : account.name;
-}
-
-/**
- * "4 units · TH26-01, TH26-02": a local draft's units count and the test holes named so far.
- * Takes only what it reads, so it never depends on a draft's other fields.
- */
-export function draftContents(
-  units: readonly { summaries: readonly { testHole: { name: string } }[] }[],
-): string {
-  const holes = [
-    ...new Set(units.flatMap((unit) => unit.summaries.map((summary) => summary.testHole.name))),
-  ];
-  const count = `${units.length} ${units.length === 1 ? 'unit' : 'units'}`;
-  return holes.length > 0 ? `${count} · ${holes.join(', ')}` : count;
-}
-
 export function unitCount(quantity: number): string {
   return `${quantity} storage ${quantity === 1 ? 'unit' : 'units'}`;
+}
+
+/** A receipt's name (receipts have no number): "2026-10-21 · Alex Tester". */
+export function receiptName(receipt: Pick<ReceiptLogItem, 'receivedDate' | 'receiver'>): string {
+  return `${receipt.receivedDate} · ${receipt.receiver.name}`;
 }
