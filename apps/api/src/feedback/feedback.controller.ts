@@ -17,7 +17,8 @@ import { FeedbackService } from './feedback.service.js';
 
 /**
  * Help & Feedback. Anyone signed in and approved (LAB included) may send feedback; only
- * administrators (`staff.manage`) read it. It stays on the host: nothing is emailed.
+ * administrators (`feedback.read`, STRATA-118: never Lab Managers) read it, and each submission
+ * reaches their Inbox. It stays on the host: nothing is emailed.
  */
 @Controller('feedback')
 export class FeedbackController {
@@ -35,7 +36,7 @@ export class FeedbackController {
   }
 
   @Get()
-  @RequirePermission('staff.manage')
+  @RequirePermission('feedback.read')
   list(): Promise<FeedbackItem[]> {
     return this.feedback.list();
   }

@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -16,6 +17,7 @@ import {
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
+import { can, type AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { announceNewlyRoutedItems, rerouteOpenItems } from '../notifications/rerouting.js';
@@ -214,6 +216,50 @@ export interface ReceiverSnapshot {
 interface Change {
   actor: AuditActor;
   requestId: string | null;
+  /**
+   * The signed-in person making the change (every HTTP route passes it). STRATA-118: Lab Managers
+   * hold `staff.manage` but not `admin_role.manage`, so the parts reserved for administrators are
+   * checked here, on the rows as they stand. Omitted only by trusted in-process callers (tests,
+   * seeds), which keep full authority.
+   */
+  by?: AuthUser;
+}
+
+/** May this change grant or remove admin, or touch an account that holds admin? */
+function mayManageAdmins(change: Change): boolean {
+  return !change.by || can(change.by, 'admin_role.manage');
+}
+
+/**
+ * MISC-06 kept: a position moves position-based review eligibility (D05), which only an
+ * administrator manages, so setting or clearing one needs `reviewer_eligibility.manage`.
+ */
+function mayChangePositions(change: Change): boolean {
+  return !change.by || can(change.by, 'reviewer_eligibility.manage');
+}
+
+function adminOnly(message: string): ForbiddenException {
+  return new ForbiddenException({ code: 'admin_only', message });
+}
+
+/**
+ * STRATA-118: an account that currently holds the admin role is changed (roles, disable,
+ * re-enable, profile, job title) only by someone with `admin_role.manage`. Call after locking the
+ * account row: every role change locks it first, so the answer can't change under the caller.
+ */
+async function assertMayChangeAccount(
+  client: PoolClient,
+  id: string,
+  change: Change,
+): Promise<void> {
+  if (mayManageAdmins(change)) return;
+  const { rows } = await client.query(
+    `SELECT 1 FROM role_assignment WHERE user_id = $1 AND role = 'admin'`,
+    [id],
+  );
+  if (rows.length > 0) {
+    throw adminOnly('Only an administrator can change an administrator’s account.');
+  }
 }
 
 @Injectable()
@@ -311,6 +357,9 @@ export class StaffService {
     },
     change: Change,
   ): Promise<StaffMember> {
+    if ((input.position ?? null) !== null && !mayChangePositions(change)) {
+      throw adminOnly('Only an administrator sets a position.');
+    }
     return withTransaction(this.database.pool, async (client) => {
       const upn = input.expectedUpn.trim();
       const { rows: clashes } = await client.query(
@@ -363,6 +412,7 @@ export class StaffService {
   async approve(id: string, change: Change): Promise<StaffMember> {
     return withTransaction(this.database.pool, async (client) => {
       const status = await this.lockStatus(client, id);
+      await assertMayChangeAccount(client, id, change);
       if (status !== 'pending') {
         throw new UnprocessableEntityException({
           code: 'invalid_transition',
@@ -390,7 +440,9 @@ export class StaffService {
 
   /** Disables and revokes every session (UsersService keeps the one implementation). */
   async disable(id: string, reason: string, change: Change): Promise<StaffMember> {
-    await this.users.disable(id, reason, change.actor, change.requestId);
+    await this.users.disable(id, reason, change.actor, change.requestId, (client) =>
+      assertMayChangeAccount(client, id, change),
+    );
     return this.get(id);
   }
 
@@ -405,6 +457,7 @@ export class StaffService {
       // person's approvals end with their assignments; no action request is created here.
       await lockReviewEligibility(client);
       const status = await this.lockStatus(client, id);
+      await assertMayChangeAccount(client, id, change);
       if (status !== 'disabled') {
         throw new UnprocessableEntityException({
           code: 'invalid_transition',
@@ -470,6 +523,10 @@ export class StaffService {
         [id],
       );
       const before = current.map((row) => row.role);
+      // STRATA-118: making or removing admins, or re-roling an admin, is administrator-only.
+      if ((before.includes('admin') || wanted.includes('admin')) && !mayManageAdmins(change)) {
+        throw adminOnly('Only an administrator can make or remove administrators.');
+      }
       if (before.join(',') === wanted.join(',')) {
         return this.get(id, client);
       }
@@ -555,6 +612,7 @@ export class StaffService {
       if (rows.length === 0) {
         throw new NotFoundException({ code: 'not_found' });
       }
+      await assertMayChangeAccount(client, id, change);
       const old = rows[0]!;
       const next = {
         official_initials: patch.officialInitials ?? old.official_initials,
@@ -567,6 +625,9 @@ export class StaffService {
         change.actor.userId !== null &&
         (initialsChanged || old.initials_confirmed_at === null);
       const positionChanged = next.position !== old.position;
+      if (positionChanged && !mayChangePositions(change)) {
+        throw adminOnly('Only an administrator sets a position.');
+      }
       await client.query(
         `UPDATE app_user
          SET official_initials = $2, position = $3, display_name = $4,
@@ -669,6 +730,7 @@ export class StaffService {
       );
       const old = rows[0];
       if (!old) throw new NotFoundException({ code: 'not_found' });
+      await assertMayChangeAccount(client, id, change);
       if (old.account_type === 'shared_lab') {
         throw new UnprocessableEntityException({
           code: 'not_personal_account',

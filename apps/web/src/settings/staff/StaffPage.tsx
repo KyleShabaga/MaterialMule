@@ -108,14 +108,22 @@ function useLoad<T>(key: string, fetcher: () => Promise<T>): Load<T> {
   return latest?.key === key ? latest.load : { state: 'loading' };
 }
 
-/** Settings → Staff & access (MM-T07). The server enforces admin-only; this only hides. */
+/**
+ * Settings → Staff & access (MM-T07). Lab Managers and administrators (STRATA-118); making or
+ * removing an admin, and changing an admin's account, stay administrator-only. The server
+ * enforces all of it; this only hides.
+ */
 export function StaffPage() {
   const me = useMe();
   if (!me.permissions.includes('staff.manage')) {
     return (
       <section aria-labelledby="staff-heading">
-        <SettingsHead id="staff-heading" title="Staff & access" who="Administrators only." />
-        <EmptyState>Only administrators can manage staff and access.</EmptyState>
+        <SettingsHead
+          id="staff-heading"
+          title="Staff & access"
+          who="Lab Managers and administrators."
+        />
+        <EmptyState>Only Lab Managers and administrators can manage staff and access.</EmptyState>
       </section>
     );
   }
@@ -129,12 +137,17 @@ export function StaffPage() {
  * in again.
  */
 function StaffAccess({ currentUserId }: { currentUserId: string }) {
+  const me = useMe();
   const [revoked, setRevoked] = useState(false);
   const [attempt, setAttempt] = useState(0);
   if (revoked) {
     return (
       <section aria-labelledby="staff-heading" className="staff">
-        <SettingsHead id="staff-heading" title="Staff & access" who="Administrators only." />
+        <SettingsHead
+          id="staff-heading"
+          title="Staff & access"
+          who="Lab Managers and administrators."
+        />
         <ErrorState
           message={REVOKED_MESSAGE}
           onRetry={() => {
@@ -149,9 +162,14 @@ function StaffAccess({ currentUserId }: { currentUserId: string }) {
     <div key={attempt}>
       <StaffDirectory currentUserId={currentUserId} onForbidden={() => setRevoked(true)} />
       {/* The shared receiving account's password and stations (MM-T06). */}
-      <LabAccountCard onForbidden={() => setRevoked(true)} />
+      {/* STRATA-118: the LAB password stays administrator-only (`lab_account.manage`). */}
+      {me.permissions.includes('lab_account.manage') ? (
+        <LabAccountCard onForbidden={() => setRevoked(true)} />
+      ) : null}
       {/* MISC-08: Eligibility & Capabilities by position (admin only, per review scope). */}
-      <PositionRulesSection onForbidden={() => setRevoked(true)} />
+      {me.permissions.includes('reviewer_eligibility.manage') ? (
+        <PositionRulesSection onForbidden={() => setRevoked(true)} />
+      ) : null}
     </div>
   );
 }
@@ -203,7 +221,7 @@ function StaffDirectory({
       <SettingsHead
         id="staff-heading"
         title="Staff & access"
-        who="Who can sign in and what each person may do. Administrators only."
+        who="Who can sign in and what each person may do. Lab Managers and administrators."
         actions={
           <button type="button" className="primary" onClick={() => setAdding(true)}>
             Add staff
@@ -460,6 +478,12 @@ function StaffDrawer({
   const [reasonError, setReasonError] = useState<string | null>(null);
   const reasonId = useId();
   const isLab = member.accountType === 'shared_lab';
+  const me = useMe();
+  // STRATA-118: only administrators make or remove admins or change an admin's account; positions
+  // move review eligibility (MISC-06), so they stay with whoever manages eligibility.
+  const canAdmin = me.permissions.includes('admin_role.manage');
+  const canPosition = me.permissions.includes('reviewer_eligibility.manage');
+  const protectedAdmin = member.roles.includes('admin') && !canAdmin;
 
   async function run(action: () => Promise<StaffMember>, message: string) {
     setBusy(true);
@@ -581,130 +605,151 @@ function StaffDrawer({
       </dl>
       {error ? <ErrorState message={error} /> : null}
 
-      <form onSubmit={saveProfile} className="drawer-section">
-        <h3>Profile</h3>
-        <FormField label="Display name">
-          {(props) => (
-            <input
-              {...props}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          )}
-        </FormField>
-        <FormField
-          label="Official initials"
-          hint={
-            initialsUnconfirmed
-              ? 'Not confirmed yet: save new initials or confirm these. 1 to 5 letters. Not unique.'
-              : '1 to 5 letters, confirmed by an admin. Not unique.'
-          }
-        >
-          {(props) => (
-            <input
-              {...props}
-              value={initials}
-              maxLength={5}
-              autoCapitalize="characters"
-              onChange={(e) => setInitials(e.target.value.toUpperCase())}
-            />
-          )}
-        </FormField>
-        {initialsUnconfirmed ? (
-          <p>
-            <button type="button" onClick={confirmInitials} disabled={busy}>
-              Confirm initials {member.officialInitials}
-            </button>
-          </p>
-        ) : null}
-        <FormField
-          label="Position"
-          hint="Describes their work; grants no permissions. Only shown here."
-        >
-          {(props) => (
-            <select
-              {...props}
-              value={position}
-              onChange={(e) => setPosition(e.target.value as StaffPosition | '')}
+      {protectedAdmin ? (
+        <p className="notice" data-testid="admin-protected">
+          Only administrators can change an administrator’s account.
+        </p>
+      ) : (
+        <>
+          <form onSubmit={saveProfile} className="drawer-section">
+            <h3>Profile</h3>
+            <FormField label="Display name">
+              {(props) => (
+                <input
+                  {...props}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Official initials"
+              hint={
+                initialsUnconfirmed
+                  ? 'Not confirmed yet: save new initials or confirm these. 1 to 5 letters. Not unique.'
+                  : '1 to 5 letters, confirmed by an admin. Not unique.'
+              }
             >
-              <option value="">Not set</option>
-              {POSITIONS.map((p) => (
-                <option key={p} value={p}>
-                  {POSITION_LABELS[p]}
-                </option>
+              {(props) => (
+                <input
+                  {...props}
+                  value={initials}
+                  maxLength={5}
+                  autoCapitalize="characters"
+                  onChange={(e) => setInitials(e.target.value.toUpperCase())}
+                />
+              )}
+            </FormField>
+            {initialsUnconfirmed ? (
+              <p>
+                <button type="button" onClick={confirmInitials} disabled={busy}>
+                  Confirm initials {member.officialInitials}
+                </button>
+              </p>
+            ) : null}
+            {canPosition ? (
+              <FormField
+                label="Position"
+                hint="Describes their work; grants no permissions. Only shown here."
+              >
+                {(props) => (
+                  <select
+                    {...props}
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value as StaffPosition | '')}
+                  >
+                    <option value="">Not set</option>
+                    {POSITIONS.map((p) => (
+                      <option key={p} value={p}>
+                        {POSITION_LABELS[p]}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
+            ) : null}
+            <button type="submit" disabled={busy}>
+              Save profile
+            </button>
+          </form>
+
+          <JobTitleSection member={member} onChanged={onChanged} onForbidden={onForbidden} />
+
+          <form onSubmit={saveRoles} className="drawer-section">
+            <fieldset disabled={isLab || busy}>
+              <legend>Roles</legend>
+              {isLab ? (
+                <p className="field-hint">The shared LAB account can't hold roles.</p>
+              ) : null}
+              {(Object.keys(ROLE_LABELS) as StaffRole[]).map((role) => (
+                <label key={role} className="checkbox">
+                  <input
+                    type="checkbox"
+                    disabled={role === 'admin' && !canAdmin}
+                    aria-describedby={
+                      role === 'admin' && !canAdmin ? `${reasonId}-admin` : undefined
+                    }
+                    checked={roles.includes(role)}
+                    onChange={(e) =>
+                      setRoles((current) =>
+                        e.target.checked ? [...current, role] : current.filter((r) => r !== role),
+                      )
+                    }
+                  />
+                  {ROLE_LABELS[role]}
+                </label>
               ))}
-            </select>
-          )}
-        </FormField>
-        <button type="submit" disabled={busy}>
-          Save profile
-        </button>
-      </form>
+              {!canAdmin ? (
+                <p id={`${reasonId}-admin`} className="field-hint">
+                  Only administrators can make or remove admins.
+                </p>
+              ) : null}
+              <button type="submit">Save roles</button>
+            </fieldset>
+          </form>
 
-      <JobTitleSection member={member} onChanged={onChanged} onForbidden={onForbidden} />
-
-      <form onSubmit={saveRoles} className="drawer-section">
-        <fieldset disabled={isLab || busy}>
-          <legend>Roles</legend>
-          {isLab ? <p className="field-hint">The shared LAB account can't hold roles.</p> : null}
-          {(Object.keys(ROLE_LABELS) as StaffRole[]).map((role) => (
-            <label key={role} className="checkbox">
-              <input
-                type="checkbox"
-                checked={roles.includes(role)}
-                onChange={(e) =>
-                  setRoles((current) =>
-                    e.target.checked ? [...current, role] : current.filter((r) => r !== role),
+          <div className="drawer-section">
+            <h3>Access</h3>
+            {member.status === 'pending' ? (
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  void run(() => staffApi.approve(member.id), `${member.displayName} is approved.`)
+                }
+              >
+                Approve access
+              </button>
+            ) : null}
+            {member.status !== 'disabled' ? (
+              <button
+                type="button"
+                className="danger"
+                disabled={busy}
+                onClick={() => setConfirm('disable')}
+              >
+                {member.status === 'pending' ? 'Reject (disable)…' : 'Disable access…'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () => staffApi.enable(member.id),
+                    // D08 (MM-AO03): technical grants don't come back with the account.
+                    `${member.displayName} is re-enabled. Their reviewer, issuer and delegate grants were revoked for revalidation.`,
                   )
                 }
-              />
-              {ROLE_LABELS[role]}
-            </label>
-          ))}
-          <button type="submit">Save roles</button>
-        </fieldset>
-      </form>
-
-      <div className="drawer-section">
-        <h3>Access</h3>
-        {member.status === 'pending' ? (
-          <button
-            type="button"
-            className="primary"
-            disabled={busy}
-            onClick={() =>
-              void run(() => staffApi.approve(member.id), `${member.displayName} is approved.`)
-            }
-          >
-            Approve access
-          </button>
-        ) : null}
-        {member.status !== 'disabled' ? (
-          <button
-            type="button"
-            className="danger"
-            disabled={busy}
-            onClick={() => setConfirm('disable')}
-          >
-            {member.status === 'pending' ? 'Reject (disable)…' : 'Disable access…'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void run(
-                () => staffApi.enable(member.id),
-                // D08 (MM-AO03): technical grants don't come back with the account.
-                `${member.displayName} is re-enabled. Their reviewer, issuer and delegate grants were revoked for revalidation.`,
-              )
-            }
-          >
-            Re-enable access
-          </button>
-        )}
-        {isSelf ? <p className="field-hint">This is your own account.</p> : null}
-      </div>
+              >
+                Re-enable access
+              </button>
+            )}
+            {isSelf ? <p className="field-hint">This is your own account.</p> : null}
+          </div>
+        </>
+      )}
 
       <StaffGrantsSection
         key={`grants-${member.status}`}
@@ -768,6 +813,7 @@ function AddStaffDialog({
   const [position, setPosition] = useState<StaffPosition | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const canPosition = useMe().permissions.includes('reviewer_eligibility.manage');
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -830,22 +876,24 @@ function AddStaffDialog({
             />
           )}
         </FormField>
-        <FormField label="Position">
-          {(props) => (
-            <select
-              {...props}
-              value={position}
-              onChange={(e) => setPosition(e.target.value as StaffPosition | '')}
-            >
-              <option value="">Not set</option>
-              {POSITIONS.map((p) => (
-                <option key={p} value={p}>
-                  {POSITION_LABELS[p]}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
+        {canPosition ? (
+          <FormField label="Position">
+            {(props) => (
+              <select
+                {...props}
+                value={position}
+                onChange={(e) => setPosition(e.target.value as StaffPosition | '')}
+              >
+                <option value="">Not set</option>
+                {POSITIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {POSITION_LABELS[p]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+        ) : null}
         <button type="submit" className="primary" disabled={busy}>
           Add staff
         </button>

@@ -185,7 +185,7 @@ describe('Help & Feedback', () => {
     renderRoutes(help, '/help', { status: 'active', me: ADMIN });
     const received = await screen.findByRole('region', { name: 'Feedback received' });
     expect(await within(received).findByText('Show the shelf on the label.')).toBeVisible();
-    expect(within(received).getByText('An idea')).toBeInTheDocument();
+    expect(within(received).getByText('Idea')).toBeInTheDocument();
     expect(within(received).getByText('Alex Tester')).toBeInTheDocument();
   });
 });

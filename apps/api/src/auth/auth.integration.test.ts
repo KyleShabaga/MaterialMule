@@ -127,7 +127,12 @@ describe.runIf(testDatabaseUrl)('authorization and sessions (MM-T04)', () => {
     const me = meResponseSchema.parse(response.body);
     expect(me).toMatchObject({ displayName: 'User lm', status: 'active', roles: ['lab_manager'] });
     expect(me.permissions).toContain('test.cancel');
-    expect(me.permissions).not.toContain('staff.manage');
+    // STRATA-118: Staff and Printers, never the administrator-only parts.
+    expect(me.permissions).toContain('staff.manage');
+    expect(me.permissions).toContain('printer.manage');
+    for (const permission of ['admin_role.manage', 'lab_account.manage', 'feedback.read']) {
+      expect(me.permissions).not.toContain(permission);
+    }
     expect(me.permissions).not.toContain('program.close');
   });
 

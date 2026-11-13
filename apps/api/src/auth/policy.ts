@@ -217,8 +217,14 @@ export type Permission =
   | 'concrete_specimen.mass_correct'
   | 'concrete_test.enter'
   | 'concrete_specimen.dispose_record'
-  // Administration
+  // Administration. STRATA-118 (Kyle 2026-11-12): Staff and Printers are managed by Lab Managers
+  // and administrators; making or removing admins (and changing an admin's account) stays
+  // administrator-only (`admin_role.manage`), as do the shared LAB account's credentials
+  // (`lab_account.manage`) and reading Administrator Feedback (`feedback.read`).
   | 'staff.manage'
+  | 'admin_role.manage'
+  | 'lab_account.manage'
+  | 'feedback.read'
   | 'session.revoke'
   | 'printer.manage'
   | 'project.lead_project_engineer.change'
@@ -343,6 +349,11 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   // alone (no project concrete grant), and the lab-staff actions.
   'concrete_sync_conflict.resolve_lab',
   ...LAB_STAFF_PERMISSIONS,
+  // STRATA-118 (Kyle 2026-11-12): Staff (approve, roles other than admin, disable and re-enable
+  // non-admin accounts) and Printers. Never admin_role.manage, lab_account.manage or
+  // feedback.read; never through LAB, a position or a picked performer.
+  'staff.manage',
+  'printer.manage',
 ]);
 
 /**
@@ -358,6 +369,10 @@ const LAB_TECHNICIAN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(
 /** Granted by the admin role. Admin never implies project authority or Lab Manager rights. */
 const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   'staff.manage',
+  // STRATA-118: administrator-only parts of staff management.
+  'admin_role.manage',
+  'lab_account.manage',
+  'feedback.read',
   'session.revoke',
   'test_catalog.manage',
   'printer.manage',

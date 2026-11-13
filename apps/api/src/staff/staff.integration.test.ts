@@ -119,7 +119,8 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       return body ? req.send(body) : req;
     }
 
-    it.each(['lm', 'tech', 'lab'])('refuses %s with 403 on every endpoint', async (key) => {
+    // STRATA-118: Lab Managers hold staff.manage now (see the STRATA-118 block below).
+    it.each(['tech', 'lab'])('refuses %s with 403 on every endpoint', async (key) => {
       const cookie = await cookieFor(key);
       for (const [method, path, body] of endpoints) {
         const response = await call(method, path, cookie, body);
@@ -604,7 +605,7 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
       expect(access.body.roles).toEqual(['lab_manager']);
     });
 
-    it('AC5: only admins may clear a position', async () => {
+    it('AC5: only admins may clear a position (Lab Managers included, STRATA-118)', async () => {
       await onboarded('otto', 'Otto Onboarded', 'OT');
       const before = await positionOf(ids.otto!);
       for (const key of ['lm', 'lab', 'otto']) {
@@ -742,7 +743,8 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
 
     it('AC5: only admins assign initials, and duplicates stay allowed', async () => {
       await addUser('dee', { name: 'Dee Duplicate', initials: 'DD' });
-      for (const key of ['lm', 'lab', 'dee']) {
+      // STRATA-118: Lab Managers assign initials too (proven in the STRATA-118 block).
+      for (const key of ['tech', 'lab', 'dee']) {
         const refused = await patchAs(await cookieFor(key), ids.dee!, { officialInitials: 'XY' });
         expect(refused.status).toBe(403);
       }
@@ -876,6 +878,300 @@ describe.runIf(testDatabaseUrl)('staff directory and receiver selector (MM-T07)'
             .set('Cookie', await cookieFor('drew'))
         ).status,
       ).toBe(200);
+    });
+  });
+
+  // STRATA-118 (Kyle 2026-11-12): Staff and Printers are managed by Lab Managers and
+  // administrators; making or removing admins stays administrator-only, as do the LAB account's
+  // password and positions. Fresh fictional people, so earlier blocks' role changes don't matter.
+  describe('STRATA-118: Lab Managers manage staff, never admins', () => {
+    const send = (
+      method: 'put' | 'patch' | 'post' | 'get',
+      path: string,
+      cookie: string,
+      body?: object,
+    ) => {
+      const req = http()[method](path).set('Cookie', cookie).set(CSRF_HEADER, '1');
+      return body ? req.send(body) : req;
+    };
+    const rolesOf = async (key: string) =>
+      (
+        await db.pool.query<{ role: string }>(
+          'SELECT role FROM role_assignment WHERE user_id = $1 ORDER BY role',
+          [ids[key]],
+        )
+      ).rows.map((row) => row.role);
+    const statusOf = async (key: string) =>
+      (
+        await db.pool.query<{ status: string }>('SELECT status FROM app_user WHERE id = $1', [
+          ids[key],
+        ])
+      ).rows[0]!.status;
+    const auditCount = async (key: string) =>
+      (await listAuditForEntity(db.pool, 'app_user', ids[key]!)).length;
+
+    beforeAll(async () => {
+      await addUser('boss', { name: 'Bea Boss', initials: 'BB', roles: ['admin'] });
+      await addUser('boss2', { name: 'Ben Boss', initials: 'BN', roles: ['admin'] });
+      await addUser('mgr', { name: 'Mo Manager', initials: 'MM', roles: ['lab_manager'] });
+      await addUser('tina', { name: 'Tina Bench', initials: 'TI' });
+      await addUser('labtech', {
+        name: 'Lou Labtech',
+        initials: 'LL',
+        roles: ['lab_technician'],
+      });
+      await addUser('nora', { name: 'Nora Normal', initials: 'NN', position: 'technician' });
+      await addUser('pia', { name: 'Pia Pending', initials: 'PI', status: 'pending' });
+      await addUser('adele', { name: 'Adele Admin', initials: 'AD', roles: ['admin'] });
+    });
+
+    it('a Lab Manager lists staff, approves applicants and adds people without a position', async () => {
+      const mgr = await cookieFor('mgr');
+      const list = await send('get', '/api/staff', mgr);
+      expect(list.status).toBe(200);
+      expect(staffListResponseSchema.parse(list.body).some((m) => m.id === ids.pia)).toBe(true);
+      const approved = await send('post', `/api/staff/${ids.pia}/approve`, mgr);
+      expect(approved.status).toBe(200);
+      expect(approved.body).toMatchObject({ status: 'active' });
+      const added = await send('post', '/api/staff', mgr, {
+        displayName: 'Quinn Newhire',
+        officialInitials: 'QN',
+        expectedUpn: 'quinn.newhire@example.test',
+      });
+      expect(added.status).toBe(201);
+      // A position moves review eligibility (MISC-06): administrators only.
+      const withPosition = await send('post', '/api/staff', mgr, {
+        displayName: 'Rae Newhire',
+        officialInitials: 'RN',
+        expectedUpn: 'rae.newhire@example.test',
+        position: 'engineer',
+      });
+      expect(withPosition.status).toBe(403);
+      expect(withPosition.body).toMatchObject({ code: 'admin_only' });
+      const { rows } = await db.pool.query(
+        `SELECT 1 FROM app_user WHERE expected_upn = 'rae.newhire@example.test'`,
+      );
+      expect(rows).toEqual([]);
+    });
+
+    it('a Lab Manager changes non-admin roles, Lab Manager included, with a reason', async () => {
+      const mgr = await cookieFor('mgr');
+      const granted = await send('put', `/api/staff/${ids.nora}/roles`, mgr, {
+        roles: ['lab_manager', 'lab_technician'],
+        reason: 'Covering the lab',
+      });
+      expect(granted.status).toBe(200);
+      expect(await rolesOf('nora')).toEqual(['lab_manager', 'lab_technician']);
+      const removed = await send('put', `/api/staff/${ids.nora}/roles`, mgr, {
+        roles: [],
+        reason: 'Back to the field',
+      });
+      expect(removed.status).toBe(200);
+      expect(await rolesOf('nora')).toEqual([]);
+    });
+
+    it('a Lab Manager edits names, initials and job titles, but not positions', async () => {
+      const mgr = await cookieFor('mgr');
+      const renamed = await send('patch', `/api/staff/${ids.nora}`, mgr, {
+        displayName: 'Nora Renamed',
+        officialInitials: 'NR',
+        // Sending the position it already has is no change, so it is allowed.
+        position: 'technician',
+      });
+      expect(renamed.status).toBe(200);
+      expect(renamed.body).toMatchObject({ displayName: 'Nora Renamed', officialInitials: 'NR' });
+      const title = await send('put', `/api/staff/${ids.nora}/job-title-override`, mgr, {
+        jobTitleOverride: 'Senior Fictional Technician',
+        reason: 'Directory is behind',
+      });
+      expect(title.status).toBe(200);
+      const before = await auditCount('nora');
+      const position = await send('patch', `/api/staff/${ids.nora}`, mgr, {
+        position: 'engineer',
+        displayName: 'Nora Again',
+      });
+      expect(position.status).toBe(403);
+      expect(position.body).toMatchObject({ code: 'admin_only' });
+      expect(await auditCount('nora')).toBe(before);
+    });
+
+    it('a Lab Manager disables and re-enables a non-admin account', async () => {
+      const mgr = await cookieFor('mgr');
+      const disabled = await send('post', `/api/staff/${ids.nora}/disable`, mgr, {
+        reason: 'Left the company',
+      });
+      expect(disabled.status).toBe(200);
+      expect(await statusOf('nora')).toBe('disabled');
+      const enabled = await send('post', `/api/staff/${ids.nora}/enable`, mgr);
+      expect(enabled.status).toBe(200);
+      expect(await statusOf('nora')).toBe('active');
+    });
+
+    it('a Lab Manager can read a person’s access and grants', async () => {
+      const mgr = await cookieFor('mgr');
+      expect((await send('get', `/api/staff/${ids.nora}/access`, mgr)).status).toBe(200);
+      const grants = await send('get', `/api/staff/${ids.nora}/grants`, mgr);
+      expect(grants.status).toBe(200);
+      // Reviewer eligibility and capabilities stay administrator-only.
+      expect(grants.body).toMatchObject({ canManage: false });
+    });
+
+    it('a Lab Manager is refused (403) making or removing admins and changing an admin', async () => {
+      const mgr = await cookieFor('mgr');
+      const adeleAudit = await auditCount('adele');
+      const noraAudit = await auditCount('nora');
+      const refusals: [string, () => request.Test][] = [
+        [
+          'grant admin',
+          () =>
+            send('put', `/api/staff/${ids.nora}/roles`, mgr, {
+              roles: ['admin'],
+              reason: 'Promote',
+            }),
+        ],
+        [
+          'grant themselves admin',
+          () =>
+            send('put', `/api/staff/${ids.mgr}/roles`, mgr, {
+              roles: ['admin', 'lab_manager'],
+              reason: 'Promote',
+            }),
+        ],
+        [
+          'remove admin',
+          () => send('put', `/api/staff/${ids.adele}/roles`, mgr, { roles: [], reason: 'Demote' }),
+        ],
+        [
+          "change an admin's other roles",
+          () =>
+            send('put', `/api/staff/${ids.adele}/roles`, mgr, {
+              roles: ['admin', 'lab_manager'],
+              reason: 'Add a role',
+            }),
+        ],
+        [
+          'disable an admin',
+          () => send('post', `/api/staff/${ids.adele}/disable`, mgr, { reason: 'Left' }),
+        ],
+        [
+          'rename an admin',
+          () => send('patch', `/api/staff/${ids.adele}`, mgr, { displayName: 'Adele Renamed' }),
+        ],
+        [
+          "an admin's job title",
+          () =>
+            send('put', `/api/staff/${ids.adele}/job-title-override`, mgr, {
+              jobTitleOverride: 'Fictional title',
+              reason: 'Directory is behind',
+            }),
+        ],
+      ];
+      for (const [label, attempt] of refusals) {
+        const response = await attempt();
+        expect(response.status, label).toBe(403);
+        expect(response.body, label).toMatchObject({ code: 'admin_only' });
+      }
+      expect(await rolesOf('adele')).toEqual(['admin']);
+      expect(await rolesOf('nora')).toEqual([]);
+      expect(await rolesOf('mgr')).toEqual(['lab_manager']);
+      expect(await statusOf('adele')).toBe('active');
+      expect(await auditCount('adele')).toBe(adeleAudit);
+      expect(await auditCount('nora')).toBe(noraAudit);
+
+      // Re-enabling a disabled admin is administrator-only too.
+      const boss = await cookieFor('boss');
+      expect(
+        (await send('post', `/api/staff/${ids.adele}/disable`, boss, { reason: 'Leave' })).status,
+      ).toBe(200);
+      const enable = await send('post', `/api/staff/${ids.adele}/enable`, mgr);
+      expect(enable.status).toBe(403);
+      expect(enable.body).toMatchObject({ code: 'admin_only' });
+      expect(await statusOf('adele')).toBe('disabled');
+      expect((await send('post', `/api/staff/${ids.adele}/enable`, boss)).status).toBe(200);
+    });
+
+    it('a Lab Manager is refused the LAB account', async () => {
+      const mgr = await cookieFor('mgr');
+      expect((await send('get', '/api/admin/lab', mgr)).status).toBe(403);
+      const reset = await send('post', '/api/admin/lab/password', mgr, {
+        newPassword: 'fictional-password-123',
+      });
+      expect(reset.status).toBe(403);
+      expect(reset.body).toMatchObject({ code: 'forbidden' });
+      // Admins keep it (lab.integration.test.ts proves the reset itself).
+      const admin = await send('get', '/api/admin/lab', await cookieFor('boss'));
+      expect(admin.status).not.toBe(403);
+    });
+
+    it('a Lab Manager manages printers; a technician, a Lab Technician and LAB cannot', async () => {
+      const mgr = await cookieFor('mgr');
+      expect((await send('get', '/api/admin/printers', mgr)).status).toBe(200);
+      const put = await send('put', '/api/admin/printers', mgr, {
+        printers: [
+          {
+            id: 'bench',
+            name: 'Bench ZD421',
+            host: '127.0.0.1',
+            port: 9199,
+            enabled: false,
+            checkStatus: false,
+          },
+        ],
+      });
+      expect(put.status).toBe(200);
+      for (const key of ['tina', 'labtech', 'lab']) {
+        const cookie = await cookieFor(key);
+        expect((await send('get', '/api/admin/printers', cookie)).status, key).toBe(403);
+        expect(
+          (await send('put', '/api/admin/printers', cookie, { printers: [] })).status,
+          key,
+        ).toBe(403);
+      }
+    });
+
+    it('a technician, a Lab Technician and LAB are refused every staff and admin route', async () => {
+      const endpoints: [string, string, object?][] = [
+        ['get', '/api/staff'],
+        ['post', `/api/staff/${ids.nora}/disable`, { reason: 'test' }],
+        ['put', `/api/staff/${ids.nora}/roles`, { roles: ['lab_manager'], reason: 'test' }],
+        ['put', `/api/staff/${ids.nora}/roles`, { roles: ['admin'], reason: 'test' }],
+        ['get', '/api/admin/lab'],
+        ['get', '/api/feedback'],
+      ];
+      for (const key of ['tina', 'labtech', 'lab']) {
+        const cookie = await cookieFor(key);
+        for (const [method, path, body] of endpoints) {
+          const response = await send(method as 'get', path, cookie, body);
+          expect(response.status, `${key} ${method} ${path}`).toBe(403);
+        }
+      }
+      expect(await rolesOf('nora')).toEqual([]);
+      expect(await statusOf('nora')).toBe('active');
+    });
+
+    it('admins keep everything: making and removing admins, positions, the LAB account', async () => {
+      const boss = await cookieFor('boss');
+      const promote = await send('put', `/api/staff/${ids.nora}/roles`, boss, {
+        roles: ['admin'],
+        reason: 'Covering administration',
+      });
+      expect(promote.status).toBe(200);
+      expect(await rolesOf('nora')).toEqual(['admin']);
+      // Now an admin, Nora's account is out of a Lab Manager's reach.
+      const mgr = await cookieFor('mgr');
+      expect(
+        (await send('post', `/api/staff/${ids.nora}/disable`, mgr, { reason: 'Left' })).status,
+      ).toBe(403);
+      const position = await send('patch', `/api/staff/${ids.nora}`, boss, {
+        position: 'engineer',
+      });
+      expect(position.status).toBe(200);
+      const demote = await send('put', `/api/staff/${ids.nora}/roles`, boss, {
+        roles: [],
+        reason: 'Handing back',
+      });
+      expect(demote.status).toBe(200);
+      expect(await rolesOf('nora')).toEqual([]);
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   type ActionRequestKind,
 } from './action-requests';
 import { personSnapshotSchema } from './lab-programs';
+import { FEEDBACK_KIND_LABELS, type FeedbackKind } from './feedback';
 import { NOTIFICATION_KINDS, type NotificationKind } from './notifications';
 import { stageKeySchema, workDomainSchema, type StageKey, type WorkDomain } from './stage';
 
@@ -62,6 +63,7 @@ export const UPDATE_TASK_LABELS: Record<NotificationKind, string> = {
   'concrete_equipment.flagged': 'Equipment flagged',
   'concrete_test.failed': 'Failed test',
   'concrete_report.auto_submitted': 'Submitted automatically',
+  'feedback.submitted': 'Feedback',
 };
 
 export const REQUEST_DOMAINS: Record<ActionRequestKind, WorkDomain> = {
@@ -83,6 +85,7 @@ export const UPDATE_DOMAINS: Record<NotificationKind, WorkDomain> = {
   'concrete_equipment.flagged': 'concrete',
   'concrete_test.failed': 'concrete',
   'concrete_report.auto_submitted': 'concrete',
+  'feedback.submitted': 'feedback',
 };
 
 /** Structured facts a request title is built from (never parsed from text). */
@@ -147,11 +150,21 @@ export const CONCRETE_UPDATE_TITLES = {
  * otherwise the fixed concrete title. A missing linked request reads "A request" rather than
  * failing.
  */
-export function updateTitle(kind: NotificationKind, requestFacts?: RequestWordingFacts | null) {
+export function updateTitle(
+  kind: NotificationKind,
+  requestFacts?: RequestWordingFacts | null,
+  feedbackKind?: FeedbackKind | null,
+) {
   if (kind === 'action_request.opened' || kind === 'action_request.decided') {
     return requestFacts ? requestTitle(requestFacts) : 'A request';
   }
+  if (kind === 'feedback.submitted') return feedbackTitle(feedbackKind ?? null);
   return CONCRETE_UPDATE_TITLES[kind];
+}
+
+/** STRATA-104: "Feedback · Problem" (round-10 kind words); "Feedback" when the kind is unknown. */
+export function feedbackTitle(kind: FeedbackKind | null): string {
+  return kind ? `Feedback · ${FEEDBACK_KIND_LABELS[kind]}` : 'Feedback';
 }
 
 /**
@@ -172,16 +185,20 @@ export const UPDATE_STAGES: Record<NotificationKind, StageKey> = {
   'concrete_equipment.flagged': 'due',
   'concrete_test.failed': 'danger',
   'concrete_report.auto_submitted': 'due',
+  'feedback.submitted': 'due',
 };
 
 // ---------------------------------------------------------------------------------------------
 // The feed.
 
-/** The record an item is about, for the Record column (IDs in mono). */
+/**
+ * The record an item is about, for the Record column (IDs in mono). `page` (STRATA-104): a
+ * feedback update's in-app page path; its id is the feedback submission's id.
+ */
 export const inboxRecordSchema = z.object({
-  kind: z.enum(['lab_program', 'project', 'storage_units', 'concrete_report', 'specimen']),
+  kind: z.enum(['lab_program', 'project', 'storage_units', 'concrete_report', 'specimen', 'page']),
   id: z.string(),
-  /** LP-001, DEMO-2601, "4 units", a report date. */
+  /** LP-001, DEMO-2601, "4 units", a report date, a page path. */
   label: z.string(),
 });
 export type InboxRecord = z.infer<typeof inboxRecordSchema>;

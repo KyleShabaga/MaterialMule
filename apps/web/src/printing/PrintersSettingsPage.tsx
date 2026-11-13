@@ -168,7 +168,7 @@ function PrinterForm({
   );
 }
 
-/** Settings → Printers (admin, MM-T15). Addresses live only on the server. */
+/** Settings → Printers (Lab Managers and admins, MM-T15, STRATA-118). Addresses live only on the server. */
 export function PrintersSettingsPage() {
   const me = useMe();
   const allowed = me.permissions.includes('printer.manage');
@@ -203,7 +203,7 @@ export function PrintersSettingsPage() {
     return (
       <section className="printers-page" aria-labelledby="printers-heading">
         {head}
-        <EmptyState>Only administrators can change printers.</EmptyState>
+        <EmptyState>Only Lab Managers and administrators can change printers.</EmptyState>
       </section>
     );
   }

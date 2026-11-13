@@ -18,6 +18,11 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   report issuers) do. Team membership and reviewer assignment add no permission (MM-AO03).
 - **Admin is not a super-user.** It manages staff and sessions; it doesn't imply Lab Manager
   rights, project authority, acceptance or closure.
+- **Staff and Printers (STRATA-118, Kyle 2026-11-12)** are managed by Lab Managers and
+  administrators (`staff.manage`, `printer.manage`). Making or removing admins, and changing an
+  account that holds admin, stays administrator-only (`admin_role.manage`), as do the shared LAB
+  account's password (`lab_account.manage`) and reading Administrator Feedback (`feedback.read`).
+  None of these comes through LAB, a position or a LAB station's picked person.
 - **LAB** (shared receiving account) is limited to the LAB column even if a role is assigned to it
   by mistake.
 
@@ -60,8 +65,10 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | test.accept (D04)                                                                                                                                        |     |                   |             |                |       |           ✓           |          ✓          |
 | program.close (D06)                                                                                                                                      |     |                   |             |                |       |           ✓           |                     |
 | acceptance_delegation.manage                                                                                                                             |     |                   |             |                |       |           ✓           |                     |
-| staff.manage / session.revoke                                                                                                                            |     |                   |             |                |   ✓   |                       |                     |
-| printer.manage (T15)                                                                                                                                     |     |                   |             |                |   ✓   |                       |                     |
+| staff.manage (STRATA-118)                                                                                                                                |     |                   |      ✓      |                |   ✓   |                       |                     |
+| admin_role.manage / lab_account.manage / feedback.read (STRATA-118)                                                                                      |     |                   |             |                |   ✓   |                       |                     |
+| session.revoke                                                                                                                                           |     |                   |             |                |   ✓   |                       |                     |
+| printer.manage (T15, STRATA-118)                                                                                                                         |     |                   |      ✓      |                |   ✓   |                       |                     |
 | project.edit (T35)                                                                                                                                       |     |                   |             |                |   ✓   |           ✓           |                     |
 | project_team.manage (AO03, D04)                                                                                                                          |     |                   |             |                |   ✓   |           ✓           |                     |
 | project_reviewer.manage (AO03, D04/D05)                                                                                                                  |     |                   |             |                |   ✓   |           ✓           |                     |
@@ -120,7 +127,8 @@ sources they also have).
 
 - Username `LAB` (any case) and an app-managed password (`POST /api/auth/lab/sign-in`). It is not a
   Microsoft account and has nothing to do with the development-only "Lab (test)" identity.
-- An admin (`staff.manage`) sets or resets the password with `POST /api/admin/lab/password`
+- An admin (`lab_account.manage`; STRATA-118: not `staff.manage`, which Lab Managers hold) sets
+  or resets the password with `POST /api/admin/lab/password`
   (minimum 12 characters). A reset revokes every LAB session in the same transaction and clears
   the account lockout. "Sign out all LAB stations" uses the T04 revoke endpoint.
 - Brute-force protection: 10 failed attempts within 15 minutes for the account, or from one client
@@ -184,7 +192,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 
 | Route                                                                        | Policy                                       |
 | ---------------------------------------------------------------------------- | -------------------------------------------- |
-| `GET /api/staff?search=&status=`                                             | `staff.manage` (admin)                       |
+| `GET /api/staff?search=&status=`                                             | `staff.manage` (Lab Manager, admin)          |
 | `POST /api/staff` (pre-provision)                                            | `staff.manage`                               |
 | `POST /api/staff/:id/approve`                                                | `staff.manage`                               |
 | `POST /api/staff/:id/disable {reason}`                                       | `staff.manage`                               |
@@ -193,6 +201,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 | `PATCH /api/staff/:id`                                                       | `staff.manage`                               |
 | `PUT /api/staff/:id/job-title-override {jobTitleOverride, reason}` (MM-AO06) | `staff.manage`                               |
 | `GET /api/staff/:id/access` (MM-AO06)                                        | `staff.manage` (read-only)                   |
+| `GET /api/admin/lab`, `POST /api/admin/lab/password` (MM-T06)                | `lab_account.manage` (admin only)            |
 | `GET /api/me/access` (MM-AO06)                                               | active personal session (one's own); LAB 403 |
 | `GET /api/staff/receivers?search=`                                           | any active session, LAB too                  |
 | `GET /api/people/:userId/photo` (STRATA-52, cached photo; 404 `no_photo`)    | any active session, LAB too                  |
@@ -202,6 +211,16 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   drops out of the receiver selector, and their cached directory photo is deleted. Re-enabling doesn't revive old sessions, and revokes every
   technical grant the person still holds for revalidation (D08, MM-AO03; see "Team & permissions").
 - **Role changes** need a reason (D15, MM-AO03; 400 without one, nothing changes).
+- **Lab Managers (STRATA-118)** hold `staff.manage`: they list staff, add and approve people,
+  change roles other than admin (Lab Manager and Lab Technician included), disable and re-enable
+  accounts, edit names and official initials and set job-title overrides. They are refused with
+  403 `admin_only`, and nothing changes, when the change grants or removes the admin role, or
+  touches an account that currently holds admin (its roles, disabling or re-enabling it, its
+  profile or job title): that needs `admin_role.manage` (administrators). Setting or clearing a
+  position (MISC-06, which moves review eligibility) needs `reviewer_eligibility.manage`, so it
+  stays with administrators too. The check reads the account's roles after locking it, in the
+  same transaction as the change. Reviewer eligibility, capabilities, session revocation and the
+  LAB password stay administrator-only.
 - **Last admin:** a change that would leave no active (non-LAB) admin, whether removing the admin
   role or disabling, returns 422 `last_admin`. Kyle's bootstrap admin is an ordinary admin.
 - **LAB** can't hold roles (422 `roles_not_allowed`) and never appears as a receiver.
@@ -236,7 +255,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   is listed as not effective with the reason. Active rows only (history stays on each project's
   Team & Permissions); at most 200 projects, by project number, with the total.
   `GET /api/me/access` always reads the session's own account (no id is accepted); it needs
-  `project_access.read`, so LAB gets 403. Admins see the same summary for anyone, read-only, under "Current
+  `project_access.read`, so LAB gets 403. Admins and Lab Managers (STRATA-118) see the same summary for anyone, read-only, under "Current
   access" in the Staff drawer (`GET /api/staff/:id/access`). My projects (D12) is unchanged: it
   filters relevance, never visibility.
 
@@ -337,7 +356,7 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 | `GET /api/projects/:projectId/report-issuers`                                                                                    | `project_access.read`                                 |
 | `POST /api/projects/:projectId/report-issuers {issuerUserId, scopeCode, reason, approvalReference?, expiresAt?, idempotencyKey}` | active user; handler checks `report_issuer.manage`    |
 | `DELETE /api/projects/:projectId/report-issuers/:id {reason, kind?}`                                                             | active user; handler checks `report_issuer.manage`    |
-| `GET /api/staff/:id/grants`                                                                                                      | `staff.manage` (admin)                                |
+| `GET /api/staff/:id/grants`                                                                                                      | `staff.manage` (LM, admin)                            |
 | `POST /api/staff/:id/reviewer-eligibility {scopeCode, reason, idempotencyKey}`                                                   | `reviewer_eligibility.manage` (admin)                 |
 | `DELETE /api/staff/:id/reviewer-eligibility/:grantId {reason}`                                                                   | `reviewer_eligibility.manage`                         |
 | `POST /api/staff/:id/capabilities {capability, reason, idempotencyKey}`                                                          | `staff_capability.manage` (admin)                     |
@@ -1555,8 +1574,20 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 | Route                                   | Policy                           |
 | --------------------------------------- | -------------------------------- |
 | `POST /api/feedback {kind, text, page}` | any active session, LAB included |
-| `GET /api/feedback`                     | `staff.manage` (admin)           |
+| `GET /api/feedback`                     | `feedback.read` (admin only)     |
 
 - **Stays on the host.** Each submission is an append-only audit event `feedback.submitted`
   (actor snapshot, kind, text, optional in-app path without a query string). Nothing is emailed
   or sent to an outside service. Administrators read the latest 50 on the Help & Feedback page.
+- **Private to administrators (STRATA-118).** Reading it needs `feedback.read`, which only the
+  admin role grants: never Lab Managers (who now hold `staff.manage`), LAB or a position.
+- **Inbox (STRATA-104).** Each accepted submission writes one in-app notification
+  `feedback.submitted` to every active administrator except the sender (never LAB, never email;
+  migration 0042). It names the feedback event; the Inbox shows "Feedback · Problem" (or
+  Question, Idea) from the sender, with the page as its record, linking to `/help`; the text stays
+  behind `feedback.read`. The database refuses a feedback notification for anyone without the
+  admin role. An optional `submissionId` (UUID) makes a retry safe: the same account sending the
+  same id gets the first submission's id back and nobody is notified twice (unique in the
+  database).
+- **Kind words (round 10):** `not_working` reads "Problem", `confusing` "Question", `idea` "Idea";
+  the stored values are unchanged, so older rows read the same way.

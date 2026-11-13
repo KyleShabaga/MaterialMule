@@ -69,6 +69,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// An administrator (STRATA-118): Lab Managers hold staff.manage without these.
+const ADMIN_PERMISSIONS = [
+  'staff.manage',
+  'admin_role.manage',
+  'lab_account.manage',
+  'reviewer_eligibility.manage',
+];
+
 describe('StaffPage', () => {
   it('BUG-007: says when the list was cut at the server limit and how to find the rest', async () => {
     vi.stubGlobal(
@@ -85,7 +93,7 @@ describe('StaffPage', () => {
         });
       }),
     );
-    renderPage(['staff.manage']);
+    renderPage(ADMIN_PERMISSIONS);
     expect(
       await screen.findByText(
         'Showing the first 1 of 612 staff. Search by name, initials or email to find the rest.',
@@ -97,7 +105,9 @@ describe('StaffPage', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     renderPage(['inventory.read']);
-    expect(screen.getByText('Only administrators can manage staff and access.')).toBeVisible();
+    expect(
+      screen.getByText('Only Lab Managers and administrators can manage staff and access.'),
+    ).toBeVisible();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -123,7 +133,7 @@ describe('StaffPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderPage(['staff.manage']);
+    renderPage(ADMIN_PERMISSIONS);
 
     const pending = await screen.findByRole('region', { name: /Waiting for approval/ });
     expect(within(pending).getByText('Riley Pending')).toBeVisible();
@@ -168,7 +178,7 @@ describe('StaffPage', () => {
     it('T1: a 403 hides every admin-only control and shows one message with Retry', async () => {
       const state = stubApi();
       const user = userEvent.setup();
-      renderPage(['staff.manage']);
+      renderPage(ADMIN_PERMISSIONS);
       expect(await screen.findByRole('region', { name: /Waiting for approval/ })).toBeVisible();
       expect(await screen.findByRole('region', { name: 'Shared receiving account (LAB)' }));
 
@@ -192,7 +202,7 @@ describe('StaffPage', () => {
     it('T2: after Admin is granted back, Retry restores the full page', async () => {
       const state = stubApi();
       const user = userEvent.setup();
-      renderPage(['staff.manage']);
+      renderPage(ADMIN_PERMISSIONS);
       await screen.findByRole('region', { name: /Waiting for approval/ });
       state.admin = false;
       await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'J');
@@ -257,7 +267,7 @@ describe('StaffPage', () => {
 
     async function openDrawer() {
       const user = userEvent.setup();
-      renderPage(['staff.manage']);
+      renderPage(ADMIN_PERMISSIONS);
       await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
       return { user, drawer: await screen.findByRole('dialog', { name: 'Olive Onboarded' }) };
     }
@@ -279,6 +289,44 @@ describe('StaffPage', () => {
       await user.selectOptions(position, 'Not set');
       await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
       expect(patches.at(-1)).toEqual({ position: null });
+    });
+
+    it('STRATA-118: a Lab Manager changes roles but not Admin, and no positions', async () => {
+      stubApi();
+      const user = userEvent.setup();
+      renderPage(['staff.manage']);
+      await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
+      const drawer = await screen.findByRole('dialog', { name: 'Olive Onboarded' });
+      const roles = within(drawer).getByRole('group', { name: 'Roles' });
+      expect(within(roles).getByRole('checkbox', { name: 'Admin' })).toBeDisabled();
+      expect(within(roles).getByRole('checkbox', { name: 'Lab Manager' })).toBeEnabled();
+      expect(
+        within(roles).getByText('Only administrators can make or remove admins.'),
+      ).toBeVisible();
+      expect(within(drawer).queryByLabelText('Position')).toBeNull();
+    });
+
+    it('STRATA-118: an administrator’s account is read-only for a Lab Manager', async () => {
+      const admin = { ...OLIVE, roles: ['admin' as const] };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async (input: RequestInfo | URL) =>
+            new Response(JSON.stringify(String(input).includes('status=pending') ? [] : [admin]), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderPage(['staff.manage']);
+      await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
+      const drawer = await screen.findByRole('dialog', { name: 'Olive Onboarded' });
+      expect(
+        within(drawer).getByText('Only administrators can change an administrator’s account.'),
+      ).toBeVisible();
+      expect(within(drawer).queryByRole('button', { name: 'Save profile' })).toBeNull();
+      expect(within(drawer).queryByRole('button', { name: /Disable access/ })).toBeNull();
     });
 
     it('never sends unchanged initials, and confirms them only on request', async () => {

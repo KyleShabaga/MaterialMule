@@ -82,3 +82,17 @@ test('technicians cannot manage staff, in the UI or the API', async ({ page }) =
   const response = await page.request.get('/api/staff');
   expect(response.status()).toBe(403);
 });
+
+test('STRATA-118: a Lab Manager manages staff but not admins, the LAB account or feedback', async ({
+  page,
+}) => {
+  await signInAs(page, 'lab'); // "Lab (test)": a Lab Manager
+  await page.goto('/settings/staff');
+  await expect(page).toHaveURL(/\/admin\/staff$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Staff' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add staff' })).toBeVisible();
+  await expect(page.getByText('Shared receiving account (LAB)')).toHaveCount(0);
+  expect((await page.request.get('/api/staff')).status()).toBe(200);
+  expect((await page.request.get('/api/feedback')).status()).toBe(403);
+  expect((await page.request.get('/api/admin/lab')).status()).toBe(403);
+});

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ACTION_REQUEST_KINDS, ACTION_REQUEST_RESOLUTIONS } from './action-requests';
 import { CONCRETE_REPORT_LIFECYCLE_STATES } from './concrete-report-lifecycle';
+import { feedbackKindSchema } from './feedback';
 import { personSnapshotSchema } from './lab-programs';
 
 // MM-T91: in-app notifications, kept separate from action requests (MM-T27).
@@ -29,6 +30,11 @@ export const NOTIFICATION_KINDS = [
   'concrete_test.failed',
   /** A report ready to submit was submitted automatically (producer: C19). */
   'concrete_report.auto_submitted',
+  /**
+   * STRATA-104: someone sent Help & Feedback. Administrators only (`feedback.read`); names the
+   * feedback audit event and the page it came from, never the text.
+   */
+  'feedback.submitted',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -149,6 +155,18 @@ export const notificationSchema = z.object({
   linkedRequest: notificationLinkedRequestSchema.nullable(),
   /** Concrete kinds: the report the notice is about (null for action-request kinds). */
   linkedReport: notificationLinkedReportSchema.nullable(),
+  /**
+   * `feedback.submitted` only (STRATA-104): what kind of feedback and the in-app page it was sent
+   * from (null when none was given). Optional so older clients' fixtures still parse.
+   */
+  linkedFeedback: z
+    .object({
+      kind: feedbackKindSchema,
+      page: z.string().nullable(),
+      from: personSnapshotSchema.nullable(),
+    })
+    .nullable()
+    .optional(),
 });
 export type Notification = z.infer<typeof notificationSchema>;
 

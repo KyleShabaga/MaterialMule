@@ -2,16 +2,19 @@ import { z } from 'zod';
 
 // Help & Feedback (Field Ledger): feedback stays on the host. Each submission is kept as an
 // audit event (`feedback.submitted`); nothing is emailed or sent to an outside service.
-// Administrators read the latest on the Help & Feedback page.
+// Administrators (`feedback.read`, STRATA-118) read the latest on the Help & Feedback page, and
+// each accepted submission arrives in every active administrator's Inbox as a Feedback update
+// (notification kind `feedback.submitted`) with the page it came from (STRATA-104).
 
 export const FEEDBACK_KINDS = ['not_working', 'confusing', 'idea'] as const;
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
 export const feedbackKindSchema = z.enum(FEEDBACK_KINDS, { error: 'Choose what kind' });
 
+/** Round-10 wording (STRATA-104). The stored values stay, so older rows read the same way. */
 export const FEEDBACK_KIND_LABELS: Record<FeedbackKind, string> = {
-  not_working: 'Something is not working',
-  confusing: 'Something is confusing',
-  idea: 'An idea',
+  not_working: 'Problem',
+  confusing: 'Question',
+  idea: 'Idea',
 };
 
 export const FEEDBACK_TEXT_MAX = 2000;
@@ -19,7 +22,12 @@ export const FEEDBACK_PAGE_MAX = 200;
 /** How many submissions `GET /api/feedback` returns, newest first. */
 export const FEEDBACK_LIST_LIMIT = 50;
 
-/** `POST /api/feedback`. `page` is an in-app path only (no query string, no host). */
+/**
+ * `POST /api/feedback`. `page` is an in-app path only (no query string, no fragment, no host).
+ * `submissionId` (optional, a UUID the browser makes once per submission) makes a retry safe: the
+ * same person sending the same id again gets the first submission's id back, and administrators
+ * are notified once.
+ */
 export const submitFeedbackRequestSchema = z.strictObject({
   kind: feedbackKindSchema,
   text: z
@@ -32,6 +40,7 @@ export const submitFeedbackRequestSchema = z.strictObject({
     .max(FEEDBACK_PAGE_MAX, { error: `must be at most ${FEEDBACK_PAGE_MAX} characters` })
     .regex(/^\/[^?#\s]*$/, { error: 'must be an in-app path' })
     .optional(),
+  submissionId: z.uuid({ error: 'must be a UUID' }).optional(),
 });
 export type SubmitFeedbackRequest = z.input<typeof submitFeedbackRequestSchema>;
 
