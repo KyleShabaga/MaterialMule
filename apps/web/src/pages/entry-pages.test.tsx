@@ -5,6 +5,7 @@ import { Outlet, createMemoryRouter, type RouteObject } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext, type SessionState } from '../session/context';
+import { FeedbackDialogProvider } from '../feedback/FeedbackDialog';
 import { HelpPage } from './HelpPage';
 import {
   ACCESS_PENDING_POLL_MS,
@@ -31,7 +32,7 @@ vi.mock('../search/command-menu', () => ({
   },
 }));
 
-// Field Ledger entry pages: Help & Feedback, Page not found and Access pending. Fictional people.
+// Entry pages: Help and how-tos, Page not found and Access pending. Fictional people.
 
 const STAFF: MeResponse = {
   id: '00000000-0000-4000-8000-0000000000a1',
@@ -99,69 +100,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Help & Feedback', () => {
+describe('Help and how-tos', () => {
   const help = [{ path: '/help', element: <HelpPage /> }];
 
-  it('links each guide to a real screen and sends feedback with the page path only', async () => {
-    const calls = stubFetch({
+  it('lists the guide groups with anchors, Common questions and the version; no form', async () => {
+    stubFetch({
       'GET /api/health': () => ({
         status: 200,
         body: { status: 'ok', version: '1.4.0', database: 'up' },
       }),
-      'POST /api/feedback': () => ({ status: 201, body: { id: 'f1' } }),
     });
-    renderRoutes(
-      help,
-      { pathname: '/help', state: { from: '/sample-storage/move?search=DEMO-2601' } },
-      { status: 'active', me: STAFF },
-    );
-    expect(screen.getByRole('heading', { level: 1, name: 'Help & Feedback' })).toBeVisible();
-    const guides = screen.getByRole('region', { name: 'How do I…' });
-    expect(within(guides).getByRole('link', { name: /Receive a delivery/ })).toHaveAttribute(
-      'href',
-      '/receiving-log/new',
-    );
-    expect(within(guides).getByRole('link', { name: /Move a unit/ })).toHaveAttribute(
-      'href',
-      '/sample-storage/move',
-    );
-    expect(screen.getByText('Can an ID be changed or reused?')).toBeInTheDocument();
-    expect(await screen.findByText('1.4.0')).toBeInTheDocument();
-    // Not an admin: no received feedback, and nothing asks for it.
-    expect(screen.queryByRole('region', { name: 'Feedback received' })).toBeNull();
-
-    // An empty message is not sent.
-    fireEvent.click(screen.getByRole('button', { name: 'Send to the administrator' }));
-    expect(screen.getByText('Say what happened.')).toBeInTheDocument();
-    expect(calls.some((c) => c.url === '/api/feedback')).toBe(false);
-
-    fireEvent.change(screen.getByLabelText('What kind'), { target: { value: 'confusing' } });
-    fireEvent.change(screen.getByLabelText('What happened'), {
-      target: { value: 'The move screen asks for the shelf twice.' },
-    });
-    expect(screen.getByLabelText(/Include the page I was on/)).toBeChecked();
-    expect(screen.getByText('/sample-storage/move')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Send to the administrator' }));
-    expect(await screen.findByText(/Sent\. An administrator will read it/)).toBeInTheDocument();
-    const sent = calls.find((c) => c.url === '/api/feedback');
-    expect(JSON.parse(String(sent?.init?.body))).toEqual({
-      kind: 'confusing',
-      text: 'The move screen asks for the shelf twice.',
-      page: '/sample-storage/move',
-    });
-    expect(screen.getByLabelText('What happened')).toHaveValue('');
-  });
-
-  it('keeps the message when sending fails', async () => {
-    stubFetch({ 'POST /api/feedback': () => ({ status: 500 }) });
     renderRoutes(help, '/help', { status: 'active', me: STAFF });
-    // Opened without a previous page: no page checkbox, and no page is sent.
-    expect(screen.queryByLabelText(/Include the page/)).toBeNull();
-    fireEvent.change(screen.getByLabelText('What happened'), { target: { value: 'Hello' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send to the administrator' }));
-    expect(await screen.findByText("Your message couldn't be sent.")).toBeInTheDocument();
-    expect(screen.getByLabelText('What happened')).toHaveValue('Hello');
-    expect(document.body.textContent).not.toContain('500');
+    expect(screen.getByRole('heading', { level: 1, name: 'Help and how-tos' })).toBeVisible();
+    for (const group of [
+      'Getting around',
+      'Receiving',
+      'Shelves, labels and retention',
+      'Lab tests',
+      'Concrete',
+      'Access and accounts',
+      'Keyboard shortcuts',
+    ]) {
+      expect(screen.getByRole('heading', { level: 2, name: group })).toBeInTheDocument();
+    }
+    expect(screen.getByRole('link', { name: 'Receiving' })).toHaveAttribute(
+      'href',
+      '/help#group-receiving',
+    );
+    expect(document.getElementById('lab-stations')).not.toBeNull();
+    expect(screen.getByText('Does an ID ever change?')).toBeInTheDocument();
+    expect(await screen.findByText('1.4.0')).toBeInTheDocument();
+    // The Feedback & bugs dialog replaced the form; not an admin: no received feedback.
+    expect(screen.queryByLabelText('What happened')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Feedback received' })).toBeNull();
   });
 
   it('shows administrators the feedback received, newest first', async () => {
@@ -264,6 +235,34 @@ describe('Something went wrong', () => {
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to Today' })).toHaveAttribute('href', '/');
     expect(document.body.textContent).not.toContain('secret stack detail');
+  });
+
+  it('offers Feedback & bugs inside the shell, with the page it happened on', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    renderRoutes(
+      [
+        {
+          path: '/',
+          element: (
+            <FeedbackDialogProvider>
+              <Outlet />
+            </FeedbackDialogProvider>
+          ),
+          children: [
+            {
+              errorElement: <ErrorPage inShell />,
+              children: [{ path: 'broken', element: <Broken /> }],
+            },
+          ],
+        },
+      ],
+      '/broken',
+      { status: 'active', me: STAFF },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Feedback & bugs' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Feedback & bugs' });
+    expect(dialog).toHaveTextContent('/broken');
   });
 
   it('uses the sign-in layout at the root', () => {

@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { HelpDrawerSlot } from '../help/help-drawer';
+import { ShellOverlayProviders } from '../help/shell-providers';
 import { SessionContext } from '../session/context';
 import { RECORDING_PERSON_KEY } from '../session/recording-person-store';
 import { THEME_STORAGE_KEY } from '../theme/theme';
@@ -164,12 +166,57 @@ describe('SidebarFooter account menu', () => {
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
   });
 
-  it('Help and Feedback & bugs carry the page they were opened from', async () => {
+  it('outside the shell, Help and Feedback & bugs fall back to /help with the page', async () => {
     const user = userEvent.setup();
     renderFooter(person, '/sample-storage/move');
     await user.click(screen.getByRole('button', { name: /Account menu/ }));
     await user.click(await screen.findByRole('menuitem', { name: 'Feedback & bugs' }));
     expect(await screen.findByText('help from: /sample-storage/move')).toBeInTheDocument();
+  });
+
+  it('in the shell, Help opens the drawer and Feedback & bugs the dialog over the page', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('min-width: 1024px'),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(200, { status: 'ok', version: '0.1.0', database: 'up' })),
+    );
+    const user = userEvent.setup();
+    render(
+      <SessionContext.Provider
+        value={{ session: { status: 'active', me: person }, refresh: vi.fn(), signOut: vi.fn() }}
+      >
+        <MemoryRouter initialEntries={['/sample-storage/move?search=DEMO-2601']}>
+          <ShellOverlayProviders>
+            <SidebarProvider>
+              <SidebarFooter />
+              <HelpDrawerSlot />
+            </SidebarProvider>
+          </ShellOverlayProviders>
+        </MemoryRouter>
+      </SessionContext.Provider>,
+    );
+    const trigger = screen.getByRole('button', { name: /Account menu/ });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: 'Help' }));
+    const help = await screen.findByRole('complementary', { name: 'Help' });
+    expect(
+      within(help).getByRole('heading', { level: 2, name: 'Help for Move units' }),
+    ).toBeVisible();
+    await user.click(within(help).getByRole('button', { name: 'Close' }));
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: 'Feedback & bugs' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Feedback & bugs' });
+    expect(dialog).toHaveTextContent('/sample-storage/move');
+    expect(dialog).not.toHaveTextContent('DEMO-2601');
   });
 
   it('a TEST account carries its tag', () => {

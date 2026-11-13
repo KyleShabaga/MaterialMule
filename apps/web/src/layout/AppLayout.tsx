@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '../components/useMediaQuery';
+import { HelpDrawerSlot } from '../help/help-drawer';
+import { ShellOverlayProviders } from '../help/shell-providers';
 import { NotificationsBell } from '../notifications/NotificationsBell';
-import { CommandMenuProvider } from '../search/command-menu';
 import { QuickActions } from '../search/QuickActions';
 import { RecordingAsChip } from '../session/recording-person';
 import { useOptionalRecordingPerson } from '../session/recording-person-store';
@@ -103,7 +104,7 @@ export function AppLayout() {
   const open = !(collapsed ?? narrow);
 
   return (
-    <CommandMenuProvider>
+    <ShellOverlayProviders>
       <SidebarProvider open={open} onOpenChange={(next) => setCollapsed(!next)}>
         <a
           href="#main"
@@ -119,9 +120,10 @@ export function AppLayout() {
             <ProfileNotice />
             <SettingsOutlet />
           </main>
+          <HelpDrawerSlot />
         </SidebarInset>
       </SidebarProvider>
-    </CommandMenuProvider>
+    </ShellOverlayProviders>
   );
 }
 
