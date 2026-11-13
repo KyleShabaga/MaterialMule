@@ -41,12 +41,11 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
 
   await page.goto('/settings/profile');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Settings' })).not.toContainText(
-    'Staff & access',
-  );
+  await expect(page.getByRole('navigation', { name: 'Settings' })).not.toContainText('Staff');
 
+  // STRATA-119: Settings on the station shows the shared LAB account, read-only.
   await page.goto('/settings/access');
-  await expect(page.getByText(/My access is for personal accounts/)).toBeVisible();
+  await expect(page.getByText(/What this shared LAB account can do/)).toBeVisible();
 
   await page.goto(`/projects/${DEMO_PROJECT_ID}`);
   await expect(page.getByRole('heading', { name: 'DEMO-2601' })).toBeVisible();

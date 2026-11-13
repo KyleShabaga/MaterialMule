@@ -92,9 +92,9 @@ describe('MTR-2: LAB on personal-account pages', () => {
     expect(personalCalls(urls)).toEqual([]);
   });
 
-  it('My access says it is for personal accounts without asking the server', async () => {
+  it('My access describes the shared account without asking the server (STRATA-119)', async () => {
     const urls = renderAsLab('/settings/access');
-    expect(await screen.findByText(/My access is for personal accounts/)).toBeInTheDocument();
+    expect(await screen.findByText(/What this shared LAB account can do/)).toBeInTheDocument();
     expect(personalCalls(urls)).toEqual([]);
   });
 

@@ -261,6 +261,16 @@ export function useSidebarPrefs(source: SidebarPrefsSource): SidebarPrefs {
   // The person changed the layout before the saved one arrived: theirs wins.
   const touched = useRef(false);
 
+  // Settings › Preferences › Reset sidebar layout saved the default: show it now (lane F).
+  useEffect(() => {
+    const reset = () =>
+      setState((s) =>
+        s.readOnly ? s : { ...s, layout: normalizeSidebarLayout(DEFAULT_SIDEBAR_LAYOUT) },
+      );
+    window.addEventListener('materialmule:sidebar-layout-reset', reset);
+    return () => window.removeEventListener('materialmule:sidebar-layout-reset', reset);
+  }, []);
+
   useEffect(() => {
     let active = true;
     touched.current = false;

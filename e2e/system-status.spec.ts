@@ -20,6 +20,8 @@ test('an admin sees system status; other staff do not', async ({ page }) => {
 
   await signInAs(page, 'at');
   await page.goto('/settings/system-status');
-  await expect(page.getByText('Only administrators can see system status.')).toBeVisible();
+  // STRATA-100: a hidden section has no page; Settings opens on My access with a notice.
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText('System status isn’t available to you.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'System status' })).toHaveCount(0);
 });

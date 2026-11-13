@@ -124,7 +124,8 @@ describe('Settings → Suppliers (MM-V2-C37)', () => {
       'href',
       '/settings/suppliers',
     );
-    expect(within(nav).getByRole('link', { name: 'Holidays' })).toBeInTheDocument();
+    // STRATA-100: a technician reads Suppliers by address; the nav shows it only while open.
+    expect(within(nav).queryByRole('link', { name: 'Holidays' })).toBeNull();
     const table = await screen.findByRole('table', { name: 'Concrete suppliers' });
     expect(within(table).getByText('Example Ready-Mix')).toBeInTheDocument();
     expect(within(table).getByText('North Plant')).toBeInTheDocument();

@@ -408,9 +408,8 @@ describe('Reset LAB password (admin)', () => {
   it('is not offered to people without staff.manage', async () => {
     pickPatExample();
     render_('/settings/staff', { status: 'active', me: LAB_ME }, {});
-    expect(
-      await screen.findByText('Only administrators can manage staff and access.'),
-    ).toBeInTheDocument();
+    // STRATA-100: Staff has no page for them; Settings opens on My access with a notice.
+    expect(await screen.findByText('Staff isn’t available to you.')).toBeInTheDocument();
     expect(screen.queryByText('Shared receiving account (LAB)')).not.toBeInTheDocument();
   });
 });

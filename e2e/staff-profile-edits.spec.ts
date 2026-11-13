@@ -56,7 +56,9 @@ test('an admin assigns initials and a position; the person sees the initials but
 
   // My profile shows the admin-assigned initials as confirmed (MM-T44) and no position.
   await page.goto('/settings/profile');
-  await expect(page.locator('dt:has-text("Official initials") + dd')).toHaveText(initials);
+  await expect(page.locator('dt:has-text("Official initials") + dd > span').first()).toHaveText(
+    initials,
+  );
   await expect(page.getByText('Not confirmed yet')).toHaveCount(0);
   await expect(page.getByText('Technologist')).toHaveCount(0);
   const me = await (await page.request.get('/api/me/profile')).json();

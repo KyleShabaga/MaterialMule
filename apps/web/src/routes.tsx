@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router';
+import { Navigate, type RouteObject } from 'react-router';
 import { FEATURES } from './features';
 import { ActionRequestsPage } from './action-requests/ActionRequestsPage';
 import { NotificationsPage } from './notifications/NotificationsPage';
@@ -21,12 +21,11 @@ import { AppLayout } from './layout/AppLayout';
 import { RecordingPersonLayout, RequireRecordingPerson } from './session/recording-person';
 import { WHO_IS_WORKING_PATH } from './session/recording-person-store';
 import { WhoIsWorkingPage } from './session/WhoIsWorkingPage';
+import { AdminPage } from './settings/admin/AdminLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
-import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/SignInPage';
 import { LabelPrintPage } from './printing/LabelPrintPage';
-import { PrintersSettingsPage } from './printing/PrintersSettingsPage';
 import { ProjectDetailPage } from './projects/ProjectDetailPage';
 import { ProjectsPage } from './projects/ProjectsPage';
 import {
@@ -42,7 +41,6 @@ import {
   ErrorPage,
   NotFoundPage,
   RequireActiveSession,
-  SettingsLayout,
 } from './pages/simple-pages';
 import { HelpPage } from './pages/HelpPage';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
@@ -50,16 +48,6 @@ import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
 import { MovePage } from './moves/MovePage';
 import { ScanPage } from './scanning/ScanPage';
-import { TemplatesSettingsPage, TestsSettingsPage } from './settings/lab/LabCatalogueSettings';
-import { LocationsPage } from './settings/locations/LocationsPage';
-import { EquipmentSettingsPage } from './settings/equipment/EquipmentSettingsPage';
-import { HolidaysSettingsPage } from './settings/reference/HolidaysSettingsPage';
-import { ReportHeaderSettingsPage } from './settings/reference/ReportHeaderSettingsPage';
-import { SuppliersSettingsPage } from './settings/reference/SuppliersSettingsPage';
-import { ReceivingSettingsPage } from './settings/receiving/ReceivingSettingsPage';
-import { MyAccessPage } from './settings/access/MyAccessPage';
-import { StaffPage } from './settings/staff/StaffPage';
-import { SystemStatusPage } from './settings/system-status/SystemStatusPage';
 import { TestSignInPage } from './TestSignInPage';
 import { IssueReportPage } from './concrete-review/IssueReportPage';
 import { ReviewQueuePage } from './concrete-review/ReviewQueuePage';
@@ -249,37 +237,16 @@ export const routes: RouteObject[] = [
                             path: 'projects/:projectId/concrete-mixes',
                             element: <ProjectConcreteMixesRedirect />,
                           },
-                          {
-                            path: 'settings',
-                            element: <SettingsLayout />,
-                            children: [
-                              { index: true, element: <ProfilePage /> },
-                              {
-                                path: 'profile',
-                                element: <ProfilePage />,
-                              },
-                              // Own roles, grants and project responsibilities (MM-AO06).
-                              { path: 'access', element: <MyAccessPage /> },
-                              { path: 'staff', element: <StaffPage /> },
-                              // Storage locations and location labels (MM-T37).
-                              { path: 'locations', element: <LocationsPage /> },
-                              // Concrete equipment: testing machine and air meters (MM-V2-C27).
-                              { path: 'equipment', element: <EquipmentSettingsPage /> },
-                              // Concrete suppliers and the holiday calendar (MM-V2-C37).
-                              { path: 'suppliers', element: <SuppliersSettingsPage /> },
-                              { path: 'holidays', element: <HolidaysSettingsPage /> },
-                              // The header printed on issued concrete reports (MM-V2-C32).
-                              { path: 'report-header', element: <ReportHeaderSettingsPage /> },
-                              // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
-                              { path: 'tests', element: <TestsSettingsPage /> },
-                              { path: 'templates', element: <TemplatesSettingsPage /> },
-                              { path: 'printers', element: <PrintersSettingsPage /> },
-                              // Draft auto-delete (MM-T45): Admin and Lab Manager.
-                              { path: 'receiving', element: <ReceivingSettingsPage /> },
-                              // Admin-only operational status (MM-T21).
-                              { path: 'system-status', element: <SystemStatusPage /> },
-                            ],
-                          },
+                          // Settings is a modal over the page you were on (STRATA-28, 100): the shell's
+                          // SettingsOutlet keeps that page behind it. A fresh load of a /settings address
+                          // shows Today behind the modal.
+                          { path: 'settings', element: <DashboardPage /> },
+                          { path: 'settings/*', element: <DashboardPage /> },
+                          // Lab admin: Staff, Locations and Lab tests as full pages (STRATA-128).
+                          { path: 'admin', element: <Navigate to="/admin/staff" replace /> },
+                          { path: 'admin/staff', element: <AdminPage tab="staff" /> },
+                          { path: 'admin/locations', element: <AdminPage tab="locations" /> },
+                          { path: 'admin/lab-tests', element: <AdminPage tab="lab-tests" /> },
                           ...featureRoutes,
                           { path: '*', element: <NotFoundPage /> },
                         ],

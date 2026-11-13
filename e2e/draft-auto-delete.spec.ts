@@ -199,11 +199,10 @@ test('Settings → Receiving: Lab Managers can change it, others only see it', a
       .getByRole('navigation', { name: 'Settings' })
       .getByRole('link', { name: 'Receiving', exact: true }),
   ).toHaveCount(0);
-  await expect(
-    page.getByText('Only Lab Managers and administrators can change this.'),
-  ).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: 'Delete drafts automatically' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0);
+  // STRATA-100: Receiving has no page for them; Settings opens on My access with a notice.
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText('Receiving isn’t available to you.')).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Delete drafts automatically' })).toHaveCount(0);
   const denied = await page.request.put('/api/settings/drafts', {
     headers: { 'x-materialmule-csrf': '1' },
     data: { draftAutoDelete: { enabled: true, afterDays: 30 }, version: 1 },

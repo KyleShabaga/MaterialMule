@@ -72,8 +72,8 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician is
 }) => {
   const code = uniqueCode('DEMO_UI');
   await signInAs(page, 'lab');
-  await page.goto('/settings/tests');
-  await expect(page.getByRole('heading', { name: 'Tests', level: 2 })).toBeVisible();
+  await page.goto('/admin/lab-tests');
+  await expect(page.getByRole('heading', { name: 'Lab tests', level: 1 })).toBeVisible();
   const form = page.getByRole('form', { name: 'Add a test' });
   await form.getByLabel('Code').fill(code);
   await form.getByLabel('Full description').fill('Fictional E2E description, kept in full.');
@@ -84,17 +84,17 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician is
   await row.getByRole('button', { name: 'Retire' }).click();
   await expect(row).toContainText('Retired');
 
-  // MISC-04: a technician has no Tests or Templates tab, and a direct URL is refused.
+  // MISC-04 / STRATA-100: a technician has no Lab tests or Templates section; a direct address
+  // opens My access with a notice instead of the catalogue.
   await signInAs(page, 'at');
-  await page.goto('/settings/tests');
-  await expect(
-    page.getByText('Only Lab Managers and administrators can open this page.'),
-  ).toBeVisible();
+  await page.goto('/admin/lab-tests');
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText('Lab tests isn’t available to you.')).toBeVisible();
   await expect(page.getByRole('form', { name: 'Add a test' })).toHaveCount(0);
   const settingsNav = page.getByRole('navigation', { name: 'Settings' });
-  await expect(settingsNav.getByRole('link', { name: 'Tests' })).toHaveCount(0);
+  await expect(settingsNav.getByRole('link', { name: /Lab tests/ })).toHaveCount(0);
   await expect(settingsNav.getByRole('link', { name: 'Templates' })).toHaveCount(0);
-  await expect(settingsNav.getByRole('link', { name: 'Locations' })).toBeVisible();
+  await expect(settingsNav.getByRole('link', { name: 'My access' })).toBeVisible();
 });
 
 test('MISC-01: New program opens the editor from Programs and Workboard, not the discard dialog', async ({

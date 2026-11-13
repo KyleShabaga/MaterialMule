@@ -84,7 +84,7 @@ test('MM-T61: print history says who marked an uncertain job printed and how oft
   ).toBeVisible();
 });
 
-test('admins see the configured label printer; others are told it is admin-only', async ({
+test('admins see the configured label printer; a technician has no Printers section', async ({
   page,
 }) => {
   await signInAs(page, 'admin');
@@ -94,5 +94,7 @@ test('admins see the configured label printer; others are told it is admin-only'
 
   await signInAs(page, 'at');
   await page.goto('/settings/printers');
-  await expect(page.getByText('Only administrators can change printers.')).toBeVisible();
+  // STRATA-100: a hidden section has no page; Settings opens on My access with a notice.
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText('Printers isn’t available to you.')).toBeVisible();
 });

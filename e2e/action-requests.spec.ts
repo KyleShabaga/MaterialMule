@@ -143,11 +143,11 @@ test('T6: LAB has no Action requests or Notifications control, inbox or preferen
   await expect(page.getByRole('heading', { name: 'Notifications' })).toHaveCount(0);
 });
 
-test('MISC-11: My profile shows Notifications without the Email me opt-in; the stored preference stays', async ({
+test('MISC-11: Settings › Notifications has no Email me opt-in; the stored preference stays', async ({
   page,
 }) => {
   await signInAs(page, 'de');
-  await page.goto('/settings/profile');
+  await page.goto('/settings/notifications');
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Email me/ })).toHaveCount(0);
   await expect(page.getByText(/Email me|switched off for everyone/)).toHaveCount(0);

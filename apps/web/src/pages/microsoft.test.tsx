@@ -341,12 +341,15 @@ describe('My profile', () => {
     expect(screen.getByText(/Not confirmed yet/)).toBeInTheDocument();
     // MISC-06: positions show only in Settings → Staff & access, never on the profile.
     expect(screen.queryByText('Position')).toBeNull();
-    expect(screen.getByRole('link', { name: 'Review and retry' })).toBeInTheDocument();
+    // The shell's notice sits behind the Settings modal (inert while it is open).
+    expect(
+      screen.getByRole('link', { name: 'Review and retry', hidden: true }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Profile refreshed from Microsoft.')).toBeInTheDocument();
     // MM-T55: the email shows in "Signed in as" and in the My profile card.
-    const card = screen.getByRole('region', { name: 'My profile' });
+    const card = screen.getByRole('region', { name: 'Profile' });
     expect(within(card).getByText('riley.mail@example.test')).toBeInTheDocument();
     expect(calls.some((c) => c.url === '/api/me/profile/refresh')).toBe(true);
   });

@@ -299,15 +299,19 @@ describe('Action requests (MM-T27)', () => {
         return json(404, {});
       },
     );
-    expect(await screen.findByRole('heading', { name: 'My profile' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Profile' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^Action requests/ })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Inbox' })).toBeNull();
-    expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
+    // The shell has no bell (the Settings nav's own Notifications section doesn't count).
+    const bell = screen
+      .queryAllByRole('link', { name: /^Notifications/, hidden: true })
+      .filter((link) => !link.closest('[role="dialog"]'));
+    expect(bell).toEqual([]);
     expect(screen.queryByRole('heading', { name: 'Notifications' })).toBeNull();
   });
 
-  it('MISC-11: My profile shows Notifications without the Email me opt-in', async () => {
-    const fetchMock = renderAt('/settings/profile', me(), (url, init) => {
+  it('MISC-11: Settings › Notifications has no Email me opt-in', async () => {
+    const fetchMock = renderAt('/settings/notifications', me(), (url, init) => {
       if (url.startsWith('/api/action-items/count')) return json(200, { open: 0 });
       if (url.startsWith('/api/me/notification-preferences')) {
         return init?.method === 'PUT'
@@ -348,7 +352,6 @@ describe('Action requests (MM-T27)', () => {
       return json(404, {});
     });
     expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByText(/Email me|switched off for everyone|work email/)).toBeNull();
     // UI only: nothing reads or writes the stored preference from this page any more.
     expect(
