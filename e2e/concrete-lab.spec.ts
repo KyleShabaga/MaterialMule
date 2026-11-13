@@ -86,15 +86,16 @@ test('AC1 and AC2: Specimen lookup lists a repeated set number with both project
     await expect(nav.getByRole('link', { name: label, exact: true })).toBeVisible();
   }
   await nav.getByRole('link', { name: 'Specimens', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Specimen lookup', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Specimens', level: 1 })).toBeVisible();
 
   const box = page.getByRole('textbox', { name: 'Specimen or set ID' });
   await box.fill(`${data.setNumber}B`);
   await box.press('Enter');
-  await expect(page.getByText('Set numbers repeat between projects')).toBeVisible();
+  await expect(page.getByText(/Set numbers repeat between projects/)).toBeVisible();
+  const matches = page.getByRole('table', { name: `Specimen sets matching ${data.setNumber}B` });
   for (const project of data.projects) {
-    const sets = page.getByRole('list', { name: `Specimen sets, ${project.number}` });
-    await expect(sets.getByRole('link', { name: `${data.setNumber}B` })).toBeVisible();
+    const row = matches.getByRole('row').filter({ hasText: project.number });
+    await expect(row.getByRole('link', { name: `${data.setNumber}B` })).toBeVisible();
   }
   // Nothing was chosen for the user: still on the list.
   await expect(page).toHaveURL(/\/concrete\/specimens\?q=/);
@@ -102,16 +103,17 @@ test('AC1 and AC2: Specimen lookup lists a repeated set number with both project
   await page.getByRole('textbox', { name: 'Specimen or set ID' }).fill(data.temporaryId);
   await page.getByRole('textbox', { name: 'Specimen or set ID' }).press('Enter');
   await expect(page).toHaveURL(new RegExp(`/concrete/specimens/${data.setIds[0]}`));
+  // The set page (record pattern): the set ID is the heading, its project beside it.
+  await expect(page.getByRole('heading', { name: data.setNumber, level: 1 })).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: `Set ${data.setNumber}`, level: 1 }),
+    page.getByRole('link', { name: data.projects[0]!.number, exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText(`Project ${data.projects[0]!.number}`)).toBeVisible();
-  await expect(page.getByText(`Temporary ID: ${data.temporaryId}`)).toBeVisible();
+  await expect(page.getByText(data.temporaryId, { exact: true })).toBeVisible();
   const specimens = page.getByRole('region', { name: 'Specimens' });
   await expect(specimens.getByText(`${data.setNumber}A`, { exact: true })).toBeVisible();
   await expect(specimens.getByText('Awaiting pickup').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
-  await expect(page.getByText(/Set recorded by Alex Tester/)).toBeVisible();
+  await expect(page.getByText(/Alex Tester recorded the set/)).toBeVisible();
 });
 
 test('AC3: dashboard counts match the lists they open, and My reports come first', async ({

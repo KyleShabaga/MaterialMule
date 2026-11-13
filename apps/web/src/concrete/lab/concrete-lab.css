@@ -1,5 +1,5 @@
 @layer legacy {
-  /* Concrete dashboard, Receiving, Specimens (lookup and set), Concrete search and Lab search
+  /* Concrete dashboard, the dashboard search form and results, and Lab search
    (MM-V2-C31) in the Field Ledger design. Tokens only; radii 3 / 4 / 6, never pill shapes.
    Hover is global (styles.css). Phone layouts stack; wide tables scroll inside their frame. */
 
@@ -48,12 +48,6 @@
     min-width: 0;
   }
 
-  .concrete-intro {
-    max-width: 60rem;
-    margin: 0;
-    color: var(--ink-soft);
-  }
-
   .concrete-muted,
   .concrete-alias {
     color: var(--ink-soft);
@@ -68,88 +62,11 @@
     font-weight: 600;
   }
 
-  .concrete-nowrap {
-    white-space: nowrap;
-  }
-
-  .concrete-cell-stack {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
-
-  .concrete-back {
-    font-weight: 700;
-    color: var(--ink);
-  }
-
-  .concrete-set-link {
-    font-family: var(--font-mono);
-    font-size: var(--fs-row-id);
-    font-weight: 600;
-    color: var(--ink);
-    white-space: nowrap;
-  }
-
   .concrete-pager {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-3);
-  }
-
-  /* ---- Dashboard: view tiles per group ---------------------------------------------------------- */
-
-  .concrete-shortcut-disabled {
-    display: inline-grid;
-    gap: var(--space-1);
-    max-width: 16rem;
-  }
-
-  .concrete-count-groups {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-    gap: var(--space-6);
-  }
-
-  .concrete-count-group {
-    display: grid;
-    gap: var(--space-3);
-    align-content: start;
-    min-width: 0;
-  }
-
-  /* ---- Receiving: stage tabs joined in one frame ------------------------------------------------- */
-
-  .concrete-stage-tabs {
-    display: inline-flex;
-    flex-wrap: wrap;
-    justify-self: start;
-    border: var(--rule-width) solid var(--rule);
-    border-radius: var(--radius-control);
-    background: var(--sheet);
-    overflow: hidden;
-  }
-
-  .concrete-stage-tabs > [role='tab'] {
-    border: 0;
-    border-right: 1px solid var(--rule);
-    border-radius: 0;
-  }
-
-  .concrete-stage-tabs > [role='tab']:last-child {
-    border-right: 0;
-  }
-
-  .concrete-stage-tabs > [aria-selected='true'] {
-    background: var(--selected);
-    color: var(--on-selected);
-  }
-
-  .concrete-tab-count {
-    font-family: var(--font-mono);
-    font-weight: 600;
   }
 
   /* ---- Search form: one large field ----------------------------------------------------------- */
@@ -316,135 +233,6 @@
     font-size: var(--fs-small);
   }
 
-  /* ---- Set page: label-like block, facts, specimens, history ---------------------------------- */
-
-  .concrete-set-layout {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-7);
-  }
-
-  .concrete-set-side {
-    display: grid;
-    flex: 1 1 20rem;
-    gap: var(--space-5);
-    min-width: 0;
-  }
-
-  .concrete-set-main {
-    display: grid;
-    flex: 3 1 32rem;
-    gap: var(--space-6);
-    min-width: 0;
-  }
-
-  .concrete-set-label {
-    border: var(--rule-width) solid var(--rule);
-    border-radius: var(--radius-card);
-    background: var(--sheet);
-    overflow: hidden;
-  }
-
-  .concrete-set-label-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-4);
-    background: var(--inverse);
-    color: var(--on-inverse);
-  }
-
-  .concrete-set-label-kind {
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .concrete-set-label-project {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    text-transform: uppercase;
-  }
-
-  .concrete-set-label-project a {
-    color: var(--on-inverse);
-    font-weight: 600;
-  }
-
-  .concrete-set-label-body {
-    display: grid;
-    gap: var(--space-2);
-    padding: var(--space-4);
-  }
-
-  .concrete-set-label-id {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--fs-big-count);
-    font-weight: 600;
-    line-height: 1;
-    overflow-wrap: anywhere;
-  }
-
-  .concrete-set-label-line {
-    margin: 0;
-    color: var(--ink-soft);
-    font-size: var(--fs-small);
-  }
-
-  .concrete-set-label-line strong {
-    color: var(--ink);
-    font-family: var(--font-mono);
-  }
-
-  /* A Void set keeps its label, drawn grey. */
-  .concrete-set-label-void .concrete-set-label-head {
-    background: var(--tag-closed-bg);
-    color: var(--tag-closed-fg);
-  }
-
-  .concrete-set-label-void .concrete-set-label-project a {
-    color: var(--tag-closed-fg);
-  }
-
-  .concrete-set-facts {
-    margin: 0;
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius-card);
-    background: var(--sheet);
-  }
-
-  .concrete-set-facts > div {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--hairline);
-  }
-
-  .concrete-set-facts > div:last-child {
-    border-bottom: 0;
-  }
-
-  .concrete-set-facts dt {
-    padding-top: 2px;
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-  }
-
-  .concrete-set-facts dd {
-    margin: 0;
-    font-weight: 600;
-    text-align: right;
-    overflow-wrap: anywhere;
-  }
-
   .concrete-history {
     margin: 0;
     padding: 0;
@@ -473,16 +261,6 @@
   }
 
   @media (forced-colors: active) {
-    .concrete-stage-tabs > [aria-selected='true'] {
-      forced-color-adjust: none;
-      background: Highlight;
-      color: HighlightText;
-    }
-
-    .concrete-set-label-head {
-      border-bottom: 1px solid CanvasText;
-    }
-
     .concrete-row-matched {
       outline: 2px solid CanvasText;
     }

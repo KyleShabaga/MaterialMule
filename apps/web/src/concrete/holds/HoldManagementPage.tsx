@@ -1,539 +1,530 @@
 import {
   CONCRETE_HOLD_KIND_LABEL,
-  CONCRETE_HOLD_STATUS_LABEL,
   type ConcreteHoldHistory,
   type ConcreteHoldList,
   type ConcreteHoldRow,
-  type ConcreteHoldStatus,
-  type ConcreteHoldStatusFilter,
 } from '@materialmule/shared';
-import { useEffect, useId, useState } from 'react';
+import { CalendarPlus, History, Hourglass, RotateCw, ShieldCheck, Trash2, X } from 'lucide-react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
-  EmptyState,
-  ErrorState,
-  FormField,
-  Notice,
-  PageHeader,
-  SidePanel,
-  StatusBadge,
-  TableScroll,
-  type BadgeTone,
-} from '../../components/app-ui';
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DataTable, type DataTableColumn } from '../../components/strata/data-table';
+import { StageTag } from '../../components/strata/stage-tag';
+import { useTableQuery, type TableQuery } from '../../components/strata/table-query';
+import { TableToolbar } from '../../components/strata/table-toolbar';
+import { notifySuccess } from '../../components/strata/toast';
 import { useMe } from '../../session/context';
-import { SpecimenLabel } from '../worklist/specimen';
-import { specimenText } from '../worklist/specimen-text';
-import { fetchHoldHistory, fetchHolds } from './api';
-import { HoldActionDialog, type HoldAction, type HoldTarget } from './HoldActionDialog';
-import './holds.css';
+import { setLookupPath } from '../lab/format';
+import { fetchHoldHistory, fetchHolds, type LoadResult } from './api';
+import { HoldActionDialogs } from './HoldDialogs';
+import {
+  blockedReason,
+  HOLD_ACTION_LABEL,
+  HOLD_ACTIONS,
+  HOLD_STATE,
+  HOLD_TABS,
+  holdName,
+  readHoldTab,
+  STATUS_FILTERS,
+  statusFilterOf,
+  type HoldAction,
+  type HoldTab,
+} from './hold-actions';
 
-type Kind = 'all' | 'ordinary' | 'failed';
+// Concrete → Holds (STRATA-95 part B, canvas R7Holds*; MM-V2-C26 rules). Tabs All holds,
+// Failed-specimen holds and Ordinary HOLD; the page opens on open holds only (inside the hold
+// period or past it), with Disposal authorized and Disposed under Filter as a chip. The selection
+// bar keeps Schedule test, Authorize disposal and Record disposal visible; each is offered when
+// every selected specimen allows it (the server's per-row actions), else disabled with the
+// reason. Reaching a hold date only flags it: nothing is tested, released or disposed of on its
+// own.
 
-const STATUS_TONE: Record<ConcreteHoldStatus, BadgeTone> = {
-  held: 'closed',
-  review_due: 'waiting',
-  disposal_authorized: 'lab',
-  disposed: 'storage',
-};
+const ACTION_ICON = {
+  schedule_test: CalendarPlus,
+  authorize_disposal: ShieldCheck,
+  record_disposal: Trash2,
+} as const;
 
-const STATUS_FILTER_LABEL: Record<ConcreteHoldStatusFilter, string> = {
-  open: 'On hold',
-  disposal_authorized: 'Disposal authorized',
-  disposed: 'Disposed',
-  all: 'All',
-};
+const projectFilterId = (id: string) => `project:${id}`;
 
-const specimenLabel = (row: { identity: ConcreteHoldRow['identity']; letter?: string }) =>
-  specimenText(row.identity, row.letter);
-
-const ACTION_KEY: Record<HoldAction, keyof ConcreteHoldRow['actions']> = {
-  schedule_test: 'scheduleTest',
-  authorize_disposal: 'authorizeDisposal',
-  record_disposal: 'recordDisposal',
-};
-
-const ACTION_LABEL: Record<HoldAction, string> = {
-  schedule_test: 'Schedule test',
-  authorize_disposal: 'Authorize disposal',
-  record_disposal: 'Record disposal',
-};
-
-/** Schedule test and Authorize disposal record the panel's reason; Record disposal takes none. */
-const NEEDS_REASON: Record<HoldAction, boolean> = {
-  schedule_test: true,
-  authorize_disposal: true,
-  record_disposal: false,
-};
-
-interface Band {
-  key: string;
-  title: string;
-  tag: string;
-  tone: BadgeTone;
-  rows: ConcreteHoldRow[];
+function historyLine(e: ConcreteHoldHistory['events'][number]): string {
+  switch (e.kind) {
+    case 'test_scheduled':
+      return `Test scheduled at ${e.newAge} d (target ${e.newTargetDate})`;
+    case 'disposal_authorized':
+      return 'Disposal authorized';
+    case 'disposed':
+      return `Disposed (removed ${new Date(e.disposedAt!).toLocaleString()})`;
+    case 'hold_assigned':
+      return `Held until ${e.holdUntil} (was ${e.previousAge} d, target ${e.previousTargetDate})`;
+    default:
+      return 'Failed-specimen hold';
+  }
 }
 
-/**
- * The rows in bands, from the status and kind the server returns: "Review due" (the HOLD expiry
- * is reached) is "Hold period has ended". In the open view the two HOLD bands always show; the
- * others only when they have rows.
- */
-function bandsOf(rows: ConcreteHoldRow[], status: ConcreteHoldStatusFilter): Band[] {
-  const bands: Band[] = [
-    {
-      key: 'review_due',
-      title: 'Hold period has ended',
-      tag: CONCRETE_HOLD_STATUS_LABEL.review_due,
-      tone: 'waiting',
-      rows: rows.filter((r) => r.status === 'review_due'),
-    },
-    {
-      key: 'held',
-      title: 'Still inside the hold period',
-      tag: CONCRETE_HOLD_STATUS_LABEL.held,
-      tone: 'closed',
-      rows: rows.filter((r) => r.status === 'held' && r.holdKind !== 'failed'),
-    },
-    {
-      key: 'failed',
-      title: 'Held after a failed result',
-      tag: 'No expiry',
-      tone: 'danger',
-      rows: rows.filter((r) => r.status === 'held' && r.holdKind === 'failed'),
-    },
-    {
-      key: 'disposal_authorized',
-      title: 'Waiting for removal',
-      tag: CONCRETE_HOLD_STATUS_LABEL.disposal_authorized,
-      tone: 'lab',
-      rows: rows.filter((r) => r.status === 'disposal_authorized'),
-    },
-    {
-      key: 'disposed',
-      title: 'Removed',
-      tag: CONCRETE_HOLD_STATUS_LABEL.disposed,
-      tone: 'storage',
-      rows: rows.filter((r) => r.status === 'disposed'),
-    },
-  ];
-  const always = status === 'open' ? ['review_due', 'held'] : [];
-  return bands.filter((band) => band.rows.length > 0 || always.includes(band.key));
-}
-
-/**
- * Concrete → Holds (MM-V2-C26): ordinary HOLD and failed-specimen holds in bands (hold period
- * ended, still inside it, failed-result holds, and authorized / removed for the other filters),
- * told apart by kind. Select specimens, write the reason in the side panel and choose Schedule
- * test, Authorize disposal or Record disposal; a confirmation lists each specimen and its change.
- * A HOLD past its expiry is only flagged Review due: nothing happens on a date.
- */
 export function HoldManagementPage() {
   const me = useMe();
-  const [kind, setKind] = useState<Kind>('all');
-  const [status, setStatus] = useState<ConcreteHoldStatusFilter>('open');
-  const [projectId, setProjectId] = useState('');
-  const [page, setPage] = useState(1);
+  const [params, setParams] = useSearchParams();
+  const [query, setQuery] = useTableQuery();
+  const tab = readHoldTab(params.get('tab'));
+  const status = statusFilterOf(query.filters);
+  const projectFilter = query.filters.find((f) => f.startsWith('project:')) ?? null;
+  const projectId = projectFilter ? projectFilter.slice('project:'.length) : '';
+  const page = Math.max(1, Number(params.get('page')) || 1);
   const [reload, setReload] = useState(0);
-  const requestKey = `${kind}|${status}|${projectId}|${page}|${reload}`;
+  const requestKey = `${tab}|${status}|${projectId}|${page}|${reload}`;
   const [answer, setAnswer] = useState<{
     key: string;
-    list: ConcreteHoldList | null;
-    error: string | null;
-  }>({ key: '', list: null, error: null });
-  const [selected, setSelected] = useState<string[]>([]);
-  const [reason, setReason] = useState('');
+    lists: Record<HoldTab, LoadResult<ConcreteHoldList>>;
+  } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [action, setAction] = useState<HoldAction | null>(null);
-  const [notice, setNotice] = useState('');
-  const [historyOf, setHistoryOf] = useState<string | null>(null);
-  const [history, setHistory] = useState<ConcreteHoldHistory | null>(null);
+  const [historyOf, setHistoryOf] = useState<ConcreteHoldRow | null>(null);
+  const [history, setHistory] = useState<{ id: string; data: ConcreteHoldHistory | null } | null>(
+    null,
+  );
   const whyId = useId();
 
   useEffect(() => {
     let current = true;
-    void fetchHolds({ kind, status, projectId, page }).then((result) => {
-      if (!current) return;
-      setAnswer({
-        key: requestKey,
-        list: result.ok ? result.data : null,
-        error: result.ok ? null : result.message,
-      });
+    // The selected tab's rows, and the other two kinds for their tab counts.
+    void Promise.all(
+      HOLD_TABS.map((t) =>
+        fetchHolds({ kind: t.id, status, projectId, page: t.id === tab ? page : 1 }),
+      ),
+    ).then(([all, failed, ordinary]) => {
+      if (current)
+        setAnswer({ key: requestKey, lists: { all: all!, failed: failed!, ordinary: ordinary! } });
     });
     return () => {
       current = false;
     };
-  }, [kind, status, projectId, page, requestKey]);
+  }, [tab, status, projectId, page, requestKey]);
 
   useEffect(() => {
     if (!historyOf) return;
     let current = true;
-    void fetchHoldHistory(historyOf).then((result) => {
-      if (current) setHistory(result.ok ? result.data : null);
+    void fetchHoldHistory(historyOf.specimenId).then((result) => {
+      if (current) setHistory({ id: historyOf.specimenId, data: result.ok ? result.data : null });
     });
     return () => {
       current = false;
     };
   }, [historyOf]);
 
-  const ready = answer.key === requestKey ? answer : null;
-  const list = ready?.list ?? null;
-  const rows = list?.rows ?? [];
-  const chosen = rows.filter((r) => selected.includes(r.specimenId));
-  const hasReason = reason.trim() !== '';
-  const allowed = (a: HoldAction) =>
-    chosen.length > 0 &&
-    chosen.every((r) => r.actions[ACTION_KEY[a]]) &&
-    (!NEEDS_REASON[a] || hasReason);
-  const why =
-    chosen.length === 0
-      ? 'Select at least one specimen.'
-      : !hasReason
-        ? 'Write a reason to schedule a test or authorize disposal.'
-        : 'Each action is offered when every selected specimen allows it.';
-  const targets: HoldTarget[] = chosen.map((r) => ({
-    specimenId: r.specimenId,
-    label: specimenLabel(r),
-    projectNumber: r.project.projectNumber,
-    holdKind: r.holdKind,
-    castingDate: r.castingDate,
-    holdExpiresOn: r.holdExpiresOn,
-    version: r.version,
-  }));
-  const selectable = (r: ConcreteHoldRow) =>
-    r.actions.scheduleTest || r.actions.authorizeDisposal || r.actions.recordDisposal;
-  const toggle = (id: string) =>
-    setSelected((now) => (now.includes(id) ? now.filter((x) => x !== id) : [...now, id]));
-  const resetSelection = () => setSelected([]);
-  const openHistory = (r: ConcreteHoldRow) => {
-    setHistory(null);
-    setHistoryOf(r.specimenId);
+  const ready = answer?.key === requestKey ? answer : null;
+  const load = ready?.lists[tab] ?? null;
+  const list = load?.ok ? load.data : null;
+  const rows = useMemo(() => {
+    const q = query.search.trim().toLowerCase();
+    const all = list?.rows ?? [];
+    return q
+      ? all.filter((r) =>
+          [holdName(r), r.project.projectNumber, r.project.name].some((v) =>
+            v.toLowerCase().includes(q),
+          ),
+        )
+      : all;
+  }, [list, query.search]);
+  const chosen = rows.filter((r) => selected.has(r.specimenId));
+  const reasons = HOLD_ACTIONS.map((a) => blockedReason(a, chosen)).filter(
+    (r, i, all): r is string => r !== null && all.indexOf(r) === i,
+  );
+
+  const resetSelection = () => setSelected(new Set());
+  const chooseTab = (next: string) => {
+    const nextParams = new URLSearchParams(params);
+    if (next === 'all') nextParams.delete('tab');
+    else nextParams.set('tab', next);
+    nextParams.delete('page');
+    setParams(nextParams, { replace: true });
+    resetSelection();
+  };
+  const goToPage = (next: number) => {
+    const nextParams = new URLSearchParams(params);
+    if (next > 1) nextParams.set('page', String(next));
+    else nextParams.delete('page');
+    setParams(nextParams, { replace: true });
+    resetSelection();
+  };
+  const onQueryChange = (patch: Partial<TableQuery>) => {
+    if (patch.filters) {
+      // One status and one project at a time: the server reads one of each.
+      const added = patch.filters.filter((f) => !query.filters.includes(f));
+      let next = patch.filters;
+      for (const f of added) {
+        const prefix = f.startsWith('status:') ? 'status:' : 'project:';
+        next = next.filter((x) => x === f || !x.startsWith(prefix));
+      }
+      patch = { ...patch, filters: next };
+      resetSelection();
+    }
+    setQuery(patch);
   };
 
-  const totalPages = list ? Math.max(1, Math.ceil(list.total / list.pageSize)) : 1;
-  const bands = list ? bandsOf(rows, status) : [];
-  return (
-    <div className="hold-page">
-      <PageHeader title="Concrete holds" />
-      {list ? (
-        <p className="hold-dateline">
-          {list.counts.open} {list.counts.open === 1 ? 'specimen' : 'specimens'} on hold · as of{' '}
-          <span className="mono">{list.today}</span>
-        </p>
-      ) : null}
-      <div className="hold-filters">
-        <label>
-          <span className="field-label">Kind</span>
-          <select
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as Kind);
-              setPage(1);
-              resetSelection();
-            }}
-          >
-            <option value="all">All holds</option>
-            <option value="ordinary">{CONCRETE_HOLD_KIND_LABEL.ordinary}</option>
-            <option value="failed">{CONCRETE_HOLD_KIND_LABEL.failed}</option>
-          </select>
-        </label>
-        <label>
-          <span className="field-label">Status</span>
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as ConcreteHoldStatusFilter);
-              setPage(1);
-              resetSelection();
-            }}
-          >
-            {(Object.keys(STATUS_FILTER_LABEL) as ConcreteHoldStatusFilter[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_FILTER_LABEL[s]}
-                {list ? ` (${list.counts[s]})` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="field-label">Project</span>
-          <select
-            value={projectId}
-            onChange={(e) => {
-              setProjectId(e.target.value);
-              setPage(1);
-              resetSelection();
-            }}
-          >
-            <option value="">All projects</option>
-            {(list?.projects ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.projectNumber}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {notice ? <Notice tone="success">{notice}</Notice> : null}
-      {ready?.error ? (
-        <ErrorState message={ready.error} onRetry={() => setReload((n) => n + 1)} />
-      ) : null}
-      {!ready ? <p className="field-hint">Loading…</p> : null}
-      <div className="hold-layout">
-        <div className="hold-bands" role="region" aria-label="HOLD specimens">
-          {list && bands.length === 0 ? (
-            <EmptyState>No specimens match these filters.</EmptyState>
-          ) : null}
-          {bands.map((band) => (
-            <HoldBand
-              key={band.key}
-              band={band}
-              selected={selected}
-              selectable={selectable}
-              onToggle={toggle}
-              onHistory={openHistory}
-            />
-          ))}
-          {list && list.total > list.pageSize ? (
-            <nav className="pager" aria-label="HOLD pages">
-              <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                Previous
-              </button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
-                Next
-              </button>
-            </nav>
-          ) : null}
-          <p className="hold-footnote">
-            Nothing on hold is tested, released or disposed of automatically: reaching a HOLD expiry
-            only flags it for review. Every action here needs a person, and scheduling or
-            authorizing needs a reason.
-          </p>
-        </div>
-        <SidePanel
-          title="With the selected"
-          className="hold-panel"
-          aside={
-            <span className="section-meta" aria-live="polite">
-              {chosen.length} selected
+  // Projects with any held specimen (the server's list), for the Filter menu.
+  const projects = ready
+    ? ((
+        Object.values(ready.lists).find((l) => l.ok) as
+          { ok: true; data: ConcreteHoldList } | undefined
+      )?.data.projects ?? [])
+    : [];
+  const filterOptions = [
+    ...STATUS_FILTERS.map((f) => ({
+      ...f,
+      count: list?.counts[f.id === 'status:disposed' ? 'disposed' : 'disposal_authorized'],
+    })),
+    ...projects.map((p) => ({ id: projectFilterId(p.id), label: p.projectNumber })),
+  ];
+
+  const columns: DataTableColumn<ConcreteHoldRow>[] = [
+    {
+      id: 'specimen',
+      header: 'Specimen',
+      priority: 'identity',
+      width: '9rem',
+      cell: (r) => (
+        <Button variant="link" asChild className="h-auto p-0 font-mono font-semibold">
+          <Link to={setLookupPath(r.setId, r.letter)}>{holdName(r)}</Link>
+        </Button>
+      ),
+    },
+    {
+      id: 'kind',
+      header: 'Kind',
+      priority: 'attribute',
+      width: '11rem',
+      cell: (r) => (
+        <span className="flex min-w-0 flex-col">
+          <span>{r.holdKind === 'failed' ? 'Failed-specimen hold' : 'Ordinary HOLD'}</span>
+          {r.failureReason ? (
+            <span className="truncate text-[12px] text-muted-foreground" title={r.failureReason}>
+              {r.failureReason}
             </span>
-          }
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      id: 'project',
+      header: 'Project',
+      priority: 'identity',
+      cell: (r) => (
+        <span className="flex min-w-0 gap-2" title={r.project.name}>
+          <span className="font-mono">{r.project.projectNumber}</span>
+          <span className="min-w-0 truncate text-muted-foreground">{r.project.name}</span>
+        </span>
+      ),
+    },
+    {
+      id: 'cast',
+      header: 'Casting date',
+      priority: 'attribute',
+      hideOrder: 1,
+      mono: true,
+      width: '10ch',
+      cell: (r) =>
+        r.castingDate ?? <span className="font-sans text-muted-foreground">Unknown</span>,
+    },
+    {
+      id: 'until',
+      header: 'Hold until',
+      priority: 'attribute',
+      width: '10ch',
+      cell: (r) =>
+        r.holdKind === 'failed' ? (
+          'No expiry'
+        ) : r.holdExpiresOn ? (
+          <span className="font-mono">{r.holdExpiresOn}</span>
+        ) : (
+          <span className="text-muted-foreground">Unknown</span>
+        ),
+    },
+    {
+      id: 'state',
+      header: 'State',
+      priority: 'state',
+      wrap: true,
+      width: '12rem',
+      cell: (r) =>
+        r.status === 'held' ? (
+          <StageTag variant="neutral" icon={Hourglass} label={HOLD_STATE.held.label} />
+        ) : (
+          <StageTag stage={HOLD_STATE[r.status].stage} label={HOLD_STATE[r.status].label} />
+        ),
+    },
+    {
+      id: 'history',
+      header: <span className="sr-only">History</span>,
+      priority: 'state',
+      control: true,
+      width: '2.25rem',
+      cell: (r) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`History of ${holdName(r)}`}
+          onClick={() => {
+            setHistory(null);
+            setHistoryOf(r);
+          }}
         >
-          {chosen.length === 0 ? (
-            <p className="field-hint">Select specimens in the lists to act on them.</p>
-          ) : (
-            <ul className="hold-selected" aria-label="Selected specimens">
-              {chosen.map((r) => (
-                <li key={r.specimenId}>
-                  <SpecimenLabel identity={r.identity} letter={r.letter} />
-                  <span className="mono">{r.project.projectNumber}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <FormField
-            label="Reason"
-            required
-            hint="Recorded with each specimen when you schedule a test or authorize disposal."
-          >
-            {(props) => (
-              <textarea
-                {...props}
-                rows={3}
-                value={reason}
-                maxLength={2000}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            )}
-          </FormField>
-          <div className="hold-panel-actions" role="group" aria-label="HOLD actions">
-            {(['schedule_test', 'authorize_disposal', 'record_disposal'] as HoldAction[]).map(
-              (a) => (
-                <button
+          <History aria-hidden="true" />
+        </Button>
+      ),
+    },
+  ];
+
+  const intro =
+    status === 'disposal_authorized'
+      ? 'Filtered to disposal authorized: these have left the open list and wait for someone to record their removal.'
+      : status === 'disposed'
+        ? 'Filtered to disposed: removed specimens keep their IDs and history.'
+        : tab === 'failed'
+          ? 'Placed when a tested specimen fails. Only the project lead or a Lab Manager with concrete authority can release one.'
+          : 'Open holds only. Specimens authorized for disposal (waiting for removal) and disposed ones are under Filter. Reaching an ordinary HOLD date only flags it; nothing is tested, released or disposed of on its own.';
+
+  const totalPages = list ? Math.max(1, Math.ceil(list.total / list.pageSize)) : 1;
+  const authorizedWaiting = list?.counts.disposal_authorized ?? 0;
+
+  return (
+    <div className="@container mx-auto flex w-full max-w-[1280px] min-w-0 flex-col gap-4">
+      <h1 className="sr-only">Concrete holds</h1>
+      <Tabs value={tab} onValueChange={chooseTab}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList aria-label="Hold kind" className="max-w-full justify-start overflow-x-auto">
+            {HOLD_TABS.map((t) => {
+              const count = ready?.lists[t.id];
+              return (
+                <TabsTrigger key={t.id} value={t.id}>
+                  {t.label}
+                  {count?.ok ? ' ' : null}
+                  {count?.ok ? (
+                    <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                      {count.data.counts[status]}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+          <TableToolbar
+            label="Holds tools"
+            query={query}
+            onQueryChange={onQueryChange}
+            filters={filterOptions}
+            searchPlaceholder="Search specimens or projects…"
+          />
+        </div>
+      </Tabs>
+      <p className="text-[13px] text-muted-foreground">{intro}</p>
+
+      {chosen.length > 0 ? (
+        <div
+          role="region"
+          aria-label="Selection"
+          className="flex flex-col gap-1 rounded-xl border bg-card p-2 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-2 text-sm font-semibold" aria-live="polite">
+              {chosen.length} {chosen.length === 1 ? 'specimen' : 'specimens'} selected
+            </span>
+            <Separator orientation="vertical" className="h-6" />
+            {HOLD_ACTIONS.map((a) => {
+              const Icon = ACTION_ICON[a];
+              const blocked = blockedReason(a, chosen);
+              return (
+                <Button
                   key={a}
                   type="button"
-                  className={
-                    a === 'schedule_test'
-                      ? 'primary'
-                      : a === 'authorize_disposal'
-                        ? 'danger'
-                        : undefined
-                  }
-                  disabled={!allowed(a)}
-                  aria-describedby={allowed(a) ? undefined : whyId}
+                  size="sm"
+                  variant={a === 'record_disposal' ? 'destructive' : 'outline'}
+                  disabled={blocked !== null}
+                  aria-describedby={blocked ? whyId : undefined}
                   onClick={() => setAction(a)}
                 >
-                  {ACTION_LABEL[a]}
-                </button>
-              ),
-            )}
+                  <Icon aria-hidden="true" />
+                  {HOLD_ACTION_LABEL[a]}
+                </Button>
+              );
+            })}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Clear selection"
+                  onClick={resetSelection}
+                >
+                  <X aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Clear selection</TooltipContent>
+            </Tooltip>
           </div>
-          <p id={whyId} className="field-hint">
-            {why}
+          <p id={whyId} className="px-2 pb-0.5 text-[12px] text-muted-foreground">
+            Each action is offered when every selected specimen allows it.
+            {reasons.length > 0 ? ` ${reasons.join(' ')}` : ''}
           </p>
-          <p className="field-hint">
-            Ordinary HOLD specimens are released by the Lead Project Engineer or a Lab Manager;
-            failed-specimen holds by the Lead Project Engineer or a Lab Manager with the project’s
-            concrete grant. Lab staff record the removal.
-          </p>
-        </SidePanel>
-      </div>
-      {historyOf ? (
-        <aside className="hold-history" aria-label="HOLD history">
-          <h2>History {history ? specimenLabel({ identity: history.identity }) : ''}</h2>
-          {history ? (
-            history.events.length === 0 ? (
-              <p className="field-hint">No HOLD actions yet.</p>
-            ) : (
-              <ul>
-                {history.events.map((e, i) => (
-                  <li key={i}>
-                    {new Date(e.at).toLocaleString()}:{' '}
-                    {e.kind === 'test_scheduled'
-                      ? `Test scheduled at ${e.newAge} d (target ${e.newTargetDate})`
-                      : e.kind === 'disposal_authorized'
-                        ? 'Disposal authorized'
-                        : e.kind === 'disposed'
-                          ? `Disposed (removed ${new Date(e.disposedAt!).toLocaleString()})`
-                          : e.kind === 'hold_assigned'
-                            ? `Held until ${e.holdUntil} (was ${e.previousAge} d, target ${e.previousTargetDate})`
-                            : 'Failed-specimen hold'}{' '}
-                    by {e.by.name}
-                    {e.recordedBy ? `, recorded by ${e.recordedBy.name}` : ''}
-                    {e.reason ? `: ${e.reason}` : ''}
-                  </li>
-                ))}
-              </ul>
-            )
-          ) : (
-            <p className="field-hint">Loading…</p>
-          )}
-          <button type="button" onClick={() => setHistoryOf(null)}>
-            Close history
-          </button>
-        </aside>
+        </div>
       ) : null}
-      <HoldActionDialog
+
+      {load && !load.ok ? (
+        <Alert variant="destructive">
+          <AlertTitle>{load.message}</AlertTitle>
+          <AlertDescription>
+            <Button variant="outline" size="sm" onClick={() => setReload((n) => n + 1)}>
+              <RotateCw aria-hidden="true" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : list && list.total === 0 && query.search === '' ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Hourglass aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {status === 'open'
+                ? tab === 'failed'
+                  ? 'No failed-specimen holds are open.'
+                  : 'No specimens are on HOLD.'
+                : status === 'disposal_authorized'
+                  ? 'No specimens are waiting for removal.'
+                  : 'No specimens have been disposed of.'}
+            </EmptyTitle>
+            <EmptyDescription>
+              {status === 'open'
+                ? `Spare specimens assigned HOLD show here with their hold-until date.${
+                    authorizedWaiting > 0
+                      ? ` ${authorizedWaiting} authorized for disposal ${authorizedWaiting === 1 ? 'is' : 'are'} under Filter.`
+                      : ''
+                  }`
+                : 'Clear the filter to see open holds.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <section aria-label="HOLD specimens" aria-busy={!ready} className="flex flex-col gap-3">
+          {!ready ? (
+            <p className="sr-only" role="status">
+              Loading holds
+            </p>
+          ) : null}
+          <DataTable
+            columns={columns}
+            data={ready ? rows : []}
+            loading={!ready}
+            getRowId={(r) => r.specimenId}
+            rowLabel={holdName}
+            stage={(r) => HOLD_STATE[r.status].stage}
+            selectedIds={selected}
+            onSelectedIdsChange={setSelected}
+            caption="Specimens on hold"
+            empty="No specimens match this search."
+          />
+          {list && list.total > list.pageSize ? (
+            <nav className="flex items-center justify-end gap-2" aria-label="HOLD pages">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => goToPage(page - 1)}
+              >
+                Previous
+              </Button>
+              <span className="font-mono text-sm tabular-nums">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => goToPage(page + 1)}
+              >
+                Next
+              </Button>
+            </nav>
+          ) : null}
+        </section>
+      )}
+
+      <HoldActionDialogs
         key={action ?? 'none'}
         action={action}
-        targets={targets}
-        reason={reason.trim()}
+        rows={chosen}
         sharedStation={me.accountType === 'shared_lab'}
         onClose={() => setAction(null)}
         onDone={(message) => {
           setAction(null);
-          setNotice(message);
-          setReason('');
+          notifySuccess(message);
           resetSelection();
           setReload((n) => n + 1);
         }}
       />
-    </div>
-  );
-}
 
-/** One band: tag, title and count over a framed table with a checkbox per row. */
-function HoldBand({
-  band,
-  selected,
-  selectable,
-  onToggle,
-  onHistory,
-}: {
-  band: Band;
-  selected: string[];
-  selectable: (row: ConcreteHoldRow) => boolean;
-  onToggle: (specimenId: string) => void;
-  onHistory: (row: ConcreteHoldRow) => void;
-}) {
-  const headingId = useId();
-  return (
-    <section className="hold-band" aria-labelledby={headingId}>
-      <div className="hold-band-head">
-        <StatusBadge tone={band.tone}>{band.tag}</StatusBadge>
-        <h2 id={headingId}>{band.title}</h2>
-        <span className="section-meta">
-          {band.rows.length} {band.rows.length === 1 ? 'specimen' : 'specimens'}
-        </span>
-      </div>
-      {band.rows.length === 0 ? (
-        <EmptyState>None right now.</EmptyState>
-      ) : (
-        <TableScroll label={band.title} className="table-frame">
-          <table className="data-table">
-            <caption className="visually-hidden">{band.title}</caption>
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="visually-hidden">Select</span>
-                </th>
-                <th scope="col">Specimen ID</th>
-                <th scope="col">Project</th>
-                <th scope="col">Casting date</th>
-                <th scope="col">HOLD expiry</th>
-                <th scope="col">Kind</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {band.rows.map((r) => {
-                const isSelected = selected.includes(r.specimenId);
-                return (
-                  <tr key={r.specimenId} className={isSelected ? 'is-selected' : undefined}>
-                    <td data-label="Select">
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${specimenLabel(r)}`}
-                        checked={isSelected}
-                        disabled={!selectable(r)}
-                        onChange={() => onToggle(r.specimenId)}
-                      />
-                    </td>
-                    <td data-label="Specimen ID">
-                      <button
-                        type="button"
-                        className="link-button"
-                        aria-label={`History of ${specimenLabel(r)}`}
-                        onClick={() => onHistory(r)}
-                      >
-                        <SpecimenLabel identity={r.identity} letter={r.letter} />
-                      </button>
-                    </td>
-                    <td data-label="Project" className="mono">
-                      {r.project.projectNumber}
-                    </td>
-                    <td data-label="Casting date" className="mono">
-                      {r.castingDate ?? 'Unknown'}
-                    </td>
-                    <td data-label="HOLD expiry" className="mono">
-                      {r.holdKind === 'failed' ? 'No expiry' : (r.holdExpiresOn ?? 'Unknown')}
-                    </td>
-                    <td data-label="Kind">
-                      <StatusBadge tone={r.holdKind === 'failed' ? 'danger' : 'closed'}>
-                        {CONCRETE_HOLD_KIND_LABEL[r.holdKind]}
-                      </StatusBadge>
-                    </td>
-                    <td data-label="Status">
-                      <StatusBadge tone={STATUS_TONE[r.status]}>
-                        {CONCRETE_HOLD_STATUS_LABEL[r.status]}
-                      </StatusBadge>
-                      {r.disposal?.disposedAt ? (
-                        <span className="field-hint">
-                          {' '}
-                          {new Date(r.disposal.disposedAt).toLocaleString()}
-                        </span>
-                      ) : null}
-                      {r.failureReason ? (
-                        <span className="field-hint"> {r.failureReason}</span>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </TableScroll>
-      )}
-    </section>
+      <Sheet
+        open={historyOf !== null}
+        onOpenChange={(open) => (open ? undefined : setHistoryOf(null))}
+      >
+        <SheetContent className="w-full sm:max-w-[28rem]">
+          <SheetHeader>
+            <SheetTitle>
+              History of <span className="font-mono">{historyOf ? holdName(historyOf) : ''}</span>
+            </SheetTitle>
+            <SheetDescription>
+              {historyOf ? CONCRETE_HOLD_KIND_LABEL[historyOf.holdKind] : ''} · newest last
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4">
+            {history && history.id === historyOf?.specimenId ? (
+              history.data === null ? (
+                <p className="text-sm text-destructive-text">The HOLD history couldn’t load.</p>
+              ) : history.data.events.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No HOLD actions yet.</p>
+              ) : (
+                <ol className="flex flex-col gap-3 text-sm" aria-label="HOLD history">
+                  {history.data.events.map((e, i) => (
+                    <li key={i} className="flex flex-col gap-0.5">
+                      <span>
+                        {historyLine(e)} by {e.by.name}
+                        {e.recordedBy ? `, recorded by ${e.recordedBy.name}` : ''}
+                        {e.reason ? `: ${e.reason}` : ''}
+                      </span>
+                      <time dateTime={e.at} className="font-mono text-[13px] text-muted-foreground">
+                        {new Date(e.at).toLocaleString()}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
