@@ -51,7 +51,7 @@ test('AC1: the bootstrap administrator gets in as an active admin', async ({ pag
   expect(me).toMatchObject({ status: 'active', roles: ['admin'] });
 
   await page.goto('/settings/profile');
-  await expect(page.getByText('Operations Manager')).toBeVisible();
+  await expect(page.getByText('Operations Manager', { exact: true })).toBeVisible();
   await expect(page.getByText('Microsoft 365 profile', { exact: true })).toBeVisible();
 });
 

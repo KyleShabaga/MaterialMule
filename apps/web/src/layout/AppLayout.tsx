@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { NotificationsBell } from '../notifications/NotificationsBell';
@@ -18,6 +18,7 @@ import {
   writeCollapsed,
 } from './sidebar-prefs';
 import { useFocusPageHeading } from './useFocusPageHeading';
+import { SettingsOutlet } from '../settings/modal/SettingsOutlet';
 import './shell.css';
 
 /** Phone width (pages' own phone layouts, e.g. Today). The sidebar's Sheet starts below 768 px. */
@@ -116,7 +117,7 @@ export function AppLayout() {
           <TopBar />
           <main id="main" className="app-main" tabIndex={-1}>
             <ProfileNotice />
-            <Outlet />
+            <SettingsOutlet />
           </main>
         </SidebarInset>
       </SidebarProvider>

@@ -271,10 +271,10 @@ describe('Settings → Locations (MM-T37)', () => {
     expect(within(system).getByText('System')).toBeTruthy();
     expect(within(system).getByRole('button', { name: 'Edit Receiving lab' })).toBeTruthy();
     expect(within(system).queryByRole('button', { name: /Retire/ })).toBeNull();
-    // Other Settings tabs are still there.
-    const nav = screen.getByRole('navigation', { name: 'Settings' });
-    for (const tab of ['My profile', 'My access', 'Locations']) {
-      expect(within(nav).getByRole('link', { name: tab })).toBeTruthy();
+    // STRATA-128: Locations is a Lab admin page with its tabs.
+    const tabs = screen.getByRole('navigation', { name: 'Lab administration' });
+    for (const tab of ['Locations']) {
+      expect(within(tabs).getByRole('link', { name: tab })).toBeTruthy();
     }
   });
 

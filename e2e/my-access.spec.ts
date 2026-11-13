@@ -51,10 +51,10 @@ test('capabilities and job titles are administered with reasons and shown on My 
     .getByRole('link', { name: 'My access' })
     .click();
   await expect(page.getByRole('heading', { name: 'My access' })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Held everywhere' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Held everywhere' })).toContainText(
     'Can create and lead projects',
   );
-  await expect(page.getByText('Senior Technician (Set by an administrator)')).toBeVisible();
+  await expect(page.getByText(/Senior Technician \(Set by an administrator\)/)).toBeVisible();
 
   // Revoked meanwhile (through the API, as another admin would).
   await signInAs(page, 'admin');
@@ -85,12 +85,16 @@ test('capabilities and job titles are administered with reasons and shown on My 
   await expect(page.getByText(/Set by an administrator/)).toHaveCount(0);
 });
 
-test('the shared LAB account has no My access', async ({ page }) => {
+test('on the shared LAB station, My access describes the shared account read-only (STRATA-119)', async ({
+  page,
+}) => {
   await signInAsLabStation(page);
   await page.goto('/settings/profile');
-  await expect(
-    page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'My access' }),
-  ).toHaveCount(0);
-  await page.goto('/settings/access');
-  await expect(page.getByText(/The shared LAB account has no personal access/)).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Settings' })
+    .getByRole('link', { name: 'My access' })
+    .click();
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText(/What this shared LAB account can do/)).toBeVisible();
+  await expect(page.getByText('From: Shared LAB account').first()).toBeVisible();
 });

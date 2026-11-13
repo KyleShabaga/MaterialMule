@@ -161,9 +161,7 @@ describe('Settings → System status (MM-T21)', () => {
   it('is hidden from non-admins and never calls the API', async () => {
     const fetchMock = stub(status());
     renderRoute(me({ roles: [], permissions: ['inventory.read'] }));
-    expect(
-      await screen.findByText('Only administrators can see system status.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('System status isn’t available to you.')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'System status' })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(
       '/api/admin/system-status',

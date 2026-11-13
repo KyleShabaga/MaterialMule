@@ -73,15 +73,16 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
 
   await page.goto('/settings/profile');
   const tabs = page.getByRole('navigation', { name: 'Settings' });
-  await expect(tabs.getByRole('link', { name: 'My profile' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(tabs.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
   await expectDifferent(
-    tabs.getByRole('link', { name: 'My profile' }),
-    tabs.getByRole('link', { name: 'Locations' }),
+    tabs.getByRole('link', { name: 'Profile' }),
+    tabs.getByRole('link', { name: 'Preferences' }),
     'Settings tab',
   );
+
+  // Close Settings: the page behind (and its account menu) is inert while it is open.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
 
   // The account menu's theme choice: the chosen one carries its dot, the others none.
   await page.getByRole('group', { name: 'Signed in user' }).getByRole('button').click();

@@ -73,10 +73,12 @@ test('receiver selector: keyboard picks one of two people sharing "JS"', async (
   await expect(input).toHaveAttribute('aria-invalid', 'true');
 });
 
-test('non-admins cannot manage staff, in the UI or the API', async ({ page }) => {
-  await signInAs(page, 'lab');
+test('technicians cannot manage staff, in the UI or the API', async ({ page }) => {
+  await signInAs(page, 'at');
   await page.goto('/settings/staff');
-  await expect(page.getByText('Only administrators can manage staff and access.')).toBeVisible();
+  // STRATA-100: Staff has no page for them; Settings opens on My access with a notice.
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText('Staff isn’t available to you.')).toBeVisible();
   const response = await page.request.get('/api/staff');
   expect(response.status()).toBe(403);
 });

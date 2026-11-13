@@ -340,7 +340,8 @@ describe('Settings → Printers', () => {
   it('is hidden from other users', async () => {
     stubApi(() => undefined);
     renderRoute('/settings/printers');
-    expect(await screen.findByText('Only administrators can change printers.')).toBeInTheDocument();
+    // STRATA-100: Printers has no page for them; Settings opens on My access with a notice.
+    expect(await screen.findByText('Printers isn’t available to you.')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Printers' })).not.toBeInTheDocument();
   });
 });

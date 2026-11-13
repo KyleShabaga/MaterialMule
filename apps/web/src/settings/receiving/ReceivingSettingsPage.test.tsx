@@ -82,17 +82,12 @@ describe('Settings → Receiving (MM-T45)', () => {
     );
   });
 
-  it('hides the tab from others, who see the setting read-only with an explanation', async () => {
+  it('hides the section from others; its address opens My access instead (STRATA-100)', async () => {
     renderSettings(TECH, { get: () => json(200, current(true, 120, 3)) });
     const nav = await screen.findByRole('navigation', { name: 'Settings' });
     expect(within(nav).queryByRole('link', { name: 'Receiving' })).toBeNull();
-    expect(
-      await screen.findByText('Only Lab Managers and administrators can change this.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Delete drafts automatically' })).toBeDisabled();
-    expect(screen.getByRole('checkbox', { name: 'Delete drafts automatically' })).toBeChecked();
-    expect(screen.getByLabelText('After this many days without changes')).toHaveValue(120);
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(await screen.findByText('Receiving isn’t available to you.')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Delete drafts automatically' })).toBeNull();
   });
 
   it('shows loading, then an error with Retry that loads again', async () => {
