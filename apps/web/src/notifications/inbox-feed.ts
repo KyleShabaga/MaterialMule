@@ -3,7 +3,6 @@ import {
   inboxSummarySchema,
   type InboxItem,
   type InboxSummary,
-  type Notification,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 import { announceNotificationsChanged } from './api';
@@ -15,8 +14,8 @@ import { announceNotificationsChanged } from './api';
  * read. Personal accounts only: the shared LAB account gets 403 and the count stays hidden.
  */
 
-/** Where the bell and "Open Inbox" go: the notification center until an Inbox page lands. */
-export const INBOX_HREF = '/notifications';
+/** Where the bell and "Open Inbox" go: the Inbox page (STRATA-24). */
+export const INBOX_HREF = '/inbox';
 
 /** How many of the newest Inbox items the preview shows. */
 export const BELL_PREVIEW_SIZE = 3;
@@ -52,21 +51,6 @@ export interface InboxFeedSource {
   fetchNewest(limit: number): Promise<InboxPreviewItem[]>;
   /** Marks every unread item read; the new unread count, or null when it failed. */
   markAllRead(): Promise<number | null>;
-}
-
-/**
- * What happened, in the notification center's words (MM-T91). The notification center page still
- * uses these; the bell and the sidebar take the Inbox's Task words from the feed itself.
- */
-export function notificationEventText(item: Pick<Notification, 'kind'>): string {
-  switch (item.kind) {
-    case 'action_request.opened':
-      return 'Sent to you for action';
-    case 'action_request.decided':
-      return 'Your request was decided';
-    default:
-      return 'Concrete';
-  }
 }
 
 /** An Inbox item as a preview row: request vs update from the item's type. */

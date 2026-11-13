@@ -184,7 +184,7 @@ describe('NotificationsBell (STRATA-13)', () => {
   it('is a link to Inbox with a count badge', async () => {
     renderBell(me(), (url) => (url === SUMMARY ? json(200, summary(2)) : json(404, {})));
     const bell = await screen.findByRole('link', { name: 'Notifications, 2 unread' });
-    expect(bell).toHaveAttribute('href', '/notifications');
+    expect(bell).toHaveAttribute('href', '/inbox');
     expect(bell.querySelector('[data-slot="bell-count"]')).toHaveTextContent('2');
   });
 
@@ -258,10 +258,7 @@ describe('NotificationsBell (STRATA-13)', () => {
     expect(rows[1]).toHaveAttribute('href', '/lab-testing/programs/p2');
     expect(rows[2]).toHaveTextContent('Update:Failed testFailed concrete test');
     expect(rows[2]).not.toHaveTextContent('Unread');
-    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute(
-      'href',
-      '/notifications',
-    );
+    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute('href', '/inbox');
 
     await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
     expect(await screen.findByText('Nothing unread in your Inbox.')).toBeVisible();
@@ -284,10 +281,7 @@ describe('NotificationsBell (STRATA-13)', () => {
     expect(await screen.findByText('Nothing unread in your Inbox.')).toBeVisible();
     expect(screen.getByText('Inbox')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute(
-      'href',
-      '/notifications',
-    );
+    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute('href', '/inbox');
   });
 
   it('closes the preview when the bell is clicked, until the pointer comes back', async () => {

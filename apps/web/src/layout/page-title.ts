@@ -18,8 +18,7 @@ const SECTIONS: readonly { to: string; label: string }[] = [
   { to: '/concrete', label: 'Concrete' },
   { to: '/projects', label: 'Projects' },
   { to: '/settings', label: 'Settings' },
-  { to: '/action-requests', label: 'Action requests' },
-  { to: '/notifications', label: 'Notifications' },
+  { to: '/inbox', label: 'Inbox' },
   { to: '/help', label: 'Help' },
 ];
 
