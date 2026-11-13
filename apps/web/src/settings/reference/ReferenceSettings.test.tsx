@@ -11,6 +11,7 @@ import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
+import { StrataToaster } from '../../components/strata/toast';
 import { SessionContext } from '../../session/context';
 
 // MM-V2-C37: Settings → Suppliers and Holidays, and Discard draft / supplier link on the mix
@@ -92,6 +93,7 @@ function renderAt(path: string, session: MeResponse, handler: Handler) {
       }}
     >
       <RouterProvider router={router} />
+      <StrataToaster />
     </SessionContext.Provider>,
   );
   return calls;
@@ -191,6 +193,54 @@ describe('Settings → Holidays (MM-V2-C37)', () => {
     expect(calls.find((c) => c.method === 'POST')).toMatchObject({
       url: `/api/concrete/holidays/${canadaDay.id}/remove`,
       body: { version: 1, reason: 'Fictional: office open' },
+    });
+  });
+});
+
+describe('Settings → Report header (MM-V2-C32, STRATA-102)', () => {
+  const header = {
+    companyName: 'Material Mule Testing Laboratory',
+    address: '123 Sample Street',
+    phone: null,
+    version: 2,
+    updatedAt: '2026-11-01T16:00:00.000Z',
+    updatedBy: null,
+  };
+  const handler: Handler = (method, url, body) => {
+    if (url !== '/api/concrete/report-header') return undefined;
+    if (method === 'GET') return json(200, header);
+    return json(200, { ...header, ...(body as object), version: 3 });
+  };
+
+  it('everyone reads it; only admins change it; the report layout stays a gate', async () => {
+    renderAt('/settings/report-header', TECH, handler);
+    const name = await screen.findByLabelText(/Company name/);
+    expect(name).toHaveValue('Material Mule Testing Laboratory');
+    expect(name).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save header' })).toBeNull();
+    expect(screen.getByText('Only admins can change the report header.')).toBeInTheDocument();
+    expect(screen.getByText('Report templates')).toBeInTheDocument();
+  });
+
+  it('an admin saves the header with its version', async () => {
+    const calls = renderAt(
+      '/settings/report-header',
+      me({
+        roles: ['admin'],
+        permissions: ['inventory.read', 'concrete_settings.report_header.manage'],
+      }),
+      handler,
+    );
+    const user = userEvent.setup();
+    const phone = await screen.findByLabelText('Phone');
+    await user.type(phone, '555-0100');
+    await user.click(screen.getByRole('button', { name: 'Save header' }));
+    expect(
+      await screen.findByText('Report header saved. It applies to reports issued from now on.'),
+    ).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
+      version: 2,
+      phone: '555-0100',
     });
   });
 });

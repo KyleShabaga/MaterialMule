@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '../components/useMediaQuery';
 import { formatAge, formatExpiry } from '../lib/format';
 import { notificationsLabel } from './api';
 import { inboxFeedSource, setInboxUnreadCount, useInboxUnreadCount } from './inbox-count';
@@ -35,6 +36,9 @@ export function NotificationsBell({ inert = false }: { inert?: boolean } = {}) {
   const count = useInboxUnreadCount();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  // A hover preview has no place on a touch screen: a tap would open it over the page and leave
+  // it there (lane F: it covered the Staff tabs after a drawer's Close on a phone).
+  const noHover = useMediaQuery('(hover: none)');
   const [preview, setPreview] = useState<Preview>({ state: 'idle' });
   const [marking, setMarking] = useState<'idle' | 'busy' | 'failed'>('idle');
   const mounted = useRef(true);
@@ -89,7 +93,7 @@ export function NotificationsBell({ inert = false }: { inert?: boolean } = {}) {
     <HoverCard
       openDelay={150}
       closeDelay={200}
-      open={inert ? false : open}
+      open={inert || noHover ? false : open}
       onOpenChange={(next) => {
         const { hovered, focused, clicked } = bell.current;
         if (next && (clicked || !(hovered || focused))) return;

@@ -1,7 +1,10 @@
 import type { MeResponse, StaffMember } from '@materialmule/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
+import { toast } from 'sonner';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { StrataToaster } from '../../components/strata/toast';
 import { SessionContext } from '../../session/context';
 import { StaffPage } from './StaffPage';
 
@@ -49,9 +52,22 @@ const JORDAN = member({
   officialInitials: 'JS',
   initialsConfirmed: true,
   position: 'technician',
+  roles: ['lab_technician'],
+});
+const JAMIE = member({
+  id: 'jamie',
+  displayName: 'Jamie Placeholder',
+  status: 'disabled',
+  disabledReason: 'Left the lab.',
 });
 
-function renderPage(permissions: string[]) {
+const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  });
+
+function renderPage(permissions: string[], path = '/admin/staff') {
   return render(
     <SessionContext.Provider
       value={{
@@ -60,13 +76,28 @@ function renderPage(permissions: string[]) {
         signOut: vi.fn(async () => undefined),
       }}
     >
-      <StaffPage />
+      <MemoryRouter initialEntries={[path]}>
+        <StaffPage />
+      </MemoryRouter>
+      <StrataToaster />
     </SessionContext.Provider>,
   );
 }
 
+beforeAll(() => {
+  // jsdom has no pointer capture; Radix Select and Sonner call it.
+  if (!HTMLElement.prototype.hasPointerCapture) {
+    HTMLElement.prototype.setPointerCapture = () => undefined;
+    HTMLElement.prototype.releasePointerCapture = () => undefined;
+    HTMLElement.prototype.hasPointerCapture = () => false;
+  }
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  act(() => {
+    toast.dismiss();
+  });
 });
 
 // An administrator (STRATA-118): Lab Managers hold staff.manage without these.
@@ -77,23 +108,25 @@ const ADMIN_PERMISSIONS = [
   'reviewer_eligibility.manage',
 ];
 
+/** The toolbar's search opens from its Search button. */
+async function searchStaff(user: UserEvent, text: string) {
+  const tools = await screen.findByRole('toolbar', { name: 'Staff tools' });
+  await user.click(within(tools).getByRole('button', { name: 'Search' }));
+  await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), text);
+}
+
+async function choose(user: UserEvent, scope: HTMLElement, label: string, option: string) {
+  await user.click(within(scope).getByRole('combobox', { name: label }));
+  await user.click(await screen.findByRole('option', { name: option }));
+}
+
 describe('StaffPage', () => {
   it('BUG-007: says when the list was cut at the server limit and how to find the rest', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        const pendingOnly = url.includes('status=pending');
-        return new Response(JSON.stringify(pendingOnly ? [] : [JORDAN]), {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-            'x-total-count': pendingOnly ? '0' : '612',
-          },
-        });
-      }),
+      vi.fn(async () => json([JORDAN], 200, { 'x-total-count': '612' })),
     );
-    renderPage(ADMIN_PERMISSIONS);
+    renderPage(['staff.manage']);
     expect(
       await screen.findByText(
         'Showing the first 1 of 612 staff. Search by name, initials or email to find the rest.',
@@ -101,7 +134,7 @@ describe('StaffPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('tells non-admins they cannot manage staff, without calling the API', () => {
+  it('tells people without staff management they cannot manage staff, without calling the API', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     renderPage(['inventory.read']);
@@ -111,7 +144,44 @@ describe('StaffPage', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('shows pending staff at the top and approves them', async () => {
+  it('splits People, Pending and Disabled into tabs with counts, from one request', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => json([RILEY, JORDAN, JAMIE]));
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    renderPage(['staff.manage']);
+    const table = await screen.findByRole('table', { name: 'People staff' });
+    expect(await within(table).findByText('Jordan Smith')).toBeVisible();
+    expect(within(table).queryByText('Riley Pending')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Pending 1' })).toBeVisible();
+
+    await user.click(screen.getByRole('tab', { name: 'Disabled 1' }));
+    const disabled = screen.getByRole('table', { name: 'Disabled staff' });
+    expect(within(disabled).getByText('Jamie Placeholder')).toBeVisible();
+    expect(within(disabled).getByText(/Left the lab\./)).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe('/api/staff');
+  });
+
+  it('pages 20 people at a time with a footer pager', async () => {
+    const people = Array.from({ length: 25 }, (_, i) =>
+      member({ id: `p${i}`, displayName: `Person ${String(i + 1).padStart(2, '0')}` }),
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(people)),
+    );
+    const user = userEvent.setup();
+    renderPage(['staff.manage']);
+    expect(await screen.findByText('1–20 of 25 people')).toBeVisible();
+    expect(screen.getByText('Person 20')).toBeVisible();
+    expect(screen.queryByText('Person 21')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('21–25 of 25 people')).toBeVisible();
+    expect(screen.getByText('Person 25')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('approves a pending applicant from the drawer', async () => {
     let approved = false;
     const calls: string[] = [];
     vi.stubGlobal(
@@ -119,33 +189,58 @@ describe('StaffPage', () => {
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         calls.push(`${init?.method ?? 'GET'} ${url}`);
-        const json = (body: unknown) =>
-          new Response(JSON.stringify(body), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          });
         if (url.endsWith('/approve')) {
           approved = true;
           return json({ ...RILEY, status: 'active' });
         }
-        if (url.includes('status=pending')) return json(approved ? [] : [RILEY]);
-        return json(approved ? [{ ...RILEY, status: 'active' }, JORDAN] : [RILEY, JORDAN]);
+        if (url === '/api/staff' || url.startsWith('/api/staff?')) {
+          return json(approved ? [{ ...RILEY, status: 'active' }, JORDAN] : [RILEY, JORDAN]);
+        }
+        return json({}, 404);
       }),
     );
     const user = userEvent.setup();
     renderPage(ADMIN_PERMISSIONS);
 
-    const pending = await screen.findByRole('region', { name: /Waiting for approval/ });
-    expect(within(pending).getByText('Riley Pending')).toBeVisible();
-    expect(await screen.findByRole('cell', { name: 'JS' })).toBeVisible();
-
-    await user.click(within(pending).getByRole('button', { name: 'Approve Riley Pending' }));
+    await user.click(await screen.findByRole('tab', { name: 'Pending 1' }));
+    await user.click(await screen.findByRole('button', { name: 'Manage Riley Pending' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Riley Pending' });
+    await user.click(within(drawer).getByRole('button', { name: 'Approve' }));
     expect(calls).toContain('POST /api/staff/riley/approve');
     expect(await screen.findByText('Riley Pending is approved.')).toBeVisible();
-    expect(screen.queryByRole('region', { name: /Waiting for approval/ })).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Pending 0', hidden: true })).toBeVisible(),
+    );
   });
 
-  describe('losing Admin mid-session (MM-T52)', () => {
+  it('opens the person beside the table from 1024 px, in the URL, with Previous/Next', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 1024px)',
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).startsWith('/api/staff?') || String(input) === '/api/staff'
+          ? json([JORDAN, member({ id: 'kai', displayName: 'Kai Kiln' })])
+          : json({}, 404),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage(['staff.manage']);
+    await user.click(await screen.findByRole('button', { name: 'Manage Jordan Smith' }));
+    const drawer = await screen.findByRole('region', { name: 'Jordan Smith' });
+    expect(within(drawer).getByText('1 of 2')).toBeVisible();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(within(drawer).getByRole('button', { name: 'Next' }));
+    expect(await screen.findByRole('region', { name: 'Kai Kiln' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('region', { name: 'Kai Kiln' })).toBeNull();
+  });
+
+  describe('losing staff management mid-session (MM-T52)', () => {
     const LAB = {
       userId: 'lab-id',
       passwordSet: true,
@@ -154,22 +249,16 @@ describe('StaffPage', () => {
       lockedUntil: null,
     };
 
-    /** Serves the page as an admin until `revoke()`; then every staff request is a 403. */
+    /** Serves the page until `revoke()`; then every staff request is a 403. */
     function stubApi() {
       const state = { admin: true };
       vi.stubGlobal(
         'fetch',
         vi.fn(async (input: RequestInfo | URL) => {
           const url = String(input);
-          const json = (status: number, body: unknown) =>
-            new Response(JSON.stringify(body), {
-              status,
-              headers: { 'content-type': 'application/json' },
-            });
-          if (!state.admin) return json(403, { code: 'forbidden' });
-          if (url.startsWith('/api/admin/lab')) return json(200, LAB);
-          if (url.includes('status=pending')) return json(200, [RILEY]);
-          return json(200, [RILEY, JORDAN]);
+          if (!state.admin) return json({ code: 'forbidden' }, 403);
+          if (url.startsWith('/api/admin/lab')) return json(LAB);
+          return json([RILEY, JORDAN]);
         }),
       );
       return state;
@@ -179,38 +268,35 @@ describe('StaffPage', () => {
       const state = stubApi();
       const user = userEvent.setup();
       renderPage(ADMIN_PERMISSIONS);
-      expect(await screen.findByRole('region', { name: /Waiting for approval/ })).toBeVisible();
+      expect(await screen.findByRole('tab', { name: 'Pending 1' })).toBeVisible();
       expect(await screen.findByRole('region', { name: 'Shared receiving account (LAB)' }));
 
       state.admin = false;
-      await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'J');
+      await searchStaff(user, 'J');
 
-      // Wait for the whole page to hand over, not just the first copy of the message.
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Add staff' })).toBeNull());
       expect(
         await screen.findByText('You no longer have permission to manage staff.'),
       ).toBeVisible();
       expect(screen.getAllByText('You no longer have permission to manage staff.')).toHaveLength(1);
-      expect(screen.queryByRole('button', { name: 'Add staff' })).toBeNull();
-      expect(screen.queryByRole('region', { name: /Waiting for approval/ })).toBeNull();
-      expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+      expect(screen.queryByRole('tab', { name: /Pending/ })).toBeNull();
       expect(screen.queryByRole('region', { name: 'Shared receiving account (LAB)' })).toBeNull();
       expect(screen.queryByLabelText('New LAB password')).toBeNull();
       expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     });
 
-    it('T2: after Admin is granted back, Retry restores the full page', async () => {
+    it('T2: after access is granted back, Retry restores the full page', async () => {
       const state = stubApi();
       const user = userEvent.setup();
       renderPage(ADMIN_PERMISSIONS);
-      await screen.findByRole('region', { name: /Waiting for approval/ });
+      await screen.findByRole('tab', { name: 'Pending 1' });
       state.admin = false;
-      await user.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'J');
+      await searchStaff(user, 'J');
       await screen.findByText('You no longer have permission to manage staff.');
 
       state.admin = true;
       await user.click(screen.getByRole('button', { name: 'Retry' }));
-      expect(await screen.findByRole('region', { name: /Waiting for approval/ })).toBeVisible();
+      expect(await screen.findByRole('tab', { name: 'Pending 1' })).toBeVisible();
       expect(screen.getByRole('button', { name: 'Add staff' })).toBeVisible();
       expect(
         await screen.findByRole('region', { name: 'Shared receiving account (LAB)' }),
@@ -219,7 +305,7 @@ describe('StaffPage', () => {
     });
   });
 
-  describe('profile drawer (MM-T43, MM-T44)', () => {
+  describe('person drawer (MM-T43, MM-T44, round 9)', () => {
     const OLIVE = member({
       id: 'olive',
       displayName: 'Olive Onboarded',
@@ -227,128 +313,183 @@ describe('StaffPage', () => {
       initialsConfirmed: false,
       position: 'engineer',
       accountType: 'personal',
+      roles: ['lab_technician'],
     });
 
-    function stubApi() {
-      const patches: unknown[] = [];
+    function stubApi(base: StaffMember = OLIVE) {
+      const sent: { method: string; url: string; body: Record<string, unknown> }[] = [];
+      let current = base;
       vi.stubGlobal(
         'fetch',
         vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-          const json = (body: unknown) =>
-            new Response(JSON.stringify(body), {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            });
-          if (init?.method === 'PATCH') {
-            const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-            patches.push(body);
-            return json({
-              ...OLIVE,
-              ...body,
-              initialsConfirmed: 'officialInitials' in body ? true : OLIVE.initialsConfirmed,
-            });
+          const url = String(input);
+          const method = init?.method ?? 'GET';
+          if (method !== 'GET') {
+            const body = init?.body
+              ? (JSON.parse(String(init.body)) as Record<string, unknown>)
+              : {};
+            sent.push({ method, url, body });
+            if (method === 'PATCH') {
+              current = {
+                ...current,
+                ...body,
+                initialsConfirmed: 'officialInitials' in body ? true : current.initialsConfirmed,
+              } as StaffMember;
+            } else if (url.endsWith('/roles')) {
+              current = { ...current, roles: body.roles as StaffMember['roles'] };
+            } else if (url.endsWith('/disable')) {
+              current = { ...current, status: 'disabled', disabledReason: String(body.reason) };
+            } else if (url.endsWith('/enable')) {
+              current = { ...current, status: 'active', disabledReason: null };
+            }
+            return json(current);
           }
-          if (String(input).includes('status=pending')) return json([]);
-          return json([OLIVE]);
+          if (url === '/api/staff' || url.startsWith('/api/staff?')) return json([current]);
+          return json({}, 404);
         }),
       );
-      return patches;
+      return sent;
     }
 
-    beforeEach(() => {
-      // jsdom has no <dialog> methods.
-      HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-        this.open = true;
-      };
-      HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-        this.open = false;
-      };
-    });
-
-    async function openDrawer() {
+    async function openDrawer(permissions = ADMIN_PERMISSIONS, tab = 'people') {
       const user = userEvent.setup();
-      renderPage(ADMIN_PERMISSIONS);
+      renderPage(permissions, tab === 'people' ? '/admin/staff' : `/admin/staff?tab=${tab}`);
       await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
       return { user, drawer: await screen.findByRole('dialog', { name: 'Olive Onboarded' }) };
     }
 
     it('MISC-06: offers exactly the four positions plus Not set, and sends only the change', async () => {
-      const patches = stubApi();
+      const sent = stubApi();
       const { user, drawer } = await openDrawer();
-      const position = within(drawer).getByLabelText('Position');
-      expect(
-        within(position)
-          .getAllByRole('option')
-          .map((o) => o.textContent),
-      ).toEqual(['Not set', 'Technician', 'Technologist', 'Engineer', 'Lab Manager']);
+      await user.click(within(drawer).getByRole('combobox', { name: 'Position' }));
+      expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+        'Not set',
+        'Technician',
+        'Technologist',
+        'Engineer',
+        'Lab Manager',
+      ]);
+      await user.click(screen.getByRole('option', { name: 'Technologist' }));
       expect(within(drawer).getByText(/grants no permissions/)).toBeVisible();
-      await user.selectOptions(position, 'Technologist');
       await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
       expect(await screen.findByText('Saved Olive Onboarded.')).toBeVisible();
-      expect(patches).toEqual([{ position: 'technologist' }]);
-      await user.selectOptions(position, 'Not set');
+      expect(sent.map((s) => s.body)).toEqual([{ position: 'technologist' }]);
+      await choose(user, drawer, 'Position', 'Not set');
       await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
-      expect(patches.at(-1)).toEqual({ position: null });
+      await waitFor(() => expect(sent.at(-1)?.body).toEqual({ position: null }));
     });
 
     it('STRATA-118: a Lab Manager changes roles but not Admin, and no positions', async () => {
       stubApi();
-      const user = userEvent.setup();
-      renderPage(['staff.manage']);
-      await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
-      const drawer = await screen.findByRole('dialog', { name: 'Olive Onboarded' });
+      const { drawer } = await openDrawer(['staff.manage']);
       const roles = within(drawer).getByRole('group', { name: 'Roles' });
-      expect(within(roles).getByRole('checkbox', { name: 'Admin' })).toBeDisabled();
       expect(within(roles).getByRole('checkbox', { name: 'Lab Manager' })).toBeEnabled();
+      expect(within(roles).queryByRole('checkbox', { name: 'Admin' })).toBeNull();
+      const admin = within(drawer).getByRole('region', { name: 'Admin' });
       expect(
-        within(roles).getByText('Only administrators can make or remove admins.'),
+        within(admin).getByText('Only administrators can make or remove admins.'),
       ).toBeVisible();
-      expect(within(drawer).queryByLabelText('Position')).toBeNull();
+      expect(within(admin).queryByRole('button', { name: /admin…/ })).toBeNull();
+      expect(within(drawer).queryByRole('combobox', { name: 'Position' })).toBeNull();
     });
 
     it('STRATA-118: an administrator’s account is read-only for a Lab Manager', async () => {
-      const admin = { ...OLIVE, roles: ['admin' as const] };
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(
-          async (input: RequestInfo | URL) =>
-            new Response(JSON.stringify(String(input).includes('status=pending') ? [] : [admin]), {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            }),
-        ),
-      );
-      const user = userEvent.setup();
-      renderPage(['staff.manage']);
-      await user.click(await screen.findByRole('button', { name: 'Manage Olive Onboarded' }));
-      const drawer = await screen.findByRole('dialog', { name: 'Olive Onboarded' });
+      stubApi({ ...OLIVE, roles: ['admin'] });
+      const { drawer } = await openDrawer(['staff.manage']);
       expect(
         within(drawer).getByText('Only administrators can change an administrator’s account.'),
       ).toBeVisible();
       expect(within(drawer).queryByRole('button', { name: 'Save profile' })).toBeNull();
+      expect(within(drawer).queryByRole('button', { name: 'Save roles' })).toBeNull();
       expect(within(drawer).queryByRole('button', { name: /Disable access/ })).toBeNull();
     });
 
-    it('never sends unchanged initials, and confirms them only on request', async () => {
-      const patches = stubApi();
+    it('roles need a reason, and an unchanged save says "No changes to save."', async () => {
+      const sent = stubApi();
       const { user, drawer } = await openDrawer();
-      await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
-      expect(await screen.findByText('No changes to save.')).toBeVisible();
-      expect(patches).toEqual([]);
+      const roles = within(drawer).getByRole('group', { name: 'Roles' });
+      await user.click(within(roles).getByRole('button', { name: 'Save roles' }));
+      expect(within(roles).getByText('No changes to save.')).toBeVisible();
 
-      await user.clear(within(drawer).getByLabelText('Display name'));
-      await user.type(within(drawer).getByLabelText('Display name'), 'Olive Renamed');
-      await user.click(within(drawer).getByRole('button', { name: 'Save profile' }));
+      await user.click(within(roles).getByRole('checkbox', { name: 'Lab Manager' }));
+      await user.click(within(roles).getByRole('button', { name: 'Save roles' }));
+      expect(within(roles).getByText('Enter a reason.')).toBeVisible();
+      expect(sent).toEqual([]);
+
+      await user.type(within(roles).getByRole('textbox', { name: 'Reason' }), 'Covers the lab');
+      await user.click(within(roles).getByRole('button', { name: 'Save roles' }));
+      expect(await screen.findByText('Roles updated for Olive Onboarded.')).toBeVisible();
+      expect(sent).toEqual([
+        {
+          method: 'PUT',
+          url: '/api/staff/olive/roles',
+          body: { roles: ['lab_technician', 'lab_manager'], reason: 'Covers the lab' },
+        },
+      ]);
+    });
+
+    it('an administrator makes someone an admin with a reason, keeping their other roles', async () => {
+      const sent = stubApi();
+      const { user, drawer } = await openDrawer();
+      const admin = within(drawer).getByRole('region', { name: 'Admin' });
+      await user.click(within(admin).getByRole('button', { name: 'Make admin…' }));
+      await user.type(within(admin).getByRole('textbox', { name: 'Reason' }), 'Second admin');
+      await user.click(within(admin).getByRole('button', { name: 'Make admin' }));
+      expect(await screen.findByText('Olive Onboarded is now an admin.')).toBeVisible();
+      expect(sent[0]?.body).toEqual({ roles: ['lab_technician', 'admin'], reason: 'Second admin' });
+    });
+
+    it('disables inline with a required reason, and re-enables without one (D08)', async () => {
+      const sent = stubApi();
+      const { user, drawer } = await openDrawer();
+      await user.click(within(drawer).getByRole('button', { name: 'Disable access…' }));
+      const confirm = within(drawer).getByRole('group', {
+        name: "Disable Olive Onboarded's access",
+      });
+      await user.click(within(confirm).getByRole('button', { name: 'Disable access' }));
+      expect(within(confirm).getByText('Enter a reason.')).toBeVisible();
+      await user.type(within(confirm).getByRole('textbox', { name: 'Reason' }), 'On leave');
+      await user.click(within(confirm).getByRole('button', { name: 'Disable access' }));
+      expect(
+        await screen.findByText('Olive Onboarded is disabled and signed out everywhere.'),
+      ).toBeVisible();
+      expect(sent[0]).toMatchObject({
+        url: '/api/staff/olive/disable',
+        body: { reason: 'On leave' },
+      });
+
+      await user.click(await within(drawer).findByRole('button', { name: 'Re-enable access' }));
+      expect(
+        await screen.findByText(
+          'Olive Onboarded is re-enabled. Their reviewer, issuer and delegate grants were revoked for revalidation.',
+        ),
+      ).toBeVisible();
+      expect(sent[1]).toMatchObject({ method: 'POST', url: '/api/staff/olive/enable' });
+    });
+
+    it('never sends unchanged initials, and confirms them only on request', async () => {
+      const sent = stubApi();
+      const { user, drawer } = await openDrawer();
+      const profile = within(drawer).getByRole('form', { name: 'Profile' });
+      await user.click(within(profile).getByRole('button', { name: 'Save profile' }));
+      expect(within(profile).getByText('No changes to save.')).toBeVisible();
+      expect(sent).toEqual([]);
+
+      await user.clear(within(profile).getByLabelText('Display name'));
+      await user.type(within(profile).getByLabelText('Display name'), 'Olive Renamed');
+      await user.click(within(profile).getByRole('button', { name: 'Save profile' }));
       expect(await screen.findByText('Saved Olive Renamed.')).toBeVisible();
-      expect(patches).toEqual([{ displayName: 'Olive Renamed' }]);
+      expect(sent.map((s) => s.body)).toEqual([{ displayName: 'Olive Renamed' }]);
 
-      await user.click(within(drawer).getByRole('button', { name: 'Confirm initials OO' }));
+      const renamed = await screen.findByRole('dialog', { name: 'Olive Renamed' });
+      await user.click(within(renamed).getByRole('button', { name: 'Confirm initials OO' }));
       expect(await screen.findByText('Initials OO confirmed for Olive Renamed.')).toBeVisible();
-      expect(patches.at(-1)).toEqual({ officialInitials: 'OO' });
+      expect(sent.at(-1)?.body).toEqual({ officialInitials: 'OO' });
     });
 
     it('MTR-12: shows who approved, disabled and re-enabled them, and when', async () => {
-      Object.assign(OLIVE, {
+      stubApi({
+        ...OLIVE,
         statusHistory: [
           {
             change: 'approved',
@@ -365,20 +506,15 @@ describe('StaffPage', () => {
           { change: 'enabled', byName: 'Sam Admin', at: '2026-10-24T17:00:00.000Z', reason: null },
         ],
       });
-      stubApi();
-      try {
-        const { drawer } = await openDrawer();
-        const items = within(within(drawer).getByRole('list', { name: 'Access history' }))
-          .getAllByRole('listitem')
-          .map((item) => item.textContent);
-        expect(items).toEqual([
-          'Approved by Avery Admin on Oct 20, 2026',
-          'Disabled by Avery Admin on Oct 22, 2026: On leave',
-          'Re-enabled by Sam Admin on Oct 24, 2026',
-        ]);
-      } finally {
-        OLIVE.statusHistory = [];
-      }
+      const { drawer } = await openDrawer();
+      const items = within(within(drawer).getByRole('list', { name: 'Access history' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+      expect(items).toEqual([
+        'Approved by Avery Admin on Oct 20, 2026',
+        'Disabled by Avery Admin on Oct 22, 2026: On leave',
+        'Re-enabled by Sam Admin on Oct 24, 2026',
+      ]);
     });
   });
 });

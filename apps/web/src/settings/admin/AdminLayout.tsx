@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { usePageTitle } from '../../layout/page-title';
 import { useMe } from '../../session/context';
 import { LocationsPage } from '../locations/LocationsPage';
-import { TestsSettingsPage } from '../lab/LabCatalogueSettings';
+import { LabTestsPage } from '../lab';
 import { StaffPage } from '../staff/StaffPage';
 import { findSection, visibleSections } from '../modal/registry';
 
@@ -33,7 +33,7 @@ const TABS: TabDef[] = [
     to: '/admin/locations',
     label: 'Locations',
     icon: MapPin,
-    description: 'Warehouses, bays and shelves, their storage terms and their labels.',
+    description: 'Where storage units are kept, grouped by area, and their labels.',
   },
   {
     key: 'lab-tests',
@@ -77,7 +77,7 @@ export function AdminPage({ tab }: { tab: AdminTab }) {
   let body: ReactNode;
   if (tab === 'staff') body = <StaffPage />;
   else if (tab === 'locations') body = <LocationsPage />;
-  else body = <TestsSettingsPage />;
+  else body = <LabTestsPage />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-admin-page={tab}>
@@ -113,7 +113,10 @@ export function AdminPage({ tab }: { tab: AdminTab }) {
         <h1 className="text-2xl font-semibold tracking-tight">{current.label}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{current.description}</p>
       </div>
-      <div className="settings-content min-h-0 flex-1 px-4 pb-10 md:px-8">{body}</div>
+      {/* A definite height, so each page's list and drawer fill the window and scroll inside. */}
+      <div className="flex h-[max(28rem,calc(100svh-12rem))] min-h-0 flex-col px-4 pb-6 md:px-8">
+        {body}
+      </div>
     </div>
   );
 }

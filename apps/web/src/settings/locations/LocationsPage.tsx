@@ -1,461 +1,333 @@
+import type { StorageLocation } from '@materialmule/shared';
+import { ChevronDown, ChevronRight, Lock, MapPin, Plus } from 'lucide-react';
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
-  LOCATION_AREA_MAX,
-  LOCATION_CODE_MESSAGE,
-  LOCATION_NAME_MAX,
-  LOCATION_REASON_MAX,
-  SELECTABLE_LOCATION_KINDS,
-  locationKindLabel,
-  normalizeLocationCode,
-  type FieldError,
-  type LocationKind,
-  type StorageLocation,
-  type UpdateLocationRequest,
-} from '@materialmule/shared';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router';
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
-  CountedCells,
-  EmptyState,
-  ErrorState,
-  FormField,
-  StatusBadge,
-} from '../../components/app-ui';
-import { SettingsHead } from '../SettingsHead';
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import {
+  PeekSplit,
+  PeekToolbar,
+  peekNeighbours,
+  usePeekAvailable,
+  usePeekKeys,
+  usePeekParam,
+} from '../../components/strata/peek';
+import { TableToolbar } from '../../components/strata/table-toolbar';
+import { tableQueryKeys, useTableQuery } from '../../components/strata/table-query';
+import { notifySuccess } from '../../components/strata/toast';
 import { useMe } from '../../session/context';
-import {
-  createLocation,
-  fetchLocation,
-  listLocations,
-  retireLocation,
-  updateLocation,
-  type Failure,
-} from './api';
-import { LocationDrawer } from './LocationDrawer';
+import { listLocations } from './api';
+import { LocationDrawer, LocationStatusBadge } from './LocationDrawer';
+import { LocationForm } from './LocationForm';
 import { MANAGE_PERMISSION, NOT_ALLOWED_TEXT, inventoryLink } from './location-links';
-import { useFocusFirstInvalid } from '../../components/useFocusFirstInvalid';
-import { Modal } from './Modal';
-import './locations.css';
+import {
+  PLACES_PER_PAGE,
+  buildTree,
+  clampPage,
+  locationsText,
+  pageCount,
+  pagePlaces,
+  unitsText,
+  visibleLocations,
+  type TopLevelPlace,
+} from './location-tree';
 
-// Settings → Locations (MM-T37). Everyone signed in sees the list and can open a location's
-// label; only admins and Lab Managers (`location.manage`) add, edit and retire. The server
-// enforces the same rule, so a LAB station never gains these actions from the person selected.
+// Lab admin › Locations (STRATA-102 + STRATA-128; DESIGN.md › Round 9: settings; MM-T37 rules).
+// AdminLayout renders the tabs, the h1 and the one-line description; this is the rest: the main
+// action, the toolbar, the location tree paged by top-level place (10 per page, so a branch never
+// splits) with a footer pager that stays in view, and the right drawer for one location
+// (`?open=<id>`; a Sheet under 1024 px). Everyone signed in reads the list and prints labels
+// (MISC-04: the print-only view); only `location.manage` adds, edits and retires, and the server
+// enforces the same rule, so a LAB station never gains them from the person selected.
+//
+// TODO(STRATA-106, lane B): add the Storage term column ("Long-term · Set here", "From WH-A",
+// "Overrides WH-B") between Code and Places once the API carries a storage term per location.
 
 type Load =
   | { state: 'loading' }
   | { state: 'error'; message: string }
   | { state: 'ready'; locations: StorageLocation[]; total: number };
 
-function unitsText(count: number): string {
-  return count === 1 ? '1 unit' : `${count} units`;
-}
+const RETIRED_FILTER = 'retired';
+const FILTERS = [{ id: RETIRED_FILTER, label: 'Include retired' }] as const;
 
-/** Areas in the order they first appear in the list (the server's order), each with its units. */
-function byArea(locations: StorageLocation[]) {
-  const groups = new Map<
-    string | null,
-    { area: string | null; units: number; locations: StorageLocation[] }
-  >();
-  for (const location of locations) {
-    const group = groups.get(location.area) ?? { area: location.area, units: 0, locations: [] };
-    group.units += location.inStockCount;
-    group.locations.push(location);
-    groups.set(location.area, group);
-  }
-  return [...groups.values()];
-}
+/** Touch screens get a 44 px hit area; desktop and LAB stations keep the compact control. */
+const TOUCH_TARGET = 'relative pointer-coarse:after:absolute pointer-coarse:after:-inset-3';
 
-/** Locations have no capacity, so a shelf shows one ink cell per unit kept there (up to 12). */
-const SHELF_CELLS_MAX = 12;
+const HIDE_PLACES = '@max-[34rem]/list:hidden';
 
-function ShelfFill({ location }: { location: StorageLocation }) {
-  const count = location.inStockCount;
-  if (count === 0) return <span className="mono">0</span>;
-  const cells = Array.from({ length: Math.min(count, SHELF_CELLS_MAX) }, () => 'done' as const);
+function InStockLink({ location }: { location: StorageLocation }) {
+  if (location.inStockCount === 0) return <span className="text-muted-foreground">0</span>;
   return (
-    <span className="shelf-fill">
-      <CountedCells cells={cells} label={`${unitsText(count)} kept here`} />
-      <Link to={inventoryLink(location)} aria-label={`${unitsText(count)} at ${location.code}`}>
-        {count}
-      </Link>
-    </span>
+    <Link
+      to={inventoryLink(location)}
+      aria-label={`${unitsText(location.inStockCount)} at ${location.code}`}
+      className={cn('text-link tabular-nums underline-offset-4 hover:underline', TOUCH_TARGET)}
+    >
+      {location.inStockCount}
+    </Link>
   );
 }
 
-function statusBadge(location: StorageLocation) {
-  if (!location.active) return <StatusBadge tone="neutral">Retired</StatusBadge>;
-  if (location.isSystem) return <StatusBadge tone="info">System</StatusBadge>;
-  return <StatusBadge tone="success">Active</StatusBadge>;
-}
-
-function fieldError(errors: FieldError[], field: string): string | null {
-  return errors.find((error) => error.field === field)?.message ?? null;
-}
-
-/** Add or edit a location. The code can't change once a label was requested for it. */
-/**
- * Reads the location again before an edit or retirement, so the form reflects the latest saved
- * state (e.g. a code locked by a print a moment ago) rather than a list row that may be stale.
- */
-function WithFreshLocation({
+function LocationRow({
   location,
-  onClose,
-  children,
+  nested,
+  openId,
+  onOpen,
 }: {
   location: StorageLocation;
-  onClose: () => void;
-  children: (fresh: StorageLocation) => ReactNode;
+  nested: boolean;
+  openId: string | null;
+  onOpen: (id: string) => void;
 }) {
-  const [load, setLoad] = useState<
-    | { state: 'loading' }
-    | { state: 'error'; message: string }
-    | { state: 'ready'; location: StorageLocation }
-  >({ state: 'loading' });
-  useEffect(() => {
-    let cancelled = false;
-    void fetchLocation(location.id).then((result) => {
-      if (cancelled) return;
-      setLoad(
-        result.ok
-          ? { state: 'ready', location: result.data.location }
-          : { state: 'error', message: result.message },
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [location.id]);
-  if (load.state === 'ready') return <>{children(load.location)}</>;
+  const locked = location.codeLocked || location.isSystem;
   return (
-    <Modal title={location.name} onClose={onClose}>
-      {load.state === 'loading' ? (
-        <p aria-busy="true">Loading…</p>
-      ) : (
-        <ErrorState message={load.message} />
-      )}
-    </Modal>
-  );
-}
-
-function LocationFormDialog({
-  location,
-  onClose,
-  onSaved,
-  onConflict,
-}: {
-  location: StorageLocation | null;
-  onClose: () => void;
-  onSaved: (location: StorageLocation, message: string) => void;
-  onConflict: (current: StorageLocation, message: string) => void;
-}) {
-  const [code, setCode] = useState(location?.code ?? '');
-  const [name, setName] = useState(location?.name ?? '');
-  const [kind, setKind] = useState<LocationKind>(location?.kind ?? 'warehouse');
-  const [area, setArea] = useState(location?.area ?? '');
-  const [errors, setErrors] = useState<FieldError[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const codeLocked = Boolean(location?.codeLocked || location?.isSystem);
-  const { formRef, focusFirstInvalid } = useFocusFirstInvalid();
-  const codeError = fieldError(errors, 'code');
-
-  function localErrors(): FieldError[] {
-    const found: FieldError[] = [];
-    if (!/^[A-Z0-9-]{2,20}$/.test(normalizeLocationCode(code))) {
-      found.push({ field: 'code', code: 'invalid', message: LOCATION_CODE_MESSAGE });
-    }
-    if (!name.trim()) found.push({ field: 'name', code: 'required', message: 'Name is required' });
-    return found;
-  }
-
-  function show(failure: Failure) {
-    if (failure.kind === 'invalid') {
-      setErrors(failure.errors);
-      setError(failure.message);
-      focusFirstInvalid();
-    } else if (failure.kind === 'failed' && failure.field) {
-      setErrors([
-        { field: failure.field, code: failure.code ?? 'invalid', message: failure.message },
-      ]);
-      setError(null);
-      focusFirstInvalid();
-    } else if (failure.kind === 'conflict') {
-      onConflict(failure.current, failure.message);
-    } else {
-      setError(failure.message);
-    }
-  }
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const found = localErrors();
-    setErrors(found);
-    setError(null);
-    if (found.length > 0) {
-      focusFirstInvalid();
-      return;
-    }
-    setBusy(true);
-    const values = {
-      code: normalizeLocationCode(code),
-      name: name.trim(),
-      kind,
-      area: area.trim() || null,
-    };
-    let result;
-    if (location) {
-      const changes: UpdateLocationRequest = { version: location.version };
-      if (!codeLocked && values.code !== location.code) changes.code = values.code;
-      if (values.name !== location.name) changes.name = values.name;
-      if (!location.isSystem && values.kind !== location.kind) {
-        changes.kind = values.kind as (typeof SELECTABLE_LOCATION_KINDS)[number];
-      }
-      if (!location.isSystem && values.area !== location.area) changes.area = values.area;
-      result = await updateLocation(location.id, changes);
-    } else {
-      result = await createLocation({
-        ...values,
-        kind: values.kind as (typeof SELECTABLE_LOCATION_KINDS)[number],
-      });
-    }
-    setBusy(false);
-    if (result.ok) {
-      onSaved(
-        result.data,
-        location ? `${result.data.name} was saved.` : `${result.data.name} was added.`,
-      );
-    } else {
-      show(result);
-    }
-  }
-
-  return (
-    <Modal
-      title={location ? `Edit ${location.name}` : 'Add location'}
-      className="confirm-dialog settings-dialog"
-      onClose={onClose}
-    >
-      <form
-        ref={formRef}
-        className="drawer-section"
-        noValidate
-        onSubmit={(event) => void submit(event)}
-      >
-        <FormField
-          label="Code"
-          error={codeError}
-          required={!codeLocked}
-          hint={
-            codeLocked
-              ? location?.isSystem
-                ? 'The system location’s code can’t change.'
-                : 'A label has been printed or queued for this code, so it can’t change.'
-              : // MTR-133: the error already gives the rule, so the hint doesn't repeat it.
-                `${codeError ? '' : `${LOCATION_CODE_MESSAGE}. `}Printed on the label as LOC-${normalizeLocationCode(code) || 'CODE'}.`
-          }
+    <TableRow data-state={openId === location.id ? 'selected' : undefined}>
+      <TableCell className={cn('truncate', nested ? 'pl-10' : 'pl-4')}>
+        <button
+          type="button"
+          data-slot="location-name"
+          data-peek-id={location.id}
+          aria-current={openId === location.id ? 'true' : undefined}
+          className={cn(
+            'max-w-full truncate rounded-sm text-left font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            TOUCH_TARGET,
+          )}
+          onClick={() => onOpen(location.id)}
         >
-          {(props) => (
-            <input
-              {...props}
-              className="location-code-input"
-              value={code}
-              maxLength={24}
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              readOnly={codeLocked}
-              required
-              onChange={(event) => setCode(event.target.value.toUpperCase())}
-            />
-          )}
-        </FormField>
-        <FormField label="Name" error={fieldError(errors, 'name')} required>
-          {(props) => (
-            <input
-              {...props}
-              value={name}
-              maxLength={LOCATION_NAME_MAX}
-              required
-              onChange={(event) => setName(event.target.value)}
-            />
-          )}
-        </FormField>
-        <FormField label="Kind" error={fieldError(errors, 'kind')}>
-          {(props) => (
-            <select
-              {...props}
-              value={kind}
-              disabled={location?.isSystem}
-              onChange={(event) => setKind(event.target.value as LocationKind)}
-            >
-              {location?.isSystem ? (
-                <option value="receiving_lab">{locationKindLabel('receiving_lab')}</option>
-              ) : null}
-              {SELECTABLE_LOCATION_KINDS.map((option) => (
-                <option key={option} value={option}>
-                  {locationKindLabel(option)}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
-        <FormField
-          label="Area or group (optional)"
-          error={fieldError(errors, 'area')}
-          hint="For example Warehouse C or Lab. Used for searching and sorting only."
-        >
-          {(props) => (
-            <input
-              {...props}
-              value={area}
-              maxLength={LOCATION_AREA_MAX}
-              disabled={location?.isSystem}
-              onChange={(event) => setArea(event.target.value)}
-            />
-          )}
-        </FormField>
-        {error ? (
-          <p className="field-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="primary" disabled={busy}>
-            {busy ? 'Saving…' : location ? 'Save' : 'Add location'}
-          </button>
-        </div>
-      </form>
-    </Modal>
+          {location.name}
+        </button>
+      </TableCell>
+      <TableCell className="font-mono">
+        <span className="inline-flex items-center gap-1.5">
+          <span>{location.code}</span>
+          {locked ? (
+            <>
+              <Lock aria-hidden="true" className="size-3.5 text-muted-foreground" />
+              <span className="sr-only">(code locked)</span>
+            </>
+          ) : null}
+        </span>
+      </TableCell>
+      <TableCell className={cn('text-right text-muted-foreground', HIDE_PLACES)}>—</TableCell>
+      <TableCell className="text-right">
+        <InStockLink location={location} />
+      </TableCell>
+      <TableCell>
+        <LocationStatusBadge location={location} />
+      </TableCell>
+    </TableRow>
   );
 }
 
-/** Retire with a reason. Blocked while units are still there: says how many and links to them. */
-function RetireDialog({
-  location,
-  onClose,
-  onRetired,
-  onConflict,
+function PlaceRows({
+  place,
+  collapsed,
+  onToggle,
+  openId,
+  onOpen,
 }: {
-  location: StorageLocation;
-  onClose: () => void;
-  onRetired: (location: StorageLocation) => void;
-  onConflict: (current: StorageLocation, message: string) => void;
+  place: TopLevelPlace;
+  collapsed: boolean;
+  onToggle: () => void;
+  openId: string | null;
+  onOpen: (id: string) => void;
 }) {
-  const [reason, setReason] = useState('');
-  const [reasonError, setReasonError] = useState<string | null>(null);
-  const [blocked, setBlocked] = useState<{ message: string; count: number } | null>(
-    location.inStockCount > 0
-      ? {
-          message: `${unitsText(location.inStockCount)} ${location.inStockCount === 1 ? 'is' : 'are'} still at this location. Move ${location.inStockCount === 1 ? 'it' : 'them'} before retiring the location.`,
-          count: location.inStockCount,
-        }
-      : null,
+  if (place.kind === 'location') {
+    return (
+      <TableBody>
+        <LocationRow location={place.location} nested={false} openId={openId} onOpen={onOpen} />
+      </TableBody>
+    );
+  }
+  const Chevron = collapsed ? ChevronRight : ChevronDown;
+  return (
+    <TableBody>
+      <TableRow className="bg-muted/40 hover:bg-muted/40">
+        <TableHead scope="rowgroup" className="h-10 pl-2 font-semibold text-foreground">
+          {/* The area's name is the toggle, so the row header reads as the area alone. */}
+          <button
+            type="button"
+            data-slot="location-area-toggle"
+            aria-expanded={!collapsed}
+            className={cn(
+              'inline-flex max-w-full items-center gap-1.5 rounded-sm px-1 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              TOUCH_TARGET,
+            )}
+            onClick={onToggle}
+          >
+            <Chevron aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">{place.area}</span>
+          </button>
+        </TableHead>
+        <TableCell />
+        <TableCell className={cn('text-right tabular-nums', HIDE_PLACES)}>
+          <span className="sr-only">{locationsText(place.locations.length)}</span>
+          <span aria-hidden="true">{place.locations.length}</span>
+        </TableCell>
+        <TableCell className="text-right tabular-nums">{place.inStock}</TableCell>
+        <TableCell />
+      </TableRow>
+      {collapsed
+        ? null
+        : place.locations.map((location) => (
+            <LocationRow
+              key={location.id}
+              location={location}
+              nested
+              openId={openId}
+              onOpen={onOpen}
+            />
+          ))}
+    </TableBody>
   );
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const { formRef, focusFirstInvalid } = useFocusFirstInvalid();
+}
 
-  async function submit(event: FormEvent) {
+function Pager({
+  page,
+  pages,
+  places,
+  total,
+}: {
+  page: number;
+  pages: number;
+  places: number;
+  total: number;
+}) {
+  const [, setParams] = useSearchParams();
+  const routerLocation = useLocation();
+  const key = tableQueryKeys().page;
+  const first = places === 0 ? 0 : (page - 1) * PLACES_PER_PAGE + 1;
+  const last = Math.min(page * PLACES_PER_PAGE, places);
+
+  function href(target: number): string {
+    const next = new URLSearchParams(routerLocation.search);
+    if (target <= 1) next.delete(key);
+    else next.set(key, String(target));
+    const search = next.toString();
+    return `${routerLocation.pathname}${search ? `?${search}` : ''}`;
+  }
+  function go(event: MouseEvent, target: number) {
     event.preventDefault();
-    if (!reason.trim()) {
-      setReasonError('Give a reason');
-      focusFirstInvalid();
-      return;
-    }
-    setReasonError(null);
-    setError(null);
-    setBusy(true);
-    const result = await retireLocation(location.id, {
-      reason: reason.trim(),
-      version: location.version,
+    if (target < 1 || target > pages || target === page) return;
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      if (target <= 1) next.delete(key);
+      else next.set(key, String(target));
+      return next;
     });
-    setBusy(false);
-    if (result.ok) onRetired(result.data);
-    else if (result.kind === 'occupied') {
-      setBlocked({ message: result.message, count: result.inStockCount });
-    } else if (result.kind === 'conflict') onConflict(result.current, result.message);
-    else if (result.kind === 'invalid') {
-      setReasonError(fieldError(result.errors, 'reason') ?? result.message);
-      focusFirstInvalid();
-    } else setError(result.message);
   }
 
   return (
-    <Modal
-      title={`Retire ${location.name}`}
-      className="confirm-dialog settings-dialog"
-      onClose={onClose}
+    <div
+      data-slot="locations-pager"
+      className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-background px-1 py-2"
     >
-      <form
-        ref={formRef}
-        className="drawer-section"
-        noValidate
-        onSubmit={(event) => void submit(event)}
-      >
-        <p>
-          A retired location stays on every record that names it, but no storage unit can be moved
-          there. Retiring can’t be undone here.
-        </p>
-        {blocked ? (
-          <div className="notice notice-warning" role="alert">
-            <p>{blocked.message}</p>
-            <p>
-              <Link to={inventoryLink(location)}>
-                Show the {unitsText(blocked.count)} at {location.code}
-              </Link>
-            </p>
-          </div>
-        ) : null}
-        <FormField label="Reason" error={reasonError} required>
-          {(props) => (
-            <textarea
-              {...props}
-              rows={3}
-              value={reason}
-              maxLength={LOCATION_REASON_MAX}
-              required
-              onChange={(event) => setReason(event.target.value)}
-            />
-          )}
-        </FormField>
-        {error ? (
-          <p className="field-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="danger" disabled={busy}>
-            {busy ? 'Retiring…' : 'Retire location'}
-          </button>
-        </div>
-      </form>
-    </Modal>
+      <p className="text-sm text-muted-foreground tabular-nums">
+        Places {first}–{last} of {places} · {locationsText(total)}
+      </p>
+      {pages > 1 ? (
+        <Pagination aria-label="Locations pages" className="mx-0 ml-auto w-auto">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href={href(page - 1)}
+                aria-disabled={page === 1 ? 'true' : undefined}
+                className={cn('h-9', page === 1 && 'pointer-events-none opacity-50')}
+                onClick={(event) => go(event, page - 1)}
+              />
+            </PaginationItem>
+            {Array.from({ length: pages }, (_, index) => index + 1).map((target) => (
+              <PaginationItem key={target}>
+                <PaginationLink
+                  href={href(target)}
+                  isActive={target === page}
+                  aria-label={`Page ${target}`}
+                  className="size-9"
+                  onClick={(event) => go(event, target)}
+                >
+                  {target}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                href={href(page + 1)}
+                aria-disabled={page === pages ? 'true' : undefined}
+                className={cn('h-9', page === pages && 'pointer-events-none opacity-50')}
+                onClick={(event) => go(event, page + 1)}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      ) : null}
+    </div>
   );
 }
 
-/** Settings → Locations (MM-T37). */
+/** Lab admin › Locations (MM-T37, STRATA-102). */
 export function LocationsPage() {
   const me = useMe();
   const canManage = me.permissions.includes(MANAGE_PERMISSION);
-  const [search, setSearch] = useState('');
-  const [includeRetired, setIncludeRetired] = useState(false);
+  const [query, setQuery] = useTableQuery();
+  const [params] = useSearchParams();
+  const includeRetired = query.filters.includes(RETIRED_FILTER);
+  const peek = usePeekParam();
+  const peekAvailable = usePeekAvailable();
+  const titleId = useId();
   const [reloads, setReloads] = useState(0);
   const [load, setLoad] = useState<Load>({ state: 'loading' });
-  const [notice, setNotice] = useState<string | null>(null);
-  const [editing, setEditing] = useState<StorageLocation | 'new' | null>(null);
-  const [retiring, setRetiring] = useState<StorageLocation | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const reload = () => setReloads((count) => count + 1);
+  // These dialogs open without a Radix trigger, so they say where focus goes back to (MTR-136).
+  const addRef = useRef<HTMLButtonElement>(null);
+  const lastOpenId = useRef<string | null>(null);
+  useEffect(() => {
+    if (peek.openId) lastOpenId.current = peek.openId;
+  }, [peek.openId]);
 
+  // The URL follows every keystroke; the request waits for a pause.
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void listLocations({ search, includeRetired }).then((result) => {
+      void listLocations({ search: query.search, includeRetired }).then((result) => {
         if (cancelled) return;
         setLoad(
           result.ok
@@ -468,214 +340,267 @@ export function LocationsPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [search, includeRetired, reloads]);
+  }, [query.search, includeRetired, reloads]);
 
-  function conflict(current: StorageLocation, message: string) {
-    // Someone else saved first: close the form, show the latest values and say so.
-    setEditing(null);
-    setRetiring(null);
-    setNotice(`${message} The list now shows the latest details for ${current.name}.`);
-    reload();
+  const places = useMemo(() => (load.state === 'ready' ? buildTree(load.locations) : []), [load]);
+  const page = clampPage(params.get(tableQueryKeys().page), places);
+  const shown = pagePlaces(places, page);
+  const visible = visibleLocations(shown, collapsed);
+  const neighbours = peekNeighbours(
+    visible.map((location) => location.id),
+    peek.openId,
+  );
+  const open = (id: string) => peek.open(id);
+  const previous = neighbours.previousId;
+  const next = neighbours.nextId;
+
+  usePeekKeys({
+    enabled: peek.openId !== null && peekAvailable,
+    onClose: peek.close,
+    onPrevious: previous ? () => open(previous) : undefined,
+    onNext: next ? () => open(next) : undefined,
+  });
+
+  function toggle(key: string) {
+    setCollapsed((current) => {
+      const nextSet = new Set(current);
+      if (nextSet.has(key)) nextSet.delete(key);
+      else nextSet.add(key);
+      return nextSet;
+    });
   }
 
-  return (
-    <section aria-labelledby="locations-heading" className="locations">
-      <SettingsHead
-        id="locations-heading"
-        title="Locations"
-        who="Where a unit can be put. Everyone can read and print this list; Lab Managers and administrators change it."
-        actions={
-          canManage ? (
-            <button type="button" className="primary" onClick={() => setEditing('new')}>
-              Add location
-            </button>
-          ) : null
-        }
-      />
-      <p className="field-hint">
-        Shelves, benches and staging areas where storage units are kept. Each has a code printed on
-        its own label as LOC-CODE.
-        {canManage ? '' : ` ${NOT_ALLOWED_TEXT}`}
-      </p>
-      <p role="status" className="notice">
-        {notice}
-      </p>
+  const retiredCount =
+    load.state === 'ready' ? load.locations.filter((location) => !location.active).length : 0;
 
-      <div className="filters filter-bar" role="search">
-        <FormField label="Search locations">
-          {(props) => (
-            <input
-              {...props}
-              type="search"
-              value={search}
-              placeholder="Code, name or area"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          )}
-        </FormField>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={includeRetired}
-            onChange={(event) => setIncludeRetired(event.target.checked)}
-          />{' '}
-          Include retired
-        </label>
+  const toolbar = (
+    <PeekToolbar
+      onClose={peek.close}
+      position={neighbours.index >= 0 ? neighbours : undefined}
+      onPrevious={previous ? () => open(previous) : undefined}
+      onNext={next ? () => open(next) : undefined}
+    />
+  );
+  const drawer = peek.openId ? (
+    <LocationDrawer
+      key={peek.openId}
+      locationId={peek.openId}
+      titleId={titleId}
+      toolbar={toolbar}
+      inSheet={!peekAvailable}
+      onChanged={reload}
+    />
+  ) : null;
+
+  let body;
+  if (load.state === 'loading') {
+    body = (
+      <div aria-busy="true" className="grid gap-2 py-2">
+        <span className="sr-only">Loading locations…</span>
+        {[0, 1, 2, 3].map((row) => (
+          <Skeleton key={row} className="h-9 w-full" />
+        ))}
       </div>
-
-      {load.state === 'loading' ? (
-        <p aria-busy="true">Loading locations…</p>
-      ) : load.state === 'error' ? (
-        <ErrorState message={load.message} onRetry={reload} />
-      ) : (
-        <div className="table-stack">
-          {load.total > load.locations.length ? (
-            <p className="notice notice-warning" role="status">
+    );
+  } else if (load.state === 'error') {
+    body = (
+      <Alert variant="destructive">
+        <AlertDescription>
+          {load.message}
+          <Button size="sm" variant="outline" className="mt-2 w-fit" onClick={reload}>
+            Try again
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  } else if (load.locations.length === 0) {
+    body = (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <MapPin aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>
+            {query.search.trim() ? 'No locations match this search.' : 'No locations yet.'}
+          </EmptyTitle>
+          <EmptyDescription>
+            {query.search.trim()
+              ? 'Search by code, name or area.'
+              : 'Shelves, benches and staging areas where storage units are kept.'}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  } else {
+    body = (
+      <div className="grid gap-3">
+        {load.total > load.locations.length ? (
+          <Alert role="status">
+            <AlertDescription>
               Showing the first {load.locations.length} of {load.total} locations. Search by code,
               name or area to find the rest.
-            </p>
-          ) : null}
-          {load.locations.length === 0 ? (
-            <EmptyState>
-              {search.trim() ? 'No locations match this search.' : 'No locations yet.'}
-            </EmptyState>
-          ) : (
-            <div className="table-frame">
-              <table className="data-table locations-table">
-                <caption className="visually-hidden">Locations</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Code</th>
-                    <th scope="col">Kind</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">In stock</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                {byArea(load.locations).map((group) => (
-                  <tbody key={group.area ?? ''}>
-                    <tr>
-                      <th scope="rowgroup" colSpan={6}>
-                        {group.area ?? 'No area'}
-                        <span className="locations-area-meta">
-                          {unitsText(group.units).toUpperCase()} ·{' '}
-                          {group.locations.length === 1
-                            ? '1 LOCATION'
-                            : `${group.locations.length} LOCATIONS`}
-                        </span>
-                      </th>
-                    </tr>
-                    {group.locations.map((location) => (
-                      <tr key={location.id}>
-                        <td data-label="Name">
-                          <button
-                            type="button"
-                            className="link-button"
-                            onClick={() => setOpenId(location.id)}
-                          >
-                            {location.name}
-                          </button>
-                        </td>
-                        <td data-label="Code">
-                          <code>{location.code}</code>
-                        </td>
-                        <td data-label="Kind">{locationKindLabel(location.kind)}</td>
-                        <td data-label="Status">{statusBadge(location)}</td>
-                        <td data-label="In stock">
-                          <ShelfFill location={location} />
-                        </td>
-                        <td data-label="Actions">
-                          <span className="row-actions">
-                            <button
-                              type="button"
-                              aria-label={`Label and history for ${location.name}`}
-                              onClick={() => setOpenId(location.id)}
-                            >
-                              Label
-                            </button>
-                            {canManage && location.active ? (
-                              <button
-                                type="button"
-                                aria-label={`Edit ${location.name}`}
-                                onClick={() => setEditing(location)}
-                              >
-                                Edit
-                              </button>
-                            ) : null}
-                            {canManage && location.active && !location.isSystem ? (
-                              <button
-                                type="button"
-                                className="danger"
-                                aria-label={`Retire ${location.name}`}
-                                onClick={() => setRetiring(location)}
-                              >
-                                Retire
-                              </button>
-                            ) : null}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                ))}
-              </table>
-            </div>
-          )}
-          <p className="settings-foot">
-            A retired location stays in every unit’s history. It can only be retired when it is
-            empty.
-          </p>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="overflow-hidden rounded-xl border">
+          <Table className="table-fixed text-sm">
+            <TableCaption className="sr-only">Locations</TableCaption>
+            <TableHeader className="bg-muted">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-10 pl-4 font-semibold text-muted-foreground">
+                  Location
+                </TableHead>
+                <TableHead className="h-10 w-36 font-semibold text-muted-foreground">
+                  Code
+                </TableHead>
+                <TableHead
+                  className={cn(
+                    'h-10 w-20 text-right font-semibold text-muted-foreground',
+                    HIDE_PLACES,
+                  )}
+                >
+                  Places
+                </TableHead>
+                <TableHead className="h-10 w-20 text-right font-semibold text-muted-foreground">
+                  In stock
+                </TableHead>
+                <TableHead className="h-10 w-24 font-semibold text-muted-foreground">
+                  Status
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            {shown.map((place) => (
+              <PlaceRows
+                key={place.key}
+                place={place}
+                collapsed={collapsed.has(place.key)}
+                onToggle={() => toggle(place.key)}
+                openId={peek.openId}
+                onOpen={open}
+              />
+            ))}
+          </Table>
         </div>
+      </div>
+    );
+  }
+
+  const list = (
+    <div className="flex min-h-full flex-col gap-3">
+      <div className="flex-1">{body}</div>
+      {load.state === 'ready' && load.locations.length > 0 ? (
+        <Pager page={page} pages={pageCount(places)} places={places.length} total={load.total} />
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {load.state === 'ready'
+            ? `${locationsText(load.total)}${includeRetired ? ` · ${retiredCount} retired` : ''}`
+            : null}
+        </p>
+        <div className="ml-auto flex items-center gap-2">
+          <TableToolbar
+            label="Locations tools"
+            query={query}
+            onQueryChange={setQuery}
+            filters={FILTERS}
+            searchPlaceholder="Search locations…"
+          />
+          {canManage ? (
+            <Button ref={addRef} size="sm" onClick={() => setAdding(true)}>
+              <Plus aria-hidden="true" />
+              Add location
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {canManage ? null : <p className="text-sm text-muted-foreground">{NOT_ALLOWED_TEXT}</p>}
+
+      {peekAvailable ? (
+        <PeekSplit
+          className="h-[calc(100svh-16rem)] min-h-96"
+          open={peek.openId !== null}
+          openId={peek.openId}
+          listLabel="Locations list"
+          drawerLabelledBy={titleId}
+          list={<div className="pr-1">{list}</div>}
+          drawer={drawer}
+        />
+      ) : (
+        <>
+          <div className="@container/list">{list}</div>
+          <Sheet
+            open={peek.openId !== null}
+            onOpenChange={(isOpen) => (isOpen ? null : peek.close())}
+          >
+            <SheetContent
+              side="right"
+              showCloseButton={false}
+              aria-describedby={undefined}
+              onCloseAutoFocus={(event) => {
+                const row = lastOpenId.current
+                  ? document.querySelector<HTMLElement>(
+                      `[data-peek-id="${CSS.escape(lastOpenId.current)}"]`,
+                    )
+                  : null;
+                if (!row) return;
+                event.preventDefault();
+                row.focus();
+              }}
+              className="w-full gap-0 overflow-y-auto p-0 sm:max-w-lg"
+            >
+              {drawer}
+            </SheetContent>
+          </Sheet>
+        </>
       )}
 
-      {editing === 'new' ? (
-        <LocationFormDialog
-          location={null}
-          onClose={() => setEditing(null)}
-          onConflict={conflict}
-          onSaved={(_location, message) => {
-            setEditing(null);
-            setNotice(message);
-            reload();
-          }}
-        />
-      ) : editing ? (
-        <WithFreshLocation location={editing} onClose={() => setEditing(null)}>
-          {(fresh) => (
-            <LocationFormDialog
-              location={fresh}
-              onClose={() => setEditing(null)}
-              onConflict={conflict}
-              onSaved={(_location, message) => {
-                setEditing(null);
-                setNotice(message);
-                reload();
-              }}
-            />
-          )}
-        </WithFreshLocation>
+      {canManage ? (
+        <Dialog open={adding} onOpenChange={setAdding}>
+          <DialogContent
+            className="sm:max-w-md"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              addRef.current?.focus();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Add location</DialogTitle>
+              <DialogDescription>
+                A shelf, bench or staging area where storage units are kept. Its code is printed on
+                its own label as LOC-CODE.
+              </DialogDescription>
+            </DialogHeader>
+            {adding ? (
+              <LocationForm
+                location={null}
+                submitLabel="Add location"
+                busyLabel="Adding…"
+                onConflict={() => undefined}
+                onSaved={(_location, message) => {
+                  setAdding(false);
+                  notifySuccess(message);
+                  reload();
+                }}
+                footer={(submit) => (
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button type="button" variant="outline" size="sm">
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    {submit}
+                  </DialogFooter>
+                )}
+              />
+            ) : null}
+          </DialogContent>
+        </Dialog>
       ) : null}
-      {retiring ? (
-        <RetireDialog
-          location={retiring}
-          onClose={() => setRetiring(null)}
-          onConflict={conflict}
-          onRetired={(location) => {
-            setRetiring(null);
-            setNotice(`${location.name} was retired.`);
-            reload();
-          }}
-        />
-      ) : null}
-      {openId ? (
-        <LocationDrawer
-          key={openId}
-          locationId={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={reload}
-        />
-      ) : null}
-    </section>
+    </div>
   );
 }

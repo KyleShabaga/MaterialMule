@@ -89,6 +89,11 @@ test('admins see the configured label printer; a technician has no Printers sect
 }) => {
   await signInAs(page, 'admin');
   await page.goto('/settings/printers');
+  // STRATA-102: printers are a table; a row opens the printer in the drawer.
+  await page
+    .getByRole('table', { name: 'Printers' })
+    .getByRole('row', { name: /Receiving ZD621/ })
+    .click();
   const form = page.getByRole('form', { name: 'Receiving ZD621' });
   await expect(form.getByLabel('IP address or host name')).toHaveValue('127.0.0.1');
 

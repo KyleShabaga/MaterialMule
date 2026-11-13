@@ -5,6 +5,8 @@ import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
+import { EquipmentPanel } from './EquipmentPanel';
+import { StrataToaster } from '../../components/strata/toast';
 import { SessionContext } from '../../session/context';
 
 // Settings → Equipment (MM-V2-C27). Fictional people and equipment only.
@@ -107,6 +109,7 @@ function renderPage(
       }}
     >
       <RouterProvider router={router} />
+      <StrataToaster />
     </SessionContext.Provider>,
   );
   return fetchMock;
@@ -131,6 +134,7 @@ describe('Settings → Equipment (MM-V2-C27)', () => {
     expect(within(section).getByRole('table', { name: 'Calibration history' })).toBeInTheDocument();
     expect(within(section).queryByRole('button', { name: 'Edit details' })).toBeNull();
     expect(within(section).queryByRole('form', { name: 'Record a calibration' })).toBeNull();
+    expect(within(section).queryByRole('button', { name: 'Record calibration' })).toBeNull();
     expect(
       within(section).getByText('Only Lab Managers can change equipment.'),
     ).toBeInTheDocument();
@@ -142,8 +146,12 @@ describe('Settings → Equipment (MM-V2-C27)', () => {
       posts.push({ url, body: body as Record<string, unknown> });
       return json(201, machine(true));
     });
-    const form = await screen.findByRole('form', { name: 'Record a calibration' });
     const user = userEvent.setup();
+    const machineGroup = await screen.findByRole('region', { name: 'Testing machine' });
+    await user.click(
+      await within(machineGroup).findByRole('button', { name: 'Record calibration' }),
+    );
+    const form = screen.getByRole('form', { name: 'Record a calibration' });
     await user.type(within(form).getByLabelText(/Next calibration due/), '2027-11-01');
     await user.type(within(form).getByLabelText(/Performed by/), 'Example Calibration Co.');
     await user.click(within(form).getByRole('button', { name: 'Record calibration' }));
@@ -158,5 +166,63 @@ describe('Settings → Equipment (MM-V2-C27)', () => {
       performedBy: 'Example Calibration Co.',
     });
     expect(posts[0]!.body.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe('Equipment panel states (STRATA-102)', () => {
+  function renderPanel(list: unknown) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input) === '/api/concrete/equipment' ? json(200, list) : json(404, {}),
+      ),
+    );
+    render(
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me: me() },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <EquipmentPanel />
+      </SessionContext.Provider>,
+    );
+  }
+
+  it('says no testing machine is registered and offers registration to the Lab Manager', async () => {
+    renderPanel({
+      today: '2026-11-07',
+      items: [],
+      canManage: { testing_machine: true, air_meter: true },
+    });
+    const section = await screen.findByRole('region', { name: 'Testing machine' });
+    expect(within(section).getByText('No testing machine is registered.')).toBeInTheDocument();
+    await userEvent
+      .setup()
+      .click(within(section).getByRole('button', { name: 'Register the testing machine' }));
+    expect(
+      within(section).getByRole('form', { name: 'Register the testing machine' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Register an air meter' })).toBeInTheDocument();
+    expect(screen.getByText('No air meters are registered.')).toBeInTheDocument();
+    // G8 stays a gate: said, not filled in.
+    expect(screen.getByText('Units, readings and methods (G8)')).toBeInTheDocument();
+  });
+
+  it('a Lab Technician changes air meters only (C36)', async () => {
+    renderPanel({
+      today: '2026-11-07',
+      items: [],
+      canManage: { testing_machine: false, air_meter: true },
+    });
+    const section = await screen.findByRole('region', { name: 'Testing machine' });
+    expect(
+      within(section).queryByRole('button', { name: /Register the testing machine/ }),
+    ).toBeNull();
+    expect(
+      within(section).getByText('Only Lab Managers can change equipment.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Register an air meter' })).toBeInTheDocument();
   });
 });

@@ -1,140 +1,183 @@
 import {
-  POSITIONS,
   POSITION_LABELS,
   ROLE_LABELS,
   type StaffMember,
-  type StaffPosition,
-  type StaffRole,
   type StaffStatus,
-  type StaffStatusChange,
-  type UpdateStaffRequest,
 } from '@materialmule/shared';
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+import { DataTable, type DataTableColumn } from '../../components/strata/data-table';
 import {
-  ConfirmDialog,
-  DataTable,
-  EmptyState,
-  ErrorState,
-  FormField,
-  StatusBadge,
-  TableScroll,
-  type BadgeTone,
-} from '../../components/app-ui';
+  PeekSplit,
+  PeekToolbar,
+  peekNeighbours,
+  usePeekAvailable,
+  usePeekKeys,
+  usePeekParam,
+} from '../../components/strata/peek';
+import { PersonAvatar } from '../../components/strata/person-avatar';
+import type { QueryFilterOption } from '../../components/strata/query-chips';
+import { TableToolbar } from '../../components/strata/table-toolbar';
+import {
+  tableQueryKeys,
+  useTableQuery,
+  type SortLabels,
+  type SortOption,
+  type SortState,
+} from '../../components/strata/table-query';
+import { notifySuccess } from '../../components/strata/toast';
 import { useMe } from '../../session/context';
-import { SettingsHead, SettingsSub } from '../SettingsHead';
-import { StaffApiError, listStaff, staffApi } from './api';
+import { AddStaffDialog } from './AddStaffDialog';
+import { isStaffForbidden, listStaff, staffErrorMessage } from './api';
+import { ACCOUNT_LABELS, disabledText, when } from './format';
 import { LabAccountCard } from './LabAccountCard';
-import {
-  JobTitleSection,
-  PositionRulesSection,
-  StaffAccessSummary,
-  StaffGrantsSection,
-} from './StaffGrantsSection';
+import { StaffDrawerBody } from './StaffDrawer';
+import { PositionRulesSection } from './StaffGrantsSection';
+import { ErrorAlert, StaffStatusBadge, TOUCH } from './staff-ui';
 
-const STATUS_LABELS: Record<StaffStatus, string> = {
-  pending: 'Pending',
-  active: 'Active',
-  disabled: 'Disabled',
-};
-const STATUS_TONES: Record<StaffStatus, BadgeTone> = {
-  pending: 'warning',
-  active: 'success',
-  disabled: 'neutral',
-};
-const ACCOUNT_LABELS: Record<StaffMember['accountType'], string> = {
-  personal: 'Personal',
-  shared_lab: 'Shared LAB',
-  test: 'Test',
-};
-
-const dateTime = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
-const when = (iso: string | null) => (iso ? dateTime.format(new Date(iso)) : 'Never');
-const dateOnly = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  dateStyle: 'medium',
-});
-
-const STATUS_CHANGE_LABELS: Record<StaffStatusChange['change'], string> = {
-  approved: 'Approved',
-  disabled: 'Disabled',
-  enabled: 'Re-enabled',
-};
-
-/** MTR-12: "Approved by X on date", "Disabled by X on date: reason", "Re-enabled by X on date". */
-function statusChangeText(change: StaffStatusChange): string {
-  const by = change.byName ? ` by ${change.byName}` : '';
-  const reason = change.reason ? `: ${change.reason}` : '';
-  return `${STATUS_CHANGE_LABELS[change.change]}${by} on ${dateOnly.format(new Date(change.at))}${reason}`;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof StaffApiError ? error.message : 'Something went wrong. Try again.';
-}
-
-type Load<T> =
-  | { state: 'loading' }
-  | { state: 'error'; message: string; forbidden: boolean }
-  | { state: 'ready'; data: T };
-
-const isForbidden = (error: unknown) => error instanceof StaffApiError && error.forbidden;
 const REVOKED_MESSAGE = 'You no longer have permission to manage staff.';
+/** Round 9: Staff is paged 20 per page. */
+const STAFF_PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 250;
 
-/** Loads `fetcher()` whenever `key` changes, without setting state synchronously in the effect. */
-function useLoad<T>(key: string, fetcher: () => Promise<T>): Load<T> {
-  const [latest, setLatest] = useState<{ key: string; load: Load<T> } | null>(null);
-  const fetcherRef = useRef(fetcher);
+type StaffTab = 'people' | 'pending' | 'disabled';
+const TAB_STATUS: Record<StaffTab, StaffStatus> = {
+  people: 'active',
+  pending: 'pending',
+  disabled: 'disabled',
+};
+const TAB_LABELS: Record<StaffTab, string> = {
+  people: 'People',
+  pending: 'Pending',
+  disabled: 'Disabled',
+};
+const isTab = (value: string | null): value is StaffTab =>
+  value === 'people' || value === 'pending' || value === 'disabled';
+
+const FILTERS: QueryFilterOption[] = [
+  { id: 'lab_technician', label: 'Lab Technician' },
+  { id: 'lab_manager', label: 'Lab Manager' },
+  { id: 'admin', label: 'Admin' },
+  { id: 'shared_lab', label: 'Shared LAB' },
+];
+const SORT_OPTIONS: SortOption[] = [
+  { label: 'Name A–Z', sort: null },
+  { label: 'Last sign-in, newest first', sort: { key: 'lastSignIn', dir: 'desc' } },
+  { label: 'Position', sort: { key: 'position', dir: 'asc' } },
+];
+const SORT_LABELS: SortLabels = {
+  name: { asc: 'Name A–Z', desc: 'Name Z–A' },
+  position: { asc: 'Position', desc: 'Position, reversed' },
+  lastSignIn: { asc: 'Last sign-in, oldest first', desc: 'Last sign-in, newest first' },
+};
+
+/** Every filter chip narrows the list (they combine with AND). */
+function matchesFilter(member: StaffMember, filter: string): boolean {
+  if (filter === 'shared_lab') return member.accountType === 'shared_lab';
+  return member.roles.includes(filter as StaffMember['roles'][number]);
+}
+
+const byName = (a: StaffMember, b: StaffMember) =>
+  a.displayName.localeCompare(b.displayName, 'en-CA', { sensitivity: 'base' });
+
+function compare(sort: SortState | null): (a: StaffMember, b: StaffMember) => number {
+  if (!sort) return byName;
+  const sign = sort.dir === 'desc' ? -1 : 1;
+  if (sort.key === 'lastSignIn') {
+    // Never signed in sorts last either way.
+    return (a, b) => {
+      if (!a.lastSignInAt || !b.lastSignInAt) {
+        return a.lastSignInAt ? -1 : b.lastSignInAt ? 1 : byName(a, b);
+      }
+      return sign * a.lastSignInAt.localeCompare(b.lastSignInAt) || byName(a, b);
+    };
+  }
+  if (sort.key === 'position') {
+    const label = (m: StaffMember) => (m.position ? POSITION_LABELS[m.position] : '￿');
+    return (a, b) => sign * label(a).localeCompare(label(b)) || byName(a, b);
+  }
+  return (a, b) => sign * byName(a, b);
+}
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    fetcherRef.current = fetcher;
+    const timer = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return debounced;
+}
+
+interface ListResult {
+  key: string;
+  at: number;
+  data: { members: StaffMember[]; total: number } | null;
+  error: { message: string; forbidden: boolean } | null;
+}
+
+/**
+ * Loads the staff list whenever `key` changes, keeping the last rows on screen while the next
+ * load runs (so a refresh after a change doesn't blank the table or close the drawer).
+ */
+function useStaffList(key: string, search: string) {
+  const [result, setResult] = useState<ListResult>({ key: '', at: 0, data: null, error: null });
+  const searchRef = useRef(search);
+  useEffect(() => {
+    searchRef.current = search;
   });
   useEffect(() => {
     let current = true;
-    fetcherRef.current().then(
-      (data) => current && setLatest({ key, load: { state: 'ready', data } }),
+    listStaff({ search: searchRef.current, status: '' }).then(
+      (data) => current && setResult({ key, at: Date.now(), data, error: null }),
       (error: unknown) =>
         current &&
-        setLatest({
+        setResult((previous) => ({
           key,
-          load: { state: 'error', message: errorMessage(error), forbidden: isForbidden(error) },
-        }),
+          at: Date.now(),
+          data: previous.data,
+          error: { message: staffErrorMessage(error), forbidden: isStaffForbidden(error) },
+        })),
     );
     return () => {
       current = false;
     };
   }, [key]);
-  return latest?.key === key ? latest.load : { state: 'loading' };
+  return {
+    data: result.data,
+    at: result.at,
+    error: result.key === key ? result.error : null,
+    loading: result.key !== key,
+  };
 }
 
 /**
- * Settings → Staff & access (MM-T07). Lab Managers and administrators (STRATA-118); making or
- * removing an admin, and changing an admin's account, stay administrator-only. The server
- * enforces all of it; this only hides.
+ * Lab admin › Staff (MM-T07, STRATA-102/128; DESIGN.md › Settings, round 9). Lab Managers and
+ * administrators (STRATA-118); making or removing an admin, changing an admin's account, the LAB
+ * password and position rules stay administrator-only. The server enforces all of it; this only
+ * hides. AdminLayout renders the h1 and description above this.
  */
 export function StaffPage() {
   const me = useMe();
   if (!me.permissions.includes('staff.manage')) {
     return (
-      <section aria-labelledby="staff-heading">
-        <SettingsHead
-          id="staff-heading"
-          title="Staff & access"
-          who="Lab Managers and administrators."
-        />
-        <EmptyState>Only Lab Managers and administrators can manage staff and access.</EmptyState>
-      </section>
+      <p className="text-sm text-muted-foreground">
+        Only Lab Managers and administrators can manage staff and access.
+      </p>
     );
   }
   return <StaffAccess currentUserId={me.id} />;
 }
 
 /**
- * MM-T52: once any staff request is refused (403), the caller has lost Admin. The whole page,
- * including Add staff, the pending card and the LAB account card, gives way to one message with
- * Retry; Retry loads everything again, so a re-granted Admin gets the page back without signing
- * in again.
+ * MM-T52: once any staff request is refused (403), the viewer has lost staff management. The
+ * whole page, including Add staff, the LAB account and position rules, gives way to one message
+ * with Retry; Retry loads everything again, so restored access needs no new sign-in.
  */
 function StaffAccess({ currentUserId }: { currentUserId: string }) {
   const me = useMe();
@@ -142,33 +185,27 @@ function StaffAccess({ currentUserId }: { currentUserId: string }) {
   const [attempt, setAttempt] = useState(0);
   if (revoked) {
     return (
-      <section aria-labelledby="staff-heading" className="staff">
-        <SettingsHead
-          id="staff-heading"
-          title="Staff & access"
-          who="Lab Managers and administrators."
-        />
-        <ErrorState
-          message={REVOKED_MESSAGE}
-          onRetry={() => {
-            setRevoked(false);
-            setAttempt((n) => n + 1);
-          }}
-        />
-      </section>
+      <ErrorAlert
+        title={REVOKED_MESSAGE}
+        onRetry={() => {
+          setRevoked(false);
+          setAttempt((n) => n + 1);
+        }}
+      />
     );
   }
+  const onForbidden = () => setRevoked(true);
   return (
-    <div key={attempt}>
-      <StaffDirectory currentUserId={currentUserId} onForbidden={() => setRevoked(true)} />
-      {/* The shared receiving account's password and stations (MM-T06). */}
-      {/* STRATA-118: the LAB password stays administrator-only (`lab_account.manage`). */}
+    <div key={attempt} className="grid gap-10">
+      <StaffDirectory currentUserId={currentUserId} onForbidden={onForbidden} />
+      {/* The shared receiving account's password and stations (MM-T06), administrators only
+          (STRATA-118: `lab_account.manage`). Below the table, as its own section. */}
       {me.permissions.includes('lab_account.manage') ? (
-        <LabAccountCard onForbidden={() => setRevoked(true)} />
+        <LabAccountCard onForbidden={onForbidden} />
       ) : null}
-      {/* MISC-08: Eligibility & Capabilities by position (admin only, per review scope). */}
+      {/* MISC-08: review eligibility by position (administrators only). */}
       {me.permissions.includes('reviewer_eligibility.manage') ? (
-        <PositionRulesSection onForbidden={() => setRevoked(true)} />
+        <PositionRulesSection onForbidden={onForbidden} />
       ) : null}
     </div>
   );
@@ -181,723 +218,506 @@ function StaffDirectory({
   currentUserId: string;
   onForbidden: () => void;
 }) {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<StaffStatus | ''>('');
-  const [version, setVersion] = useState(0);
-  const [selected, setSelected] = useState<StaffMember | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [rowError, setRowError] = useState<string | null>(null);
+  const me = useMe();
+  const canAdmin = me.permissions.includes('admin_role.manage');
+  const canPosition = me.permissions.includes('reviewer_eligibility.manage');
+  const [params, setParams] = useSearchParams();
+  const [query, setQuery] = useTableQuery();
+  const pageKey = tableQueryKeys().page;
+  const tabParam = params.get('tab');
+  const tab: StaffTab = isTab(tabParam) ? tabParam : 'people';
+  const peek = usePeekParam();
+  const peekAvailable = usePeekAvailable();
+  const titleId = useId();
 
-  const list = useLoad(`${version}|${status}|${search.trim()}`, () =>
-    listStaff({ search, status }),
-  );
-  const pending = useLoad(`${version}|pending`, () => listStaff({ search: '', status: 'pending' }));
+  const [version, setVersion] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [fresh, setFresh] = useState<{ member: StaffMember; at: number } | null>(null);
+  const search = useDebounced(query.search.trim(), SEARCH_DEBOUNCE_MS);
+  const list = useStaffList(`${version}|${search}`, search);
   const refresh = () => setVersion((v) => v + 1);
-  const forbidden =
-    (list.state === 'error' && list.forbidden) || (pending.state === 'error' && pending.forbidden);
+
+  const forbidden = list.error?.forbidden ?? false;
+  const onForbiddenRef = useRef(onForbidden);
   useEffect(() => {
-    if (forbidden) onForbidden();
-  }, [forbidden, onForbidden]);
+    onForbiddenRef.current = onForbidden;
+  });
+  useEffect(() => {
+    if (forbidden) onForbiddenRef.current();
+  }, [forbidden]);
+
+  const members = useMemo(() => list.data?.members ?? [], [list.data]);
+  const counts = useMemo(() => {
+    const c: Record<StaffStatus, number> = { pending: 0, active: 0, disabled: 0 };
+    for (const m of members) c[m.status] += 1;
+    return c;
+  }, [members]);
+  const rows = useMemo(
+    () =>
+      members
+        .filter((m) => m.status === TAB_STATUS[tab])
+        .filter((m) => query.filters.every((f) => matchesFilter(m, f)))
+        .sort(compare(query.sort)),
+    [members, tab, query.filters, query.sort],
+  );
+  const pageCount = Math.max(1, Math.ceil(rows.length / STAFF_PAGE_SIZE));
+  const page = Math.min(Math.max(1, Number(params.get(pageKey)) || 1), pageCount);
+  const pageRows = rows.slice((page - 1) * STAFF_PAGE_SIZE, page * STAFF_PAGE_SIZE);
+
+  // The open person: a change's answer until the list reloads after it, then the list's row.
+  const listMember = members.find((m) => m.id === peek.openId) ?? null;
+  const openMember =
+    fresh && fresh.member.id === peek.openId && fresh.at > list.at ? fresh.member : listMember;
+  const open = openMember !== null;
+
+  const ids = rows.map((m) => m.id);
+  const neighbours = peekNeighbours(ids, peek.openId);
+  const goPrevious = neighbours.previousId
+    ? () => peek.open(neighbours.previousId!, { replace: true })
+    : undefined;
+  const goNext = neighbours.nextId
+    ? () => peek.open(neighbours.nextId!, { replace: true })
+    : undefined;
+  usePeekKeys({
+    enabled: peekAvailable && open,
+    onClose: peek.close,
+    onPrevious: goPrevious,
+    onNext: goNext,
+  });
 
   function changed(member: StaffMember, message: string) {
-    setNotice(message);
-    setRowError(null);
-    setSelected((open) => (open && open.id === member.id ? member : open));
+    notifySuccess(message);
+    setFresh({ member, at: Date.now() });
     refresh();
   }
 
-  async function approve(member: StaffMember) {
-    try {
-      changed(await staffApi.approve(member.id), `${member.displayName} is approved.`);
-    } catch (error) {
-      if (isForbidden(error)) onForbidden();
-      else setRowError(errorMessage(error));
-    }
+  function setTab(next: string) {
+    if (!isTab(next)) return;
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        if (next === 'people') updated.delete('tab');
+        else updated.set('tab', next);
+        updated.delete(pageKey);
+        return updated;
+      },
+      { replace: false },
+    );
   }
 
-  return (
-    <section aria-labelledby="staff-heading" className="staff">
-      <SettingsHead
-        id="staff-heading"
-        title="Staff & access"
-        who="Who can sign in and what each person may do. Lab Managers and administrators."
-        actions={
-          <button type="button" className="primary" onClick={() => setAdding(true)}>
-            Add staff
-          </button>
-        }
-      />
-      <p role="status" className="notice">
-        {notice}
-      </p>
-      {rowError ? <ErrorState message={rowError} /> : null}
+  function setPage(next: number) {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      if (next <= 1) updated.delete(pageKey);
+      else updated.set(pageKey, String(next));
+      return updated;
+    });
+  }
 
-      {pending.state === 'ready' && pending.data.members.length > 0 ? (
-        <section className="pending-staff access-requests" aria-labelledby="pending-staff-heading">
-          <div className="access-requests-head">
-            <StatusBadge tone="waiting">Waiting</StatusBadge>
-            <h3 id="pending-staff-heading">Waiting for approval ({pending.data.members.length})</h3>
-            <span className="section-meta">
-              {pending.data.members.length === 1
-                ? '1 person'
-                : `${pending.data.members.length} people`}
-            </span>
-          </div>
-          <ul className="ledger-rows">
-            {pending.data.members.map((member) => (
-              <li key={member.id} className="access-request">
-                <span className="access-request-who">
-                  <strong>{member.displayName}</strong>
-                  <span>
-                    {member.signInUsername ?? member.workEmail ?? ''}
-                    {member.createdAt ? ` · asked ${when(member.createdAt)}` : ''}
-                  </span>
-                </span>
-                <span className="row-actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    aria-label={`Approve ${member.displayName}`}
-                    onClick={() => void approve(member)}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Manage ${member.displayName}`}
-                    onClick={() => setSelected(member)}
-                  >
-                    Manage
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+  const columns = useStaffColumns(tab, currentUserId, (m) => peek.open(m.id));
+
+  const drawerBody = (renderTitle: (name: string) => ReactNode, className?: string) =>
+    openMember ? (
+      <StaffDrawerBody
+        key={openMember.id}
+        member={openMember}
+        isSelf={openMember.id === currentUserId}
+        canAdmin={canAdmin}
+        canPosition={canPosition}
+        renderTitle={renderTitle}
+        onChanged={changed}
+        onForbidden={onForbidden}
+        className={className}
+      />
+    ) : null;
+
+  const capped = list.data && list.data.total > list.data.members.length;
+  const listNode = (
+    <TabsContent value={tab} className="flex min-h-full flex-col gap-3">
+      <DataTable
+        columns={columns}
+        data={pageRows}
+        getRowId={(m) => m.id}
+        rowLabel={(m) => m.displayName}
+        caption={`${TAB_LABELS[tab]} staff`}
+        loading={list.data === null && !list.error}
+        empty={
+          tab === 'pending'
+            ? 'No one is waiting for approval.'
+            : tab === 'disabled'
+              ? 'No disabled staff.'
+              : 'No staff match these filters.'
+        }
+        onOpenRow={(m) => peek.open(m.id)}
+        openRowId={open ? peek.openId : null}
+        sort={query.sort}
+        onSortChange={(sort) => setQuery({ sort })}
+        freeColumnMin="14rem"
+      />
+      {tab === 'pending' ? (
+        <p className="text-sm text-muted-foreground">
+          Applicants appear here after their first Microsoft sign-in.
+        </p>
+      ) : tab === 'disabled' ? (
+        <p className="text-sm text-muted-foreground">
+          Open a person to re-enable them. Disabled people keep their name on past records.
+        </p>
       ) : null}
-
-      <SettingsSub
-        title="People"
-        meta={
-          list.state === 'ready'
-            ? list.data.total === 1
-              ? '1 account'
-              : `${list.data.total} accounts`
-            : undefined
-        }
+      <StaffPager
+        page={page}
+        pageCount={pageCount}
+        total={rows.length}
+        onPage={setPage}
+        noun={tab === 'pending' ? 'applicants' : 'people'}
       />
+    </TabsContent>
+  );
 
-      <div className="filters filter-bar" role="search">
-        <FormField label="Search staff">
-          {(props) => (
-            <input
-              {...props}
-              type="search"
-              value={search}
-              placeholder="Name, initials or email"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          )}
-        </FormField>
-        <FormField label="Status">
-          {(props) => (
-            <select
-              {...props}
-              value={status}
-              onChange={(event) => setStatus(event.target.value as StaffStatus | '')}
-            >
-              <option value="">All</option>
-              <option value="pending">Pending</option>
-              <option value="active">Active</option>
-              <option value="disabled">Disabled</option>
-            </select>
-          )}
-        </FormField>
+  return (
+    <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <TabsList
+          variant="line"
+          aria-label="Staff by status"
+          className="max-w-full overflow-x-auto"
+        >
+          {(Object.keys(TAB_LABELS) as StaffTab[]).map((key) => (
+            <TabsTrigger key={key} value={key} className={TOUCH}>
+              {TAB_LABELS[key]}{' '}
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {list.data ? counts[TAB_STATUS[key]] : ''}
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <div className="ml-auto flex items-center gap-2">
+          <TableToolbar
+            label="Staff tools"
+            query={query}
+            onQueryChange={setQuery}
+            filters={FILTERS}
+            sortOptions={SORT_OPTIONS}
+            sortLabels={SORT_LABELS}
+            searchPlaceholder="Search staff…"
+          />
+          <Button type="button" size="sm" className={TOUCH} onClick={() => setAdding(true)}>
+            <UserPlus aria-hidden="true" />
+            Add staff
+          </Button>
+        </div>
       </div>
 
-      {list.state === 'loading' ? (
-        <p aria-busy="true">Loading staff…</p>
-      ) : list.state === 'error' ? (
+      {capped ? (
+        <p role="status" className="text-sm text-stage-due-fg">
+          Showing the first {list.data!.members.length} of {list.data!.total} staff. Search by name,
+          initials or email to find the rest.
+        </p>
+      ) : null}
+      {list.error && !list.error.forbidden ? (
         // A 403 hands over to StaffAccess's single message (MM-T52); don't show it twice.
-        list.forbidden ? null : (
-          <ErrorState message={list.message} onRetry={refresh} />
-        )
+        <ErrorAlert title="Staff couldn't load." onRetry={refresh}>
+          {list.error.message}
+        </ErrorAlert>
+      ) : null}
+
+      {peekAvailable ? (
+        <PeekSplit
+          className="h-[max(32rem,calc(100dvh-16rem))]"
+          list={listNode}
+          open={open}
+          openId={open ? peek.openId : null}
+          defaultSize="46%"
+          minSize="36%"
+          maxSize="65%"
+          drawerLabelledBy={titleId}
+          listLabel="Staff list"
+          drawer={
+            <>
+              <PeekToolbar
+                onClose={peek.close}
+                position={{ index: neighbours.index, total: neighbours.total }}
+                onPrevious={goPrevious}
+                onNext={goNext}
+              />
+              {drawerBody((name) => (
+                <h2 id={titleId} className="truncate text-lg font-semibold tracking-tight">
+                  {name}
+                </h2>
+              ))}
+            </>
+          }
+        />
       ) : (
         <>
-          {list.data.total > list.data.members.length ? (
-            <p className="notice notice-warning" role="status">
-              Showing the first {list.data.members.length} of {list.data.total} staff. Search by
-              name, initials or email to find the rest.
-            </p>
-          ) : null}
-          <TableScroll label="Staff table">
-            <DataTable
-              rows={list.data.members}
-              rowKey={(member) => member.id}
-              caption="Staff"
-              empty="No staff match these filters."
-              columns={[
-                {
-                  header: 'Name',
-                  cell: (m) => (
-                    <span className="person-cell">
-                      <span className="initials-block" aria-hidden="true">
-                        {m.officialInitials ?? m.displayName.slice(0, 2).toUpperCase()}
-                      </span>
-                      <span>
-                        {m.displayName}
-                        {m.id === currentUserId ? ' (you)' : ''}
-                      </span>
-                    </span>
-                  ),
-                },
-                { header: 'Initials', cell: (m) => m.officialInitials ?? '—' },
-                {
-                  header: 'Position',
-                  cell: (m) => (m.position ? POSITION_LABELS[m.position] : '—'),
-                },
-                { header: 'Account', cell: (m) => ACCOUNT_LABELS[m.accountType] },
-                {
-                  header: 'Status',
-                  cell: (m) => (
-                    <StatusBadge tone={STATUS_TONES[m.status]}>
-                      {STATUS_LABELS[m.status]}
-                    </StatusBadge>
-                  ),
-                },
-                {
-                  header: 'Roles',
-                  cell: (m) =>
-                    m.roles.length ? m.roles.map((r) => ROLE_LABELS[r]).join(', ') : '—',
-                },
-                { header: 'Last sign-in', cell: (m) => when(m.lastSignInAt) },
-                {
-                  header: 'Actions',
-                  cell: (m) => (
-                    <button
-                      type="button"
-                      aria-label={`Manage ${m.displayName}`}
-                      onClick={() => setSelected(m)}
-                    >
-                      Manage
-                    </button>
-                  ),
-                },
-              ]}
-            />
-          </TableScroll>
+          {listNode}
+          <Sheet open={open} onOpenChange={(next) => (next ? undefined : peek.close())}>
+            <SheetContent
+              side="right"
+              aria-describedby={undefined}
+              className="w-full gap-0 overflow-y-auto p-0 sm:max-w-lg"
+            >
+              {drawerBody(
+                (name) => (
+                  <SheetTitle className="truncate text-lg font-semibold tracking-tight">
+                    {name}
+                  </SheetTitle>
+                ),
+                'pt-12 md:pt-12',
+              )}
+            </SheetContent>
+          </Sheet>
         </>
       )}
 
-      {selected ? (
-        <StaffDrawer
-          key={selected.id}
-          member={selected}
-          isSelf={selected.id === currentUserId}
-          onChanged={changed}
-          onForbidden={onForbidden}
-          onClose={() => setSelected(null)}
-        />
-      ) : null}
-      {adding ? (
-        <AddStaffDialog
-          onForbidden={onForbidden}
-          onClose={() => setAdding(false)}
-          onAdded={(member) => {
-            setAdding(false);
-            changed(member, `${member.displayName} was added.`);
-          }}
-        />
-      ) : null}
-    </section>
+      <AddStaffDialog
+        open={adding}
+        canPosition={canPosition}
+        onForbidden={onForbidden}
+        onClose={() => setAdding(false)}
+        onAdded={(member) => {
+          setAdding(false);
+          changed(member, `${member.displayName} was added.`);
+        }}
+      />
+    </Tabs>
   );
 }
 
-/** Native modal <dialog>: focus stays inside and Escape closes it. */
-function Modal({
-  title,
-  className,
-  onClose,
-  children,
+/** The footer pager: "1–20 of 22 people", Previous, page numbers, Next. Stays in view. */
+function StaffPager({
+  page,
+  pageCount,
+  total,
+  noun,
+  onPage,
 }: {
-  title: string;
-  className: string;
-  onClose: () => void;
-  children: ReactNode;
+  page: number;
+  pageCount: number;
+  total: number;
+  noun: string;
+  onPage: (page: number) => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal?.();
-    return () => dialog?.close?.();
-  }, []);
+  const first = total === 0 ? 0 : (page - 1) * STAFF_PAGE_SIZE + 1;
+  const last = Math.min(page * STAFF_PAGE_SIZE, total);
+  const pages = Array.from({ length: pageCount }, (_, i) => i + 1).filter(
+    (n) => pageCount <= 7 || n === 1 || n === pageCount || Math.abs(n - page) <= 1,
+  );
   return (
-    <dialog
-      ref={ref}
-      className={className}
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <div className="drawer-header">
-        <h2 id={titleId}>{title}</h2>
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
-      {children}
-    </dialog>
+    <div className="sticky bottom-0 z-10 mt-auto flex flex-wrap items-center gap-3 border-t bg-background py-2">
+      <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
+        {total === 0 ? `0 ${noun}` : `${first}–${last} of ${total} ${noun}`}
+      </p>
+      {pageCount > 1 ? (
+        <nav aria-label="Staff pages" className="ml-auto">
+          <ul className="flex items-center gap-1">
+            <li>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className={TOUCH}
+                aria-label="Previous page"
+                disabled={page <= 1}
+                onClick={() => onPage(page - 1)}
+              >
+                <ChevronLeft aria-hidden="true" />
+              </Button>
+            </li>
+            {pages.map((n, i) => (
+              <li key={n} className="flex items-center gap-1">
+                {i > 0 && n - pages[i - 1]! > 1 ? (
+                  <span aria-hidden="true" className="px-1 text-muted-foreground">
+                    …
+                  </span>
+                ) : null}
+                <Button
+                  type="button"
+                  variant={n === page ? 'outline' : 'ghost'}
+                  size="icon-sm"
+                  className={cn('tabular-nums', TOUCH)}
+                  aria-label={`Page ${n}`}
+                  aria-current={n === page ? 'page' : undefined}
+                  onClick={() => onPage(n)}
+                >
+                  {n}
+                </Button>
+              </li>
+            ))}
+            <li>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className={TOUCH}
+                aria-label="Next page"
+                disabled={page >= pageCount}
+                onClick={() => onPage(page + 1)}
+              >
+                <ChevronRight aria-hidden="true" />
+              </Button>
+            </li>
+          </ul>
+        </nav>
+      ) : null}
+    </div>
   );
 }
 
-function StaffDrawer({
+/** The person cell: avatar and a name button named "Manage <name>". */
+function PersonButton({
   member,
   isSelf,
-  onChanged,
-  onForbidden,
-  onClose,
+  onOpen,
 }: {
   member: StaffMember;
   isSelf: boolean;
-  onChanged: (member: StaffMember, message: string) => void;
-  onForbidden: () => void;
-  onClose: () => void;
+  onOpen: () => void;
 }) {
-  const [displayName, setDisplayName] = useState(member.displayName);
-  const [initials, setInitials] = useState(member.officialInitials ?? '');
-  const [position, setPosition] = useState<StaffPosition | ''>(member.position ?? '');
-  const [roles, setRoles] = useState<StaffRole[]>(member.roles);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<'disable' | 'remove-admin' | 'roles' | null>(null);
-  const [reason, setReason] = useState('');
-  const [reasonError, setReasonError] = useState<string | null>(null);
-  const reasonId = useId();
-  const isLab = member.accountType === 'shared_lab';
-  const me = useMe();
-  // STRATA-118: only administrators make or remove admins or change an admin's account; positions
-  // move review eligibility (MISC-06), so they stay with whoever manages eligibility.
-  const canAdmin = me.permissions.includes('admin_role.manage');
-  const canPosition = me.permissions.includes('reviewer_eligibility.manage');
-  const protectedAdmin = member.roles.includes('admin') && !canAdmin;
-
-  async function run(action: () => Promise<StaffMember>, message: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      onChanged(await action(), message);
-      return true;
-    } catch (caught) {
-      if (isForbidden(caught)) onForbidden();
-      else setError(errorMessage(caught));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Only changed fields are sent, so an unrelated edit never re-confirms initials (MM-T44) or
-  // touches the position (MM-T43).
-  function saveProfile(event: FormEvent) {
-    event.preventDefault();
-    const patch: UpdateStaffRequest = {};
-    if (displayName !== member.displayName) patch.displayName = displayName;
-    if (initials.trim() && initials.trim() !== member.officialInitials) {
-      patch.officialInitials = initials;
-    }
-    if ((position || null) !== member.position) patch.position = position || null;
-    if (Object.keys(patch).length === 0) {
-      onChanged(member, 'No changes to save.');
-      return;
-    }
-    void run(
-      () => staffApi.update(member.id, patch),
-      `Saved ${displayName.trim() || member.displayName}.`,
-    );
-  }
-
-  /** Explicitly confirms initials that are on record but were never confirmed (MM-T44). */
-  function confirmInitials() {
-    const value = member.officialInitials;
-    if (!value) return;
-    void run(
-      () => staffApi.update(member.id, { officialInitials: value }),
-      `Initials ${value} confirmed for ${member.displayName}.`,
-    );
-  }
-
-  const initialsUnconfirmed = Boolean(member.officialInitials) && !member.initialsConfirmed;
-
-  /** Every role change needs a reason (D15, MM-AO03), asked for in the confirmation. */
-  function saveRoles(event: FormEvent) {
-    event.preventDefault();
-    if ([...roles].sort().join(',') === [...member.roles].sort().join(',')) {
-      onChanged(member, 'No changes to save.');
-      return;
-    }
-    setConfirm(
-      member.roles.includes('admin') && !roles.includes('admin') ? 'remove-admin' : 'roles',
-    );
-  }
-
-  async function confirmAction() {
-    if (!reason.trim()) {
-      setReasonError('Enter a reason.');
-      return;
-    }
-    const kind = confirm;
-    setConfirm(null);
-    if (kind === 'disable') {
-      await run(
-        () => staffApi.disable(member.id, reason),
-        `${member.displayName} is disabled and signed out everywhere.`,
-      );
-    } else if (kind === 'remove-admin') {
-      await run(
-        () => staffApi.setRoles(member.id, roles, reason),
-        `Admin removed from ${member.displayName}.`,
-      );
-    } else if (kind === 'roles') {
-      await run(
-        () => staffApi.setRoles(member.id, roles, reason),
-        `Roles updated for ${member.displayName}.`,
-      );
-    }
-    setReason('');
-    setReasonError(null);
-  }
-
   return (
-    <Modal title={member.displayName} className="drawer" onClose={onClose}>
-      <dl className="details">
-        <dt>Status</dt>
-        <dd>
-          <StatusBadge tone={STATUS_TONES[member.status]}>
-            {STATUS_LABELS[member.status]}
-          </StatusBadge>
-          {member.disabledReason ? ` · ${member.disabledReason}` : ''}
-        </dd>
-        {member.statusHistory.length > 0 ? (
-          <>
-            <dt>Access history</dt>
-            <dd>
-              <ul className="status-history" aria-label="Access history">
-                {member.statusHistory.map((change) => (
-                  <li key={`${change.change}-${change.at}`}>{statusChangeText(change)}</li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        ) : null}
-        <dt>Account</dt>
-        <dd>{ACCOUNT_LABELS[member.accountType]}</dd>
-        <dt>Sign-in</dt>
-        <dd>
-          {member.signInUsername ??
-            (member.expectedUpn ? `Expected: ${member.expectedUpn}` : 'Not linked')}
-        </dd>
-        <dt>Last sign-in</dt>
-        <dd>{when(member.lastSignInAt)}</dd>
-      </dl>
-      {error ? <ErrorState message={error} /> : null}
-
-      {protectedAdmin ? (
-        <p className="notice" data-testid="admin-protected">
-          Only administrators can change an administrator’s account.
-        </p>
-      ) : (
-        <>
-          <form onSubmit={saveProfile} className="drawer-section">
-            <h3>Profile</h3>
-            <FormField label="Display name">
-              {(props) => (
-                <input
-                  {...props}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField
-              label="Official initials"
-              hint={
-                initialsUnconfirmed
-                  ? 'Not confirmed yet: save new initials or confirm these. 1 to 5 letters. Not unique.'
-                  : '1 to 5 letters, confirmed by an admin. Not unique.'
-              }
-            >
-              {(props) => (
-                <input
-                  {...props}
-                  value={initials}
-                  maxLength={5}
-                  autoCapitalize="characters"
-                  onChange={(e) => setInitials(e.target.value.toUpperCase())}
-                />
-              )}
-            </FormField>
-            {initialsUnconfirmed ? (
-              <p>
-                <button type="button" onClick={confirmInitials} disabled={busy}>
-                  Confirm initials {member.officialInitials}
-                </button>
-              </p>
-            ) : null}
-            {canPosition ? (
-              <FormField
-                label="Position"
-                hint="Describes their work; grants no permissions. Only shown here."
-              >
-                {(props) => (
-                  <select
-                    {...props}
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value as StaffPosition | '')}
-                  >
-                    <option value="">Not set</option>
-                    {POSITIONS.map((p) => (
-                      <option key={p} value={p}>
-                        {POSITION_LABELS[p]}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </FormField>
-            ) : null}
-            <button type="submit" disabled={busy}>
-              Save profile
-            </button>
-          </form>
-
-          <JobTitleSection member={member} onChanged={onChanged} onForbidden={onForbidden} />
-
-          <form onSubmit={saveRoles} className="drawer-section">
-            <fieldset disabled={isLab || busy}>
-              <legend>Roles</legend>
-              {isLab ? (
-                <p className="field-hint">The shared LAB account can't hold roles.</p>
-              ) : null}
-              {(Object.keys(ROLE_LABELS) as StaffRole[]).map((role) => (
-                <label key={role} className="checkbox">
-                  <input
-                    type="checkbox"
-                    disabled={role === 'admin' && !canAdmin}
-                    aria-describedby={
-                      role === 'admin' && !canAdmin ? `${reasonId}-admin` : undefined
-                    }
-                    checked={roles.includes(role)}
-                    onChange={(e) =>
-                      setRoles((current) =>
-                        e.target.checked ? [...current, role] : current.filter((r) => r !== role),
-                      )
-                    }
-                  />
-                  {ROLE_LABELS[role]}
-                </label>
-              ))}
-              {!canAdmin ? (
-                <p id={`${reasonId}-admin`} className="field-hint">
-                  Only administrators can make or remove admins.
-                </p>
-              ) : null}
-              <button type="submit">Save roles</button>
-            </fieldset>
-          </form>
-
-          <div className="drawer-section">
-            <h3>Access</h3>
-            {member.status === 'pending' ? (
-              <button
-                type="button"
-                className="primary"
-                disabled={busy}
-                onClick={() =>
-                  void run(() => staffApi.approve(member.id), `${member.displayName} is approved.`)
-                }
-              >
-                Approve access
-              </button>
-            ) : null}
-            {member.status !== 'disabled' ? (
-              <button
-                type="button"
-                className="danger"
-                disabled={busy}
-                onClick={() => setConfirm('disable')}
-              >
-                {member.status === 'pending' ? 'Reject (disable)…' : 'Disable access…'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void run(
-                    () => staffApi.enable(member.id),
-                    // D08 (MM-AO03): technical grants don't come back with the account.
-                    `${member.displayName} is re-enabled. Their reviewer, issuer and delegate grants were revoked for revalidation.`,
-                  )
-                }
-              >
-                Re-enable access
-              </button>
-            )}
-            {isSelf ? <p className="field-hint">This is your own account.</p> : null}
-          </div>
-        </>
-      )}
-
-      <StaffGrantsSection
-        key={`grants-${member.status}`}
-        member={member}
-        onForbidden={onForbidden}
-      />
-      <StaffAccessSummary key={`access-${member.status}`} member={member} />
-
-      <ConfirmDialog
-        open={confirm !== null}
-        title={
-          confirm === 'disable'
-            ? `Disable ${member.displayName}?`
-            : confirm === 'roles'
-              ? `Change roles for ${member.displayName}?`
-              : `Remove admin from ${member.displayName}?`
-        }
-        confirmLabel={
-          confirm === 'disable' ? 'Disable' : confirm === 'roles' ? 'Save roles' : 'Remove admin'
-        }
-        danger={confirm !== 'roles'}
-        onConfirm={() => void confirmAction()}
-        onCancel={() => {
-          setConfirm(null);
-          setReasonError(null);
-        }}
+    <span className="flex min-w-0 items-center gap-2">
+      <PersonAvatar name={member.displayName} userId={member.id} />
+      <Button
+        type="button"
+        variant="link"
+        className="h-auto min-w-0 justify-start truncate p-0 font-medium text-foreground"
+        title={member.displayName}
+        // Contains the visible name (label in name), so voice control still works.
+        aria-label={`Manage ${member.displayName}`}
+        onClick={onOpen}
       >
-        <p>
-          {confirm === 'disable'
-            ? 'They are signed out everywhere and can no longer be chosen as a receiver. Past records keep their name.'
-            : confirm === 'roles'
-              ? 'The change applies from their next request. The reason is kept in the audit log.'
-              : 'They lose staff and session management straight away.'}
-        </p>
-        <label htmlFor={reasonId}>Reason</label>
-        <textarea
-          id={reasonId}
-          value={reason}
-          maxLength={2000}
-          aria-invalid={Boolean(reasonError)}
-          onChange={(e) => setReason(e.target.value)}
-        />
-        {reasonError ? <p className="field-error">{reasonError}</p> : null}
-      </ConfirmDialog>
-    </Modal>
+        <span className="truncate">{member.displayName}</span>
+      </Button>
+      {isSelf ? <span className="shrink-0 text-xs text-muted-foreground">You</span> : null}
+    </span>
   );
 }
 
-function AddStaffDialog({
-  onClose,
-  onAdded,
-  onForbidden,
-}: {
-  onClose: () => void;
-  onAdded: (member: StaffMember) => void;
-  onForbidden: () => void;
-}) {
-  const [displayName, setDisplayName] = useState('');
-  const [initials, setInitials] = useState('');
-  const [upn, setUpn] = useState('');
-  const [position, setPosition] = useState<StaffPosition | ''>('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const canPosition = useMe().permissions.includes('reviewer_eligibility.manage');
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      onAdded(
-        await staffApi.preprovision({
-          displayName,
-          officialInitials: initials,
-          expectedUpn: upn,
-          position: position || null,
-        }),
-      );
-    } catch (caught) {
-      if (isForbidden(caught)) onForbidden();
-      else setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
+function RolesCell({ member }: { member: StaffMember }) {
+  if (member.accountType === 'shared_lab') {
+    return <span className="text-muted-foreground">Can't hold roles</span>;
   }
-
+  if (member.roles.length === 0) return <span className="text-muted-foreground">None</span>;
   return (
-    <Modal title="Add staff" className="drawer" onClose={onClose}>
-      <p className="field-hint">
-        Add someone before their first Microsoft sign-in. Their account links only when they sign in
-        with exactly this work email; never by initials or name.
-      </p>
-      {error ? <ErrorState message={error} /> : null}
-      <form onSubmit={(event) => void submit(event)} className="drawer-section">
-        <FormField label="Full name">
-          {(props) => (
-            <input
-              {...props}
-              required
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          )}
-        </FormField>
-        <FormField label="Official initials">
-          {(props) => (
-            <input
-              {...props}
-              required
-              maxLength={5}
-              value={initials}
-              onChange={(e) => setInitials(e.target.value.toUpperCase())}
-            />
-          )}
-        </FormField>
-        <FormField label="Work email (sign-in name)">
-          {(props) => (
-            <input
-              {...props}
-              required
-              type="email"
-              value={upn}
-              onChange={(e) => setUpn(e.target.value)}
-            />
-          )}
-        </FormField>
-        {canPosition ? (
-          <FormField label="Position">
-            {(props) => (
-              <select
-                {...props}
-                value={position}
-                onChange={(e) => setPosition(e.target.value as StaffPosition | '')}
-              >
-                <option value="">Not set</option>
-                {POSITIONS.map((p) => (
-                  <option key={p} value={p}>
-                    {POSITION_LABELS[p]}
-                  </option>
-                ))}
-              </select>
-            )}
-          </FormField>
-        ) : null}
-        <button type="submit" className="primary" disabled={busy}>
-          Add staff
-        </button>
-      </form>
-    </Modal>
+    <span className="flex min-w-0 gap-1 overflow-hidden">
+      {member.roles.map((role) => (
+        <Badge key={role} variant="secondary">
+          {ROLE_LABELS[role]}
+        </Badge>
+      ))}
+    </span>
   );
+}
+
+function useStaffColumns(
+  tab: StaffTab,
+  currentUserId: string,
+  onOpen: (member: StaffMember) => void,
+): DataTableColumn<StaffMember>[] {
+  const onOpenRef = useRef(onOpen);
+  useEffect(() => {
+    onOpenRef.current = onOpen;
+  });
+  return useMemo(() => {
+    const person: DataTableColumn<StaffMember> = {
+      id: 'person',
+      header: 'Person',
+      priority: 'identity',
+      sortKey: tab === 'people' ? 'name' : undefined,
+      cell: (m) => (
+        <PersonButton
+          member={m}
+          isSelf={m.id === currentUserId}
+          onOpen={() => onOpenRef.current(m)}
+        />
+      ),
+    };
+    const status: DataTableColumn<StaffMember> = {
+      id: 'status',
+      header: 'Status',
+      priority: 'state',
+      width: '6rem',
+      wrap: true,
+      cell: (m) => <StaffStatusBadge status={m.status} />,
+    };
+    const position: DataTableColumn<StaffMember> = {
+      id: 'position',
+      header: 'Position',
+      priority: 'attribute',
+      width: '7rem',
+      hideBelow: '40rem',
+      sortKey: tab === 'people' ? 'position' : undefined,
+      cell: (m) =>
+        m.position ? (
+          POSITION_LABELS[m.position]
+        ) : (
+          <span className="text-muted-foreground">Not set</span>
+        ),
+    };
+    if (tab === 'pending') {
+      return [
+        person,
+        {
+          id: 'email',
+          header: 'Work email',
+          priority: 'attribute',
+          hideBelow: '40rem',
+          cell: (m) => m.signInUsername ?? m.workEmail ?? m.expectedUpn ?? '—',
+        },
+        {
+          id: 'asked',
+          header: 'Asked',
+          priority: 'attribute',
+          width: '10rem',
+          hideBelow: '44rem',
+          cell: (m) => when(m.createdAt),
+        },
+        status,
+      ];
+    }
+    if (tab === 'disabled') {
+      return [
+        person,
+        position,
+        {
+          id: 'disabled',
+          header: 'Disabled',
+          priority: 'attribute',
+          width: '14rem',
+          hideBelow: '46rem',
+          wrap: true,
+          cell: (m) => disabledText(m),
+        },
+        status,
+      ];
+    }
+    return [
+      person,
+      position,
+      {
+        id: 'roles',
+        header: 'Roles',
+        priority: 'attribute',
+        width: '10rem',
+        cell: (m) => <RolesCell member={m} />,
+      },
+      {
+        id: 'account',
+        header: 'Account',
+        priority: 'attribute',
+        width: '6rem',
+        hideBelow: '46rem',
+        cell: (m) => ACCOUNT_LABELS[m.accountType],
+      },
+      {
+        id: 'lastSignIn',
+        header: 'Last sign-in',
+        priority: 'attribute',
+        width: '9rem',
+        hideBelow: '46rem',
+        sortKey: 'lastSignIn',
+        cell: (m) => when(m.lastSignInAt),
+      },
+      status,
+    ];
+  }, [tab, currentUserId]);
 }

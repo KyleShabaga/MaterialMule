@@ -56,12 +56,10 @@ test('T1–T4: tags group by the catalogue, preview and position on the sheet, a
   await addTestType(page, hyd, 'Hydrometer', { sampleTagMode: 'shared', sampleTagGroup: group });
   await addTestType(page, sv, 'Sieve', { sampleTagMode: 'shared', sampleTagGroup: group });
 
-  // The setting is visible in Settings → Tests.
-  await page.goto('/settings/tests');
+  // The setting is visible in Lab admin › Lab tests (STRATA-128: tables per group).
+  await page.goto('/admin/lab-tests');
   await page.getByLabel('Search tests').fill(hyd);
-  await expect(
-    page.getByRole('table', { name: 'Lab tests' }).locator('tbody tr', { hasText: hyd }),
-  ).toContainText(`Shared: ${group}`);
+  await expect(page.locator('tbody tr', { hasText: hyd })).toContainText(`Shared: ${group}`);
 
   await signInAs(page, 'at');
   await page.goto('/lab-testing/programs/new');
