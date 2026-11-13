@@ -1,12 +1,19 @@
 import type { MeResponse } from '@materialmule/shared';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
+import { stationSessionKey, storeRecordingPerson } from '../session/recording-person-store';
 import { SessionContext, type SessionState } from '../session/context';
-import { rememberStation } from '../session/station';
-import { LAB_EXPIRED_MESSAGE } from './SignInPage';
+import {
+  isLabStationComputer,
+  rememberStation,
+  setLabStationComputer,
+  stationKind,
+} from '../session/station';
+import { LAB_HINT, LAB_STATION_HINT, PAUSED_HELP, WRONG_PASSWORD_MESSAGE } from './LabSignInForm';
+import { LAB_EXPIRED_MESSAGE, NO_METHOD_TITLE } from './SignInPage';
 
 const LAB_ME: MeResponse = {
   id: 'lab',
@@ -58,16 +65,20 @@ function render_(path: string, session: SessionState, api: Record<string, Handle
 }
 
 const providers =
-  (lab: boolean): Handler =>
+  (lab: boolean, microsoft = false): Handler =>
   () => ({
     status: 200,
-    body: { microsoft: false, lab, test: false },
+    body: { microsoft, lab, test: false },
   });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   window.localStorage.clear();
+  window.sessionStorage.clear();
 });
+
+const LAB_FORM = 'Shared receiving station';
 
 describe('LAB sign-in form', () => {
   it('signs in with username and password and refreshes the session', async () => {
@@ -80,9 +91,11 @@ describe('LAB sign-in form', () => {
         '/api/auth/lab/sign-in': () => ({ status: 204 }),
       },
     );
-    const form = await screen.findByRole('region', { name: 'Shared receiving station (LAB)' });
+    const form = await screen.findByRole('region', { name: LAB_FORM });
+    expect(screen.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
     expect(within(form).getByLabelText('Username')).toHaveValue('LAB');
     expect(within(form).getByText('Forgot password? Ask an administrator.')).toBeInTheDocument();
+    expect(within(form).getByText(LAB_HINT)).toBeInTheDocument();
     fireEvent.change(within(form).getByLabelText('Password'), {
       target: { value: 'generated-in-test' },
     });
@@ -97,7 +110,8 @@ describe('LAB sign-in form', () => {
     expect(new Headers(signIn.init?.headers).get('x-materialmule-csrf')).toBe('1');
   });
 
-  it('explains wrong passwords and lockouts without repeating the password', async () => {
+  it('marks a wrong password on the field, then pauses after too many attempts', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     let status = 401;
     render_(
       '/sign-in',
@@ -114,27 +128,35 @@ describe('LAB sign-in form', () => {
     const password = await screen.findByLabelText('Password');
     fireEvent.change(password, { target: { value: 'not-the-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in as LAB' }));
-    expect(await screen.findByText('The username or password is incorrect.')).toBeInTheDocument();
+    const fieldError = await screen.findByText(WRONG_PASSWORD_MESSAGE);
     expect(password).toHaveValue('');
+    expect(password).toHaveAttribute('aria-invalid', 'true');
+    expect(password).toHaveAccessibleDescription(WRONG_PASSWORD_MESSAGE);
+    expect(fieldError.closest('[role="alert"]')).not.toBeNull();
+    // Every state keeps the page's h1 above it.
+    expect(screen.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
 
     status = 429;
     fireEvent.change(password, { target: { value: 'not-the-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in as LAB' }));
     expect(await screen.findByText(/paused for about 14 minutes/)).toBeInTheDocument();
-    // MM-T50: the paused state is an amber panel with the way out, and a "Paused" badge.
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Wait until the pause ends, then sign in with the correct password. If the password is lost, ask an administrator to reset it. A reset signs out every LAB computer and may not end the pause on this computer.',
-    );
-    const card = screen.getByRole('region', { name: 'Shared receiving station (LAB)' });
-    expect(within(card).getByText('Paused')).toBeInTheDocument();
+    // MM-T50: the paused state is an amber alert with the way out; Sign in as LAB is disabled.
+    expect(screen.getByRole('alert')).toHaveTextContent(PAUSED_HELP);
+    expect(password).not.toHaveAttribute('aria-invalid');
+    fireEvent.change(password, { target: { value: 'typed-while-paused' } });
+    expect(screen.getByRole('button', { name: 'Sign in as LAB' })).toBeDisabled();
+    const card = screen.getByRole('region', { name: LAB_FORM });
     // A reset clears only the account count, not this computer's address count, so the card must
     // never promise it ends the pause; and LAB isn't tied to one receiving PC.
     expect(card).not.toHaveTextContent(/sooner|receiving PC/);
-    expect(card).toHaveTextContent(
-      'For the shared lab computers. Each receipt records who received it, so pick your own name.',
-    );
-    expect(screen.queryByText('The username or password is incorrect.')).not.toBeInTheDocument();
+    expect(screen.queryByText(WRONG_PASSWORD_MESSAGE)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain('not-the-password');
+
+    // The pause ends by itself.
+    await act(async () => {
+      vi.advanceTimersByTime(840_000);
+    });
+    expect(screen.getByRole('button', { name: 'Sign in as LAB' })).toBeEnabled();
   });
 
   it('explains a server problem in plain words, without the status code', async () => {
@@ -155,11 +177,14 @@ describe('LAB sign-in form', () => {
     expect(document.body.textContent).not.toContain('500');
   });
 
-  it('is hidden until an administrator sets the LAB password', async () => {
+  it('says what to do when no sign-in method is set up', async () => {
     render_('/sign-in', { status: 'signed-out' }, { '/api/auth/providers': providers(false) });
-    expect(
-      await screen.findByText('No sign-in method is set up on this server yet.'),
-    ).toBeVisible();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(NO_METHOD_TITLE);
+    expect(alert).toHaveTextContent(
+      'An administrator turns on Microsoft sign-in or the LAB account on the host PC. Ask your Lab Manager to arrange it.',
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
   });
 
@@ -168,23 +193,104 @@ describe('LAB sign-in form', () => {
     render_(
       '/sign-in?returnTo=%2Freceiving-log%2Fnew&expired=1',
       { status: 'signed-out' },
-      { '/api/auth/providers': providers(true) },
+      { '/api/auth/providers': providers(true, true) },
     );
     expect(await screen.findByRole('status')).toHaveTextContent(LAB_EXPIRED_MESSAGE);
+    // The computer was last used as the station: it opens on the LAB form.
+    expect(await screen.findByRole('region', { name: LAB_FORM })).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { level: 1, name: 'Sign in' });
+    expect(
+      heading.compareDocumentPosition(screen.getByRole('status')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 
-describe('LAB header', () => {
-  it('shows the shared-station badge and the fixed session end', async () => {
+describe('Remember the LAB station per computer (STRATA-18)', () => {
+  it('opens a normal computer on Microsoft sign-in, with a link to the LAB form', async () => {
+    const { router } = render_(
+      '/sign-in?returnTo=%2Fprojects',
+      { status: 'signed-out' },
+      { '/api/auth/providers': providers(true, true) },
+    );
+    expect(await screen.findByRole('link', { name: 'Sign in with Microsoft' })).toBeVisible();
+    expect(
+      screen.getByText('Use your own work account. What you do is recorded under your name.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: LAB_FORM })).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'Sign in as LAB' }));
+    expect(await screen.findByRole('region', { name: LAB_FORM })).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?returnTo=%2Fprojects&method=lab');
+    fireEvent.click(
+      screen.getByRole('link', { name: 'Sign in with your Microsoft account instead' }),
+    );
+    expect(await screen.findByRole('link', { name: 'Sign in with Microsoft' })).toBeVisible();
+  });
+
+  it('opens the marked station straight on the LAB form, and keeps the mark after sign-out', async () => {
+    expect(setLabStationComputer(true)).toBe(true);
+    rememberStation(false); // a deliberate sign-out clears only the last-used marker
+    render_('/sign-in', { status: 'signed-out' }, { '/api/auth/providers': providers(true, true) });
+    const form = await screen.findByRole('region', { name: LAB_FORM });
+    expect(within(form).getByText(LAB_STATION_HINT)).toBeInTheDocument();
+    expect(within(form).getByLabelText('Username')).toHaveValue('LAB');
+    expect(
+      screen.getByRole('link', { name: 'Sign in with your Microsoft account instead' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sign in with Microsoft' })).toBeNull();
+    expect(isLabStationComputer()).toBe(true);
+  });
+
+  it('falls back to Microsoft sign-in when the station has no LAB account set up', async () => {
+    setLabStationComputer(true);
+    render_(
+      '/sign-in',
+      { status: 'signed-out' },
+      { '/api/auth/providers': providers(false, true) },
+    );
+    expect(await screen.findByRole('link', { name: 'Sign in with Microsoft' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Sign in as LAB' })).toBeNull();
+  });
+
+  it('treats a computer as a normal one when its storage was cleared or is blocked', () => {
+    setLabStationComputer(true);
+    window.localStorage.clear();
+    expect(stationKind()).toBe('personal');
+    const blocked = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    try {
+      expect(isLabStationComputer()).toBe(false);
+      expect(stationKind()).toBe('personal');
+    } finally {
+      blocked.mockRestore();
+    }
+  });
+});
+
+/** A LAB station with Pat Example picked, so the station guard lets the shell render. */
+function pickPatExample() {
+  storeRecordingPerson(stationSessionKey(LAB_ME), {
+    id: 'p-pat',
+    displayName: 'Pat Example',
+    initials: 'PE',
+    roleLine: 'Technician',
+  });
+}
+
+describe('LAB account row (STRATA-15)', () => {
+  it('reads as the station, with no session end time (D38 is deferred)', async () => {
+    pickPatExample();
     render_(
       '/',
       { status: 'active', me: LAB_ME },
       { '/api/activity/recent': () => ({ status: 200, body: [] }) },
     );
-    const header = screen.getByLabelText('Signed in user');
-    expect(within(header).getByText('Shared station: LAB')).toBeInTheDocument();
-    expect(within(header).getByText(/Session ends/)).toBeInTheDocument();
-    expect(header.querySelector('time')).toHaveAttribute('datetime', LAB_ME.sessionExpiresAt);
+    const account = await screen.findByRole('group', { name: 'Signed in user' });
+    expect(account).toHaveTextContent('LAB station');
+    expect(account).toHaveTextContent('Shared · Receiving lab');
+    expect(account).not.toHaveTextContent(/Session ends/);
+    expect(account.querySelector('time')).toBeNull();
   });
 });
 
@@ -300,6 +406,7 @@ describe('Reset LAB password (admin)', () => {
   });
 
   it('is not offered to people without staff.manage', async () => {
+    pickPatExample();
     render_('/settings/staff', { status: 'active', me: LAB_ME }, {});
     expect(
       await screen.findByText('Only administrators can manage staff and access.'),

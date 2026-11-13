@@ -76,10 +76,12 @@ test('T3: Today, Overdue and HOLD for one project; a technician reads but cannot
 }, testInfo) => {
   const { projectNumber } = await castProjectSet(page);
   await openFor(page, projectNumber);
-  // The rail's Concrete group marks Breaks as the current page (the rail is desktop only).
+  // The sidebar's Concrete section marks Breaks as the current page (desktop: always shown).
   if (testInfo.project.name.startsWith('desktop')) {
     await expect(
-      page.getByRole('list', { name: 'Concrete pages' }).getByRole('link', { name: 'Breaks' }),
+      page
+        .getByRole('navigation', { name: 'Main' })
+        .getByRole('link', { name: 'Breaks', exact: true }),
     ).toHaveAttribute('aria-current', 'page');
   }
 

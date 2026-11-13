@@ -1,12 +1,35 @@
 import type { MeResponse } from '@materialmule/shared';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { createMemoryRouter, type RouteObject } from 'react-router';
+import { Outlet, createMemoryRouter, type RouteObject } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext, type SessionState } from '../session/context';
 import { HelpPage } from './HelpPage';
-import { ACCESS_PENDING_POLL_MS, AccessPendingPage, NotFoundPage } from './simple-pages';
+import {
+  ACCESS_PENDING_POLL_MS,
+  APPROVER_LINE,
+  AccessPendingPage,
+  ErrorPage,
+  NotFoundPage,
+} from './simple-pages';
+
+// The shell's Ctrl K menu (search agent): a stand-in, so Page not found's Search can be checked
+// without the real dialog. `current: null` is a page rendered outside the shell.
+const commandMenu = vi.hoisted(() => ({
+  current: null as null | { open: (initialQuery?: string) => void },
+}));
+vi.mock('../search/command-menu', () => ({
+  useCommandMenu: () => {
+    if (!commandMenu.current) throw new Error('useCommandMenu outside <CommandMenuProvider>');
+    return {
+      ...commandMenu.current,
+      close: () => undefined,
+      toggle: () => undefined,
+      isOpen: false,
+    };
+  },
+}));
 
 // Field Ledger entry pages: Help & Feedback, Page not found and Access pending. Fictional people.
 
@@ -71,6 +94,7 @@ function renderRoutes(
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -167,52 +191,155 @@ describe('Help & Feedback', () => {
 });
 
 describe('Page not found', () => {
-  it('says nothing changed, looks the text up on Search, and offers three ways out', async () => {
+  it('says the page doesn’t exist, shows the address, and offers Today and Search (Ctrl K)', () => {
+    const open = vi.fn();
+    commandMenu.current = { open };
+    try {
+      renderRoutes([{ path: '/nowhere', element: <NotFoundPage /> }], '/nowhere?from=old-link', {
+        status: 'active',
+        me: STAFF,
+      });
+      expect(
+        screen.getByRole('heading', { level: 1, name: 'This page doesn’t exist.' }),
+      ).toBeVisible();
+      expect(screen.getByText('Check the address, or go back to Today.')).toBeInTheDocument();
+      expect(screen.getByText('/nowhere?from=old-link')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Go to Today' })).toHaveAttribute('href', '/');
+      expect(document.title).toBe('Page not found · Material Mule');
+      const search = screen.getByRole('button', { name: /^Search/ });
+      expect(search).toHaveAttribute('aria-keyshortcuts', 'Control+K');
+      fireEvent.click(search);
+      expect(open).toHaveBeenCalledTimes(1);
+    } finally {
+      commandMenu.current = null;
+    }
+  });
+
+  it('goes to the search page when no command menu is around', async () => {
     const { router } = renderRoutes([{ path: '/nowhere', element: <NotFoundPage /> }], '/nowhere', {
       status: 'active',
       me: STAFF,
     });
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Nothing is at this address.' }),
-    ).toBeVisible();
-    expect(screen.getByText(/No record has been changed\./)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Go to Today' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Go to Inventory' })).toHaveAttribute(
-      'href',
-      '/sample-storage',
-    );
-    expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
-    expect(document.title).toBe('Page not found · Material Mule');
-
-    fireEvent.change(screen.getByRole('textbox', { name: 'Look for it' }), {
-      target: { value: ' TH26-01 ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Search/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/search'));
-    expect(router.state.location.search).toBe('?q=TH26-01');
   });
 });
 
-describe('Access pending', () => {
+describe('Something went wrong', () => {
+  function Broken(): never {
+    throw new Error('secret stack detail at line 42');
+  }
+
+  it('shows Reload and Go to Today inside the shell, never the error itself', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    renderRoutes(
+      [
+        {
+          path: '/',
+          element: (
+            <div>
+              <nav aria-label="Sidebar">Sidebar stays</nav>
+              <Outlet />
+            </div>
+          ),
+          children: [
+            {
+              errorElement: <ErrorPage inShell />,
+              children: [{ path: 'broken', element: <Broken /> }],
+            },
+          ],
+        },
+      ],
+      '/broken',
+      { status: 'active', me: STAFF },
+    );
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Something went wrong while showing this page.',
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole('navigation', { name: 'Sidebar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to Today' })).toHaveAttribute('href', '/');
+    expect(document.body.textContent).not.toContain('secret stack detail');
+  });
+
+  it('uses the sign-in layout at the root', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    renderRoutes(
+      [{ path: '/broken', element: <Broken />, errorElement: <ErrorPage /> }],
+      '/broken',
+      { status: 'signed-out' },
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Something went wrong while showing this page.',
+    );
+    expect(screen.getByTestId('sign-in-background')).toHaveAttribute('aria-hidden', 'true');
+    expect(document.body.textContent).not.toContain('secret stack detail');
+  });
+});
+
+describe('Waiting for approval', () => {
   const pending: SessionState = { status: 'pending', me: { ...STAFF, status: 'pending' } };
   const page = [{ path: '/access-pending', element: <AccessPendingPage /> }];
 
-  it('names who approves, checks again on demand and every minute', async () => {
+  it('names who is signed in and who approves, checks again on demand and every minute', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    stubFetch({
+      'GET /api/me/profile': () => ({
+        status: 200,
+        body: { workEmail: 'alex.tester@materialmule-demo.example', signInUsername: null },
+      }),
+    });
     const refresh = vi.fn(async () => undefined);
     renderRoutes(page, '/access-pending', pending, { refresh });
     expect(
       screen.getByRole('heading', { level: 1, name: 'You are signed in, but not set up yet.' }),
     ).toBeVisible();
     expect(screen.getByText('Alex Tester')).toBeInTheDocument();
-    expect(screen.getByText('An administrator, in Settings, Staff and access')).toBeInTheDocument();
+    expect(screen.getByText(APPROVER_LINE)).toBeInTheDocument();
+    expect(APPROVER_LINE).toBe('An administrator, in Settings, Staff, Pending.');
+    expect(
+      screen.getByText('This page opens the app by itself once you are approved.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    // D38: nothing says when the session ends.
+    expect(document.body.textContent).not.toMatch(/session ends|expires/i);
 
     fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Checked just now. Still waiting for approval.',
+    );
     await act(async () => {
       vi.advanceTimersByTime(ACCESS_PENDING_POLL_MS);
     });
     expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('truncates a long name and email instead of overflowing', async () => {
+    const email = 'alexandra.montgomery-fairweather.example@materialmule-demo.example';
+    stubFetch({
+      'GET /api/me/profile': () => ({
+        status: 200,
+        body: { workEmail: email, signInUsername: null },
+      }),
+    });
+    const longName = 'Alexandra Montgomery-Fairweather-Example';
+    renderRoutes(page, '/access-pending', {
+      status: 'pending',
+      me: { ...STAFF, status: 'pending', displayName: longName, initials: null },
+    });
+    expect(screen.getByText(longName)).toHaveClass('truncate');
+    expect(await screen.findByText(email)).toHaveClass('truncate');
+    expect(screen.getByText('AM')).toBeInTheDocument();
+  });
+
+  it('opens the app by itself once approved', () => {
+    const { router } = renderRoutes(page, '/access-pending', { status: 'active', me: STAFF });
+    expect(router.state.location.pathname).toBe('/');
   });
 });

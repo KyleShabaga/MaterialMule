@@ -2,7 +2,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { signInAsLabStation } from './support/lab-station';
+import { STATION_PEOPLE, signInAsLabStation } from './support/lab-station';
 
 // MM-T36 removal after testing through the real MM-T24 route (T24 AC14 / T12, T36 AC9–AC11):
 // LAB completes a test with the exact tube or bucket linked, LAB can't confirm removal, and a
@@ -145,19 +145,20 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   const [tubeA, tubeB] = await insertUnits(holeId, 'tube', 2);
   const program = await submitProgram(page.request, testTypeId, holeId);
 
-  // LAB station: Start and Mark completed for Jordan Smith, linking only ST-A.
-  await signInAsLabStation(page);
+  // LAB station, recording as Jordan Smith (the performer follows the chip, STRATA-125): Start
+  // and Mark completed, linking only ST-A.
+  await signInAsLabStation(page, { person: STATION_PEOPLE.jordan });
   await page.goto(`/lab-testing/programs/${program.id}`);
   const row = page.locator('.request-list li', { hasText: code });
   await row.getByRole('button', { name: 'Start' }).click();
-  await row.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
   await expect(row).toContainText('In progress');
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
-  await panel.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+    /Jordan Smith/,
+  );
   await panel.getByRole('checkbox', { name: new RegExp(tubeA!.readableId) }).check();
   await panel.getByRole('button', { name: 'Mark completed' }).click();
   await expect(row).toContainText('Completed');

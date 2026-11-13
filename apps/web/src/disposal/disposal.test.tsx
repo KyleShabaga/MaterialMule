@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MM-T30 UI: eligible/approved/not-eligible lists with reasons, batch approval summary, and the
 // distinct online-only Disposal scan mode (disabled offline, nothing queued). Fictional data.
@@ -74,6 +75,7 @@ function renderAt(
     api(String(input), init),
   );
   vi.stubGlobal('fetch', fetchMock);
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{

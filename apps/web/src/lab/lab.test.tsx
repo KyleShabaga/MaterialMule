@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // Lab Testing screens (MM-T23). Fictional data only.
 
@@ -102,6 +103,7 @@ function renderAt(
   path: string,
   extra: (url: string, init?: RequestInit) => Response | null = () => null,
 ) {
+  pickStationPerson(session);
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const handled = extra(url, init);
@@ -171,15 +173,21 @@ afterEach(() => {
 });
 
 describe('Lab Testing (MM-T23)', () => {
-  it('AC11: one Lab Testing menu item opens the Worklist by default, with Programs and New lab program', async () => {
+  it('AC11: one Lab Testing menu item opens the Workboard by default, with Programs and New lab program', async () => {
     const user = userEvent.setup();
     const { router } = renderAt(me(), '/lab-testing');
-    expect(await screen.findByRole('heading', { name: 'Worklist' })).toBeVisible();
+    // STRATA-10: the Worklist is now the Workboard, on the same route.
+    expect(await screen.findByRole('heading', { name: 'Workboard' })).toBeVisible();
     expect(router.state.location.pathname).toBe('/lab-testing');
     expect(
       await screen.findByText('Nothing waiting. Submitted programs appear here.'),
     ).toBeVisible();
     const tabs = screen.getByRole('navigation', { name: 'Lab programs' });
+    expect(within(tabs).getByRole('link', { name: 'Workboard' })).toHaveAttribute(
+      'href',
+      '/lab-testing',
+    );
+    expect(within(tabs).queryByRole('link', { name: 'Worklist' })).toBeNull();
     await user.click(within(tabs).getByRole('link', { name: 'Programs' }));
     expect(await screen.findByRole('heading', { name: 'Programs' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'New lab program' })).toBeVisible();
@@ -313,7 +321,7 @@ describe('Lab Testing (MM-T23)', () => {
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
 
-  it('Field Ledger: the worklist leads with the units to pull, each linking to its unit', async () => {
+  it('Field Ledger: the Workboard leads with the units to pull, each linking to its unit', async () => {
     renderAt(me(), '/lab-testing', (url) =>
       url.startsWith('/api/worklist/units-to-pull')
         ? json(200, {
@@ -336,7 +344,7 @@ describe('Lab Testing (MM-T23)', () => {
     expect(link).toHaveAttribute('href', '/sample-storage/BKT-2026-000142');
     expect(link).toHaveTextContent('Bay C · Shelf 2');
     expect(within(pull).getByText('Urgent')).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Worklist' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Workboard' })).toBeVisible();
   });
 
   it('MISC-01: New lab program opens the editor; the discard dialog opens only from Discard draft', async () => {

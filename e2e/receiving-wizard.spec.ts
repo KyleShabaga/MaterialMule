@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { pickOnStationPicker } from './support/lab-station';
 import { withDatabase } from './support/db';
 
 // MM-T10: the three-step receiving wizard against the real API (fictional DEMO-2601 data).
@@ -289,6 +290,8 @@ test('T8/AC5: a personal account defaults to itself; LAB starts blank and must c
     await route.fulfill({ response, json: { ...me, accountType: 'shared_lab' } });
   });
   await page.goto('/receiving-log/new');
+  // A station picks who is working first; that person never fills Received by (STRATA-107).
+  await pickOnStationPicker(page);
   await expect(receiver).toHaveValue('');
   await page.getByRole('button', { name: 'Next: add the units' }).click();
   await expect(

@@ -559,6 +559,7 @@ export function MovePage() {
           <ReceiverSelect
             label="Moved by"
             required
+            stationPerson="prefill"
             value={batch.mover}
             onChange={(mover: ReceiverOption | null) =>
               setBatch((current) => ({ ...current, mover }))

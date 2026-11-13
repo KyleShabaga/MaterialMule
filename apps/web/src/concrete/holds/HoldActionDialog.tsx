@@ -210,6 +210,7 @@ export function HoldActionDialog({
               <ReceiverSelect
                 label="Removed by"
                 required
+                stationPerson="follow"
                 value={performer}
                 onChange={setPerformer}
                 error={fieldError('performedByUserId')}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router';
 
 // MTR-134: every page gets its own browser tab title, "<page> · <section> · Material Mule",
@@ -7,7 +7,7 @@ import { useLocation } from 'react-router';
 
 const APP_NAME = 'Material Mule';
 
-// Tab-title sections use the Field Ledger rail names (nav.ts). Concrete breaks and holds live under
+// Tab-title sections use the sidebar row names (nav.ts). Concrete breaks and holds live under
 // /lab-testing but belong to Concrete, so they come first.
 const SECTIONS: readonly { to: string; label: string }[] = [
   { to: '/lab-testing/concrete', label: 'Concrete' },
@@ -29,7 +29,7 @@ const ROUTE_LABELS: readonly [RegExp, string][] = [
   [/^\/sample-storage$/, 'Inventory'],
   [/^\/sample-storage\/scan$/, 'Scan labels'],
   [/^\/sample-storage\/move$/, 'Move units'],
-  [/^\/lab-testing$/, 'Worklist'],
+  [/^\/lab-testing$/, 'Workboard'],
   [/^\/lab-testing\/programs$/, 'Programs'],
   [/^\/lab-testing\/programs\/new$/, 'New lab program'],
   [/^\/lab-testing\/programs\/[^/]+\/tags$/, 'Sample tags'],
@@ -67,6 +67,16 @@ function sectionFor(pathname: string): string | null {
   return match?.label ?? null;
 }
 
+/** The page's own name: `title` when given, else the route's label, else its section. */
+export function pageName(pathname: string, title?: string | null): string {
+  return (
+    title ||
+    ROUTE_LABELS.find(([pattern]) => pattern.test(pathname))?.[1] ||
+    sectionFor(pathname) ||
+    APP_NAME
+  );
+}
+
 /** The tab title for a path, naming the page `title` when given. */
 export function pageTitle(pathname: string, title?: string | null): string {
   const label = title || ROUTE_LABELS.find(([pattern]) => pattern.test(pathname))?.[1] || null;
@@ -80,6 +90,29 @@ export function pageTitle(pathname: string, title?: string | null): string {
 // before or after the page's own effect still ends on the right title.
 let named: { pathname: string; title: string; token: object } | null = null;
 let currentPath = '/';
+const namedListeners = new Set<() => void>();
+
+function setNamed(next: typeof named): void {
+  named = next;
+  namedListeners.forEach((listener) => listener());
+}
+
+function subscribeNamed(listener: () => void): () => void {
+  namedListeners.add(listener);
+  return () => namedListeners.delete(listener);
+}
+
+/**
+ * The current page's name for the top bar (STRATA-12): the title a page set with usePageTitle
+ * (a record ID), else the route's label. Text only: the page keeps its own h1.
+ */
+export function useTopBarTitle(): string {
+  const { pathname } = useLocation();
+  const title = useSyncExternalStore(subscribeNamed, () =>
+    named?.pathname === pathname ? named.title : null,
+  );
+  return pageName(pathname, title);
+}
 
 export function applyPageTitle(pathname: string): void {
   currentPath = pathname;
@@ -92,11 +125,11 @@ export function usePageTitle(title: string | null | undefined): void {
   useEffect(() => {
     if (!title) return;
     const token = {};
-    named = { pathname, title, token };
+    setNamed({ pathname, title, token });
     applyPageTitle(pathname);
     return () => {
       if (named?.token !== token) return;
-      named = null;
+      setNamed(null);
       applyPageTitle(currentPath);
     };
   }, [title, pathname]);

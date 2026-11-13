@@ -6,7 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorklistPage } from './WorklistPage';
 
-// BUG-006: the worklist pages through every matching program and offers every project, not
+// BUG-006: the Workboard (was the worklist) pages through every matching program and offers every project, not
 // only those on the loaded page. Fictional data only: DEMO-2601 / DEMO-2602.
 
 const A = { id: 'proj-a', projectNumber: 'DEMO-2601', name: 'Riverbank investigation' };
@@ -43,7 +43,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Lab Testing → Worklist paging (BUG-006)', () => {
+describe('Lab Testing → Workboard paging (BUG-006)', () => {
   it('offers projects beyond the first page, pages to the rest, and restarts on a filter change', async () => {
     const queries: string[] = [];
     vi.stubGlobal(
@@ -95,7 +95,7 @@ describe('Lab Testing → Worklist paging (BUG-006)', () => {
 // PR #104 review finding 2: while a page is loading the table, label and buttons belong to the
 // page being fetched, and nothing from an obsolete request is ever shown. Answers are released
 // by the test (deferred), never by time.
-describe('Lab Testing → Worklist while a page is loading', () => {
+describe('Lab Testing → Workboard while a page is loading', () => {
   interface Held {
     query: string;
     resolve: (response: Response) => void;
@@ -163,8 +163,8 @@ describe('Lab Testing → Worklist while a page is loading', () => {
 
     await user.click(within(pager()).getByRole('button', { name: 'Next' }));
     // Loading page 2: no stale rows, the label says page 2, both buttons are off.
-    expect(screen.getByText('Loading the worklist…')).toBeInTheDocument();
-    expect(screen.queryByRole('table', { name: 'Lab worklist' })).not.toBeInTheDocument();
+    expect(screen.getByText('Loading the Workboard…')).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Workboard' })).not.toBeInTheDocument();
     expect(within(pager()).getByText('Page 2 of 3')).toBeInTheDocument();
     expect(within(pager()).getByRole('button', { name: 'Next' })).toBeDisabled();
     expect(within(pager()).getByRole('button', { name: 'Previous' })).toBeDisabled();
@@ -220,7 +220,7 @@ describe('Lab Testing → Worklist while a page is loading', () => {
     expect(await screen.findByRole('link', { name: 'LP-2026-0900' })).toBeInTheDocument();
     stalePage.reject(new Error('network'));
     await vi.waitFor(() => expect(programLinks()).toEqual(['LP-2026-0900']));
-    expect(screen.queryByText('The worklist couldn’t be loaded.')).not.toBeInTheDocument();
+    expect(screen.queryByText('The Workboard couldn’t be loaded.')).not.toBeInTheDocument();
   });
 
   it('a failed page offers a retry, and the retry loads that page', async () => {
@@ -231,7 +231,7 @@ describe('Lab Testing → Worklist while a page is loading', () => {
 
     await user.click(within(pager()).getByRole('button', { name: 'Next' }));
     (await take('open=true&page=2')).reject(new Error('network'));
-    expect(await screen.findByText('The worklist couldn’t be loaded.')).toBeInTheDocument();
+    expect(await screen.findByText('The Workboard couldn’t be loaded.')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /retry|try again/i }));
     (await take('open=true&page=2')).resolve(json(pageOf(251, 2)));

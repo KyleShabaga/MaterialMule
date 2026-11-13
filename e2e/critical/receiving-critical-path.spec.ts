@@ -3,7 +3,7 @@ import { signInAs } from '../support/auth';
 import { withDatabase } from '../support/db';
 import { E2E_LAB_STATION_ID, signInAsLabStation } from '../support/lab-station';
 import { dropNextPrintJobContaining } from '../support/printer';
-import { closeMore, openAccount } from '../support/shell';
+import { closeMore, isPhoneLayout, openAccount } from '../support/shell';
 import {
   addHole,
   bucket,
@@ -88,10 +88,11 @@ test(
     const description = uniqueTag('T18-lab');
     await signInAsLabStation(page);
     await openWizard(page);
-    // The account row sits in the rail (desktop) or the More sheet (phone).
-    await expect(await openAccount(page)).toContainText('Shared station: LAB');
+    // The account row sits in the sidebar footer (desktop) or the sidebar Sheet (phone).
+    await expect(await openAccount(page)).toContainText('LAB station');
     await closeMore(page);
-    // LAB starts blank every time and must pick a listed person (App Idea §8).
+    // LAB starts blank every time and must pick a listed person (App Idea §8, T8/AC5). The
+    // Recording as person (Alex Tester here) never fills Received by (STRATA-107).
     const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
     await expect(receiver).toHaveValue('');
     await receiver.fill('JS');
@@ -325,22 +326,39 @@ test(
     const before = await unitState([unit!.suNumber]);
     const writes: string[] = [];
     page.on('request', (r) => {
-      if (r.method() !== 'GET' && new URL(r.url()).pathname.startsWith('/api/'))
+      const path = new URL(r.url()).pathname;
+      // Opening the unit adds it to the person's sidebar Recent (their view history, not a record
+      // change), so that one POST is not a write here.
+      if (r.method() !== 'GET' && path.startsWith('/api/') && path !== '/api/me/recents')
         writes.push(r.url());
     });
 
     await page.goto('/sample-storage/scan');
-    const field = page.getByRole('textbox', { name: 'Scan a storage unit label' });
+    // Phones keep the Scan page; on desktop the URL opens the Ctrl K menu, which takes the scan
+    // and opens the unit (STRATA-81).
+    const phone = isPhoneLayout(page);
+    const field = phone
+      ? page.getByRole('textbox', { name: 'Scan a storage unit label' })
+      : page
+          .getByRole('dialog', { name: 'Search or scan' })
+          .getByRole('combobox', { name: 'Search or scan a label' });
     await expect(field).toBeFocused();
     // The DS3678-XR is a keyboard: the label's data, then its Enter suffix (MM-T16).
     await page.keyboard.type(unit!.suNumber);
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('status').filter({ hasText: unit!.suNumber })).toHaveText(
-      `Success: Found ${unit!.suNumber}`,
-    );
-    const card = page.getByRole('region', { name: unit!.suNumber });
-    await expect(card).toContainText('DEMO-2601');
-    await expect(card).toContainText('Receiving lab');
+    if (phone) {
+      await expect(page.getByRole('status').filter({ hasText: unit!.suNumber })).toHaveText(
+        `Success: Found ${unit!.suNumber}`,
+      );
+      const card = page.getByRole('region', { name: unit!.suNumber });
+      await expect(card).toContainText('DEMO-2601');
+      await expect(card).toContainText('Receiving lab');
+    } else {
+      await expect(page).toHaveURL(new RegExp(`/sample-storage/${unit!.suNumber}$`));
+      await expect(page.getByRole('heading', { level: 1, name: unit!.suNumber })).toBeVisible();
+      await expect(page.getByRole('main')).toContainText('DEMO-2601');
+      await expect(page.getByRole('main')).toContainText('Receiving lab');
+    }
 
     expect(writes).toEqual([]);
     expect(await unitState([unit!.suNumber])).toEqual(before);

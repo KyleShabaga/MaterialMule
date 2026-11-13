@@ -11,6 +11,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { projectListSearchParams, readOnlyMine, readProjectListQuery } from './url-state';
 
 // Fictional data only (MM-T35): DEMO-2601, TH26-01, Lead Project Engineer "PE".
@@ -105,6 +106,7 @@ function stubApi(handler: (url: URL, init?: RequestInit) => Response | undefined
 
 function renderAt(path: string, user = me()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(user, { ...PE, roleLine: 'Engineer' });
   render(
     <SessionContext.Provider
       value={{

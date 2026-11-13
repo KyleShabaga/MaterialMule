@@ -15,6 +15,7 @@ import { fetchProgram } from './api';
 import { lineTitle, requestName } from './format';
 import { ProgramEditor } from './ProgramEditor';
 import { usePageTitle } from '../layout/page-title';
+import { useRecordRecent } from '../layout/record-recent';
 
 type Load =
   | { state: 'loading' }
@@ -144,6 +145,7 @@ export function ProgramDetailPage({
   }, [programId]);
   useEffect(reload, [reload]);
   usePageTitle(load.state === 'ready' ? load.program.programNumber : null);
+  useRecordRecent('lab_program', load.state === 'ready' ? load.program.id : null);
 
   if (load.state === 'loading') return <p aria-busy="true">Loading program…</p>;
   if (load.state === 'error')

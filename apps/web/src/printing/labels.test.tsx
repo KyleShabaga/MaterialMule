@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { LabelPreviewPanel } from './LabelPreviewPanel';
 
 // MM-T39 (T2): preview panel states and zoom, and the print view.
@@ -50,6 +51,7 @@ const me: MeResponse = {
 
 function renderRoute(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(me);
   render(
     <SessionContext.Provider
       value={{
@@ -232,9 +234,8 @@ describe('LabelPrintPage', () => {
     ).toEqual(ids.map((id) => `Label for storage unit ${id}`));
     expect(screen.getByText(/100% \(Actual size\)/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Print / Save as PDF' })).toBeInTheDocument();
-    expect(document.querySelector('style')?.textContent).toContain(
-      '@page { size: 3.5in 1.5in; margin: 0; }',
-    );
+    const styles = [...document.querySelectorAll('style')].map((style) => style.textContent);
+    expect(styles.join(' ')).toContain('@page { size: 3.5in 1.5in; margin: 0; }');
     // No app chrome: no main navigation on the print view.
     expect(screen.queryByRole('navigation')).toBeNull();
   });
@@ -255,9 +256,10 @@ describe('LabelPrintPage', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Print / Save as PDF' }));
     expect(print).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-      '/api/storage-units/BKT-2026-000014/label/preview',
-    ]);
+    // Only the preview: no print job (the station's staff list is the Recording as chip's).
+    expect(
+      fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url !== '/api/staff/active'),
+    ).toEqual(['/api/storage-units/BKT-2026-000014/label/preview']);
   });
 
   it('MM-T61: a receipt print view opened from a unit links back to that unit', async () => {

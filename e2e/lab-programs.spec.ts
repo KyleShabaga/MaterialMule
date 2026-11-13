@@ -23,9 +23,9 @@ async function addTestType(page: Page, code: string, description: string, name?:
 }
 
 async function startProgram(page: Page) {
-  // MM-T24: the Worklist is the default tab; programs are one tab away.
+  // MM-T24: the Workboard (the Worklist until STRATA-10) is the default tab; programs are one tab away.
   await page.goto('/lab-testing');
-  await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workboard', level: 2 })).toBeVisible();
   await page
     .getByRole('navigation', { name: 'Lab programs' })
     .getByRole('link', { name: 'Programs' })
@@ -97,13 +97,13 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician is
   await expect(settingsNav.getByRole('link', { name: 'Locations' })).toBeVisible();
 });
 
-test('MISC-01: New program opens the editor from Programs and Worklist, not the discard dialog', async ({
+test('MISC-01: New program opens the editor from Programs and Workboard, not the discard dialog', async ({
   page,
 }) => {
   await signInAs(page, 'at');
   const discard = page.getByRole('dialog', { name: 'Discard this draft?' });
   const tabs = page.getByRole('navigation', { name: 'Lab programs' });
-  for (const tab of ['Programs', 'Worklist']) {
+  for (const tab of ['Programs', 'Workboard']) {
     await page.goto('/lab-testing');
     await tabs.getByRole('link', { name: tab }).click();
     await expect(page.getByRole('heading', { name: tab, level: 2 })).toBeVisible();

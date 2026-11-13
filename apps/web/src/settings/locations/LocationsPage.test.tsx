@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
+import { TEST_STATION_PERSON, pickStationPerson } from '../../session/station-test-person';
 
 // Settings → Locations (MM-T37 T7 at component level, plus permission, conflict and LAB checks).
 // Fictional locations and people only.
@@ -203,6 +204,7 @@ function fakeApi(
 
 function renderPage(session: MeResponse, path = '/settings/locations') {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(session);
   render(
     <SessionContext.Provider
       value={{
@@ -547,7 +549,7 @@ describe('Settings → Locations (MM-T37)', () => {
     );
   });
 
-  it('AC8: a LAB station must choose who is printing and never sees administration', async () => {
+  it('AC8: a LAB station prints as the Recording as person and never sees administration', async () => {
     const user = userEvent.setup();
     const api = fakeApi([location()]);
     renderPage(LAB);
@@ -560,16 +562,16 @@ describe('Settings → Locations (MM-T37)', () => {
       within(table).getByRole('button', { name: 'Label and history for Warehouse C1' }),
     );
     const drawer = await screen.findByRole('dialog', { name: 'Warehouse C1' });
-    await user.click(await within(drawer).findByRole('button', { name: 'Print label' }));
-    expect(within(drawer).getByText('Choose who is printing this label.')).toBeTruthy();
-    expect(api.calls.some((call) => call.url.endsWith('/labels'))).toBe(false);
+    // STRATA-125: Printed by follows the Recording as chip, read-only (attribution only).
+    const printedBy = await within(drawer).findByRole('textbox', { name: /Printed by/ });
+    await waitFor(() => expect(printedBy).toHaveValue('AT · Alex Tester'));
+    expect(printedBy).toHaveAttribute('readonly');
+    expect(within(drawer).queryByRole('combobox', { name: /Printed by/ })).toBeNull();
 
-    await user.type(within(drawer).getByRole('combobox', { name: /Printed by/ }), 'JS');
-    await user.click(await within(drawer).findByRole('option', { name: /Jordan Smith/ }));
     await user.click(within(drawer).getByRole('button', { name: 'Print label' }));
     await waitFor(() =>
       expect(api.calls.find((call) => call.url.endsWith('/labels'))!.body).toEqual({
-        receiverUserId: '00000000-0000-4000-8000-000000000301',
+        receiverUserId: TEST_STATION_PERSON.id,
       }),
     );
   });

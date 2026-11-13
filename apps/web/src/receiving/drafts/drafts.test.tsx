@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
+import { pickStationPerson } from '../../session/station-test-person';
 import { newDraft, newSummary, type ReceiptDraft } from '../draft';
 import { resetDraftCleanupForTests } from './cleanup-notice';
 import { newRecord, type StoredDraft } from './record';
@@ -71,6 +72,7 @@ function renderPage(
   path = '/receiving-log/new',
   { strict = false }: { strict?: boolean } = {},
 ) {
+  pickStationPerson(session);
   const api: Record<string, Handler> = {
     'GET /api/projects/search': () => json(200, [project]),
     [`GET /api/projects/${project.id}/test-holes`]: () => json(200, [th1]),

@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { isPhoneLayout, mainNav, openMore } from './support/shell';
+import { mainNav, openMore } from './support/shell';
 import { withDatabase } from './support/db';
 
 // MM-V2-C31 T2: the Concrete dashboard, the Concrete Lab workspace, Specimen lookup, Concrete
@@ -77,18 +77,15 @@ test('AC1 and AC2: Specimen lookup lists a repeated set number with both project
   page,
 }) => {
   const data = await castTwoProjects(page);
-  // A Lab Technician on a lab computer: the rail's Concrete group holds the lab pages.
+  // A Lab Technician on a lab computer: the sidebar's Concrete section holds the lab pages.
   await signInAs(page, 'lt');
   await page.goto('/');
   await openMore(page);
   const nav = mainNav(page);
-  const show = nav.getByRole('button', { name: 'Show Concrete pages' });
-  await show.click();
-  const group = nav.getByRole('list', { name: 'Concrete pages' });
-  for (const label of ['Breaks', 'Receiving', 'Specimens', 'Holds', 'Review']) {
-    await expect(group.getByRole('link', { name: label, exact: true })).toBeVisible();
+  for (const label of ['Overview', 'Breaks', 'Receiving', 'Specimens', 'Holds', 'Review']) {
+    await expect(nav.getByRole('link', { name: label, exact: true })).toBeVisible();
   }
-  await group.getByRole('link', { name: 'Specimens', exact: true }).click();
+  await nav.getByRole('link', { name: 'Specimens', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Specimen lookup', level: 1 })).toBeVisible();
 
   const box = page.getByRole('textbox', { name: 'Specimen or set ID' });
@@ -162,27 +159,26 @@ test('AC3: dashboard counts match the lists they open, and My reports come first
   await expect(page.getByRole('checkbox', { name: /Only HOLDs due for review/ })).toBeChecked();
 });
 
-test('Search in the top bar covers projects and concrete records', async ({ page }) => {
+test('Search (Ctrl K) covers projects and concrete records', async ({ page }) => {
   const data = await castTwoProjects(page);
   await page.goto('/');
-  // Phone: the bottom bar's Find slot opens Search, with the field in the header.
-  if (isPhoneLayout(page)) {
-    await mainNav(page).getByRole('link', { name: 'Find', exact: true }).click();
-  }
-  const box = page.getByRole('search', { name: 'Search' }).getByRole('textbox', { name: 'Search' });
+  await expect(page.getByRole('banner')).toBeVisible();
+  // Strata (STRATA-14): one command menu; Enter on a non-exact query lands on the results page.
+  await page.keyboard.press('Control+k');
+  const box = page
+    .getByRole('dialog', { name: 'Search or scan' })
+    .getByRole('combobox', { name: 'Search or scan a label' });
   await box.fill(data.projects[1]!.number);
   await box.press('Enter');
   await expect(page).toHaveURL(/\/search\?q=/);
-  await expect(page.getByRole('heading', { name: /^\d+ results?$/, level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Results for /, level: 1 })).toBeVisible();
   const projects = page.getByRole('region', { name: 'Projects' });
   await expect(
     projects.getByRole('link', { name: new RegExp(`^${data.projects[1]!.number} `) }),
   ).toBeVisible();
   const concrete = page.getByRole('region', { name: 'Concrete' });
-  await expect(concrete.getByText('Matched on Project')).toBeVisible();
-  await expect(
-    concrete.getByRole('list', { name: `Specimen sets, ${data.projects[1]!.number}` }),
-  ).toBeVisible();
+  await expect(concrete.getByText(/Matched on Project/).first()).toBeVisible();
+  await expect(concrete.getByRole('link').first()).toBeVisible();
 
   // Concrete search from the dashboard finds the ticket-less report by its set number too.
   await page.goto('/concrete');

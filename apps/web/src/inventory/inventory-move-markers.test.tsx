@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { indexedDbMoveStore, type NewMove, type QueuedMove } from '../moves/store';
 import { pendingMovesByUnit, usePendingMoves } from '../moves/usePendingMoves';
 import type { TableView } from '../components/app-ui';
@@ -206,6 +207,7 @@ describe('Sample Storage rows after an offline move settles in another tab (revi
         return new Response('{}', { status: 404 });
       }),
     );
+    pickStationPerson(me);
     render(
       <SessionContext.Provider
         value={{

@@ -3,8 +3,10 @@ import {
   receiverListResponseSchema,
   type ReceiverOption,
 } from '@materialmule/shared';
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../api/client';
+import { useOptionalRecordingPerson } from '../session/recording-person-store';
+import { toReceiver } from '../session/station-people';
 import { RequiredMarker } from './app-ui';
 import { useListHighlight } from './useListHighlight';
 
@@ -29,6 +31,7 @@ export function ReceiverSelect({
   searchPath = '/api/staff/receivers',
   noMatchText = 'No active staff match.',
   hint = `Search by initials or name. ${NOT_LISTED_MESSAGE}`,
+  stationPerson,
 }: {
   value: ReceiverOption | null;
   onChange: (receiver: ReceiverOption | null) => void;
@@ -39,7 +42,40 @@ export function ReceiverSelect({
   searchPath?: string;
   noMatchText?: string;
   hint?: string;
+  /**
+   * On a shared LAB station with someone picked (STRATA-125, one recording identity):
+   * `prefill` starts as the picked person and follows a switch until changed by hand (Moved by);
+   * `follow` is the picked person, read-only (performers: who did the work). Never used for a
+   * receipt's Received by: on LAB it starts blank and someone must choose (T8/AC5, STRATA-107).
+   * Personal accounts and stations with no one picked are unaffected.
+   */
+  stationPerson?: 'prefill' | 'follow';
 }) {
+  const station = useOptionalRecordingPerson();
+  const picked = stationPerson && station?.isStation ? station.person : null;
+  const follows = stationPerson === 'follow' && picked !== null;
+  const pickedId = picked?.id ?? null;
+  const prefilledId = useRef<string | null>(null);
+  // Prefill: fill an empty field, or move along with a switch while it still holds the last
+  // prefill; a receiver chosen by hand stays. Follow: always the picked person.
+  const syncWithStation = useEffectEvent(() => {
+    if (!picked) return;
+    if (stationPerson === 'follow') {
+      if (value?.id !== picked.id) onChange(toReceiver(picked));
+      return;
+    }
+    if (value === null || value.id === prefilledId.current) {
+      if (value?.id !== picked.id) onChange(toReceiver(picked));
+    }
+    prefilledId.current = picked.id;
+  });
+  useEffect(() => {
+    if (stationPerson === 'prefill') syncWithStation();
+  }, [pickedId, stationPerson]);
+  useEffect(() => {
+    if (stationPerson === 'follow') syncWithStation();
+  }, [pickedId, stationPerson, value?.id]);
+
   const id = useId();
   const listId = `${id}-list`;
   const hintId = `${id}-hint`;
@@ -135,6 +171,33 @@ export function ReceiverSelect({
   const message = error ?? (unmatched ? 'Choose a person from the list.' : null);
   const describedBy = [hintId, message ? errorId : null].filter(Boolean).join(' ');
   const activeId = expanded && active >= 0 && options[active] ? `${id}-opt-${active}` : undefined;
+
+  if (follows) {
+    return (
+      <div className="form-field receiver-select">
+        <label htmlFor={id}>
+          {label}
+          {required ? <RequiredMarker /> : null}
+        </label>
+        <input
+          id={id}
+          type="text"
+          readOnly
+          aria-readonly="true"
+          aria-describedby={[hintId, error ? errorId : null].filter(Boolean).join(' ')}
+          value={formatReceiver(picked)}
+        />
+        <p id={hintId} className="field-hint">
+          The person in Recording as. To credit someone else, switch person at the top.
+        </p>
+        {error ? (
+          <p id={errorId} className="field-error">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="form-field receiver-select">

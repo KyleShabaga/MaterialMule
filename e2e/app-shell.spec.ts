@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
-import { isPhoneLayout, mainNav, openAccount } from './support/shell';
+import {
+  isPhoneLayout,
+  mainNav,
+  openAccount,
+  openAccountMenu,
+  openMore,
+  signOut,
+} from './support/shell';
 
 test('signed-out visitors land on sign-in and return to where they were going', async ({
   page,
@@ -14,11 +21,11 @@ test('signed-out visitors land on sign-in and return to where they were going', 
   await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
 });
 
-test('AC1/AC4: account row, menu and Receive samples', async ({ page }) => {
+test('AC1/AC4: account row, sidebar and Receive samples', async ({ page }) => {
   await signInAs(page, 'lab');
   await page.goto('/');
 
-  // Phone width: Receive samples is visible before the More sheet is opened.
+  // Phone width: Receive samples is visible before the sidebar Sheet is opened.
   if (isPhoneLayout(page)) {
     await expect(page.getByRole('link', { name: 'Receive samples' })).toBeInViewport();
   }
@@ -27,29 +34,37 @@ test('AC1/AC4: account row, menu and Receive samples', async ({ page }) => {
   await expect(account).toContainText('TEST');
 
   const menu = mainNav(page);
-  // Field Ledger: seven destinations (the phone bar holds Today and Receive itself), then
-  // Settings and Help & Feedback in the footer.
+  // Strata sidebar (DESIGN.md › Sidebar): Today, Projects; then Storage units, Soils, Concrete.
   for (const label of [
     'Today',
     'Projects',
     'Receive',
     'Inventory',
     'Lab programs',
-    'Retention',
-    'Concrete',
-    'Settings',
-    'Help & Feedback',
+    'Workboard',
+    'Overview',
+    'Breaks',
+    'Review',
   ]) {
     await expect(menu.getByRole('link', { name: label, exact: true }).first()).toBeVisible();
   }
-  // The old lab placeholders are gone (MM-T23), and so are the pre-redesign menu names.
+  await expect(menu.getByRole('button', { name: 'Retention', exact: true })).toBeVisible();
+  // The old lab placeholders and pre-redesign menu names are gone (MM-T23, STRATA-10).
   for (const gone of ['Lab Testing Worklist', 'Testing Programs', 'Dashboard', 'Sample Storage']) {
     await expect(menu.getByRole('link', { name: gone })).toHaveCount(0);
   }
+  // Settings, Help and Feedback & bugs live in the account menu.
+  const accountMenu = await openAccountMenu(page);
+  for (const item of ['Settings', 'Help', 'Feedback & bugs', 'Sign out']) {
+    await expect(accountMenu.getByRole('menuitem', { name: item, exact: true })).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
 
-  await menu.getByRole('link', { name: 'Projects', exact: true }).click();
+  await openMore(page);
+  await mainNav(page).getByRole('link', { name: 'Projects', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
-  await mainNav(page).getByRole('link', { name: 'Today', exact: true }).first().click();
+  await openMore(page);
+  await mainNav(page).getByRole('link', { name: 'Today', exact: true }).click();
   await page.getByRole('link', { name: 'Receive samples' }).click();
   // The open receipt draft's ID is added to the URL (MM-T11).
   await expect(page).toHaveURL(/\/receiving-log\/new(\?draft=[\w-]+)?$/);
@@ -72,7 +87,7 @@ test('AC6: after sign-out, the next person sees none of the previous user', asyn
   const account = await openAccount(page);
   await expect(account).toContainText('Admin (test)');
 
-  await account.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByText('Admin (test)')).toHaveCount(0);
 

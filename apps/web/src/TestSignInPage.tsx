@@ -3,8 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { apiFetch } from './api/client';
 import { safeReturnTo } from './lib/return-to';
-import { BandedCard, StatusBadge } from './components/app-ui';
-import { AuthPage } from './pages/AuthLayout';
+import { ArrowRight, CircleAlert, FlaskConical, LogOut } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { SignInLayout } from './pages/AuthLayout';
 import { useSession } from './session/context';
 
 interface Fixture {
@@ -87,83 +92,112 @@ export function TestSignInPage() {
 
   if (load.state === 'loading') {
     return (
-      <AuthPage busy>
-        <p>Loading test identities…</p>
-      </AuthPage>
+      <SignInLayout busy help={false}>
+        <p className="text-sm text-muted-foreground">Loading test identities…</p>
+      </SignInLayout>
     );
   }
   if (load.state === 'unavailable') {
     return (
-      <AuthPage>
-        <h1>Test sign-in</h1>
-        <p role="alert">Test sign-in isn’t available on this server.</p>
-      </AuthPage>
+      <SignInLayout help={false}>
+        <h1 className="text-2xl font-semibold">Test sign-in</h1>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>Test sign-in isn’t available on this server.</AlertDescription>
+        </Alert>
+      </SignInLayout>
     );
   }
 
   const me = load.me;
   return (
-    <AuthPage wide>
-      <p className="notice notice-warning">
-        <strong>Development and test only.</strong> These are fictional people. This page doesn’t
-        exist on the production server.
-      </p>
-      <div className="auth-title-row">
-        <h1>Test sign-in</h1>
-        <StatusBadge tone="warning">Test</StatusBadge>
-      </div>
-      {me ? (
-        <section className="auth-card test-identity" aria-label="Current identity">
-          <p className="signed-in" aria-live="polite">
-            <span className="test-initials" aria-hidden="true">
-              {me.initials ?? '—'}
-            </span>
-            <span>
-              <span className="field-hint">Signed in as</span> <strong>{me.displayName}</strong>
-              {me.initials ? <span className="muted"> · {me.initials}</span> : null}{' '}
-              {me.accountType === 'test' ? <span className="badge">TEST</span> : null}
-            </span>
-          </p>
-          <div className="auth-actions">
-            <button type="button" onClick={() => void signOut()}>
-              Sign out
-            </button>
-            <Link className="button primary" to={returnTo}>
-              Continue to Material Mule <span aria-hidden="true">→</span>
-            </Link>
+    <SignInLayout wide card={false} help={false}>
+      <Alert className="border-stage-due-mark/50 [&>svg]:text-stage-due-fg">
+        <FlaskConical aria-hidden="true" />
+        <AlertTitle className="line-clamp-none">Development and test only.</AlertTitle>
+        <AlertDescription className="text-stage-due-fg">
+          These are fictional people. This page doesn’t exist on the production server.
+        </AlertDescription>
+      </Alert>
+      <Card className="gap-5 rounded-[10px] p-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Test sign-in</h1>
+          <Badge variant="due">Test</Badge>
+        </div>
+        {me ? (
+          <div className="flex flex-col gap-4" aria-label="Current identity" role="group">
+            <p className="signed-in flex items-center gap-3 text-sm" aria-live="polite">
+              <Avatar className="size-8" aria-hidden="true">
+                <AvatarFallback className="font-mono text-[13px] font-bold">
+                  {me.initials ?? '—'}
+                </AvatarFallback>
+              </Avatar>
+              <span>
+                <span className="text-muted-foreground">Signed in as</span>{' '}
+                <strong>{me.displayName}</strong>
+                {me.initials ? (
+                  <span className="text-muted-foreground"> · {me.initials}</span>
+                ) : null}{' '}
+                {me.accountType === 'test' ? <Badge variant="outline">TEST</Badge> : null}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void signOut()}>
+                <LogOut aria-hidden="true" />
+                Sign out
+              </Button>
+              <Button asChild>
+                <Link to={returnTo}>
+                  Continue to Material Mule
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
           </div>
-        </section>
-      ) : (
-        <p aria-live="polite">Not signed in.</p>
-      )}
-      {error ? <p role="alert">{error}</p> : null}
-      <BandedCard
-        title="Sign in as"
-        aside={`${load.fixtures.length} test ${load.fixtures.length === 1 ? 'identity' : 'identities'}`}
-      >
-        <ul className="fixtures">
-          {load.fixtures.map((fixture) => (
-            <li key={fixture.key}>
-              <button type="button" onClick={() => void signInAs(fixture.key)}>
-                {fixture.displayName}
-              </button>
-              <span className="badge">TEST</span>
-              {fixture.initials ? (
-                <span className="fixture-initials">{fixture.initials}</span>
-              ) : null}
-              <span className="fixture-summary">{fixture.summary}</span>
-              {me && me.displayName === fixture.displayName ? (
-                <span className="fixture-current">
-                  <span aria-hidden="true">● </span>Signed in
+        ) : (
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            Not signed in.
+          </p>
+        )}
+        {error ? (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <section className="flex flex-col gap-2" aria-labelledby="test-sign-in-as">
+          <div className="flex items-baseline justify-between gap-3 border-b pb-2">
+            <h2 id="test-sign-in-as" className="text-base font-semibold">
+              Sign in as
+            </h2>
+            <span className="text-[13px] text-muted-foreground">
+              {load.fixtures.length} test {load.fixtures.length === 1 ? 'identity' : 'identities'}
+            </span>
+          </div>
+          <ul className="flex flex-col divide-y">
+            {load.fixtures.map((fixture) => (
+              <li key={fixture.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <Button variant="outline" size="sm" onClick={() => void signInAs(fixture.key)}>
+                  {fixture.displayName}
+                </Button>
+                <Badge variant="outline">TEST</Badge>
+                {fixture.initials ? (
+                  <span className="font-mono text-[13px]">{fixture.initials}</span>
+                ) : null}
+                <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">
+                  {fixture.summary}
                 </span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </BandedCard>
-      <p className="field-hint">
-        Pending applicants sign in through the mock Microsoft tenant, not here.
-      </p>
-    </AuthPage>
+                {me && me.displayName === fixture.displayName ? (
+                  <span className="text-[13px] font-medium text-stage-storage-fg">Signed in</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+        <p className="text-[13px] text-muted-foreground">
+          Pending applicants sign in through the mock Microsoft tenant, not here.
+        </p>
+      </Card>
+    </SignInLayout>
   );
 }

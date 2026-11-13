@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { pickOnStationPicker } from './support/lab-station';
 import { withDatabase } from './support/db';
 
 // MM-T11: receiving drafts autosaved in this browser (IndexedDB), against the real API with
@@ -213,6 +214,7 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   await signInAs(page, 'lab');
   await asLabStation(page);
   await page.goto('/receiving-log/new');
+  await pickOnStationPicker(page);
   await expect(draftStatus(page)).toHaveText('Draft not saved yet · Receiver: not chosen');
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
@@ -239,6 +241,8 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   // Signing in again returns to the same draft, on Units, receiver unchanged (AC4).
   await signInAs(page, 'lab');
   await page.reload();
+  // A new LAB session starts with no one picked.
+  await pickOnStationPicker(page);
   await expect(page).toHaveURL(/\/receiving-log\/new\?draft=/);
   await expect(
     page.getByRole('region', { name: 'This draft was started for AT. Change receiver?' }),
@@ -272,6 +276,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await signInAs(page, 'lab');
   await asLabStation(page);
   await page.goto('/receiving-log/new');
+  await pickOnStationPicker(page);
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
   await page.getByLabel('Description (optional)').fill('Handover check');

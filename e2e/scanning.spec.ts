@@ -3,7 +3,13 @@ import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { insertInventoryFixture } from './support/inventory';
 import { signInAsLabStation } from './support/lab-station';
+import { isPhoneLayout } from './support/shell';
 
+// Strata (STRATA-81): desktop has no Scan page. A wedge read with no field focused opens the unit
+// or shelf (scan-anywhere), Ctrl K takes scans, and /sample-storage/scan lands on Inventory with
+// Ctrl K open. Phones keep the Scan page (camera and handheld) until the phone screens replace
+// it, so the Scan page tests below run on the phone project only.
+//
 // MM-T16: DS3678-XR handheld scanning. The scanner is a USB keyboard that types the symbol's
 // data (exactly PREFIX-YYYY-NNNNNN for both Code 128 and QR, T14) followed by Enter, so each scan
 // here is the same keystrokes from Playwright's keyboard into whatever has focus. Fictional data.
@@ -29,9 +35,23 @@ function recordApiCalls(page: Page) {
   });
   return {
     lookups: () => calls.filter((c) => c.path === '/api/storage-units/lookup').map((c) => c.code),
-    writes: () => calls.filter((c) => c.method !== 'GET'),
+    // Opening a unit adds it to the person's sidebar Recent (POST /api/me/recents, STRATA-39):
+    // their own view history, not a change to any record, so it isn't counted as a write.
+    writes: () => calls.filter((c) => c.method !== 'GET' && c.path !== '/api/me/recents'),
   };
 }
+
+/** Exact lookups the command menu and scan-anywhere make (`/api/scan/resolve?payload=`). */
+function recordResolves(page: Page) {
+  const payloads: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/api/scan/resolve') payloads.push(url.searchParams.get('payload') ?? '');
+  });
+  return payloads;
+}
+
+const PHONE_ONLY = 'Desktop has no Scan page (STRATA-81); see the scan-anywhere tests.';
 
 async function unitState(readableIds: string[]) {
   return withDatabase(async (client) => {
@@ -47,6 +67,7 @@ async function unitState(readableIds: string[]) {
 test('T2/AC1/AC4: a simulated scan opens the unit; the same label within 2 s is ignored', async ({
   page,
 }) => {
+  test.skip(!isPhoneLayout(page), PHONE_ONLY);
   const data = await insertInventoryFixture();
   const before = await unitState([data.a1, data.b1]);
   await signInAs(page, 'at');
@@ -89,6 +110,7 @@ test('T2/AC1/AC4: a simulated scan opens the unit; the same label within 2 s is 
 // MM-T49: the receiving station looks units up by scan while signed in as a real LAB station
 // session (the E2E-only shared_lab account, as e2e/critical does; never the shared LAB password).
 test('T2/AC1: a LAB station scans a label and sees the unit, read-only', async ({ page }) => {
+  test.skip(!isPhoneLayout(page), PHONE_ONLY);
   const data = await insertInventoryFixture();
   const before = await unitState([data.a1, data.aReceiving]);
   await signInAsLabStation(page);
@@ -120,6 +142,7 @@ test('T2/AC1: a LAB station scans a label and sees the unit, read-only', async (
 });
 
 test('T3/AC3/AC5/AC7: unknown code, server down with Retry, lost focus', async ({ page }) => {
+  test.skip(!isPhoneLayout(page), PHONE_ONLY);
   const data = await insertInventoryFixture();
   const before = await unitState([data.a1]);
   await signInAs(page, 'at');
@@ -170,6 +193,77 @@ test('T3/AC3/AC5/AC7: unknown code, server down with Retry, lost focus', async (
 
   expect(api.writes()).toEqual([]);
   expect(await unitState([data.a1])).toEqual(before);
+});
+
+test('scan-anywhere: a label scanned with no field focused opens it, read-only', async ({
+  page,
+}) => {
+  test.skip(isPhoneLayout(page), 'Scan-anywhere is the desktop wedge-scanner path.');
+  const data = await insertInventoryFixture();
+  const before = await unitState([data.a1, data.b1]);
+  await signInAs(page, 'at');
+  await page.goto('/sample-storage');
+  await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  const api = recordApiCalls(page);
+  const resolves = recordResolves(page);
+
+  await scan(page, data.a1);
+  await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.a1}$`));
+  await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
+
+  // The next label opens from the unit page too, read as typed and normalised by the server.
+  // (Ignoring a repeat within 2 s is covered by the unit tests, which control the clock.)
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await scan(page, ` ${data.b1.toLowerCase()} `);
+  await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.b1}$`));
+  expect(resolves).toEqual([data.a1, data.b1.toLowerCase()]);
+
+  // A code that matches nothing exactly lands on the results page.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await scan(page, 'BKT-1999-000001');
+  await expect(page).toHaveURL(/\/search\?q=BKT-1999-000001$/);
+  await expect(page.getByText('Nothing matches.')).toBeVisible();
+
+  // Scanning never moves or changes anything.
+  expect(api.writes()).toEqual([]);
+  expect(await unitState([data.a1, data.b1])).toEqual(before);
+});
+
+test('scan-anywhere leaves a focused field alone', async ({ page }) => {
+  test.skip(isPhoneLayout(page), 'Scan-anywhere is the desktop wedge-scanner path.');
+  const data = await insertInventoryFixture();
+  await signInAs(page, 'at');
+  await page.goto('/sample-storage');
+  const search = page.getByRole('searchbox', { name: 'Search' });
+  await search.click();
+  const resolves = recordResolves(page);
+  await page.keyboard.type(data.a1);
+  await expect(search).toHaveValue(data.a1);
+  expect(resolves).toEqual([]);
+  await expect(page).toHaveURL(/\/sample-storage(\?|$)/);
+});
+
+test('/sample-storage/scan on desktop opens Ctrl K on Inventory; a scan there opens the unit', async ({
+  page,
+}) => {
+  test.skip(isPhoneLayout(page), 'Phones keep the Scan page.');
+  const data = await insertInventoryFixture();
+  await signInAsLabStation(page);
+  await page.goto('/sample-storage/scan');
+  await expect(page).toHaveURL(/\/sample-storage$/);
+  const menu = page.getByRole('dialog', { name: 'Search or scan' });
+  const box = menu.getByRole('combobox', { name: 'Search or scan a label' });
+  await expect(box).toBeFocused();
+  await expect(menu.getByText('Scan labels lives here now')).toBeVisible();
+  const api = recordApiCalls(page);
+
+  // A USB scanner types into the menu like a keyboard; Enter does the exact lookup.
+  await scan(page, data.aReceiving);
+  await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.aReceiving}$`));
+  await expect(page.getByRole('heading', { level: 1, name: data.aReceiving })).toBeVisible();
+  await expect(menu).toHaveCount(0);
+  expect(api.writes()).toEqual([]);
 });
 
 // Receiving helpers (as in receiving-wizard.spec.ts).

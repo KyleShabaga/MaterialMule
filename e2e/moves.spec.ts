@@ -9,6 +9,7 @@ import {
 } from './support/db';
 import { expireSession, signInAsLabStation } from './support/lab-station';
 import { removeTestedTube, testedTube } from './support/tested-tube';
+import { isPhoneLayout } from './support/shell';
 
 // MM-T28 test plan T4, T5, T7, T8 and T9: destination scans, queued moves and location
 // conflicts, through the real browser queue (IndexedDB) and API. The handheld scanner is a
@@ -58,13 +59,22 @@ async function scan(page: Page, payload: string) {
   await page.keyboard.press('Enter');
 }
 
+/**
+ * Opens Move units with `mover` as Moved by. On a LAB station Moved by starts as the Recording as
+ * person (Alex Tester unless the station picked someone else; STRATA-125) and stays editable, so a
+ * different mover is chosen by hand.
+ */
 async function openMove(page: Page, mover?: RegExp) {
   await page.goto('/sample-storage/move');
   await expect(page.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
   if (mover) {
     const field = page.getByRole('combobox', { name: /Moved by/ });
-    await field.fill(mover.source.split(' ')[0]!);
-    await page.getByRole('option', { name: mover }).click();
+    await expect(field).not.toHaveValue('');
+    if (!mover.test(await field.inputValue())) {
+      await field.fill(mover.source.split(' ')[0]!);
+      await page.getByRole('option', { name: mover }).click();
+    }
+    await expect(field).toHaveValue(mover);
   }
 }
 
@@ -351,7 +361,12 @@ test('Lookup mode stays read-only: a location label opens that shelf, not a move
   const c1 = await addLocation('C1', 'Warehouse');
   await signInAs(page, 'at');
   await page.goto('/sample-storage/scan');
-  await expect(page.getByRole('textbox', { name: 'Scan a storage unit label' })).toBeFocused();
+  // Desktop has no Scan page (STRATA-81): the URL opens Ctrl K, which takes the scan instead.
+  await expect(
+    isPhoneLayout(page)
+      ? page.getByRole('textbox', { name: 'Scan a storage unit label' })
+      : page.getByRole('combobox', { name: 'Search or scan a label' }),
+  ).toBeFocused();
   await page.keyboard.type(`LOC-${c1.code}`);
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/sample-storage/locations/${c1.code}$`));

@@ -5,8 +5,8 @@ import './lab.css';
 import './lab-ledger.css';
 
 /**
- * One "Lab programs" area (MM-T23/T24 wireframe decision, Field Ledger "Lab"): Worklist (default)
- * and Programs tabs, New lab program in the context row. `worklist` is off only while MM-T24
+ * One "Lab programs" area (MM-T23/T24 wireframe decision, Field Ledger "Lab"): Workboard (default;
+ * the Lab Testing Worklist, renamed by STRATA-10, still at /lab-testing) and Programs tabs, New lab program in the context row. `worklist` is off only while MM-T24
  * isn't there, so no dead tab is ever shown. A program page and the editor are records of their
  * own: they open under a back link with their own page title instead of the tabs.
  */
@@ -47,7 +47,7 @@ export function LabTestingLayout({ worklist = false }: { worklist?: boolean }) {
       <nav className="sub-nav" aria-label="Lab programs">
         {worklist ? (
           <NavLink to="/lab-testing" end>
-            Worklist
+            Workboard
           </NavLink>
         ) : null}
         <NavLink to="/lab-testing/programs">Programs</NavLink>

@@ -18,6 +18,9 @@ import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
 import { ShelfPage } from './inventory/ShelfPage';
 import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
+import { RecordingPersonLayout, RequireRecordingPerson } from './session/recording-person';
+import { WHO_IS_WORKING_PATH } from './session/recording-person-store';
+import { WhoIsWorkingPage } from './session/WhoIsWorkingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -156,96 +159,135 @@ export const routes: RouteObject[] = [
       {
         element: <RequireActiveSession />,
         children: [
-          // Label print views (MM-T39): no app chrome, one 3.5 x 1.5 in label per page.
-          { path: '/labels/print/unit/:id', element: <LabelPrintPage scope="unit" /> },
-          { path: '/labels/print/receipt/:id', element: <LabelPrintPage scope="receipt" /> },
-          // Units chosen on Inventory (selection bar → Print labels): `?ids=` readable IDs.
-          { path: '/labels/print/units', element: <LabelPrintPage scope="units" /> },
-          // Sample ID tag sheets (MM-T69): no app chrome, letter sheets of ten 2 x 4 in cards.
-          ...(FEATURES.labTesting
-            ? [{ path: '/lab-testing/programs/:programId/tags', element: <SampleTagsPage /> }]
-            : []),
           {
-            path: '/',
-            element: <AppLayout />,
+            // One recording-person controller for the LAB station (STRATA-16, 61, 125), above
+            // both the picker and the app so they share one state. Personal accounts pass through.
+            element: <RecordingPersonLayout />,
             children: [
-              { index: true, element: <DashboardPage /> },
-              // Confirmed receipts and receipt detail (MM-T51); static `new` wins over :receiptId.
-              { path: 'receiving-log', element: <ReceivingLogPage /> },
-              { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
-              { path: 'receiving-log/:receiptId', element: <ReceiptDetailPage /> },
-              // Inventory and storage unit detail (MM-T12). The menu calls it Sample Storage; the
-              // card's /inventory and /storage-units/:suNumber paths redirect here.
-              { path: 'sample-storage', element: <InventoryPage /> },
-              // Handheld scanner lookup mode (MM-T16); static, so it wins over :readableId.
-              { path: 'sample-storage/scan', element: <ScanPage /> },
-              // Destination scans and queued moves (MM-T28); static, like scan.
-              { path: 'sample-storage/move', element: <MovePage /> },
-              // Field Ledger shelf page: where a scanned shelf (location) label lands.
-              { path: 'sample-storage/locations/:code', element: <ShelfPage /> },
-              { path: 'sample-storage/:readableId', element: <StorageUnitDetailPage /> },
-              { path: 'inventory', element: <InventoryRedirect /> },
-              { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
-              // Action requests inbox (MM-T27): personal accounts; the header bell links here.
-              { path: 'action-requests', element: <ActionRequestsPage /> },
-              // Notification center (MM-T91): personal accounts; the header Notifications control
-              // links here. Separate from action requests; nothing here resolves one.
-              { path: 'notifications', element: <NotificationsPage /> },
-              // Field Ledger rail footer: Help & Feedback (placeholder until lane A builds it).
-              { path: 'help', element: <HelpPage /> },
-              // Field Ledger search across units, samples, projects and programs (top bar, Find).
-              { path: 'search', element: <SearchPage /> },
-              // Projects list and detail (MM-T35).
-              { path: 'projects', element: <ProjectsPage /> },
-              { path: 'projects/:projectId', element: <ProjectDetailPage /> },
-              { path: 'projects/:projectId/team', element: <TeamPermissionsPage /> },
-              // The project's Concrete section (MM-V2-C30): five tabs, mix detail and the mix
-              // propagation review.
-              { path: 'projects/:projectId/concrete', element: <ProjectConcreteRedirect /> },
-              { path: 'projects/:projectId/concrete/:tab', element: <ProjectConcretePage /> },
-              { path: 'projects/:projectId/concrete/mixes/:mixId', element: <MixDetailPage /> },
+              { path: WHO_IS_WORKING_PATH, element: <WhoIsWorkingPage /> },
               {
-                path: 'projects/:projectId/concrete/mixes/:mixId/propagation',
-                element: <PropagationReviewPage />,
-              },
-              // C37's former mixes screen: its actions are on the Concrete → Mixes tab now.
-              {
-                path: 'projects/:projectId/concrete-mixes',
-                element: <ProjectConcreteMixesRedirect />,
-              },
-              {
-                path: 'settings',
-                element: <SettingsLayout />,
+                element: <RequireRecordingPerson />,
                 children: [
-                  { index: true, element: <ProfilePage /> },
+                  // Label print views (MM-T39): no app chrome, one 3.5 x 1.5 in label per page.
+                  { path: '/labels/print/unit/:id', element: <LabelPrintPage scope="unit" /> },
                   {
-                    path: 'profile',
-                    element: <ProfilePage />,
+                    path: '/labels/print/receipt/:id',
+                    element: <LabelPrintPage scope="receipt" />,
                   },
-                  // Own roles, grants and project responsibilities (MM-AO06).
-                  { path: 'access', element: <MyAccessPage /> },
-                  { path: 'staff', element: <StaffPage /> },
-                  // Storage locations and location labels (MM-T37).
-                  { path: 'locations', element: <LocationsPage /> },
-                  // Concrete equipment: testing machine and air meters (MM-V2-C27).
-                  { path: 'equipment', element: <EquipmentSettingsPage /> },
-                  // Concrete suppliers and the holiday calendar (MM-V2-C37).
-                  { path: 'suppliers', element: <SuppliersSettingsPage /> },
-                  { path: 'holidays', element: <HolidaysSettingsPage /> },
-                  // The header printed on issued concrete reports (MM-V2-C32).
-                  { path: 'report-header', element: <ReportHeaderSettingsPage /> },
-                  // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
-                  { path: 'tests', element: <TestsSettingsPage /> },
-                  { path: 'templates', element: <TemplatesSettingsPage /> },
-                  { path: 'printers', element: <PrintersSettingsPage /> },
-                  // Draft auto-delete (MM-T45): Admin and Lab Manager.
-                  { path: 'receiving', element: <ReceivingSettingsPage /> },
-                  // Admin-only operational status (MM-T21).
-                  { path: 'system-status', element: <SystemStatusPage /> },
+                  // Units chosen on Inventory (selection bar → Print labels): `?ids=` readable IDs.
+                  { path: '/labels/print/units', element: <LabelPrintPage scope="units" /> },
+                  // Sample ID tag sheets (MM-T69): no app chrome, letter sheets of ten 2 x 4 in cards.
+                  ...(FEATURES.labTesting
+                    ? [
+                        {
+                          path: '/lab-testing/programs/:programId/tags',
+                          element: <SampleTagsPage />,
+                        },
+                      ]
+                    : []),
+                  {
+                    path: '/',
+                    element: <AppLayout />,
+                    children: [
+                      {
+                        // A page that crashes shows "Something went wrong" inside the shell (STRATA-105).
+                        errorElement: <ErrorPage inShell />,
+                        children: [
+                          { index: true, element: <DashboardPage /> },
+                          // Confirmed receipts and receipt detail (MM-T51); static `new` wins over :receiptId.
+                          { path: 'receiving-log', element: <ReceivingLogPage /> },
+                          { path: 'receiving-log/new', element: <ReceiveSamplesPage /> },
+                          { path: 'receiving-log/:receiptId', element: <ReceiptDetailPage /> },
+                          // Inventory and storage unit detail (MM-T12). The menu calls it Sample Storage; the
+                          // card's /inventory and /storage-units/:suNumber paths redirect here.
+                          { path: 'sample-storage', element: <InventoryPage /> },
+                          // Handheld scanner lookup mode (MM-T16); static, so it wins over :readableId.
+                          { path: 'sample-storage/scan', element: <ScanPage /> },
+                          // Destination scans and queued moves (MM-T28); static, like scan.
+                          { path: 'sample-storage/move', element: <MovePage /> },
+                          // Field Ledger shelf page: where a scanned shelf (location) label lands.
+                          { path: 'sample-storage/locations/:code', element: <ShelfPage /> },
+                          {
+                            path: 'sample-storage/:readableId',
+                            element: <StorageUnitDetailPage />,
+                          },
+                          { path: 'inventory', element: <InventoryRedirect /> },
+                          { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
+                          // Action requests inbox (MM-T27): personal accounts; the header bell links here.
+                          { path: 'action-requests', element: <ActionRequestsPage /> },
+                          // Notification center (MM-T91): personal accounts; the header Notifications control
+                          // links here. Separate from action requests; nothing here resolves one.
+                          { path: 'notifications', element: <NotificationsPage /> },
+                          // Field Ledger rail footer: Help & Feedback (placeholder until lane A builds it).
+                          { path: 'help', element: <HelpPage /> },
+                          // Field Ledger search across units, samples, projects and programs (top bar, Find).
+                          { path: 'search', element: <SearchPage /> },
+                          // Projects list and detail (MM-T35).
+                          { path: 'projects', element: <ProjectsPage /> },
+                          { path: 'projects/:projectId', element: <ProjectDetailPage /> },
+                          { path: 'projects/:projectId/team', element: <TeamPermissionsPage /> },
+                          // The project's Concrete section (MM-V2-C30): five tabs, mix detail and the mix
+                          // propagation review.
+                          {
+                            path: 'projects/:projectId/concrete',
+                            element: <ProjectConcreteRedirect />,
+                          },
+                          {
+                            path: 'projects/:projectId/concrete/:tab',
+                            element: <ProjectConcretePage />,
+                          },
+                          {
+                            path: 'projects/:projectId/concrete/mixes/:mixId',
+                            element: <MixDetailPage />,
+                          },
+                          {
+                            path: 'projects/:projectId/concrete/mixes/:mixId/propagation',
+                            element: <PropagationReviewPage />,
+                          },
+                          // C37's former mixes screen: its actions are on the Concrete → Mixes tab now.
+                          {
+                            path: 'projects/:projectId/concrete-mixes',
+                            element: <ProjectConcreteMixesRedirect />,
+                          },
+                          {
+                            path: 'settings',
+                            element: <SettingsLayout />,
+                            children: [
+                              { index: true, element: <ProfilePage /> },
+                              {
+                                path: 'profile',
+                                element: <ProfilePage />,
+                              },
+                              // Own roles, grants and project responsibilities (MM-AO06).
+                              { path: 'access', element: <MyAccessPage /> },
+                              { path: 'staff', element: <StaffPage /> },
+                              // Storage locations and location labels (MM-T37).
+                              { path: 'locations', element: <LocationsPage /> },
+                              // Concrete equipment: testing machine and air meters (MM-V2-C27).
+                              { path: 'equipment', element: <EquipmentSettingsPage /> },
+                              // Concrete suppliers and the holiday calendar (MM-V2-C37).
+                              { path: 'suppliers', element: <SuppliersSettingsPage /> },
+                              { path: 'holidays', element: <HolidaysSettingsPage /> },
+                              // The header printed on issued concrete reports (MM-V2-C32).
+                              { path: 'report-header', element: <ReportHeaderSettingsPage /> },
+                              // Lab test catalogue and templates (MM-T23): everyone reads, Lab Manager/admin edit.
+                              { path: 'tests', element: <TestsSettingsPage /> },
+                              { path: 'templates', element: <TemplatesSettingsPage /> },
+                              { path: 'printers', element: <PrintersSettingsPage /> },
+                              // Draft auto-delete (MM-T45): Admin and Lab Manager.
+                              { path: 'receiving', element: <ReceivingSettingsPage /> },
+                              // Admin-only operational status (MM-T21).
+                              { path: 'system-status', element: <SystemStatusPage /> },
+                            ],
+                          },
+                          ...featureRoutes,
+                          { path: '*', element: <NotFoundPage /> },
+                        ],
+                      },
+                    ],
+                  },
                 ],
               },
-              ...featureRoutes,
-              { path: '*', element: <NotFoundPage /> },
             ],
           },
         ],

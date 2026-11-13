@@ -72,7 +72,7 @@ test('MTR-136: a menu link moves focus to the new page heading', async ({ page }
   await signInAs(page, 'at');
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  // Phone width: Projects sits in the More sheet above the bottom bar.
+  // Phone width: Projects sits in the sidebar Sheet, opened from the top bar.
   await openMore(page);
   await mainNav(page).getByRole('link', { name: 'Projects', exact: true }).focus();
   await page.keyboard.press('Enter');

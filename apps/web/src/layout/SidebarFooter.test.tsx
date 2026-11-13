@@ -1,14 +1,16 @@
 import type { MeResponse } from '@materialmule/shared';
-import { act, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { SessionContext } from '../session/context';
+import { RECORDING_PERSON_KEY } from '../session/recording-person-store';
 import { THEME_STORAGE_KEY } from '../theme/theme';
-import { ServerHealth, SidebarFooter, ThemeSwitch } from './SidebarFooter';
+import { ServerHealth, SidebarFooter } from './SidebarFooter';
 
-// MISC-09: rail footer — Pending actions, Settings, Help & Feedback, the account row, the dark
-// mode switch and server health in words, not colour alone.
+// MISC-09 server health in words; STRATA-15 account row and menu (Theme, Settings, Help,
+// Feedback & bugs, Sign out; End station session on LAB). Fictional people only.
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -21,97 +23,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
   document.documentElement.removeAttribute('data-theme');
   window.localStorage.clear();
-});
-
-describe('ThemeSwitch', () => {
-  it('is a labelled switch that flips the theme and remembers it', async () => {
-    const user = userEvent.setup();
-    render(<ThemeSwitch />);
-    const toggle = screen.getByRole('switch', { name: 'Dark mode' });
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-    toggle.focus();
-    await user.keyboard(' ');
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(document.documentElement.dataset.theme).toBe('light');
-  });
-
-  /** A prefers-color-scheme query whose answer the test can change, like the OS switching. */
-  function stubOsTheme(dark: boolean) {
-    const listeners = new Set<() => void>();
-    const query = {
-      get matches() {
-        return dark;
-      },
-      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
-      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
-    };
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => query),
-    );
-    return {
-      listeners,
-      set(next: boolean) {
-        dark = next;
-        act(() => listeners.forEach((listener) => listener()));
-      },
-    };
-  }
-
-  it('follows a live OS theme change while no choice is saved, so one click flips it', async () => {
-    const user = userEvent.setup();
-    const os = stubOsTheme(false);
-    const { unmount } = render(<ThemeSwitch />);
-    const toggle = screen.getByRole('switch', { name: 'Dark mode' });
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-    os.set(true);
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(document.documentElement.dataset.theme).toBe('light');
-    unmount();
-    expect(os.listeners.size).toBe(0);
-  });
-
-  it('keeps an explicit choice when the OS theme changes', async () => {
-    const user = userEvent.setup();
-    const os = stubOsTheme(false);
-    render(<ThemeSwitch />);
-    const toggle = screen.getByRole('switch', { name: 'Dark mode' });
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    os.set(false);
-    os.set(true);
-    os.set(false);
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(document.documentElement.dataset.theme).toBe('dark');
-    await user.click(toggle);
-    expect(document.documentElement.dataset.theme).toBe('light');
-  });
+  window.sessionStorage.clear();
 });
 
 describe('ServerHealth', () => {
-  it('says the server is connected', async () => {
+  it('says the server is connected, for screen readers only while all is well', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => json(200, { status: 'ok', version: '0.1.0', database: 'up' })),
     );
     render(<ServerHealth />);
-    expect(screen.getByText('Checking server…')).toHaveAttribute('aria-live', 'polite');
-    expect(await screen.findByText('Server connected')).toBeInTheDocument();
+    expect(screen.getByText('Checking server…').closest('p')).toHaveAttribute(
+      'aria-live',
+      'polite',
+    );
+    const line = (await screen.findByText('Server connected')).closest('p')!;
+    expect(line).toHaveClass('sr-only');
   });
 
-  it('says when the database is down', async () => {
+  it('shows when the database is down', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => json(503, { status: 'degraded', version: '0.1.0', database: 'down' })),
     );
     render(<ServerHealth />);
-    expect(await screen.findByText('Server connected, database unavailable')).toBeInTheDocument();
+    const line = (await screen.findByText('Server connected, database unavailable')).closest('p');
+    expect(line).not.toHaveClass('sr-only');
   });
 
   it('says when the server is unreachable, and re-checks on window focus', async () => {
@@ -129,7 +66,7 @@ describe('ServerHealth', () => {
   });
 });
 
-describe('SidebarFooter', () => {
+describe('SidebarFooter account menu', () => {
   const person: MeResponse = {
     id: 'u2',
     displayName: 'Alex Tester',
@@ -140,87 +77,120 @@ describe('SidebarFooter', () => {
     permissions: ['inventory.read', 'action_item.read'],
     sessionExpiresAt: '2026-10-26T06:00:00.000Z',
   };
+  const lab: MeResponse = {
+    ...person,
+    id: 'lab',
+    displayName: 'LAB',
+    accountType: 'shared_lab',
+    roles: [],
+    permissions: ['inventory.read'],
+  };
+
+  function HelpProbe() {
+    const { state } = useLocation();
+    return <p>help from: {(state as { from?: string } | null)?.from ?? 'none'}</p>;
+  }
 
   function renderFooter(me: MeResponse, path = '/') {
     const signOut = vi.fn(async () => undefined);
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.startsWith('/api/action-items/count')) return json(200, { open: 3 });
-        return json(200, { status: 'ok', version: '0.1.0', database: 'up' });
-      }),
+      vi.fn(async () => json(200, { status: 'ok', version: '0.1.0', database: 'up' })),
     );
     render(
       <SessionContext.Provider
         value={{ session: { status: 'active', me }, refresh: vi.fn(), signOut }}
       >
         <MemoryRouter initialEntries={[path]}>
-          <SidebarFooter />
+          <SidebarProvider>
+            <Routes>
+              <Route path="/help" element={<HelpProbe />} />
+              <Route path="/settings" element={<p>settings page</p>} />
+              <Route path="*" element={<SidebarFooter />} />
+            </Routes>
+          </SidebarProvider>
         </MemoryRouter>
       </SessionContext.Provider>,
     );
     return signOut;
   }
 
-  it('links Pending actions with its count, Settings and Help & Feedback, then the account row', async () => {
+  it('shows initials, name and role, and opens Theme, Settings, Help, Feedback & bugs, Sign out', async () => {
     const user = userEvent.setup();
-    const signOut = renderFooter(person, '/action-requests');
-    const pending = await screen.findByRole('link', { name: 'Pending actions, 3 waiting on you' });
-    expect(pending).toHaveAttribute('href', '/action-requests');
-    expect(pending).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
-    expect(screen.getByRole('link', { name: 'Help & Feedback' })).toHaveAttribute('href', '/help');
+    const signOut = renderFooter(person);
     const account = screen.getByRole('group', { name: 'Signed in user' });
     expect(account).toHaveTextContent('AT');
     expect(account).toHaveTextContent('Alex Tester');
     expect(account).toHaveTextContent('Lab Technician');
-    // Personal accounts carry no tag and no Switch user.
-    expect(within(account).queryByText('Personal')).toBeNull();
-    expect(within(account).queryByRole('button', { name: 'Switch user' })).toBeNull();
-    await user.click(within(account).getByRole('button', { name: 'Sign out' }));
+    expect(within(account).queryByText('TEST')).toBeNull();
+    const trigger = within(account).getByRole('button', {
+      name: 'Alex Tester, Lab Technician. Account menu',
+    });
+    // No session end time anywhere (D38 is deferred).
+    expect(account).not.toHaveTextContent(/Session ends/);
+
+    await user.click(trigger);
+    const menu = await screen.findByRole('menu');
+    expect(
+      Array.from(menu.querySelectorAll('[role^="menuitem"]')).map((item) => item.textContent),
+    ).toEqual(['Light', 'Dark', 'System', 'Settings', 'Help', 'Feedback & bugs', 'Sign out']);
+    expect(within(menu).getByRole('menuitem', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings',
+    );
+    await user.click(within(menu).getByRole('menuitem', { name: 'Sign out' }));
     expect(signOut).toHaveBeenCalledWith();
   });
 
-  it('Help & Feedback carries the page it was opened from, for the feedback form', async () => {
+  it('Light / Dark / System sets the theme at once, remembers it, and System clears it', async () => {
     const user = userEvent.setup();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => json(200, { status: 'ok', version: '0.1.0', database: 'up' })),
+    renderFooter(person);
+    const trigger = screen.getByRole('button', { name: /Account menu/ });
+    await user.click(trigger);
+    expect(await screen.findByRole('menuitemradio', { name: 'System' })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
-    function HelpProbe() {
-      const { state } = useLocation();
-      return <p>from: {(state as { from?: string } | null)?.from ?? 'none'}</p>;
-    }
-    render(
-      <SessionContext.Provider
-        value={{ session: { status: 'active', me: person }, refresh: vi.fn(), signOut: vi.fn() }}
-      >
-        <MemoryRouter initialEntries={['/sample-storage/move']}>
-          <Routes>
-            <Route path="/help" element={<HelpProbe />} />
-            <Route path="*" element={<SidebarFooter />} />
-          </Routes>
-        </MemoryRouter>
-      </SessionContext.Provider>,
+    await user.click(screen.getByRole('menuitemradio', { name: 'Dark' }));
+    // The menu stays open, so the change can be seen and undone.
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
-    await user.click(screen.getByRole('link', { name: 'Help & Feedback' }));
-    expect(await screen.findByText('from: /sample-storage/move')).toBeInTheDocument();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    await user.click(screen.getByRole('menuitemradio', { name: 'System' }));
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
   });
 
-  it('LAB has no Pending actions; Switch user signs out to the account picker', async () => {
+  it('Help and Feedback & bugs carry the page they were opened from', async () => {
     const user = userEvent.setup();
-    const signOut = renderFooter({
-      ...person,
-      displayName: 'LAB',
-      accountType: 'shared_lab',
-      roles: [],
-      permissions: ['inventory.read'],
-    });
-    expect(screen.queryByRole('link', { name: /^Pending actions/ })).toBeNull();
-    expect(screen.getByText('Shared station')).toBeInTheDocument();
-    expect(screen.getByText(/Session ends/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Switch user' }));
-    expect(signOut).toHaveBeenCalledWith('/sign-in?switch=1');
+    renderFooter(person, '/sample-storage/move');
+    await user.click(screen.getByRole('button', { name: /Account menu/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Feedback & bugs' }));
+    expect(await screen.findByText('help from: /sample-storage/move')).toBeInTheDocument();
+  });
+
+  it('a TEST account carries its tag', () => {
+    renderFooter({ ...person, accountType: 'test' });
+    expect(screen.getByRole('group', { name: 'Signed in user' })).toHaveTextContent('TEST');
+  });
+
+  it('LAB reads as the station; End station session forgets the person, then signs out', async () => {
+    const user = userEvent.setup();
+    window.sessionStorage.setItem(RECORDING_PERSON_KEY, '{"id":"p1"}');
+    const signOut = renderFooter(lab);
+    const account = screen.getByRole('group', { name: 'Signed in user' });
+    expect(account).toHaveTextContent('LAB station');
+    expect(account).toHaveTextContent('Shared · Receiving lab');
+    await user.click(within(account).getByRole('button', { name: /Account menu/ }));
+    const menu = await screen.findByRole('menu');
+    expect(
+      Array.from(menu.querySelectorAll('[role^="menuitem"]')).map((item) => item.textContent),
+    ).toEqual(['Settings', 'Help', 'Feedback & bugs', 'End station session']);
+    await user.click(within(menu).getByRole('menuitem', { name: 'End station session' }));
+    expect(window.sessionStorage.getItem(RECORDING_PERSON_KEY)).toBeNull();
+    expect(signOut).toHaveBeenCalledWith();
   });
 });

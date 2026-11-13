@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // Receiving wizard (MM-T10). Every project, person and hole here is fictional.
 
@@ -60,6 +61,7 @@ function json(status: number, body: unknown): Response {
 type Handler = (body: unknown) => Response | Promise<Response>;
 
 function renderWizard(extra: Record<string, Handler> = {}, session = me()) {
+  pickStationPerson(session);
   const api: Record<string, Handler> = {
     'GET /api/projects/search': () => json(200, [project]),
     [`GET /api/projects/${project.id}/test-holes`]: () => json(200, [th1, th2]),
@@ -654,6 +656,7 @@ describe('Receiving wizard (MM-T10)', () => {
       {},
       me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB', initials: null }),
     );
+    // T8/AC5: Received by starts blank on LAB; the Recording as person never fills it.
     expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
     await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     expect(

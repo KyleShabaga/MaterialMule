@@ -1,12 +1,40 @@
 import { healthResponseSchema } from '@materialmule/shared';
+import {
+  Bug,
+  ChevronsUpDown,
+  CircleQuestionMark,
+  LogOut,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { PendingActionsLink } from '../action-requests/ActionRequestsBell';
-import { StatusBadge } from '../components/app-ui';
-import { formatExpiry } from '../lib/format';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  SidebarFooter as SidebarFooterSlot,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 import { useMe, useSession } from '../session/context';
-import { useTheme } from '../theme/theme';
-import { accountBadge, accountInitials, accountRoleLine, activeDestination } from './nav';
+import { clearRecordingPerson } from '../session/recording-person-store';
+import { useThemeChoice, type ThemeChoice } from '../theme/theme';
+import { accountInitials, accountRowText } from './nav';
 
 const HEALTH_POLL_MS = 60_000;
 
@@ -33,7 +61,11 @@ async function checkHealth(): Promise<Health> {
   }
 }
 
-/** MISC-09: server health (GET /api/health), every minute and when the window regains focus. */
+/**
+ * MISC-09: server health (GET /api/health), every minute and when the window regains focus.
+ * Strata: shown above the account row only when something is wrong; while the server is fine
+ * the line is for screen readers only (it is still a live region, so recovery is announced).
+ */
 export function ServerHealth() {
   const [health, setHealth] = useState<Health>('checking');
 
@@ -53,200 +85,183 @@ export function ServerHealth() {
     };
   }, []);
 
+  const problem = health === 'degraded' || health === 'unreachable';
   return (
     // aria-live rather than role=status: pages keep their one status region for their own notices.
-    <p className={`server-health server-health-${health}`} aria-live="polite">
-      <span className="server-health-dot" aria-hidden="true" />
-      {HEALTH_TEXT[health]}
+    <p
+      className={cn(
+        'server-health flex items-center gap-2 px-2 text-[13px] text-destructive-text group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0',
+        !problem && 'sr-only',
+      )}
+      data-health={health}
+      aria-live="polite"
+    >
+      <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-destructive" />
+      <span className="group-data-[collapsible=icon]:sr-only">{HEALTH_TEXT[health]}</span>
     </p>
   );
 }
 
-/** MISC-09: dark mode switch. Text says the state too, not only the switch position. */
-export function ThemeSwitch() {
-  const [theme, setTheme] = useTheme();
-  const dark = theme === 'dark';
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={dark}
-      className="theme-switch"
-      onClick={() => setTheme(dark ? 'light' : 'dark')}
-    >
-      <span className="theme-switch-label">Dark mode</span>
-      <span className="theme-switch-state" aria-hidden="true">
-        {dark ? 'On' : 'Off'}
-      </span>
-      <span className="theme-switch-track" aria-hidden="true">
-        <span className="theme-switch-thumb" />
-      </span>
-    </button>
-  );
-}
+const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+];
 
-function GearIcon() {
+/** STRATA-7: Light / Dark / System, saved per browser; System follows the operating system. */
+function ThemeChoiceItems() {
+  const [choice, setChoice] = useThemeChoice();
   return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="6.5" />
-      <circle cx="12" cy="12" r="2.5" />
-      <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22M4.9 4.9l2.5 2.5M16.6 16.6l2.5 2.5M4.9 19.1l2.5-2.5M16.6 7.4l2.5-2.5" />
-    </svg>
-  );
-}
-
-function HelpIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-function SignOutIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10 4H5v16h5" />
-      <path d="M14 8l4 4-4 4" />
-      <path d="M18 12H9" />
-    </svg>
+    <DropdownMenuGroup>
+      <DropdownMenuLabel className="text-[13px] font-normal text-muted-foreground">
+        Theme
+      </DropdownMenuLabel>
+      <DropdownMenuRadioGroup
+        value={choice}
+        onValueChange={(value) => setChoice(value as ThemeChoice)}
+      >
+        {THEMES.map(({ value, label, icon: Icon }) => (
+          <DropdownMenuRadioItem
+            key={value}
+            value={value}
+            // Keep the menu open, so the change can be seen and undone.
+            onSelect={(event) => event.preventDefault()}
+          >
+            <Icon aria-hidden="true" />
+            {label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuGroup>
   );
 }
 
 /**
- * The account row: initials square, name, role line and the sign-out icon button. The shared LAB
- * station also gets Switch user and its session end; TEST and LAB accounts keep their tag.
+ * STRATA-15 (finishes STRATA-7): the account row and its menu. Personal: Theme, Settings, Help,
+ * Feedback & bugs, Sign out. Shared LAB station: Settings, Help, Feedback & bugs and End station
+ * session (signs the station out). Signing off the picked person is the Recording as chip's,
+ * never this menu's. No session end time (D38 is deferred).
  */
-export function AccountRow() {
+export function AccountMenu() {
   const me = useMe();
   const { signOut } = useSession();
-  const badge = accountBadge(me);
-  const lab = me.accountType === 'shared_lab';
+  const { pathname } = useLocation();
+  const station = me.accountType === 'shared_lab';
+  const { name, line } = accountRowText(me);
+  const initials = station ? 'LAB' : accountInitials(me);
+  // Help's "Include the page I was on" offers the path the menu was used from.
+  const helpState = pathname === '/help' ? undefined : { from: pathname };
+
+  const avatar = (
+    <Avatar aria-hidden="true" className={cn('size-8', station && 'rounded-md')}>
+      <AvatarFallback
+        className={cn(
+          'font-mono text-[13px] font-bold',
+          station
+            ? 'rounded-md bg-sidebar-primary text-[11px] text-sidebar-primary-foreground'
+            : 'bg-accent text-accent-foreground',
+        )}
+      >
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+  );
+  const lines = (
+    <span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+      <span className="flex items-center gap-1.5">
+        <span className="truncate font-semibold">{name}</span>
+        {me.accountType === 'test' ? (
+          <Badge variant="outline" className="px-1.5 font-mono text-[11px]">
+            TEST
+          </Badge>
+        ) : null}
+      </span>
+      <span className="truncate text-[13px] text-muted-foreground">{line}</span>
+    </span>
+  );
+
   return (
-    <div className="account" role="group" aria-label="Signed in user">
-      <div className="account-row">
-        <span className="account-initials" aria-hidden="true">
-          {accountInitials(me)}
-        </span>
-        <span className="account-text">
-          <span className="account-name">{me.displayName}</span>
-          <span className="account-role">{accountRoleLine(me)}</span>
-        </span>
-        <button
-          type="button"
-          className="account-sign-out"
-          aria-label="Sign out"
-          title="Sign out"
-          onClick={() => void signOut()}
-        >
-          <SignOutIcon />
-        </button>
-      </div>
-      {me.accountType !== 'personal' ? (
-        <span className="account-tag">
-          <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-        </span>
-      ) : null}
-      {lab ? (
-        <>
-          <p className="account-expiry">
-            Session ends{' '}
-            <time dateTime={me.sessionExpiresAt}>{formatExpiry(me.sessionExpiresAt)}</time>
-          </p>
-          <button
-            type="button"
-            className="account-switch"
-            onClick={() => void signOut('/sign-in?switch=1')}
-          >
-            Switch user
-          </button>
-        </>
-      ) : null}
+    <div role="group" aria-label="Signed in user">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                aria-label={`${name}, ${line}. Account menu`}
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                {avatar}
+                {lines}
+                <ChevronsUpDown
+                  aria-hidden="true"
+                  className="ml-auto group-data-[collapsible=icon]:hidden"
+                />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" sideOffset={4} className="w-60">
+              {station ? null : (
+                <>
+                  <DropdownMenuLabel className="p-0 font-normal">
+                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                      {avatar}
+                      <span className="grid flex-1 leading-tight">
+                        <span className="truncate font-semibold">{name}</span>
+                        <span className="truncate text-[13px] text-muted-foreground">{line}</span>
+                      </span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <ThemeChoiceItems />
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">
+                    <Settings aria-hidden="true" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/help" state={helpState}>
+                    <CircleQuestionMark aria-hidden="true" />
+                    Help
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  {/* The feedback form is on the Help page until its dialog (STRATA-104). */}
+                  <Link to="/help" state={helpState}>
+                    <Bug aria-hidden="true" />
+                    Feedback &amp; bugs
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  // Ending the station session also forgets who was working here.
+                  if (station) clearRecordingPerson();
+                  void signOut();
+                }}
+              >
+                <LogOut aria-hidden="true" />
+                {station ? 'End station session' : 'Sign out'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
     </div>
   );
 }
 
-/**
- * Bottom of the rail (and of the phone More sheet): Pending actions (personal accounts), Settings
- * and Help & Feedback, then a 2 px rule and the account row, then the dark mode switch and server
- * health (MISC-09).
- */
-export function SidebarFooter({ onNavigate }: { onNavigate?: () => void } = {}) {
-  const me = useMe();
-  const { pathname } = useLocation();
-  const settings = activeDestination(pathname) === 'settings';
-  const help = pathname === '/help' || pathname.startsWith('/help/');
+/** Bottom of the sidebar: server health when something is wrong, then the account row. */
+export function SidebarFooter() {
   return (
-    <div className="rail-footer">
-      <ul className="rail-footer-links">
-        {me.permissions.includes('action_item.read') ? (
-          <li>
-            <PendingActionsLink onNavigate={onNavigate} />
-          </li>
-        ) : null}
-        <li>
-          <Link
-            to="/settings"
-            className="rail-link rail-footer-link"
-            aria-current={settings ? 'page' : undefined}
-            onClick={onNavigate}
-          >
-            <GearIcon />
-            <span>Settings</span>
-          </Link>
-        </li>
-        <li>
-          <Link
-            to="/help"
-            // Help's "Include the page I was on" (lane A) offers the path this link was used from.
-            state={help ? undefined : { from: pathname }}
-            className="rail-link rail-footer-link"
-            aria-current={help ? 'page' : undefined}
-            onClick={onNavigate}
-          >
-            <HelpIcon />
-            <span>Help &amp; Feedback</span>
-          </Link>
-        </li>
-      </ul>
-      <AccountRow />
-      <ThemeSwitch />
+    <SidebarFooterSlot className="gap-1">
       <ServerHealth />
-    </div>
+      <AccountMenu />
+    </SidebarFooterSlot>
   );
 }

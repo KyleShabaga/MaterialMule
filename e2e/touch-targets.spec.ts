@@ -2,9 +2,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-94: on a 375 px phone every control a person taps is at least 44 × 44 px: buttons, the
-// Notifications bell, the bottom-bar slots (60 px), the More sheet's links and Pending actions, date and select fields (the receive step's too), checkbox rows (the label
-// is the hit area), back links, "See all" links and the dashboard filter chips. Inline links in a
-// sentence or a table cell are exempt (WCAG 2.5.8) and not measured.
+// Notifications bell, the top bar's sidebar toggle, the sidebar Sheet's rows, section headings and
+// account row, date and select fields (the receive step's too), checkbox rows (the label is the
+// hit area), back links, "See all" links and the dashboard filter chips. Inline links in a
+// sentence or a table cell are exempt (WCAG 2.5.8) and not measured. Desktop sidebar rows are
+// 36 px by design (44 px is touch only).
 
 test.skip(({ isMobile }) => !isMobile, 'Phone layout only');
 test.use({ viewport: { width: 375, height: 812 } });
@@ -17,12 +19,11 @@ const TARGETS = [
   'label:has(> input[type="radio"])',
   '.back-link a',
   '.see-all-link',
-  '.action-bell',
-  '.brand',
-  '.phone-slot',
-  '.rail-link',
-  '.rail-sub-link',
-  '.rail-toggle',
+  '.notifications-bell',
+  '[data-sidebar="trigger"]',
+  '[data-sidebar="menu-button"]',
+  '[data-sidebar="menu-sub-button"]',
+  '[data-sidebar="group-label"]',
 ].join(', ');
 
 async function smallTargets(page: Page): Promise<string[]> {
@@ -59,16 +60,12 @@ for (const route of [
   });
 }
 
-test('MTR-94: the bottom bar is 60 px and the open More sheet has 44 px targets', async ({
-  page,
-}) => {
+test('MTR-94: the open sidebar Sheet has 44 px targets', async ({ page }) => {
   await signInAs(page, 'at');
   await page.goto('/');
-  for (const slot of await page.locator('.phone-slot').all()) {
-    expect((await slot.boundingBox())!.height).toBeGreaterThanOrEqual(59.5);
-  }
-  await page.getByRole('button', { name: 'More', exact: true }).click();
-  await expect(page.locator('.more-sheet .rail-footer')).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Pending actions/ })).toBeVisible();
+  await page.getByRole('banner').getByRole('button', { name: 'Toggle Sidebar' }).click();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByRole('link', { name: 'Projects', exact: true })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Signed in user' })).toBeVisible();
   expect(await smallTargets(page)).toEqual([]);
 });

@@ -8,9 +8,9 @@ import { safeReturnTo } from '../lib/return-to';
 import { routes } from '../routes';
 import { SessionContext, type SessionState } from '../session/context';
 import {
-  accountBadge,
   accountInitials,
   accountRoleLine,
+  accountRowText,
   activeDestination,
   activeSubPage,
   destinationsFor,
@@ -91,7 +91,7 @@ function childrenOf(who: Pick<MeResponse, 'accountType' | 'roles'>, key: string)
   return destinationsFor(who, ALL_ON).find((d) => d.key === key)!.children;
 }
 
-describe('navigation (Field Ledger rail)', () => {
+describe('flat destinations (page sections, concrete lab pages)', () => {
   it('lists the seven destinations in order, Projects second and Concrete last', () => {
     expect(destinationsFor(OTHER, ALL_ON).map((d) => [d.label, d.to])).toEqual([
       ['Today', '/'],
@@ -185,12 +185,6 @@ describe('navigation (Field Ledger rail)', () => {
     expect(activeSubPage('/disposal-retention/scan', retention)).toBe('/disposal-retention/scan');
   });
 
-  it('labels each account type', () => {
-    expect(accountBadge(me({ accountType: 'shared_lab' })).label).toBe('Shared station: LAB');
-    expect(accountBadge(me({ accountType: 'test' })).label).toBe('TEST');
-    expect(accountBadge(me({ accountType: 'personal' })).label).toBe('Personal');
-  });
-
   it('derives initials and the role line for the account row', () => {
     expect(accountInitials({ initials: 'KCS', displayName: 'Kim Smith' })).toBe('KCS');
     expect(accountInitials({ initials: null, displayName: 'Alex Tester' })).toBe('AT');
@@ -199,6 +193,10 @@ describe('navigation (Field Ledger rail)', () => {
       'Admin, Lab Manager',
     );
     expect(accountRoleLine({ roles: [], accountType: 'shared_lab' })).toBe('Shared station');
+    expect(accountRowText({ accountType: 'shared_lab', displayName: 'LAB', roles: [] })).toEqual({
+      name: 'LAB station',
+      line: 'Shared · Receiving lab',
+    });
   });
 });
 
@@ -234,7 +232,7 @@ describe('route guard', () => {
     expect(
       await screen.findByRole('heading', { name: 'Material Mule is unavailable' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(screen.getByRole('alert')).not.toHaveTextContent(/API/);
   });
 
@@ -277,9 +275,7 @@ describe('dashboard', () => {
     expect(within(account).getByText('LAB')).toBeInTheDocument();
     expect(within(account).getByText('Lab Manager')).toBeInTheDocument();
     expect(within(account).getByText('TEST')).toBeInTheDocument();
-    expect(within(account).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
-    // Switch user and the session end are for the shared LAB station only.
-    expect(within(account).queryByRole('button', { name: 'Switch user' })).toBeNull();
+    expect(within(account).getByRole('button', { name: /Account menu$/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Receive samples' })).toHaveAttribute(
       'href',
       '/receiving-log/new',
@@ -330,7 +326,7 @@ describe('dashboard', () => {
       await router.navigate('/projects/p1');
     });
     expect(await screen.findByText('Loading…')).toBeInTheDocument();
-    const settings = screen.getByRole('link', { name: 'Settings' });
+    const settings = screen.getByRole('link', { name: 'Inventory' });
     act(() => settings.focus());
     await act(async () => release());
     expect(await screen.findByRole('heading', { level: 1, name: 'Project' })).toBeInTheDocument();
@@ -365,187 +361,7 @@ describe('dashboard', () => {
   it('shows a not-found page for unknown paths inside the app', async () => {
     renderAt('/nowhere', { status: 'active', me: me() });
     expect(
-      await screen.findByRole('heading', { name: 'Nothing is at this address.' }),
+      await screen.findByRole('heading', { name: 'This page doesn’t exist.' }),
     ).toBeInTheDocument();
-  });
-});
-
-describe('desktop rail', () => {
-  it('lists the destinations, marks the current one and opens its group by itself', async () => {
-    const user = userEvent.setup();
-    renderAt('/disposal-retention/scan', { status: 'active', me: me() });
-    const nav = await screen.findByRole('navigation', { name: 'Main' });
-    expect(
-      within(nav)
-        .getAllByRole('link')
-        .slice(0, 9)
-        .map((a) => a.textContent),
-    ).toEqual([
-      'Material Mule',
-      'Today',
-      'Projects',
-      'Receive',
-      'Inventory',
-      'Lab programs',
-      'Retention',
-      'Due and overdue',
-      'Disposal scan',
-    ]);
-    expect(within(nav).getByRole('link', { name: 'Retention' })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
-    expect(within(nav).getByRole('link', { name: 'Disposal scan' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(within(nav).getByRole('link', { name: 'Due and overdue' })).not.toHaveAttribute(
-      'aria-current',
-    );
-    const hide = within(nav).getByRole('button', { name: 'Hide Retention pages' });
-    expect(hide).toHaveAttribute('aria-expanded', 'true');
-    expect(hide).toHaveAttribute('aria-controls', 'rail-group-retention');
-    await user.click(hide);
-    expect(within(nav).queryByRole('link', { name: 'Disposal scan' })).toBeNull();
-    expect(within(nav).getByRole('button', { name: 'Show Retention pages' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    // The Concrete group stays closed outside its section until its chevron opens it.
-    expect(within(nav).queryByRole('link', { name: 'Breaks' })).toBeNull();
-    await user.click(within(nav).getByRole('button', { name: 'Show Concrete pages' }));
-    const concrete = within(nav).getByRole('list', { name: 'Concrete pages' });
-    expect(
-      within(concrete)
-        .getAllByRole('link')
-        .map((a) => a.textContent),
-    ).toEqual(['Breaks', 'Receiving', 'Specimens', 'Holds', 'Review']);
-  });
-
-  it('ink-fills Settings on a settings page; Help & Feedback and dark mode sit in the footer', async () => {
-    renderAt('/settings/profile', { status: 'active', me: me() });
-    const nav = await screen.findByRole('navigation', { name: 'Main' });
-    expect(within(nav).getByRole('link', { name: 'Settings' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(within(nav).getByRole('link', { name: 'Help & Feedback' })).toHaveAttribute(
-      'href',
-      '/help',
-    );
-    expect(within(nav).getByRole('link', { name: 'Today' })).not.toHaveAttribute('aria-current');
-    expect(within(nav).getByRole('switch', { name: 'Dark mode' })).toBeInTheDocument();
-    // No Pending actions without action_item.read.
-    expect(within(nav).queryByRole('link', { name: /^Pending actions/ })).toBeNull();
-  });
-
-  it('the top bar holds the search field and nothing from the rail', async () => {
-    renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    const top = await screen.findByRole('banner');
-    expect(within(top).getByRole('search', { name: 'Search' })).toBeInTheDocument();
-    expect(within(top).getByRole('textbox', { name: 'Search' })).toHaveAttribute(
-      'placeholder',
-      'Search units, samples, projects, programs…',
-    );
-    expect(within(top).queryByRole('link', { name: 'Material Mule' })).toBeNull();
-  });
-
-  it('shows Switch user and the session end for the shared LAB station', async () => {
-    renderAt(
-      '/',
-      {
-        status: 'active',
-        me: me({ accountType: 'shared_lab', displayName: 'LAB', initials: null, roles: [] }),
-      },
-      { '/api/activity/recent': [] },
-    );
-    const account = await screen.findByRole('group', { name: 'Signed in user' });
-    expect(within(account).getByText('Shared station: LAB')).toBeInTheDocument();
-    expect(within(account).getByText(/Session ends/)).toBeInTheDocument();
-    expect(within(account).getByRole('button', { name: 'Switch user' })).toBeInTheDocument();
-  });
-});
-
-/** matchMedia answering true for the phone query only. */
-function stubPhone() {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: query === '(max-width: 640px)',
-    media: query,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  }));
-}
-
-describe('phone bottom bar and More sheet (MTR-137)', () => {
-  it('has five slots, the current one marked, and no rail', async () => {
-    stubPhone();
-    renderAt('/receiving-log', { status: 'active', me: me() });
-    const nav = await screen.findByRole('navigation', { name: 'Main' });
-    expect(screen.getAllByRole('navigation', { name: 'Main' })).toHaveLength(1);
-    expect(
-      within(nav)
-        .getAllByRole('listitem')
-        .map((li) => li.textContent),
-    ).toEqual(['Today', 'Find', 'Scan', 'Receive', 'More']);
-    expect(within(nav).getByRole('link', { name: 'Receive' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(within(nav).getByRole('link', { name: 'Find' })).toHaveAttribute('href', '/search');
-    expect(within(nav).getByRole('link', { name: 'Scan' })).toHaveAttribute(
-      'href',
-      '/sample-storage/scan',
-    );
-    expect(screen.queryByRole('link', { name: 'Projects' })).toBeNull();
-  });
-
-  it('makes the covered page inert, focuses the first link, and closes on Escape or an outside tap', async () => {
-    stubPhone();
-    const user = userEvent.setup();
-    renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    const more = await screen.findByRole('button', { name: 'More' });
-    const main = document.getElementById('main')!;
-    const header = screen.getByRole('banner');
-    expect(main).not.toHaveAttribute('inert');
-
-    await user.click(more);
-    expect(more).toHaveAttribute('aria-expanded', 'true');
-    expect(main).toHaveAttribute('inert');
-    expect(header).toHaveAttribute('inert');
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    expect(within(nav).getByRole('link', { name: 'Projects' })).toHaveFocus();
-    expect(within(nav).getByRole('link', { name: 'Settings' })).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: 'Help & Feedback' })).toBeInTheDocument();
-    expect(within(nav).getByRole('group', { name: 'Signed in user' })).toBeInTheDocument();
-    expect(within(nav).getByRole('switch', { name: 'Dark mode' })).toBeInTheDocument();
-    // The bar's own destinations aren't repeated in the sheet.
-    expect(within(nav).getAllByRole('link', { name: 'Today' })).toHaveLength(1);
-
-    await user.keyboard('{Escape}');
-    expect(more).toHaveAttribute('aria-expanded', 'false');
-    expect(more).toHaveFocus();
-    expect(main).not.toHaveAttribute('inert');
-    expect(within(nav).queryByRole('link', { name: 'Projects' })).toBeNull();
-
-    await user.click(more);
-    expect(more).toHaveAttribute('aria-expanded', 'true');
-    // A tap inside the sheet keeps it open; one outside closes it.
-    await user.click(within(nav).getByText('Lab Manager'));
-    expect(more).toHaveAttribute('aria-expanded', 'true');
-    await user.click(document.body);
-    expect(more).toHaveAttribute('aria-expanded', 'false');
-    expect(more).toHaveFocus();
-  });
-
-  it('closes the sheet once a destination is chosen, and marks More for its pages', async () => {
-    stubPhone();
-    const user = userEvent.setup();
-    const router = renderAt('/', { status: 'active', me: me() }, { '/api/activity/recent': [] });
-    const more = await screen.findByRole('button', { name: 'More' });
-    await user.click(more);
-    await user.click(screen.getByRole('link', { name: 'Projects' }));
-    expect(router.state.location.pathname).toBe('/projects');
-    expect(more).toHaveAttribute('aria-expanded', 'false');
-    expect(more).toHaveClass('is-current');
   });
 });

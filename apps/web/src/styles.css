@@ -106,7 +106,6 @@
   --space-6: 24px;
   --space-7: 32px;
   --space-8: 48px;
-  --rail-width: 232px;
   --content-max: 1240px;
   --page-pad: 32px;
 
@@ -242,13 +241,6 @@
     background-color: transparent;
     color: var(--danger);
     padding: 0 14px;
-  }
-
-  /* A square icon-only button (needs an aria-label). */
-  .icon-button {
-    width: var(--control);
-    padding: 0;
-    flex: 0 0 auto;
   }
 
   /* Disabled: dimmed text and edge, never opacity alone; no hover tint. */
@@ -1735,11 +1727,6 @@
       min-height: var(--target);
     }
 
-    .action-bell {
-      min-width: var(--target);
-      min-height: var(--target);
-    }
-
     /* A checkbox's label is its hit area: the whole row is 44px tall. */
     .checkbox,
     .checkbox-option,
@@ -2278,14 +2265,6 @@
     .data-table tbody tr.is-selected > * {
       border-bottom-color: Highlight;
     }
-  }
-
-  /* Lane B (pure addition): on phones, anything scrolled into view or focused stops above the fixed
-   bottom bar instead of under it (WCAG 2.4.11 Focus Not Obscured). */
-  html:has(.app-phone) {
-    scroll-padding-bottom: calc(
-      var(--target-primary-phone) + var(--rule-width) + var(--space-4) + env(safe-area-inset-bottom)
-    );
   }
 
   /* A text field with its button on one line (search, add test hole, scan or type an ID). Shared by

@@ -5,6 +5,7 @@ import {
   projectSearchResponseSchema,
   receiptLogPageSchema,
   scanResolveResponseSchema,
+  type ConcreteSearch,
   type InventoryPage,
   type LabProgramList,
   type ProjectSummary,
@@ -14,8 +15,9 @@ import {
 } from '@materialmule/shared';
 import type { z } from 'zod';
 import { apiFetch } from '../api/client';
+import { fetchConcreteSearch } from '../concrete/lab/api';
 
-// Field Ledger search (top bar and /search): each kind of record through the list or search the
+// Strata search (the Ctrl K menu and /search): each kind of record through the list or search the
 // app already has for it. Every call resolves. A refusal (403) means this account can't read that
 // kind of record, so its group is left out rather than shown as an error.
 
@@ -51,12 +53,11 @@ async function getJson<T>(
 }
 
 /** Storage units, disposed ones included (a disposed unit keeps its ID and history). */
-export function searchUnits(q: string): Promise<SearchResult<InventoryPage>> {
-  const params = new URLSearchParams({
-    search: q,
-    status: 'all',
-    pageSize: String(SEARCH_UNIT_PAGE),
-  });
+export function searchUnits(
+  q: string,
+  pageSize = SEARCH_UNIT_PAGE,
+): Promise<SearchResult<InventoryPage>> {
+  const params = new URLSearchParams({ search: q, status: 'all', pageSize: String(pageSize) });
   return getJson(`/api/inventory?${params.toString()}`, inventoryPageSchema, 'Storage units');
 }
 
@@ -104,16 +105,42 @@ export async function resolveExact(q: string): Promise<ScanResolveResponse | nul
 }
 
 /**
- * Where a search for `q` lands: the unit itself for an exact unit ID or label, the shelf page for
- * a shelf label, else /search.
+ * Concrete field reports and their sets (MM-V2-C31's search), as a search result. A 404 means the
+ * concrete search isn't there for this session, so the group is left out like a refusal.
  */
-export async function searchDestination(q: string): Promise<string> {
-  const exact = await resolveExact(q);
+export async function searchConcrete(
+  q: string,
+  pageSize = SEARCH_PREVIEW,
+): Promise<SearchResult<ConcreteSearch>> {
+  const result = await fetchConcreteSearch(q, 1, pageSize);
+  if (result.ok) return result;
+  return {
+    ok: false,
+    forbidden: result.notFound === true,
+    message: "Concrete records couldn't load. Try again.",
+  };
+}
+
+/** The page an exact match opens: the unit itself, or the shelf page for a shelf label. */
+export function exactDestination(exact: ScanResolveResponse | null): string | null {
   if (exact?.type === 'storage_unit') {
     return `/sample-storage/${encodeURIComponent(exact.storageUnit.readableId)}`;
   }
   if (exact?.type === 'location') {
     return `/sample-storage/locations/${encodeURIComponent(exact.location.code)}`;
   }
+  return null;
+}
+
+/** The results page for `q`. */
+export function resultsPath(q: string): string {
   return `/search?q=${encodeURIComponent(q)}`;
+}
+
+/**
+ * Where a search for `q` lands: the unit itself for an exact unit ID or label, the shelf page for
+ * a shelf label, else /search.
+ */
+export async function searchDestination(q: string): Promise<string> {
+  return exactDestination(await resolveExact(q)) ?? resultsPath(q);
 }

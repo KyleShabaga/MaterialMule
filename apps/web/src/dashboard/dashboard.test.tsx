@@ -6,7 +6,6 @@ import type {
   RecentlyReceivedItem,
   RecentlyReceivedResponse,
   StorageLocation,
-  Worklist,
 } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
@@ -18,7 +17,6 @@ import { indexedDbDraftStore } from '../receiving/drafts/store';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { receivedWhen } from './format';
-import { loadMoreCounts } from './more-counts';
 import {
   byUrgency,
   firstName,
@@ -344,37 +342,5 @@ describe('Today', () => {
     expect(within(room).getByText('Empty')).toBeInTheDocument();
     // The receiving lab names the lab on the greeting's date line.
     expect(await screen.findByText(/· RECEIVING LAB$/)).toBeInTheDocument();
-  });
-});
-
-describe('More sheet counts', () => {
-  it('reads one count per destination and leaves out what it cannot read', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === '/api/inventory') {
-          return json(200, {
-            ...emptyPage,
-            total: url.searchParams.get('retention') ? 9 : 212,
-          });
-        }
-        if (url.pathname === '/api/projects') {
-          return json(200, { items: [], total: 7, page: 1, pageSize: 1 });
-        }
-        if (url.pathname === '/api/worklist') {
-          const worklist: Worklist = { items: [], total: 3, page: 1, pageSize: 25, projects: [] };
-          return json(200, worklist);
-        }
-        return json(403, {});
-      }),
-    );
-    const counts = await loadMoreCounts(
-      me({ permissions: ['inventory.read', 'lab_program.read'] }),
-    );
-    expect(counts.inventory).toBe(212);
-    expect(counts.projects).toBe(7);
-    expect(counts.concrete).toBeUndefined();
-    expect(counts.receive).toBe(0);
   });
 });
