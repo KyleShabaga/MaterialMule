@@ -43,13 +43,16 @@ test('Inventory selection → Move units here → the shelf page shows the arriv
   );
 
   await page.goto(`/sample-storage/locations/${shelf.code}`);
-  await expect(page.getByRole('heading', { level: 1, name: shelf.name })).toBeVisible();
-  const units = page.getByRole('region', { name: 'On this shelf', exact: true });
+  // STRATA-74: the code is the heading; one counted cell per unit (plus empty places when the
+  // shelf has a capacity), and the units in the Units here table.
+  await expect(page.getByRole('heading', { level: 1, name: shelf.code })).toBeVisible();
+  await expect(page.getByText(shelf.name).first()).toBeVisible();
+  const places = page.getByRole('list', { name: 'Places on this shelf' });
+  await expect(places).toContainText(first.readableId);
+  await expect(places).toContainText(second.readableId);
+  const units = page.getByRole('table', { name: 'Units here' });
   await expect(units.getByRole('link', { name: first.readableId })).toBeVisible();
   await expect(units.getByRole('link', { name: second.readableId })).toBeVisible();
-  await expect(
-    page.getByRole('img', { name: /^2 units on this shelf, \d due for retention$/ }),
-  ).toBeVisible();
   const activity = page.getByRole('list', { name: 'Comings and goings' });
   await expect(activity).toContainText(`${first.readableId} arrived`);
   await expect(activity).toContainText('from Receiving lab');

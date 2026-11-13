@@ -186,7 +186,7 @@ describe('storage unit labels page', () => {
     });
     renderRoute(`/sample-storage/${UNIT.readableId}`);
 
-    const history = await screen.findByRole('table');
+    const history = await screen.findByRole('table', { name: /Print history/ });
     expect(screen.getByRole('heading', { level: 1, name: UNIT.readableId })).toBeInTheDocument();
     expect(
       within(history).getByText('Unknown — check the printer before reprinting'),

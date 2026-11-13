@@ -50,9 +50,12 @@ test('T6: search, filter, open detail, Back keeps filters, then clear', async ({
   await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(data.warehouse);
   const receipt = page.getByRole('region', { name: 'Receipt' });
   await expect(receipt).toContainText('AT · Alex Tester');
-  await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-    'TH26-01: G1–S12',
-  );
+  await expect(
+    page
+      .getByRole('table', { name: 'Test hole summaries' })
+      .getByRole('row')
+      .filter({ hasText: 'TH26-01' }),
+  ).toContainText('G1–S12');
   await expect(page.getByRole('region', { name: 'Label' })).toBeVisible();
 
   // Back returns to the same filtered view.
@@ -178,7 +181,7 @@ test('T7: at phone width rows become cards with no horizontal scroll', async ({
 
   await page.goto(`/sample-storage/${data.a1}`);
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Summaries' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Test hole summaries' })).toBeVisible();
   const detailOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

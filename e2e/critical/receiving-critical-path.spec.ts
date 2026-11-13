@@ -6,8 +6,10 @@ import { dropNextPrintJobContaining } from '../support/printer';
 import { closeMore, isPhoneLayout, openAccount } from '../support/shell';
 import {
   addHole,
+  addUnit,
   bucket,
   chooseDemoProject,
+  chooseProject,
   chooseReceiver,
   confirmDelivery,
   createProjectThroughApi,
@@ -48,11 +50,13 @@ test(
     await toUnits(page);
     await addHole(bucket(page, 1), 'TH26-01');
     await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-    await page.getByRole('button', { name: 'Add a storage unit' }).click();
+    await addUnit(page);
     await addHole(bucket(page, 2), 'TH26-01');
     await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
     // D41: the quantity is calculated from the units; never an individual sample list (CLAUDE.md).
-    await expect(page.getByText('2 storage units').first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirm receipt' })).toContainText(
+      '2 storage units · IDs issue on confirm',
+    );
     await expect(page.getByLabel(/sample (number|id)/i)).toHaveCount(0);
 
     await confirmDelivery(page);
@@ -75,9 +79,12 @@ test(
     await page.getByRole('link', { name: `Open ${ids[0]}` }).click();
     await expect(page.getByRole('heading', { level: 1, name: ids[0]! })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('Receiving lab');
-    await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-      'TH26-01: G1–S12',
-    );
+    await expect(
+      page
+        .getByRole('table', { name: 'Test hole summaries' })
+        .getByRole('row')
+        .filter({ hasText: 'TH26-01' }),
+    ).toContainText('G1–S12');
   },
 );
 
@@ -109,9 +116,10 @@ test(
     await sampleRange(unit, 'TH26-01', 'G1', 'S12');
     await addHole(unit, 'TH26-02');
     await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
+    // One unit, two holes: the second is an "Also holds" line with its own summary.
     await expect(
-      unit.getByRole('list', { name: 'Bucket 1 contents' }).getByRole('listitem'),
-    ).toHaveText(['TH26-01G1–S12', 'TH26-02All samples']);
+      unit.getByRole('list', { name: 'Bucket 1 samples and depth' }).getByRole('listitem'),
+    ).toHaveCount(2);
     await confirmDelivery(page);
     const [id] = await issuedIds(page);
 
@@ -144,9 +152,18 @@ test(
     const receiptCard = page.getByRole('region', { name: 'Receipt' });
     await expect(receiptCard).toContainText('JS · Jordan Smith');
     await expect(receiptCard).toContainText('LAB');
-    await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-      'TH26-02: All samples',
-    );
+    await expect(
+      page
+        .getByRole('table', { name: 'Test hole summaries' })
+        .getByRole('row')
+        .filter({ hasText: 'TH26-01' }),
+    ).toContainText('G1–S12');
+    await expect(
+      page
+        .getByRole('table', { name: 'Test hole summaries' })
+        .getByRole('row')
+        .filter({ hasText: 'TH26-02' }),
+    ).toContainText('All samples');
   },
 );
 
@@ -165,14 +182,14 @@ test(
     await page.getByRole('combobox', { name: /Find project/ }).fill(projectNumber);
     await expect(page.getByRole('option', { name: 'No matching project' })).toBeVisible();
     await page.getByRole('button', { name: 'Add project' }).click();
-    const form = page.getByRole('group', { name: 'Add project' });
+    const form = page.getByRole('dialog', { name: 'Add project' });
     await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
     await form.getByLabel('Project name').fill('Example Ridge');
     await form.getByLabel('Client').fill('Example Client');
     await form
       .getByLabel('Nominate a Lead Project Engineer (optional)')
       .selectOption({ label: 'PE · Pat Example' });
-    await form.getByRole('button', { name: 'Save project' }).click();
+    await form.getByRole('button', { name: 'Add project' }).click();
     await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
     await toUnits(page);
 
@@ -183,9 +200,10 @@ test(
     await summaryOf(unit, 'TH26-03').getByLabel('Summary type').selectOption('all');
 
     // Nothing typed earlier was lost.
-    const delivery = page.getByRole('group', { name: 'Delivery' });
-    await expect(delivery).toContainText('AT · Alex Tester');
-    await expect(delivery).toContainText(description);
+    await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
+      /^AT · Alex Tester/,
+    );
+    await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
     await confirmDelivery(page);
     const [id] = await issuedIds(page);
 
@@ -229,7 +247,12 @@ test(
     // 1. Double-click: one receipt, one unit.
     const doubled = uniqueTag('T18-dblclick');
     await fillOneBucket(doubled);
-    await page.getByRole('button', { name: 'Confirm and issue IDs' }).dblclick();
+    // The dialog's Confirm is double-clicked: the receipt is sent once.
+    await page.getByRole('button', { name: 'Confirm and print labels' }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Confirm 1 unit and print labels' })
+      .dblclick();
     const [first] = await issuedIds(page);
     expect(await receiptsDescribed(doubled)).toMatchObject([
       { quantity: 1, readable_ids: [first] },
@@ -266,34 +289,37 @@ test(
 
 test('a failed print then a reprint keep the same IDs and location', critical, async ({ page }) => {
   const description = uniqueTag('T18-print');
+  // A project of its own, so the printer can be told to drop this receipt's labels (they carry
+  // the project number) before the confirm sends them.
+  const projectNumber = uniqueTag('E2E-PRINT').toUpperCase();
   await signInAs(page, 'at');
+  await createProjectThroughApi(page, projectNumber, 'TH26-01');
   await openWizard(page);
-  await chooseDemoProject(page);
+  await chooseProject(page, projectNumber, `${projectNumber} · Example Ridge · Example Client`);
   await page.getByLabel('Description (optional)').fill(description);
   await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
-  await addHole(bucket(page, 2), 'TH26-02');
-  await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
-  // Print from the confirmation screen, so the printer can be told to drop this job first.
-  await page.getByRole('checkbox', { name: /Print 2 labels/ }).uncheck();
+  await addUnit(page);
+  await addHole(bucket(page, 2), 'TH26-01');
+  await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
+
+  // The printer drops the connection part-way through this receipt's labels.
+  await dropNextPrintJobContaining(projectNumber);
   await confirmDelivery(page);
   const ids = await issuedIds(page);
   const before = await unitState(ids);
-
-  // The printer drops the connection part-way through this receipt's labels.
-  await dropNextPrintJobContaining(ids[0]!);
-  const labels = page.getByRole('region', { name: 'Next: put them away' });
-  await labels.getByRole('button', { name: 'Print all labels' }).click();
-  await expect(labels.getByText('Unknown — check the printer before reprinting')).toBeVisible({
+  // STRATA-77: an uncertain print makes Print again the primary; nothing is confirmed again.
+  await expect(page.getByText(/it isn’t known whether the labels printed/)).toBeVisible({
     timeout: 15_000,
   });
   // D03: a failed print changes nothing about the units.
   expect(await unitState(ids)).toEqual(before);
 
-  await labels.getByRole('button', { name: 'Reprint' }).click();
-  await expect(labels.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Print again' }).click();
+  await expect(
+    page.getByRole('list', { name: 'New storage units' }).getByText('Sent to printer'),
+  ).toHaveCount(2, { timeout: 15_000 });
 
   // Same IDs, same location, same receipt; two jobs (uncertain initial, sent reprint), no new unit.
   expect(await unitState(ids)).toEqual(before);
@@ -374,7 +400,8 @@ test(
     const id = unit!.suNumber;
 
     await page.goto(`/sample-storage/${id}`);
-    await page.getByRole('button', { name: 'Correct details' }).click();
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Correct' }).click();
     const form = page.getByRole('form', { name: 'Correct details' });
     await form.getByLabel('Received date').fill('2026-10-19');
     await form.getByRole('button', { name: 'Save correction' }).click();
@@ -385,9 +412,9 @@ test(
     await expect(form).toBeHidden();
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
     // D46: retention follows the corrected date; the ID and location stay.
-    await expect(
-      page.getByRole('region', { name: 'Where it is' }).getByText('2027-10-19'),
-    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
+      'Retain until 2027-10-19',
+    );
     await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('Receiving lab');
     await expect(page.getByRole('list', { name: 'History events' })).toContainText(
       'Reason: wrong date on tag',
@@ -399,8 +426,15 @@ test(
     await signInAsLabStation(page);
     await page.goto(`/sample-storage/${id}`);
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
+    // STRATA-72: Correct sits in More, disabled for LAB with its reason under it.
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Correct' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
     const refused = await page.request.patch(`/api/storage-units/${unit!.storageUnitId}`, {
       headers: { 'x-materialmule-csrf': '1' },
       data: {

@@ -555,21 +555,27 @@ describe('storage unit detail (MM-T12)', () => {
   it('AC7: shows the receiver snapshot and account, every summary, location and history', async () => {
     stubDetail();
     renderAt(`/sample-storage/${DETAIL.readableId}`);
-    expect(await screen.findByText('In stock')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: DETAIL.readableId })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: DETAIL.readableId }),
+    ).toBeInTheDocument();
+    // STRATA-72: the record tag (Strata record status words), the label block with the project.
+    expect(document.querySelector('.unit-status-tags')).toHaveTextContent('Short-term');
+    const label = document.querySelector('[data-slot="unit-label-block"]')!;
+    expect(label).toHaveTextContent('DEMO-2601');
+    expect(label).toHaveTextContent('Riverbank investigation');
 
-    const summaries = screen.getByRole('region', { name: 'Summaries' });
-    expect(within(summaries).getByText('DEMO-2601')).toBeInTheDocument();
-    expect(within(summaries).getByText(/Riverbank investigation/)).toBeInTheDocument();
-    expect(within(summaries).getByText('Example Client')).toBeInTheDocument();
-    const holes = within(summaries).getByRole('list', { name: 'Test hole summaries' });
-    expect(holes).toHaveTextContent('TH26-01: G1–S12');
-    expect(holes).toHaveTextContent('TH26-02: 0–1.5 m Note: Wet');
+    // One SAMPLE#/DEPTH summary per test hole, as a table; never individual samples.
+    const summaries = screen.getByRole('region', { name: 'Test hole summaries' });
+    const holes = within(summaries).getByRole('table', { name: 'Test hole summaries' });
+    const row = (hole: string) => within(holes).getByRole('row', { name: new RegExp(hole) });
+    expect(row('TH26-01')).toHaveTextContent('G1–S12');
+    expect(row('TH26-02')).toHaveTextContent('0–1.5 m');
+    expect(row('TH26-02')).toHaveTextContent('Wet');
     expect(within(summaries).getByText('Lid taped')).toBeInTheDocument();
 
     const receipt = screen.getByRole('region', { name: 'Receipt' });
     expect(within(receipt).getByText('AT · Alex Tester')).toBeInTheDocument();
-    expect(within(receipt).getByText('LAB')).toBeInTheDocument();
+    expect(within(receipt).getByText('Entered by LAB, for Alex Tester')).toBeInTheDocument();
 
     const location = screen.getByRole('region', { name: 'Where it is' });
     expect(
@@ -581,7 +587,9 @@ describe('storage unit detail (MM-T12)', () => {
     expect(within(history).getByText('by LAB for AT · Alex Tester')).toBeInTheDocument();
 
     expect(await screen.findByRole('region', { name: 'Label' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to inventory' })).toHaveAttribute(
+    // The breadcrumb goes back to Inventory.
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
+    expect(within(breadcrumb).getByRole('link', { name: 'Inventory' })).toHaveAttribute(
       'href',
       '/sample-storage',
     );
@@ -657,22 +665,24 @@ describe('storage unit detail (MM-T12)', () => {
     }
   });
 
-  it('says No storage unit found for an unknown ID', async () => {
+  it('says no storage unit has an unknown ID, with the ID and Scan again', async () => {
     stubApi(() => json(404, { code: 'storage_unit_not_found' }));
     renderAt('/sample-storage/BKT-2026-999999');
     expect(
-      await screen.findByText('No storage unit found with ID BKT-2026-999999.'),
+      await screen.findByRole('heading', { level: 1, name: 'No storage unit has this ID.' }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('BKT-2026-999999').length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: 'Scan again' })).toBeInTheDocument();
   });
 
   it('redirects the card paths /inventory and /storage-units/:suNumber', async () => {
     stubDetail();
     const router = renderAt(`/storage-units/${DETAIL.readableId}`);
-    expect(await screen.findByRole('region', { name: 'Summaries' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Test hole summaries' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(`/sample-storage/${DETAIL.readableId}`);
   });
 
-  it('Field Ledger: leads with the label block and shows lab progress as counted cells', async () => {
+  it('STRATA-72: leads with the label block and shows lab progress as n of m', async () => {
     stubApi((url) => {
       if (url.pathname === `/api/storage-units/${DETAIL.readableId}`) return json(200, DETAIL);
       if (url.pathname === `/api/storage-units/${DETAIL.id}/history`) return json(200, HISTORY);
@@ -694,32 +704,40 @@ describe('storage unit detail (MM-T12)', () => {
     });
     renderAt(`/sample-storage/${DETAIL.readableId}`);
     const programs = await screen.findByRole('region', { name: 'Lab programs' });
-    expect(screen.getByRole('heading', { level: 1, name: DETAIL.readableId })).toHaveClass(
-      'unit-label-id',
-    );
+    const heading = screen.getByRole('heading', { level: 1, name: DETAIL.readableId });
+    expect(heading.closest('[data-slot="unit-label-block"]')).not.toBeNull();
     expect(await within(programs).findByRole('link', { name: 'LP-2026-0001' })).toHaveAttribute(
       'href',
       '/lab-testing/programs/lp1',
     );
-    expect(within(programs).getByText('2 of 6 tests done')).toBeInTheDocument();
+    expect(within(programs).getByText('2 of 6 tests')).toBeInTheDocument();
     expect(
-      within(programs).getByRole('img', {
-        name: 'LP-2026-0001: 2 done, 1 in progress, 3 not started',
-      }).children,
-    ).toHaveLength(6);
-    expect(screen.getByRole('link', { name: 'Move unit' })).toHaveAttribute(
+      within(programs).getByRole('progressbar', {
+        name: 'LP-2026-0001: 2 of 6 tests done, 1 in progress, 3 not started',
+      }),
+    ).toBeInTheDocument();
+    // One primary action for a stored unit: Move.
+    expect(screen.getByRole('link', { name: 'Move' })).toHaveAttribute(
       'href',
       '/sample-storage/move',
     );
   });
 
-  it('Field Ledger: a disposed unit is a closed record with no move or reprint', async () => {
+  it('STRATA-72: a disposed unit is read-only with no move or reprint', async () => {
     stubDetail(HISTORY, { ...DETAIL, status: 'disposed' });
     renderAt(`/sample-storage/${DETAIL.readableId}`);
-    expect(await screen.findByText('This record is closed.')).toBeInTheDocument();
-    expect(document.querySelector('.unit-label-closed')).not.toBeNull();
-    expect(screen.queryByRole('link', { name: 'Move unit' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Reprint label' })).toBeNull();
+    expect(
+      await screen.findByText('Read-only. Disposed units keep their ID and history.'),
+    ).toBeInTheDocument();
+    expect(document.querySelector('.unit-status-tags')).toHaveTextContent('Disposed');
+    expect(screen.queryByRole('link', { name: 'Move' })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Print label' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.keyboard('{Escape}');
     // The ID is never changed or reformatted.
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('BKT-2026-000014');
   });
@@ -792,17 +810,22 @@ describe('shelf page (Field Ledger)', () => {
       return undefined;
     });
     renderAt('/sample-storage/locations/WH-C2');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Warehouse C2' })).toBeVisible();
+    // STRATA-74: the code is the heading; one counted cell per unit (no capacity set here).
+    expect(await screen.findByRole('heading', { level: 1, name: 'WH-C2' })).toBeVisible();
+    const places = screen.getByRole('list', { name: 'Places on this shelf' });
+    expect(within(places).getAllByRole('listitem')).toHaveLength(2);
     expect(
-      screen.getByRole('img', { name: '2 units on this shelf, 1 due for retention' }).children,
-    ).toHaveLength(2);
-    const units = screen.getByRole('region', { name: 'On this shelf' });
+      within(places).getByRole('link', { name: 'BKT-2026-000061, Retention due' }),
+    ).toBeInTheDocument();
+    const units = screen.getByRole('table', { name: 'Units here' });
     expect(within(units).getByRole('link', { name: 'BKT-2026-000061' })).toBeInTheDocument();
-    expect(within(units).getByText('Retention due')).toBeInTheDocument();
+    expect(within(units).getByRole('row', { name: /BKT-2026-000061/ })).toHaveTextContent(
+      'Retention due',
+    );
     const activity = screen.getByRole('list', { name: 'Comings and goings' });
     expect(activity).toHaveTextContent('BKT-2026-000014 arrived');
     expect(activity).toHaveTextContent('from Receiving lab');
-    expect(screen.getByRole('link', { name: 'Move units here' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Move units here/ })).toHaveAttribute(
       'href',
       '/sample-storage/move?to=WH-C2',
     );
@@ -817,6 +840,9 @@ describe('shelf page (Field Ledger)', () => {
         : undefined,
     );
     renderAt('/sample-storage/locations/WH-ZZ');
-    expect(await screen.findByText('No location has this code.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'No location has this code.' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Scan again' })).toBeInTheDocument();
   });
 });

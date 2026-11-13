@@ -8,20 +8,20 @@ import {
   type TestedRemovalBlocker,
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
-import { BandedCard } from '../components/app-ui';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { confirmTestedRemoval } from './api';
-
-const timeFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
+import { formatEventTime } from './unit-record';
+import { UnitFact, UnitFacts, UnitSection } from './UnitRecordParts';
 
 function when(iso: string) {
-  return <time dateTime={iso}>{timeFormat.format(new Date(iso))}</time>;
+  return (
+    <time dateTime={iso} className="font-mono whitespace-nowrap">
+      {formatEventTime(iso)}
+    </time>
+  );
 }
 
 const BLOCKER_TEXT: Record<Exclude<TestedRemovalBlocker, 'not_eligible_unit_type'>, string> = {
@@ -54,87 +54,78 @@ export function TestedRemovalSection({
   if (testing.reason === null) return null;
   const isTube = testing.reason === 'tested_shelby';
   return (
-    <BandedCard id="testing" title="Testing and removal">
-      <dl className="details">
+    <UnitSection id="testing" title="Testing and removal">
+      <UnitFacts>
         {isTube ? (
-          <div>
-            <dt>Contents</dt>
-            <dd>
-              {testing.contentsDestroyed ? (
-                <>
-                  <strong>{TESTED_CONTENTS_LABEL}</strong>
-                  {testing.removal ? null : (
-                    <span className="field-hint">
-                      {' '}
-                      Can’t be tested again. The tube stays tracked here until its removal is
-                      confirmed.
-                    </span>
-                  )}
-                </>
-              ) : (
-                'Available for testing'
-              )}
-            </dd>
-          </div>
-        ) : null}
-        <div>
-          <dt>Tested in</dt>
-          <dd>
-            {testing.evidence.length === 0 ? (
-              'No completed test has recorded this unit.'
+          <UnitFact term="Contents">
+            {testing.contentsDestroyed ? (
+              <>
+                <strong>{TESTED_CONTENTS_LABEL}</strong>
+                {testing.removal ? null : (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    Can’t be tested again. The tube stays tracked here until its removal is
+                    confirmed.
+                  </span>
+                )}
+              </>
             ) : (
-              <ul className="tested-evidence" aria-label="Completed tests that used this unit">
-                {testing.evidence.map((evidence) => (
-                  <li key={evidence.completionEventId}>
-                    <strong>{evidence.programNumber}</strong> · {evidence.testCode} · completed{' '}
-                    {when(evidence.completedAt)} by{' '}
-                    {evidence.completedBy.account.accountType === 'shared_lab'
-                      ? `${evidence.completedBy.account.name} for ${formatPerson(evidence.completedBy.person.initials, evidence.completedBy.person.name)}`
-                      : formatPerson(
-                          evidence.completedBy.person.initials,
-                          evidence.completedBy.person.name,
-                        )}
-                    {evidence.sameSourceConfirmation ? (
-                      <span className="field-hint">
-                        {' '}
-                        · outside the line’s coverage, same source confirmed by{' '}
-                        {formatPerson(
-                          evidence.sameSourceConfirmation.person.initials,
-                          evidence.sameSourceConfirmation.person.name,
-                        )}{' '}
-                        {when(evidence.sameSourceConfirmation.confirmedAt)}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              'Available for testing'
             )}
-          </dd>
-        </div>
-        {testing.removal ? (
-          <div>
-            <dt>Removal</dt>
-            <dd>
-              <strong>{DISPOSED_AFTER_TESTING_LABEL}</strong> {when(testing.removal.removedAt)} by{' '}
-              {formatPerson(testing.removal.removedBy.initials, testing.removal.removedBy.name)} ·
-              basis {testing.removal.programNumber} {testing.removal.testCode} · last location{' '}
-              {testing.removal.location.name} ({testing.removal.location.code})
-            </dd>
-          </div>
+          </UnitFact>
         ) : null}
-      </dl>
+        <UnitFact term="Tested in">
+          {testing.evidence.length === 0 ? (
+            'No completed test has recorded this unit.'
+          ) : (
+            <ul className="flex flex-col gap-1" aria-label="Completed tests that used this unit">
+              {testing.evidence.map((evidence) => (
+                <li key={evidence.completionEventId}>
+                  <strong>{evidence.programNumber}</strong> · {evidence.testCode} · completed{' '}
+                  {when(evidence.completedAt)} by{' '}
+                  {evidence.completedBy.account.accountType === 'shared_lab'
+                    ? `${evidence.completedBy.account.name} for ${formatPerson(evidence.completedBy.person.initials, evidence.completedBy.person.name)}`
+                    : formatPerson(
+                        evidence.completedBy.person.initials,
+                        evidence.completedBy.person.name,
+                      )}
+                  {evidence.sameSourceConfirmation ? (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · outside the line’s coverage, same source confirmed by{' '}
+                      {formatPerson(
+                        evidence.sameSourceConfirmation.person.initials,
+                        evidence.sameSourceConfirmation.person.name,
+                      )}{' '}
+                      {when(evidence.sameSourceConfirmation.confirmedAt)}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </UnitFact>
+        {testing.removal ? (
+          <UnitFact term="Removal">
+            <strong>{DISPOSED_AFTER_TESTING_LABEL}</strong> {when(testing.removal.removedAt)} by{' '}
+            {formatPerson(testing.removal.removedBy.initials, testing.removal.removedBy.name)} ·
+            basis {testing.removal.programNumber} {testing.removal.testCode} · last location{' '}
+            {testing.removal.location.name} ({testing.removal.location.code})
+          </UnitFact>
+        ) : null}
+      </UnitFacts>
       {testing.removal ? null : testing.blocker === null ? (
         canRemove ? (
           <RemovalForm unit={unit} testing={testing} onRemoved={onRemoved} onStale={onStale} />
         ) : (
-          <p className="field-hint">
+          <p className="text-sm text-muted-foreground">
             Tested. Confirming the physical removal needs a personal account.
           </p>
         )
       ) : testing.blocker !== 'not_eligible_unit_type' ? (
-        <p className="field-hint">{BLOCKER_TEXT[testing.blocker]}</p>
+        <p className="text-sm text-muted-foreground">{BLOCKER_TEXT[testing.blocker]}</p>
       ) : null}
-    </BandedCard>
+    </UnitSection>
   );
 }
 
@@ -187,45 +178,51 @@ function RemovalForm({
   }
 
   return (
-    <form className="tested-removal-form" onSubmit={(event) => void submit(event)}>
-      <p className="field-hint">
+    <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)}>
+      <p className="text-[13px] text-muted-foreground">
         Removal after testing ({testedRemovalReasonLabel(testing.reason!)}): no retention wait,
         hold, disposal approval or program closure applies. Review and acceptance aren’t changed.
       </p>
       {testing.evidence.length > 1 ? (
-        <fieldset className="form-field">
-          <legend>Completed test that used this {what}</legend>
-          {testing.evidence.map((evidence) => (
-            <label key={evidence.testRequestId} className="radio-option">
-              <input
-                type="radio"
-                name={`${id}-evidence`}
-                value={evidence.testRequestId}
-                checked={testRequestId === evidence.testRequestId}
-                onChange={() => setTestRequestId(evidence.testRequestId)}
-              />{' '}
-              {evidence.programNumber} · {evidence.testCode}
-            </label>
-          ))}
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-sm font-semibold">
+            Completed test that used this {what}
+          </legend>
+          <RadioGroup value={testRequestId} onValueChange={setTestRequestId}>
+            {testing.evidence.map((evidence) => (
+              <div key={evidence.testRequestId} className="flex items-center gap-2">
+                <RadioGroupItem
+                  id={`${id}-${evidence.testRequestId}`}
+                  value={evidence.testRequestId}
+                />
+                <Label htmlFor={`${id}-${evidence.testRequestId}`} className="font-normal">
+                  {evidence.programNumber} · {evidence.testCode}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
         </fieldset>
       ) : null}
-      <label className="checkbox-option">
-        <input
-          type="checkbox"
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id={`${id}-confirm`}
           checked={confirmed}
-          onChange={(event) => setConfirmed(event.target.checked)}
-        />{' '}
-        The whole {what} {unit.readableId} has physically left the lab
-      </label>
+          onCheckedChange={(value) => setConfirmed(value === true)}
+          className="mt-0.5"
+        />
+        <Label htmlFor={`${id}-confirm`} className="leading-snug font-normal">
+          The whole {what} {unit.readableId} has physically left the lab
+        </Label>
+      </div>
       {message ? (
-        <p className="field-error" role="alert">
+        <p className="text-sm text-destructive-text" role="alert">
           {message}
         </p>
       ) : null}
       <div>
-        <button type="submit" className="primary" disabled={busy}>
+        <Button type="submit" disabled={busy}>
           Confirm removal after testing
-        </button>
+        </Button>
       </div>
     </form>
   );

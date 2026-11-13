@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { signInAsLabStation, STATION_PEOPLE } from './support/lab-station';
 import { insertConfirmedBucket, withDatabase } from './support/db';
 import { DEMO } from './support/receiving';
 
@@ -23,7 +24,7 @@ test('print, confirm and reprint a storage unit label without changing the unit'
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${unit.readableId}`);
   await expect(page.getByRole('heading', { name: unit.readableId })).toBeVisible();
-  const history = page.getByRole('table');
+  const history = page.getByRole('table', { name: `Print history for ${unit.readableId}` });
   await expect(page.getByText('No labels printed yet.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Print label' }).click();
@@ -102,4 +103,41 @@ test('admins see the configured label printer; a technician has no Printers sect
   // STRATA-100: a hidden section has no page; Settings opens on My access with a notice.
   await expect(page).toHaveURL(/\/settings\/access$/);
   await expect(page.getByText('Printers isn’t available to you.')).toBeVisible();
+});
+
+test('STRATA-75: the label printing screen prints to the Zebra, credited to the recording person', async ({
+  page,
+}) => {
+  const unit = await insertConfirmedBucket();
+  const jobs = () =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ kind: string; receiver: string | null }>(
+        `SELECT j.kind, j.receiver_name_snapshot AS receiver
+         FROM print_job j JOIN print_job_item i ON i.print_job_id = j.id
+         WHERE i.storage_unit_id = $1 ORDER BY j.created_at`,
+        [unit.id],
+      );
+      return rows;
+    });
+
+  await signInAsLabStation(page, { person: STATION_PEOPLE.jordan });
+  await page.goto(`/labels/print/unit/${unit.readableId}`);
+  await expect(page.getByRole('heading', { name: 'Print label' })).toBeVisible();
+  // STRATA-125: Printed by follows the Recording as chip and can't be edited here.
+  const printedBy = page.getByLabel('Printed by');
+  await expect(printedBy).toHaveValue('JS · Jordan Smith');
+  await expect(printedBy).toHaveAttribute('readonly', '');
+
+  // Save as PDF is never a print job.
+  await page.evaluate(() => {
+    window.print = () => undefined;
+  });
+  await page.getByRole('button', { name: 'Save as PDF' }).click();
+  expect(await jobs()).toEqual([]);
+
+  await page.getByRole('button', { name: 'Print 1 label' }).click();
+  // Honest status: sent to the printer, never "Printed" until a person confirms.
+  await expect(page.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Printed (confirmed)')).toHaveCount(0);
+  expect(await jobs()).toEqual([{ kind: 'reprint', receiver: 'Jordan Smith' }]);
 });

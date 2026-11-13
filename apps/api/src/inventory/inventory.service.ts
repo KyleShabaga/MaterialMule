@@ -6,10 +6,15 @@ import { loadHoleSummaries } from '../storage-units/hole-summaries.js';
 import { loadSampleIdentities, membershipOf } from '../storage-units/sample-identity.js';
 import { BusinessClock } from '../retention/business-clock.js';
 import { loadUnitRetention } from '../retention/retention.js';
+import {
+  effectiveTermColumns,
+  effectiveTermJoin,
+  type EffectiveTermRow,
+} from '../locations/storage-term.js';
 import { buildInventoryQuery } from './inventory-query.js';
 import { unitStage } from './unit-stage.js';
 
-interface InventoryRow {
+interface InventoryRow extends EffectiveTermRow {
   id: string;
   readable_id: string;
   unit_type: InventoryItem['unitType'];
@@ -50,13 +55,15 @@ export async function queryInventory(
             (su.unit_type = 'shelby_tube'
              AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed,
             EXISTS (SELECT 1 FROM location_conflict c
-                    WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict
+                    WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict,
+            ${effectiveTermColumns('et')}
      FROM (SELECT su.id ${sql.fromWhere}
            ORDER BY ${sql.orderBy}
            LIMIT ${limitParam} OFFSET ${offsetParam}) page
      JOIN storage_unit su ON su.id = page.id
      JOIN project p ON p.id = su.project_id
      JOIN location l ON l.id = su.current_location_id
+     ${effectiveTermJoin('et', 'l.id')}
      LEFT JOIN tested_unit_removal tr ON tr.storage_unit_id = su.id
      ${sql.orderJoin}
      ORDER BY ${sql.orderBy}`,
@@ -73,6 +80,7 @@ export async function queryInventory(
         status: row.status,
         openConflict: row.open_conflict,
         locationKind: row.location_kind,
+        storageTerm: row.effective_term,
         retention: retention.get(row.id),
         today: asOf,
       }),

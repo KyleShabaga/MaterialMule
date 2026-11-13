@@ -15,6 +15,7 @@ import {
   type LocationLabelPreview,
   type ScanResolveResponse,
   type StorageLocation,
+  type StorageTerm,
   type createLocationRequestSchema,
   type locationListQuerySchema,
   type retireLocationRequestSchema,
@@ -28,6 +29,12 @@ import { withTransaction } from '../db/transaction.js';
 import { renderLocationLabelPreview } from '../labels/location-template-v1.js';
 import { getLocationPrintJobs } from '../printing/print-queue.js';
 import { likeEscape } from '../projects/projects.service.js';
+import {
+  effectiveTermColumns,
+  effectiveTermJoin,
+  toEffectiveStorageTerm,
+  type EffectiveTermRow,
+} from './storage-term.js';
 
 // Storage locations administration (MM-T37). Every write locks the location row FOR UPDATE first,
 // so edits, retirement and the first label request (print-queue.ts) are serialised per location:
@@ -35,6 +42,10 @@ import { likeEscape } from '../projects/projects.service.js';
 // * retirement counts occupants under the lock, and storage units can only be placed in a
 //   location that is active when they lock it (storage_unit_location_active trigger), so a unit can't arrive in
 //   a location that is being retired, and a retirement can't miss a unit that just arrived.
+// STRATA-106: creates, edits and retirements first take location_hierarchy_lock() (migration
+// 0043), before any row lock, so hierarchy changes serialise without deadlock: two reparents
+// can't build a cycle or a fourth level, and a retirement can't miss a child being added. The
+// database triggers enforce every hierarchy rule; this service maps their refusals to 422s.
 
 export type ListQuery = z.output<typeof locationListQuerySchema>;
 export type CreateInput = z.output<typeof createLocationRequestSchema>;
@@ -50,7 +61,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
  */
 const OCCUPYING = `status <> 'disposed'`;
 
-interface LocationRow {
+interface LocationRow extends EffectiveTermRow {
   id: string;
   code: string;
   name: string;
@@ -63,6 +74,9 @@ interface LocationRow {
   code_locked_at: Date | null;
   label_printed_at: Date | null;
   in_stock_count: number;
+  parent_location_id: string | null;
+  storage_term: StorageTerm | null;
+  capacity: number | null;
   created_at: Date;
   updated_at: Date;
   version: number;
@@ -73,8 +87,10 @@ const SELECT_LOCATION = `
          l.retired_at, l.retired_reason, l.code_locked_at, l.label_printed_at,
          (SELECT count(*)::int FROM storage_unit su
           WHERE su.current_location_id = l.id AND su.${OCCUPYING}) AS in_stock_count,
+         l.parent_location_id, l.storage_term, l.capacity, ${effectiveTermColumns('et')},
          l.created_at, l.updated_at, l.version
-  FROM location l`;
+  FROM location l
+  ${effectiveTermJoin('et', 'l.id')}`;
 
 function toLocation(row: LocationRow): StorageLocation {
   return {
@@ -90,6 +106,10 @@ function toLocation(row: LocationRow): StorageLocation {
     codeLocked: row.code_locked_at !== null,
     labelPrintedAt: row.label_printed_at?.toISOString() ?? null,
     inStockCount: row.in_stock_count,
+    parentId: row.parent_location_id,
+    storageTerm: row.storage_term,
+    effectiveStorageTerm: toEffectiveStorageTerm(row),
+    capacity: row.capacity,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     version: row.version,
@@ -214,6 +234,55 @@ function isUniqueCodeViolation(error: unknown): boolean {
   return (error as { constraint?: string }).constraint === 'location_code_key';
 }
 
+/** Serialises hierarchy changes (migration 0043); always taken before any location row lock. */
+async function lockHierarchy(client: PoolClient): Promise<void> {
+  await client.query('SELECT location_hierarchy_lock()');
+}
+
+const CYCLE_REFUSAL = {
+  code: 'location_parent_cycle',
+  message: 'A location can’t sit inside itself or inside a location it holds.',
+  field: 'parentId',
+};
+
+/** The hierarchy rules the database enforces, as the 422 the person sees. */
+const HIERARCHY_REFUSALS: Record<string, { code: string; message: string; field: string }> = {
+  location_parent_location_id_fkey: {
+    code: 'location_parent_not_found',
+    message: 'Choose a location that exists.',
+    field: 'parentId',
+  },
+  location_parent_not_self_check: CYCLE_REFUSAL,
+  location_parent_cycle_check: CYCLE_REFUSAL,
+  location_parent_depth_check: {
+    code: 'location_parent_depth',
+    message: 'Locations nest at most three levels: warehouse, bay, shelf.',
+    field: 'parentId',
+  },
+  location_parent_kind_check: {
+    code: 'location_parent_kind',
+    message: 'Receiving lab and lab locations can’t hold other locations.',
+    field: 'parentId',
+  },
+  location_parent_retired_check: {
+    code: 'location_parent_retired',
+    message: 'That location is retired, so nothing new can go inside it.',
+    field: 'parentId',
+  },
+  location_lab_outside_hierarchy_check: {
+    code: 'location_lab_outside_hierarchy',
+    message:
+      'Receiving lab and lab locations sit outside warehouses and have no storage term. ' +
+      'Clear the parent and the storage term first.',
+    field: 'kind',
+  },
+};
+
+function hierarchyRefusal(error: unknown): UnprocessableEntityException | null {
+  const refusal = HIERARCHY_REFUSALS[(error as { constraint?: string }).constraint ?? ''];
+  return refusal ? new UnprocessableEntityException(refusal) : null;
+}
+
 /** Locks the row, or 404. */
 async function lockLocation(client: PoolClient, id: string) {
   if (!UUID_PATTERN.test(id)) throw new NotFoundException({ code: 'location_not_found' });
@@ -226,9 +295,13 @@ async function lockLocation(client: PoolClient, id: string) {
     active: boolean;
     is_system: boolean;
     code_locked_at: Date | null;
+    parent_location_id: string | null;
+    storage_term: StorageTerm | null;
+    capacity: number | null;
     version: number;
   }>(
-    `SELECT id, code_normalized, name, kind, area, active, is_system, code_locked_at, version
+    `SELECT id, code_normalized, name, kind, area, active, is_system, code_locked_at,
+            parent_location_id, storage_term, capacity, version
      FROM location WHERE id = $1 FOR UPDATE`,
     [id],
   );
@@ -325,9 +398,19 @@ export class LocationsService {
   ): Promise<StorageLocation> {
     try {
       return await withTransaction(this.database.pool, async (client) => {
+        await lockHierarchy(client);
         const { rows } = await client.query<{ id: string }>(
-          `INSERT INTO location (code, name, kind, area) VALUES ($1, $2, $3, $4) RETURNING id`,
-          [input.code, input.name, input.kind, input.area],
+          `INSERT INTO location (code, name, kind, area, parent_location_id, storage_term, capacity)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+          [
+            input.code,
+            input.name,
+            input.kind,
+            input.area,
+            input.parentId,
+            input.storageTerm,
+            input.capacity,
+          ],
         );
         const id = rows[0]!.id;
         await recordAudit(client, {
@@ -335,20 +418,30 @@ export class LocationsService {
           entityType: 'location',
           entityId: id,
           actor,
-          after: { code: input.code, name: input.name, kind: input.kind, area: input.area },
+          after: {
+            code: input.code,
+            name: input.name,
+            kind: input.kind,
+            area: input.area,
+            parentId: input.parentId,
+            storageTerm: input.storageTerm,
+            capacity: input.capacity,
+          },
           requestId,
         });
         return (await getLocation(client, id))!;
       });
     } catch (error) {
       if (isUniqueCodeViolation(error)) throw duplicateCode(input.code);
-      throw error;
+      throw hierarchyRefusal(error) ?? error;
     }
   }
 
   /**
-   * Edits name, kind, area and (until the first label request) code. Only changed fields are
-   * written and audited; a save that changes nothing returns the location untouched.
+   * Edits name, kind, area, (until the first label request) code and, STRATA-106, the parent,
+   * own storage term and capacity. Only changed fields are written and audited (configuration
+   * only: a reparent never moves a unit, so no movement is written); a save that changes nothing
+   * returns the location untouched. Descendants' effective terms follow at the next read.
    */
   async update(
     id: string,
@@ -358,6 +451,7 @@ export class LocationsService {
   ): Promise<StorageLocation> {
     try {
       return await withTransaction(this.database.pool, async (client) => {
+        await lockHierarchy(client);
         const row = await lockLocation(client, id);
         if (input.version !== row.version) throw await versionConflict(client, id);
         if (!row.active) {
@@ -371,12 +465,18 @@ export class LocationsService {
           name: row.name,
           kind: row.kind,
           area: row.area,
+          parentId: row.parent_location_id,
+          storageTerm: row.storage_term,
+          capacity: row.capacity,
         };
         const requested: Partial<typeof before> = {
           code: input.code,
           name: input.name,
           kind: input.kind,
           area: input.area,
+          parentId: input.parentId,
+          storageTerm: input.storageTerm,
+          capacity: input.capacity,
         };
         const changed = (Object.keys(before) as (keyof typeof before)[]).filter(
           (key) => requested[key] !== undefined && requested[key] !== before[key],
@@ -399,7 +499,15 @@ export class LocationsService {
           });
         }
 
-        const columns = { code: 'code', name: 'name', kind: 'kind', area: 'area' } as const;
+        const columns = {
+          code: 'code',
+          name: 'name',
+          kind: 'kind',
+          area: 'area',
+          parentId: 'parent_location_id',
+          storageTerm: 'storage_term',
+          capacity: 'capacity',
+        } as const;
         const params: unknown[] = [id];
         const assignments = changed.map((key) => {
           params.push(requested[key]);
@@ -425,7 +533,7 @@ export class LocationsService {
       if (input.code !== undefined && isUniqueCodeViolation(error)) {
         throw duplicateCode(input.code);
       }
-      throw error;
+      throw hierarchyRefusal(error) ?? error;
     }
   }
 
@@ -442,6 +550,7 @@ export class LocationsService {
     requestId: string | null,
   ): Promise<StorageLocation> {
     return withTransaction(this.database.pool, async (client) => {
+      await lockHierarchy(client);
       const row = await lockLocation(client, id);
       if (row.is_system) {
         throw new UnprocessableEntityException({

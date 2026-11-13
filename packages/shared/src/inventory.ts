@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { locationConflictSummarySchema } from './moves';
-import { stageKeySchema, storageUnitRecordStatusSchema } from './stage';
+import {
+  effectiveStorageTermSchema,
+  stageKeySchema,
+  storageUnitLifecycleStepSchema,
+  storageUnitRecordStatusSchema,
+} from './stage';
 import { HOLE_SUMMARY_TYPES } from './receipts';
 import { bulkGroupDetailSchema, bulkMembershipSchema, sampleIdentitySchema } from './samples';
 import { TESTED_REMOVAL_REASONS, storageUnitTestingSchema } from './tested-removal';
@@ -312,6 +317,8 @@ export const inventoryItemSchema = z.object({
    */
   recordStatus: storageUnitRecordStatusSchema.optional(),
   stage: stageKeySchema.optional(),
+  /** STRATA-106: lifecycle step from the same facts (optional so older fixtures stay valid). */
+  lifecycleStep: storageUnitLifecycleStepSchema.optional(),
 });
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 
@@ -378,6 +385,17 @@ export const storageUnitDetailSchema = z.object({
     quantity: z.number(),
     confirmedAt: z.string(),
   }),
+  /**
+   * STRATA-58/106: record status words, stage, lifecycle step and the saved location's effective
+   * storage term, from the same server derivation as Inventory rows. Optional so older fixtures
+   * stay valid; the API always sends them.
+   */
+  recordStatus: storageUnitRecordStatusSchema.optional(),
+  stage: stageKeySchema.optional(),
+  lifecycleStep: storageUnitLifecycleStepSchema.optional(),
+  storageTerm: effectiveStorageTermSchema.optional(),
+  /** True when the unit was never in a lab program: the track shows In lab as passed, not done. */
+  neverTested: z.boolean().optional(),
 });
 export type StorageUnitDetail = z.infer<typeof storageUnitDetailSchema>;
 

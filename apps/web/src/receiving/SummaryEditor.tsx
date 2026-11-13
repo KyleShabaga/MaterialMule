@@ -1,34 +1,57 @@
 import { HOLE_SUMMARY_TYPES, type HoleSummaryType } from '@materialmule/shared';
-import { FormField } from '../components/app-ui';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { fieldId, SUMMARY_TYPE_LABEL, type SummaryDraft } from './draft';
+import { ChoiceGroup, LabeledField, NATIVE_SELECT_CLASS } from './LabeledField';
 
 // SAMPLE#/DEPTH summary for one test hole in one storage unit (MM-T10). One summary per hole:
 // ALL, a sample range, a depth range in ft or m (no default, never converted) or custom text.
+// Laid out as one wrapping line, so it sits in a receiving row (STRATA-76) and in corrections.
+
+const DEPTH_UNITS = [
+  { value: 'ft', label: 'ft' },
+  { value: 'm', label: 'm' },
+] as const;
 
 export function SummaryEditor({
   summary,
   path,
   errors,
   onChange,
+  showNote = true,
+  className,
 }: {
   summary: SummaryDraft;
   /** Request path of this summary, e.g. `units.0.holeSummaries.1`. */
   path: string;
   errors: ReadonlyMap<string, string>;
   onChange: (changes: Partial<SummaryDraft>) => void;
+  /** The per-hole note (receiving rows keep it; it is optional everywhere). */
+  showNote?: boolean;
+  className?: string;
 }) {
   const at = (field: string) => `${path}.${field}`;
   const error = (field: string) => errors.get(at(field)) ?? null;
   const hole = summary.testHole.name;
-  const unitError = error('depthUnit');
+  const mono = 'font-mono';
 
   return (
-    <fieldset className="hole-summary">
-      <legend>{hole} summary</legend>
-      <FormField id={fieldId(at('type'))} label="Summary type" error={error('type')}>
+    <fieldset
+      className={cn('m-0 flex min-w-0 flex-wrap items-start gap-3 border-0 p-0', className)}
+    >
+      <legend className="sr-only">{hole} summary</legend>
+      <LabeledField
+        id={fieldId(at('type'))}
+        label="Summary type"
+        error={error('type')}
+        className="w-40"
+      >
         {(props) => (
           <select
             {...props}
+            data-slot="native-select"
+            className={NATIVE_SELECT_CLASS}
             value={summary.type}
             onChange={(e) => onChange({ type: e.target.value as HoleSummaryType | '' })}
           >
@@ -40,43 +63,59 @@ export function SummaryEditor({
             ))}
           </select>
         )}
-      </FormField>
+      </LabeledField>
 
       {summary.type === 'sample_range' ? (
-        <div className="range">
-          <FormField id={fieldId(at('sampleFrom'))} label="Sample from" error={error('sampleFrom')}>
+        <>
+          <LabeledField
+            id={fieldId(at('sampleFrom'))}
+            label="Sample from"
+            error={error('sampleFrom')}
+            className="w-28"
+          >
             {(props) => (
-              <input
+              <Input
                 {...props}
-                type="text"
+                className={mono}
                 maxLength={20}
-                placeholder="e.g. G1"
+                placeholder="G1"
                 value={summary.sampleFrom}
                 onChange={(e) => onChange({ sampleFrom: e.target.value })}
               />
             )}
-          </FormField>
-          <FormField id={fieldId(at('sampleTo'))} label="Sample to" error={error('sampleTo')}>
+          </LabeledField>
+          <LabeledField
+            id={fieldId(at('sampleTo'))}
+            label="Sample to"
+            error={error('sampleTo')}
+            className="w-28"
+          >
             {(props) => (
-              <input
+              <Input
                 {...props}
-                type="text"
+                className={mono}
                 maxLength={20}
-                placeholder="e.g. S12"
+                placeholder="S12"
                 value={summary.sampleTo}
                 onChange={(e) => onChange({ sampleTo: e.target.value })}
               />
             )}
-          </FormField>
-        </div>
+          </LabeledField>
+        </>
       ) : null}
 
       {summary.type === 'depth_range' ? (
-        <div className="range">
-          <FormField id={fieldId(at('depthFrom'))} label="Depth from" error={error('depthFrom')}>
+        <>
+          <LabeledField
+            id={fieldId(at('depthFrom'))}
+            label="Depth from"
+            error={error('depthFrom')}
+            className="w-28"
+          >
             {(props) => (
-              <input
+              <Input
                 {...props}
+                className={mono}
                 type="number"
                 inputMode="decimal"
                 min={0}
@@ -85,11 +124,17 @@ export function SummaryEditor({
                 onChange={(e) => onChange({ depthFrom: e.target.value })}
               />
             )}
-          </FormField>
-          <FormField id={fieldId(at('depthTo'))} label="Depth to" error={error('depthTo')}>
+          </LabeledField>
+          <LabeledField
+            id={fieldId(at('depthTo'))}
+            label="Depth to"
+            error={error('depthTo')}
+            className="w-28"
+          >
             {(props) => (
-              <input
+              <Input
                 {...props}
+                className={mono}
                 type="number"
                 inputMode="decimal"
                 min={0}
@@ -98,72 +143,57 @@ export function SummaryEditor({
                 onChange={(e) => onChange({ depthTo: e.target.value })}
               />
             )}
-          </FormField>
-          <div className="form-field">
-            <span id={`${fieldId(at('depthUnit'))}-label`} className="label">
-              Depth unit
-            </span>
-            <div
-              id={fieldId(at('depthUnit'))}
-              role="radiogroup"
-              className="depth-unit"
-              aria-labelledby={`${fieldId(at('depthUnit'))}-label`}
-              aria-required="true"
-              aria-invalid={Boolean(unitError)}
-              aria-describedby={unitError ? `${fieldId(at('depthUnit'))}-error` : undefined}
-            >
-              {(['ft', 'm'] as const).map((unit) => (
-                <label key={unit} className="radio">
-                  <input
-                    type="radio"
-                    name={fieldId(at('depthUnit'))}
-                    value={unit}
-                    checked={summary.depthUnit === unit}
-                    onChange={() => onChange({ depthUnit: unit })}
-                  />
-                  {unit}
-                </label>
-              ))}
-            </div>
-            {unitError ? (
-              <p id={`${fieldId(at('depthUnit'))}-error`} className="field-error">
-                {unitError}
-              </p>
-            ) : null}
-          </div>
-        </div>
+          </LabeledField>
+          <ChoiceGroup
+            id={fieldId(at('depthUnit'))}
+            label="Depth unit"
+            required
+            options={DEPTH_UNITS}
+            value={summary.depthUnit}
+            onChange={(depthUnit) => onChange({ depthUnit })}
+            error={error('depthUnit')}
+          />
+        </>
       ) : null}
 
       {summary.type === 'custom' ? (
-        <FormField
+        <LabeledField
           id={fieldId(at('customText'))}
           label="Custom summary"
           hint="State units if you describe depths."
           error={error('customText')}
+          className="flex-1 basis-56"
         >
           {(props) => (
-            <textarea
+            <Textarea
               {...props}
-              rows={2}
+              rows={1}
               maxLength={500}
+              className="min-h-11"
               value={summary.customText}
               onChange={(e) => onChange({ customText: e.target.value })}
             />
           )}
-        </FormField>
+        </LabeledField>
       ) : null}
 
-      <FormField id={fieldId(at('note'))} label="Summary note (optional)" error={error('note')}>
-        {(props) => (
-          <input
-            {...props}
-            type="text"
-            maxLength={500}
-            value={summary.note}
-            onChange={(e) => onChange({ note: e.target.value })}
-          />
-        )}
-      </FormField>
+      {showNote ? (
+        <LabeledField
+          id={fieldId(at('note'))}
+          label="Summary note (optional)"
+          error={error('note')}
+          className="flex-1 basis-44"
+        >
+          {(props) => (
+            <Input
+              {...props}
+              maxLength={500}
+              value={summary.note}
+              onChange={(e) => onChange({ note: e.target.value })}
+            />
+          )}
+        </LabeledField>
+      ) : null}
     </fieldset>
   );
 }

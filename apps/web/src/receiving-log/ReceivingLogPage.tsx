@@ -1,85 +1,154 @@
 import {
-  formatReceiver as formatReceiverOption,
-  type ProjectSummary,
+  RECEIPT_LOG_STATUS_LABELS,
   type ReceiptLogItem,
   type ReceiptLogPage as ReceiptLogPageData,
-  type ReceiptLogQuery,
-  type ReceiverOption,
 } from '@materialmule/shared';
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { Link, useLocation } from 'react-router';
-import { ReceiverSelect } from '../components/ReceiverSelect';
+import { ArrowDownToLine } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import {
   DataTable,
-  EmptyState,
-  ErrorState,
-  SectionHead,
-  StatusBadge,
-  TableScroll,
-  TableViewSelector,
-  type Column,
-  type TableView,
-} from '../components/app-ui';
-import { useTableView } from '../components/useTableView';
-import { fetchProject } from '../inventory/api';
-import '../inventory/inventory.css';
-import { ProjectFilter } from '../inventory/ProjectFilter';
-import { useLatestSearchParams } from '../inventory/useLatestSearchParams';
-import { ContextRow } from '../layout/ContextRow';
+  DENSITY_VIEW_OPTIONS,
+  useTableDensity,
+  type DataTableColumn,
+} from '@/components/strata/data-table';
+import {
+  PeekSplit,
+  PeekToolbar,
+  peekNeighbours,
+  usePeekAvailable,
+  usePeekKeys,
+  usePeekParam,
+} from '@/components/strata/peek';
+import { PersonCell } from '@/components/strata/person-avatar';
+import type { QueryFilterOption } from '@/components/strata/query-chips';
+import { StageTag } from '@/components/strata/stage-tag';
+import { TableToolbar } from '@/components/strata/table-toolbar';
+import {
+  useTableQuery,
+  type SortLabels,
+  type SortOption,
+  type TableQuery,
+} from '@/components/strata/table-query';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { usePageTitle } from '../layout/page-title';
 import { useOnline } from '../lib/online';
+import { DraftItems } from '../receiving/drafts/DraftItems';
+import {
+  deleteDraft,
+  registerPendingDrafts,
+  useDraftOwnership,
+} from '../receiving/drafts/ownership';
 import { visibleTo, type StoredDraft } from '../receiving/drafts/record';
 import { indexedDbDraftStore } from '../receiving/drafts/store';
 import { useMe } from '../session/context';
-import {
-  RECEIPT_RECEIVERS_PATH,
-  fetchReceiptLog,
-  fetchReceiptReceiver,
-  type ReceiptLogResult,
-} from './api';
-import { draftContents, formatAccount, formatConfirmedAt, formatReceiver } from './format';
+import { useOptionalRecordingPerson } from '../session/recording-person-store';
+import { fetchReceiptLog, type ReceiptLogResult } from './api';
+import { formatClock, formatReceiver } from './format';
 import { continueDraftPath, START_DELIVERY_PATH } from './paths';
-import './receiving-log.css';
+import { ReceiptRecord } from './ReceiptDetailPage';
 import {
-  clearedReceiptLogQuery,
+  STATUS_FILTER,
+  clearedParams,
   hasActiveFilters,
-  readReceiptLogQuery,
+  normalizeFilters,
+  projectFilter,
+  receiptLogQueryFor,
   receiptLogSearchParams,
-  withFilters,
+  receiverFilter,
 } from './url-state';
 
-/** Where the receipt page's "Back to Receiving log" link returns to. */
+/** Where the receipt page's breadcrumb returns to. */
 export interface ReceiptLinkState {
   from?: string;
 }
 
 type Loaded = { key: string; result: ReceiptLogResult<ReceiptLogPageData> };
 
-function countLabel(total: number): string {
-  return `${total.toLocaleString('en-CA')} ${total === 1 ? 'receipt' : 'receipts'}`;
+const SORT_OPTIONS: readonly SortOption[] = [
+  { label: 'Newest first', sort: null },
+  { label: 'Oldest first', sort: { key: 'received', dir: 'asc' } },
+  { label: 'Most units first', sort: { key: 'units', dir: 'desc' } },
+];
+const SORT_LABELS: SortLabels = {
+  received: { asc: 'Received, oldest first', desc: 'Received, newest first' },
+  project: { asc: 'Project A–Z', desc: 'Project Z–A' },
+  units: { asc: 'Fewest units first', desc: 'Most units first' },
+};
+
+/** Searching waits this long after typing before asking the server. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+function useDebounced<T>(value: T, delay: number): T {
+  const [shown, setShown] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShown(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return shown;
 }
 
 /**
- * Receiving log (MM-T51, Field Ledger "ReceivingLog"): the drafts on this computer that are not
- * confirmed yet (dashed, Continue), then confirmed receipts, one row per receipt, newest
- * confirmation first. Search, filters and page live in the URL. Drafts are not receipts: they
- * stay on the computer that saved them, and have no storage unit IDs.
+ * Receiving log (MM-T51, STRATA-78, canvas R2LogContent): "Drafts on this computer" (Items with
+ * Continue and Delete draft, never inventory) above the confirmed receipts in the table tools
+ * pattern: server-backed search, filters (project, received by, status), sort and paging, all in
+ * the URL. Receipts have no number, so the received date and time is the row's link; rows open
+ * the receipt in the drawer (`?open=`) on wide screens and the receipt page otherwise.
  */
 export function ReceivingLogPage() {
   usePageTitle('Receiving log');
-  const [view, setView] = useTableView('receiving-log');
-  const [params, setParams] = useLatestSearchParams();
-  const location = useLocation();
+  const me = useMe();
   const online = useOnline();
-  const { query, ignored } = useMemo(() => readReceiptLogQuery(params), [params]);
-  const requestKey = receiptLogSearchParams(query).toString();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const [table, setTableRaw] = useTableQuery();
+  const setTable = useCallback(
+    (patch: Partial<TableQuery>) =>
+      setTableRaw(patch.filters ? { ...patch, filters: normalizeFilters(patch.filters) } : patch),
+    [setTableRaw],
+  );
+  const peek = usePeekParam();
+  const peekAvailable = usePeekAvailable();
+  const [density, setDensity] = useTableDensity('receiving-log');
 
+  // Older links (projectId=, receiverUserId=) become the table tools' filters.
+  useEffect(() => {
+    const project = params.get('projectId');
+    const receiver = params.get('receiverUserId');
+    if (!project && !receiver) return;
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('projectId');
+        next.delete('receiverUserId');
+        if (project) next.append('filter', projectFilter(project));
+        if (receiver) next.append('filter', receiverFilter(receiver));
+        return next;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
+
+  const search = useDebounced(table.search, SEARCH_DEBOUNCE_MS);
+  const { query, ignored } = useMemo(
+    () => receiptLogQueryFor({ ...table, search }, params),
+    [table, search, params],
+  );
+  const requestKey = receiptLogSearchParams(query).toString();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [reloads, setReloads] = useState(0);
   useEffect(() => {
     let cancelled = false;
     void fetchReceiptLog(new URLSearchParams(requestKey)).then((result) => {
-      // Only the newest filters' answer is shown; an older, slower one is dropped.
+      // Only the newest query's answer is shown; an older, slower one is dropped.
       if (!cancelled) setLoaded({ key: requestKey, result });
     });
     return () => {
@@ -87,568 +156,455 @@ export function ReceivingLogPage() {
     };
   }, [requestKey, reloads]);
 
-  const [project, setProject] = useState<ProjectSummary | null>(null);
-  const selectedProject = project && project.id === query.projectId ? project : null;
-  useEffect(() => {
-    if (!query.projectId || selectedProject) return;
-    let cancelled = false;
-    void fetchProject(query.projectId).then((response) => {
-      if (!cancelled && response.ok) setProject(response.data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [query.projectId, selectedProject]);
+  const current = loaded?.key === requestKey ? loaded.result : null;
+  // While a newer query loads, the previous rows stay visible but marked busy.
+  const shown = loaded?.result.ok ? loaded.result.data : null;
+  const failed = current && !current.ok ? current : null;
+  const loading = current === null;
+  const filtered = hasActiveFilters(table, params);
+  const totalPages = shown ? Math.max(1, Math.ceil(shown.total / shown.pageSize)) : 1;
 
-  const [receiver, setReceiver] = useState<ReceiverOption | null>(null);
-  const selectedReceiver = receiver && receiver.id === query.receiverUserId ? receiver : null;
-  useEffect(() => {
-    if (!query.receiverUserId || selectedReceiver) return;
-    let cancelled = false;
-    void fetchReceiptReceiver(query.receiverUserId).then((response) => {
-      if (!cancelled && response.ok && response.data) setReceiver(response.data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [query.receiverUserId, selectedReceiver]);
-
-  /** Applies changes to the latest URL (not this render's, MM-T46); filters reset the page. */
-  function update(changes: Partial<ReceiptLogQuery>) {
-    setParams((prev) => withFilters(prev, changes));
+  // Labels for the project and person filters, learnt from the rows (and kept once seen).
+  const [labels, setLabels] = useState<Map<string, string>>(() => new Map());
+  const rows = useMemo(() => shown?.items ?? [], [shown]);
+  // Merged while rendering when new rows arrive (no effect: React's "adjust state on change").
+  const [labelledRows, setLabelledRows] = useState(rows);
+  if (labelledRows !== rows) {
+    setLabelledRows(rows);
+    const next = new Map(labels);
+    for (const row of rows) {
+      next.set(projectFilter(row.project.id), `Project ${row.project.projectNumber}`);
+      next.set(receiverFilter(row.receiver.userId), `Received by ${row.receiver.name}`);
+    }
+    setLabels(next);
   }
+
+  const filters = useMemo<QueryFilterOption[]>(() => {
+    const options: QueryFilterOption[] = [];
+    const seen = new Set<string>();
+    const add = (id: string, label: string) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      options.push({ id, label });
+    };
+    if (me.accountType !== 'shared_lab') add(receiverFilter(me.id), 'Received by me');
+    // The projects and people on this page, then any active one from a link.
+    for (const row of rows.slice(0, 25)) {
+      if (options.length >= 8) break;
+      add(projectFilter(row.project.id), `Project ${row.project.projectNumber}`);
+    }
+    for (const row of rows.slice(0, 25)) {
+      if (options.length >= 12) break;
+      add(receiverFilter(row.receiver.userId), `Received by ${row.receiver.name}`);
+    }
+    for (const id of table.filters) {
+      if (id.startsWith('project:') || id.startsWith('receiver:')) {
+        add(id, labels.get(id) ?? (id.startsWith('project:') ? 'Project' : 'Received by'));
+      }
+    }
+    add(STATUS_FILTER.confirmed, RECEIPT_LOG_STATUS_LABELS.confirmed);
+    add(STATUS_FILTER.corrected, RECEIPT_LOG_STATUS_LABELS.corrected);
+    return options;
+  }, [me, rows, table.filters, labels]);
+
+  const linkState: ReceiptLinkState = { from: location.search };
+  const openRow = peekAvailable ? peek.openId : null;
+  const nav = peekNeighbours(
+    rows.map((r) => r.id),
+    openRow,
+  );
+  usePeekKeys({
+    enabled: openRow !== null,
+    onClose: peek.close,
+    onPrevious: nav.previousId ? () => peek.open(nav.previousId!) : undefined,
+    onNext: nav.nextId ? () => peek.open(nav.nextId!) : undefined,
+  });
+
+  const openReceipt = useCallback(
+    (row: ReceiptLogItem) => {
+      if (peekAvailable) peek.open(row.id);
+      else navigate(`/receiving-log/${row.id}`, { state: linkState });
+    },
+    // linkState is rebuilt every render from location.search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [peekAvailable, peek, navigate, location.search],
+  );
 
   function turnPage(by: number) {
     setParams((prev) => {
-      const latest = readReceiptLogQuery(prev).query;
-      return receiptLogSearchParams({ ...latest, page: Math.max(1, latest.page + by) });
+      const next = new URLSearchParams(prev);
+      const page = Math.max(1, query.page + by);
+      if (page === 1) next.delete('page');
+      else next.set('page', String(page));
+      return next;
     });
   }
 
   function clearFilters() {
-    setParams((prev) =>
-      receiptLogSearchParams(clearedReceiptLogQuery(readReceiptLogQuery(prev).query)),
-    );
+    setParams((prev) => clearedParams(prev));
   }
 
-  const current = loaded?.key === requestKey ? loaded.result : null;
-  // While newer filters load, the previous rows stay visible but marked busy.
-  const shown = loaded?.result.ok ? loaded.result.data : null;
-  const failed = current && !current.ok ? current : null;
-  const loading = current === null;
-  const filtered = hasActiveFilters(query);
-  const totalPages = shown ? Math.max(1, Math.ceil(shown.total / shown.pageSize)) : 1;
-  const chips = activeChips(query, selectedProject, selectedReceiver);
-  const linkState: ReceiptLinkState = { from: location.search };
+  const view = table.view ?? density;
+  const tableDensity = view === 'compact' ? 'compact' : 'comfortable';
 
-  return (
-    <div className="receiving-log">
-      <ContextRow align="end">
-        <Link className="button" to="/sample-storage/scan">
-          Scan label
-        </Link>
-        <Link className="button primary" to={START_DELIVERY_PATH}>
-          Start a delivery
-        </Link>
-      </ContextRow>
-      <div className="receiving-log-title">
-        <h1>Receiving log</h1>
-        <span className="section-meta">Every delivery, newest first</span>
-      </div>
+  const list = (
+    <div className="space-y-6 p-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Receiving log</h1>
+          <p className="text-sm text-muted-foreground">Every delivery, newest first.</p>
+        </div>
+        <Button asChild>
+          <Link to={START_DELIVERY_PATH}>
+            <ArrowDownToLine aria-hidden="true" />
+            Receive samples
+          </Link>
+        </Button>
+      </header>
 
       <LocalDrafts />
 
-      <section className="receiving-log-section" aria-labelledby="receiving-log-received">
-        <div className="receiving-log-head">
-          <StatusBadge tone="storage">CONFIRMED</StatusBadge>
-          <SectionHead id="receiving-log-received" title="Received" meta="Newest first" />
-          <TableViewSelector value={view} onChange={setView} />
+      <section aria-labelledby="receiving-log-receipts" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <h2 id="receiving-log-receipts" className="text-base font-semibold">
+              Receipts
+            </h2>
+            <span
+              className="text-sm text-muted-foreground tabular-nums"
+              role="status"
+              aria-live="polite"
+            >
+              {loading && !shown
+                ? 'Loading receipts…'
+                : failed
+                  ? 'Receipts didn’t load.'
+                  : shown
+                    ? `${shown.total.toLocaleString('en-CA')} ${shown.total === 1 ? 'receipt' : 'receipts'}`
+                    : ''}
+            </span>
+          </div>
+          <TableToolbar
+            label="Receipt tools"
+            query={table}
+            onQueryChange={(patch) => {
+              if (patch.view !== undefined && patch.view !== null) {
+                setDensity(patch.view === 'compact' ? 'compact' : 'comfortable');
+              }
+              setTable(patch);
+            }}
+            filters={filters}
+            sortOptions={SORT_OPTIONS}
+            sortLabels={SORT_LABELS}
+            views={DENSITY_VIEW_OPTIONS}
+            searchPlaceholder="Search receipts…"
+          />
         </div>
-        <ReceivedSection
-          query={query}
-          ignored={ignored}
-          chips={chips}
-          update={update}
-          clearFilters={clearFilters}
-          turnPage={turnPage}
-          selectedProject={selectedProject}
-          setProject={setProject}
-          selectedReceiver={selectedReceiver}
-          setReceiver={setReceiver}
-          loading={loading}
-          failed={failed}
-          online={online}
-          shown={shown}
-          filtered={filtered}
-          totalPages={totalPages}
-          linkState={linkState}
-          view={view}
-          retry={() => setReloads((n) => n + 1)}
-        />
+
+        {ignored ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Part of this link wasn’t valid and was left out.
+          </p>
+        ) : null}
+
+        {failed ? (
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyTitle>Receipts didn’t load</EmptyTitle>
+              <EmptyDescription>
+                {failed.kind === 'offline' && !online
+                  ? 'You’re offline. The Receiving log needs a connection to Material Mule. Drafts on this computer still open from the list above.'
+                  : failed.message}
+              </EmptyDescription>
+            </EmptyHeader>
+            {failed.kind !== 'unauthenticated' ? (
+              <EmptyContent>
+                <Button variant="outline" onClick={() => setReloads((n) => n + 1)}>
+                  Try again
+                </Button>
+              </EmptyContent>
+            ) : null}
+          </Empty>
+        ) : shown && shown.total === 0 && !loading ? (
+          filtered ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyTitle>No receipts match these filters.</EmptyTitle>
+                <EmptyDescription>Change the search or clear the filters.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyTitle>No receipts yet.</EmptyTitle>
+                <EmptyDescription>
+                  Confirmed deliveries are listed here, newest first.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link to={START_DELIVERY_PATH}>Receive samples</Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
+          )
+        ) : (
+          <div aria-busy={loading}>
+            <ReceiptTable
+              rows={rows}
+              loading={loading && !shown}
+              density={tableDensity}
+              sort={table.sort}
+              onSortChange={(sort) => setTable({ sort })}
+              onOpen={openReceipt}
+              openId={openRow}
+              linkState={linkState}
+              peekAvailable={peekAvailable}
+            />
+          </div>
+        )}
+
+        {!failed && shown && shown.total > shown.pageSize ? (
+          <nav className="flex items-center gap-2 text-sm" aria-label="Pages">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={query.page <= 1}
+              onClick={() => turnPage(-1)}
+            >
+              Previous
+            </Button>
+            <span className="text-muted-foreground tabular-nums">
+              Page {query.page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={query.page >= totalPages}
+              onClick={() => turnPage(1)}
+            >
+              Next
+            </Button>
+          </nav>
+        ) : null}
       </section>
     </div>
   );
-}
 
-function ReceivedSection({
-  query,
-  ignored,
-  chips,
-  update,
-  clearFilters,
-  turnPage,
-  selectedProject,
-  setProject,
-  selectedReceiver,
-  setReceiver,
-  loading,
-  failed,
-  online,
-  shown,
-  filtered,
-  totalPages,
-  linkState,
-  view,
-  retry,
-}: {
-  query: ReceiptLogQuery;
-  ignored: string[];
-  chips: Chip[];
-  update: (changes: Partial<ReceiptLogQuery>) => void;
-  clearFilters: () => void;
-  turnPage: (by: number) => void;
-  selectedProject: ProjectSummary | null;
-  setProject: (project: ProjectSummary) => void;
-  selectedReceiver: ReceiverOption | null;
-  setReceiver: (receiver: ReceiverOption) => void;
-  loading: boolean;
-  failed: Extract<ReceiptLogResult<ReceiptLogPageData>, { ok: false }> | null;
-  online: boolean;
-  shown: ReceiptLogPageData | null;
-  filtered: boolean;
-  totalPages: number;
-  linkState: ReceiptLinkState;
-  view: TableView;
-  retry: () => void;
-}) {
   return (
-    <>
-      <SearchForm
-        initial={query.search ?? ''}
-        onSearch={(search) => update({ search: search || undefined })}
-      />
-
-      <div className="filters receiving-log-filters" aria-label="Filters" role="group">
-        <ProjectFilter
-          selected={selectedProject}
-          selectedId={query.projectId}
-          onSelect={(picked) => {
-            if (picked) setProject(picked);
-            update({ projectId: picked?.id });
-          }}
-        />
-        {query.receiverUserId ? (
-          <SelectedReceiver
-            receiver={selectedReceiver}
-            onClear={() => update({ receiverUserId: undefined })}
-          />
-        ) : (
-          <ReceiverSelect
-            value={null}
-            onChange={(picked) => {
-              if (!picked) return;
-              setReceiver(picked);
-              update({ receiverUserId: picked.id });
-            }}
-            searchPath={RECEIPT_RECEIVERS_PATH}
-            noMatchText="Nobody with those initials or that name has received a receipt."
-            hint="Initials or name. Includes people who have since left."
-          />
-        )}
-        <DateFilter
-          label="Received from"
-          value={query.receivedFrom ?? ''}
-          max={query.receivedTo}
-          onChange={(value) => update({ receivedFrom: value || undefined })}
-        />
-        <DateFilter
-          label="Received through"
-          value={query.receivedTo ?? ''}
-          min={query.receivedFrom}
-          onChange={(value) => update({ receivedTo: value || undefined })}
-        />
-      </div>
-
-      {ignored.length > 0 ? (
-        <p className="notice" role="status">
-          Part of this link wasn’t valid and was left out: {ignored.join(', ')}.
-        </p>
-      ) : null}
-
-      {chips.length > 0 ? (
-        <ul className="chips" aria-label="Active filters">
-          {chips.map((chip) => (
-            <li key={chip.key}>
-              {chip.label}
-              <button
-                type="button"
-                aria-label={`Remove filter ${chip.label}`}
-                onClick={() => update(chip.remove)}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <div className="inventory-summary">
-        <p role="status" aria-live="polite" aria-busy={loading}>
-          {loading
-            ? 'Loading receipts…'
-            : failed
-              ? 'Receipts didn’t load.'
-              : countLabel(shown!.total)}
-        </p>
-        {filtered ? (
-          <button type="button" onClick={clearFilters}>
-            Clear filters
-          </button>
-        ) : null}
-      </div>
-
-      {failed ? (
-        <ErrorState
-          message={
-            failed.kind === 'offline' && !online
-              ? 'You’re offline. The Receiving log needs a connection to Material Mule. Drafts on this computer still open from the list above.'
-              : failed.message
-          }
-          onRetry={failed.kind === 'unauthenticated' ? undefined : retry}
-        />
-      ) : null}
-
-      {!failed && shown ? (
-        shown.total === 0 ? (
-          filtered ? (
-            <EmptyState
-              title="No receipts match these filters."
-              action={
-                <button type="button" onClick={clearFilters}>
-                  Clear filters
-                </button>
-              }
+    <PeekSplit
+      className="h-full min-h-0"
+      open={openRow !== null}
+      openId={openRow}
+      listLabel="Receiving log"
+      drawerLabelledBy="receipt-peek-title"
+      list={list}
+      drawer={
+        openRow ? (
+          <>
+            <PeekToolbar
+              onClose={peek.close}
+              fullPageHref={`/receiving-log/${openRow}`}
+              position={{ index: nav.index, total: nav.total }}
+              onPrevious={nav.previousId ? () => peek.open(nav.previousId!) : undefined}
+              onNext={nav.nextId ? () => peek.open(nav.nextId!) : undefined}
             />
-          ) : (
-            <EmptyState
-              title="No receipts yet."
-              action={
-                <Link className="button primary" to={START_DELIVERY_PATH}>
-                  Start a delivery
-                </Link>
-              }
-            >
-              Confirmed deliveries are listed here, newest first.
-            </EmptyState>
-          )
-        ) : (
-          <TableScroll
-            label="Receipt table"
-            className="receiving-log-table table-frame table-stack"
-            aria-busy={loading}
-          >
-            <ReceiptTable items={shown.items} linkState={linkState} view={view} />
-          </TableScroll>
-        )
-      ) : null}
-
-      {!failed && shown && shown.total > shown.pageSize ? (
-        <nav className="pager" aria-label="Pages">
-          <button type="button" disabled={query.page <= 1} onClick={() => turnPage(-1)}>
-            Previous
-          </button>
-          <span>
-            Page {query.page} of {totalPages}
-          </span>
-          <button type="button" disabled={query.page >= totalPages} onClick={() => turnPage(1)}>
-            Next
-          </button>
-        </nav>
-      ) : null}
-    </>
-  );
-}
-
-function ReceiptTable({
-  items,
-  linkState,
-  view,
-}: {
-  items: ReceiptLogItem[];
-  linkState: ReceiptLinkState;
-  view: TableView;
-}) {
-  const columns: Column<ReceiptLogItem>[] = [
-    {
-      header: 'Received',
-      cell: (item) => (
-        <Link
-          to={`/receiving-log/${item.id}`}
-          state={linkState}
-          aria-label={`Open receipt: ${item.project.projectNumber}, received ${item.receivedDate} by ${formatReceiver(item.receiver)}`}
-        >
-          <span className="receipt-date mono">{item.receivedDate}</span>
-        </Link>
-      ),
-    },
-    {
-      header: 'Project',
-      cell: (item) => (
-        <span className="unit-cell">
-          <span className="mono receipt-project">{item.project.projectNumber}</span>
-          <span className="receipt-secondary">{item.project.name}</span>
-        </span>
-      ),
-    },
-    { header: 'Received by', cell: (item) => formatReceiver(item.receiver) },
-    {
-      header: 'Storage units',
-      cell: (item) => <span className="mono">{item.quantity}</span>,
-    },
-    {
-      header: 'Confirmed',
-      cell: (item) => (
-        <span className="unit-cell">
-          <time className="mono" dateTime={item.confirmedAt}>
-            {formatConfirmedAt(item.confirmedAt)}
-          </time>
-          <span className="field-hint receipt-secondary">by {formatAccount(item.account)}</span>
-        </span>
-      ),
-    },
-  ];
-  return (
-    <DataTable
-      view={view}
-      rows={items}
-      rowKey={(item) => item.id}
-      caption="Confirmed receipts"
-      empty="No receipts."
-      columns={columns}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ReceiptRecord receiptId={openRow} variant="drawer" titleId="receipt-peek-title" />
+            </div>
+          </>
+        ) : null
+      }
     />
   );
 }
 
-type DraftListing =
-  { state: 'loading' } | { state: 'ready'; drafts: StoredDraft[] } | { state: 'error' };
+function ReceiptTable({
+  rows,
+  loading,
+  density,
+  sort,
+  onSortChange,
+  onOpen,
+  openId,
+  linkState,
+  peekAvailable,
+}: {
+  rows: ReceiptLogItem[];
+  loading: boolean;
+  density: 'comfortable' | 'compact';
+  sort: TableQuery['sort'];
+  onSortChange: (sort: TableQuery['sort']) => void;
+  onOpen: (row: ReceiptLogItem) => void;
+  openId: string | null;
+  linkState: ReceiptLinkState;
+  peekAvailable: boolean;
+}) {
+  const columns = useMemo<DataTableColumn<ReceiptLogItem>[]>(
+    () => [
+      {
+        id: 'received',
+        header: 'Received',
+        priority: 'identity',
+        sortKey: 'received',
+        width: '10ch',
+        cell: (row) => (
+          <Link
+            to={`/receiving-log/${row.id}`}
+            state={linkState}
+            className="grid justify-items-start text-foreground underline-offset-4 hover:underline"
+            aria-label={`Open receipt: ${row.project.projectNumber}, received ${row.receivedDate} by ${formatReceiver(row.receiver)}`}
+            onClick={(event: MouseEvent) => {
+              // On wide screens the receipt opens in the drawer; modified clicks keep the link.
+              if (!peekAvailable || event.metaKey || event.ctrlKey || event.shiftKey) return;
+              event.preventDefault();
+              onOpen(row);
+            }}
+          >
+            <span className="font-mono">{row.receivedDate}</span>
+            <time className="text-xs text-muted-foreground" dateTime={row.confirmedAt}>
+              {formatClock(row.confirmedAt)}
+            </time>
+          </Link>
+        ),
+      },
+      {
+        id: 'project',
+        header: 'Project',
+        priority: 'identity',
+        sortKey: 'project',
+        cell: (row) => (
+          <span className="flex min-w-0 flex-col">
+            <span className="font-mono">{row.project.projectNumber}</span>
+            <span className="truncate text-muted-foreground">{row.project.name}</span>
+          </span>
+        ),
+      },
+      {
+        id: 'units',
+        header: 'Storage units',
+        priority: 'attribute',
+        sortKey: 'units',
+        width: '14rem',
+        hideOrder: 2,
+        cell: (row) => {
+          const ids = row.unitIds ?? [];
+          const more = row.quantity - Math.min(ids.length, 1);
+          return (
+            <span className="flex items-baseline gap-2">
+              <span className="tabular-nums">{row.quantity}</span>
+              {ids[0] ? <span className="font-mono text-muted-foreground">{ids[0]}</span> : null}
+              {ids[0] && more > 0 ? (
+                <span className="text-muted-foreground" title={ids.join(', ')}>
+                  +{more}
+                </span>
+              ) : null}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'receiver',
+        header: 'Received by',
+        priority: 'attribute',
+        width: '11rem',
+        hideOrder: 1,
+        cell: (row) => (
+          <PersonCell name={formatReceiver(row.receiver)} userId={row.receiver.userId} />
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        priority: 'state',
+        width: '7rem',
+        wrap: true,
+        cell: (row) => (
+          <StageTag stage="storage" label={RECEIPT_LOG_STATUS_LABELS[row.status ?? 'confirmed']} />
+        ),
+      },
+    ],
+    [linkState, onOpen, peekAvailable],
+  );
+  return (
+    <DataTable
+      columns={columns}
+      data={rows}
+      getRowId={(row) => row.id}
+      rowLabel={(row) => `${row.project.projectNumber}, received ${row.receivedDate}`}
+      density={density}
+      sort={sort}
+      onSortChange={onSortChange}
+      stage={() => 'storage'}
+      onOpenRow={onOpen}
+      openRowId={openId}
+      caption="Confirmed receipts"
+      empty="No receipts."
+      loading={loading}
+      freeColumnMin="9rem"
+    />
+  );
+}
 
 /**
  * Drafts on this computer that the signed-in person may open (MM-T11 visibility), newest saved
- * first. A draft never shows a storage unit ID: IDs are issued only at confirmation.
+ * first, with STRATA-108's delete rules. A draft never shows a storage unit ID.
  */
 function LocalDrafts() {
   const me = useMe();
-  const [listing, setListing] = useState<DraftListing>({ state: 'loading' });
+  const station = useOptionalRecordingPerson();
+  const picked = station?.isStation ? (station.person?.id ?? null) : null;
+  const [drafts, setDrafts] = useState<StoredDraft[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [reloads, setReloads] = useState(0);
+
   useEffect(() => {
     let current = true;
-    indexedDbDraftStore.list().then(
-      ({ drafts }) => {
-        if (!current) return;
-        const visible = drafts
+    void (async () => {
+      try {
+        const { drafts: all } = await indexedDbDraftStore.list();
+        const visible = all
           .filter((draft) => visibleTo(draft, me))
           .sort((a, b) => b.lastSavedAt.localeCompare(a.lastSavedAt));
-        setListing({ state: 'ready', drafts: visible });
-      },
-      () => current && setListing({ state: 'error' }),
-    );
+        if (current) setDrafts(visible);
+        // Drafts saved offline register now (best effort), so their starter is known.
+        if (visible.some((d) => !d.legacy && !d.registeredAt)) {
+          await registerPendingDrafts(indexedDbDraftStore, visible);
+        }
+      } catch {
+        if (current) setFailed(true);
+      }
+    })();
     return () => {
       current = false;
     };
-  }, [me]);
+  }, [me, reloads]);
 
-  if (listing.state === 'loading') return null;
-  if (listing.state === 'error') {
+  const ownership = useDraftOwnership(drafts, picked);
+
+  if (failed) {
     return (
-      <p className="notice notice-warning" role="status">
+      <p className="text-sm text-muted-foreground" role="status">
         Drafts on this computer couldn’t be read. They are still kept; open Receive samples to try
         again.
       </p>
     );
   }
-  if (listing.drafts.length === 0) return null;
-  const count = listing.drafts.length;
   return (
-    <section className="receiving-log-section" aria-labelledby="receiving-log-drafts">
-      <div className="receiving-log-head">
-        <StatusBadge tone="waiting">DRAFT</StatusBadge>
-        <SectionHead
-          id="receiving-log-drafts"
-          title="Not confirmed yet"
-          meta={`${count} ${count === 1 ? 'delivery' : 'deliveries'} · No IDs issued`}
-        />
-      </div>
-      <ul className="receiving-log-drafts">
-        {listing.drafts.map((draft) => {
-          const project = draft.data.project?.projectNumber ?? null;
-          return (
-            <li key={draft.draftId} className="receiving-log-draft" data-row>
-              <div className="receiving-log-draft-main">
-                <span className="mono receiving-log-draft-project">
-                  {project ?? 'No project yet'}
-                </span>
-                <span className="receipt-secondary">{draftContents(draft.data.units)}</span>
-              </div>
-              <div className="receiving-log-draft-fact">
-                <span className="field-label">Started by</span>
-                <span>
-                  {draft.receiver
-                    ? `${draft.receiver.initials} · ${draft.receiver.displayName}`
-                    : 'Not chosen'}
-                </span>
-              </div>
-              <div className="receiving-log-draft-fact">
-                <span className="field-label">Last saved</span>
-                <time dateTime={draft.lastSavedAt}>{formatConfirmedAt(draft.lastSavedAt)}</time>
-              </div>
-              <Link
-                className="button primary"
-                to={continueDraftPath(draft.draftId)}
-                aria-label={`Continue draft for ${project ?? 'a delivery with no project yet'}`}
-              >
-                Continue
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-interface Chip {
-  key: string;
-  label: string;
-  remove: Partial<ReceiptLogQuery>;
-}
-
-function activeChips(
-  query: ReceiptLogQuery,
-  project: ProjectSummary | null,
-  receiver: ReceiverOption | null,
-): Chip[] {
-  const chips: Chip[] = [];
-  if (query.search) {
-    chips.push({ key: 'search', label: `Search: ${query.search}`, remove: { search: undefined } });
-  }
-  if (query.projectId) {
-    chips.push({
-      key: 'project',
-      label: `Project: ${project?.projectNumber ?? '…'}`,
-      remove: { projectId: undefined },
-    });
-  }
-  if (query.receiverUserId) {
-    chips.push({
-      key: 'receiver',
-      label: `Received by: ${receiver ? `${receiver.initials} · ${receiver.displayName}` : '…'}`,
-      remove: { receiverUserId: undefined },
-    });
-  }
-  if (query.receivedFrom) {
-    chips.push({
-      key: 'from',
-      label: `Received from ${query.receivedFrom}`,
-      remove: { receivedFrom: undefined },
-    });
-  }
-  if (query.receivedTo) {
-    chips.push({
-      key: 'to',
-      label: `Received through ${query.receivedTo}`,
-      remove: { receivedTo: undefined },
-    });
-  }
-  return chips;
-}
-
-function SelectedReceiver({
-  receiver,
-  onClear,
-}: {
-  receiver: ReceiverOption | null;
-  onClear: () => void;
-}) {
-  const id = useId();
-  return (
-    <div className="form-field">
-      <span className="field-label" id={`${id}-label`}>
-        Received by
-      </span>
-      <div className="selected-filter" aria-labelledby={`${id}-label`}>
-        <span>{receiver ? formatReceiverOption(receiver) : 'Loading…'}</span>
-        <button type="button" onClick={onClear}>
-          Change person
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: string) => void }) {
-  const id = useId();
-  const [text, setText] = useState(initial);
-  // Follow the URL's search (Clear filters, a removed chip, Back) without wiping newer typing.
-  const [shown, setShown] = useState(initial);
-  if (initial !== shown) {
-    setShown(initial);
-    if (text === shown) setText(initial);
-  }
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSearch(text.trim());
-  }
-  return (
-    <form role="search" aria-label="Search receipts" className="inventory-search" onSubmit={submit}>
-      <label htmlFor={id}>Search</label>
-      <div className="inline-input">
-        <input
-          id={id}
-          type="search"
-          value={text}
-          placeholder="Project, received by, or storage unit ID"
-          onChange={(event) => setText(event.target.value)}
-        />
-        <button type="submit">Search</button>
-      </div>
-    </form>
-  );
-}
-
-function DateFilter({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  min?: string;
-  max?: string;
-  onChange: (value: string) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="form-field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type="date"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
+    <DraftItems
+      drafts={drafts}
+      me={me}
+      ownership={ownership}
+      continueHref={(record) => continueDraftPath(record.draftId)}
+      onDelete={async (record) => {
+        await deleteDraft(indexedDbDraftStore, record, picked);
+        setReloads((n) => n + 1);
+      }}
+    />
   );
 }

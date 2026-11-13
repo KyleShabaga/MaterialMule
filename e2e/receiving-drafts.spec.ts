@@ -3,6 +3,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from '@pla
 import { signInAs } from './support/auth';
 import { pickOnStationPicker } from './support/lab-station';
 import { withDatabase } from './support/db';
+import { addUnit, confirmDelivery } from './support/receiving';
 
 // MM-T11: receiving drafts autosaved in this browser (IndexedDB), against the real API with
 // fictional DEMO-2601 data. Each test gets a fresh browser context, so it starts with no drafts.
@@ -26,12 +27,13 @@ async function chooseProject(page: Page) {
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
 }
 
-async function toUnits(page: Page) {
-  await page.getByRole('button', { name: 'Next: add the units' }).click();
-  await expect(page.getByRole('heading', { name: 'Storage units in this delivery' })).toBeVisible();
+/** Received by and Description as saved in the draft (Receive samples is one page, STRATA-76). */
+async function expectDelivery(page: Page, description: string, receiver: RegExp) {
+  await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
+  await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
+    receiver,
+  );
 }
-
-const confirmButton = (page: Page) => page.getByRole('button', { name: 'Confirm and issue IDs' });
 
 async function addHole(unit: Locator, name: string) {
   await unit.getByRole('combobox', { name: 'Find or add a test hole' }).fill(name);
@@ -101,13 +103,12 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await expect(draftStatus(page)).toHaveText('Draft not saved yet · Receiver: AT');
   await chooseProject(page);
   await page.getByLabel('Description (optional)').fill('Two buckets from the drill crew');
-  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   const range = summaryOf(bucket(page, 1), 'TH26-01');
   await range.getByLabel('Summary type').selectOption('sample_range');
   await range.getByLabel('Sample from').fill('G1');
   await range.getByLabel('Sample to').fill('S12');
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
+  await addUnit(page);
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
   await bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped');
@@ -129,14 +130,9 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   expect(listBox.y).toBeLessThan(startBox.y);
 
   await list.getByRole('button', { name: /Resume draft DEMO-2601/ }).click();
-  // It opens on Units, where it was left, with the finished units folded to their rows.
-  const delivery = reopened.getByRole('group', { name: 'Delivery' });
-  await expect(delivery).toContainText('DEMO-2601');
-  await expect(delivery).toContainText('Two buckets from the drill crew');
-  await expect(delivery).toContainText('AT · Alex Tester');
-  await expect(bucket(reopened, 1).getByText('G1–S12')).toBeVisible();
-  await bucket(reopened, 1).getByRole('button', { name: 'Edit Bucket 1' }).click();
-  await bucket(reopened, 2).getByRole('button', { name: 'Edit Bucket 2' }).click();
+  // Every field as it was left; rows are always open.
+  await expect(reopened.getByLabel('Project number')).toHaveValue('DEMO-2601');
+  await expectDelivery(reopened, 'Two buckets from the drill crew', /^AT · Alex Tester/);
   const reopenedRange = summaryOf(bucket(reopened, 1), 'TH26-01');
   await expect(reopenedRange.getByLabel('Sample from')).toHaveValue('G1');
   await expect(reopenedRange.getByLabel('Sample to')).toHaveValue('S12');
@@ -163,7 +159,6 @@ test(
     ).toBeVisible();
     await page.getByLabel('Description (optional)').fill('Edited offline');
     const savedFirst = await savedAfter(page, new Date().toISOString());
-    await toUnits(page);
     await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
     const savedSecond = await savedAfter(page, new Date().toISOString());
     expect(savedSecond > savedFirst).toBe(true);
@@ -175,7 +170,7 @@ test(
     await draftList(reopened)
       .getByRole('button', { name: /Resume draft/ })
       .click();
-    await expect(reopened.getByRole('group', { name: 'Delivery' })).toContainText('Edited offline');
+    await expect(reopened.getByLabel('Description (optional)')).toHaveValue('Edited offline');
     await expect(bucket(reopened, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue(
       'Still offline',
     );
@@ -199,9 +194,8 @@ test(
     await expect(alert).toBeVisible();
     await expect(alert).toContainText('Receiver: AT');
     await expect(alert).toContainText('no storage space left');
-    // A step change retries the save; it still fails and still says so.
+    // A later change retries the save; it still fails and still says so.
     await chooseProject(page);
-    await toUnits(page);
     await expect(alert).toBeVisible();
     await expect(page.getByText(/Draft saved/)).toHaveCount(0);
   },
@@ -219,26 +213,25 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
   await page.getByLabel('Description (optional)').fill('LAB expiry check');
-  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
   await expect(draftStatus(page)).toContainText('Receiver: AT');
 
   await expireSession(context);
-  await confirmButton(page).click();
+  await confirmDelivery(page);
   const expired = page.getByRole('alert').filter({ hasText: 'LAB session has expired' });
   await expect(expired).toHaveText(
     /The LAB session has expired\. Your draft is saved\. Sign in to confirm\./,
   );
   // Still on the draft.
-  await expect(page.getByText('LAB expiry check')).toBeVisible();
+  await expect(page.getByLabel('Description (optional)')).toHaveValue('LAB expiry check');
   await expired.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/sign-in\?returnTo=%2Freceiving-log%2Fnew%3Fdraft%3D/);
   await expect(page.getByRole('status')).toHaveText(
     'The LAB session has expired. Your draft is saved. Sign in to confirm.',
   );
 
-  // Signing in again returns to the same draft, on Units, receiver unchanged (AC4).
+  // Signing in again returns to the same draft, receiver unchanged (AC4).
   await signInAs(page, 'lab');
   await page.reload();
   // A new LAB session starts with no one picked.
@@ -247,9 +240,9 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   await expect(
     page.getByRole('region', { name: 'This draft was started for AT. Change receiver?' }),
   ).toBeVisible();
-  await expect(page.getByText('LAB expiry check')).toBeVisible();
+  await expect(page.getByLabel('Description (optional)')).toHaveValue('LAB expiry check');
   const request = page.waitForRequest('**/api/receipts');
-  await confirmButton(page).click();
+  await confirmDelivery(page);
   const ids = await issuedIds(page);
   expect(ids).toHaveLength(1);
   const { idempotencyKey } = (await request).postDataJSON() as { idempotencyKey: string };
@@ -332,10 +325,9 @@ test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns
   await signInAs(page, 'at');
   await page.goto('/receiving-log/new');
   await chooseProject(page);
-  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
+  await addUnit(page);
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
 
@@ -354,7 +346,7 @@ test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns
     }
     await route.abort('connectionreset').catch(() => undefined);
   });
-  await confirmButton(page).click();
+  await confirmDelivery(page);
   await serverDone;
   expect(firstIds).toHaveLength(2);
   await page.close(); // the "crash"

@@ -1,6 +1,9 @@
 import {
+  storageUnitLifecycleStep,
   storageUnitStage,
   type InventoryItem,
+  type StorageTerm,
+  type StorageUnitLifecycleStep,
   type StorageUnitStage,
   type StorageUnitStatusFacts,
 } from '@materialmule/shared';
@@ -11,6 +14,11 @@ export interface UnitStageInput {
   openConflict: boolean;
   /** `location.kind` of the unit's saved location. */
   locationKind: string;
+  /**
+   * The saved location's effective storage term (view location_effective_storage_term, STRATA-106);
+   * null while no location in its chain has one.
+   */
+  storageTerm: StorageTerm | null;
   /** From unit_retention (MM-T29); undefined only if the view has no row for the unit. */
   retention?: { effectiveRetainUntil: string; onHold: boolean; retentionExempt: boolean };
   /** Today in the business time zone (America/Edmonton), YYYY-MM-DD. */
@@ -26,7 +34,8 @@ export interface UnitStageInput {
  *   shelf is not in the lab yet;
  * - awaitingPutAway: still at the receiving location (`kind = 'receiving_lab'`, the system
  *   Receiving lab);
- * - storageTerm: null, since locations carry no storage term yet (reads Short-term);
+ * - storageTerm: the saved location's effective term (own, else the nearest ancestor's, STRATA-106);
+ *   null while unset, which reads Short-term (DESIGN.md › Choices made);
  * - retentionDue / retentionOverdue: the effective retain-until date (unit_retention) on or before
  *   today is due, the same "eligible by date" rule as MM-T29 and the Retention page; before today
  *   is overdue (no grace period exists). Units on an active hold or exempt as tested units are
@@ -41,12 +50,16 @@ export function unitStageFacts(input: UnitStageInput): StorageUnitStatusFacts {
     openConflict: input.openConflict,
     inLab: input.locationKind === 'lab',
     awaitingPutAway: input.locationKind === 'receiving_lab',
-    storageTerm: null,
+    storageTerm: input.storageTerm,
     retentionDue: retentionApplies && retainUntil <= input.today,
     retentionOverdue: retentionApplies && retainUntil < input.today,
   };
 }
 
-export function unitStage(input: UnitStageInput): StorageUnitStage {
-  return storageUnitStage(unitStageFacts(input));
+/** Record status, stage and lifecycle step: one derivation for every surface that shows a unit. */
+export function unitStage(
+  input: UnitStageInput,
+): StorageUnitStage & { lifecycleStep: StorageUnitLifecycleStep } {
+  const facts = unitStageFacts(input);
+  return { ...storageUnitStage(facts), lifecycleStep: storageUnitLifecycleStep(facts) };
 }

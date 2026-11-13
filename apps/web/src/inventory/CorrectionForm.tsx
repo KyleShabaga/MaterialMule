@@ -18,6 +18,11 @@ import {
   type TestHole,
 } from '@materialmule/shared';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Link } from 'react-router';
 import { listActiveStaff } from '../api/projects';
 import { FormField } from '../components/app-ui';
@@ -322,21 +327,24 @@ export function CorrectionForm({
                         </li>
                       ))}
                     </ul>
-                    <label>
-                      <input
-                        type="checkbox"
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="correction-replace-summaries"
                         checked={replaceConfirmed}
-                        onChange={(event) => {
-                          setReplaceConfirmed(event.target.checked);
+                        onCheckedChange={(value) => {
+                          setReplaceConfirmed(value === true);
                           setReplaceError(false);
                         }}
-                      />{' '}
-                      Replace{' '}
-                      {replacedSummaries.length === 1
-                        ? 'this summary'
-                        : `these ${replacedSummaries.length} summaries`}{' '}
-                      with the new source
-                    </label>
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor="correction-replace-summaries" className="font-normal">
+                        Replace{' '}
+                        {replacedSummaries.length === 1
+                          ? 'this summary'
+                          : `these ${replacedSummaries.length} summaries`}{' '}
+                        with the new source
+                      </Label>
+                    </div>
                     {replaceError ? (
                       <p className="field-error" role="alert">
                         Confirm that the new source replaces these summaries, or keep the current
@@ -345,8 +353,9 @@ export function CorrectionForm({
                     ) : null}
                   </div>
                 ) : null}
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setChangingSample(false);
                     setSample(initialSample ?? emptySample());
@@ -355,13 +364,14 @@ export function CorrectionForm({
                   }}
                 >
                   Keep the current source
-                </button>
+                </Button>
               </>
             ) : (
               <div className="correction-project">
                 <p>{unit.sample ? formatSampleIdentity(unit.sample) : 'None recorded'}</p>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     // Edits to type, project or test holes don't go with a new source.
                     setUnitType(unit.unitType);
@@ -370,7 +380,7 @@ export function CorrectionForm({
                   }}
                 >
                   Change sampling source
-                </button>
+                </Button>
               </div>
             )}
             {sampleError ? (
@@ -416,7 +426,7 @@ export function CorrectionForm({
             error={fieldError('changes.receivedDate')}
           >
             {(props) => (
-              <input
+              <Input
                 {...props}
                 type="date"
                 max={todayInEdmonton()}
@@ -472,9 +482,9 @@ export function CorrectionForm({
                     receiverUserId={null}
                     online={online}
                   />
-                  <button type="button" onClick={keepProject}>
+                  <Button type="button" variant="outline" onClick={keepProject}>
                     Keep {unit.project.projectNumber}
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <div className="correction-project">
@@ -482,9 +492,9 @@ export function CorrectionForm({
                     <span className="project-number">{unit.project.projectNumber}</span> ·{' '}
                     {unit.project.name} · <span className="muted">{unit.project.client}</span>
                   </p>
-                  <button type="button" onClick={() => setChangingProject(true)}>
+                  <Button type="button" variant="outline" onClick={() => setChangingProject(true)}>
                     Change project
-                  </button>
+                  </Button>
                 </div>
               )}
               {fieldError('changes.projectId') ? (
@@ -553,7 +563,7 @@ export function CorrectionForm({
           error={fieldError('changes.note')}
         >
           {(props) => (
-            <textarea
+            <Textarea
               {...props}
               rows={2}
               maxLength={2000}
@@ -572,7 +582,7 @@ export function CorrectionForm({
           error={fieldError('reason')}
         >
           {(props) => (
-            <textarea
+            <Textarea
               {...props}
               rows={2}
               maxLength={2000}
@@ -617,12 +627,12 @@ export function CorrectionForm({
       ) : null}
 
       <div className="form-actions">
-        <button type="submit" className="primary" disabled={saving}>
+        <Button type="submit" disabled={saving}>
           {saving ? 'Saving…' : 'Save correction'}
-        </button>
-        <button type="button" onClick={onCancel} disabled={saving}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
-        </button>
+        </Button>
         <span className="field-hint" aria-live="polite">
           {changedCount === 0
             ? 'Nothing changed yet'

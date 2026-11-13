@@ -1,8 +1,10 @@
 import {
   receiptDetailSchema,
+  receiptHistoryPageSchema,
   receiptLogPageSchema,
   receiverListResponseSchema,
   type ReceiptDetail,
+  type ReceiptHistoryPage,
   type ReceiptLogPage,
   type ReceiverOption,
 } from '@materialmule/shared';
@@ -70,6 +72,17 @@ export function fetchReceiptLog(
 
 export function fetchReceipt(receiptId: string): Promise<ReceiptLogResult<ReceiptDetail>> {
   return get(`/api/receipts/${encodeURIComponent(receiptId)}`, receiptDetailSchema);
+}
+
+/** Corrections and history of a receipt and its units, newest first (STRATA-78). */
+export function fetchReceiptHistory(
+  receiptId: string,
+  page = 1,
+): Promise<ReceiptLogResult<ReceiptHistoryPage>> {
+  return get(
+    `/api/receipts/${encodeURIComponent(receiptId)}/history${page > 1 ? `?page=${page}` : ''}`,
+    receiptHistoryPageSchema,
+  );
 }
 
 /** The Received by filter's label after a reload, found by the receiver's user ID. */

@@ -67,6 +67,8 @@ import { NotificationsService } from './notifications/notifications.service.js';
 import { MovesService } from './moves/moves.service.js';
 import { UndoController } from './undo/undo.controller.js';
 import { UndoService } from './undo/undo.service.js';
+import { ReceiptDraftsController } from './receiving-drafts/receipt-drafts.controller.js';
+import { ReceiptDraftsService } from './receiving-drafts/receipt-drafts.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
@@ -195,6 +197,7 @@ export class AppModule {
         NotificationsController,
         InboxController,
         UndoController,
+        ReceiptDraftsController,
         RetentionController,
         DisposalController,
         SystemStatusController,
@@ -289,6 +292,7 @@ export class AppModule {
         NotificationsService,
         InboxService,
         UndoService,
+        ReceiptDraftsService,
         EmailWorkerService,
         BusinessClock,
         RetentionService,

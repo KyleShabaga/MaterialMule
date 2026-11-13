@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
+  RECEIPT_HISTORY_PAGE_SIZE,
   RECEIPT_LOG_RECEIVER_LIMIT,
+  RECEIPT_LOG_UNIT_ID_LIMIT,
   receiptLogUnitCode,
   splitReceiptLogSearch,
   type ReceiptDetail,
+  type ReceiptHistoryPage,
   type ReceiptLogItem,
   type ReceiptLogPage,
   type ReceiptLogQuery,
@@ -19,7 +22,17 @@ import { loadSampleIdentities, membershipOf } from '../storage-units/sample-iden
 
 // Receiving Log (MM-T51): read-only views of confirmed receipts. Nothing here writes, audits or
 // queues printing. Each receipt is one row: the list never joins its storage units, so a
-// multi-unit receipt can't repeat or inflate the counts.
+// multi-unit receipt can't repeat or inflate the counts (unit IDs and the corrected status come
+// from per-row subqueries).
+
+/**
+ * A receipt is "corrected" (STRATA-78) once any of its storage units has a correction (MM-T13,
+ * `storage_unit.corrected`). The receipt header itself never changes.
+ */
+const CORRECTED = `EXISTS (
+  SELECT 1 FROM storage_unit csu
+  JOIN audit_event ce ON ce.entity_type = 'storage_unit' AND ce.entity_id = csu.id
+  WHERE csu.receipt_id = r.id AND ce.action = 'storage_unit.corrected')`;
 
 /** Parameterised WHERE clause of the receipt list. Values only ever travel as parameters. */
 export function buildReceiptLogWhere(query: ReceiptLogQuery): { where: string; params: unknown[] } {
@@ -51,6 +64,8 @@ export function buildReceiptLogWhere(query: ReceiptLogQuery): { where: string; p
   if (query.receiverUserId) where.push(`r.receiver_user_id = ${param(query.receiverUserId)}`);
   if (query.receivedFrom) where.push(`r.received_date >= ${param(query.receivedFrom)}::date`);
   if (query.receivedTo) where.push(`r.received_date <= ${param(query.receivedTo)}::date`);
+  if (query.status === 'corrected') where.push(CORRECTED);
+  if (query.status === 'confirmed') where.push(`NOT ${CORRECTED}`);
   return { where: where.length > 0 ? `WHERE ${where.join('\n  AND ')}` : '', params };
 }
 
@@ -70,6 +85,8 @@ interface HeaderRow {
   quantity: number;
   confirmed_at: Date;
   description: string | null;
+  corrected: boolean;
+  unit_ids: string[] | null;
 }
 
 const SELECT_HEADER = `
@@ -77,13 +94,31 @@ const SELECT_HEADER = `
          p.id AS project_id, p.project_number, p.name AS project_name, p.client,
          r.receiver_user_id, r.receiver_initials_snapshot, r.receiver_name_snapshot,
          a.official_initials AS account_initials, a.display_name AS account_name,
-         a.account_type, r.quantity, r.confirmed_at, r.description
+         a.account_type, r.quantity, r.confirmed_at, r.description,
+         ${CORRECTED} AS corrected,
+         ARRAY(SELECT su.readable_id FROM storage_unit su WHERE su.receipt_id = r.id
+               ORDER BY su.readable_id COLLATE "C" LIMIT ${RECEIPT_LOG_UNIT_ID_LIMIT}) AS unit_ids
   FROM receipt r
   JOIN project p ON p.id = r.project_id
   JOIN app_user a ON a.id = r.account_user_id`;
 
-/** Newest confirmation first; the receipt ID breaks ties so pages never overlap or skip. */
-const ORDER_BY = 'ORDER BY r.confirmed_at DESC, r.id DESC';
+/**
+ * Newest confirmation first by default; the receipt ID always breaks ties so pages never overlap
+ * or skip. Sort keys (STRATA-78): received date, project number, storage unit count.
+ */
+export function receiptLogOrderBy(query: Pick<ReceiptLogQuery, 'sort' | 'dir'>): string {
+  const dir = query.dir === 'asc' ? 'ASC' : 'DESC';
+  switch (query.sort) {
+    case 'received':
+      return `ORDER BY r.received_date ${dir}, r.confirmed_at ${dir}, r.id ${dir}`;
+    case 'project':
+      return `ORDER BY p.project_number_normalized ${dir}, r.confirmed_at DESC, r.id DESC`;
+    case 'units':
+      return `ORDER BY r.quantity ${dir}, r.confirmed_at DESC, r.id DESC`;
+    default:
+      return 'ORDER BY r.confirmed_at DESC, r.id DESC';
+  }
+}
 
 function toItem(row: HeaderRow): ReceiptLogItem {
   return {
@@ -107,6 +142,8 @@ function toItem(row: HeaderRow): ReceiptLogItem {
     },
     quantity: row.quantity,
     confirmedAt: row.confirmed_at.toISOString(),
+    status: row.corrected ? 'corrected' : 'confirmed',
+    unitIds: row.unit_ids ?? [],
   };
 }
 
@@ -119,7 +156,7 @@ export async function queryReceiptLog(pool: Pool, query: ReceiptLogQuery): Promi
   const { rows } = await pool.query<HeaderRow>(
     `${SELECT_HEADER}
      ${where}
-     ${ORDER_BY}
+     ${receiptLogOrderBy(query)}
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, query.pageSize, (query.page - 1) * query.pageSize],
   );
@@ -169,9 +206,20 @@ export async function getReceiptDetail(
   const ids = units.rows.map((unit) => unit.id);
   const holes = await loadHoleSummaries(pool, ids);
   const identities = await loadSampleIdentities(pool, ids);
+  const last = await pool.query<{ occurred_at: Date; actor_name_snapshot: string | null }>(
+    `SELECT e.occurred_at, e.actor_name_snapshot FROM audit_event e
+     WHERE e.entity_type = 'storage_unit' AND e.entity_id = ANY($1::uuid[])
+       AND e.action = 'storage_unit.corrected'
+     ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1`,
+    [ids],
+  );
+  const lastCorrection = last.rows[0]
+    ? { at: last.rows[0].occurred_at.toISOString(), by: last.rows[0].actor_name_snapshot }
+    : null;
   return {
     ...toItem(row),
     description: row.description,
+    lastCorrection,
     units: units.rows.map((unit) => ({
       id: unit.id,
       readableId: unit.readable_id,
@@ -189,6 +237,82 @@ export async function getReceiptDetail(
       bulkGroup: membershipOf(identities.get(unit.id)),
       location: { id: unit.location_id, code: unit.location_code, name: unit.location_name },
     })),
+  };
+}
+
+interface ReceiptHistoryRow {
+  id: string;
+  occurred_at: Date;
+  action: string;
+  actor_initials_snapshot: string | null;
+  actor_name_snapshot: string | null;
+  actor_account_type: string | null;
+  receiver_initials_snapshot: string | null;
+  receiver_name_snapshot: string | null;
+  reason: string | null;
+  before_values: Record<string, unknown> | null;
+  after_values: Record<string, unknown> | null;
+  readable_id: string | null;
+}
+
+/**
+ * Everything recorded about the receipt and its storage units (STRATA-78: corrections and
+ * history beside the receipt), newest first, 20 per page. Null for an unknown receipt.
+ */
+export async function getReceiptHistory(
+  pool: Pool,
+  receiptId: string,
+  page: number,
+): Promise<ReceiptHistoryPage | null> {
+  const exists = await pool.query('SELECT 1 FROM receipt WHERE id = $1', [receiptId]);
+  if (exists.rowCount === 0) return null;
+  const pageSize = RECEIPT_HISTORY_PAGE_SIZE;
+  const covered = `WITH covered (entity_type, entity_id, readable_id) AS (
+      SELECT 'receipt', $1::uuid, NULL::text
+      UNION ALL SELECT 'storage_unit', su.id, su.readable_id FROM storage_unit su
+                WHERE su.receipt_id = $1
+    )`;
+  const events = `covered c
+     JOIN audit_event e ON e.entity_type = c.entity_type AND e.entity_id = c.entity_id`;
+  const count = await pool.query<{ total: number }>(
+    `${covered} SELECT count(*)::int AS total FROM ${events}`,
+    [receiptId],
+  );
+  const { rows } = await pool.query<ReceiptHistoryRow>(
+    `${covered}
+     SELECT e.id, e.occurred_at, e.action, e.actor_initials_snapshot, e.actor_name_snapshot,
+            e.actor_account_type, e.receiver_initials_snapshot, e.receiver_name_snapshot,
+            e.reason, e.before_values, e.after_values, c.readable_id
+     FROM ${events}
+     ORDER BY e.occurred_at DESC,
+              CASE e.action WHEN 'storage_unit.created' THEN 1 WHEN 'receipt.confirmed' THEN 2
+                            ELSE 0 END,
+              e.action DESC, c.readable_id DESC NULLS LAST, e.id DESC
+     LIMIT $2 OFFSET $3`,
+    [receiptId, pageSize, (page - 1) * pageSize],
+  );
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      occurredAt: row.occurred_at.toISOString(),
+      action: row.action,
+      actor: {
+        initials: row.actor_initials_snapshot,
+        name: row.actor_name_snapshot,
+        accountType: row.actor_account_type,
+      },
+      receiver:
+        row.receiver_name_snapshot === null
+          ? null
+          : { initials: row.receiver_initials_snapshot, name: row.receiver_name_snapshot },
+      reason: row.reason,
+      before: row.before_values,
+      after: row.after_values,
+      readableId: row.readable_id,
+    })),
+    total: count.rows[0]!.total,
+    page,
+    pageSize,
   };
 }
 
@@ -243,6 +367,10 @@ export class ReceivingLogService {
 
   detail(receiptId: string): Promise<ReceiptDetail | null> {
     return getReceiptDetail(this.database.pool, receiptId);
+  }
+
+  history(receiptId: string, page: number): Promise<ReceiptHistoryPage | null> {
+    return getReceiptHistory(this.database.pool, receiptId, page);
   }
 
   receivers(query: ReceiptReceiverQuery): Promise<ReceiverOption[]> {

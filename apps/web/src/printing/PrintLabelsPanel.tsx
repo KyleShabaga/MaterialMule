@@ -1,5 +1,8 @@
 import { isPrintJobActive, type PrintJob, type PrintJobKind } from '@materialmule/shared';
+import { Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { confirmPhysicalPrint, requestPrint } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
 import { usePrintJob } from './usePrintJob';
@@ -14,12 +17,21 @@ export function PrintLabelsPanel({
   kind,
   buttonLabel,
   onJobChange,
+  printerId,
+  receiverUserId,
 }: {
   storageUnitIds: string[];
   kind: PrintJobKind;
   buttonLabel: string;
   /** Called whenever the job shown here changes (queued, status update, confirmation). */
   onJobChange?: (job: PrintJob) => void;
+  /** A configured printer's key; the server's default printer when left out. */
+  printerId?: string;
+  /**
+   * The person credited at a LAB station (the recording person, STRATA-125). Left out, the server
+   * credits the receipt's receiver; personal accounts are always credited as themselves.
+   */
+  receiverUserId?: string;
 }) {
   const [job, setJob] = usePrintJob();
   const [busy, setBusy] = useState(false);
@@ -32,7 +44,12 @@ export function PrintLabelsPanel({
   async function print(printKind: PrintJobKind) {
     setBusy(true);
     setError(null);
-    const result = await requestPrint({ storageUnitIds, kind: printKind });
+    const result = await requestPrint({
+      storageUnitIds,
+      kind: printKind,
+      ...(printerId ? { printerId } : {}),
+      ...(receiverUserId ? { receiverUserId } : {}),
+    });
     setBusy(false);
     if (result.ok) setJob(result.data);
     else setError(result.message);
@@ -49,22 +66,23 @@ export function PrintLabelsPanel({
   }
 
   return (
-    <div className="print-panel">
+    <div className="print-panel flex flex-col items-start gap-3">
       {job ? <PrintJobStatus job={job} busy={busy} onConfirm={() => void confirm()} /> : null}
       {!job || !isPrintJobActive(job.status) ? (
-        <button
+        <Button
           type="button"
-          className={job ? undefined : 'primary'}
+          variant={job ? 'outline' : 'default'}
           onClick={() => void print(job ? 'reprint' : kind)}
           disabled={busy || storageUnitIds.length === 0}
         >
+          <Printer aria-hidden="true" />
           {job ? 'Reprint' : buttonLabel}
-        </button>
+        </Button>
       ) : null}
       {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
     </div>
   );

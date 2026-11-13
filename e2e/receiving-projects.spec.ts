@@ -26,21 +26,19 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
   await expect(page.getByLabel('Lead Project Engineer')).toHaveValue('Pat Example');
 
-  // Existing hole, on the Units step.
-  await page.getByRole('button', { name: 'Next: add the units' }).click();
+  // Existing hole, in the first unit row (one page, STRATA-76).
   const holes = page.getByRole('combobox', { name: 'Find or add a test hole' });
   await holes.fill('th26-0');
   await page.getByRole('option', { name: 'TH26-01', exact: true }).click();
   const chips = page.getByRole('list', { name: 'Selected test holes' });
   await expect(chips).toContainText('TH26-01');
 
-  // A new project, added inline from the typed number, back on Delivery.
-  await page.getByRole('button', { name: 'Edit delivery' }).click();
+  // A new project, added in the Add project dialog from the typed number.
   await page.getByRole('button', { name: 'Change project' }).click();
   await page.getByRole('combobox', { name: /Find project/ }).fill(projectNumber);
   await expect(page.getByRole('option', { name: 'No matching project' })).toBeVisible();
   await page.getByRole('button', { name: 'Add project' }).click();
-  const form = page.getByRole('group', { name: 'Add project' });
+  const form = page.getByRole('dialog', { name: 'Add project' });
   await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
   await form.getByLabel('Project name').fill('Example Ridge');
   await form.getByLabel('Client').fill('Example Client');
@@ -51,7 +49,7 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   await expect(nominee.locator('option', { hasText: 'JS · Jordan Smith' })).toHaveCount(0);
   await expect(nominee.locator('option', { hasText: /Engineer\)|\(Eng/ })).toHaveCount(0);
   await nominee.selectOption({ label: 'PE · Pat Example' });
-  await form.getByRole('button', { name: 'Save project' }).click();
+  await form.getByRole('button', { name: 'Add project' }).click();
   await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
   await expect(page.getByLabel('Project name')).toHaveValue('Example Ridge');
   // MM-AO04: a nomination, not an appointment; receiving carries on.
@@ -60,13 +58,11 @@ test('T5: pick a project, add a project and a hole, draft fields intact', async 
   );
 
   // A new hole in the new project.
-  await page.getByRole('button', { name: 'Next: add the units' }).click();
   await holes.fill('TH26-03');
   await page.getByRole('option', { name: 'Add TH26-03' }).click();
   await expect(chips).toContainText('TH26-03');
 
   // AC7: nothing else in the draft was cleared.
-  await page.getByRole('button', { name: 'Edit delivery' }).click();
   await expect(receiver).toHaveValue('AT · Alex Tester');
   await expect(page.getByLabel('Description (optional)')).toHaveValue(
     'Four buckets from the drill crew',

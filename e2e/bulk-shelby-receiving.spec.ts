@@ -1,7 +1,16 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { chooseDemoProject, openWizard, toUnits, uniqueTag } from './support/receiving';
+import {
+  addUnit,
+  chooseDemoProject,
+  chooseHolder,
+  confirmDelivery,
+  openWizard,
+  rowAction,
+  toUnits,
+  uniqueTag,
+} from './support/receiving';
 
 // MM-T36 receiving increment end to end (card T6, T8, T14, T15): bulk soil buckets sharing a bulk
 // sample, Shelby tubes from a test hole and from a standalone location, a later receipt joining
@@ -28,7 +37,7 @@ async function sourceHole(unit: Locator, name: string) {
   await unit.getByRole('combobox', { name: 'Find or add a test hole' }).fill(name);
   await expect(unit.getByRole('option', { name, exact: true })).toBeVisible();
   await unit.getByRole('combobox', { name: 'Find or add a test hole' }).press('Enter');
-  await expect(unit.getByRole('list', { name: 'Selected test hole' })).toHaveText(name + '×');
+  await expect(unit.getByRole('list', { name: 'Selected test hole' })).toHaveText(name);
 }
 
 async function standalone(unit: Locator, reference: string) {
@@ -59,23 +68,23 @@ async function fillReceipt(page: Page, tag: string) {
   await useReceivedDate(page);
   await toUnits(page);
   const first = unitRegion(page, 'Bucket 1');
-  await first.getByRole('checkbox', { name: 'Bulk soil sample' }).check();
+  await chooseHolder(page, 'Bucket 1', 'Bulk bucket');
   await standalone(first, `Pit ${tag}`);
   await first.getByLabel(/^Sample reference/).fill('B1');
   await depth(first, '1.5', '2', 'm');
-  await first.getByRole('button', { name: 'Duplicate Bucket 1' }).click();
+  await rowAction(page, 'Bucket 1', /Copy this unit below/);
   await expect(unitRegion(page, 'Bucket 2').getByLabel('Bulk sample', { exact: true })).toHaveValue(
     /^same:/,
   );
 
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
-  await unitRegion(page, 'Bucket 3').getByRole('button', { name: 'ST Shelby tube' }).click();
+  await addUnit(page);
+  await chooseHolder(page, 'Bucket 3', 'Shelby tube');
   const tube3 = unitRegion(page, 'Shelby tube 3');
   await sourceHole(tube3, 'TH26-01');
   await tube3.getByLabel(/^Sample reference/).fill('T5');
 
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
-  await unitRegion(page, 'Bucket 4').getByRole('button', { name: 'ST Shelby tube' }).click();
+  await addUnit(page);
+  await chooseHolder(page, 'Bucket 4', 'Shelby tube');
   const tube4 = unitRegion(page, 'Shelby tube 4');
   await standalone(tube4, `Embankment ${tag}`);
   await depth(tube4, '10', '12', 'ft');
@@ -96,10 +105,7 @@ test('T6/T8/T14/T15: bulk buckets, both Shelby sources, a later join, inventory 
   await openWizard(page);
   await fillReceipt(page, tag);
   await noHorizontalScroll(page);
-  await expect(
-    unitRegion(page, 'Bucket 2').getByRole('list', { name: 'Bucket 2 contents' }),
-  ).toContainText('bucket 2 of 2 in this receipt');
-  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
+  await confirmDelivery(page);
   const ids = await issued(page);
   expect(ids.map((id) => id.split('-')[0])).toEqual(['BKT', 'BKT', 'ST', 'ST']);
 
@@ -116,16 +122,16 @@ test('T6/T8/T14/T15: bulk buckets, both Shelby sources, a later join, inventory 
   expect(groups).toEqual({ n: 1, letters: 0 });
 
   // AC2: a later receipt adds a third bucket to that bulk sample by choosing it explicitly.
-  await page.getByRole('button', { name: 'Receive another' }).click();
+  await page.getByRole('button', { name: 'Receive more' }).click();
   await chooseDemoProject(page);
   await useReceivedDate(page);
   await toUnits(page);
   const later = unitRegion(page, 'Bucket 1');
-  await later.getByRole('checkbox', { name: 'Bulk soil sample' }).check();
+  await chooseHolder(page, 'Bucket 1', 'Bulk bucket');
   await later
     .getByLabel('Bulk sample', { exact: true })
     .selectOption({ label: `Pit ${tag} · B1 · 1.5–2 m — 2 buckets so far` });
-  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
+  await confirmDelivery(page);
   const [third] = await issued(page);
 
   // Detail: bucket 3 of 3, siblings listed, own location; search by the displayed identity.
@@ -175,13 +181,19 @@ test.describe('wide screens (> 1280px)', () => {
     await signInAs(page, 'at');
     await openWizard(page);
     await fillReceipt(page, tag);
-    const contents = (name: string) =>
-      unitRegion(page, name).getByRole('list', { name: `${name} contents` });
-    await expect(contents('Bucket 1')).toContainText(`Pit ${tag}: B1 at 1.5–2 m · bucket 1 of 2`);
-    await expect(contents('Shelby tube 3')).toContainText('TH26-01T5');
-    await expect(contents('Shelby tube 4')).toContainText(`Embankment ${tag}10–12 ft`);
-    await expect(page.getByRole('region', { name: 'On confirm' })).toContainText('2 buckets');
-    await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
+    // The confirm dialog lists each unit with its source and the prefix it will get.
+    await page.getByRole('button', { name: 'Confirm and print labels' }).click();
+    const planned = page.getByRole('alertdialog').getByRole('list', { name: 'IDs to be issued' });
+    await expect(planned.getByRole('listitem')).toHaveText([
+      `Bulk bucket · Pit ${tag}New BKT- ID`,
+      `Bulk bucket · Pit ${tag}New BKT- ID`,
+      'Shelby tube · TH26-01New ST- ID',
+      `Shelby tube · Embankment ${tag}New ST- ID`,
+    ]);
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Confirm 4 units and print labels' })
+      .click();
     const ids = await issued(page);
 
     // The tag is in the two bulk buckets' and the standalone tube's sources (not the TH26-01 tube).

@@ -71,7 +71,8 @@ test('MM-T82 T3: correct a Shelby tube’s sampling source from Correct details'
   await page.goto(`/sample-storage/${tube}`);
   await expect(page.getByRole('heading', { level: 1, name: tube })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Correct details' }).click();
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Correct' }).click();
   const form = page.getByRole('form', { name: 'Correct details' });
   await expect(form).not.toContainText('can’t be corrected here yet');
   const source = form.getByRole('group', { name: 'Sampling source' });
@@ -138,9 +139,12 @@ test('MM-T82 T3: make a bulk soil bucket an ordinary bucket; the ID stays', asyn
   ).toBeVisible();
   await expect(page.getByRole('heading', { level: 1, name: first })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Bulk sample' })).toBeHidden();
-  await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-    'TH26-02: All samples',
-  );
+  await expect(
+    page
+      .getByRole('table', { name: 'Test hole summaries' })
+      .getByRole('row')
+      .filter({ hasText: 'TH26-02' }),
+  ).toContainText('All samples');
   await expect(page.getByRole('list', { name: 'History events' })).toContainText(
     // Its place follows the received date, then the (random) storage unit ID.
     new RegExp(`bulk sample Pit ${tag}: B1 at 1 m \\(bucket [12] of 2\\) → none`),

@@ -4,8 +4,19 @@ import {
   type PrintHistoryResponse,
   type PrintJob,
 } from '@materialmule/shared';
-import { useCallback, useEffect, useState } from 'react';
-import { BandedCard, DataTable, ErrorState } from '../components/app-ui';
+import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
 import { PrintLabelsPanel } from './PrintLabelsPanel';
@@ -91,25 +102,36 @@ export function StorageUnitLabelsSection({
 
   if (history.state === 'loading') {
     return (
-      <BandedCard id="labels" title="Label">
-        <p aria-busy="true">Loading…</p>
-      </BandedCard>
+      <SectionCard id="labels" title="Label">
+        <p aria-busy="true" className="text-muted-foreground m-0 text-sm">
+          Loading…
+        </p>
+      </SectionCard>
     );
   }
   if (history.state === 'error') {
     return (
-      <BandedCard id="labels" title="Label">
-        <ErrorState message={history.message} onRetry={reload} />
-      </BandedCard>
+      <SectionCard id="labels" title="Label">
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-col items-start gap-3">
+            <span>{history.message}</span>
+            <Button type="button" variant="outline" onClick={reload}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </SectionCard>
     );
   }
 
   const { storageUnit, jobs } = history.history;
   return (
     <>
-      <BandedCard id="labels" title="Label">
+      <SectionCard id="labels" title="Label">
         {disposed ? (
-          <p>This storage unit is disposed; its label is not printed again.</p>
+          <p className="m-0 text-sm">
+            This storage unit is disposed; its label is not printed again.
+          </p>
         ) : (
           <PrintLabelsPanel
             key={storageUnit.id}
@@ -119,41 +141,74 @@ export function StorageUnitLabelsSection({
             onJobChange={reload}
           />
         )}
-      </BandedCard>
-      <BandedCard title="Print history">
+      </SectionCard>
+      <SectionCard title="Print history">
         {actionError ? (
-          <p className="field-error" role="alert">
-            {actionError}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
         ) : null}
-        <DataTable
-          rows={jobs}
-          rowKey={(job) => job.id}
-          caption={`Print history for ${storageUnit.readableId}`}
-          empty="No labels printed yet."
-          columns={[
-            {
-              header: 'Requested',
-              cell: (job) => (
-                <time dateTime={job.createdAt}>{timeFormat.format(new Date(job.createdAt))}</time>
-              ),
-            },
-            { header: 'Kind', cell: (job) => (job.kind === 'reprint' ? 'Reprint' : 'Initial') },
-            { header: 'By', cell: who },
-            { header: 'Printer', cell: (job) => job.printerName },
-            {
-              header: 'Status',
-              cell: (job) => (
-                <PrintJobStatus
-                  job={job}
-                  busy={busyJob === job.id}
-                  onConfirm={() => void confirm(job)}
-                />
-              ),
-            },
-          ]}
-        />
-      </BandedCard>
+        {jobs.length === 0 ? (
+          <p className="text-muted-foreground m-0 rounded-xl border border-dashed px-4 py-6 text-sm">
+            No labels printed yet.
+          </p>
+        ) : (
+          <Table>
+            <TableCaption className="sr-only">
+              Print history for {storageUnit.readableId}
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Requested</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>By</TableHead>
+                <TableHead>Printer</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jobs.map((job) => (
+                <TableRow key={job.id} className="align-top">
+                  <TableCell>
+                    <time dateTime={job.createdAt}>
+                      {timeFormat.format(new Date(job.createdAt))}
+                    </time>
+                  </TableCell>
+                  <TableCell>{job.kind === 'reprint' ? 'Reprint' : 'Initial'}</TableCell>
+                  <TableCell className="whitespace-normal">{who(job)}</TableCell>
+                  <TableCell className="whitespace-normal">{job.printerName}</TableCell>
+                  <TableCell className="whitespace-normal">
+                    <PrintJobStatus
+                      job={job}
+                      busy={busyJob === job.id}
+                      onConfirm={() => void confirm(job)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </SectionCard>
     </>
+  );
+}
+
+/** A Strata card that is a page section (a labelled region), as the unit page lays them out. */
+function SectionCard({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
+  const headingId = useId();
+  return (
+    <section id={id} aria-labelledby={headingId} className="min-w-0">
+      <Card className="gap-4 shadow-none">
+        <CardHeader>
+          <CardTitle>
+            <h2 id={headingId} className="m-0 text-base font-semibold">
+              {title}
+            </h2>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">{children}</CardContent>
+      </Card>
+    </section>
   );
 }

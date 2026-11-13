@@ -10,7 +10,17 @@ import {
 } from '@materialmule/shared';
 import type { Pool } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
+import { unitStage } from '../inventory/unit-stage.js';
+import {
+  effectiveTermColumns,
+  effectiveTermJoin,
+  toEffectiveStorageTerm,
+  type EffectiveTermRow,
+} from '../locations/storage-term.js';
 import { openConflictSummary } from '../moves/moves.service.js';
+import { businessToday } from '../receiving/receipts.service.js';
+import { BusinessClock } from '../retention/business-clock.js';
+import { loadUnitRetention } from '../retention/retention.js';
 import { loadHoleSummaries } from './hole-summaries.js';
 import { loadBulkGroupMembers, loadSampleIdentities } from './sample-identity.js';
 import { loadStorageUnitTesting } from './tested-removal/tested-removal.service.js';
@@ -58,7 +68,7 @@ export async function lookupStorageUnit(
   return unit ? { id: unit.id, readableId: unit.readable_id } : null;
 }
 
-interface DetailRow {
+interface DetailRow extends EffectiveTermRow {
   id: string;
   readable_id: string;
   unit_type: StorageUnitDetail['unitType'];
@@ -74,6 +84,8 @@ interface DetailRow {
   location_id: string;
   location_code: string;
   location_name: string;
+  location_kind: string;
+  never_tested: boolean;
   receipt_id: string;
   receipt_received_date: string;
   receipt_project_id: string;
@@ -89,9 +101,17 @@ interface DetailRow {
   confirmed_at: Date;
 }
 
+/**
+ * The unit's page. Record status, stage, lifecycle step and effective storage term come from the
+ * same derivation as Inventory rows (`unitStage`, view location_effective_storage_term, retention
+ * as of `asOf`). `neverTested`: no submitted or closed lab program ever covered the unit (its
+ * frozen scope at submission), so the track shows In lab as passed rather than done. Callers
+ * without the business clock get today in America/Edmonton, the BUSINESS_TIME_ZONE default.
+ */
 export async function getStorageUnitDetail(
   pool: Pool,
   idOrCode: string,
+  asOf: string = businessToday(new Date(), 'America/Edmonton'),
 ): Promise<StorageUnitDetail | null> {
   const unit = await findUnit(pool, idOrCode);
   if (!unit) return null;
@@ -100,6 +120,11 @@ export async function getStorageUnitDetail(
             su.received_date::text AS received_date, su.version,
             p.id AS project_id, p.project_number, p.name AS project_name, p.client,
             l.id AS location_id, l.code AS location_code, l.name AS location_name,
+            l.kind AS location_kind, ${effectiveTermColumns('et')},
+            NOT EXISTS (SELECT 1 FROM program_scope_snapshot s
+                        JOIN lab_program lp ON lp.id = s.program_id
+                        WHERE s.storage_unit_id = su.id AND s.included
+                          AND lp.status IN ('submitted', 'closed')) AS never_tested,
             r.id AS receipt_id, r.received_date::text AS receipt_received_date,
             rp.id AS receipt_project_id, rp.project_number AS receipt_project_number,
             rp.name AS receipt_project_name, rp.client AS receipt_client,
@@ -109,6 +134,7 @@ export async function getStorageUnitDetail(
      FROM storage_unit su
      JOIN project p ON p.id = su.project_id
      JOIN location l ON l.id = su.current_location_id
+     ${effectiveTermJoin('et', 'l.id')}
      JOIN receipt r ON r.id = su.receipt_id
      JOIN project rp ON rp.id = r.project_id
      JOIN app_user a ON a.id = r.account_user_id
@@ -119,7 +145,20 @@ export async function getStorageUnitDetail(
   const holes = await loadHoleSummaries(pool, [row.id]);
   const identity = (await loadSampleIdentities(pool, [row.id])).get(row.id);
   const group = identity?.bulkGroup ?? null;
+  const locationConflict = await openConflictSummary(pool, row.id);
+  const retention = (await loadUnitRetention(pool, [row.id], asOf)).get(row.id);
   return {
+    // STRATA-58/106: the same facts as the unit's Inventory row.
+    ...unitStage({
+      status: row.status,
+      openConflict: locationConflict !== null,
+      locationKind: row.location_kind,
+      storageTerm: row.effective_term,
+      retention,
+      today: asOf,
+    }),
+    storageTerm: toEffectiveStorageTerm(row),
+    neverTested: row.never_tested,
     id: row.id,
     readableId: row.readable_id,
     unitType: row.unit_type,
@@ -146,7 +185,7 @@ export async function getStorageUnitDetail(
       members: await loadBulkGroupMembers(pool, group.groupId),
     },
     location: { id: row.location_id, code: row.location_code, name: row.location_name },
-    locationConflict: await openConflictSummary(pool, row.id),
+    locationConflict,
     testing: await loadStorageUnitTesting(pool, {
       id: row.id,
       unit_type: row.unit_type,
@@ -348,7 +387,10 @@ export async function getStorageUnitLabPrograms(
 
 @Injectable()
 export class StorageUnitsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly clock: BusinessClock,
+  ) {}
 
   labPrograms(idOrCode: string) {
     return getStorageUnitLabPrograms(this.database.pool, idOrCode);
@@ -359,7 +401,7 @@ export class StorageUnitsService {
   }
 
   detail(idOrCode: string) {
-    return getStorageUnitDetail(this.database.pool, idOrCode);
+    return getStorageUnitDetail(this.database.pool, idOrCode, this.clock.today());
   }
 
   history(idOrCode: string, page: number) {

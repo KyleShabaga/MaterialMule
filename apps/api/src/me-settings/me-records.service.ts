@@ -11,6 +11,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
+import { BusinessClock } from '../retention/business-clock.js';
 import { describeRecords, refKey } from './sidebar-records.js';
 
 type Db = Pool | PoolClient;
@@ -29,7 +30,10 @@ interface Row {
  */
 @Injectable()
 export class MeRecordsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly clock: BusinessClock,
+  ) {}
 
   pins(user: AuthUser): Promise<SidebarRecordList> {
     return this.listPins(this.database.pool, user);
@@ -106,7 +110,7 @@ export class MeRecordsService {
        WHERE user_id = $1 ORDER BY pinned_at, record_kind, record_id`,
       [user.userId],
     );
-    return { items: await present(db, user, rows) };
+    return { items: await present(db, user, rows, this.clock.today()) };
   }
 
   private async listRecents(db: Db, user: AuthUser): Promise<SidebarRecordList> {
@@ -115,7 +119,7 @@ export class MeRecordsService {
        WHERE user_id = $1 ORDER BY opened_at DESC, record_kind, record_id LIMIT $2`,
       [user.userId, SIDEBAR_RECENTS_MAX],
     );
-    return { items: await present(db, user, rows) };
+    return { items: await present(db, user, rows, this.clock.today()) };
   }
 }
 
@@ -133,9 +137,14 @@ async function requireOpenable(db: Db, user: AuthUser, ref: SidebarRecordRef): P
 }
 
 /** Each row with its record's face, rechecked now; unavailable rows carry nothing about it. */
-async function present(db: Db, user: AuthUser, rows: Row[]): Promise<SidebarRecord[]> {
+async function present(
+  db: Db,
+  user: AuthUser,
+  rows: Row[],
+  today: string,
+): Promise<SidebarRecord[]> {
   const refs = rows.map((r) => ({ kind: r.record_kind, id: r.record_id }));
-  const faces = await describeRecords(db, user, refs);
+  const faces = await describeRecords(db, user, refs, { today });
   return rows.map((row) => {
     const face = faces.get(refKey({ kind: row.record_kind, id: row.record_id }));
     return {

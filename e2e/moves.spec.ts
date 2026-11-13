@@ -370,5 +370,7 @@ test('Lookup mode stays read-only: a location label opens that shelf, not a move
   await page.keyboard.type(`LOC-${c1.code}`);
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/sample-storage/locations/${c1.code}$`));
-  await expect(page.getByRole('heading', { level: 1, name: c1.name })).toBeVisible();
+  // STRATA-74: the shelf page's heading is the location code, its name under it.
+  await expect(page.getByRole('heading', { level: 1, name: c1.code })).toBeVisible();
+  await expect(page.getByText(c1.name).first()).toBeVisible();
 });

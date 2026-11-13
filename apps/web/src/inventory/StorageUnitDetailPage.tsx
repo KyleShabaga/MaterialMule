@@ -1,81 +1,148 @@
 import {
-  currentLocationName,
   SAMPLING_SOURCE_TYPE_LABEL,
-  describeStorageUnitCorrection,
+  STORAGE_UNIT_RECORD_STATUS_STAGE,
   formatCoreRuns,
   formatDepth,
   formatPerson,
-  formatSampleIdentity,
-  formatStorageUnitHoleSummary,
-  storageUnitHistoryActionLabel,
   samplingSourceName,
-  storageUnitTypeLabel,
-  testedRetentionNote,
   type StorageUnitDetail,
-  type StorageUnitHistoryEvent,
-  type StorageUnitHistoryPage,
 } from '@materialmule/shared';
-import { UnitRetentionCard } from '../retention/RetentionSections';
+import { ArrowLeft, Lock, SearchX } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  BandedCard,
-  EmptyState,
-  ErrorState,
-  PageHeader,
-  SectionHead,
-  StatusBadge,
-  UnitLabel,
-} from '../components/app-ui';
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { LifecycleTrack, STORAGE_UNIT_STEPS } from '../components/strata/lifecycle-track';
+import { PersonAvatar } from '../components/strata/person-avatar';
 import { FEATURES } from '../features';
-import { ContextRow } from '../layout/ContextRow';
-import { LocationConflictSection, PendingMoveNote } from '../moves/LocationConflictSection';
-import type { MoveLinkState } from '../moves/move-link';
-import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
-import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
-import { useSession } from '../session/context';
-import { fetchStorageUnit, fetchStorageUnitHistory } from './api';
-import { BulkSampleSection } from './BulkSampleSection';
-import { CONFLICT_MESSAGE, CorrectionForm } from './CorrectionForm';
-import type { InventoryLinkState } from './InventoryPage';
-import './inventory.css';
-import { StorageUnitStatusBadge } from './StorageUnitStatusBadge';
-import { TestedRemovalSection } from './TestedRemovalSection';
-import { UnitLabPrograms } from './UnitLabPrograms';
 import { usePageTitle } from '../layout/page-title';
 import { useRecordRecent } from '../layout/record-recent';
+import { LocationConflictSection } from '../moves/LocationConflictSection';
+import { LabelPreviewPanel } from '../printing/LabelPreviewPanel';
+import { StorageUnitLabelsSection } from '../printing/StorageUnitLabelsSection';
+import { UnitRetentionCard } from '../retention/RetentionSections';
+import { useSession } from '../session/context';
+import { fetchStorageUnit } from './api';
+import { BulkSampleSection } from './BulkSampleSection';
+import { CONFLICT_MESSAGE, CorrectionForm } from './CorrectionForm';
+import './inventory.css';
+import { TestedRemovalSection } from './TestedRemovalSection';
+import { UnitMoreMenu, UnitPrimaryButton, UnitStatusTags } from './UnitActions';
+import { UnitHistory } from './UnitHistory';
+import { UnitLabelBlock } from './UnitLabelBlock';
+import { UnitLabPrograms } from './UnitLabPrograms';
+import {
+  RecordBreadcrumb,
+  RecordNotFound,
+  UnitFact,
+  UnitFacts,
+  UnitSection,
+} from './UnitRecordParts';
+import { UnitWhere } from './UnitWhere';
+import {
+  holeSummaryCells,
+  passedWithout,
+  unitLifecycleStep,
+  unitPrimaryAction,
+  unitRecordStatus,
+  unitTag,
+  type UnitLinkState,
+} from './unit-record';
 
 type Loaded<T> =
   | { key: string; ok: true; data: T }
   | { key: string; ok: false; notFound: boolean; message: string };
 
-const timeFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
-function formatTime(iso: string) {
-  return <time dateTime={iso}>{timeFormat.format(new Date(iso))}</time>;
+/** Where the breadcrumb goes back to: the page the unit was opened from, else Inventory. */
+function backTarget(state: unknown): { to: string; label: string } {
+  const link = (state ?? {}) as UnitLinkState;
+  if (link.backTo && link.backLabel) return { to: link.backTo, label: link.backLabel };
+  return { to: `/sample-storage${link.from ?? ''}`, label: 'Inventory' };
 }
 
 /**
- * Storage unit detail (MM-T12) in the Field Ledger layout: the label block leads, then where the
- * unit is, its lab program progress and its history, newest first. A disposed unit is a closed
- * record: its label is drawn grey, it says so, and it can't be moved or relabelled. Personal
- * accounts can still correct its received date and note (BUG-014); the server refuses the rest.
- *
- * MM-T79 (owner decision 2026-10-30): links on this page answer hover with darker text only, no
- * underline, like Settings. The `unit-page` wrapper scopes that.
+ * Storage unit page (STRATA-72, DESIGN.md › Storage unit record): the record pattern. The label
+ * block, the record tag and lifecycle track, and one main action chosen by the stage lead; the
+ * facts sit 2 : 1 beside a sticky History from a 64rem container (History drops under the facts
+ * below that). A disposed unit is read-only: it keeps its ID and history, has no main action, and
+ * can't be relabelled. Corrections stay enforced on the server.
  */
+/**
+ * MM-T79 (owner decision 2026-10-30): on this page only, a hovered link darkens and is never
+ * underlined. A utility, so it beats shadcn's link `hover:underline`; focus keeps its outline.
+ */
+const UNIT_PAGE_LINK_HOVER = '[&_a:hover]:text-(--accent-ink) [&_a:hover]:no-underline';
+
 export function StorageUnitDetailPage() {
   return (
-    <div className="unit-page">
+    <div className={`unit-page @container min-w-0 ${UNIT_PAGE_LINK_HOVER}`}>
       <StorageUnitDetail />
     </div>
+  );
+}
+
+function PageFrame({ children }: { children: ReactNode }) {
+  return <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6">{children}</div>;
+}
+
+function LoadingSkeleton({ readableId }: { readableId: string }) {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-6">
+      <div className="grid gap-6 @min-[52rem]:grid-cols-[minmax(0,24rem)_1fr]">
+        <Card className="gap-3 p-5 shadow-none">
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-8 w-72" />
+          <Skeleton className="h-4 w-60" />
+        </Card>
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-6 w-36 rounded-full" />
+          <Skeleton className="h-7 w-full rounded-full" />
+          <div className="flex gap-2">
+            <Skeleton className="h-11 w-28" />
+            <Skeleton className="size-11" />
+          </div>
+        </div>
+      </div>
+      <div className="grid items-start gap-6 @min-[64rem]:grid-cols-3">
+        <div className="flex flex-col gap-6 @min-[64rem]:col-span-2">
+          {[0, 1, 2].map((n) => (
+            <Card key={n} className="gap-3 p-5 shadow-none">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </Card>
+          ))}
+        </div>
+        <Card className="gap-4 p-5 shadow-none">
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+        </Card>
+      </div>
+      <p className="sr-only" role="status">
+        Loading storage unit {readableId}
+      </p>
+    </div>
+  );
+}
+
+function Notice({ title, children }: { title?: string; children?: ReactNode }) {
+  return (
+    <Alert role="status">
+      {title ? <AlertTitle className="line-clamp-none">{title}</AlertTitle> : null}
+      {children ? <AlertDescription>{children}</AlertDescription> : null}
+    </Alert>
   );
 }
 
@@ -83,7 +150,7 @@ function StorageUnitDetail() {
   const { readableId = '' } = useParams();
   usePageTitle(readableId);
   const location = useLocation();
-  const from = (location.state as InventoryLinkState | null)?.from ?? '';
+  const back = backTarget(location.state);
   const [result, setResult] = useState<Loaded<StorageUnitDetail> | null>(null);
   const [reloads, setReloads] = useState(0);
   const { session } = useSession();
@@ -101,13 +168,13 @@ function StorageUnitDetail() {
   /** Message after a bulk sample correction (MM-T36). */
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [historyVersion, setHistoryVersion] = useState(0);
-  // Correct details replaces the page (canvas): focus its heading on open, the button on close.
+  // Correct replaces the page (canvas): focus its heading on open, the More button on close.
   const correctionHeading = useRef<HTMLHeadingElement>(null);
-  const correctButton = useRef<HTMLButtonElement>(null);
+  const moreButton = useRef<HTMLButtonElement>(null);
   const [focusAfter, setFocusAfter] = useState<'form' | 'page' | null>(null);
   useEffect(() => {
     if (focusAfter === 'form') correctionHeading.current?.focus();
-    if (focusAfter === 'page') correctButton.current?.focus();
+    if (focusAfter === 'page') moreButton.current?.focus();
   }, [focusAfter, correcting]);
 
   useEffect(() => {
@@ -126,37 +193,52 @@ function StorageUnitDetail() {
   }, [readableId, reloads]);
   useRecordRecent('storage_unit', result?.key === readableId && result.ok ? result.data.id : null);
 
-  const backLink = <Link to={`/sample-storage${from}`}>← Back to inventory</Link>;
-
   if (!result || result.key !== readableId) {
     return (
-      <>
-        <ContextRow>{backLink}</ContextRow>
-        <PageHeader title={readableId} />
-        <p aria-busy="true">Loading…</p>
-      </>
+      <PageFrame>
+        <RecordBreadcrumb back={back} current={readableId} />
+        <LoadingSkeleton readableId={readableId} />
+      </PageFrame>
     );
   }
   if (!result.ok) {
     return (
-      <>
-        <ContextRow>{backLink}</ContextRow>
-        <PageHeader title={readableId} />
+      <PageFrame>
+        <RecordBreadcrumb back={back} current={readableId} />
         {result.notFound ? (
-          <EmptyState>No storage unit found with ID {readableId}.</EmptyState>
+          <RecordNotFound
+            icon={SearchX}
+            title="No storage unit has this ID."
+            code={readableId}
+            description="Check the ID on the label, or scan it again."
+            secondary={{ to: '/sample-storage', label: 'Go to Inventory' }}
+          />
         ) : (
-          <ErrorState message={result.message} onRetry={() => setReloads((count) => count + 1)} />
+          <Alert variant="destructive">
+            <AlertTitle className="line-clamp-none">{result.message}</AlertTitle>
+            <AlertDescription>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 text-foreground"
+                onClick={() => setReloads((count) => count + 1)}
+              >
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
-      </>
+      </PageFrame>
     );
   }
 
   const unit = result.data;
   const disposed = unit.status === 'disposed';
-  // Tested (exact-unit evidence) or removed after testing: retention doesn't apply (MM-T36).
-  const retentionExempt = Boolean(
-    unit.testing?.reason && (unit.testing.removal || unit.testing.evidence.length > 0),
-  );
+  const status = unitRecordStatus(unit);
+  const step = unitLifecycleStep(unit.lifecycleStep, status, unit.storageTerm);
+  const tag = unitTag(status, step, Boolean(unit.testing?.removal));
+  const action = unitPrimaryAction(status);
+  const stage = unit.stage ?? STORAGE_UNIT_RECORD_STATUS_STAGE[status];
 
   function closeCorrection() {
     setCorrecting(false);
@@ -166,281 +248,160 @@ function StorageUnitDetail() {
 
   if (canCorrect && correcting) {
     return (
-      <div className="correction-page">
-        <ContextRow>
-          <button type="button" className="link-button" onClick={closeCorrection}>
-            ← Back to {unit.readableId}
-          </button>
-        </ContextRow>
+      <PageFrame>
         <div>
-          <h1 id="correction-heading" ref={correctionHeading} tabIndex={-1}>
-            Correct details
-          </h1>
-          <p className="correction-unit-id">{unit.readableId}</p>
+          <Button variant="ghost" size="sm" className="-ml-3" onClick={closeCorrection}>
+            <ArrowLeft aria-hidden="true" />
+            Back to {unit.readableId}
+          </Button>
         </div>
-        <CorrectionForm
-          // A newer version (e.g. after a conflict) starts the form again from the latest values.
-          key={unit.version}
-          unit={unit}
-          notice={correctionNotice}
-          onSaved={(saved) => {
-            setResult({ key: readableId, ok: true, data: saved });
-            setCorrected(true);
-            setHistoryVersion((count) => count + 1);
-            closeCorrection();
-          }}
-          onConflict={() => {
-            setCorrectionNotice(CONFLICT_MESSAGE);
-            setReloads((count) => count + 1);
-            setHistoryVersion((count) => count + 1);
-          }}
-          onCancel={closeCorrection}
-        />
-      </div>
+        <div className="correction-page">
+          <div>
+            <h1
+              id="correction-heading"
+              ref={correctionHeading}
+              tabIndex={-1}
+              className="text-2xl font-semibold outline-none"
+            >
+              Correct details
+            </h1>
+            <p className="font-mono text-sm text-muted-foreground">{unit.readableId}</p>
+          </div>
+          <CorrectionForm
+            // A newer version (e.g. after a conflict) starts the form again from the latest values.
+            key={unit.version}
+            unit={unit}
+            notice={correctionNotice}
+            onSaved={(saved) => {
+              setResult({ key: readableId, ok: true, data: saved });
+              setCorrected(true);
+              setHistoryVersion((count) => count + 1);
+              closeCorrection();
+            }}
+            onConflict={() => {
+              setCorrectionNotice(CONFLICT_MESSAGE);
+              setReloads((count) => count + 1);
+              setHistoryVersion((count) => count + 1);
+            }}
+            onCancel={closeCorrection}
+          />
+        </div>
+      </PageFrame>
     );
   }
 
-  const labelLines: { hole: string; summary?: string }[] = unit.sample
-    ? [{ hole: formatSampleIdentity(unit.sample) }]
-    : unit.holes.map((hole) => ({
-        hole: hole.testHoleName,
-        summary: formatStorageUnitHoleSummary(hole),
-      }));
-  if (unit.coreRunCount) labelLines.push({ hole: formatCoreRuns(unit.coreRunCount) });
+  const receiverDiffers =
+    unit.receipt.account.name !== unit.receipt.receiver.name ||
+    unit.receipt.account.initials !== unit.receipt.receiver.initials;
 
   return (
-    <>
-      <ContextRow>
-        {backLink}
-        <span className="unit-context-actions">
-          {disposed ? null : (
-            <a className="button" href="#label-preview">
-              Reprint label
-            </a>
-          )}
-          {canCorrect ? (
-            <button
-              type="button"
-              ref={correctButton}
-              onClick={() => {
+    <PageFrame>
+      <RecordBreadcrumb back={back} current={unit.readableId} />
+
+      {/* Header: the label block left; tag, track and actions right (two columns from 52rem). */}
+      <header className="grid items-stretch gap-6 @min-[52rem]:grid-cols-[minmax(0,24rem)_1fr]">
+        <UnitLabelBlock unit={unit} stage={stage} />
+        <div className="flex min-w-0 flex-col justify-center gap-4">
+          <UnitStatusTags tag={tag} conflict={Boolean(unit.locationConflict)} />
+          <LifecycleTrack
+            steps={STORAGE_UNIT_STEPS}
+            current={step}
+            passedWithout={passedWithout(step, unit.neverTested)}
+            label={`Lifecycle of ${unit.readableId}`}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <UnitPrimaryButton unit={unit} action={action} />
+            {disposed ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock aria-hidden="true" className="size-4" />
+                Read-only. Disposed units keep their ID and history.
+              </p>
+            ) : null}
+            <UnitMoreMenu
+              unit={unit}
+              canCorrect={canCorrect}
+              triggerRef={moreButton}
+              onCorrect={() => {
                 setCorrectionNotice(null);
                 setCorrected(false);
                 setCorrecting(true);
                 setFocusAfter('form');
               }}
-            >
-              Correct details
-            </button>
-          ) : (
-            <span className="field-hint">Corrections need a personal account.</span>
-          )}
-          {disposed ? null : (
-            <Link
-              className="button primary"
-              to="/sample-storage/move"
-              state={{ units: [unit.readableId] } satisfies MoveLinkState}
-            >
-              Move unit
-            </Link>
-          )}
-        </span>
-      </ContextRow>
-
-      {disposed ? (
-        <div className="unit-closed-strip" role="status">
-          <StatusBadge tone="closed">Disposed</StatusBadge>
-          <span>
-            <strong>This record is closed.</strong> The unit was disposed of. It can’t be moved or
-            relabelled, and its ID is never issued again. Its history is kept in full.
-          </span>
+            />
+          </div>
         </div>
-      ) : null}
+      </header>
 
       {corrected ? (
-        <p className="notice notice-success" role="status">
-          <strong>Details corrected.</strong> Printed labels show the values at print time. Reprint
-          if the label is now wrong.
-        </p>
+        <Notice title="Details corrected.">
+          Printed labels show the values at print time. Reprint if the label is now wrong.
+        </Notice>
       ) : null}
-
       {resolvedNotice ? (
-        <p className="notice notice-success" role="status">
-          <strong>Location confirmed.</strong> Both moves and your confirmation are in the history.
-        </p>
+        <Notice title="Location confirmed.">
+          Both moves and your confirmation are in the history.
+        </Notice>
       ) : null}
+      {removalNotice ? <Notice title={removalNotice} /> : null}
+      {bulkNotice ? <Notice title={bulkNotice} /> : null}
 
-      {unit.locationConflict ? (
-        <LocationConflictSection
-          key={`${unit.locationConflict.id}-${unit.locationConflict.version}`}
-          conflictId={unit.locationConflict.id}
-          canResolve={canResolve}
-          onResolved={() => {
-            setResolvedNotice(true);
-            setHistoryVersion((count) => count + 1);
-            setReloads((count) => count + 1);
-          }}
-        />
-      ) : null}
+      {/* Body 2 : 1 from a 56rem container; History drops under the facts below that. */}
+      <div className="grid items-start gap-6 @min-[64rem]:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-6 @min-[64rem]:col-span-2">
+          <UnitWhere unit={unit} />
 
-      {removalNotice ? (
-        <p className="notice notice-success" role="status">
-          {removalNotice}
-        </p>
-      ) : null}
-
-      {bulkNotice ? (
-        <p className="notice notice-success" role="status">
-          {bulkNotice}
-        </p>
-      ) : null}
-
-      <div className="unit-layout">
-        <div className="unit-side">
-          <UnitLabel
-            holder={storageUnitTypeLabel(unit.unitType)}
-            project={unit.project.projectNumber}
-            unitId={unit.readableId}
-            lines={labelLines}
-            closed={disposed}
-            headingLevel={1}
-          />
-
-          <section id="summaries" className="unit-facts" aria-labelledby="summaries-heading">
-            <h2 id="summaries-heading" className="visually-hidden">
-              Summaries
-            </h2>
-            <dl className="fact-list">
-              <Detail term="Project">
-                <span className="project-number">{unit.project.projectNumber}</span> ·{' '}
-                {unit.project.name}
-              </Detail>
-              <Detail term="Client">{unit.project.client}</Detail>
-              <Detail term="Received">
-                <span className="nowrap mono">{unit.receivedDate}</span>
-              </Detail>
-              {unit.sample ? (
-                // MM-T36: where the material came from (never its storage location).
-                <>
-                  <Detail term="Sampling source">
-                    {samplingSourceName(unit.sample.source)}{' '}
-                    <span className="muted">
-                      ({SAMPLING_SOURCE_TYPE_LABEL[unit.sample.source.type]})
-                    </span>
-                  </Detail>
-                  <Detail term="Sample reference">{unit.sample.sampleReference ?? 'None'}</Detail>
-                  <Detail term="Depth">
-                    {formatDepth(
-                      unit.sample.depthFrom,
-                      unit.sample.depthTo,
-                      unit.sample.depthUnit,
-                    ) || 'None'}
-                  </Detail>
-                </>
-              ) : (
-                <Detail term="Test holes">
-                  <ul className="hole-summaries" aria-label="Test hole summaries">
-                    {unit.holes.map((hole) => (
-                      <li key={hole.testHoleId}>
-                        <strong>{hole.testHoleName}</strong>: {formatStorageUnitHoleSummary(hole)}
-                        {hole.note ? (
-                          <>
-                            {' '}
-                            <span className="note-tag">Note: {hole.note}</span>
-                          </>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </Detail>
-              )}
-              {unit.coreRunCount ? (
-                <Detail term="Core runs">{formatCoreRuns(unit.coreRunCount)}</Detail>
-              ) : null}
-              <Detail term="Storage unit note">{unit.note ?? 'None'}</Detail>
-            </dl>
-          </section>
-
-          <BandedCard id="receipt" title="Receipt">
-            <dl className="fact-list">
-              <Detail term="Received date">
-                <span className="nowrap mono">{unit.receipt.receivedDate}</span>
-              </Detail>
-              <Detail term="Project">
-                {unit.receipt.project.projectNumber} — {unit.receipt.project.name}
-              </Detail>
-              <Detail term="Received by">
-                {formatPerson(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
-              </Detail>
-              <Detail term="Account">
-                {formatPerson(unit.receipt.account.initials, unit.receipt.account.name)}
-              </Detail>
-              <Detail term="Confirmed">{formatTime(unit.receipt.confirmedAt)}</Detail>
-              <Detail term="Storage units in receipt">{unit.receipt.quantity}</Detail>
-              <Detail term="Description">{unit.receipt.description ?? 'None'}</Detail>
-            </dl>
-            <p className="field-hint">As recorded at confirmation; corrections never change it.</p>
-          </BandedCard>
-        </div>
-
-        <div className="unit-main">
-          <section id="location" className="unit-section" aria-labelledby="location-heading">
-            <SectionHead
-              id="location-heading"
-              title="Where it is"
-              meta={
-                <span className="unit-status-tags">
-                  <StorageUnitStatusBadge
-                    status={unit.status}
-                    testedRemovalReason={unit.testing?.removal?.reason ?? null}
-                  />
-                  {unit.locationConflict ? (
-                    <StatusBadge tone="danger">Location conflict</StatusBadge>
-                  ) : null}
-                </span>
-              }
+          {unit.locationConflict ? (
+            <LocationConflictSection
+              key={`${unit.locationConflict.id}-${unit.locationConflict.version}`}
+              conflictId={unit.locationConflict.id}
+              canResolve={canResolve}
+              onResolved={() => {
+                setResolvedNotice(true);
+                setHistoryVersion((count) => count + 1);
+                setReloads((count) => count + 1);
+              }}
             />
-            {disposed ? (
-              // MISC-12: a disposed unit has no current location; its moves stay in History.
-              <div className="where-cells where-cells-closed">
-                <p className="where-closed">{currentLocationName(unit)}</p>
-              </div>
-            ) : (
-              <div className="where-cells">
-                <div className="where-cell where-cell-current">
-                  <span className="field-label">Location</span>
-                  <Link
-                    className="where-value"
-                    to={shelfPath(unit.location.code)}
-                    aria-label={`${unit.location.name} (${unit.location.code})`}
-                  >
-                    {unit.location.name}
+          ) : null}
+
+          <ContentsSection unit={unit} />
+
+          <UnitSection id="receipt" title="Receipt">
+            <UnitFacts>
+              <UnitFact term="Receipt">
+                <Button asChild variant="link" className="h-auto p-0">
+                  <Link to={`/receiving-log/${encodeURIComponent(unit.receipt.id)}`}>
+                    Receipt <span className="font-mono">{unit.receipt.receivedDate}</span> ·{' '}
+                    {unit.receipt.quantity} {unit.receipt.quantity === 1 ? 'unit' : 'units'}
                   </Link>
-                </div>
-                <div className="where-cell">
-                  <span className="field-label">Code</span>
-                  <span className="where-value mono">{unit.location.code}</span>
-                </div>
-              </div>
-            )}
-            <dl className="fact-list">
-              <Detail term="Pending move">
-                <PendingMoveNote unitId={unit.id} />
-              </Detail>
-              {retentionExempt ? (
-                // MM-T36: the post-testing route ignores retention, extensions and holds.
-                <Detail term="Retention">{testedRetentionNote(unit.testing!.reason!)}</Detail>
-              ) : (
-                <Detail term="Retain until (minimum)">
-                  <span className="nowrap mono">{unit.minimumRetainUntil}</span>
-                  <span className="field-hint"> Received date + 1 year.</span>
-                </Detail>
-              )}
-            </dl>
-          </section>
-
-          {FEATURES.labTesting ? <UnitLabPrograms unitId={unit.id} /> : null}
-
-          <HistorySection storageUnitId={unit.id} refresh={historyVersion} disposed={disposed} />
+                </Button>
+              </UnitFact>
+              <UnitFact term="Received">
+                <span className="font-mono whitespace-nowrap">{unit.receivedDate}</span>
+                {unit.receivedDate !== unit.receipt.receivedDate ? (
+                  <span className="text-muted-foreground"> (corrected)</span>
+                ) : null}
+              </UnitFact>
+              <UnitFact term="Received by">
+                <span className="flex min-w-0 items-center gap-2">
+                  <PersonAvatar name={unit.receipt.receiver.name} size="compact" />
+                  <span className="truncate">
+                    {formatPerson(unit.receipt.receiver.initials, unit.receipt.receiver.name)}
+                  </span>
+                </span>
+              </UnitFact>
+              {receiverDiffers ? (
+                <UnitFact term="Entered">
+                  Entered by {unit.receipt.account.name}, for {unit.receipt.receiver.name}
+                </UnitFact>
+              ) : null}
+              {unit.receipt.description ? (
+                <UnitFact term="Description">{unit.receipt.description}</UnitFact>
+              ) : null}
+            </UnitFacts>
+            <p className="text-[13px] text-muted-foreground">
+              As recorded at confirmation; corrections never change it.
+            </p>
+          </UnitSection>
 
           <UnitRetentionCard
             key={`retention-${unit.version}`}
@@ -448,6 +409,8 @@ function StorageUnitDetail() {
             unitType={unit.unitType}
             disposed={disposed}
           />
+
+          {FEATURES.labTesting ? <UnitLabPrograms unitId={unit.id} /> : null}
 
           {unit.bulkGroup ? (
             <BulkSampleSection
@@ -477,181 +440,114 @@ function StorageUnitDetail() {
               onStale={() => setReloads((count) => count + 1)}
             />
           ) : null}
+
+          {/* The label preview and print history stay on the page until the label print view
+              takes them over; printing never changes the unit. */}
+          <div className="unit-below">
+            <LabelPreviewPanel
+              // A correction (T13) bumps the version; the label shows the corrected details.
+              key={`label-preview-${unit.version}`}
+              layout="dual"
+              id="label-preview"
+              storageUnit={unit.readableId}
+              receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
+            />
+            <StorageUnitLabelsSection readableId={unit.readableId} disposed={disposed} />
+          </div>
         </div>
-      </div>
 
-      <div className="unit-below">
-        {/* Groups, not regions: the "Label" region (T15) stays the only landmark named Label. */}
-        <LabelPreviewPanel
-          // A correction (T13) bumps the version; the label shows the corrected details.
-          key={`label-preview-${unit.version}`}
-          layout="dual"
-          id="label-preview"
-          storageUnit={unit.readableId}
-          receipt={{ id: unit.receipt.id, quantity: unit.receipt.quantity }}
+        <UnitHistory
+          storageUnitId={unit.id}
+          refresh={historyVersion}
+          disposed={disposed}
+          className="@min-[64rem]:sticky @min-[64rem]:top-6"
         />
-
-        <StorageUnitLabelsSection readableId={unit.readableId} disposed={disposed} />
       </div>
-    </>
+    </PageFrame>
   );
 }
 
-/** The shelf page a location's label lands on. */
-function shelfPath(code: string) {
-  return `/sample-storage/locations/${encodeURIComponent(code)}`;
-}
-
-function Detail({ term, children }: { term: string; children: ReactNode }) {
-  return (
-    <div data-row>
-      <dt>{term}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
-/** Test identities' actions carry the same TEST badge as the header (MTR-3, MM-T33). */
-function ActorTestBadge({ accountType }: { accountType: string | null }) {
-  if (accountType !== 'test') return null;
-  return (
-    <>
-      {' '}
-      <span className="badge" title="Done by a test account">
-        TEST
-      </span>
-    </>
-  );
-}
-
-/** One audit value as text: a location (or any `{name, code}`) reads "name (code)" (MTR-64). */
-function formatHistoryValue(value: unknown): string {
-  if (value === null || value === undefined) return '—';
-  if (typeof value !== 'object') return String(value);
-  const record = value as Record<string, unknown>;
-  if (typeof record.name === 'string' && typeof record.code === 'string') {
-    return `${record.name} (${record.code})`;
-  }
-  return JSON.stringify(value);
-}
-
-function changes(event: StorageUnitHistoryEvent): string[] {
-  // A hold's or extension's label says it all; its audit values are bookkeeping (MTR-59).
-  if (!event.before || !event.after || event.action.startsWith('retention.')) return [];
-  return Object.keys(event.after)
-    .filter((key) => key in event.before!)
-    .map(
-      (key) =>
-        `${key}: ${formatHistoryValue(event.before![key])} → ${formatHistoryValue(event.after![key])}`,
-    );
-}
-
-/** Audit history, newest first, 20 per page; never loaded in full. */
-function HistorySection({
-  storageUnitId,
-  refresh,
-  disposed,
-}: {
-  storageUnitId: string;
-  refresh: number;
-  disposed: boolean;
-}) {
-  const [page, setPage] = useState(1);
-  const key = `${storageUnitId}:${page}:${refresh}`;
-  const [result, setResult] = useState<Loaded<StorageUnitHistoryPage> | null>(null);
-  const [reloads, setReloads] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchStorageUnitHistory(storageUnitId, page).then((response) => {
-      if (cancelled) return;
-      setResult(response.ok ? { key, ok: true, data: response.data } : { key, ...response });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [storageUnitId, page, key, reloads, refresh]);
-
-  let body: ReactNode;
-  if (!result || result.key !== key) {
-    body = <p aria-busy="true">Loading…</p>;
-  } else if (!result.ok) {
-    body = <ErrorState message={result.message} onRetry={() => setReloads((count) => count + 1)} />;
-  } else if (result.data.items.length === 0) {
-    body = <EmptyState>No history yet.</EmptyState>;
-  } else {
-    const totalPages = Math.max(1, Math.ceil(result.data.total / result.data.pageSize));
-    body = (
-      <>
-        <ol className="history" aria-label="History events">
-          {result.data.items.map((event) => (
-            <li
-              key={event.id}
-              data-row
-              className={
-                event.action === 'storage_unit.corrected' ? 'history-event-corrected' : undefined
-              }
-            >
-              <span className="history-when">{formatTime(event.occurredAt)}</span>{' '}
-              <span>
-                <strong>{storageUnitHistoryActionLabel(event.action, event.after)}</strong>{' '}
-                {event.action === 'storage_unit.corrected' ? (
-                  // e.g. "KCS changed received date 2026-10-23 → 2026-10-21 · Reason: wrong date on tag"
-                  <span className="history-who">
-                    {event.actor.initials ?? event.actor.name ?? 'Unknown'}
-                    <ActorTestBadge accountType={event.actor.accountType} /> changed{' '}
-                    {describeStorageUnitCorrection(event.before, event.after).join('; ')}
-                    {event.reason ? ` · Reason: ${event.reason}` : ''}
-                  </span>
-                ) : (
-                  <>
-                    <span className="history-who">
-                      by {formatPerson(event.actor.initials, event.actor.name)}
-                      <ActorTestBadge accountType={event.actor.accountType} />
-                      {event.receiver
-                        ? ` for ${formatPerson(event.receiver.initials, event.receiver.name)}`
-                        : ''}
-                    </span>
-                    {event.reason ? (
-                      <span className="field-hint"> Reason: {event.reason}</span>
-                    ) : null}
-                    {changes(event).map((change) => (
-                      <span key={change} className="field-hint">
-                        {' '}
-                        {change}
-                      </span>
-                    ))}
-                  </>
-                )}
-              </span>
-            </li>
-          ))}
-        </ol>
-        {totalPages > 1 ? (
-          <nav className="pager" aria-label="History pages">
-            <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Newer
-            </button>
-            <span className="mono">
-              Page {page} of {totalPages}
+/**
+ * What the unit holds: per test hole one SAMPLE#/DEPTH summary (never individual samples), or a
+ * Shelby tube's own sampling source; plus core runs and the unit note.
+ */
+function ContentsSection({ unit }: { unit: StorageUnitDetail }) {
+  if (unit.sample) {
+    const sample = unit.sample;
+    return (
+      <UnitSection id="summaries" title="Sample">
+        <UnitFacts wide>
+          {/* MM-T36: where the material came from (never its storage location). */}
+          <UnitFact term="Sampling source">
+            {samplingSourceName(sample.source)}{' '}
+            <span className="text-muted-foreground">
+              ({SAMPLING_SOURCE_TYPE_LABEL[sample.source.type]})
             </span>
-            <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
-              Older
-            </button>
-          </nav>
-        ) : null}
-      </>
+          </UnitFact>
+          <UnitFact term="Sample reference">
+            <span className="font-mono">{sample.sampleReference ?? 'None'}</span>
+          </UnitFact>
+          <UnitFact term="Depth">
+            <span className="font-mono">
+              {formatDepth(sample.depthFrom, sample.depthTo, sample.depthUnit) || 'None'}
+            </span>
+          </UnitFact>
+          <UnitFact term="Storage unit note">{unit.note ?? 'None'}</UnitFact>
+        </UnitFacts>
+      </UnitSection>
     );
   }
-
+  const count = unit.holes.length;
+  const anyNote = unit.holes.some((hole) => hole.note);
   return (
-    <section id="history" className="unit-section" aria-labelledby="history-heading">
-      <SectionHead
-        id="history-heading"
-        title="History"
-        meta={disposed ? 'Kept in full' : 'Every change, newest first'}
-      />
-      {body}
-    </section>
+    <UnitSection
+      id="summaries"
+      title="Test hole summaries"
+      flush
+      meta={`${count} ${count === 1 ? 'test hole' : 'test holes'}`}
+      className="gap-3 overflow-hidden pt-5 pb-0 shadow-none"
+    >
+      <Table className="text-sm">
+        <TableCaption className="sr-only">Test hole summaries</TableCaption>
+        <TableHeader className="bg-muted">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-5 text-[13px] font-semibold text-muted-foreground">
+              Test hole
+            </TableHead>
+            <TableHead className="text-[13px] font-semibold text-muted-foreground">
+              Samples
+            </TableHead>
+            <TableHead className="text-[13px] font-semibold text-muted-foreground">Depth</TableHead>
+            {anyNote ? (
+              <TableHead className="pr-5 text-[13px] font-semibold text-muted-foreground">
+                Note
+              </TableHead>
+            ) : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {unit.holes.map((hole) => {
+            const cells = holeSummaryCells(hole);
+            return (
+              <TableRow key={hole.testHoleId} className="hover:bg-transparent">
+                <TableCell className="pl-5 font-mono font-semibold">{hole.testHoleName}</TableCell>
+                <TableCell className="font-mono">{cells.samples || '—'}</TableCell>
+                <TableCell className="font-mono whitespace-nowrap">{cells.depth || '—'}</TableCell>
+                {anyNote ? (
+                  <TableCell className="pr-5 whitespace-normal">{hole.note ?? ''}</TableCell>
+                ) : null}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      <div className="flex flex-col gap-1 px-5 pb-4 text-sm">
+        {unit.coreRunCount ? <p>Core runs: {formatCoreRuns(unit.coreRunCount)}</p> : null}
+        <p>
+          <span className="text-muted-foreground">Storage unit note: </span>
+          {unit.note ?? 'None'}
+        </p>
+      </div>
+    </UnitSection>
   );
 }

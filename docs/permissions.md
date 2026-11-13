@@ -1593,3 +1593,24 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   database).
 - **Kind words (round 10):** `not_working` reads "Problem", `confusing` "Question", `idea` "Idea";
   the stored values are unchanged, so older rows read the same way.
+
+## Receiving drafts and receipts (STRATA-78, STRATA-108)
+
+| Route                                                      | Policy                                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `POST /api/receipt-drafts {draftId, personUserId?}`        | `receipt.draft`                                                          |
+| `GET /api/receipt-drafts?ids=&personUserId=`               | `receipt.draft`                                                          |
+| `POST /api/receipt-drafts/:draftId/delete {personUserId?}` | `receipt.draft`; then the draft's starter or a verified Lab Manager only |
+| `GET /api/receipts/:receiptId/history?page=`               | `inventory.read`                                                         |
+
+- **Drafts stay in the browser** (MM-T11). The server registry holds only who started each draft
+  (account and person), never its contents. Changing Received by never changes the starter.
+- **Deleting a draft** (Kyle, 2026-11-12): only the person who started it or a Lab Manager whose
+  role is checked as it stands now (not from the session). LAB may delete only a draft started on
+  that LAB account with the starter picked at the station; the pick is attribution and never
+  borrows a role. A draft saved before the registry has no owner, so only a Lab Manager may delete
+  it, recorded as a legacy row. Refused: 403 `draft_delete_forbidden`; a repeat delete is
+  idempotent. Draft auto-delete (MM-T45) is an admin policy and is unchanged.
+- **Received by** is staff attribution chosen per receipt (STRATA-107): editable, separate from
+  the account that entered it; the receipt shows "Entered by X, for Y" when they differ. It
+  grants no permissions.

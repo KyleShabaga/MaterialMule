@@ -1,22 +1,32 @@
 import type {
   MeResponse,
   ReceiptDetail,
+  ReceiptDraftOwnership,
+  ReceiptHistoryPage,
   ReceiptLogItem,
   ReceiptLogPage,
 } from '@materialmule/shared';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DRAFT_RECORD_VERSION, type StoredDraft } from '../receiving/drafts/record';
+import { EMPTY_TABLE_QUERY } from '@/components/strata/table-query';
+import { newDraft } from '../receiving/draft';
+import { newRecord, type StoredDraft } from '../receiving/drafts/record';
 import { indexedDbDraftStore } from '../receiving/drafts/store';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
-import { readReceiptLogQuery, receiptLogSearchParams, withFilters } from './url-state';
+import {
+  normalizeFilters,
+  projectFilter,
+  receiptLogQueryFor,
+  receiptLogSearchParams,
+  receiverFilter,
+} from './url-state';
 
-// Receiving Log list and receipt detail (MM-T51, card test T6). Fictional data only:
-// DEMO-2601 / DEMO-2602, TH26-01, receivers AT and two people sharing the initials JS.
+// Receiving log and receipt page (MM-T51, STRATA-78) and draft deletion (STRATA-108). Fictional
+// data only: DEMO-2601 / DEMO-2602, TH26-01, Alex Tester, Jordan Smith, Pat Example.
 
 const PROJECT = {
   id: '00000000-0000-4000-8000-000000000201',
@@ -29,17 +39,19 @@ const OTHER_PROJECT = {
   id: '00000000-0000-4000-8000-000000000202',
   projectNumber: 'DEMO-2602',
 };
+const ME_ID = '00000000-0000-4000-8000-000000000101';
 const JORDAN = '00000000-0000-4000-8000-000000000301';
+const PAT = '00000000-0000-4000-8000-000000000302';
 const RECEIPT_ID = '00000000-0000-4000-8000-000000000601';
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
-  id: 'u1',
+  id: ME_ID,
   displayName: 'Alex Tester',
   initials: 'AT',
   accountType: 'test',
   status: 'active',
   roles: [],
-  permissions: ['inventory.read', 'label.print'],
+  permissions: ['inventory.read', 'label.print', 'receipt.draft'],
   sessionExpiresAt: '2026-10-26T06:00:00.000Z',
   ...overrides,
 });
@@ -53,6 +65,8 @@ function receipt(id: string, overrides: Partial<ReceiptLogItem> = {}): ReceiptLo
     account: { initials: null, name: 'LAB', sharedStation: true },
     quantity: 2,
     confirmedAt: '2026-01-15T21:05:00.000Z',
+    status: 'confirmed',
+    unitIds: ['BKT-2026-000014', 'BKT-2026-000015'],
     ...overrides,
   };
 }
@@ -81,8 +95,9 @@ const holes = [
 const location = { id: 'loc-r', code: 'RECEIVING', name: 'Receiving lab' };
 
 const DETAIL: ReceiptDetail = {
-  ...receipt(RECEIPT_ID),
+  ...receipt(RECEIPT_ID, { status: 'corrected' }),
   description: 'Two buckets from TH26-01',
+  lastCorrection: { at: '2026-01-20T17:00:00.000Z', by: 'Pat Example' },
   units: [
     {
       id: 'su-1',
@@ -111,12 +126,31 @@ const DETAIL: ReceiptDetail = {
   ],
 };
 
+const HISTORY: ReceiptHistoryPage = {
+  items: [
+    {
+      id: 'e1',
+      occurredAt: '2026-01-20T17:00:00.000Z',
+      action: 'storage_unit.corrected',
+      actor: { initials: 'PE', name: 'Pat Example', accountType: 'personal' },
+      receiver: null,
+      reason: 'Tube label read DEMO-2602',
+      before: null,
+      after: null,
+      readableId: 'BKT-2026-000014',
+    },
+  ],
+  total: 1,
+  page: 1,
+  pageSize: 20,
+};
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-function stubApi(
-  handler: (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined,
-) {
+type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined;
+
+function stubApi(handler: Handler) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     if (url.pathname === '/api/health') return json(200, { status: 'ok' });
@@ -147,362 +181,381 @@ const logCalls = (fetchMock: ReturnType<typeof stubApi>) =>
     .map(([input]) => new URL(String(input), 'http://localhost'))
     .filter((url) => url.pathname === '/api/receipts');
 
+function ownershipOf(draftId: string, overrides: Partial<ReceiptDraftOwnership> = {}) {
+  return {
+    draftId,
+    registered: true,
+    starter: { userId: ME_ID, initials: 'AT', name: 'Alex Tester' },
+    startedOnStation: false,
+    createdAt: '2026-01-15T16:00:00.000Z',
+    deletedAt: null,
+    canDelete: true,
+    reason: 'starter',
+    ...overrides,
+  } satisfies ReceiptDraftOwnership;
+}
+
+/** A stored personal draft for DEMO-2601, registered already so nothing re-registers it. */
+async function storedDraft(accountId = ME_ID, overrides: Partial<StoredDraft> = {}) {
+  const record: StoredDraft = {
+    ...newRecord(
+      { ...newDraft(null, '2026-01-15'), project: { ...PROJECT, leadProjectEngineer: null } },
+      { id: accountId, accountType: 'personal', displayName: 'Alex Tester', initials: 'AT' },
+    ),
+    registeredAt: '2026-01-15T16:00:01.000Z',
+    ...overrides,
+  };
+  await indexedDbDraftStore.put(record);
+  return record;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('receiving log URL state (MM-T51 T1)', () => {
-  it('round-trips filters and leaves defaults out of the URL', () => {
-    const { query, ignored } = readReceiptLogQuery(
-      new URLSearchParams(`search=DEMO-2601&receiverUserId=${JORDAN}&page=2&pageSize=25`),
+describe('receiving log URL state (STRATA-78)', () => {
+  it('turns the table tools into the server query, leaving defaults out', () => {
+    const { query } = receiptLogQueryFor(
+      {
+        ...EMPTY_TABLE_QUERY,
+        search: ' riverbank ',
+        filters: [projectFilter(PROJECT.id), receiverFilter(JORDAN), 'status:corrected'],
+        sort: { key: 'units', dir: 'desc' },
+      },
+      new URLSearchParams('page=2'),
     );
-    expect(ignored).toEqual([]);
-    expect(receiptLogSearchParams(query).toString()).toBe(
-      `search=DEMO-2601&receiverUserId=${JORDAN}&page=2`,
+    expect(Object.fromEntries(receiptLogSearchParams(query))).toEqual({
+      search: 'riverbank',
+      projectId: PROJECT.id,
+      receiverUserId: JORDAN,
+      status: 'corrected',
+      sort: 'units',
+      dir: 'desc',
+      page: '2',
+    });
+    // Both statuses on is every receipt.
+    const both = receiptLogQueryFor(
+      { ...EMPTY_TABLE_QUERY, filters: ['status:confirmed', 'status:corrected'] },
+      new URLSearchParams(),
     );
+    expect(both.query.status).toBeUndefined();
   });
 
-  it('leaves out invalid values from a hand-edited link and says which', () => {
-    const { query, ignored } = readReceiptLogQuery(
-      new URLSearchParams('receivedFrom=2026-02-30&receiverUserId=JS&page=-1&search=bkt'),
-    );
-    expect(query).toEqual({ search: 'bkt', page: 1, pageSize: 25 });
-    expect(ignored.sort()).toEqual(['Page', 'Received by', 'Received from']);
+  it('keeps one project and one person; picking another replaces it', () => {
+    expect(
+      normalizeFilters([
+        projectFilter(PROJECT.id),
+        'status:confirmed',
+        projectFilter(OTHER_PROJECT.id),
+      ]),
+    ).toEqual(['status:confirmed', projectFilter(OTHER_PROJECT.id)]);
   });
 
-  it('a filter change goes back to page 1; a reversed range keeps the newest date', () => {
-    const prev = new URLSearchParams('page=3&receivedFrom=2026-01-10&receivedTo=2026-01-20');
-    expect(withFilters(prev, { search: 'js' }).get('page')).toBeNull();
-    const later = withFilters(prev, { receivedFrom: '2026-02-01' });
-    expect(later.get('receivedFrom')).toBe('2026-02-01');
-    expect(later.get('receivedTo')).toBeNull();
+  it('leaves out invalid values from a hand-edited link and says so', () => {
+    const { query, ignored } = receiptLogQueryFor(
+      EMPTY_TABLE_QUERY,
+      new URLSearchParams('receivedFrom=yesterday&page=2'),
+    );
+    expect(ignored).toBe(true);
+    expect(query.receivedFrom).toBeUndefined();
+    expect(query.page).toBe(2);
   });
 });
 
-describe('Receiving Log list (MM-T51)', () => {
-  it('AC1: one row per receipt with received-by name and initials and the confirming account', async () => {
+describe('Receiving log (STRATA-78)', () => {
+  it('lists receipts with the received date and time as the link, units, receiver and status', async () => {
     stubApi((url) =>
-      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
+      url.pathname === '/api/receipts'
+        ? json(
+            200,
+            page([
+              receipt(RECEIPT_ID),
+              receipt('00000000-0000-4000-8000-000000000602', {
+                status: 'corrected',
+                quantity: 4,
+                unitIds: ['BKT-2026-000020', 'BKT-2026-000021', 'BKT-2026-000022'],
+              }),
+            ]),
+          )
+        : undefined,
     );
     renderAt('/receiving-log');
-    expect(await screen.findByText('1 receipt')).toBeInTheDocument();
-    const table = screen.getByRole('table', { name: 'Confirmed receipts' });
-    expect(within(table).getAllByRole('row')).toHaveLength(2);
-    expect(within(table).getByText('JS · Jordan Smith')).toBeInTheDocument();
-    expect(within(table).getByText('by LAB (shared station)')).toBeInTheDocument();
-    expect(within(table).getByText('Jan 15, 2026, 2:05 p.m.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Receiving log', level: 1 })).toBeVisible();
+    const table = await screen.findByRole('table', { name: 'Confirmed receipts' });
     expect(
-      screen.getByRole('link', {
-        name: 'Open receipt: DEMO-2601, received 2026-01-15 by JS · Jordan Smith',
+      within(table).getAllByRole('link', {
+        name: /^Open receipt: DEMO-2601, received 2026-01-15 by JS · Jordan Smith/,
       }),
-    ).toHaveAttribute('href', `/receiving-log/${RECEIPT_ID}`);
-    // Start a delivery always opens a new draft; Scan label opens the scanner.
-    expect(screen.getByRole('link', { name: 'Start a delivery' })).toHaveAttribute(
-      'href',
-      '/receiving-log/new?new=1',
-    );
-    expect(screen.getByRole('link', { name: 'Scan label' })).toHaveAttribute(
-      'href',
-      '/sample-storage/scan',
-    );
-    expect(screen.getByRole('heading', { level: 1, name: 'Receiving log' })).toBeInTheDocument();
-    // No drafts on this computer: no draft section.
-    expect(screen.queryByRole('region', { name: 'Not confirmed yet' })).not.toBeInTheDocument();
+    ).toHaveLength(2);
+    expect(within(table).getByText('Confirmed')).toBeInTheDocument();
+    expect(within(table).getByText('Corrected')).toBeInTheDocument();
+    expect(within(table).getByText('+3')).toBeInTheDocument();
+    expect(within(table).getAllByText('JS · Jordan Smith').length).toBeGreaterThan(0);
+    expect(screen.getByText('2 receipts')).toBeInTheDocument();
   });
 
-  it('lists drafts on this computer above the receipts, dashed, with Continue and no ID', async () => {
-    stubApi((url) =>
-      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
-    );
-    const hole = (name: string) => ({ id: `th-${name}`, projectId: PROJECT.id, name });
-    const summary = (name: string) => ({ testHole: hole(name) });
-    const record = (
-      draftId: string,
-      owner: { accountId: string; type: 'lab' | 'personal' },
-      units: unknown[],
-      project: typeof PROJECT | null,
-    ) => ({
-      version: DRAFT_RECORD_VERSION,
-      draftId,
-      idempotencyKey: '00000000-0000-4000-8000-000000000999',
-      owner,
-      receiver: { staffId: 'u1', initials: 'AT', displayName: 'Alex Tester' },
-      data: { units, project },
-      step: 'details',
-      status: 'editing',
-      createdAt: '2026-01-15T16:00:00.000Z',
-      lastSavedAt: '2026-01-15T16:51:00.000Z',
-      history: [],
-    });
-    await indexedDbDraftStore.put(
-      record(
-        'draft-mine',
-        { accountId: 'u1', type: 'personal' },
-        [
-          { summaries: [summary('TH26-01')] },
-          { summaries: [summary('TH26-01'), summary('TH26-02')] },
-        ],
-        PROJECT,
-      ) as unknown as StoredDraft,
-    );
-    // Someone else's personal draft is never shown.
-    await indexedDbDraftStore.put(
-      record(
-        'draft-other',
-        { accountId: 'u2', type: 'personal' },
-        [{ summaries: [] }],
-        null,
-      ) as unknown as StoredDraft,
+  it('sends a filter chosen in the toolbar to the server and shows it as a chip', async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)])) : undefined,
     );
     renderAt('/receiving-log');
-    const drafts = await screen.findByRole('region', { name: 'Not confirmed yet' });
-    expect(within(drafts).getByText('1 delivery · No IDs issued')).toBeInTheDocument();
-    expect(within(drafts).getByText('DEMO-2601')).toBeInTheDocument();
-    expect(within(drafts).getByText('2 units · TH26-01, TH26-02')).toBeInTheDocument();
-    expect(within(drafts).getByText('AT · Alex Tester')).toBeInTheDocument();
+    await screen.findByRole('table', { name: 'Confirmed receipts' });
+    await user.click(screen.getByRole('button', { name: 'Filter' }));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Corrected' }));
+    await waitFor(() =>
+      expect(logCalls(fetchMock).some((u) => u.searchParams.get('status') === 'corrected')).toBe(
+        true,
+      ),
+    );
+    await user.keyboard('{Escape}');
     expect(
-      within(drafts).getByRole('link', { name: 'Continue draft for DEMO-2601' }),
-    ).toHaveAttribute('href', '/receiving-log/new?draft=draft-mine');
-    expect(within(drafts).queryByText(/BKT-|ST-|CRE-|CT-/)).not.toBeInTheDocument();
-    expect(within(drafts).getAllByRole('listitem')).toHaveLength(1);
+      within(screen.getByRole('group', { name: 'Active sort and filters' })).getByText('Corrected'),
+    ).toBeInTheDocument();
   });
 
-  it('shows "No receipts yet" with Start a delivery when nothing has been confirmed', async () => {
-    stubApi((url) => (url.pathname === '/api/receipts' ? json(200, page([], 0)) : undefined));
+  it('turns an older link with projectId into a project filter', async () => {
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)])) : undefined,
+    );
+    const router = renderAt(`/receiving-log?projectId=${PROJECT.id}`);
+    await waitFor(() =>
+      expect(router.state.location.search).toBe(
+        `?filter=${encodeURIComponent(projectFilter(PROJECT.id))}`,
+      ),
+    );
+    await waitFor(() =>
+      expect(logCalls(fetchMock).at(-1)!.searchParams.get('projectId')).toBe(PROJECT.id),
+    );
+  });
+
+  it('shows "No receipts yet" with Receive samples when nothing has been confirmed', async () => {
+    stubApi((url) => (url.pathname === '/api/receipts' ? json(200, page([])) : undefined));
     renderAt('/receiving-log');
     expect(await screen.findByText('No receipts yet.')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Start a delivery' })).toHaveLength(2);
-  });
-
-  it('remembers the compact table view per table', async () => {
-    stubApi((url) =>
-      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
-    );
-    renderAt('/receiving-log');
-    const table = await screen.findByRole('table', { name: 'Confirmed receipts' });
-    expect(table).not.toHaveClass('is-compact');
-    await userEvent.click(screen.getByRole('button', { name: 'Compact rows' }));
-    expect(screen.getByRole('table', { name: 'Confirmed receipts' })).toHaveClass('is-compact');
-    expect(window.localStorage.getItem('materialmule:table-view:receiving-log')).toBe('compact');
-    window.localStorage.removeItem('materialmule:table-view:receiving-log');
   });
 
   it('shows "No receipts match these filters" with Clear filters', async () => {
-    stubApi((url) => (url.pathname === '/api/receipts' ? json(200, page([], 0)) : undefined));
+    const user = userEvent.setup();
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/receipts' ? json(200, page([])) : undefined,
+    );
     const router = renderAt('/receiving-log?search=nothing');
     expect(await screen.findByText('No receipts match these filters.')).toBeInTheDocument();
-    expect(screen.queryByText('No receipts yet.')).not.toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0]!);
-    expect(router.state.location.search).toBe('');
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    await waitFor(() => expect(logCalls(fetchMock).at(-1)!.searchParams.get('search')).toBeNull());
   });
 
-  it('AC10: a server error shows Retry, never an empty history', async () => {
+  it('a server error offers Try again, never an empty history', async () => {
+    const user = userEvent.setup();
     let fail = true;
     stubApi((url) =>
       url.pathname === '/api/receipts'
         ? fail
-          ? json(500, { code: 'internal' })
-          : json(200, page([receipt(RECEIPT_ID)], 1))
+          ? json(500, {})
+          : json(200, page([receipt(RECEIPT_ID)]))
         : undefined,
     );
     renderAt('/receiving-log');
-    expect(
-      await screen.findByText('Material Mule had a problem loading receipts. Try again.'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/No receipts/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Receipts didn’t load')).toBeInTheDocument();
+    expect(screen.queryByText('No receipts yet.')).not.toBeInTheDocument();
     fail = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('1 receipt')).toBeInTheDocument();
-  });
-
-  it('AC10: a lost connection says so instead of showing no receipts', async () => {
-    stubApi((url) => {
-      if (url.pathname === '/api/receipts') throw new TypeError('Failed to fetch');
-      return undefined;
-    });
-    renderAt('/receiving-log');
-    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.t be reached|offline/);
-    expect(screen.queryByText(/No receipts/)).not.toBeInTheDocument();
-  });
-
-  it('a refused read says permission is needed', async () => {
-    stubApi((url) =>
-      url.pathname === '/api/receipts' ? json(403, { code: 'forbidden' }) : undefined,
-    );
-    renderAt('/receiving-log');
-    expect(
-      await screen.findByText("You don't have permission to see receipts."),
-    ).toBeInTheDocument();
-  });
-
-  it('AC10: an invalid link value is left out with a notice and not sent', async () => {
-    const fetchMock = stubApi((url) =>
-      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
-    );
-    renderAt('/receiving-log?receivedFrom=2026-02-30&search=js');
-    expect(
-      await screen.findByText('Part of this link wasn’t valid and was left out: Received from.'),
-    ).toBeInTheDocument();
-    await screen.findByText('1 receipt');
-    expect(Object.fromEntries(logCalls(fetchMock).at(-1)!.searchParams)).toEqual({ search: 'js' });
-  });
-
-  it('AC3: a reload restores filters from the URL, including the receiver by user ID', async () => {
-    const fetchMock = stubApi((url) => {
-      if (url.pathname === '/api/receipts') return json(200, page([receipt(RECEIPT_ID)], 1));
-      if (url.pathname === '/api/receipts/receivers' && url.searchParams.get('id') === JORDAN) {
-        return json(200, [
-          { id: JORDAN, initials: 'JS', displayName: 'Jordan Smith', position: null },
-        ]);
-      }
-      if (url.pathname === `/api/projects/${PROJECT.id}`) {
-        return json(200, {
-          ...PROJECT,
-          leadProjectEngineer: { id: 'pe', displayName: 'Pat Example', initials: 'PE' },
-        });
-      }
-      return undefined;
-    });
-    renderAt(
-      `/receiving-log?search=demo&projectId=${PROJECT.id}&receiverUserId=${JORDAN}` +
-        '&receivedFrom=2026-01-01&receivedTo=2026-01-31&page=2',
-    );
-    const chips = await screen.findByRole('list', { name: 'Active filters' });
-    expect(await within(chips).findByText('Received by: JS · Jordan Smith')).toBeInTheDocument();
-    expect(await within(chips).findByText('Project: DEMO-2601')).toBeInTheDocument();
-    expect(within(chips).getByText('Received from 2026-01-01')).toBeInTheDocument();
-    expect(Object.fromEntries(logCalls(fetchMock).at(-1)!.searchParams)).toEqual({
-      search: 'demo',
-      projectId: PROJECT.id,
-      receiverUserId: JORDAN,
-      receivedFrom: '2026-01-01',
-      receivedTo: '2026-01-31',
-      page: '2',
-    });
-  });
-
-  it('AC3: two date filters set in quick succession are both kept', async () => {
-    stubApi((url) =>
-      url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)], 1)) : undefined,
-    );
-    const router = renderAt('/receiving-log?search=js&page=2');
-    await screen.findByText('1 receipt');
-    act(() => {
-      fireEvent.change(screen.getByLabelText('Received from'), { target: { value: '2026-01-01' } });
-      fireEvent.change(screen.getByLabelText('Received through'), {
-        target: { value: '2026-01-31' },
-      });
-    });
-    await waitFor(() =>
-      expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
-        search: 'js',
-        receivedFrom: '2026-01-01',
-        receivedTo: '2026-01-31',
-      }),
-    );
-  });
-
-  it('T6: a slower answer for older filters never replaces the newer one', async () => {
-    let releaseOld: (response: Response) => void = () => undefined;
-    stubApi((url) => {
-      if (url.pathname !== '/api/receipts') return undefined;
-      if (url.searchParams.get('search') === 'old') {
-        return new Promise<Response>((resolve) => {
-          releaseOld = resolve;
-        });
-      }
-      return json(200, page([receipt(RECEIPT_ID, { receivedDate: '2026-03-03' })], 1));
-    });
-    renderAt('/receiving-log?search=old');
-    await userEvent.clear(screen.getByRole('searchbox', { name: 'Search' }));
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Search' }), 'new');
-    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(await screen.findByText('2026-03-03')).toBeInTheDocument();
-    await act(async () => {
-      releaseOld(json(200, page([receipt('old', { receivedDate: '2025-12-12' })], 1)));
-      await Promise.resolve();
-    });
-    expect(screen.queryByText('2025-12-12')).not.toBeInTheDocument();
-    expect(screen.getByText('2026-03-03')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('table', { name: 'Confirmed receipts' })).toBeInTheDocument();
   });
 
   it('pages with Previous and Next', async () => {
-    stubApi((url) =>
+    const user = userEvent.setup();
+    const fetchMock = stubApi((url) =>
       url.pathname === '/api/receipts'
         ? json(200, page([receipt(RECEIPT_ID)], 60, Number(url.searchParams.get('page') ?? 1)))
         : undefined,
     );
-    const router = renderAt('/receiving-log');
-    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Page 2 of 3')).toBeInTheDocument();
-    expect(router.state.location.search).toBe('?page=2');
+    renderAt('/receiving-log');
+    await screen.findByText('Page 1 of 3');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Page 2 of 3');
+    expect(logCalls(fetchMock).at(-1)!.searchParams.get('page')).toBe('2');
   });
 });
 
-describe('Receipt detail (MM-T51)', () => {
-  it('AC5: shows the original header and every unit, marking corrected values', async () => {
-    const fetchMock = stubApi((url) =>
-      url.pathname === `/api/receipts/${RECEIPT_ID}` ? json(200, DETAIL) : undefined,
+describe('Drafts on this computer (STRATA-108)', () => {
+  const receipts: Handler = (url) =>
+    url.pathname === '/api/receipts' ? json(200, page([receipt(RECEIPT_ID)])) : undefined;
+
+  it('lists the person’s drafts as drafts, never receipts: Continue, no IDs, others hidden', async () => {
+    const mine = await storedDraft();
+    await storedDraft(PAT);
+    stubApi((url, init) => {
+      if (url.pathname === '/api/receipt-drafts' && (init?.method ?? 'GET') === 'GET') {
+        return json(200, { items: [ownershipOf(mine.draftId)] });
+      }
+      return receipts(url, init);
+    });
+    renderAt('/receiving-log');
+    const drafts = await screen.findByRole('list', { name: 'Drafts on this computer' });
+    expect(within(drafts).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(drafts).getByText('Draft · Receipt')).toBeInTheDocument();
+    expect(within(drafts).getByText(/Started by you/)).toBeInTheDocument();
+    expect(
+      within(drafts).getByRole('link', { name: 'Continue draft for DEMO-2601' }),
+    ).toHaveAttribute('href', `/receiving-log/new?draft=${mine.draftId}`);
+    expect(within(drafts).queryByText(/BKT-|ST-|CRE-|CT-/)).not.toBeInTheDocument();
+  });
+
+  it('disables Delete draft for anyone but the starter or a Lab Manager, with the reason', async () => {
+    const record = await storedDraft();
+    stubApi((url, init) => {
+      if (url.pathname === '/api/receipt-drafts') {
+        return json(200, {
+          items: [
+            ownershipOf(record.draftId, {
+              starter: { userId: JORDAN, initials: 'JL', name: 'Jordan Lab' },
+              canDelete: false,
+              reason: 'not_starter',
+            }),
+          ],
+        });
+      }
+      return receipts(url, init);
+    });
+    renderAt('/receiving-log');
+    const button = await screen.findByRole('button', {
+      name: 'Delete draft. Only Jordan Lab or a Lab Manager can delete it',
+    });
+    expect(button).toBeDisabled();
+  });
+
+  it('asks first; Keep draft sends nothing and keeps it', async () => {
+    const user = userEvent.setup();
+    const record = await storedDraft();
+    const fetchMock = stubApi((url, init) => {
+      if (url.pathname === '/api/receipt-drafts') {
+        return json(200, { items: [ownershipOf(record.draftId)] });
+      }
+      return receipts(url, init);
+    });
+    renderAt('/receiving-log');
+    const button = await screen.findByRole('button', { name: 'Delete draft' });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete this draft?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Keep draft' }));
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/delete'))).toBe(false);
+    expect(await indexedDbDraftStore.get(record.draftId)).not.toBeNull();
+  });
+
+  it('removes the local copy only after the server authorizes the deletion', async () => {
+    const user = userEvent.setup();
+    const record = await storedDraft();
+    let refuse = true;
+    const fetchMock = stubApi((url, init) => {
+      if (url.pathname === `/api/receipt-drafts/${record.draftId}/delete`) {
+        return refuse
+          ? json(403, { code: 'draft_delete_forbidden', reason: 'not_starter', starter: null })
+          : json(200, {
+              draftId: record.draftId,
+              deletedAt: '2026-01-16T10:00:00.000Z',
+              reason: 'starter',
+            });
+      }
+      if (url.pathname === '/api/receipt-drafts') {
+        return json(200, { items: [ownershipOf(record.draftId)] });
+      }
+      return receipts(url, init);
+    });
+    renderAt('/receiving-log');
+    const deleteOnce = async () => {
+      const button = await screen.findByRole('button', { name: 'Delete draft' });
+      await waitFor(() => expect(button).toBeEnabled());
+      await user.click(button);
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Delete draft' }));
+    };
+    await deleteOnce();
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/delete'))).toBe(true),
     );
+    // Refused: still on this computer.
+    expect(await indexedDbDraftStore.get(record.draftId)).not.toBeNull();
+    refuse = false;
+    await deleteOnce();
+    await waitFor(async () => expect(await indexedDbDraftStore.get(record.draftId)).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('list', { name: 'Drafts on this computer' }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it('a draft saved before ownership was recorded says only a Lab Manager can delete it', async () => {
+    const record = await storedDraft(ME_ID, { legacy: true, starter: null, registeredAt: null });
+    const fetchMock = stubApi((url, init) => {
+      if (url.pathname === '/api/receipt-drafts') {
+        return json(200, {
+          items: [
+            ownershipOf(record.draftId, {
+              registered: false,
+              starter: null,
+              canDelete: false,
+              reason: 'unregistered',
+            }),
+          ],
+        });
+      }
+      return receipts(url, init);
+    });
+    renderAt('/receiving-log');
+    expect(
+      await screen.findByRole('button', { name: 'Delete draft. Only a Lab Manager can delete it' }),
+    ).toBeDisabled();
+    // A legacy draft is never registered: no ownership is invented for it.
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => String(input).endsWith('/api/receipt-drafts') && init?.method === 'POST',
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('Receipt page (STRATA-78)', () => {
+  const api: Handler = (url) => {
+    if (url.pathname === `/api/receipts/${RECEIPT_ID}`) return json(200, DETAIL);
+    if (url.pathname === `/api/receipts/${RECEIPT_ID}/history`) return json(200, HISTORY);
+    return undefined;
+  };
+
+  it('names the receipt by date and receiver, says who entered it, and highlights corrections', async () => {
+    stubApi(api);
     renderAt(`/receiving-log/${RECEIPT_ID}`);
     expect(
-      await screen.findByRole('heading', { name: 'Receipt DEMO-2601 · 2026-01-15' }),
+      await screen.findByRole('heading', { name: 'Receipt 2026-01-15 · Jordan Smith', level: 1 }),
     ).toBeInTheDocument();
-    const header = screen.getByRole('region', { name: 'Original receipt record' });
-    expect(within(header).getByText('JS · Jordan Smith')).toBeInTheDocument();
-    expect(within(header).getByText('LAB (shared station)')).toBeInTheDocument();
-    expect(within(header).getByText('Two buckets from TH26-01')).toBeInTheDocument();
-
-    const table = screen.getByRole('table', { name: 'Storage units in this receipt' });
-    expect(within(table).getAllByRole('row')).toHaveLength(3);
-    expect(screen.getByRole('link', { name: 'Open BKT-2026-000014' })).toHaveAttribute(
+    expect(screen.getAllByText('LAB (shared station), for Jordan Smith').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Corrected').length).toBeGreaterThan(0);
+    const original = screen.getByRole('region', { name: 'Original receipt record' });
+    expect(within(original).getAllByText(/corrected to/)).toHaveLength(2);
+    const units = screen.getByRole('table', { name: 'Storage units in this receipt' });
+    expect(within(units).getByRole('link', { name: 'Open BKT-2026-000014' })).toHaveAttribute(
       'href',
       '/sample-storage/BKT-2026-000014',
     );
-    // The corrected unit shows its current project and date, marked in words.
-    expect(within(table).getAllByText('Corrected')).toHaveLength(2);
-    expect(within(table).getByText('Receipt: DEMO-2601.')).toBeInTheDocument();
-    expect(within(table).getByText('2026-01-17')).toBeInTheDocument();
-    // The disposed unit is still listed, with its status in words.
-    expect(within(table).getByText('Disposed')).toBeInTheDocument();
-
-    // Opening the receipt queues nothing; Print leaves out the disposed unit.
-    expect(screen.getByRole('button', { name: 'Print 1 label' })).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([, init]) => (init?.method ?? 'GET') !== 'GET')).toBe(false);
+    // The disposed unit can't be reprinted.
+    expect(screen.getByText(/Prints 1 label\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Print all labels' })).toBeInTheDocument();
+    const history = await screen.findByRole('list', {
+      name: 'Corrections and history, newest first',
+    });
+    expect(
+      within(history).getByText(/Details corrected · BKT-2026-000014 — Pat Example/),
+    ).toBeInTheDocument();
+    expect(within(history).getByText('“Tube label read DEMO-2602”')).toBeInTheDocument();
   });
 
-  it('AC10: an unknown receipt says No receipt found', async () => {
-    stubApi((url) =>
-      url.pathname.startsWith('/api/receipts/')
-        ? json(404, { code: 'receipt_not_found' })
-        : undefined,
-    );
+  it('an unknown receipt says No receipt found', async () => {
+    stubApi(() => json(404, { code: 'receipt_not_found' }));
     renderAt(`/receiving-log/${RECEIPT_ID}`);
-    expect(
-      await screen.findByText('No receipt found. Find it in the Receiving log instead.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Receiving log' })).toHaveAttribute(
-      'href',
-      '/receiving-log',
-    );
-  });
-
-  it('a server error offers Retry', async () => {
-    let fail = true;
-    stubApi((url) =>
-      url.pathname === `/api/receipts/${RECEIPT_ID}`
-        ? fail
-          ? json(503, { code: 'unavailable' })
-          : json(200, DETAIL)
-        : undefined,
-    );
-    renderAt(`/receiving-log/${RECEIPT_ID}`);
-    await screen.findByRole('alert');
-    fail = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(
-      await screen.findByRole('heading', { name: 'Original receipt record' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No receipt found')).toBeInTheDocument();
   });
 });

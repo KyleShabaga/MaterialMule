@@ -140,7 +140,7 @@ test('T4/AC2: approve → hold placed after approval blocks the scan → release
   await expect(page.getByRole('status')).toHaveText(
     'This storage unit is disposed; its label is not printed again.',
   );
-  await expect(page.getByRole('button', { name: 'Print / Save as PDF' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Save as PDF/ })).toHaveCount(0);
 });
 
 test('T5/AC3: offline, Disposal scan is disabled and nothing is queued', async ({

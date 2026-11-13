@@ -228,7 +228,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   // A personal account confirms the physical removal (the hold doesn't block it).
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${tubeA!.readableId}`);
-  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
     'Not applicable — tested Shelby tube',
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
@@ -286,7 +286,7 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
 
   await page.goto(`/sample-storage/${bucketA!.readableId}`);
   const section = page.getByRole('region', { name: 'Testing and removal' });
-  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
     'Not applicable — tested bulk sample',
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
@@ -305,7 +305,8 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
     ].sort((x, y) => x[0]!.localeCompare(y[0]!)),
   );
   await page.goto(`/sample-storage/${bucketB!.readableId}`);
-  await expect(page.locator('.unit-status-tags')).toContainText('In stock');
+  // Still stored: its record tag is a storage word, never Disposed.
+  await expect(page.locator('.unit-status-tags')).not.toContainText('Disposed');
   await expect(page.getByRole('region', { name: 'Testing and removal' })).toContainText(
     'No completed test has recorded this exact unit',
   );
