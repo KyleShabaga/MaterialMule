@@ -515,7 +515,8 @@ describe('Inbox page (STRATA-24)', () => {
       me({ id: 'u-lab', accountType: 'shared_lab', permissions: ['inventory.read'] }),
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(screen.queryByRole('heading', { level: 1, name: 'Inbox' })).toBeNull();
+    // The personal page (its tabs) never renders on a station.
+    expect(screen.queryByRole('tablist', { name: 'Inbox' })).toBeNull();
     expect(calls(fetchMock).some((url) => url.startsWith('/api/inbox?'))).toBe(false);
   });
 });

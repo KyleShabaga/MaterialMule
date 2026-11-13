@@ -275,7 +275,9 @@ export function sidebarNavFor(
   const can = (permission: string) => me.permissions.includes(permission);
   const top = [row('today', '/', 'Today', House), row('projects', '/projects', 'Projects', Folder)];
   // The single Inbox (STRATA-24): requests and updates in one place.
-  if (can('notification.read') || can('action_item.read')) {
+  // A LAB station shows the picked person's Inbox only with their consent (STRATA-27); the page
+  // and the badge read the station route, never the shared account's own feed.
+  if (can('notification.read') || can('action_item.read') || me.accountType === 'shared_lab') {
     top.push(row('inbox', '/inbox', 'Inbox', Inbox));
   }
 

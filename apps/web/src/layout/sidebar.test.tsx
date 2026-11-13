@@ -108,8 +108,13 @@ describe('sidebarNavFor', () => {
       const inbox = sidebarNavFor(me({ permissions })).top.at(-1);
       expect(inbox).toMatchObject({ label: 'Inbox', to: '/inbox', children: [] });
     }
-    // LAB has neither: no Inbox row.
-    expect(sidebarNavFor(me({ accountType: 'shared_lab' })).top.map((i) => i.label)).toEqual([
+    // LAB holds neither, but a station shows the picked person's Inbox with consent (STRATA-27).
+    expect(sidebarNavFor(me({ accountType: 'shared_lab' })).top.at(-1)).toMatchObject({
+      label: 'Inbox',
+      to: '/inbox',
+    });
+    // A personal account with neither permission: no Inbox row.
+    expect(sidebarNavFor(me({ permissions: [] })).top.map((i) => i.label)).toEqual([
       'Today',
       'Projects',
     ]);

@@ -1,11 +1,15 @@
 import {
+  INBOX_BULK_ACTIONS,
+  INBOX_BULK_MAX,
   INBOX_PAGE_SIZE_MAX,
+  inboxBulkResultSchema,
   inboxPageSchema,
   inboxSummarySchema,
   normalizeHiddenColumns,
   notificationCountSchema,
   tableColumnsResponseSchema,
   tableColumnsVersionConflictSchema,
+  type InboxBulkResult,
   type InboxFilter,
   type InboxItem,
   type InboxPage,
@@ -13,7 +17,6 @@ import {
   type InboxSummary,
   type InboxTab,
 } from '@materialmule/shared';
-import { z } from 'zod';
 import { apiFetch } from '../api/client';
 import { announceNotificationsChanged } from './api';
 import { setInboxUnreadCount } from './inbox-count';
@@ -117,20 +120,10 @@ export async function markItemRead(item: InboxItem): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// STRATA-48: bulk actions on checked rows. The shared schemas (`inboxBulkSchema`,
-// `inboxBulkResultSchema`) are being added to packages/shared by another agent; until they land
-// this client keeps a local schema of the agreed shape.
+// STRATA-48: bulk actions on checked rows (Kyle, 2026-11-13): Mark read, Mark unread, Dismiss.
 
-export const INBOX_BULK_ACTIONS = ['read', 'unread', 'dismiss'] as const;
 export type InboxBulkAction = (typeof INBOX_BULK_ACTIONS)[number];
-export const INBOX_BULK_MAX = 100;
-
-const inboxBulkResultSchema = z.object({
-  updated: z.number().int().min(0),
-  failed: z.array(z.string()),
-  summary: inboxSummarySchema,
-});
-export type InboxBulkResult = z.infer<typeof inboxBulkResultSchema>;
+export { INBOX_BULK_ACTIONS, INBOX_BULK_MAX };
 
 export type BulkOutcome =
   { ok: true; result: InboxBulkResult } | { ok: false; code: 'dismiss_requests' | 'failed' };

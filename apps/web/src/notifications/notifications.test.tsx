@@ -114,7 +114,7 @@ describe('Header controls (MM-T91)', () => {
     expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
   });
 
-  it('LAB sees neither control and never asks for notifications', async () => {
+  it('LAB has only the station bell and never asks for its own notifications', async () => {
     const fetchMock = renderAt(
       '/projects',
       me({ accountType: 'shared_lab', permissions: ['inventory.read'] }),
@@ -124,7 +124,8 @@ describe('Header controls (MM-T91)', () => {
       },
     );
     expect(await screen.findByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
-    expect(screen.queryByRole('link', { name: /^Notifications/ })).toBeNull();
+    // STRATA-27: the station's bell carries no count until the picked person shares their Inbox.
+    expect(screen.queryByRole('link', { name: /^Notifications, / })).toBeNull();
     expect(screen.queryByRole('link', { name: /^Action requests/ })).toBeNull();
     expect(
       fetchMock.mock.calls.some(([url]) => /^\/api\/(notifications|inbox)/.test(String(url))),

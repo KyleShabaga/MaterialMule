@@ -58,8 +58,8 @@ function renderAt(
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Action requests settings (MM-T27)', () => {
-  it('LAB has no bell and no preference card', async () => {
-    renderAt(
+  it('LAB has no count, no personal feed and no preference card', async () => {
+    const fetchMock = renderAt(
       '/settings/profile',
       me({ accountType: 'shared_lab', permissions: ['inventory.read'] }),
       (url) => {
@@ -90,12 +90,17 @@ describe('Action requests settings (MM-T27)', () => {
     );
     expect(await screen.findByRole('heading', { name: 'Profile' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^Action requests/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Inbox' })).toBeNull();
-    // The shell has no bell (the Settings nav's own Notifications section doesn't count).
-    const bell = screen
-      .queryAllByRole('link', { name: /^Notifications/, hidden: true })
+    // STRATA-27: a station's bell shows a count only for a person who shares their Inbox, and
+    // reads only the station summary, never the shared account's own feed.
+    const counted = screen
+      .queryAllByRole('link', { name: /^Notifications, /, hidden: true })
       .filter((link) => !link.closest('[role="dialog"]'));
-    expect(bell).toEqual([]);
+    expect(counted).toEqual([]);
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        /^\/api\/(notifications|inbox|action-items)/.test(String(url)),
+      ),
+    ).toBe(false);
     expect(screen.queryByRole('heading', { name: 'Notifications' })).toBeNull();
   });
 

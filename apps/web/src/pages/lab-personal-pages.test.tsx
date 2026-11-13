@@ -62,6 +62,13 @@ function renderAsLab(path: string) {
     vi.fn(async (input: RequestInfo | URL) => {
       const pathname = new URL(String(input), 'http://localhost').pathname;
       urls.push(pathname);
+      // STRATA-27: the picked person keeps their Inbox private (the default).
+      if (pathname.startsWith('/api/station/inbox')) {
+        return new Response(
+          JSON.stringify({ state: 'private', person: { userId: 'p1', name: 'Alex Tester' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
       // The project page's layout (STRATA-84) loads the project before its Team tab renders.
       if (pathname === `/api/projects/${PROJECT}`) {
         return new Response(JSON.stringify(PROJECT_DETAIL), {
@@ -104,7 +111,8 @@ describe('MTR-2: LAB on personal-account pages', () => {
       const urls = renderAsLab(path);
       expect(await screen.findByRole('main')).toBeInTheDocument();
       await waitFor(() => expect(urls.length).toBeGreaterThan(0));
-      expect(screen.queryByRole('heading', { level: 1, name: 'Inbox' })).not.toBeInTheDocument();
+      // Not the personal Inbox page (its tabs); the station Inbox has none.
+      expect(screen.queryByRole('tablist', { name: 'Inbox' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
       expect(personalCalls(urls)).toEqual([]);
       expect(urls.filter((url) => url === '/api/inbox' || url === '/api/inbox/summary')).toEqual(
