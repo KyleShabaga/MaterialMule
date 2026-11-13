@@ -1223,7 +1223,7 @@ is indexed by person. Relevance only: All projects is unchanged and nothing is h
   is a `legacy` row with no account and no starter, so ownership is never invented.
 - **Who may delete:** see [permissions.md](permissions.md#receiving-drafts-and-receipts-strata-78-strata-108).
 
-## Station configuration (Strata lane A, `0047_station_config.sql`)
+## Station configuration (Strata lane A, `0048_station_config.sql`)
 
 - **What it holds.** One row per LAB station that someone customized: `station_id` (the random
   ID the station computer made once, `^[A-Za-z0-9_-]{8,64}$` as the shared `stationIdSchema`),

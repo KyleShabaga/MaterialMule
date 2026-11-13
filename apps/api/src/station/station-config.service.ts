@@ -13,7 +13,7 @@ import { asLocked, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 
-// A station's "At this station" rows (migration 0047). Every active session reads them; only a
+// A station's "At this station" rows (migration 0048). Every active session reads them; only a
 // Lab Manager with their own account saves (`station.configure`, Kyle 2026-11-12/13, STRATA-36).
 // There is no way for the LAB session to save, whoever it picks.
 

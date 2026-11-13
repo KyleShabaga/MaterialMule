@@ -27,7 +27,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { InboxService } from '../inbox/inbox.service.js';
 
 // Strata lane A: the LAB station's Today counts (STRATA-20/21/63), its configuration (migration
-// 0047) and the consent-based, read-only station Inbox (STRATA-27). Real PostgreSQL, direct API
+// 0048) and the consent-based, read-only station Inbox (STRATA-27). Real PostgreSQL, direct API
 // calls. Fictional people and projects only (DEMO-2601, Pat Example, Alex Tester, Lee Manager).
 describe.runIf(testDatabaseUrl)('LAB station API (Strata lane A)', () => {
   let h: LabHarness;

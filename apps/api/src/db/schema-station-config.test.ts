@@ -6,11 +6,11 @@ import {
 } from '../test-support/database.js';
 import { PG } from '../test-support/fixtures.js';
 
-// Strata lane A (migration 0047): a LAB station's "At this station" rows, proven in the database.
+// Strata lane A (migration 0048): a LAB station's "At this station" rows, proven in the database.
 // One row per station ID in the shared stationIdSchema format; a stored row starts at version 1
 // and each save adds exactly one; the station ID never changes; and only an active Lab Manager
 // with their own account is recorded as saving it, never the shared LAB account. Fictional people.
-describe.runIf(testDatabaseUrl)('station configuration (Strata lane A, migration 0047)', () => {
+describe.runIf(testDatabaseUrl)('station configuration (Strata lane A, migration 0048)', () => {
   let db: TestSchema;
   let manager: string;
   let technician: string;
