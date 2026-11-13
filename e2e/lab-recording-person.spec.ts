@@ -52,10 +52,13 @@ test('LAB picks who is working, receives under that name, then signs off back to
   await page.reload();
   await expect(chip(page, 'Alex Tester')).toBeVisible();
 
-  // Received by starts as the person in the chip (still changeable, STRATA-107).
-  await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
-    /^AT · Alex Tester/,
-  );
+  // Received by starts blank on LAB even with someone picked (T8/AC5, STRATA-107): the picked
+  // person is chosen explicitly, like anyone else.
+  const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
+  await expect(receiver).toHaveValue('');
+  await receiver.fill('AT');
+  await page.getByRole('option', { name: /^AT · Alex Tester/ }).click();
+  await expect(receiver).toHaveValue(/^AT · Alex Tester/);
   await chooseDemoProject(page);
   await page.getByLabel('Description (optional)').fill(description);
   await toUnits(page);
