@@ -12,6 +12,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { apiFetch } from '../api/client';
+import { PINS_CHANGED_EVENT } from '../projects/api';
 
 // Strata sidebar layout (DESIGN.md › Sidebar; STRATA-11, 38, 39, 40, 41, 42): which sections show
 // and in what order, which are folded, and the person's Pinned and Recent records.
@@ -307,10 +308,28 @@ export function useSidebarPrefs(source: SidebarPrefsSource): SidebarPrefs {
       recentsPushed = true;
       setState((s) => (s.source === source && s.recents !== null ? { ...s, recents: items } : s));
     };
+    // A record page's Pin button (STRATA-11) says the pins changed: take the server's new list
+    // when the event carries one, else read the list again.
+    const onPins = (event: Event) => {
+      const items = (event as CustomEvent<unknown>).detail;
+      if (Array.isArray(items)) {
+        const list = items as SidebarRecord[];
+        setState((s) => (s.source === source && s.pins !== null ? { ...s, pins: list } : s));
+        return;
+      }
+      void source.pins().then(
+        (pins) => {
+          if (active) setState((s) => (s.source === source ? { ...s, pins } : s));
+        },
+        () => undefined,
+      );
+    };
     window.addEventListener(RECENTS_CHANGED_EVENT, onRecents);
+    window.addEventListener(PINS_CHANGED_EVENT, onPins);
     return () => {
       active = false;
       window.removeEventListener(RECENTS_CHANGED_EVENT, onRecents);
+      window.removeEventListener(PINS_CHANGED_EVENT, onPins);
     };
   }, [source]);
 

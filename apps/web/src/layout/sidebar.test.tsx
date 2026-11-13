@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { routes } from '../routes';
 import { CommandMenuProvider } from '../search/command-menu';
+import { PINS_CHANGED_EVENT } from '../projects/api';
 import { SessionContext } from '../session/context';
 import { AppSidebar } from './AppSidebar';
 import { activeNavKey, sidebarNavFor } from './nav';
@@ -228,6 +229,44 @@ describe('sidebar layout adapter', () => {
       window.dispatchEvent(new CustomEvent(RECENTS_CHANGED_EVENT, { detail: [PROJECT_RECORD] }));
     });
     expect(prefs.current.recents).toEqual([PROJECT_RECORD]);
+  });
+
+  it('Pinned follows a record page’s Pin button: the list it sends, without asking again', async () => {
+    const pins = vi.fn(async () => [] as SidebarRecord[]);
+    const source: SidebarPrefsSource = { ...fakeSource(null), pins };
+    const { result: prefs } = renderHook(() => useSidebarPrefs(source));
+    await waitFor(() => expect(prefs.current.pins).toEqual([]));
+    act(() => {
+      window.dispatchEvent(new CustomEvent(PINS_CHANGED_EVENT, { detail: [PROJECT_RECORD] }));
+    });
+    expect(prefs.current.pins).toEqual([PROJECT_RECORD]);
+    expect(pins).toHaveBeenCalledTimes(1);
+  });
+
+  it('Pinned reads the list again when the pins-changed event carries none', async () => {
+    const pins = vi
+      .fn<() => Promise<SidebarRecord[] | null>>()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([PROJECT_RECORD]);
+    const source: SidebarPrefsSource = { ...fakeSource(null), pins };
+    const { result: prefs } = renderHook(() => useSidebarPrefs(source));
+    await waitFor(() => expect(prefs.current.pins).toEqual([]));
+    act(() => {
+      window.dispatchEvent(new CustomEvent(PINS_CHANGED_EVENT));
+    });
+    await waitFor(() => expect(prefs.current.pins).toEqual([PROJECT_RECORD]));
+    expect(pins).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops listening for pin changes once the sidebar is gone', async () => {
+    const pins = vi.fn(async () => [] as SidebarRecord[]);
+    const { result: prefs, unmount } = renderHook(() =>
+      useSidebarPrefs({ ...fakeSource(null), pins }),
+    );
+    await waitFor(() => expect(prefs.current.pins).toEqual([]));
+    unmount();
+    window.dispatchEvent(new CustomEvent(PINS_CHANGED_EVENT));
+    expect(pins).toHaveBeenCalledTimes(1);
   });
 
   it('a new person gets their own layout, never the previous one', async () => {
