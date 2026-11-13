@@ -104,7 +104,7 @@ describe('Concrete → Overview (STRATA-93)', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Concrete', level: 1 })).toBeVisible();
     const expectations: [string, string][] = [
-      ['3 Awaiting pickup', '/concrete/receiving'],
+      ['3 Awaiting pickup', '/concrete/receiving?stage=awaiting_pickup'],
       ['1 Awaiting receiving', '/concrete/receiving?stage=awaiting_receiving'],
       ['4 Tests due today', '/lab-testing/concrete'],
       ['2 Tests overdue', '/lab-testing/concrete?view=overdue'],

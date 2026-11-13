@@ -55,7 +55,7 @@ const COUNTERS: readonly Counter[] = [
     key: 'awaitingPickup',
     label: 'Awaiting pickup',
     source: 'receiving',
-    to: '/concrete/receiving',
+    to: '/concrete/receiving?stage=awaiting_pickup',
     stage: 'due',
     where: 'Receiving',
   },

@@ -126,6 +126,7 @@ describe('Concrete Lab navigation (role-based, grants nothing)', () => {
         .find((d) => d.key === 'concrete')!
         .children.map((i) => i.label);
     expect(concrete({ accountType: 'shared_lab', roles: [] })).toEqual([
+      'Overview',
       'Breaks',
       'Receiving',
       'Specimens',

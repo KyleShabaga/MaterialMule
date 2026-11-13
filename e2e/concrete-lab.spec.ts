@@ -135,9 +135,9 @@ test('AC3: dashboard counts match the lists they open, and My reports come first
     const tile = page.getByRole('link', { name: /^\d+ Awaiting pickup$/ });
     const count = Number((await tile.textContent())!.match(/\d+/)![0]);
     await tile.click();
-    await expect(page.getByRole('heading', { name: 'Specimen receiving', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Concrete receiving', level: 1 })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Awaiting pickup/ })).toHaveText(
-      `Awaiting pickup (${count})`,
+      `Awaiting pickup ${count}`,
       { timeout: 5_000 },
     );
   }).toPass({ timeout: 30_000 });
