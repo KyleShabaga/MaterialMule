@@ -1,12 +1,19 @@
 import {
   LAB_PROGRAM_STATUS_STAGE,
   PROJECT_STAGE,
-  storageUnitStage,
+  type InventoryItem,
   type SidebarRecordKind,
   type StageKey,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuthUser } from '../auth/policy.js';
+import { unitStage } from '../inventory/unit-stage.js';
+import {
+  effectiveTermColumns,
+  effectiveTermJoin,
+  type EffectiveTermRow,
+} from '../locations/storage-term.js';
+import { loadUnitRetention } from '../retention/retention.js';
 
 type Db = Pool | PoolClient;
 
@@ -35,11 +42,16 @@ export const refKey = (ref: RecordRef) => `${ref.kind}:${ref.id}`;
  *   holds, so existence is the whole check;
  * - lab program: `lab_program.read` for all, but a draft is seen only by the account that
  *   created it (the programs service's `visible` rule).
+ *
+ * A storage unit's stage comes from the same derivation as Inventory rows (`unitStage`: effective
+ * storage term, conflicts and, given `today`, retention). Without `today` (an openable check that
+ * shows nothing) retention is left out.
  */
 export async function describeRecords(
   db: Db,
   user: AuthUser,
   refs: RecordRef[],
+  options: { today?: string } = {},
 ): Promise<Map<string, RecordFace>> {
   const ids = (kind: SidebarRecordKind) => [
     ...new Set(refs.filter((r) => r.kind === kind).map((r) => r.id)),
@@ -51,18 +63,20 @@ export async function describeRecords(
   const sets = ids('specimen_set');
 
   if (units.length > 0) {
-    const { rows } = await db.query<{
-      id: string;
-      readable_id: string;
-      status: string;
-      project_number: string;
-      project_name: string;
-      location_kind: string;
-      open_conflict: boolean;
-      holes: string[];
-    }>(
+    const { rows } = await db.query<
+      EffectiveTermRow & {
+        id: string;
+        readable_id: string;
+        status: InventoryItem['status'];
+        project_number: string;
+        project_name: string;
+        location_kind: string;
+        open_conflict: boolean;
+        holes: string[];
+      }
+    >(
       `SELECT su.id, su.readable_id, su.status, p.project_number, p.name AS project_name,
-              l.kind AS location_kind,
+              l.kind AS location_kind, ${effectiveTermColumns('et')},
               EXISTS (SELECT 1 FROM location_conflict lc
                       WHERE lc.storage_unit_id = su.id AND lc.status = 'open') AS open_conflict,
               ARRAY(SELECT th.name FROM test_hole th
@@ -73,20 +87,21 @@ export async function describeRecords(
        FROM storage_unit su
        JOIN project p ON p.id = su.project_id
        JOIN location l ON l.id = su.current_location_id
+       ${effectiveTermJoin('et', 'l.id')}
        WHERE su.id = ANY($1::uuid[])`,
       [units],
     );
+    const today = options.today;
+    const retention = today ? await loadUnitRetention(db, units, today) : new Map();
     for (const row of rows) {
-      // Cheap facts only: retention (holds, extensions, exemptions) is not computed here, so a
-      // pinned unit never shows Retention due; its own page does.
-      const { stage } = storageUnitStage({
-        disposed: row.status === 'disposed',
+      const { stage } = unitStage({
+        status: row.status,
         openConflict: row.open_conflict,
-        inLab: row.location_kind === 'lab',
-        awaitingPutAway: row.location_kind === 'receiving_lab',
-        storageTerm: null,
-        retentionDue: false,
-        retentionOverdue: false,
+        locationKind: row.location_kind,
+        storageTerm: row.effective_term,
+        retention: retention.get(row.id),
+        // Without a date, retention is never due (no retention row is passed either).
+        today: today ?? '',
       });
       faces.set(refKey({ kind: 'storage_unit', id: row.id }), {
         label: row.readable_id,

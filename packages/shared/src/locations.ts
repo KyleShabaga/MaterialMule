@@ -37,6 +37,11 @@ export const LOCATION_NAME_MAX = 100;
 export const LOCATION_AREA_MAX = 60;
 export const LOCATION_REASON_MAX = 500;
 export const LOCATION_SEARCH_MAX = 100;
+/** STRATA-106/74: a shelf's countable places; matches location_capacity_check. */
+export const LOCATION_CAPACITY_MIN = 1;
+export const LOCATION_CAPACITY_MAX = 200;
+/** STRATA-106: warehouse › bay › shelf; matches location_parent_depth_check. */
+export const LOCATION_MAX_LEVELS = 3;
 
 /** What a typed code is stored and compared as: trimmed and upper case. " wh-c1 " → "WH-C1". */
 export function normalizeLocationCode(code: string): string {
@@ -117,6 +122,17 @@ const parentId = z.uuid({ error: 'Choose a location' }).nullable();
  */
 const ownStorageTerm = storageTermSchema.nullable();
 
+/**
+ * STRATA-106/74: how many units the shelf holds in countable places (the shelf page draws one
+ * cell per place). Null means unknown; the app never assumes a number.
+ */
+const capacity = z
+  .number({ error: 'Enter a whole number' })
+  .int({ error: 'Enter a whole number' })
+  .min(LOCATION_CAPACITY_MIN, { error: `Use ${LOCATION_CAPACITY_MIN}–${LOCATION_CAPACITY_MAX}` })
+  .max(LOCATION_CAPACITY_MAX, { error: `Use ${LOCATION_CAPACITY_MIN}–${LOCATION_CAPACITY_MAX}` })
+  .nullable();
+
 /** `POST /api/locations`. */
 export const createLocationRequestSchema = z.strictObject({
   code,
@@ -125,6 +141,7 @@ export const createLocationRequestSchema = z.strictObject({
   area: area.optional().transform((value) => value ?? null),
   parentId: parentId.optional().transform((value) => value ?? null),
   storageTerm: ownStorageTerm.optional().transform((value) => value ?? null),
+  capacity: capacity.optional().transform((value) => value ?? null),
 });
 export type CreateLocationRequest = z.input<typeof createLocationRequestSchema>;
 
@@ -139,6 +156,7 @@ export const updateLocationRequestSchema = z.strictObject({
   area: area.optional(),
   parentId: parentId.optional(),
   storageTerm: ownStorageTerm.optional(),
+  capacity: capacity.optional(),
   version: z.number({ error: 'Version is required' }).int().positive(),
 });
 export type UpdateLocationRequest = z.input<typeof updateLocationRequestSchema>;
@@ -218,6 +236,8 @@ export const locationSchema = z.object({
   storageTerm: storageTermSchema.nullable().optional(),
   /** STRATA-106: the term units here follow, from the one server resolver. Optional for fixtures. */
   effectiveStorageTerm: effectiveStorageTermSchema.optional(),
+  /** STRATA-106/74: countable places on the shelf, or null when unknown. Optional for fixtures. */
+  capacity: z.number().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   version: z.number(),

@@ -105,6 +105,32 @@ INSERT INTO location (id, code, name, kind)
 VALUES ('00000000-0000-4000-8000-000000000401', 'WH-C2', 'Warehouse C2', 'warehouse')
 ON CONFLICT (code_normalized) DO NOTHING;
 
+-- Storage terms and a small hierarchy (STRATA-106, migration 0043): warehouse WH-A is long-term,
+-- its bay WH-A-B1 inherits, and shelf WH-A-B1-S1 overrides to short-term with 16 places. WH-C2
+-- stays unset (no term in its chain) and gets 8 places. No unit is moved. Only where the columns
+-- exist: upgrade tests load this file on the 0001 baseline.
+DO $seed$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = current_schema() AND table_name = 'location'
+               AND column_name = 'storage_term') THEN
+    EXECUTE $sql$
+      INSERT INTO location (id, code, name, kind, parent_location_id, storage_term, capacity)
+      VALUES
+        ('00000000-0000-4000-8000-000000000402', 'WH-A', 'Warehouse A', 'warehouse', NULL,
+         'long_term', NULL),
+        ('00000000-0000-4000-8000-000000000403', 'WH-A-B1', 'Warehouse A · Bay 1', 'warehouse',
+         '00000000-0000-4000-8000-000000000402', NULL, NULL),
+        ('00000000-0000-4000-8000-000000000404', 'WH-A-B1-S1', 'Warehouse A · Bay 1 · Shelf 1',
+         'warehouse', '00000000-0000-4000-8000-000000000403', 'short_term', 16)
+      ON CONFLICT (code_normalized) DO NOTHING;
+      UPDATE location SET capacity = 8
+      WHERE id = '00000000-0000-4000-8000-000000000401' AND capacity IS NULL;
+    $sql$;
+  END IF;
+END
+$seed$;
+
 INSERT INTO receipt (id, project_id, received_date, receiver_user_id, receiver_initials_snapshot,
                      receiver_name_snapshot, account_user_id, quantity, idempotency_key,
                      request_hash, description)

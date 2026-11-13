@@ -93,7 +93,7 @@ describe.runIf(testDatabaseUrl)('inventory rows: record status and stage (STRATA
     const rows = await rowsAsOf('2026-11-12');
     expect(statusOf(rows, 'received')).toEqual({ recordStatus: 'received', stage: 'draft' });
     expect(statusOf(rows, 'lab')).toEqual({ recordStatus: 'in_lab', stage: 'lab' });
-    // Locations have no storage term yet: a stored unit reads Short-term.
+    // A-01 has no storage term in its chain (unset, STRATA-106): a stored unit reads Short-term.
     expect(statusOf(rows, 'shelf')).toEqual({ recordStatus: 'short_term', stage: 'storage' });
     expect(statusOf(rows, 'disposed')).toEqual({ recordStatus: 'disposed', stage: 'closed' });
     expect(statusOf(rows, 'conflict')).toEqual({
@@ -126,12 +126,38 @@ describe.runIf(testDatabaseUrl)('inventory rows: record status and stage (STRATA
     expect(statusOf(overdue, 'held')).toEqual({ recordStatus: 'short_term', stage: 'storage' });
   });
 
-  it('sends a status on every row', async () => {
-    const rows = await rowsAsOf('2026-11-12');
+  it('sends a status and lifecycle step on every row; retention and conflicts never move a step', async () => {
+    const rows = await rowsAsOf('2027-10-24');
     expect(rows.size).toBe(6);
     for (const row of rows.values()) {
       expect(row.recordStatus).toBeDefined();
       expect(row.stage).toBeDefined();
+    }
+    const steps = Object.fromEntries(
+      Object.entries(unit).map(([key, id]) => [key, rows.get(id)!.lifecycleStep]),
+    );
+    expect(steps).toEqual({
+      received: 'received',
+      lab: 'in_lab',
+      shelf: 'short_term',
+      disposed: 'disposed',
+      conflict: 'short_term',
+      held: 'short_term',
+    });
+  });
+
+  it('follows the shelf location’s effective storage term (STRATA-106)', async () => {
+    const shelf = (await rowsAsOf('2026-11-12')).get(unit.shelf!)!.location.id;
+    await db.pool.query(`UPDATE location SET storage_term = 'long_term' WHERE id = $1`, [shelf]);
+    try {
+      const rows = await rowsAsOf('2026-11-12');
+      expect(statusOf(rows, 'shelf')).toEqual({ recordStatus: 'long_term', stage: 'storage' });
+      expect(rows.get(unit.shelf!)!.lifecycleStep).toBe('long_term');
+      // Overlays keep winning on the record status; the step still follows the term.
+      expect(statusOf(rows, 'conflict').recordStatus).toBe('location_conflict');
+      expect(rows.get(unit.conflict!)!.lifecycleStep).toBe('long_term');
+    } finally {
+      await db.pool.query(`UPDATE location SET storage_term = NULL WHERE id = $1`, [shelf]);
     }
   });
 });

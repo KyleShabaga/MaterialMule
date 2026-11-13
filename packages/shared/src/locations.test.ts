@@ -52,7 +52,16 @@ describe('location codes and scan payloads (MM-T37)', () => {
         name: ' Warehouse C1 ',
         kind: 'warehouse',
       }),
-    ).toEqual({ code: 'WH-C1', name: 'Warehouse C1', kind: 'warehouse', area: null });
+    ).toEqual({
+      code: 'WH-C1',
+      name: 'Warehouse C1',
+      kind: 'warehouse',
+      area: null,
+      // STRATA-106: top level, own term not set, capacity unknown.
+      parentId: null,
+      storageTerm: null,
+      capacity: null,
+    });
     expect(
       createLocationRequestSchema.parse({ code: 'WH-C1', name: 'W', kind: 'lab', area: '  ' }).area,
     ).toBeNull();
@@ -68,6 +77,30 @@ describe('location codes and scan payloads (MM-T37)', () => {
       area: null,
       version: 3,
     });
+  });
+
+  it('validates the storage term, parent and capacity (STRATA-106)', () => {
+    const base = { code: 'WH-A-B1-S1', name: 'Shelf 1', kind: 'warehouse' } as const;
+    expect(
+      createLocationRequestSchema.parse({
+        ...base,
+        parentId: '00000000-0000-4000-8000-000000000403',
+        storageTerm: 'short_term',
+        capacity: 16,
+      }),
+    ).toMatchObject({ storageTerm: 'short_term', capacity: 16 });
+    expect(createLocationRequestSchema.safeParse({ ...base, storageTerm: 'forever' }).success).toBe(
+      false,
+    );
+    expect(createLocationRequestSchema.safeParse({ ...base, capacity: 0 }).success).toBe(false);
+    expect(createLocationRequestSchema.safeParse({ ...base, capacity: 1.5 }).success).toBe(false);
+    expect(createLocationRequestSchema.safeParse({ ...base, parentId: 'WH-A' }).success).toBe(
+      false,
+    );
+    // Null clears an override (inherit) or the capacity.
+    expect(
+      updateLocationRequestSchema.parse({ storageTerm: null, capacity: null, version: 2 }),
+    ).toEqual({ storageTerm: null, capacity: null, version: 2 });
   });
 
   it('includes retired locations only when asked', () => {

@@ -25,7 +25,7 @@ numbers, invented people and clients) and none of it can be loaded in production
 | Set            | Source                           | Loaded by                                | Where                    | What it is for                                                                                                                                                                                                            |
 | -------------- | -------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Reference data | `apps/api/seed/reference.sql`    | `db:migrate`, `db:seed`                  | every environment        | What production needs to start: the Receiving lab, the shared LAB account, the Soils / Advanced Soils groups, the starter template and the Alberta general holidays (MM-V2-C37; add the next year each year). Idempotent. |
-| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2, 3 DEMO test types. Fixed UUIDs; re-runnable.                                                       |
+| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2 (8 places), WH-A › WH-A-B1 › WH-A-B1-S1 storage terms, 3 DEMO test types. Fixed UUIDs; re-runnable. |
 | Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal; DEMO-2616 with concrete pours in every stage. Created through the real API, so it is fully audited.           |
 | Benchmark data | `apps/api/src/bench/generate.ts` | `bench:seed`                             | a bench or test database | Ten-year and 5x stress volumes for MM-T19 ([performance/README.md](performance/README.md)). Deterministic; never loaded into dev.                                                                                         |
 
@@ -463,6 +463,42 @@ again changes nothing.
   claim/settlement recovery and physical confirmation are shared by both targets; location jobs
   render template `location-v1` from the snapshots. No storage unit or receipt stands in for a
   location.
+
+## Storage term, location hierarchy and shelf capacity (STRATA-106, migration 0043)
+
+Kyle (2026-11-12): the storage term is set on a warehouse, inherited by its bays and shelves, and
+can be overridden on a bay or a shelf.
+
+- **Columns.** `location.parent_location_id` (nullable, references `location`): the location this
+  one sits in; null at the top. `location.storage_term` (`short_term` | `long_term` | null): the
+  location's own term; null means inherit, or "not set" at the top. `location.capacity` (1–200 or
+  null): a shelf's countable places for the shelf page (STRATA-74); null means unknown, never a
+  guessed number. Existing locations were not backfilled (nothing is guessed from a name): they
+  start unset, an explicit configuration state that reads Short-term on units.
+- **Rules.** CHECKs: no self-parent (`location_parent_not_self_check`); the system Receiving lab
+  and `lab` locations have no parent and no term (`location_lab_outside_hierarchy_check`).
+  Trigger `location_hierarchy_check` (insert, and updates of `parent_location_id`, `kind`,
+  `active`): no cycle (`location_parent_cycle_check`); at most three levels, counting the levels a
+  reparented location already holds (`location_parent_depth_check`); Receiving lab and lab
+  locations hold no locations, and a location holding others can't become a lab
+  (`location_parent_kind_check`); a retired location keeps its children but gains no new ones
+  (`location_parent_retired_check`). A retired ancestor still passes its term down. All proved in
+  `schema-location-storage-term.test.ts`; the API answers each with a 422.
+- **Lock order.** Every hierarchy change takes `location_hierarchy_lock()` (advisory key 27, 0)
+  before any location row lock: the API's create, edit and retire take it first, then
+  `location … FOR UPDATE`; the trigger takes it again (re-entrant) for direct writes. Under READ
+  COMMITTED the trigger's checks then see every hierarchy change committed before it, so two
+  concurrent reparents can't build a cycle or a fourth level.
+- **One resolver.** View `location_effective_storage_term` (`location_id`, `term`, `source` =
+  `own` | `inherited` | `unset`, `from_location_id`, `from_code`, `from_name`): the location's own
+  term, else the nearest ancestor's. Nothing stores a copy, so reparenting, clearing an override
+  or changing a warehouse's term shows on every descendant at the next read. Inventory rows, the
+  storage unit page, sidebar records, location reads and search all join it
+  (`apps/api/src/locations/storage-term.ts`) and derive record status, stage and lifecycle step
+  with `unitStage` (`apps/api/src/inventory/unit-stage.ts`).
+- **Audit.** Configuration changes are `location.created` / `location.updated` audit events with
+  the changed fields' before and after (`parentId`, `storageTerm`, `capacity`). Reparenting never
+  writes a `movement_event`: units stay where they are saved.
 
 ## Shelby tubes, sampling sources and bulk groups (MM-T36)
 
@@ -1173,3 +1209,16 @@ the `mine=true` filter, the `involvement` labels on every projects-list row and
 reviewer assignment whose reviewer still holds eligibility for its scope, an active acceptance
 delegation, or an Authorized report issuer grant that is neither revoked nor expired. Each source
 is indexed by person. Relevance only: All projects is unchanged and nothing is hidden.
+
+## Receipt draft registry (STRATA-108, `0044_receipt_draft_registry.sql`)
+
+- **What it holds.** One row per receiving draft (the browser's draft UUID): the account that
+  started it (`account_user_id`, LAB at a station), the person (`starter_user_id`: the personal
+  account, or the person picked at the LAB station, attribution only), `created_at`, and once
+  deleted `deleted_at`, `deleted_by_account_user_id` and `deleted_by_user_id`. Never the draft's
+  contents: drafts stay in the browser that saved them (MM-T11).
+- **Rules** (proved in `schema-receipt-draft-registry.test.ts`): account, starter and creation
+  time never change; a deletion is recorded once and never changed or undone; rows are never
+  deleted. A draft saved before the registry existed has no owner: its deletion (Lab Manager only)
+  is a `legacy` row with no account and no starter, so ownership is never invented.
+- **Who may delete:** see [permissions.md](permissions.md#receiving-drafts-and-receipts-strata-78-strata-108).
