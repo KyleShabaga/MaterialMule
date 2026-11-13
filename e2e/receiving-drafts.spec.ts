@@ -46,7 +46,8 @@ function summaryOf(unit: Locator, hole: string) {
 
 /**
  * Waits until the indicator reports a save whose snapshot was taken after `since` (an ISO time).
- * Take `since` after the edit, so the save found includes it.
+ * Use `editThenSaved`: `since` must be taken just before the edit. The page can save on the edit's
+ * own input event, so a time taken after the edit may already be later than that save.
  */
 async function savedAfter(page: Page, since: string): Promise<string> {
   const time = draftStatus(page).locator('time');
@@ -58,6 +59,13 @@ async function savedAfter(page: Page, since: string): Promise<string> {
     .toBeGreaterThan(Date.parse(since));
   await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: \w+$/);
   return (await time.getAttribute('datetime'))!;
+}
+
+/** Makes `edit`, then waits for the draft save that includes it; returns that save's time. */
+async function editThenSaved(page: Page, edit: () => Promise<unknown>): Promise<string> {
+  const since = new Date().toISOString();
+  await edit();
+  return savedAfter(page, since);
 }
 
 /** Signs the context out on the server only (cookie kept, so the next request gets a 401). */
@@ -111,8 +119,9 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await addUnit(page);
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
-  await bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped');
-  await savedAfter(page, new Date().toISOString());
+  await editThenSaved(page, () =>
+    bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped'),
+  );
   await page.close();
 
   const reopened = await context.newPage();
@@ -157,10 +166,12 @@ test(
     await expect(
       page.getByText('Offline: your entries are kept here.', { exact: false }),
     ).toBeVisible();
-    await page.getByLabel('Description (optional)').fill('Edited offline');
-    const savedFirst = await savedAfter(page, new Date().toISOString());
-    await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
-    const savedSecond = await savedAfter(page, new Date().toISOString());
+    const savedFirst = await editThenSaved(page, () =>
+      page.getByLabel('Description (optional)').fill('Edited offline'),
+    );
+    const savedSecond = await editThenSaved(page, () =>
+      bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline'),
+    );
     expect(savedSecond > savedFirst).toBe(true);
 
     await context.setOffline(false);
@@ -272,8 +283,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await pickOnStationPicker(page);
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
-  await page.getByLabel('Description (optional)').fill('Handover check');
-  await savedAfter(page, new Date().toISOString());
+  await editThenSaved(page, () => page.getByLabel('Description (optional)').fill('Handover check'));
 
   // The next person at the station opens the list.
   await page.goto('/receiving-log/new');
@@ -287,8 +297,9 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
     /^AT · /,
   );
-  await chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/);
-  await savedAfter(page, new Date().toISOString());
+  await editThenSaved(page, () =>
+    chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/),
+  );
   await expect(page.getByText('Receiver changed to PE.')).toBeVisible();
   await expect(draftStatus(page)).toContainText('Receiver: PE');
 
@@ -379,8 +390,7 @@ test('T8/AC7: a personal draft is not shown to another user on the same browser'
   await signInAs(page, 'at');
   await page.goto('/receiving-log/new');
   await chooseProject(page);
-  await page.getByLabel('Description (optional)').fill("Alex's draft");
-  await savedAfter(page, new Date().toISOString());
+  await editThenSaved(page, () => page.getByLabel('Description (optional)').fill("Alex's draft"));
 
   await signInAs(page, 'pe');
   await page.goto('/receiving-log/new');
