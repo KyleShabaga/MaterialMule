@@ -61,10 +61,23 @@ test('T3/T4: preview on the unit page, then a true-size PDF whose barcodes decod
   const popup = page.waitForEvent('popup');
   await panel.getByRole('link', { name: 'Print / Save as PDF' }).click();
   const printPage = await popup;
-  await expect(printPage.getByRole('heading', { name: `Label ${unit.readableId}` })).toBeVisible();
+  await expect(printPage.getByRole('heading', { name: 'Print label' })).toBeVisible();
+  await expect(printPage.getByText(`One label for ${unit.readableId}.`)).toBeVisible();
   await expect(printPage.getByText(/100% \(Actual size\)/)).toBeVisible();
-  await expect(printPage.getByRole('navigation')).toHaveCount(0);
-  await expect(printPage.getByRole('button', { name: 'Print / Save as PDF' })).toBeVisible();
+  // No app chrome: no sidebar, only the page's own breadcrumb.
+  await expect(printPage.locator('[data-slot="sidebar"]')).toHaveCount(0);
+  await expect(printPage.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
+  // STRATA-75: the true-size preview is the real sticker at 3.5 × 1.5 in (336 × 144 CSS px).
+  const shown = printPage.getByRole('img', { name: `Label for storage unit ${unit.readableId}` });
+  await expect(shown).toBeVisible();
+  // On a phone it is scaled down to fit, keeping its 3.5 : 1.5 shape.
+  const box = (await shown.boundingBox())!;
+  if ((printPage.viewportSize()?.width ?? 0) >= 640) {
+    expect(Math.round(box.width)).toBe(336);
+    expect(Math.round(box.height)).toBe(144);
+  } else {
+    expect(box.width / box.height).toBeCloseTo(3.5 / 1.5, 1);
+  }
 
   // AC2: each PDF page is 3.5 × 1.5 in with one label whose barcodes decode to the ID.
   const pages = await saveAsPdf(printPage);
@@ -75,7 +88,10 @@ test('T3/T4: preview on the unit page, then a true-size PDF whose barcodes decod
 
   // T4 / AC5: previewing and saving a PDF create no print job, audit event or unit change.
   expect(await sideEffects([unit.id])).toEqual(before);
-  await printPage.getByRole('link', { name: `← Back to ${unit.readableId}` }).click();
+  await printPage
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: unit.readableId })
+    .click();
   await expect(printPage.getByText('No labels printed yet.')).toBeVisible();
 });
 
@@ -88,9 +104,12 @@ test('AC3: one print view holds every label of a receipt, in receipt order', asy
   const popup = page.waitForEvent('popup');
   await page.getByRole('link', { name: 'Print / Save all 3 labels of this receipt' }).click();
   const printPage = await popup;
-  await expect(printPage.getByRole('heading', { name: '3 labels' })).toBeVisible();
+  await expect(printPage.getByRole('heading', { name: 'Print labels' })).toBeVisible();
+  await expect(printPage.getByRole('checkbox', { name: 'Print all 3 labels' })).toBeChecked();
+  await expect(printPage.getByText('1 of 3')).toBeVisible();
+  // The printed pages are hidden on screen; Save as PDF prints them alone.
   const sheet = printPage.getByLabel('Labels to print');
-  await expect(sheet.getByRole('img')).toHaveCount(3);
+  await expect(sheet.locator('img')).toHaveCount(3);
 
   const pages = await saveAsPdf(printPage);
   expect(pages).toHaveLength(3);
@@ -102,7 +121,10 @@ test('AC3: one print view holds every label of a receipt, in receipt order', asy
   expect(await sideEffects(units.map((u) => u.id))).toEqual(before);
 
   // MM-T61: the back link returns to the unit the print view was opened from.
-  await printPage.getByRole('link', { name: `← Back to ${units[1]!.readableId}` }).click();
+  await printPage
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: units[1]!.readableId })
+    .click();
   await expect(
     printPage.getByRole('heading', { level: 1, name: units[1]!.readableId }),
   ).toBeVisible();
