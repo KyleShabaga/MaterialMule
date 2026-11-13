@@ -5,6 +5,7 @@ import {
   UPDATE_DOMAINS,
   UPDATE_STAGES,
   UPDATE_TASK_LABELS,
+  feedbackTitle,
   isConcreteNotificationKind,
   requestStage,
   updateTitle,
@@ -23,6 +24,7 @@ import {
   type RequestWordingFacts,
 } from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
+import { FEEDBACK_HREF, loadFeedbackEvents } from '../feedback/feedback-events.js';
 import { hrefOf, loadItemRows, titleOf, type ItemRow } from '../notifications/action-items.js';
 import {
   loadConcreteReports,
@@ -78,6 +80,7 @@ interface UpdateRow {
   concrete_field_report_id: string | null;
   concrete_specimen_id: string | null;
   concrete_report_transition_id: string | null;
+  feedback_event_id: string | null;
   created_at: Date;
   read_at: Date | null;
   dismissed_at: Date | null;
@@ -227,7 +230,8 @@ const unique = (values: (string | null)[]) => [
 async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
   const { rows } = await db.query<UpdateRow>(
     `SELECT n.id, n.kind, n.action_item_id, n.concrete_field_report_id, n.concrete_specimen_id,
-            n.concrete_report_transition_id, n.created_at, n.read_at, n.dismissed_at
+            n.concrete_report_transition_id, n.feedback_event_id, n.created_at, n.read_at,
+            n.dismissed_at
      FROM notification n
      WHERE n.recipient_user_id = $1
        AND n.created_at >= now() - make_interval(days => $2)
@@ -250,6 +254,7 @@ async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
     unique(rows.map((row) => row.concrete_report_transition_id)),
   );
   const specimens = await loadSpecimens(db, unique(rows.map((row) => row.concrete_specimen_id)));
+  const feedback = await loadFeedbackEvents(db, unique(rows.map((row) => row.feedback_event_id)));
 
   const entries: FeedEntry[] = [];
   for (const row of rows) {
@@ -266,7 +271,24 @@ async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
       domain: UPDATE_DOMAINS[row.kind as NotificationKind],
     };
     let item: InboxUpdateItem | null = null;
-    if (isConcreteNotificationKind(row.kind)) {
+    if (row.kind === 'feedback.submitted') {
+      // STRATA-104: a Feedback item with the page it came from (the Record column), from the
+      // sender; the text stays on the Help & Feedback page behind feedback.read.
+      const event = row.feedback_event_id ? feedback.get(row.feedback_event_id) : undefined;
+      if (event) {
+        item = {
+          ...base,
+          title: feedbackTitle(event.kind),
+          projectId: null,
+          jobNumber: null,
+          record: event.page ? { kind: 'page', id: event.id, label: event.page } : null,
+          from: event.from,
+          href: FEEDBACK_HREF,
+          aboutMyRequest: false,
+          linkedRequestStatus: null,
+        };
+      }
+    } else if (isConcreteNotificationKind(row.kind)) {
       const title = updateTitle(row.kind);
       const report = row.concrete_field_report_id
         ? reports.get(row.concrete_field_report_id)

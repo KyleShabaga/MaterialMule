@@ -72,6 +72,10 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'retention.manage',
   'disposal.approve',
   'staff.manage',
+  // STRATA-118: administrator-only staff, LAB-account and feedback authority.
+  'admin_role.manage',
+  'lab_account.manage',
+  'feedback.read',
   'session.revoke',
   'printer.manage',
   'settings.drafts.manage',

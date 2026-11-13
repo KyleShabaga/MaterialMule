@@ -127,6 +127,33 @@ describe('can', () => {
     expect(can(admin, 'disposal.approve', project)).toBe(false);
   });
 
+  it('STRATA-118: Lab Managers manage staff and printers; the admin-only parts stay with admins', () => {
+    const lm = user({ userId: 'u-lm', roles: ['lab_manager'] });
+    const admin = user({ userId: 'u-admin', roles: ['admin'] });
+    const adminOnly = [
+      'admin_role.manage',
+      'lab_account.manage',
+      'feedback.read',
+      'session.revoke',
+      'reviewer_eligibility.manage',
+      'staff_capability.manage',
+    ] as Permission[];
+    expect(permissionSources(lm, 'staff.manage')).toEqual(['lab_manager']);
+    expect(permissionSources(lm, 'printer.manage')).toEqual(['lab_manager']);
+    for (const permission of adminOnly) {
+      expect(can(lm, permission), permission).toBe(false);
+      expect(permissionSources(admin, permission), permission).toEqual(['admin']);
+    }
+    // Never through LAB (whatever role it was given by mistake), a Lab Technician or a position.
+    const lab = user({ userId: 'u-lab', accountType: 'shared_lab', roles: ['lab_manager'] });
+    const labTech = user({ userId: 'u-lt', roles: ['lab_technician'] });
+    for (const permission of ['staff.manage', 'printer.manage', ...adminOnly] as Permission[]) {
+      expect(can(lab, permission), permission).toBe(false);
+      expect(can(labTech, permission), permission).toBe(false);
+      expect(can(user(), permission), permission).toBe(false);
+    }
+  });
+
   it('grants project authority only to that project’s Lead Project Engineer', () => {
     const pe = user({ userId: 'u-pe' });
     expect(can(pe, 'program.close', project)).toBe(true);

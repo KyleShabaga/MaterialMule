@@ -13,7 +13,7 @@ test('feedback is sent on the host and an administrator reads it on Help', async
   await technician.goto('/help');
   await expect(technician).toHaveTitle('Help & Feedback · Material Mule');
   await expect(technician.getByRole('heading', { level: 2, name: 'How do I…' })).toBeVisible();
-  await technician.getByLabel('What kind').selectOption({ label: 'Something is confusing' });
+  await technician.getByLabel('What kind').selectOption({ label: 'Question' });
   await technician.getByLabel('What happened').fill(text);
   await technician.getByRole('button', { name: 'Send to the administrator' }).click();
   await expect(

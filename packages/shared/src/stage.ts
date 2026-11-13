@@ -45,6 +45,8 @@ export const WORK_DOMAINS = [
   'hold',
   /** Concrete breaks ("In lab · Breaks"). */
   'breaks',
+  /** STRATA-104: Help & Feedback in an administrator's Inbox ("Due · Feedback"). */
+  'feedback',
 ] as const;
 export type WorkDomain = (typeof WORK_DOMAINS)[number];
 export const workDomainSchema = z.enum(WORK_DOMAINS);
@@ -62,6 +64,7 @@ export const WORK_DOMAIN_LABELS: Record<WorkDomain, string> = {
   access: 'Access',
   hold: 'Hold',
   breaks: 'Breaks',
+  feedback: 'Feedback',
 };
 
 /** "Due · Retention": the visible text of a work-item tag. */

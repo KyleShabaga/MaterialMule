@@ -51,6 +51,8 @@ export class UsersService {
     reason: string,
     actor: AuditActor,
     requestId: string | null = null,
+    /** Runs right after the account row is locked (STRATA-118: the admin-account check). */
+    guard?: (client: PoolClient) => Promise<void>,
   ): Promise<void> {
     await withTransaction(this.database.pool, async (client) => {
       const { rows } = await client.query<{ status: string }>(
@@ -60,6 +62,7 @@ export class UsersService {
       if (rows.length === 0) {
         throw new NotFoundException({ code: 'not_found' });
       }
+      await guard?.(client);
       if (rows[0]!.status === 'disabled') {
         throw new UnprocessableEntityException({
           code: 'invalid_transition',

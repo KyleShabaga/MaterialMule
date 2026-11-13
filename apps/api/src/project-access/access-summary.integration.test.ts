@@ -164,10 +164,11 @@ describe.runIf(testDatabaseUrl)('staff administration and My access (MM-AO06)', 
     expect((await h.http().get('/api/me/access')).status).toBe(401);
   });
 
-  it('an admin reads anyone’s summary read-only; nobody else can', async () => {
+  it('an admin or a Lab Manager (STRATA-118) reads anyone’s summary read-only; nobody else can', async () => {
     const viewed = await summary(`/api/staff/${h.users.js}/access`, 'admin');
     expect(viewed).toEqual(await summary('/api/me/access', 'js'));
-    for (const caller of ['tech', 'pe', 'lm', 'lab'] as const) {
+    expect(await summary(`/api/staff/${h.users.js}/access`, 'lm')).toEqual(viewed);
+    for (const caller of ['tech', 'pe', 'lab'] as const) {
       expect((await h.get(`/api/staff/${h.users.js}/access`, caller)).status).toBe(403);
     }
     expect((await h.get('/api/staff/not-an-id/access', 'admin')).status).toBe(404);
@@ -270,7 +271,8 @@ describe.runIf(testDatabaseUrl)('staff administration and My access (MM-AO06)', 
     expect(
       (await put(path, { jobTitleOverride: 'Senior Engineer', reason: ' ' }, 'admin')).status,
     ).toBe(400);
-    for (const caller of ['tech', 'pe', 'lm', 'js'] as const) {
+    // STRATA-118: Lab Managers set non-admin job titles (staff.integration.test.ts).
+    for (const caller of ['tech', 'pe', 'js'] as const) {
       expect(
         (await put(path, { jobTitleOverride: 'Principal', reason: 'Promotion' }, caller)).status,
       ).toBe(403);

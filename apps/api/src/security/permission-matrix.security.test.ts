@@ -177,7 +177,8 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'GET /api/undo/:action/:sourceId': 'storage_unit.move',
   'POST /api/undo': 'storage_unit.move',
   // Field Ledger Help & Feedback: every active session (LAB included) may send feedback; it is
-  // kept as an audit event on the host. Reading it is staff.manage (admins).
+  // kept as an audit event on the host and notifies administrators' Inboxes (STRATA-104).
+  // Reading it is feedback.read (admins only, STRATA-118; GET /api/feedback is swept by it).
   'POST /api/feedback': null,
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
