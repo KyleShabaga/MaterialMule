@@ -37,6 +37,7 @@ import {
 import { Kbd } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState, PageHeader } from '../components/app-ui';
+import { useOptionalFeedbackDialog } from '../feedback/feedback-context';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { PHONE_QUERY } from '../components/useTableView';
 import { usePageTitle } from '../layout/page-title';
@@ -420,6 +421,8 @@ export function NotFoundPage() {
 
 /** The crash message inside the shell (round 10): the rest of the app keeps working. */
 function CrashContent() {
+  // Inside the shell the Feedback & bugs dialog is there (STRATA-104), with this page's path.
+  const feedback = useOptionalFeedbackDialog();
   return (
     <Empty role="alert" className="min-h-[60vh] flex-1">
       <EmptyHeader className="max-w-[520px]">
@@ -447,9 +450,24 @@ function CrashContent() {
             </Link>
           </Button>
         </div>
-        <p className="text-[13px] text-muted-foreground">
-          If it happens again, tell your Lab Manager.
-        </p>
+        {feedback ? (
+          <p className="text-[13px] text-muted-foreground">
+            If it happens again, tell the administrator in{' '}
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 align-baseline text-[13px] text-link"
+              onClick={() => feedback.open()}
+            >
+              Feedback &amp; bugs
+            </Button>
+            . The page you were on is included.
+          </p>
+        ) : (
+          <p className="text-[13px] text-muted-foreground">
+            If it happens again, tell your Lab Manager.
+          </p>
+        )}
       </EmptyContent>
     </Empty>
   );

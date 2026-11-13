@@ -43,6 +43,7 @@ import {
   RequireActiveSession,
 } from './pages/simple-pages';
 import { HelpPage } from './pages/HelpPage';
+import { PublicHelpGate } from './help/public-help';
 import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
 import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
 import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
@@ -145,7 +146,13 @@ export const routes: RouteObject[] = [
           ]
         : []),
       {
-        element: <RequireActiveSession />,
+        // /help also works without the app (STRATA-103): the gate shows the public guides to a
+        // visitor who is signed out, waiting for approval, or on a LAB station before picking.
+        element: (
+          <PublicHelpGate>
+            <RequireActiveSession />
+          </PublicHelpGate>
+        ),
         children: [
           {
             // One recording-person controller for the LAB station (STRATA-16, 61, 125), above
@@ -206,7 +213,7 @@ export const routes: RouteObject[] = [
                           // Notification center (MM-T91): personal accounts; the header Notifications control
                           // links here. Separate from action requests; nothing here resolves one.
                           { path: 'notifications', element: <NotificationsPage /> },
-                          // Field Ledger rail footer: Help & Feedback (placeholder until lane A builds it).
+                          // Help and how-tos (STRATA-103); signed out, PublicHelpGate shows it instead.
                           { path: 'help', element: <HelpPage /> },
                           // Field Ledger search across units, samples, projects and programs (top bar, Find).
                           { path: 'search', element: <SearchPage /> },

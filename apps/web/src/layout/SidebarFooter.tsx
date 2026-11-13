@@ -9,7 +9,7 @@ import {
   Settings,
   Sun,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -29,8 +29,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { useOptionalFeedbackDialog } from '../feedback/feedback-context';
+import { useOptionalHelpDrawer } from '../help/help-drawer-context';
 import { useMe, useSession } from '../session/context';
 import { clearRecordingPerson } from '../session/recording-person-store';
 import { useThemeChoice, type ThemeChoice } from '../theme/theme';
@@ -149,8 +152,14 @@ export function AccountMenu() {
   const station = me.accountType === 'shared_lab';
   const { name, line } = accountRowText(me);
   const initials = station ? 'LAB' : accountInitials(me);
-  // Help's "Include the page I was on" offers the path the menu was used from.
+  // Outside the shell (tests) Help and Feedback & bugs fall back to the /help page.
   const helpState = pathname === '/help' ? undefined : { from: pathname };
+  const help = useOptionalHelpDrawer();
+  const feedback = useOptionalFeedbackDialog();
+  const { setOpenMobile } = useSidebar();
+  const trigger = useRef<HTMLButtonElement>(null);
+  /** Help or Feedback & bugs was chosen: the closing menu leaves focus to them. */
+  const handoff = useRef<'help' | 'feedback' | null>(null);
 
   const avatar = (
     <Avatar aria-hidden="true" className={cn('size-8', station && 'rounded-md')}>
@@ -187,6 +196,7 @@ export function AccountMenu() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
+                ref={trigger}
                 size="lg"
                 aria-label={`${name}, ${line}. Account menu`}
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
@@ -199,7 +209,19 @@ export function AccountMenu() {
                 />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" sideOffset={4} className="w-60">
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              sideOffset={4}
+              className="w-60"
+              onCloseAutoFocus={(event) => {
+                const chosen = handoff.current;
+                handoff.current = null;
+                if (!chosen) return;
+                event.preventDefault();
+                if (chosen === 'help') help?.focusDrawer();
+              }}
+            >
               {station ? null : (
                 <>
                   <DropdownMenuLabel className="p-0 font-normal">
@@ -223,19 +245,44 @@ export function AccountMenu() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/help" state={helpState}>
+                {help ? (
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      handoff.current = 'help';
+                      help.open({ deferFocus: true, returnFocus: trigger.current });
+                    }}
+                  >
                     <CircleQuestionMark aria-hidden="true" />
                     Help
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  {/* The feedback form is on the Help page until its dialog (STRATA-104). */}
-                  <Link to="/help" state={helpState}>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link to="/help" state={helpState}>
+                      <CircleQuestionMark aria-hidden="true" />
+                      Help
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {feedback ? (
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      handoff.current = 'feedback';
+                      // On a phone the sidebar Sheet closes, so the dialog is over the page.
+                      setOpenMobile(false);
+                      feedback.open({ returnFocus: trigger.current });
+                    }}
+                  >
                     <Bug aria-hidden="true" />
                     Feedback &amp; bugs
-                  </Link>
-                </DropdownMenuItem>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link to="/help" state={helpState}>
+                      <Bug aria-hidden="true" />
+                      Feedback &amp; bugs
+                    </Link>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem

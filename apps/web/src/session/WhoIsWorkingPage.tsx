@@ -207,7 +207,7 @@ export function WhoIsWorkingPage() {
             you sign off.
           </p>
           <Link
-            to="/help"
+            to="/help#lab-stations"
             className="justify-self-start text-sm font-medium text-link underline-offset-4 hover:underline"
           >
             How LAB stations work

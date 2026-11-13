@@ -1,6 +1,7 @@
 import type { SidebarSectionId } from '@materialmule/shared';
 import { ChevronDown, ChevronUp, Eye, EyeOff, GripVertical, Lock, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { SidebarSeparator } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -246,7 +247,14 @@ export function SidebarCustomize({
       <p aria-live="assertive" className="sr-only">
         {message}
       </p>
-      <Button type="button" className="mt-auto w-full pointer-coarse:h-11" onClick={onDone}>
+      <Button
+        asChild
+        variant="link"
+        className="mt-auto h-auto justify-start px-2 text-[13px] text-muted-foreground"
+      >
+        <Link to="/help#sidebar">How the sidebar works</Link>
+      </Button>
+      <Button type="button" className="w-full pointer-coarse:h-11" onClick={onDone}>
         Done
       </Button>
     </div>

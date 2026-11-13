@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -31,6 +32,8 @@ import {
 import { Kbd } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { useOptionalHelpDrawer } from '../help/help-drawer-context';
+import type { HelpView } from '../help/help-drawer-context';
 import { displayScannedValue } from '../scanning/scan-core';
 import { useSession } from '../session/context';
 import { exactDestination, resolveExact, resultsPath } from './api';
@@ -86,6 +89,11 @@ export interface ScanRedirectState {
 export function CommandMenuProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MenuState>({ open: false, query: '', view: 'search' });
   const navigate = useNavigate();
+  const help = useOptionalHelpDrawer();
+  /** What had focus when the menu opened: Help gets it back when it closes. */
+  const opener = useRef<HTMLElement | null>(null);
+  /** A Help item was chosen: the closing menu hands focus to the Help drawer. */
+  const handoff = useRef(false);
 
   const open = useCallback(
     (initialQuery?: string) => setState({ open: true, query: initialQuery ?? '', view: 'search' }),
@@ -97,12 +105,31 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
       setState((s) => (s.open ? { ...s, open: false } : { open: true, query: '', view: 'search' })),
     [],
   );
+  // Before the dialog's own effect moves focus into it.
+  useLayoutEffect(() => {
+    if (!state.open) return;
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+  }, [state.open]);
 
+  // Round 10: "?" opens or closes the Help drawer (never while typing or in another dialog).
+  // Without the shell's Help (tests), it opens the menu's own Keyboard shortcuts.
   useMenuShortcuts({
     toggle,
     open,
-    openShortcuts: () => setState({ open: true, query: '', view: 'shortcuts' }),
+    openShortcuts: () =>
+      help ? help.toggle() : setState({ open: true, query: '', view: 'shortcuts' }),
   });
+
+  const openHelp = useCallback(
+    (view: HelpView) => {
+      if (!help) return;
+      handoff.current = true;
+      close();
+      help.open({ view, deferFocus: true, returnFocus: opener.current });
+    },
+    [help, close],
+  );
 
   // DESIGN.md › UX changes 1: a wedge read with nothing focused opens that unit or shelf.
   useScanAnywhere({
@@ -127,6 +154,13 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
         initialQuery={state.query}
         initialView={state.view}
         onClose={close}
+        onHelp={help ? openHelp : undefined}
+        onCloseAutoFocus={(event) => {
+          if (!handoff.current) return;
+          handoff.current = false;
+          event.preventDefault();
+          help?.focusDrawer();
+        }}
       />
     </CommandMenuContext.Provider>
   );
@@ -159,12 +193,16 @@ function CommandMenuDialog({
   initialQuery,
   initialView,
   onClose,
+  onHelp,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialQuery: string;
   initialView: View;
   onClose: () => void;
+  onHelp?: (view: HelpView) => void;
+  onCloseAutoFocus: (event: Event) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -172,6 +210,7 @@ function CommandMenuDialog({
         data-command-menu=""
         className="top-[15%] translate-y-0 overflow-hidden p-0 sm:max-w-xl"
         showCloseButton={false}
+        onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>Search or scan</DialogTitle>
@@ -179,7 +218,12 @@ function CommandMenuDialog({
             Find storage units, projects, actions and pages, or scan a label.
           </DialogDescription>
         </DialogHeader>
-        <MenuBody initialQuery={initialQuery} initialView={initialView} onClose={onClose} />
+        <MenuBody
+          initialQuery={initialQuery}
+          initialView={initialView}
+          onClose={onClose}
+          onHelp={onHelp}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -190,10 +234,13 @@ function MenuBody({
   initialQuery,
   initialView,
   onClose,
+  onHelp,
 }: {
   initialQuery: string;
   initialView: View;
   onClose: () => void;
+  /** Opens the Help drawer (STRATA-103); without it, the menu's own views and /help. */
+  onHelp?: (view: HelpView) => void;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -397,8 +444,14 @@ function MenuBody({
               <LinkItem
                 key={item.key}
                 item={item}
-                shortcut={item.key === 'shortcuts' ? '?' : undefined}
-                onSelect={() => (item.key === 'shortcuts' ? setView('shortcuts') : go(item.to))}
+                // "?" opens Help itself when the shell has it, else the shortcuts view.
+                shortcut={item.key === (onHelp ? 'help' : 'shortcuts') ? '?' : undefined}
+                onSelect={() => {
+                  if (onHelp)
+                    onHelp(item.key === 'shortcuts' ? { kind: 'shortcuts' } : { kind: 'home' });
+                  else if (item.key === 'shortcuts') setView('shortcuts');
+                  else go(item.to);
+                }}
               />
             ))}
           </CommandGroup>
