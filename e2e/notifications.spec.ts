@@ -262,18 +262,16 @@ test('STRATA-13: hovering the bell previews Inbox with the same count, and the b
   await expect(page).toHaveURL(/\/notifications$/);
 });
 
-test('MM-T91: LAB has no Notifications control or center', async ({ page }) => {
+test('MM-T91: LAB has no Notifications of its own', async ({ page }) => {
   await signInAsLabStation(page);
   await page.goto('/');
-  // Today (Field Ledger): its queue heading, on desktop and phone.
-  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Notifications/ })).toHaveCount(0);
+  // Today on a LAB station (STRATA-20): this station's work, on desktop and phone.
+  await expect(page.getByRole('heading', { level: 2, name: 'At this station' })).toBeVisible();
+  // STRATA-27: the picked person's Inbox shows only with their consent (lab-station-today.spec);
+  // Alex Tester hasn't given it, so there is no count anywhere.
+  await expect(page.getByRole('link', { name: /^Notifications, / })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Action requests/ })).toHaveCount(0);
   for (const path of ['/api/notifications', '/api/notifications/count']) {
     expect((await page.request.get(path)).status(), path).toBe(403);
   }
-  await page.goto('/notifications');
-  await expect(
-    page.getByText('Notifications are for personal accounts. Sign in with your own account.'),
-  ).toBeVisible();
 });
