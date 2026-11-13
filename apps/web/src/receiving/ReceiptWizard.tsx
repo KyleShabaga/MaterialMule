@@ -573,7 +573,6 @@ export function ReceiptWizard({
                 <ReceiverSelect
                   label="Received by"
                   required
-                  stationPerson="prefill"
                   value={draft.receiver}
                   onChange={(receiver) => set({ receiver })}
                   error={errorByField.get('receiverUserId')}
@@ -619,7 +618,7 @@ export function ReceiptWizard({
             <p className="field-hint">
               “Received by” is the person who took the delivery.
               {me.accountType === 'shared_lab'
-                ? ' On the shared LAB station it starts as the person in Recording as; change it if someone else took it.'
+                ? ' On the shared LAB station it is chosen here, not taken from the sign-in.'
                 : ' It starts as you; change it if someone else took it.'}
             </p>
             <p className="field-hint">

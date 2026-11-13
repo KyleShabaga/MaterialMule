@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { withDatabase } from './db';
 
 // A real shared receiving-station (LAB) session for E2E (MM-T18), without the LAB password.
@@ -119,4 +119,20 @@ export async function expireSession(sessionId: string): Promise<void> {
       [sessionId],
     ),
   );
+}
+
+/**
+ * Picks a person on "Who is working here?" (STRATA-16) for specs that fake a station by
+ * rewriting /api/me, where no pick can be pre-stored. The guard then returns to the page that was
+ * asked for. The pick is attribution only and never fills a receipt's Received by (T8/AC5).
+ */
+export async function pickOnStationPicker(page: Page, name = 'Alex Tester'): Promise<void> {
+  const heading = page.getByRole('heading', { level: 1, name: 'Who is working here?' });
+  await expect(heading).toBeVisible();
+  // The row's name is the person then their role ("Alex Tester Technician").
+  await page
+    .getByRole('list', { name: 'Receiving lab staff' })
+    .getByRole('button', { name })
+    .click();
+  await expect(heading).toHaveCount(0);
 }

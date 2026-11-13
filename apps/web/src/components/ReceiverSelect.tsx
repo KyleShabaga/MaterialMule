@@ -44,8 +44,9 @@ export function ReceiverSelect({
   hint?: string;
   /**
    * On a shared LAB station with someone picked (STRATA-125, one recording identity):
-   * `prefill` starts as the picked person and follows a switch until changed by hand (Received
-   * by, Moved by); `follow` is the picked person, read-only (performers: who did the work).
+   * `prefill` starts as the picked person and follows a switch until changed by hand (Moved by);
+   * `follow` is the picked person, read-only (performers: who did the work). Never used for a
+   * receipt's Received by: on LAB it starts blank and someone must choose (T8/AC5, STRATA-107).
    * Personal accounts and stations with no one picked are unaffected.
    */
   stationPerson?: 'prefill' | 'follow';

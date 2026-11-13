@@ -656,12 +656,8 @@ describe('Receiving wizard (MM-T10)', () => {
       {},
       me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB', initials: null }),
     );
-    // Prefilled from Recording as (STRATA-125); clearing it leaves nobody chosen.
-    const receiver = await screen.findByRole('combobox', { name: 'Received by' });
-    await waitFor(() => expect(receiver).toHaveValue('AT · Alex Tester'));
-    await user.clear(receiver);
-    await user.tab();
-    expect(receiver).toHaveValue('');
+    // T8/AC5: Received by starts blank on LAB; the Recording as person never fills it.
+    expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
     await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
     expect(
       within(screen.getByRole('alert')).getByRole('link', {

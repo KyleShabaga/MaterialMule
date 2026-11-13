@@ -1,5 +1,5 @@
 import type { MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -397,11 +397,8 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(screen.getByRole('button', { name: 'Add project' })).toBeEnabled();
   });
 
-  it('a LAB station starts Received by as the Recording as person, still editable', async () => {
+  it('a LAB station has no default receiver, even with someone in Recording as', async () => {
     renderReceive({}, me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB' }));
-    const receiver = await screen.findByRole('combobox', { name: 'Received by' });
-    await waitFor(() => expect(receiver).toHaveValue('AT · Alex Tester'));
-    expect(receiver).toBeEnabled();
-    expect(receiver).not.toHaveAttribute('readonly');
+    expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
   });
 });

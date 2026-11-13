@@ -10,7 +10,7 @@ import { SessionContext } from './context';
 import { RecordingPersonLayout, useRecordingPerson } from './recording-person';
 import { stationSessionKey, storeRecordingPerson } from './recording-person-store';
 
-// STRATA-125: on a station, Received by / Moved by start as the person in Recording as, and
+// STRATA-125: on a station, Moved by starts as the person in Recording as, and
 // performers (Who is doing this?, Removed by, Printed by) are that person, read-only. Personal
 // accounts are unchanged. Fictional people only.
 
@@ -69,7 +69,7 @@ function Field({
   return (
     <>
       <ReceiverSelect
-        label={mode === 'prefill' ? 'Received by' : 'Who is doing this?'}
+        label={mode === 'prefill' ? 'Moved by' : 'Who is doing this?'}
         stationPerson={mode}
         value={value}
         onChange={(next) => {
@@ -125,7 +125,7 @@ describe('ReceiverSelect on a LAB station', () => {
     const user = userEvent.setup();
     storeRecordingPerson(stationSessionKey(LAB), ALEX);
     renderField(<Field mode="prefill" />);
-    const field = await screen.findByRole('combobox', { name: 'Received by' });
+    const field = await screen.findByRole('combobox', { name: 'Moved by' });
     await waitFor(() => expect(field).toHaveValue('AT · Alex Tester'));
     expect(field).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Switch to Jordan' }));
@@ -168,12 +168,12 @@ describe('ReceiverSelect on a LAB station', () => {
   it('is unchanged outside the provider', () => {
     render(
       <ReceiverSelect
-        label="Received by"
+        label="Moved by"
         stationPerson="prefill"
         value={null}
         onChange={() => undefined}
       />,
     );
-    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: 'Moved by' })).toHaveValue('');
   });
 });

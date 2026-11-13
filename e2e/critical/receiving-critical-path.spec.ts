@@ -91,10 +91,10 @@ test(
     // The account row sits in the sidebar footer (desktop) or the sidebar Sheet (phone).
     await expect(await openAccount(page)).toContainText('LAB station');
     await closeMore(page);
-    // STRATA-125: Received by starts as the Recording as person (Alex Tester here) and stays
-    // editable; crediting someone else means picking a listed person (App Idea §8).
+    // LAB starts blank every time and must pick a listed person (App Idea §8, T8/AC5). The
+    // Recording as person (Alex Tester here) never fills Received by (STRATA-107).
     const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
-    await expect(receiver).toHaveValue(/^AT · Alex Tester/);
+    await expect(receiver).toHaveValue('');
     await receiver.fill('JS');
     // Two people share "JS"; full names tell them apart.
     await expect(page.getByRole('option', { name: /^JS · Jordan Smith/ })).toBeVisible();
