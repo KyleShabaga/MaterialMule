@@ -39,7 +39,8 @@ export function dashboardDates(now: Date, timeZone: string): DashboardDates {
 
 // The unit's newest print job, if any. print_job_item_unit_idx finds the unit's jobs.
 const LATEST_PRINT = `LEFT JOIN LATERAL (
-       SELECT pj.status, pj.attempts, pj.printer_message, pj.physically_confirmed_at
+       SELECT pj.status, pj.attempts, pj.printer_message, pj.physically_confirmed_at,
+              pj.requested_by_user_id, pj.updated_at
        FROM print_job_item pji JOIN print_job pj ON pj.id = pji.print_job_id
        WHERE pji.storage_unit_id = su.id
        ORDER BY pj.created_at DESC, pj.id DESC
@@ -183,4 +184,26 @@ export async function queryRecentlyReceived(
     receivedThisWeek: count.week,
     labelsToCheck: count.labels,
   };
+}
+
+/**
+ * STRATA-56: the storage units whose newest print job failed, where that job was requested by
+ * `userId` (the "Labels to check" window and the same newest-job rule as above). A later job for
+ * the unit, by anyone, replaces the failure. Oldest failure first.
+ */
+export async function queryFailedLabels(
+  pool: Pool,
+  userId: string,
+  labelsSince: string,
+): Promise<{ id: string; readableId: string; failedAt: Date }[]> {
+  const { rows } = await pool.query<{ id: string; readable_id: string; failed_at: Date }>(
+    `SELECT su.id, su.readable_id, lp.updated_at AS failed_at
+     FROM storage_unit su
+     ${LATEST_PRINT}
+     WHERE su.status <> 'disposed' AND su.received_date >= $2::date
+       AND lp.status = 'failed' AND lp.requested_by_user_id = $1
+     ORDER BY lp.updated_at, su.readable_id COLLATE "C"`,
+    [userId, labelsSince],
+  );
+  return rows.map((row) => ({ id: row.id, readableId: row.readable_id, failedAt: row.failed_at }));
 }

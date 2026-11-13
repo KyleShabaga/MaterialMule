@@ -153,6 +153,8 @@ import { ConcreteStrengthReportsService } from './concrete/concrete-strength-rep
 import { ConcreteTestingTableController } from './concrete/concrete-testing-table.controller.js';
 import { ConcreteTestingTableService } from './concrete/concrete-testing-table.service.js';
 import { UsersService } from './users/users.service.js';
+import { TodayController } from './today/today.controller.js';
+import { TodayService } from './today/today.service.js';
 
 @Module({})
 export class AppModule {
@@ -200,6 +202,7 @@ export class AppModule {
         ActionItemsController,
         NotificationsController,
         InboxController,
+        TodayController,
         UndoController,
         ReceiptDraftsController,
         StationController,
@@ -296,6 +299,7 @@ export class AppModule {
         ActionItemsService,
         NotificationsService,
         InboxService,
+        TodayService,
         UndoService,
         ReceiptDraftsService,
         StationTodayService,

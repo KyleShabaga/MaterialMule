@@ -120,6 +120,9 @@ export type Permission =
   // Strata 1C (STRATA-11/29/40/41/51): one's own sidebar layout, pins, recents, preferences and
   // table columns (never LAB: a station reads defaults, or a picked person's layout, read-only)
   | 'personal_settings.manage'
+  // Strata lane A (STRATA-56): one's own Today "Needs you" list (never LAB: a station has no
+  // requests or authority of its own and never borrows the picked person's)
+  | 'today.read'
   // Lab Manager (and Lead Project Engineer of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
@@ -334,6 +337,9 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   // Strata 1C: personal settings, pins and recents are the person's own; LAB saves none and
   // never reads the selected person's (except their sidebar layout, read-only).
   'personal_settings.manage',
+  // STRATA-56: Today's Needs you lists the account's own requests and the system work its own
+  // authority covers; LAB has neither.
+  'today.read',
 ]);
 
 /** Granted by the lab_manager role regardless of project. */

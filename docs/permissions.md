@@ -52,6 +52,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | notification.read (T91)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | retention.request (T29)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | personal_settings.manage (Strata 1C)                                                                                                                     |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
+| today.read (STRATA-56)                                                                                                                                   |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | test_catalog.manage (D37)                                                                                                                                |     |                   |      ✓      |                |   ✓   |                       |                     |
 | program.priority.set (D50)                                                                                                                               |     |                   |      ✓      |                |       |           ✓           |                     |
 | program.reopen                                                                                                                                           |     |                   |      ✓      |                |       |           ✓           |                     |
@@ -1505,13 +1506,14 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Inbox (STRATA-25, STRATA-55)
 
-| Route                                  | Policy                                                                 |
-| -------------------------------------- | ---------------------------------------------------------------------- |
-| `GET /api/inbox?tab=&filter=&q=&sort=` | `notification.read`; the signed-in person's own feed                   |
-| `GET /api/inbox/summary`               | `notification.read`                                                    |
-| `POST /api/inbox/read-all`             | `notification.read`; own feed only                                     |
-| `POST /api/inbox/requests/:id/read`    | `action_item.read`; routed to me now or in my history, or raised by me |
-| `POST /api/inbox/requests/:id/unread`  | `action_item.read`; as above                                           |
+| Route                                  | Policy                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/inbox?tab=&filter=&q=&sort=` | `notification.read`; the signed-in person's own feed                                             |
+| `GET /api/inbox/summary`               | `notification.read`                                                                              |
+| `POST /api/inbox/read-all`             | `notification.read`; own feed only                                                               |
+| `POST /api/inbox/requests/:id/read`    | `action_item.read`; routed to me now or in my history, or raised by me                           |
+| `POST /api/inbox/requests/:id/unread`  | `action_item.read`; as above                                                                     |
+| `POST /api/inbox/bulk`                 | `notification.read`; `{ action: read, unread or dismiss, keys }`, own feed keys only (STRATA-48) |
 
 - **One feed, no new authority.** Requests appear as `GET /api/action-items` shows them to the
   person (open: routed to them now; resolved in the last 90 days: their history), plus requests
@@ -1520,7 +1522,40 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   log. Resolution stays with each workflow.
 - **Someone else's request** (not routed to them, not resolved by them, not raised by them), a
   missing id or a malformed one is 404 `action_item_not_found`, and nothing changes.
+- **Bulk (STRATA-48).** Up to 100 feed keys (`request:<id>`, `update:<id>`). Each key is checked
+  as the person's own (a request in their Inbox, an update addressed to them); another person's,
+  a missing or a malformed key goes to `failed` and the rest still apply. Requests are never
+  decided in bulk: read and unread change read state only. Dismiss is for updates only: any
+  request key is 400 `dismiss_requests` and nothing changes. An update stays read once read (the
+  notification guard), so `unread` on a read update lands in `failed`.
 - **LAB and pending accounts:** 403 on every route above.
+
+## Today (STRATA-56, STRATA-23)
+
+| Route                                                              | Policy                                                                                           |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `GET /api/today/needs-you`                                         | `today.read`; the signed-in person's own requests and the system work their own authority covers |
+| `GET /api/activity/recent?scope=lab\|projects\|mine&limit=&hours=` | `inventory.read`; `projects` and `mine` from LAB are 400 `scope_not_available`                   |
+
+- **Needs you** lists the Inbox requests waiting on the person (word for word as Inbox shows
+  them) and system work each included only when the account holds the authority for it now:
+  concrete HOLDs (`concrete_ordinary_hold.manage` by role, i.e. a Lab Manager), concrete reports to
+  review (the review queue's own `canAct`: the lead or a routed designated reviewer, never one's
+  own report), breaks due today (`concrete_test.enter`: lab staff), units at the end of retention
+  on projects they lead, units approved for disposal (`disposal.approve` by role: a Lab Manager),
+  their own labels that didn't print, open location conflicts (the Lab Manager role) and lab
+  programs ready to close on projects they're involved in. Job titles grant nothing. Links grant
+  nothing: each target page checks again. Reading changes nothing.
+- **Not listed yet:** tests assigned to me and lab requests not assigned (lab tests have no
+  assignee), and draft receipts not confirmed (the draft registry doesn't record confirmation).
+  A request is never listed again as system work: units an open retention request waiting on the
+  person covers leave the retention row, and a program with an open closure request leaves the
+  finished-programs row.
+- **Last 24 hours** `scope`: `lab` (default) is every dashboard event; `projects` keeps events on
+  projects the person is involved in (D12 "My projects"); `mine` keeps events their own account
+  performed. Each row says `byMe`. LAB has no projects and no "mine" (a picked person is
+  attribution only), so it may ask for `lab` only.
+- **LAB and pending accounts:** 403 on `GET /api/today/needs-you`.
 
 ## Retention (MM-T29)
 

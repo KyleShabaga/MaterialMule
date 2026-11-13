@@ -1,7 +1,23 @@
-import { BadRequestException, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
-import { inboxQuerySchema, type InboxPage, type InboxSummary } from '@materialmule/shared';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  inboxBulkSchema,
+  inboxQuerySchema,
+  type InboxBulkResult,
+  type InboxPage,
+  type InboxSummary,
+} from '@materialmule/shared';
 import { CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
+import { parseBody } from '../validation/parse-body.js';
 import { InboxService } from './inbox.service.js';
 
 const QUERY_FIELDS = new Set(['tab', 'filter', 'q', 'sort', 'page', 'pageSize']);
@@ -40,6 +56,17 @@ export class InboxController {
   @RequirePermission('notification.read')
   readAll(@CurrentUser() user: AuthUser): Promise<InboxSummary> {
     return this.inbox.readAll(user);
+  }
+
+  /**
+   * STRATA-48: read, unread or dismiss checked rows by feed key. Keys that aren't the signed-in
+   * person's go to `failed`; dismiss with a request key is 400 `dismiss_requests`, nothing changed.
+   */
+  @Post('bulk')
+  @HttpCode(200)
+  @RequirePermission('notification.read')
+  bulk(@CurrentUser() user: AuthUser, @Body() body: unknown): Promise<InboxBulkResult> {
+    return this.inbox.bulk(user, parseBody(inboxBulkSchema, body));
   }
 
   @Post('requests/:id/read')
