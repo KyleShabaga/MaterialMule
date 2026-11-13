@@ -1,260 +1,295 @@
-import type { Worklist, WorklistItem } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import type { MeResponse, WorkboardColumn, Worklist, WorklistItem } from '@materialmule/shared';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter } from 'react-router';
+import { createMemoryRouter, type RouterProviderProps } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SessionContext } from '../session/context';
 import { WorklistPage } from './WorklistPage';
 
-// BUG-006: the Workboard (was the worklist) pages through every matching program and offers every project, not
-// only those on the loaded page. Fictional data only: DEMO-2601 / DEMO-2602.
+// STRATA-88 Workboard: Board (default) and List views of GET /api/worklist, the view in the URL
+// and remembered per person, server-side search, filters and paging (BUG-006), and the empty,
+// failed and loading states. Fictional data only: DEMO-2601 / DEMO-2602.
 
 const A = { id: 'proj-a', projectNumber: 'DEMO-2601', name: 'Riverbank investigation' };
 const B = { id: 'proj-b', projectNumber: 'DEMO-2602', name: 'Hillside bridge' };
 
-function item(n: number, project = A): WorklistItem {
+const me: MeResponse = {
+  id: '00000000-0000-4000-8000-000000000103',
+  displayName: 'Lee Manager',
+  initials: 'LM',
+  accountType: 'personal',
+  status: 'active',
+  roles: ['lab_manager'],
+  permissions: ['lab_program.read', 'test.review'],
+  sessionExpiresAt: '2026-11-13T06:00:00.000Z',
+  profileRefreshFailed: false,
+};
+
+function item(n: number, column: WorkboardColumn = 'testing', extra: Partial<WorklistItem> = {}) {
   return {
     programId: `p-${n}`,
     programNumber: `LP-2026-${String(n).padStart(4, '0')}`,
     priority: 'normal',
-    project,
+    project: A,
     submittedAt: '2026-10-21T16:00:00.000Z',
     requestedBy: 'Pat Example',
-    counts: {
-      requested: 1,
-      in_progress: 0,
-      completed: 0,
-      review: 0,
-      accepted: 0,
-      cancelled: 0,
-    },
+    counts: { requested: 1, in_progress: 0, completed: 1, review: 0, accepted: 0, cancelled: 0 },
     openCount: 1,
-    oldestOpenSeconds: 3600,
-  };
+    oldestOpenSeconds: 3 * 86_400,
+    column,
+    unitsToPull: column === 'pull' ? 2 : 0,
+    canReview: false,
+    ...extra,
+  } satisfies WorklistItem;
 }
 
-const json = (body: unknown) =>
-  new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+const listOf = (items: WorklistItem[], total = items.length, page = 1): Worklist => ({
+  items,
+  total,
+  urgentTotal: items.filter((i) => i.priority === 'urgent').length,
+  page,
+  pageSize: 100,
+  projects: [A, B],
+});
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+/** Stubs GET /api/worklist with `answer`; records every query string. */
+function stub(answer: (params: URLSearchParams) => Response | Promise<Response>) {
+  const queries: string[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname !== '/api/worklist') return json({}, 404);
+      queries.push(url.searchParams.toString());
+      return answer(url.searchParams);
+    }),
+  );
+  return queries;
+}
+
+/** The board's four columns: one card each, with the facts the server sends. */
+const BOARD: Record<WorkboardColumn, WorklistItem[]> = {
+  review: [
+    item(12, 'review', { priority: 'urgent', canReview: true, oldestOpenSeconds: null }),
+    item(11, 'review'),
+  ],
+  pull: [item(8, 'pull')],
+  testing: [item(5, 'testing', { project: B })],
+  ready: [
+    item(3, 'ready', {
+      counts: { requested: 0, in_progress: 0, completed: 0, review: 0, accepted: 4, cancelled: 0 },
+      openCount: 0,
+      oldestOpenSeconds: null,
+    }),
+  ],
+};
+const boardAnswer = (params: URLSearchParams) =>
+  json(listOf(BOARD[(params.get('column') ?? 'testing') as WorkboardColumn]));
+
+let router: ReturnType<typeof createMemoryRouter>;
+function renderAt(path = '/lab-testing') {
+  router = createMemoryRouter([{ path: '/lab-testing', element: <WorklistPage /> }], {
+    initialEntries: [path],
+  });
+  return render(
+    <SessionContext.Provider
+      value={{
+        session: { status: 'active', me },
+        refresh: vi.fn(async () => undefined),
+        signOut: vi.fn(async () => undefined),
+      }}
+    >
+      <RouterProvider router={router as RouterProviderProps['router']} />
+    </SessionContext.Provider>,
+  );
+}
+const search = () => new URLSearchParams(router.state.location.search);
+
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Lab Testing → Workboard paging (BUG-006)', () => {
-  it('offers projects beyond the first page, pages to the rest, and restarts on a filter change', async () => {
-    const queries: string[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === '/api/test-catalogue') return json({ groups: [], tests: [] });
-        if (url.pathname !== '/api/worklist') return new Response('{}', { status: 404 });
-        queries.push(url.searchParams.toString());
-        const page = Number(url.searchParams.get('page') ?? '1');
-        const projectId = url.searchParams.get('projectId');
-        const all = [...Array.from({ length: 150 }, (_, i) => item(i + 1)), item(151, B)].filter(
-          (row) => !projectId || row.project.id === projectId,
-        );
-        const list: Worklist = {
-          items: all.slice((page - 1) * 100, page * 100),
-          total: all.length,
-          page,
-          pageSize: 100,
-          projects: [A, B],
-        };
-        return json(list);
-      }),
-    );
-    const user = userEvent.setup();
-    render(
-      <RouterProvider router={createMemoryRouter([{ path: '/', element: <WorklistPage /> }])} />,
-    );
-
-    expect(await screen.findByText('Showing 1–100 of 151 programs')).toBeInTheDocument();
-    const project = screen.getByLabelText(/Project/);
+describe('Workboard board view (STRATA-88)', () => {
+  it('shows four columns by where each program is, with explicit links and no Start', async () => {
+    const queries = stub(boardAnswer);
+    renderAt();
+    const board = await screen.findByRole('region', { name: 'Workboard by status' });
+    // One request per column, Urgent first then the oldest open (sort=priority).
+    expect(queries.sort()).toEqual([
+      'column=pull&sort=priority',
+      'column=ready&sort=priority',
+      'column=review&sort=priority',
+      'column=testing&sort=priority',
+    ]);
+    const column = (name: string) => within(board).getByRole('list', { name });
     expect(
-      within(project)
-        .getAllByRole('option')
-        .map((o) => o.textContent),
-    ).toEqual(['All', 'DEMO-2601', 'DEMO-2602']);
+      within(column('Waiting for review'))
+        .getAllByRole('listitem')
+        .map((card) => card.getAttribute('aria-label')),
+    ).toEqual(['LP-2026-0012', 'LP-2026-0011']);
+    expect(within(board).getByRole('heading', { name: /Waiting for review, 2 programs/ }));
+    expect(screen.getByText('5 programs')).toBeInTheDocument();
+    expect(screen.getByText(/· 1 urgent · priority, then oldest open/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Showing 101–151 of 151 programs')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'LP-2026-0151' })).toBeInTheDocument();
+    const urgent = within(column('Waiting for review')).getByRole('listitem', {
+      name: 'LP-2026-0012',
+    });
+    expect(within(urgent).getByText('Urgent · Priority')).toBeInTheDocument();
+    expect(within(urgent).getByText('Nothing open')).toBeInTheDocument();
+    expect(within(urgent).getByRole('link', { name: 'Review LP-2026-0012' })).toHaveAttribute(
+      'href',
+      '/lab-testing/programs/p-12#review',
+    );
+    // Review only where the server says this account may review.
+    const other = within(column('Waiting for review')).getByRole('listitem', {
+      name: 'LP-2026-0011',
+    });
+    expect(within(other).queryByRole('link', { name: /^Review/ })).toBeNull();
+    expect(within(other).getByRole('link', { name: 'Open LP-2026-0011' })).toBeInTheDocument();
 
-    await user.selectOptions(project, 'DEMO-2602');
-    expect(await screen.findByRole('link', { name: 'LP-2026-0151' })).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
-    expect(queries).toEqual(['open=true', 'open=true&page=2', 'projectId=proj-b&open=true']);
+    const pull = within(column('Units to pull')).getByRole('listitem', { name: 'LP-2026-0008' });
+    expect(within(pull).getByRole('link', { name: 'Pull list for LP-2026-0008' })).toHaveAttribute(
+      'href',
+      '/lab-testing/programs/p-8#units-to-pull',
+    );
+    expect(within(pull).getByText('1 of 2 tests')).toBeInTheDocument();
+    expect(within(pull).getByText('Oldest open 3 days')).toBeInTheDocument();
+    expect(within(column('Ready to close')).getByText('4 of 4 tests')).toBeInTheDocument();
+    // Tests start on the program page, never from a card; nothing is draggable.
+    expect(screen.queryByRole('button', { name: /start/i })).toBeNull();
+    expect(document.querySelector('[draggable="true"]')).toBeNull();
+    expect(board).toHaveAttribute('tabindex', '0');
+  });
+
+  it('shows the empty state when nothing is waiting, and Try again after a failure', async () => {
+    let fail = true;
+    const queries = stub(() => (fail ? json({}, 500) : json(listOf([]))));
+    const user = userEvent.setup();
+    renderAt();
+    expect(await screen.findByText('The Workboard couldn’t be loaded.')).toBeInTheDocument();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Nothing is waiting in the lab.')).toBeInTheDocument();
+    expect(queries).toHaveLength(8);
+  });
+
+  it('shows a loading skeleton until every column has answered', async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    stub(async (params) => {
+      if (params.get('column') === 'ready') await held;
+      return boardAnswer(params);
+    });
+    renderAt();
+    expect(await screen.findByRole('group', { name: 'Loading the Workboard' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+    expect(screen.getByText('Loading the Workboard…')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Workboard by status' })).toBeNull();
+    release();
+    expect(await screen.findByRole('region', { name: 'Workboard by status' })).toBeInTheDocument();
   });
 });
 
-// PR #104 review finding 2: while a page is loading the table, label and buttons belong to the
-// page being fetched, and nothing from an obsolete request is ever shown. Answers are released
-// by the test (deferred), never by time.
-describe('Lab Testing → Workboard while a page is loading', () => {
-  interface Held {
-    query: string;
-    resolve: (response: Response) => void;
-    reject: (error: Error) => void;
-  }
-
-  /**
-   * GET /api/worklist answers at once when `auto` returns a list and is held otherwise, until the
-   * test resolves or rejects it. Every query string is recorded.
-   */
-  function stub(auto: (params: URLSearchParams) => Worklist | null) {
-    const queries: string[] = [];
-    const held: Held[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === '/api/test-catalogue') return json({ groups: [], tests: [] });
-        if (url.pathname !== '/api/worklist') return new Response('{}', { status: 404 });
-        const query = url.searchParams.toString();
-        queries.push(query);
-        const list = auto(url.searchParams);
-        if (list) return json(list);
-        return new Promise<Response>((resolve, reject) => held.push({ query, resolve, reject }));
-      }),
-    );
-    async function take(query: string): Promise<Held> {
-      await vi.waitFor(() => expect(held.map((h) => h.query)).toContain(query));
-      return held.splice(
-        held.findIndex((h) => h.query === query),
-        1,
-      )[0]!;
-    }
-    return { queries, take };
-  }
-
-  /** Page `page` (100 per page) of `total` DEMO-2601 programs. */
-  function pageOf(total: number, page: number): Worklist {
-    const start = (page - 1) * 100;
-    return {
-      items: Array.from({ length: Math.max(0, Math.min(100, total - start)) }, (_, i) =>
-        item(start + i + 1),
-      ),
-      total,
-      page,
-      pageSize: 100,
-      projects: [A, B],
-    };
-  }
-
-  function renderPage() {
-    render(
-      <RouterProvider router={createMemoryRouter([{ path: '/', element: <WorklistPage /> }])} />,
-    );
-  }
-
-  const pager = () => screen.getByRole('navigation', { name: 'Pages' });
-  const programLinks = () => screen.queryAllByRole('link').map((link) => link.textContent);
-
-  it('shows the page being fetched, and a second Next while it loads skips nothing', async () => {
-    const { queries, take } = stub((p) => (p.get('page') ? null : pageOf(251, 1)));
-    const user = userEvent.setup();
-    renderPage();
-    expect(await screen.findByText('Showing 1–100 of 251 programs')).toBeInTheDocument();
-
-    await user.click(within(pager()).getByRole('button', { name: 'Next' }));
-    // Loading page 2: no stale rows, the label says page 2, both buttons are off.
-    expect(screen.getByText('Loading the Workboard…')).toBeInTheDocument();
-    expect(screen.queryByRole('table', { name: 'Workboard' })).not.toBeInTheDocument();
-    expect(within(pager()).getByText('Page 2 of 3')).toBeInTheDocument();
-    expect(within(pager()).getByRole('button', { name: 'Next' })).toBeDisabled();
-    expect(within(pager()).getByRole('button', { name: 'Previous' })).toBeDisabled();
-    // Project options stay while loading.
-    expect(within(screen.getByLabelText(/Project/)).getAllByRole('option')).toHaveLength(3);
-    await user.click(within(pager()).getByRole('button', { name: 'Next' }));
-
-    (await take('open=true&page=2')).resolve(json(pageOf(251, 2)));
-    expect(await screen.findByText('Showing 101–200 of 251 programs')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'LP-2026-0101' })).toBeInTheDocument();
-    expect(within(pager()).getByText('Page 2 of 3')).toBeInTheDocument();
-    expect(within(pager()).getByRole('button', { name: 'Next' })).toBeEnabled();
-    expect(within(pager()).getByRole('button', { name: 'Previous' })).toBeEnabled();
-    expect(queries).toEqual(['open=true', 'open=true&page=2']);
-  });
-
-  it('a filter change while a page loads starts at page 1, and the late page answer is ignored', async () => {
-    const { queries, take } = stub((p) =>
-      p.get('page') || p.get('priority') ? null : pageOf(251, 1),
+describe('Workboard views and tools (STRATA-88)', () => {
+  it('switches to List from the View menu, keeps it in the URL and remembers it for this person', async () => {
+    stub((params) =>
+      params.get('column')
+        ? boardAnswer(params)
+        : json(listOf([item(12, 'review', { priority: 'urgent' }), item(8, 'pull')])),
     );
     const user = userEvent.setup();
-    renderPage();
-    await screen.findByText('Showing 1–100 of 251 programs');
+    const { unmount } = renderAt();
+    await screen.findByRole('region', { name: 'Workboard by status' });
+    await user.click(screen.getByRole('button', { name: 'View, Board' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'List' }));
 
-    await user.click(within(pager()).getByRole('button', { name: 'Next' }));
-    const stalePage = await take('open=true&page=2');
-    await user.selectOptions(screen.getByLabelText(/Priority/), 'Urgent');
-    // Other filters: no pager from the old ones while the new answer loads.
-    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
-    const urgent = await take('priority=urgent&open=true');
+    const table = await screen.findByRole('table', { name: 'Workboard' });
+    expect(search().get('view')).toBe('list');
+    expect(localStorage.getItem(`materialmule.person.workboard-view.${me.id}`)).toBe('list');
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows.map((row) => within(row).getAllByRole('link')[0]!.textContent)).toEqual([
+      'LP-2026-0012',
+      'LP-2026-0008',
+    ]);
+    expect(within(rows[0]!).getByText('Due · Review')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('In lab · Pull units')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Workboard table' })).toContainElement(table);
 
-    urgent.resolve(json({ ...pageOf(1, 1), items: [item(900)] }));
-    expect(await screen.findByRole('link', { name: 'LP-2026-0900' })).toBeInTheDocument();
-    stalePage.resolve(json(pageOf(251, 2)));
-    // The stale answer is read and dropped: the table never changes.
-    await vi.waitFor(() => expect(programLinks()).toEqual(['LP-2026-0900']));
-    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
-    expect(queries).toEqual(['open=true', 'open=true&page=2', 'priority=urgent&open=true']);
+    // Next visit without view=: this person's List, written back into the URL.
+    unmount();
+    renderAt('/lab-testing');
+    expect(await screen.findByRole('table', { name: 'Workboard' })).toBeInTheDocument();
+    await waitFor(() => expect(search().get('view')).toBe('list'));
   });
 
-  it('a late failure for an obsolete page shows no error', async () => {
-    const { take } = stub((p) => (p.get('page') || p.get('priority') ? null : pageOf(251, 1)));
-    const user = userEvent.setup();
-    renderPage();
-    await screen.findByText('Showing 1–100 of 251 programs');
-
-    await user.click(within(pager()).getByRole('button', { name: 'Next' }));
-    const stalePage = await take('open=true&page=2');
-    await user.selectOptions(screen.getByLabelText(/Priority/), 'Urgent');
-    (await take('priority=urgent&open=true')).resolve(
-      json({ ...pageOf(1, 1), items: [item(900)] }),
-    );
-    expect(await screen.findByRole('link', { name: 'LP-2026-0900' })).toBeInTheDocument();
-    stalePage.reject(new Error('network'));
-    await vi.waitFor(() => expect(programLinks()).toEqual(['LP-2026-0900']));
-    expect(screen.queryByText('The Workboard couldn’t be loaded.')).not.toBeInTheDocument();
-  });
-
-  it('a failed page offers a retry, and the retry loads that page', async () => {
-    const { queries, take } = stub((p) => (p.get('page') ? null : pageOf(251, 1)));
-    const user = userEvent.setup();
-    renderPage();
-    await screen.findByText('Showing 1–100 of 251 programs');
-
-    await user.click(within(pager()).getByRole('button', { name: 'Next' }));
-    (await take('open=true&page=2')).reject(new Error('network'));
-    expect(await screen.findByText('The Workboard couldn’t be loaded.')).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /retry|try again/i }));
-    (await take('open=true&page=2')).resolve(json(pageOf(251, 2)));
-    expect(await screen.findByText('Showing 101–200 of 251 programs')).toBeInTheDocument();
-    expect(queries).toEqual(['open=true', 'open=true&page=2', 'open=true&page=2']);
-  });
-
-  it('steps back to the last page when the asked page no longer exists', async () => {
-    let answers = 0;
-    const { queries, take } = stub((p) => {
-      if (p.get('page')) return null;
-      // 150 programs at first; by the time page 2 is asked for, only 80 remain.
-      answers += 1;
-      return answers === 1 ? pageOf(150, 1) : pageOf(80, 1);
+  it('searches and filters on the server, and the list pages through every program (BUG-006)', async () => {
+    const queries = stub((params) => {
+      const page = Number(params.get('page') ?? '1');
+      const projects = params.getAll('projectId');
+      const all = [
+        ...Array.from({ length: 150 }, (_, i) => item(i + 1)),
+        item(151, 'testing', { project: B }),
+      ]
+        .filter((row) => projects.length === 0 || projects.includes(row.project.id))
+        .filter(
+          (row) => !params.get('search') || row.programNumber.includes(params.get('search')!),
+        );
+      return json(listOf(all.slice((page - 1) * 100, page * 100), all.length, page));
     });
     const user = userEvent.setup();
-    renderPage();
-    await screen.findByText('Showing 1–100 of 150 programs');
+    renderAt('/lab-testing?view=list');
+    expect(await screen.findByText('Showing 1–100 of 151 programs')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Showing 101–151 of 151 programs')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'LP-2026-0151' })).toBeInTheDocument();
+    expect(search().get('page')).toBe('2');
 
-    await user.click(within(pager()).getByRole('button', { name: 'Next' }));
-    (await take('open=true&page=2')).resolve(json(pageOf(80, 2)));
-    expect(await screen.findByRole('link', { name: 'LP-2026-0080' })).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
-    expect(queries).toEqual(['open=true', 'open=true&page=2', 'open=true']);
+    // A project filter (offered for every project, not only those on this page) starts at page 1.
+    await user.click(screen.getByRole('button', { name: 'Filter' }));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'DEMO-2602' }));
+    await user.keyboard('{Escape}');
+    expect(await screen.findByRole('link', { name: 'LP-2026-0151' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Pages' })).toBeNull();
+    expect(search().get('page')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Search the Workboard' }), '0999');
+    expect(
+      await screen.findByText('No program matches this search or these filters.'),
+    ).toBeInTheDocument();
+    expect(queries).toContain('search=0999&projectId=proj-b&sort=priority');
+    // Search is sent once typing settles, not per keystroke.
+    expect(queries.filter((q) => q.startsWith('search=0'))).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+    expect(await screen.findByText('Showing 1–100 of 151 programs')).toBeInTheDocument();
+    expect(queries).toEqual([
+      'sort=priority',
+      'sort=priority&page=2',
+      'projectId=proj-b&sort=priority',
+      'search=0999&projectId=proj-b&sort=priority',
+      'sort=priority',
+    ]);
+  });
+
+  it('sends the chosen order and Urgent only to the server', async () => {
+    const queries = stub(() => json(listOf([item(1)])));
+    const user = userEvent.setup();
+    renderAt('/lab-testing?view=list');
+    await screen.findByRole('table', { name: 'Workboard' });
+    await user.click(screen.getByRole('button', { name: /^Sort, / }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Oldest open first' }));
+    await waitFor(() => expect(queries).toContain('sort=oldest'));
+    await user.click(screen.getByRole('button', { name: 'Filter' }));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Urgent only' }));
+    await waitFor(() => expect(queries).toContain('priority=urgent&sort=oldest'));
   });
 });

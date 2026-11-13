@@ -10,6 +10,9 @@ import {
   formatLineDepth,
   LAB_PROGRAM_STATUS_STAGE,
   labProgramListSortDirection,
+  labProgramPhase,
+  type ProgramUnits,
+  type TestRequestStatus,
   lineSubmitProblems,
   testDisplayName,
   type CoverageUnit,
@@ -233,6 +236,9 @@ export class LabProgramsService {
         test_count: number;
         total: number;
         status_counts: Record<string, number> | null;
+        units_to_pull: boolean;
+        cancelled_without_reason: boolean;
+        closed_at: Date | null;
       }
     >(
       `${SELECT_PROGRAM.replace(
@@ -246,7 +252,21 @@ export class LabProgramsService {
                   AS test_count,
                 (SELECT json_object_agg(s.status, s.n) FROM (
                    SELECT r.status, count(*)::int AS n FROM test_request r
-                   WHERE r.program_id = lp.id GROUP BY r.status) s) AS status_counts`,
+                   WHERE r.program_id = lp.id GROUP BY r.status) s) AS status_counts,
+                -- STRATA-87 phase facts. Units to pull: the Workboard pull list's rule
+                -- (WorkService.unitsToPull) for this program.
+                (lp.status = 'submitted' AND EXISTS (
+                   SELECT 1 FROM program_scope_snapshot pss
+                   JOIN storage_unit su ON su.id = pss.storage_unit_id
+                   JOIN location loc ON loc.id = su.current_location_id
+                   WHERE pss.program_id = lp.id AND pss.included
+                     AND su.status = 'in_stock' AND loc.kind <> 'lab'
+                     AND EXISTS (SELECT 1 FROM test_request r
+                                 WHERE r.line_id = pss.line_id
+                                   AND r.status IN ('requested', 'in_progress')))) AS units_to_pull,
+                EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id
+                          AND r.status = 'cancelled' AND coalesce(btrim(r.cancel_reason), '') = '')
+                  AS cancelled_without_reason`,
       )}
        WHERE ${where.join(' AND ')}
        ORDER BY ${labProgramOrderBy(query)}
@@ -263,8 +283,18 @@ export class LabProgramsService {
       );
       total = counted[0]?.total ?? 0;
     }
+    // Tab counts (Open, Drafts (mine), Closed) under the same visibility, ignoring the filters.
+    const { rows: tabs } = await this.database.pool.query<{ status: LabProgramStatus; n: number }>(
+      `SELECT lp.status, count(*)::int AS n FROM lab_program lp
+       WHERE (lp.status <> 'draft' OR lp.created_by_account_user_id = $1)
+       ${query.projectId ? 'AND lp.project_id = $2' : ''}
+       GROUP BY lp.status`,
+      query.projectId ? [user.userId, query.projectId] : [user.userId],
+    );
+    const tab = (status: LabProgramStatus) => tabs.find((t) => t.status === status)?.n ?? 0;
     return {
       total,
+      counts: { open: tab('submitted'), drafts: tab('draft'), closed: tab('closed') },
       items: rows.map((row) => ({
         id: row.id,
         programNumber: row.program_number,
@@ -281,6 +311,13 @@ export class LabProgramsService {
         progress: listProgress(row.status, row.test_count, row.status_counts),
         // STRATA-58: the row's stage from its status (draft, in the lab, closed).
         stage: LAB_PROGRAM_STATUS_STAGE[row.status],
+        phase: labProgramPhase({
+          status: row.status,
+          counts: (row.status_counts ?? {}) as Partial<Record<TestRequestStatus, number>>,
+          cancelledWithoutReason: row.cancelled_without_reason,
+          unitsToPull: row.units_to_pull,
+        }),
+        closedAt: row.closed_at?.toISOString() ?? null,
       })),
     };
   }
@@ -288,6 +325,66 @@ export class LabProgramsService {
   async get(id: string, user: AuthUser): Promise<LabProgram> {
     const row = await this.findVisible(this.database.pool, id, user);
     return loadProgram(this.database.pool, row);
+  }
+
+  /**
+   * STRATA-87 "Units to pull": the included frozen coverage of a submitted program, one row per
+   * unit, with where it is now and whether the lab still has to pull it (the Workboard pull
+   * list's rule). Drafts have no frozen coverage: 404 like any other draft read.
+   */
+  async units(id: string, user: AuthUser): Promise<ProgramUnits> {
+    const program = await this.findVisible(this.database.pool, id, user);
+    if (program.status === 'draft') throw new NotFoundException({ code: 'lab_program_not_found' });
+    const { rows } = await this.database.pool.query<{
+      id: string;
+      readable_id: string;
+      contents: string | null;
+      line_numbers: number[];
+      in_stock: boolean;
+      location_code: string | null;
+      location_name: string | null;
+      location_area: string | null;
+      at_lab: boolean;
+      wanted: boolean;
+    }>(
+      `SELECT su.id, su.readable_id, min(pss.contents_snapshot) AS contents,
+              array_agg(DISTINCT tl.line_number ORDER BY tl.line_number) AS line_numbers,
+              (su.status = 'in_stock') AS in_stock,
+              loc.code AS location_code, loc.name AS location_name, loc.area AS location_area,
+              coalesce(loc.kind = 'lab', false) AS at_lab,
+              bool_or(EXISTS (SELECT 1 FROM test_request r WHERE r.line_id = pss.line_id
+                                AND r.status IN ('requested', 'in_progress'))) AS wanted
+       FROM program_scope_snapshot pss
+       JOIN test_line tl ON tl.id = pss.line_id
+       JOIN storage_unit su ON su.id = pss.storage_unit_id
+       LEFT JOIN location loc ON loc.id = su.current_location_id
+       WHERE pss.program_id = $1 AND pss.included
+       GROUP BY su.id, su.readable_id, su.status, loc.code, loc.name, loc.area, loc.kind
+       ORDER BY su.readable_id`,
+      [program.id],
+    );
+    const open = program.status === 'submitted';
+    const units = rows.map((row) => {
+      const location =
+        row.in_stock && row.location_code !== null
+          ? { code: row.location_code, name: row.location_name ?? '', area: row.location_area }
+          : null;
+      const atLab = location !== null && row.at_lab;
+      return {
+        storageUnitId: row.id,
+        readableId: row.readable_id,
+        contents: row.contents,
+        lineNumbers: row.line_numbers,
+        location,
+        atLab,
+        toPull: open && location !== null && !atLab && row.wanted,
+      };
+    });
+    return {
+      units,
+      toPull: units.filter((unit) => unit.toPull).length,
+      atLab: units.filter((unit) => unit.atLab).length,
+    };
   }
 
   async sources(projectId: string): Promise<LabSource[]> {

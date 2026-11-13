@@ -27,28 +27,43 @@ import { LabWorkService } from './work.service.js';
 export class LabWorkController {
   constructor(private readonly work: LabWorkService) {}
 
-  /** D52 order: Urgent first, then oldest submission; ordering never changes a status. */
+  /**
+   * D52 order: Urgent first, then oldest submission; ordering never changes a status. STRATA-88
+   * (Workboard): `search`, `column` (one board column), `sort` (WORKLIST_SORTS) and repeated
+   * `projectId`; each item carries its board column and whether this account may review it.
+   */
   @Get('worklist')
   @RequirePermission('lab_program.read')
   worklist(
+    @CurrentUser() user: AuthUser,
     @Query('priority') priority?: string,
-    @Query('projectId') projectId?: string,
+    @Query('projectId') projectId?: string | string[],
     @Query('open') open?: string,
     @Query('testTypeId') testTypeId?: string,
     @Query('page') page?: string,
+    @Query('search') search?: string,
+    @Query('column') column?: string,
+    @Query('sort') sort?: string,
   ): Promise<Worklist> {
     const pageNumber = Number(page);
-    return this.work.worklist({
-      priority,
-      projectId,
-      openOnly: open === 'true',
-      testTypeId,
-      // Not a positive integer: page 1. Beyond the last supported page: that page (empty).
-      page:
-        Number.isInteger(pageNumber) && pageNumber > 0
-          ? Math.min(pageNumber, WORKLIST_MAX_PAGE)
-          : 1,
-    });
+    const text = (value: unknown) => (typeof value === 'string' ? value : undefined);
+    return this.work.worklist(
+      {
+        priority: text(priority),
+        projectId,
+        openOnly: open === 'true',
+        testTypeId: text(testTypeId),
+        search: text(search),
+        column: text(column),
+        sort: text(sort),
+        // Not a positive integer: page 1. Beyond the last supported page: that page (empty).
+        page:
+          Number.isInteger(pageNumber) && pageNumber > 0
+            ? Math.min(pageNumber, WORKLIST_MAX_PAGE)
+            : 1,
+      },
+      user,
+    );
   }
 
   /** Field Ledger phone lab screen: units still to pull for open tests (read-only). */

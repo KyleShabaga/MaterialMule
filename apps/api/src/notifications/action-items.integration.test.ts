@@ -92,7 +92,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
         comment: 'Recheck moisture',
         version: await version(testId),
       },
-      'tech',
+      'jo',
     );
     expect(back.status, JSON.stringify(back.body)).toBe(200);
   }
@@ -252,7 +252,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
     }
   });
 
-  it('AC6: the inbox resolves nothing; a Technician who cannot close leaves the item open', async () => {
+  it('AC6: the inbox resolves nothing; a Technician who cannot close (not the requester) leaves the item open', async () => {
     const { program: p } = await program();
     const { body } = await closeRequest(p.id);
     // No inbox route changes status: there is no resolve/approve endpoint at all.
@@ -269,7 +269,7 @@ describe.runIf(testDatabaseUrl)('action requests (MM-T27)', () => {
       'post',
       `/api/lab-programs/${p.id}/close`,
       { version: p.version, idempotencyKey: newKey() },
-      'tech',
+      'jo',
     );
     expect(close.status).toBe(403);
     expect(

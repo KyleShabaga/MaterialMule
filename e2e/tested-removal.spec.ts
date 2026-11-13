@@ -153,7 +153,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   await row.getByRole('button', { name: 'Start' }).click();
   await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
-  await expect(row).toContainText('In progress');
+  await expect(row).toContainText('In testing');
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
   await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
@@ -161,7 +161,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   );
   await panel.getByRole('checkbox', { name: new RegExp(tubeA!.readableId) }).check();
   await panel.getByRole('button', { name: 'Mark completed' }).click();
-  await expect(row).toContainText('Completed');
+  await expect(row).toContainText('Done');
 
   // Testing alone: both tubes still in stock at Receiving lab.
   expect((await unitState([tubeA!.readableId, tubeB!.readableId])).map((u) => u.status)).toEqual([
@@ -260,7 +260,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
 
   // The test itself is unchanged: removal is not review or acceptance.
   await page.goto(`/lab-testing/programs/${program.id}`);
-  await expect(page.locator('.request-list li', { hasText: code })).toContainText('Completed');
+  await expect(page.locator('.request-list li', { hasText: code })).toContainText('Done');
 });
 
 test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B stays in stock', async ({

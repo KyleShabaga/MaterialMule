@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FieldError } from './receipts';
-import { stageKeySchema } from './stage';
+import { stageKeySchema, type StageKey } from './stage';
 import { formatPerson } from './staff';
 
 // Testing programs, testing lines and test requests (MM-T23).
@@ -386,8 +386,107 @@ export const labProgramSummarySchema = z.object({
   }),
   /** STRATA-58: the row's stage (optional until the API sends it on every row). */
   stage: stageKeySchema.optional(),
+  /** STRATA-87: where the program is in its work (labProgramPhase); its tag is the status. */
+  phase: z.enum(['draft', 'review', 'pull', 'testing', 'ready', 'closed']).optional(),
+  /** When it was closed (Closed tab); null while open. */
+  closedAt: z.string().nullable().optional(),
 });
 export type LabProgramSummary = z.infer<typeof labProgramSummarySchema>;
+
+// ---------------------------------------------------------------------------------------------
+// STRATA-87: a program's phase and its status tag ("<Stage> · <domain>", DESIGN.md › Soils lab).
+
+/**
+ * Where a program is in its work, derived on the server from its tests (never from wording):
+ * - `draft`: not submitted;
+ * - `pull` / `testing`: lab work is open (a test Requested, In progress or Completed but not yet
+ *   sent to review), with covered units still to pull to the lab, or none;
+ * - `review`: no lab work left, some test In review (review and acceptance);
+ * - `ready`: every test accepted or cancelled with a reason, so it can close (who may close it
+ *   is the lifecycle's `canClose`);
+ * - `closed`.
+ */
+export const LAB_PROGRAM_PHASES = [
+  'draft',
+  'review',
+  'pull',
+  'testing',
+  'ready',
+  'closed',
+] as const;
+export type LabProgramPhase = (typeof LAB_PROGRAM_PHASES)[number];
+
+/** The status tag per phase: its stage colour and its words. */
+export const LAB_PROGRAM_PHASE_TAG: Record<LabProgramPhase, { stage: StageKey; label: string }> = {
+  draft: { stage: 'draft', label: 'Draft · Lab program' },
+  review: { stage: 'due', label: 'Due · Review' },
+  pull: { stage: 'lab', label: 'In lab · Pull units' },
+  testing: { stage: 'lab', label: 'In lab · Testing' },
+  ready: { stage: 'due', label: 'Due · Ready to close' },
+  closed: { stage: 'closed', label: 'Closed · Lab program' },
+};
+
+export interface LabProgramPhaseFacts {
+  status: LabProgramStatus;
+  /** Tests per status (a draft's are ignored). */
+  counts: Partial<Record<TestRequestStatus, number>>;
+  /** Some cancelled test has no reason (blocks closure, MM-T26). */
+  cancelledWithoutReason?: boolean;
+  /** A covered unit of a line with lab work open is in stock away from the lab. */
+  unitsToPull: boolean;
+}
+
+/** The one rule for a program's phase (the list, the Workboard and the program page agree). */
+export function labProgramPhase(facts: LabProgramPhaseFacts): LabProgramPhase {
+  if (facts.status === 'draft') return 'draft';
+  if (facts.status === 'closed') return 'closed';
+  const n = (status: TestRequestStatus) => facts.counts[status] ?? 0;
+  const open = n('requested') + n('in_progress') + n('completed');
+  if (open > 0) return facts.unitsToPull ? 'pull' : 'testing';
+  if (n('review') > 0) return 'review';
+  const total = TEST_REQUEST_STATUSES.reduce((sum, status) => sum + n(status), 0);
+  // An empty program never closes (MM-T26); it reads as lab work still to do.
+  if (total === 0 || facts.cancelledWithoutReason) return 'testing';
+  return 'ready';
+}
+
+/** Program counts per list tab (`GET /api/lab-programs` `counts`). */
+export const labProgramTabCountsSchema = z.object({
+  open: z.number().int(),
+  /** This account's own drafts only. */
+  drafts: z.number().int(),
+  closed: z.number().int(),
+});
+export type LabProgramTabCounts = z.infer<typeof labProgramTabCountsSchema>;
+
+/**
+ * `GET /api/lab-programs/:id/units` (STRATA-87 "Units to pull"): the storage units in the
+ * program's included frozen coverage, where each is now and whether the lab still has to pull it
+ * (in stock away from a lab location while a covered line has a test Requested or In progress, the
+ * same rule as the Workboard's pull list). Coverage is potential material only: never a record of
+ * what was tested.
+ */
+export const programUnitSchema = z.object({
+  storageUnitId: z.string(),
+  readableId: z.string(),
+  contents: z.string().nullable(),
+  /** Line numbers whose coverage includes it. */
+  lineNumbers: z.array(z.number().int()),
+  /** Where it is now; null when it is no longer in stock (disposed or removed). */
+  location: z
+    .object({ code: z.string(), name: z.string(), area: z.string().nullable() })
+    .nullable(),
+  atLab: z.boolean(),
+  toPull: z.boolean(),
+});
+export type ProgramUnit = z.infer<typeof programUnitSchema>;
+
+export const programUnitsSchema = z.object({
+  units: z.array(programUnitSchema),
+  toPull: z.number().int(),
+  atLab: z.number().int(),
+});
+export type ProgramUnits = z.infer<typeof programUnitsSchema>;
 /** Programs per page of GET /api/lab-programs (`?page=`, from 1). */
 export const LAB_PROGRAM_PAGE_SIZE = 50;
 /** Longest `?search=` the list uses (program number, project number or project name). */
@@ -458,6 +557,8 @@ export function labProgramListSortDirection(query: Pick<LabProgramListQuery, 'so
 export const labProgramListSchema = z.object({
   items: z.array(labProgramSummarySchema),
   total: z.number().int(),
+  /** STRATA-87: counts per tab (Open, Drafts (mine), Closed), whatever the filters. */
+  counts: labProgramTabCountsSchema.optional(),
 });
 export type LabProgramList = z.infer<typeof labProgramListSchema>;
 

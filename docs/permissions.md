@@ -1276,6 +1276,7 @@ destructive tests and approval revocation (the action enum refuses them with 400
 | ----------------------------------------------------------- | ------------------------------------------------------- |
 | `GET /api/worklist?priority=&projectId=&open=&testTypeId=`  | `lab_program.read`                                      |
 | `GET /api/lab-programs/:id/work`                            | `lab_program.read`                                      |
+| `GET /api/lab-programs/:id/units` (STRATA-87, read-only)    | `lab_program.read`; 404 for drafts                      |
 | `GET /api/worklist/units-to-pull` (Field Ledger, read-only) | `lab_program.read`                                      |
 | `POST /api/test-requests/:id/status`                        | `test.progress` (LAB too, with `actingStaffUserId`)     |
 | `PATCH /api/lab-programs/:id/priority`                      | active user; handler checks `program.priority.set`      |
@@ -1336,17 +1337,17 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Program lifecycle, cancellation and repeats (MM-T26)
 
-| Route                                        | Policy                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------- |
-| `POST /api/lab-programs/:id/close`           | active user; handler checks `program.close` (Lead Project Engineer)        |
-| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (Lead Project Engineer or LM) |
-| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                                |
-| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (Lead Project Engineer or LM)    |
-| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                                  |
-| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                                    |
-| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)                         |
-| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                                        |
-| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                                       |
+| Route                                        | Policy                                                                                                                                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/lab-programs/:id/close`           | active user; handler checks the requester (personal submitting account), `program.close` (Lead Project Engineer) or the Lab Manager role (STRATA-87) |
+| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (Lead Project Engineer or LM)                                                                           |
+| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                                                                                                          |
+| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (Lead Project Engineer or LM)                                                                              |
+| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                                                                                                            |
+| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                                                                                                              |
+| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)                                                                                                   |
+| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                                                                                                                  |
+| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                                                                                                                 |
 
 - **LAB:** 403 on every route above, whoever the station selects. Its T23/T24 allow-list
   (create/submit, progress, comments) never covers amendments, repeats, cancellation, closure,

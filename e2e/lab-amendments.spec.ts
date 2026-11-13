@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertConfirmedBucket } from './support/db';
+import { addTest, chooseSource } from './support/lab-editor';
 import { signInAsLabStation } from './support/lab-station';
 
 // MM-T83: adding a testing line to a submitted program from the program page (AC1, AC3, test
@@ -89,16 +90,14 @@ test('AC1/T2: a Lead Project Engineer adds a Grabs line with explicit units afte
   await page.getByRole('button', { name: 'Add a testing line' }).click();
 
   const line = page.getByRole('region', { name: 'New line 2' });
-  const source = line.getByLabel('Sampling source');
-  const option = source.locator('option', { hasText: program.holeName });
-  await source.selectOption((await option.getAttribute('value'))!);
-  await line.getByLabel('All grabs (G)').check();
+  await expect(line).toContainText('Added by amendment');
+  await chooseSource(page, line, program.holeName);
+  await line.getByRole('radio', { name: 'All grabs (G)' }).click();
   await line.getByRole('checkbox', { name: new RegExp(ticked.readableId) }).check();
   await expect(
     line.getByRole('checkbox', { name: new RegExp(unticked.readableId) }),
   ).not.toBeChecked();
-  await line.getByLabel('Find a test').fill(added);
-  await line.getByRole('button', { name: new RegExp(added) }).click();
+  await addTest(page, line, added);
 
   // The preview is the server's coverage: nothing is saved until it is confirmed.
   await page.getByRole('button', { name: 'Preview line' }).click();
@@ -112,13 +111,12 @@ test('AC1/T2: a Lead Project Engineer adds a Grabs line with explicit units afte
 
   const saved = page.getByRole('region', { name: /^Line 2/ });
   await expect(saved).toContainText(added);
-  await expect(saved).toContainText('Requested');
+  await expect(saved).toContainText('Waiting');
   await expect(page.getByText('Amendments (1)')).toBeVisible();
 
-  await page.goto('/lab-testing');
-  await expect(page.getByRole('heading', { name: 'Workboard', level: 2 })).toBeVisible();
-  await page.getByRole('combobox', { name: /^Test\b/ }).selectOption({ label: added });
-  await expect(page.getByRole('link', { name: program.programNumber })).toBeVisible();
+  // The Workboard's list view searches test codes and names (STRATA-88).
+  await page.goto(`/lab-testing?view=list&search=${encodeURIComponent(added)}`);
+  await expect(page.getByRole('link', { name: program.programNumber, exact: true })).toBeVisible();
 });
 
 test('AC3: the LAB station gets no amend control and the server refuses it', async ({ page }) => {

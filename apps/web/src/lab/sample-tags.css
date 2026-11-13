@@ -224,4 +224,25 @@
     font-size: 7.5pt;
     color: #555;
   }
+
+  /* Strata (STRATA-89): on screen the sheets that print sit off the page, still laid out so text
+     fitting can measure them; the preview shows one card at true size in this frame. Print is
+     unchanged: PRINT_CSS in SampleTagsPage shows the sheets and hides the controls. */
+  @media screen {
+    .tag-preview {
+      position: absolute;
+      top: 0;
+      left: -10000px;
+      max-width: none;
+      overflow: visible;
+      pointer-events: none;
+    }
+  }
+
+  .tag-card-frame {
+    position: relative;
+    width: 4in;
+    height: 2in;
+    box-sizing: border-box;
+  }
 }

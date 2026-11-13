@@ -265,7 +265,7 @@ describe.runIf(testDatabaseUrl)('lab lifecycle rules in the database (MM-T80)', 
       'post',
       `/api/test-requests/${id}/review`,
       { action: 'complete', version: (await request(id)).version, idempotencyKey: newKey() },
-      'tech',
+      'jo',
     );
     expect(reviewed.status, JSON.stringify(reviewed.body)).toBe(200);
     const accepted = await h.send(

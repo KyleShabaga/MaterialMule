@@ -1,6 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import {
+  addTest,
+  chooseProject,
+  chooseSource,
+  editorLine,
+  submitToLab,
+  waitForSaved,
+} from './support/lab-editor';
 import { signInAsLabStation } from './support/lab-station';
 
 // MM-T23: test catalogue (Settings → Tests), program entry and submission (card T6), and two
@@ -22,6 +30,7 @@ async function addTestType(page: Page, code: string, description: string, name?:
   expect(response.status()).toBe(201);
 }
 
+/** Opens a new program from the Programs tab and chooses DEMO-2601, which starts the draft. */
 async function startProgram(page: Page) {
   // MM-T24: the Workboard (the Worklist until STRATA-10) is the default tab; programs are one tab away.
   await page.goto('/lab-testing');
@@ -32,39 +41,7 @@ async function startProgram(page: Page) {
     .click();
   await expect(page.getByRole('heading', { name: 'Programs', level: 2 })).toBeVisible();
   await page.getByRole('link', { name: 'New lab program' }).click();
-  await page.getByLabel('Project', { exact: true }).fill('DEMO-2601');
-  await page.getByRole('button', { name: /DEMO-2601/ }).click();
-}
-
-async function chooseSource(page: Page, line: number, hole: string) {
-  const card = page.getByRole('region', { name: `Line ${line}` });
-  const option = card.getByLabel('Sampling source').locator('option', { hasText: `${hole} —` });
-  await expect(option).toHaveCount(1);
-  await card.getByLabel('Sampling source').selectOption((await option.getAttribute('value'))!);
-  return card;
-}
-
-async function pickTest(page: Page, line: number, code: string) {
-  const card = page.getByRole('region', { name: `Line ${line}` });
-  await card.getByLabel('Find a test').fill(code);
-  await card.getByRole('button', { name: new RegExp(code) }).click();
-  await expect(card.getByRole('list', { name: 'Requested tests' })).toContainText(code);
-}
-
-/**
- * Submits the reviewed program. Other tests receive units on TH26-01 at the same time, so the
- * server may refuse with "material changed since the review" and show the fresh review; the
- * person then submits again, exactly as a user would.
- */
-async function submitReviewed(page: Page) {
-  const changed = page.getByText('The material for a line changed since the review');
-  const submitted = page.getByRole('heading', { name: /^LP-\d{4}-\d{4}$/ });
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.getByRole('button', { name: 'Submit program' }).click();
-    await expect(submitted.or(changed)).toBeVisible();
-    if (await submitted.isVisible()) return;
-  }
-  await expect(submitted).toBeVisible();
+  await chooseProject(page);
 }
 
 test('Settings → Tests: a Lab Manager adds and retires a test; a technician is refused', async ({
@@ -97,11 +74,11 @@ test('Settings → Tests: a Lab Manager adds and retires a test; a technician is
   await expect(settingsNav.getByRole('link', { name: 'My access' })).toBeVisible();
 });
 
-test('MISC-01: New program opens the editor from Programs and Workboard, not the discard dialog', async ({
+test('MISC-01: New program opens the editor from Programs and Workboard, not the delete dialog', async ({
   page,
 }) => {
   await signInAs(page, 'at');
-  const discard = page.getByRole('dialog', { name: 'Discard this draft?' });
+  const remove = page.getByRole('alertdialog', { name: 'Delete this draft?' });
   const tabs = page.getByRole('navigation', { name: 'Lab programs' });
   for (const tab of ['Programs', 'Workboard']) {
     await page.goto('/lab-testing');
@@ -109,16 +86,18 @@ test('MISC-01: New program opens the editor from Programs and Workboard, not the
     await expect(page.getByRole('heading', { name: tab, level: 2 })).toBeVisible();
     await page.getByRole('link', { name: 'New lab program' }).click();
     await expect(page.getByRole('heading', { name: 'New lab program', level: 1 })).toBeVisible();
-    await expect(page.getByLabel('Project', { exact: true })).toBeVisible();
-    await expect(page.getByText('Discard this draft?')).toBeHidden();
-    await expect(discard).toBeHidden();
+    await expect(page.getByRole('combobox', { name: 'Project', exact: true })).toBeVisible();
+    await expect(remove).toBeHidden();
   }
-  // The dialog opens only from Discard draft, and Cancel closes it again.
-  await page.getByRole('button', { name: 'Discard draft' }).click();
-  await expect(discard).toBeVisible();
-  await discard.getByRole('button', { name: 'Cancel' }).click();
-  await expect(discard).toBeHidden();
-  await expect(page.getByRole('heading', { name: 'New lab program', level: 1 })).toBeVisible();
+  // STRATA-86: the draft starts once a project is chosen; Delete draft asks first, Cancel keeps it.
+  await chooseProject(page);
+  await expect(remove).toBeHidden();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete draft' }).click();
+  await expect(remove).toBeVisible();
+  await remove.getByRole('button', { name: 'Cancel' }).click();
+  await expect(remove).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Draft lab program', level: 1 })).toBeVisible();
 });
 
 test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as Requested', async ({
@@ -131,26 +110,37 @@ test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as
 
   await signInAs(page, 'at');
   await startProgram(page);
-  await chooseSource(page, 1, 'TH26-01');
-  await pickTest(page, 1, mc);
+  const line1 = editorLine(page, 1);
+  await chooseSource(page, line1, 'TH26-01');
+  await addTest(page, line1, mc);
 
-  await page.getByRole('button', { name: 'Add line' }).click();
-  const line2 = await chooseSource(page, 2, 'TH26-01');
-  await line2.getByRole('radio', { name: 'Specific sample' }).check();
+  // The Grid shows the same lines: ticking the test's column adds it to every line.
+  await page.getByRole('button', { name: 'Add sample line' }).click();
+  const line2 = editorLine(page, 2);
+  await chooseSource(page, line2, 'TH26-01');
+  await line2.getByRole('radio', { name: 'Specific sample' }).click();
   await line2.getByLabel('Sample label').fill('G3');
   await line2.getByLabel('At', { exact: true }).fill('7.5');
-  await line2.getByLabel('Unit').selectOption('ft');
-  await pickTest(page, 2, att);
+  await addTest(page, line2, att);
+  await page.getByRole('tab', { name: 'Grid' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Atterberg Limits on line 2' })).toBeChecked();
+  await expect(
+    page.getByRole('checkbox', { name: 'Atterberg Limits on line 1' }),
+  ).not.toBeChecked();
+  await page.getByRole('tab', { name: 'Lines' }).click();
+  await expect(line2.getByRole('list', { name: 'Requested tests' })).toContainText(att);
 
-  await page.getByRole('button', { name: 'Review', exact: true }).click();
-  const review = page.getByRole('region', { name: 'Review before submitting' });
-  await expect(review).toContainText(/Covers (BKT|ST)-\d{4}-\d{6}/);
-  await expect(review).toContainText('received so far');
-  await submitReviewed(page);
+  // Saves as you go; the ALL line then shows the units it covers so far.
+  await waitForSaved(page);
+  await expect(line1).toContainText(/(BKT|ST)-\d{4}-\d{6}/);
+  await expect(page.getByRole('region', { name: 'Submit' })).toContainText('2 lines · 2 tests');
+  await submitToLab(page);
 
-  await expect(page.getByText(`${mc} · Moisture Content`)).toBeVisible();
-  await expect(page.getByText(`${att} · Atterberg Limits`)).toBeVisible();
-  await expect(page.locator('.request-list .badge', { hasText: 'Requested' })).toHaveCount(2);
+  await expect(page.getByText(`${mc} · Moisture Content`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`${att} · Atterberg Limits`, { exact: true }).first()).toBeVisible();
+  await expect(
+    page.locator('.request-list [data-slot="badge"]', { hasText: 'Waiting' }),
+  ).toHaveCount(2);
   // AC7: nothing asks for result values.
   await expect(page.getByLabel(/result/i)).toHaveCount(0);
 });
@@ -170,21 +160,23 @@ test('T7: two LAB stations request for different people; each submission keeps i
     for (const [i, page] of pages.entries()) {
       await signInAsLabStation(page);
       await startProgram(page);
-      await page.getByRole('combobox', { name: /Requested by/ }).fill(i === 0 ? 'Jordan' : 'Pat');
+      // STRATA-125: Requested by starts as the station's recording person; pick another person.
+      const person = page.getByRole('combobox', { name: /Requested by/ });
+      await expect(person).toHaveValue(/Alex Tester/);
+      await person.fill(i === 0 ? 'Jordan' : 'Pat');
       await page.getByRole('option', { name: people[i] }).click();
       await expect(page.getByText(/Recorded as LAB for/)).toContainText(people[i]!);
-      await chooseSource(page, 1, 'TH26-01');
-      await pickTest(page, 1, code);
-      await page.getByRole('button', { name: 'Save draft' }).click();
-      await expect(page).toHaveURL(/\/lab-testing\/programs\/[0-9a-f-]{36}$/);
+      const line = editorLine(page, 1);
+      await chooseSource(page, line, 'TH26-01');
+      await addTest(page, line, code);
+      await waitForSaved(page);
     }
     // Station A's person never changed station B's draft, and both submit independently.
     for (const [i, page] of pages.entries()) {
-      await page.getByRole('button', { name: 'Review', exact: true }).click();
-      await expect(page.getByRole('region', { name: 'Review before submitting' })).toBeVisible();
-      await submitReviewed(page);
-      await expect(page.locator('.program-summary')).toContainText('LAB for');
-      await expect(page.locator('.program-summary')).toContainText(people[i]!);
+      await submitToLab(page);
+      const header = page.locator('.program-lifecycle');
+      await expect(header).toContainText('LAB for');
+      await expect(header).toContainText(people[i]!);
     }
   } finally {
     await Promise.all(stations.map((context) => context.close()));

@@ -435,12 +435,22 @@ export type LifecycleEvent = z.infer<typeof lifecycleEventSchema>;
 
 export const CLOSE_BLOCKED_REASONS = {
   personal_sign_in: 'Closing a program needs a personal sign-in',
-  not_lead_project_engineer: 'Only the project’s Lead Project Engineer can close this program',
+  // STRATA-87 (Kyle 2026-11-12): the requester, the project's lead or a Lab Manager closes.
+  not_lead_project_engineer:
+    'Only the requester, the project’s lead or a Lab Manager can close this program',
   not_open: 'This program isn’t open',
   unresolved: 'Some tests aren’t resolved',
   empty_program: 'This program has no test requests',
 } as const;
 export type CloseBlockedReason = keyof typeof CLOSE_BLOCKED_REASONS;
+
+/**
+ * STRATA-87: why this account may close the program (whatever the closure checklist says), or
+ * null. Close program is the requester's and the lead's main action; a Lab Manager closes from
+ * More.
+ */
+export const CLOSE_AUTHORITIES = ['requester', 'lead', 'lab_manager'] as const;
+export type CloseAuthority = (typeof CLOSE_AUTHORITIES)[number];
 
 /** The program's lifecycle and what the signed-in account may do to it now. */
 export const programLifecycleSchema = z.object({
@@ -452,6 +462,7 @@ export const programLifecycleSchema = z.object({
   closure: closureEligibilitySchema,
   canClose: z.boolean(),
   closeBlockedReason: z.enum(Object.keys(CLOSE_BLOCKED_REASONS) as [CloseBlockedReason]).nullable(),
+  closeAs: z.enum(CLOSE_AUTHORITIES).nullable().default(null),
   canRequestClose: z.boolean(),
   canReopen: z.boolean(),
   /** Add lines/tests or include later receipts (open program, personal account). */

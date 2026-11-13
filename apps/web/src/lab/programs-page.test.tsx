@@ -1,15 +1,28 @@
-import type { LabProgramList, LabProgramSummary } from '@materialmule/shared';
+import type { LabProgramList, LabProgramSummary, MeResponse } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SessionContext } from '../session/context';
 import { ProgramsPage } from './ProgramsPage';
 
-// BUG-002 (paging), BUG-003 (closed status) and BUG-010 (stale answers) on Lab Testing →
-// Programs. Fictional data only: DEMO-2601, TH26-01, user PE.
+// Lab programs › Programs (STRATA-87; BUG-002 paging, BUG-003 closed status, BUG-010 stale
+// answers). Fictional data only: DEMO-2601, TH26-01, user PE.
 
 const PE = { userId: 'u-pe', initials: 'PE', name: 'Pat Example' };
+
+const me: MeResponse = {
+  id: 'u-pe',
+  displayName: 'Pat Example',
+  initials: 'PE',
+  accountType: 'personal',
+  status: 'active',
+  roles: [],
+  permissions: ['lab_program.read', 'lab_program.manage'],
+  sessionExpiresAt: '2026-11-30T16:00:00.000Z',
+  profileRefreshFailed: false,
+};
 
 function program(n: number, status: LabProgramSummary['status'] = 'submitted'): LabProgramSummary {
   return {
@@ -26,8 +39,12 @@ function program(n: number, status: LabProgramSummary['status'] = 'submitted'): 
     lineCount: 1,
     testCount: 2,
     progress: { done: 0, inProgress: 0, notStarted: 2, cancelled: 0 },
+    phase: status === 'draft' ? 'draft' : status === 'closed' ? 'closed' : 'testing',
+    closedAt: status === 'closed' ? '2026-10-30T16:00:00.000Z' : null,
   };
 }
+
+const COUNTS = { open: 11, drafts: 2, closed: 18 };
 
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -62,9 +79,26 @@ function stubPrograms(answer: (params: URLSearchParams) => Response | Promise<Re
   return queries;
 }
 
-function renderPage() {
-  const router = createMemoryRouter([{ path: '/', element: <ProgramsPage /> }]);
-  render(<RouterProvider router={router} />);
+function renderPage(entry = '/lab-testing/programs') {
+  const router = createMemoryRouter(
+    [
+      { path: '/lab-testing/programs', element: <ProgramsPage /> },
+      { path: '/lab-testing/programs/:id', element: <h1>Program page</h1> },
+    ],
+    { initialEntries: [entry] },
+  );
+  render(
+    <SessionContext.Provider
+      value={{
+        session: { status: 'active', me },
+        refresh: vi.fn(async () => undefined),
+        signOut: vi.fn(async () => undefined),
+      }}
+    >
+      <RouterProvider router={router} />
+    </SessionContext.Provider>,
+  );
+  return router;
 }
 
 const programLinks = () =>
@@ -72,20 +106,22 @@ const programLinks = () =>
     .getAllByRole('link')
     .map((link) => link.textContent);
 
-/** The Field Ledger Show filter is a segmented control (aria-pressed buttons). */
-const showButton = (name: string) =>
-  within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name });
+const tab = (name: RegExp) => screen.getByRole('tab', { name });
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Lab Testing → Programs list', () => {
-  it('BUG-002: pages through 51 programs and reaches the 51st', async () => {
+describe('Lab programs › Programs list (STRATA-87)', () => {
+  it('BUG-002: pages through 51 open programs and reaches the 51st', async () => {
     const all = Array.from({ length: 51 }, (_, i) => program(i + 1));
     const queries = stubPrograms((params) => {
       const page = Number(params.get('page') ?? '1');
-      const list: LabProgramList = { total: 51, items: all.slice((page - 1) * 50, page * 50) };
+      const list: LabProgramList = {
+        total: 51,
+        items: all.slice((page - 1) * 50, page * 50),
+        counts: COUNTS,
+      };
       return json(list);
     });
     const user = userEvent.setup();
@@ -101,95 +137,158 @@ describe('Lab Testing → Programs list', () => {
     expect(await screen.findByText('Showing 51–51 of 51 programs')).toBeInTheDocument();
     expect(programLinks()).toEqual(['LP-2026-0051']);
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
-    expect(queries).toEqual(['', 'page=2']);
+    expect(queries).toEqual(['status=submitted', 'status=submitted&page=2']);
   });
 
-  it('BUG-003: a closed program reads Closed, and the Closed filter starts again at page 1', async () => {
-    const queries = stubPrograms((params) => {
-      if (params.get('status') === 'closed') {
-        return json({ total: 1, items: [program(7, 'closed')] });
-      }
-      const page = Number(params.get('page') ?? '1');
-      const items = Array.from({ length: page === 1 ? 50 : 10 }, (_, i) =>
-        program((page - 1) * 50 + i + 1, i === 0 ? 'closed' : 'submitted'),
-      );
-      return json({ total: 60, items });
-    });
-    const user = userEvent.setup();
-    renderPage();
-
-    const table = await screen.findByRole('table', { name: 'Testing programs' });
-    const firstRow = within(table).getAllByRole('row')[1]!;
-    expect(within(firstRow).getByText('Closed')).toBeInTheDocument();
-    expect(within(table).getAllByText('Open')).toHaveLength(49);
-
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await screen.findByText('Page 2 of 2');
-    await user.click(showButton('Closed'));
-    expect(await screen.findByText('1 program')).toBeInTheDocument();
-    expect(programLinks()).toEqual(['LP-2026-0007']);
-    expect(queries.at(-1)).toBe('status=closed');
-  });
-
-  it('BUG-010: an earlier filter’s late answer or failure never replaces the current one', async () => {
-    const pending = { all: deferred(), drafts: deferred() };
-    stubPrograms((params) =>
-      params.get('status') === 'draft' ? pending.drafts.promise : pending.all.promise,
-    );
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(showButton('Drafts'));
-    pending.drafts.resolve(json({ total: 1, items: [program(3, 'draft')] }));
-    expect(await screen.findByText('1 program')).toBeInTheDocument();
-    // The All request answers last, with more programs.
-    pending.all.resolve(json({ total: 2, items: [program(3, 'draft'), program(4)] }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(programLinks()).toEqual(['Draft program']);
-    expect(showButton('Drafts')).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('BUG-010: a late failure for an earlier filter shows no error', async () => {
-    const pending = { all: deferred(), drafts: deferred() };
-    stubPrograms((params) =>
-      params.get('status') === 'draft' ? pending.drafts.promise : pending.all.promise,
-    );
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(showButton('Drafts'));
-    pending.drafts.resolve(json({ total: 1, items: [program(3, 'draft')] }));
-    expect(await screen.findByText('1 program')).toBeInTheDocument();
-    pending.all.reject(new Error('network'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByText('Programs couldn’t be loaded.')).not.toBeInTheDocument();
-    expect(programLinks()).toEqual(['Draft program']);
-  });
-
-  it('Field Ledger: progress is one counted cell per test, with the count in words', async () => {
+  it('shows tab counts, the status tag, priority, requester and "n of m" progress', async () => {
     stubPrograms(() =>
       json({
-        total: 1,
+        total: 2,
+        counts: COUNTS,
         items: [
-          { ...program(1), progress: { done: 2, inProgress: 1, notStarted: 1, cancelled: 1 } },
+          {
+            ...program(12),
+            priority: 'urgent',
+            phase: 'review',
+            progress: { done: 0, inProgress: 0, notStarted: 5, cancelled: 0 },
+          },
+          {
+            ...program(3),
+            phase: 'ready',
+            progress: { done: 4, inProgress: 0, notStarted: 0, cancelled: 1 },
+          },
         ],
       }),
     );
     renderPage();
-    const cells = await screen.findByRole('img', {
-      name: '2 of 4 tests done, 1 in progress, 1 not started, 1 cancelled',
+    const table = await screen.findByRole('table', { name: 'Testing programs' });
+    const [, first, second] = within(table).getAllByRole('row');
+    expect(within(first!).getByText('Due · Review')).toBeInTheDocument();
+    expect(within(first!).getByText('Urgent · Priority')).toBeInTheDocument();
+    expect(within(first!).getByText('0 of 5')).toBeInTheDocument();
+    expect(within(first!).getByText('Pat Example')).toBeInTheDocument();
+    expect(within(second!).getByText('Due · Ready to close')).toBeInTheDocument();
+    expect(within(second!).getByText('Normal')).toBeInTheDocument();
+    expect(within(second!).getByText('4 of 4')).toBeInTheDocument();
+    expect(within(second!).getByText('1 cancelled')).toBeInTheDocument();
+    expect(
+      within(second!).getByRole('progressbar', {
+        name: '4 of 4 tests done, 0 in progress, 0 not started, 1 cancelled',
+      }),
+    ).toBeInTheDocument();
+    expect(tab(/^Open/)).toHaveTextContent('Open11');
+    expect(tab(/^Drafts \(mine\)/)).toHaveTextContent('2');
+    expect(tab(/^Closed/)).toHaveTextContent('18');
+  });
+
+  it('BUG-003: the Closed tab asks for closed programs from page 1 and shows when each closed', async () => {
+    const queries = stubPrograms((params) => {
+      if (params.get('status') === 'closed') {
+        return json({ total: 1, items: [program(7, 'closed')], counts: COUNTS });
+      }
+      const page = Number(params.get('page') ?? '1');
+      const items = Array.from({ length: page === 1 ? 50 : 10 }, (_, i) =>
+        program((page - 1) * 50 + i + 1),
+      );
+      return json({ total: 60, items, counts: COUNTS });
     });
-    expect(cells.querySelectorAll('.counted-cell')).toHaveLength(4);
-    expect(cells.querySelectorAll('.counted-cell-done')).toHaveLength(2);
-    expect(cells.querySelectorAll('.counted-cell-current')).toHaveLength(1);
-    expect(screen.getByText(/2 of 4 done · 1 in progress · 1 cancelled/)).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Table view' })).toBeInTheDocument();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await screen.findByText('Page 2 of 2');
+    await user.click(tab(/^Closed/));
+    expect(await screen.findByText('1 program')).toBeInTheDocument();
+    expect(programLinks()).toEqual(['LP-2026-0007']);
+    expect(screen.getByText('Closed · Lab program')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Closed' })).toBeInTheDocument();
+    expect(screen.getByText('2026-10-30')).toBeInTheDocument();
+    expect(queries.at(-1)).toBe('status=closed');
+  });
+
+  it('Drafts (mine): no LP number, lines and tests, and a draft opens in the editor', async () => {
+    stubPrograms((params) =>
+      json(
+        params.get('status') === 'draft'
+          ? { total: 1, items: [{ ...program(3, 'draft'), testCount: 0 }], counts: COUNTS }
+          : { total: 0, items: [], counts: COUNTS },
+      ),
+    );
+    const user = userEvent.setup();
+    const router = renderPage('/lab-testing/programs?tab=drafts');
+    expect(
+      await screen.findByText(
+        'Only your own drafts are listed. A draft gets its LP number when it is submitted.',
+      ),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('1 line · no tests yet')).toBeInTheDocument();
+    expect(screen.getByText('Draft · Lab program')).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Draft lab program' }));
+    expect(router.state.location.pathname).toBe('/lab-testing/programs/p-3');
+  });
+
+  it('BUG-010: an earlier tab’s late answer or failure never replaces the current one', async () => {
+    const pending = { open: deferred(), drafts: deferred() };
+    stubPrograms((params) =>
+      params.get('status') === 'draft' ? pending.drafts.promise : pending.open.promise,
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(tab(/^Drafts/));
+    pending.drafts.resolve(json({ total: 1, items: [program(3, 'draft')] }));
+    expect(await screen.findByText('1 program')).toBeInTheDocument();
+    // The Open request answers last, with more programs; then a late failure.
+    pending.open.resolve(json({ total: 2, items: [program(4), program(5)] }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(programLinks()).toEqual(['Draft lab program']);
+    expect(tab(/^Drafts/)).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByText('The programs couldn’t be loaded.')).not.toBeInTheDocument();
+  });
+
+  it('search goes to the server; no matches offers Clear search', async () => {
+    const queries = stubPrograms((params) =>
+      json(
+        params.get('search')
+          ? { total: 0, items: [], counts: COUNTS }
+          : { total: 1, items: [program(1)], counts: COUNTS },
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage('/lab-testing/programs?search=DEMO-9999');
+    expect(await screen.findByText('No programs match “DEMO-9999”.')).toBeInTheDocument();
+    expect(queries).toContain('status=submitted&search=DEMO-9999');
+    const empty = screen.getByText('No programs match “DEMO-9999”.').closest('[data-slot="empty"]');
+    await user.click(within(empty as HTMLElement).getByRole('button', { name: 'Clear search' }));
+    expect(await screen.findByText('1 program')).toBeInTheDocument();
+  });
+
+  it('an empty tab says what will appear there', async () => {
+    stubPrograms(() => json({ total: 0, items: [], counts: { open: 0, drafts: 0, closed: 0 } }));
+    renderPage();
+    expect(await screen.findByText('No lab programs are open.')).toBeInTheDocument();
+    expect(screen.getByText(/Start one with New lab program/)).toBeInTheDocument();
+  });
+
+  it('a failed load offers Try again', async () => {
+    let calls = 0;
+    stubPrograms(() => {
+      calls += 1;
+      return calls === 1
+        ? new Response('{}', { status: 500 })
+        : json({ total: 1, items: [program(1)], counts: COUNTS });
+    });
+    const user = userEvent.setup();
+    renderPage();
+    expect(await screen.findByText('The programs couldn’t be loaded.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('1 program')).toBeInTheDocument();
   });
 
   it('steps back when the page asked for is past the end', async () => {
     const queries = stubPrograms((params) => {
       const page = Number(params.get('page') ?? '1');
-      // 60 programs on the first answer, then drafts were deleted elsewhere: only 40 remain.
+      // 60 programs on the first answer, then programs went elsewhere: only 40 remain.
       if (page === 1 && queries.length === 1) {
         return json({ total: 60, items: Array.from({ length: 50 }, (_, i) => program(i + 1)) });
       }
@@ -201,7 +300,15 @@ describe('Lab Testing → Programs list', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Next' }));
     expect(await screen.findByText('40 programs')).toBeInTheDocument();
-    expect(queries).toEqual(['', 'page=2', '']);
+    expect(queries).toEqual(['status=submitted', 'status=submitted&page=2', 'status=submitted']);
     expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
+  });
+
+  it('a row opens the program page on a narrow screen (no drawer below 1024 px)', async () => {
+    stubPrograms(() => json({ total: 1, items: [program(7)], counts: COUNTS }));
+    const user = userEvent.setup();
+    const router = renderPage();
+    await user.click(await screen.findByText('Riverbank investigation'));
+    expect(router.state.location.pathname).toBe('/lab-testing/programs/p-7');
   });
 });

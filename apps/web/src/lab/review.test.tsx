@@ -60,6 +60,7 @@ function work(
       closure: { eligible: false, emptyProgram: false, blockers: [], counts: {}, summary: '' },
       canClose: false,
       closeBlockedReason: 'not_lead_project_engineer',
+      closeAs: null,
       canRequestClose: false,
       canReopen: false,
       canAmend: false,
