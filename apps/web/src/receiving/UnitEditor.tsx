@@ -99,7 +99,7 @@ export function UnitEditor({
   const holderId = fieldId(`${path}.unitType`);
 
   const holder = (
-    <div className="flex w-44 shrink-0 flex-col gap-1.5">
+    <div className="flex w-44 max-w-full shrink-0 flex-col gap-1.5">
       <span className="text-[13px] leading-none font-semibold" aria-hidden="true">
         Holder
       </span>
@@ -126,7 +126,7 @@ export function UnitEditor({
       id={fieldId(`${path}.note`)}
       label="Note (optional)"
       error={errors.get(`${path}.note`)}
-      className="min-w-48 flex-1 basis-48"
+      className="flex-1 basis-48"
     >
       {(props) => (
         <Input
@@ -148,7 +148,7 @@ export function UnitEditor({
           {holder}
           <div
             id={fieldId(`${path}.holeSummaries`)}
-            className="flex w-60 min-w-0 shrink-0 flex-col gap-1.5"
+            className="flex w-60 max-w-full min-w-0 shrink-0 flex-col gap-1.5"
           >
             {projectId ? (
               <TestHolePicker
@@ -221,7 +221,7 @@ export function UnitEditor({
                   summary={summary}
                   path={`${path}.holeSummaries.${summaryIndex}`}
                   errors={errors}
-                  className="flex-1"
+                  className="flex-1 basis-64"
                   onChange={(changes) =>
                     onChange((current) => ({
                       ...current,

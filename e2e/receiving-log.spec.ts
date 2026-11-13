@@ -37,7 +37,8 @@ async function printJobCount(): Promise<number> {
 /** Opens the toolbar search and types into it (the server is asked after a short pause). */
 async function searchReceipts(page: Page, text: string) {
   const box = page.getByRole('searchbox', { name: 'Search receipts' });
-  if (!(await box.isVisible())) await page.getByRole('button', { name: 'Search' }).click();
+  if (!(await box.isVisible()))
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
   await box.fill(text);
 }
 
@@ -70,7 +71,7 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
     name: `Open receipt: ${projectNumber}, received 2026-10-21 by AT · Alex Tester`,
   });
   await expect(open).toBeVisible();
-  await expect(table.getByText('Confirmed')).toBeVisible();
+  await expect(table.getByText('Confirmed', { exact: true })).toBeVisible();
   await noHorizontalScroll(page);
 
   // The URL keeps the search across a reload.
@@ -117,8 +118,15 @@ test('T7/T8: receive two buckets at LAB, find the receipt, open it, its unit and
       .getByRole('group', { name: 'Preview label' })
       .getByRole('img', { name: `Label for storage unit ${ids[0]}` }),
   ).toBeVisible();
+  // STRATA-72: Correct sits in More, disabled for LAB with its reason under it.
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Correct' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
   await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
 
   // Reading and previewing queued no printing (AC8).
   expect(await printJobCount()).toBe(printJobs);

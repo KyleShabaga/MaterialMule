@@ -13,6 +13,7 @@ import { createTestHole, listTestHoles } from '../api/projects';
 import { RequiredMarker } from '../components/app-ui';
 import { useListHighlight } from '../components/useListHighlight';
 import { FieldErrorText } from './LabeledField';
+import { PICKER_OPTION_CLASS } from './picker-option';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing
 // matches exactly (MM-T08). Names are kept as typed (trimmed): never renamed or re-yeared.
@@ -286,7 +287,8 @@ export function TestHolePicker({
                 aria-selected={index === active}
                 aria-disabled={option.kind === 'add' && (!online || saving) ? 'true' : undefined}
                 className={cn(
-                  'flex min-h-9 cursor-pointer items-center rounded-sm px-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
+                  PICKER_OPTION_CLASS,
+                  'aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
                   option.kind === 'hole' ? 'font-mono' : 'font-semibold',
                 )}
                 onMouseDown={(event) => event.preventDefault()}

@@ -160,6 +160,16 @@ describe('storage unit page (STRATA-72)', () => {
     );
   });
 
+  it('MM-T79: links on the unit page darken on hover and are never underlined', async () => {
+    renderUnit(UNIT);
+    await screen.findByRole('heading', { level: 1, name: 'BKT-2026-000019' });
+    const page = document.querySelector('.unit-page');
+    // The rule is a utility so it beats shadcn's link hover:underline (e2e/link-contrast checks
+    // the computed style in a browser).
+    expect(page?.className).toContain('[&_a:hover]:no-underline');
+    expect(page?.className).toContain('[&_a:hover]:text-(--accent-ink)');
+  });
+
   it('retention due offers Decide, linking to the retention route', async () => {
     renderUnit({ ...UNIT, recordStatus: 'retention_due', stage: 'due' });
     expect(await screen.findByRole('link', { name: 'Decide' })).toHaveAttribute(

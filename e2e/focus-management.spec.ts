@@ -39,8 +39,12 @@ test('MTR-136: removing a unit focuses the unit before it, then Add unit', async
   async function removeByKeyboard(unitName: string) {
     await page.getByRole('button', { name: `${unitName} actions` }).focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('menuitem', { name: `Remove ${unitName}` })).toBeVisible();
+    const remove = page.getByRole('menuitem', { name: `Remove ${unitName}` });
+    await expect(remove).toBeVisible();
+    // The menu focuses its first item once open; End before that would be undone by it.
+    await expect(page.getByRole('menuitem').first()).toBeFocused();
     await page.keyboard.press('End');
+    await expect(remove).toBeFocused();
     await page.keyboard.press('Enter');
   }
   await removeByKeyboard('Bucket 3');

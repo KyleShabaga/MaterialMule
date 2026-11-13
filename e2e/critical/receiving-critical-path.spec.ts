@@ -412,9 +412,9 @@ test(
     await expect(form).toBeHidden();
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
     // D46: retention follows the corrected date; the ID and location stay.
-    await expect(
-      page.getByRole('region', { name: 'Retention', exact: true }).getByText('2027-10-19'),
-    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
+      'Retain until 2027-10-19',
+    );
     await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('Receiving lab');
     await expect(page.getByRole('list', { name: 'History events' })).toContainText(
       'Reason: wrong date on tag',
@@ -426,8 +426,15 @@ test(
     await signInAsLabStation(page);
     await page.goto(`/sample-storage/${id}`);
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
+    // STRATA-72: Correct sits in More, disabled for LAB with its reason under it.
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Correct' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
     const refused = await page.request.patch(`/api/storage-units/${unit!.storageUnitId}`, {
       headers: { 'x-materialmule-csrf': '1' },
       data: {

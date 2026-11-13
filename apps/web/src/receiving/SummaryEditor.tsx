@@ -162,7 +162,7 @@ export function SummaryEditor({
           label="Custom summary"
           hint="State units if you describe depths."
           error={error('customText')}
-          className="min-w-56 flex-1"
+          className="flex-1 basis-56"
         >
           {(props) => (
             <Textarea
@@ -182,7 +182,7 @@ export function SummaryEditor({
           id={fieldId(at('note'))}
           label="Summary note (optional)"
           error={error('note')}
-          className="min-w-44 flex-1"
+          className="flex-1 basis-44"
         >
           {(props) => (
             <Input

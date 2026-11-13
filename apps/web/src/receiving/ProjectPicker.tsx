@@ -29,6 +29,7 @@ import { useListHighlight } from '../components/useListHighlight';
 import { StaffOptionGroups } from '../projects/StaffOptionGroups';
 import { FieldErrorText, LabeledField, NATIVE_SELECT_CLASS } from './LabeledField';
 import { prefillFromQuery } from './prefill';
+import { PICKER_OPTION_CLASS } from './picker-option';
 
 // Project combobox with "Add project" in a Dialog (MM-T08, STRATA-76). The typed text lives in
 // the receipt draft (props), so nothing typed is lost while adding a project or while offline.
@@ -55,8 +56,6 @@ interface AddForm {
 
 const LIST_CLASS =
   'bg-popover text-popover-foreground absolute top-full right-0 left-0 z-30 m-0 mt-1 max-h-72 list-none overflow-y-auto rounded-md border p-1 shadow-md';
-const OPTION_CLASS =
-  'aria-selected:bg-accent aria-selected:text-accent-foreground flex min-h-9 cursor-pointer items-center rounded-sm px-2 text-sm';
 const NOTE_OPTION_CLASS = 'text-muted-foreground flex min-h-9 items-center px-2 text-sm';
 
 export function ProjectPicker({
@@ -298,8 +297,8 @@ export function ProjectPicker({
       <Label htmlFor={`${id}-search`} className="text-[13px] font-semibold">
         Find project (number or name)
       </Label>
-      <div className="flex min-w-0 flex-wrap items-start gap-2">
-        <div className="relative min-w-0 flex-1 basis-72">
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="relative min-w-0 flex-1">
           <Input
             id={`${id}-search`}
             role="combobox"
@@ -329,7 +328,7 @@ export function ProjectPicker({
                   id={`${listboxId}-${index}`}
                   role="option"
                   aria-selected={index === active}
-                  className={OPTION_CLASS}
+                  className={PICKER_OPTION_CLASS}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(project)}
                 >
@@ -358,10 +357,20 @@ export function ProjectPicker({
             </ul>
           ) : null}
         </div>
-        {/* Beside the search box, so the open list never covers it. */}
-        <Button type="button" variant="outline" onClick={startAdding} disabled={!online}>
+        {/* Beside the search box, never wrapped under it, so the open list never covers it.
+            On phones the label is visually hidden (still its accessible name) to keep it beside. */}
+        <Button
+          type="button"
+          variant="outline"
+          className="shrink-0"
+          title={online ? 'Add project' : 'Connect to add a project'}
+          onClick={startAdding}
+          disabled={!online}
+        >
           <Plus aria-hidden="true" />
-          {online ? 'Add project' : 'Connect to add a project'}
+          <span className="max-sm:sr-only">
+            {online ? 'Add project' : 'Connect to add a project'}
+          </span>
         </Button>
       </div>
       <p id={`${id}-hint`} className="text-muted-foreground m-0 text-[13px]">

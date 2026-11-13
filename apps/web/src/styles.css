@@ -1064,7 +1064,8 @@
 
   .receiver-options {
     position: absolute;
-    z-index: 10;
+    /* Above sticky bars (z-20), such as Receive samples' confirm bar under Received by. */
+    z-index: 30;
     top: calc(100% + 2px);
     left: 0;
     right: 0;

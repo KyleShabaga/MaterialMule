@@ -465,6 +465,10 @@ describe('Receive samples on one page (STRATA-76)', () => {
     );
     // T8/AC5: Received by starts blank on LAB; the Recording as person never fills it.
     expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
+    // MM-T07: the hint still says what to do when the person isn't listed.
+    expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveAccessibleDescription(
+      'Choose who took the delivery. Search by initials or name. Not listed? Ask an administrator to add them.',
+    );
     expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveAttribute(
       'aria-required',
       'true',

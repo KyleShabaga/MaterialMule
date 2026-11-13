@@ -78,9 +78,15 @@ function backTarget(state: unknown): { to: string; label: string } {
  * below that). A disposed unit is read-only: it keeps its ID and history, has no main action, and
  * can't be relabelled. Corrections stay enforced on the server.
  */
+/**
+ * MM-T79 (owner decision 2026-10-30): on this page only, a hovered link darkens and is never
+ * underlined. A utility, so it beats shadcn's link `hover:underline`; focus keeps its outline.
+ */
+const UNIT_PAGE_LINK_HOVER = '[&_a:hover]:text-(--accent-ink) [&_a:hover]:no-underline';
+
 export function StorageUnitDetailPage() {
   return (
-    <div className="unit-page @container min-w-0">
+    <div className={`unit-page @container min-w-0 ${UNIT_PAGE_LINK_HOVER}`}>
       <StorageUnitDetail />
     </div>
   );

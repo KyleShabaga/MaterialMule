@@ -47,7 +47,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { listActiveStaff, listBulkGroups } from '../api/projects';
 import { fetchProjectDetail } from '../projects/api';
-import { ReceiverSelect } from '../components/ReceiverSelect';
+import { NOT_LISTED_MESSAGE, ReceiverSelect } from '../components/ReceiverSelect';
 import { useOnline } from '../lib/online';
 import { LAB_EXPIRED_MESSAGE } from '../pages/SignInPage';
 import { useSession } from '../session/context';
@@ -851,7 +851,7 @@ export function ReceiptWizard({
           <h2 id="receive-received" className="m-0 mb-4 text-base font-semibold">
             Received
           </h2>
-          <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,24rem)_minmax(0,1fr)]">
+          <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)] lg:grid-cols-[12rem_minmax(0,24rem)_minmax(0,1fr)]">
             <LabeledField
               id={fieldId('receivedDate')}
               label="Received date"
@@ -877,11 +877,12 @@ export function ReceiptWizard({
                 value={draft.receiver}
                 onChange={(receiver) => set({ receiver })}
                 error={errorByField.get('receiverUserId')}
-                hint={
+                // MM-T07: say what to do when the person isn't in the list.
+                hint={`${
                   onStation
                     ? 'Choose who took the delivery. Search by initials or name.'
                     : 'Starts as you. Change it when receiving for someone else.'
-                }
+                } ${NOT_LISTED_MESSAGE}`}
               />
               {forSomeoneElse ? (
                 <p className="text-muted-foreground m-0 text-[13px]" role="status">
@@ -895,6 +896,7 @@ export function ReceiptWizard({
               label="Description (optional)"
               hint="What arrived, e.g. 4 buckets from the drill crew."
               error={errorByField.get('description')}
+              className="md:col-span-2 lg:col-span-1"
             >
               {(props) => (
                 <Textarea
