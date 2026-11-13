@@ -3,14 +3,15 @@ import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { receiveThroughApi, uniqueTag } from './support/receiving';
 
-// MM-T49 (MM-T34 coverage): a new receipt appears first in Today's ledger (Field Ledger; was the
-// dashboard's Recent activity).
+// MM-T49 (MM-T34 coverage): a new receipt appears first in Today's Last 24 hours (Strata; was the
+// Field Ledger's ledger). Alex has no lab role and leads no project, so the list is his own work
+// (scope=mine), written in the second person (STRATA-23).
 // Fictional data: a DEMO-2601 bucket received by AT.
 //
 // Other workers (and the other viewport) confirm receipts at the same time, so "first" means: no
 // event listed above ours is older than ours. Run alone, ours is the very first item.
 
-test('a new receipt is the newest entry in the ledger and links to the receipt', async ({
+test('a new receipt is the newest entry in the last 24 hours and links to the receipt', async ({
   page,
 }) => {
   await signInAs(page, 'at');
@@ -20,10 +21,10 @@ test('a new receipt is the newest entry in the ledger and links to the receipt',
   const id = unit!.suNumber;
 
   await page.goto('/');
-  const activity = page.getByRole('region', { name: 'Ledger' });
+  const activity = page.getByRole('region', { name: 'Last 24 hours' });
   const ours = activity
     .getByRole('listitem')
-    .filter({ hasText: `AT received ${id} for DEMO-2601` });
+    .filter({ hasText: `You received ${id} for DEMO-2601` });
   await expect(ours).toHaveCount(1);
 
   const items = await activity.getByRole('listitem').evaluateAll((elements) =>

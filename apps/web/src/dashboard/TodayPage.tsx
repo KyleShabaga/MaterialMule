@@ -1,529 +1,461 @@
-import type { ActivityItem, MeResponse, StorageLocation } from '@materialmule/shared';
-import { useEffect, useState } from 'react';
+import {
+  ArrowDownToLine,
+  ArrowRightLeft,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  ClipboardCheck,
+  FlaskConical,
+  Folder,
+  FolderPlus,
+  Hammer,
+  Hourglass,
+  Printer,
+  RotateCw,
+  ScanLine,
+  SquareKanban,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  DEFAULT_DATE_FORMAT,
+  NEEDS_YOU_FIRST,
+  needsYouSummary,
+  STAGE_WORDS,
+  type DateFormatPreference,
+  type MeResponse,
+  type NeedsYouItem,
+  type NeedsYouResponse,
+} from '@materialmule/shared';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { fetchOpenCount } from '../action-requests/api';
-import { EmptyState, ErrorState, StatusBadge } from '../components/app-ui';
-import { useMediaQuery } from '../components/useMediaQuery';
+import { STAGE_MARK_BG } from '@/components/strata/stage';
+import { StageTag } from '@/components/strata/stage-tag';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { FEATURES } from '../features';
-import { PHONE_QUERY } from '../layout/AppLayout';
-import { ContextRow } from '../layout/ContextRow';
-import { formatUnitCount } from '../receiving/draft';
 import { useMe } from '../session/context';
-import { fetchSystemStatus } from '../settings/system-status/api';
+import { useRecordingPerson } from '../session/recording-person';
+import { fetchActivity, fetchDateFormat, fetchLeadsAnyProject, fetchNeedsYou } from './api';
+import { StationSetupCard } from './station/StationSetupCard';
+import { StationToday } from './station/StationToday';
 import {
-  fetchLedger,
-  fetchLocations,
-  fetchOpenConflicts,
-  fetchOpenPrograms,
-  fetchRecentlyReceived,
-  fetchRetentionDue,
-  type Loaded,
-} from './api';
-import { resumeDraftPath, useDashboardDrafts, type DraftsState } from './drafts';
-import { shortTime } from './format';
-import {
-  byUrgency,
+  ACTIVITY_SCOPE_BY_ROLE,
+  CLEAR_HINT_BY_ROLE,
   firstName,
-  greeting,
-  listNames,
-  locationCells,
-  plural,
-  ROOM_LOCATIONS_MAX,
-  shortTodayLine,
-  todayLine,
-  wholeDays,
-  type NeedsItem,
+  greetingText,
+  monoParts,
+  shortcutsFor,
+  splitActivity,
+  todayRole,
+  unavailableNote,
+  visibleNeeds,
+  welcomeDate,
+  type ActivityLine,
+  type ShortcutIcon,
+  type TodayRole,
 } from './today';
 import { useLoad, type LoadState } from './useLoad';
-import './dashboard.css';
 
-// Today (Field Ledger; docs/redesign/design.md "UX changes", canvas Main and PhoneToday): the ink
-// greeting block, the counts, the "Needs you" queue where each row links to the screen that
-// clears it, the last 24 hours of the ledger, and the storage room drawn as cells. Every count
-// comes from a list or count the app already has; a kind this account can't read is left out.
+// Today (Strata; DESIGN.md "Today with an own account", "Today for the Lab Manager", "Today for a
+// technician"; canvases TodayLeadContent, TodayManagerContent, TodayTechContent). A LAB station
+// gets the station's own Today. Needs you and the last 24 hours load independently, so one
+// failing leaves the other and the shortcuts working. The Inbox badge never comes from here.
 
-/** A load that is never made for this session (feature off or no permission). */
-const SKIPPED: Promise<Loaded<never>> = Promise.resolve({
-  ok: false,
-  message: '',
-  forbidden: true,
-});
-const skip = () => SKIPPED;
+/** The Inbox page Needs you's heading links to. */
+export const INBOX_PATH = '/inbox';
 
-/** The value of a ready load, else null (loading, refused, failed). */
-function ready<T>(state: LoadState<T>): T | null {
-  return state.state === 'ready' ? state.data : null;
+const SHORTCUT_ICONS: Record<ShortcutIcon, LucideIcon> = {
+  'flask-conical': FlaskConical,
+  'clipboard-check': ClipboardCheck,
+  folder: Folder,
+  'folder-plus': FolderPlus,
+  'square-kanban': SquareKanban,
+  hammer: Hammer,
+  hourglass: Hourglass,
+  'scan-line': ScanLine,
+  'arrow-down-to-line': ArrowDownToLine,
+  'arrow-right-left': ArrowRightLeft,
+  printer: Printer,
+};
+
+/** Never settles: a load that waits for something else first. */
+const WAITING = new Promise<never>(() => undefined);
+
+function MonoText({ text, ids }: { text: string; ids?: readonly string[] }) {
+  return (
+    <>
+      {monoParts(text, ids).map((part, i) =>
+        part.mono ? (
+          <span key={i} className="font-mono text-[13px] whitespace-nowrap">
+            {part.text}
+          </span>
+        ) : (
+          part.text
+        ),
+      )}
+    </>
+  );
 }
 
-function useToday(me: MeResponse) {
-  const has = (permission: string) => (me.permissions as readonly string[]).includes(permission);
-  const [ledger, retryLedger] = useLoad('ledger', fetchLedger);
-  const [labels] = useLoad('labels', () => fetchRecentlyReceived('labels', 5));
-  const [conflicts] = useLoad('conflicts', fetchOpenConflicts);
-  const [locations, retryLocations] = useLoad('locations', fetchLocations);
-  const [retention] = useLoad('retention', FEATURES.disposalRetention ? fetchRetentionDue : skip);
-  const [programs] = useLoad(
-    'programs',
-    FEATURES.labTesting && has('lab_program.read') ? fetchOpenPrograms : skip,
-  );
-  const [status] = useLoad('status', has('system.status.read') ? fetchSystemStatus : skip);
-  const [actions, setActions] = useState<number | null>(null);
-  const canAct = has('action_item.read');
+/** Which Today this account gets; null while it is being worked out (one projects call). */
+function useTodayRole(me: MeResponse): TodayRole | null {
+  const manager = me.roles.includes('lab_manager');
+  const canList = me.permissions.includes('inventory.read');
+  const [leads, setLeads] = useState<boolean | null>(null);
+  const asks = !manager && canList;
   useEffect(() => {
-    if (!canAct) return;
+    if (!asks) return;
     let active = true;
-    void fetchOpenCount()
-      .then((value) => active && setActions(value))
-      .catch(() => undefined);
+    void fetchLeadsAnyProject().then((value) => {
+      if (active) setLeads(value);
+    });
     return () => {
       active = false;
     };
-  }, [canAct]);
-  const drafts = useDashboardDrafts(me);
-  return {
-    ledger,
-    retryLedger,
-    labels,
-    conflicts,
-    locations,
-    retryLocations,
-    retention,
-    programs,
-    status,
-    actions,
-    drafts,
-  };
+  }, [asks]);
+  if (!asks) return todayRole(me, false);
+  return leads === null ? null : todayRole(me, leads);
 }
 
-type TodayData = ReturnType<typeof useToday>;
-
-/** The "Needs you" rows that apply now, most urgent first. */
-function needsItems(data: TodayData): NeedsItem[] {
-  const items: NeedsItem[] = [];
-  const status = ready(data.status);
-  if (status && !status.printWorker.running) {
-    items.push({
-      key: 'print-queue',
-      tag: { label: 'Print', tone: 'danger' },
-      title: 'The print queue has stopped',
-      sub: 'No label prints until it runs again',
-      action: 'Open System status',
-      href: '/settings/system-status',
-      why: 'NO LABEL CAN PRINT UNTIL THE QUEUE RUNS',
-      lead: 'Start with the print queue',
+function useDateFormat(): DateFormatPreference {
+  const [format, setFormat] = useState<DateFormatPreference>(DEFAULT_DATE_FORMAT);
+  useEffect(() => {
+    let active = true;
+    void fetchDateFormat().then((value) => {
+      if (active) setFormat(value);
     });
-  }
-  if (data.actions) {
-    items.push({
-      key: 'action-requests',
-      tag: { label: 'Action', tone: 'flag' },
-      title: `${plural(data.actions, 'action request')} ${data.actions === 1 ? 'waits' : 'wait'} on you`,
-      sub: 'Each one closes when the real action is done',
-      action: 'Open',
-      href: '/action-requests',
-      why: 'ROUTED TO YOU BY NAME',
-      lead: 'Start with your action requests',
-    });
-  }
-  const labels = ready(data.labels);
-  if (labels && labels.labelsToCheck > 0) {
-    const first = labels.items[0];
-    items.push({
-      key: 'labels',
-      tag: { label: 'Print', tone: 'waiting' },
-      title: `${plural(labels.labelsToCheck, 'label')} to check`,
-      sub: `Sent to the printer; nobody has confirmed ${labels.labelsToCheck === 1 ? 'it' : 'they'} came out${
-        first ? ` · ${first.readableId}${labels.labelsToCheck > 1 ? ' first' : ''}` : ''
-      }`,
-      action: 'Check',
-      href: first ? `/sample-storage/${encodeURIComponent(first.readableId)}` : '/sample-storage',
-      why: 'A UNIT WITHOUT ITS LABEL CANNOT BE SCANNED',
-      lead: 'Start with the labels',
-    });
-  }
-  const conflicts = ready(data.conflicts);
-  if (conflicts && conflicts.total > 0) {
-    items.push({
-      key: 'conflicts',
-      tag: { label: 'Location', tone: 'waiting' },
-      title: `${formatUnitCount(conflicts.total)} ${conflicts.total === 1 ? 'needs its' : 'need their'} location confirmed`,
-      sub: 'Two moves disagree about where the unit is',
-      action: 'Confirm',
-      href: '/sample-storage?conflict=open',
-      why: 'THE RECORD AND THE SHELF DISAGREE',
-      lead: 'Start with the location check',
-    });
-  }
-  if (data.drafts.state === 'ready' && data.drafts.drafts.length > 0) {
-    const list = data.drafts.drafts;
-    const projects = list.flatMap((d) => (d.data.project ? [d.data.project.projectNumber] : []));
-    const units = list.reduce((sum, d) => sum + d.data.units.length, 0);
-    items.push({
-      key: 'drafts',
-      tag: { label: 'Draft', tone: 'waiting' },
-      title:
-        list.length === 1
-          ? `A receipt${projects[0] ? ` for ${projects[0]}` : ''} is waiting to be confirmed`
-          : `${list.length} receipts are waiting to be confirmed`,
-      sub: `${formatUnitCount(units)}${projects.length && list.length > 1 ? ` · ${listNames(projects)}` : ''} · on this computer · IDs issue when you confirm`,
-      action: list.length === 1 ? 'Continue' : 'Review',
-      href: list.length === 1 ? resumeDraftPath(list[0]!) : '/receiving-log/new',
-      why: 'NO ID IS ISSUED UNTIL YOU CONFIRM',
-      lead: list.length === 1 ? 'Finish the draft receipt' : 'Finish the draft receipts',
-    });
-  }
-  const retention = ready(data.retention);
-  if (retention && retention.total > 0) {
-    items.push({
-      key: 'retention',
-      tag: { label: 'Due', tone: 'danger' },
-      title: `${formatUnitCount(retention.total)} ${retention.total === 1 ? 'has' : 'have'} reached the end of retention`,
-      sub: listNames(retention.items.map((unit) => unit.project.projectNumber)),
-      action: 'Decide',
-      href: '/disposal-retention',
-      why: 'PAST THE RETAIN-UNTIL DATE',
-      lead: 'Start with retention',
-    });
-  }
-  const programs = ready(data.programs);
-  if (programs && programs.total > 0) {
-    const oldest = Math.max(0, ...programs.items.map((p) => p.oldestOpenSeconds ?? 0));
-    const tests = programs.items.reduce((sum, p) => sum + p.openCount, 0);
-    items.push({
-      key: 'lab',
-      tag: { label: 'Lab', tone: 'lab' },
-      title: `${plural(programs.total, 'lab program')} ${programs.total === 1 ? 'has' : 'have'} open tests`,
-      sub: `${plural(tests, 'open test')}${programs.total > programs.items.length ? ' on this page' : ''} · ${listNames(programs.items.map((p) => p.project.projectNumber))}`,
-      action: 'Open',
-      href: '/lab-testing',
-      lead: 'Start with the lab',
-      why: `OLDEST OPEN TEST: ${plural(wholeDays(oldest), 'DAY')} OLD`,
-    });
-  }
-  return byUrgency(items);
+    return () => {
+      active = false;
+    };
+  }, []);
+  return format;
 }
 
-function Greeting({
+function Welcome({
   me,
-  items,
   now,
-  labName,
+  needs,
 }: {
   me: MeResponse;
-  items: NeedsItem[];
   now: Date;
-  labName: string | null;
+  needs: LoadState<NeedsYouResponse>;
 }) {
-  const name = me.accountType === 'shared_lab' ? null : firstName(me.displayName);
-  const first = items[0];
+  const dateFormat = useDateFormat();
   return (
-    <section className="today-greeting" aria-labelledby="today-greeting">
-      <div className="today-greeting-text">
-        <p className="today-greeting-line mono">
-          TODAY · {todayLine(now)}
-          {labName ? ` · ${labName.toUpperCase()}` : ''}
+    <header className="grid gap-1">
+      <p className="text-sm text-muted-foreground">{welcomeDate(now, dateFormat)}</p>
+      <h1 className="text-3xl font-semibold tracking-tight">
+        {greetingText(firstName(me.displayName), now)}
+      </h1>
+      {needs.state === 'ready' ? (
+        <p className="text-base text-muted-foreground">
+          {needsYouSummary(needs.data.total, needs.data.fromInbox)}
         </p>
-        <h1 id="today-greeting">{greeting(name, items.length, now)}</h1>
-      </div>
-      {first ? (
-        <div className="today-greeting-next">
-          <Link className="button primary today-greeting-action" to={first.href}>
-            {first.lead}
-          </Link>
-          <span className="today-greeting-why mono">{first.why}</span>
-        </div>
+      ) : needs.state === 'loading' ? (
+        <Skeleton className="h-6 w-64" aria-hidden="true" />
       ) : null}
-    </section>
+    </header>
   );
 }
 
-function CountStrip({ data }: { data: TodayData }) {
-  const cells: { label: string; n: number | null; sub: string; href: string }[] = [];
-  cells.push({
-    label: 'DRAFT RECEIPTS',
-    n: data.drafts.state === 'ready' ? data.drafts.drafts.length : null,
-    sub: 'on this computer',
-    href: '/receiving-log/new',
-  });
-  const labels = ready(data.labels);
-  cells.push({
-    label: 'LABELS TO CHECK',
-    n: labels ? labels.labelsToCheck : null,
-    sub: 'not confirmed as printed',
-    href: labels?.items[0]
-      ? `/sample-storage/${encodeURIComponent(labels.items[0].readableId)}`
-      : '/sample-storage',
-  });
-  if (FEATURES.labTesting && data.programs.state !== 'error') {
-    const programs = ready(data.programs);
-    cells.push({
-      label: 'OPEN LAB PROGRAMS',
-      n: programs ? programs.total : null,
-      sub: 'with tests to do',
-      href: '/lab-testing',
-    });
-  }
-  if (FEATURES.disposalRetention && data.retention.state !== 'error') {
-    const retention = ready(data.retention);
-    cells.push({
-      label: 'RETENTION DUE',
-      n: retention ? retention.total : null,
-      sub: 'past the retain-until date',
-      href: '/disposal-retention',
-    });
-  }
+function Shortcuts({ role, me }: { role: TodayRole | null; me: MeResponse }) {
+  if (!role) return <Skeleton className="h-11 w-full max-w-xl" aria-hidden="true" />;
+  const shortcuts = shortcutsFor(role, me, FEATURES);
+  if (shortcuts.length === 0) return null;
   return (
-    <ul className="today-counts" aria-label="Counts">
-      {cells.map((cell) => (
-        <li key={cell.label}>
-          <Link
-            to={cell.href}
-            className="today-count"
-            aria-label={`${cell.label.toLowerCase()}: ${cell.n ?? 'loading'}, ${cell.sub}`}
+    <nav aria-label="Shortcuts" className="flex flex-wrap gap-2">
+      {shortcuts.map((shortcut) => {
+        const Icon = SHORTCUT_ICONS[shortcut.icon];
+        return (
+          <Button
+            key={shortcut.label}
+            asChild
+            variant="outline"
+            size="sm"
+            className="pointer-coarse:h-11"
           >
-            <span className="field-label">{cell.label}</span>
-            <span className="today-count-n" aria-busy={cell.n === null || undefined}>
-              {cell.n ?? '–'}
-            </span>
-            <span className="today-count-sub">{cell.sub}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+            <Link to={shortcut.to}>
+              <Icon aria-hidden="true" />
+              {shortcut.label}
+            </Link>
+          </Button>
+        );
+      })}
+    </nav>
   );
 }
 
-function NeedsYou({ items, loading }: { items: NeedsItem[]; loading: boolean }) {
+function NeedsRow({ item, primary }: { item: NeedsYouItem; primary: boolean }) {
   return (
-    <section className="today-section today-needs" aria-labelledby="today-needs">
-      <div className="section-head">
-        <h2 id="today-needs">Needs you</h2>
-        <span className="section-meta">{plural(items.length, 'ITEM')}</span>
-      </div>
-      {items.length === 0 ? (
-        loading ? (
-          <p className="muted" aria-busy="true">
-            Checking what needs you…
-          </p>
-        ) : (
-          <EmptyState title="Nothing needs you.">
-            No drafts to confirm, no labels waiting, nothing due. New work shows up here.
-          </EmptyState>
-        )
-      ) : (
-        <ul className="today-tasks">
-          {items.map((item) => (
-            <li key={item.key} className="today-task" data-row>
-              <StatusBadge tone={item.tag.tone}>{item.tag.label}</StatusBadge>
-              <div className="today-task-text">
-                <p className="today-task-title">{item.title}</p>
-                <p className="today-task-sub">{item.sub}</p>
-              </div>
-              <Link className="button today-task-action" to={item.href}>
-                {item.action}
-                <span className="visually-hidden">: {item.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function Ledger({ ledger, retry }: { ledger: LoadState<ActivityItem[]>; retry: () => void }) {
-  return (
-    <section className="today-section today-ledger" aria-labelledby="today-ledger">
-      <div className="section-head">
-        <h2 id="today-ledger">Ledger</h2>
-        <span className="section-meta">LAST 24 H</span>
-      </div>
-      {ledger.state === 'loading' ? (
-        <p className="muted" aria-busy="true">
-          Loading the ledger…
-        </p>
-      ) : ledger.state === 'error' ? (
-        <ErrorState message={ledger.message} detail="Nothing was changed." onRetry={retry} />
-      ) : ledger.data.length === 0 ? (
-        <EmptyState title="Nothing recorded in the last 24 hours.">
-          Receipts, labels, corrections, moves and disposals show up here as they happen.
-        </EmptyState>
-      ) : (
-        <ul className="today-ledger-list">
-          {ledger.data.map((item) => (
-            <li key={item.id} data-row>
-              <time className="mono" dateTime={item.occurredAt}>
-                {shortTime(item.occurredAt)}
-              </time>
-              <div>
-                <p className="today-ledger-what">
-                  {item.href ? <Link to={item.href}>{item.summary}</Link> : item.summary}
-                </p>
-                {item.ref ? <p className="today-ledger-ref mono">{item.ref}</p> : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function StorageRoom({ data }: { data: TodayData }) {
-  const locations = data.locations;
-  const retention = ready(data.retention);
-  const dueAt = new Map<string, number>();
-  for (const unit of retention?.items ?? []) {
-    dueAt.set(unit.location.id, (dueAt.get(unit.location.id) ?? 0) + 1);
-  }
-  const all =
-    locations.state === 'ready'
-      ? [...locations.data].filter((l) => l.active).sort((a, b) => b.inStockCount - a.inStockCount)
-      : [];
-  const shown = all.slice(0, ROOM_LOCATIONS_MAX);
-  return (
-    <section className="today-section today-room" aria-labelledby="today-room">
-      <div className="section-head">
-        <h2 id="today-room">Storage room</h2>
-        <span className="section-meta">UNITS BY LOCATION</span>
-      </div>
-      {locations.state === 'loading' ? (
-        <p className="muted" aria-busy="true">
-          Loading the storage room…
-        </p>
-      ) : locations.state === 'error' ? (
-        <ErrorState
-          message={locations.message}
-          detail="Nothing was changed."
-          onRetry={data.retryLocations}
-        />
-      ) : shown.length === 0 ? (
-        <EmptyState title="No locations yet.">
-          Locations appear here once they are set up in Settings, Locations.
-        </EmptyState>
-      ) : (
-        <>
-          <ul className="today-bays">
-            {shown.map((location) => {
-              const due = dueAt.get(location.id) ?? 0;
-              const cells = locationCells(location.inStockCount, due);
-              const extra = location.inStockCount - cells.length;
-              return (
-                <li key={location.id} className="today-bay">
-                  <Link
-                    to={`/sample-storage?locationId=${encodeURIComponent(location.id)}`}
-                    className="today-bay-head"
-                  >
-                    <span className="today-bay-name">{location.name}</span>
-                    <span className="mono today-bay-count">
-                      {formatUnitCount(location.inStockCount)}
-                    </span>
-                  </Link>
-                  {cells.length > 0 ? (
-                    <span
-                      className="today-bay-cells"
-                      role="img"
-                      aria-label={`${location.name}: ${formatUnitCount(location.inStockCount)}${
-                        due ? `, ${due} with retention due` : ''
-                      }`}
-                    >
-                      {cells.map((state, i) => (
-                        <span key={i} className={`counted-cell counted-cell-${state}`} />
-                      ))}
-                    </span>
-                  ) : (
-                    <span className="today-bay-empty">Empty</span>
-                  )}
-                  {extra > 0 ? <span className="today-bay-more mono">+{extra} more</span> : null}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="today-legend" aria-hidden="true">
-            <span>
-              <span className="counted-cell counted-cell-done" />
-              In storage
-            </span>
-            {FEATURES.disposalRetention ? (
-              <span>
-                <span className="counted-cell counted-cell-current" />
-                Retention due
-              </span>
-            ) : null}
-          </div>
-          {all.length > shown.length ? (
-            <p className="today-more">
-              <Link to="/settings/locations">
-                {plural(all.length - shown.length, 'more location')} in Settings, Locations
-              </Link>
-            </p>
-          ) : null}
-        </>
-      )}
-    </section>
-  );
-}
-
-/** The receiving lab's name for the greeting's date line (the one system location). */
-function receivingLabName(locations: LoadState<StorageLocation[]>): string | null {
-  const lab = ready(locations)?.find((location) => location.kind === 'receiving_lab');
-  return lab?.name ?? null;
-}
-
-function draftsLoading(drafts: DraftsState): boolean {
-  return drafts.state === 'loading';
-}
-
-export function TodayPage() {
-  const me = useMe();
-  const phone = useMediaQuery(PHONE_QUERY);
-  const data = useToday(me);
-  const [now] = useState(() => new Date());
-  const items = needsItems(data);
-  const loading =
-    draftsLoading(data.drafts) ||
-    [data.labels, data.conflicts, data.retention, data.programs, data.status].some(
-      (s) => s.state === 'loading',
-    );
-
-  if (phone) {
-    return (
-      <div className="today today-phone">
-        <div className="today-phone-head">
-          <h1>Today</h1>
-          <span className="mono today-phone-date">{shortTodayLine(now)}</span>
+    <li className="relative flex flex-wrap items-center gap-x-4 gap-y-2 p-4 pl-5">
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full',
+          STAGE_MARK_BG[item.stage],
+        )}
+      />
+      <div className="grid min-w-0 flex-1 basis-64 gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {item.source === 'request' ? (
+            <>
+              <Badge className="px-2 text-[11px] font-semibold">Request</Badge>
+              <StageTag stage={item.stage} label={`${STAGE_WORDS[item.stage]} · ${item.task}`} />
+            </>
+          ) : (
+            <StageTag stage={item.stage} domain={item.domain} />
+          )}
         </div>
-        <Link to="/sample-storage/scan" className="today-scan">
-          <span className="today-scan-title">Scan a label</span>
-          <span className="today-scan-sub">Find, move or check out a unit</span>
-        </Link>
-        <Link className="button today-receive" to="/receiving-log/new">
-          Receive samples
-        </Link>
-        <CountStrip data={data} />
-        <NeedsYou items={items} loading={loading} />
-        <Ledger ledger={data.ledger} retry={data.retryLedger} />
+        <p className="font-medium">{item.title}</p>
+        {item.detail ? (
+          <p className="text-sm text-muted-foreground">
+            <MonoText text={item.detail} ids={item.ids} />
+          </p>
+        ) : null}
       </div>
+      <Button
+        asChild
+        size="sm"
+        variant={primary ? 'default' : 'outline'}
+        className="pointer-coarse:h-11"
+      >
+        <Link to={item.href}>
+          {item.action}
+          <span className="sr-only">: {item.title}</span>
+        </Link>
+      </Button>
+    </li>
+  );
+}
+
+function NeedsYou({
+  needs,
+  retry,
+  role,
+}: {
+  needs: LoadState<NeedsYouResponse>;
+  retry: () => void;
+  role: TodayRole | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const list = useRef<HTMLUListElement>(null);
+  const focusAfterExpand = useRef(false);
+  useEffect(() => {
+    if (!expanded || !focusAfterExpand.current) return;
+    focusAfterExpand.current = false;
+    // The first row that just appeared takes focus, so the keyboard carries on where it was.
+    list.current?.querySelectorAll('li')[NEEDS_YOU_FIRST]?.querySelector('a')?.focus();
+  }, [expanded]);
+
+  let body;
+  if (needs.state === 'loading') {
+    body = (
+      <div className="grid gap-2" aria-busy="true">
+        <span className="sr-only">Checking what needs you…</span>
+        <Skeleton className="h-24 w-full" aria-hidden="true" />
+        <Skeleton className="h-24 w-full" aria-hidden="true" />
+      </div>
+    );
+  } else if (needs.state === 'error') {
+    body = (
+      <>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle className="line-clamp-none">Needs you couldn’t load.</AlertTitle>
+          <AlertDescription>Shortcuts and the last 24 hours still work.</AlertDescription>
+        </Alert>
+        <Button
+          variant="outline"
+          className="self-start pointer-coarse:h-11"
+          size="sm"
+          onClick={retry}
+        >
+          <RotateCw aria-hidden="true" />
+          Try again
+        </Button>
+      </>
+    );
+  } else {
+    const { items, total, unavailable } = needs.data;
+    const shown = visibleNeeds(items, expanded);
+    const note = unavailableNote(unavailable);
+    body = (
+      <>
+        {items.length === 0 ? (
+          <div className="flex items-start gap-4 rounded-xl border bg-card p-6">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-stage-closed-bg text-stage-closed-fg">
+              <Check aria-hidden="true" className="size-5" />
+            </span>
+            <div className="grid gap-1">
+              <p className="font-medium">Nothing needs you right now.</p>
+              <p className="text-sm text-muted-foreground">{CLEAR_HINT_BY_ROLE[role ?? 'lead']}</p>
+            </div>
+          </div>
+        ) : (
+          <ul ref={list} className="divide-y overflow-hidden rounded-xl border bg-card">
+            {shown.map((item, i) => (
+              <NeedsRow key={item.key} item={item} primary={i === 0} />
+            ))}
+          </ul>
+        )}
+        {!expanded && items.length > NEEDS_YOU_FIRST ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start text-link pointer-coarse:h-11"
+            onClick={() => {
+              focusAfterExpand.current = true;
+              setExpanded(true);
+            }}
+          >
+            Show all {total}
+            <ChevronDown aria-hidden="true" />
+          </Button>
+        ) : null}
+        {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
+      </>
     );
   }
 
   return (
-    <div className="today">
-      <ContextRow align="end">
-        <Link className="button" to="/sample-storage/scan">
-          Scan label
+    <section
+      aria-labelledby="today-needs-you"
+      className="flex min-w-0 flex-col gap-3 lg:col-span-2"
+    >
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="today-needs-you" className="text-base font-semibold">
+          Needs you
+        </h2>
+        <Link
+          to={INBOX_PATH}
+          className="text-sm font-medium text-link underline-offset-4 hover:underline"
+        >
+          Open Inbox
         </Link>
-        <Link className="button primary" to="/receiving-log/new">
-          Receive samples
-        </Link>
-      </ContextRow>
-      <Greeting me={me} items={items} now={now} labName={receivingLabName(data.locations)} />
-      <CountStrip data={data} />
-      <div className="today-split">
-        <NeedsYou items={items} loading={loading} />
-        <Ledger ledger={data.ledger} retry={data.retryLedger} />
       </div>
-      <StorageRoom data={data} />
+      {body}
+    </section>
+  );
+}
+
+function ActivityRow({ line, yesterday }: { line: ActivityLine; yesterday: boolean }) {
+  const sentence = <MonoText text={line.sentence} ids={line.item.ref ? [line.item.ref] : []} />;
+  return (
+    <li className="grid grid-cols-[4.75rem_auto_1fr] items-baseline gap-2">
+      <time
+        dateTime={line.item.occurredAt}
+        className="font-mono text-[13px] whitespace-nowrap text-muted-foreground tabular-nums"
+      >
+        {yesterday ? <span className="sr-only">Yesterday </span> : null}
+        {line.time}
+      </time>
+      <span
+        aria-hidden="true"
+        className={cn('size-2 translate-y-[-1px] rounded-full', STAGE_MARK_BG[line.stage])}
+      />
+      <span className="min-w-0">
+        {line.item.href ? (
+          <Link to={line.item.href} className="underline-offset-4 hover:underline">
+            {sentence}
+          </Link>
+        ) : (
+          sentence
+        )}
+      </span>
+    </li>
+  );
+}
+
+function LastDay({ role, now }: { role: TodayRole | null; now: Date }) {
+  const scope = role ? ACTIVITY_SCOPE_BY_ROLE[role] : null;
+  const [activity, retry] = useLoad(`activity:${scope ?? 'waiting'}`, () =>
+    scope ? fetchActivity(scope) : WAITING,
+  );
+
+  let body;
+  if (activity.state === 'loading') {
+    body = (
+      <div className="grid gap-3" aria-busy="true">
+        <span className="sr-only">Loading the last 24 hours…</span>
+        <Skeleton className="h-5 w-full" aria-hidden="true" />
+        <Skeleton className="h-5 w-4/5" aria-hidden="true" />
+      </div>
+    );
+  } else if (activity.state === 'error') {
+    body = (
+      <>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle className="line-clamp-none">The last 24 hours couldn’t load.</AlertTitle>
+          <AlertDescription>Shortcuts and Needs you still work.</AlertDescription>
+        </Alert>
+        <Button
+          variant="outline"
+          size="sm"
+          className="self-start pointer-coarse:h-11"
+          onClick={retry}
+        >
+          <RotateCw aria-hidden="true" />
+          Try again
+        </Button>
+      </>
+    );
+  } else {
+    const { today, yesterday } = splitActivity(activity.data, now);
+    body =
+      today.length + yesterday.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing recorded in the last 24 hours.</p>
+      ) : (
+        <ol className="flex flex-col gap-4 text-sm">
+          {today.map((line) => (
+            <ActivityRow key={line.item.id} line={line} yesterday={false} />
+          ))}
+          {yesterday.length > 0 ? (
+            <li aria-hidden="true" className="-mb-2 text-[13px] font-medium text-muted-foreground">
+              Yesterday
+            </li>
+          ) : null}
+          {yesterday.map((line) => (
+            <ActivityRow key={line.item.id} line={line} yesterday />
+          ))}
+        </ol>
+      );
+  }
+
+  return (
+    <section aria-labelledby="today-last-day" className="flex min-w-0 flex-col gap-3">
+      <h2 id="today-last-day" className="text-base font-semibold">
+        Last 24 hours
+      </h2>
+      {body}
+    </section>
+  );
+}
+
+function PersonalToday({ me }: { me: MeResponse }) {
+  const [now] = useState(() => new Date());
+  const role = useTodayRole(me);
+  const [needs, retryNeeds] = useLoad('needs-you', fetchNeedsYou);
+  return (
+    <div className="mx-auto flex w-full max-w-[960px] flex-col gap-8">
+      <Welcome me={me} now={now} needs={needs} />
+      <Shortcuts role={role} me={me} />
+      <StationSetupCard />
+      <div className="grid items-start gap-8 lg:grid-cols-3">
+        <NeedsYou needs={needs} retry={retryNeeds} role={role} />
+        <LastDay role={role} now={now} />
+      </div>
     </div>
   );
+}
+
+/** `/`: the LAB station's Today on a station, else the person's own Today. */
+export function TodayPage() {
+  const me = useMe();
+  const { isStation } = useRecordingPerson();
+  if (isStation || me.accountType === 'shared_lab') return <StationToday />;
+  return <PersonalToday me={me} />;
 }
