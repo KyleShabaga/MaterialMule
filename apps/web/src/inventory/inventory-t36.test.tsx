@@ -240,10 +240,10 @@ describe('MM-T36 Sample Storage', () => {
       '/sample-storage/BKT-2026-000022',
     );
     expect(buckets).toHaveTextContent('Rack A shelf 1');
-    // Summaries show the sampling source, not a test-hole list.
-    const summaries = screen.getByRole('region', { name: 'Summaries' });
+    // STRATA-72: the Sample section shows the sampling source, not a test-hole table.
+    const summaries = screen.getByRole('region', { name: 'Sample' });
     expect(within(summaries).getByText('Sampling source')).toBeInTheDocument();
-    expect(within(summaries).queryByText('Test holes')).toBeNull();
+    expect(screen.queryByRole('table', { name: 'Test hole summaries' })).toBeNull();
   });
 
   it('LAB (no storage_unit.correct) sees the bulk sample but no correction actions (AC6 UI)', async () => {

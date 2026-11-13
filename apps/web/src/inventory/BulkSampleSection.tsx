@@ -11,9 +11,12 @@ import {
   type StorageUnitDetail,
 } from '@materialmule/shared';
 import { useEffect, useState, type FormEvent } from 'react';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Link } from 'react-router';
 import { listBulkGroups } from '../api/projects';
-import { BandedCard, FormField } from '../components/app-ui';
+import { Button } from '@/components/ui/button';
+import { FormField } from '../components/app-ui';
 import { useOnline } from '../lib/online';
 import {
   newSummary,
@@ -28,6 +31,7 @@ import { TestHolePicker } from '../receiving/TestHolePicker';
 import { changeBulkGroup, correctBulkGroup, correctStorageUnit, fetchStorageUnit } from './api';
 import { messageFor, summaryPayload } from './correction-fields';
 import { BulkBadge } from './UnitContents';
+import { UnitSection } from './UnitRecordParts';
 
 // A bulk soil bucket's bulk sample on its detail page (MM-T36): the shared identity, this
 // bucket's "n of N" place and every bucket of the sample (each with its own ID, status and
@@ -95,10 +99,10 @@ export function BulkSampleSection({
   const [mode, setMode] = useState<Mode>('view');
 
   return (
-    <BandedCard
+    <UnitSection
       id="bulk-sample"
       title="Bulk sample"
-      aside={<BulkBadge sample={sample} membership={group} />}
+      meta={<BulkBadge sample={sample} membership={group} />}
     >
       <dl className="details">
         <div>
@@ -139,17 +143,17 @@ export function BulkSampleSection({
       </p>
 
       {canCorrect && mode === 'view' ? (
-        <div className="row-actions">
-          <button type="button" onClick={() => setMode('move')}>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => setMode('move')}>
             Change bulk sample
-          </button>
-          <button type="button" onClick={() => setMode('correct')}>
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setMode('correct')}>
             Correct bulk sample
-          </button>
+          </Button>
           {unit.status === 'disposed' ? null : (
-            <button type="button" onClick={() => setMode('convert')}>
+            <Button type="button" variant="outline" onClick={() => setMode('convert')}>
               Make it an ordinary bucket
-            </button>
+            </Button>
           )}
         </div>
       ) : null}
@@ -162,7 +166,7 @@ export function BulkSampleSection({
       {canCorrect && mode === 'correct' ? (
         <IdentityForm unit={unit} onCancel={() => setMode('view')} onSaved={onChanged} />
       ) : null}
-    </BandedCard>
+    </UnitSection>
   );
 }
 
@@ -185,7 +189,7 @@ function ReasonField({
       error={error}
     >
       {(props) => (
-        <textarea
+        <Textarea
           {...props}
           rows={2}
           maxLength={2000}
@@ -307,13 +311,13 @@ function MoveForm({
         onChange={setReason}
         error={map.get('reason') ?? null}
       />
-      <div className="row-actions">
-        <button type="submit" className="primary" disabled={saving}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={saving}>
           Save change
-        </button>
-        <button type="button" onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -402,7 +406,7 @@ function IdentityForm({
           error={map.get('identity.description') ?? null}
         >
           {(props) => (
-            <input
+            <Input
               {...props}
               type="text"
               maxLength={BULK_GROUP_DESCRIPTION_MAX_LENGTH}
@@ -420,13 +424,13 @@ function IdentityForm({
         onChange={setReason}
         error={map.get('reason') ?? null}
       />
-      <div className="row-actions">
-        <button type="submit" className="primary" disabled={saving}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={saving}>
           Save correction
-        </button>
-        <button type="button" onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -558,13 +562,13 @@ function ConvertForm({
         onChange={setReason}
         error={map.get('reason') ?? null}
       />
-      <div className="row-actions">
-        <button type="submit" className="primary" disabled={saving}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={saving}>
           Make it an ordinary bucket
-        </button>
-        <button type="button" onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

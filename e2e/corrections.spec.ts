@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 import { insertInventoryFixture } from './support/inventory';
@@ -14,7 +14,7 @@ test('T7: correct a summary from the detail page; the history shows it and the I
   await page.goto(`/sample-storage/${data.a1}`);
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Correct details' }).click();
+  await openCorrection(page);
   const form = page.getByRole('form', { name: 'Correct details' });
   await expect(form.getByLabel('Received date')).toHaveValue('2026-10-01');
   const sampleTo = form.getByLabel('Sample to');
@@ -34,9 +34,7 @@ test('T7: correct a summary from the detail page; the history shows it and the I
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Details corrected.' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(data.warehouse);
-  await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-    'TH26-01: G1–S10',
-  );
+  await expect(holeRow(page, 'TH26-01')).toContainText('G1–S10');
   await expect(page.getByRole('list', { name: 'History events' })).toContainText(
     // MTR-3: Alex Tester is a test account, so the TEST badge follows the initials.
     'AT TEST changed test holes TH26-01: G1–S12 → TH26-01: G1–S10 · Reason: wrong range on tag',
@@ -44,9 +42,7 @@ test('T7: correct a summary from the detail page; the history shows it and the I
 
   // The change survives a reload.
   await page.reload();
-  await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-    'TH26-01: G1–S10',
-  );
+  await expect(holeRow(page, 'TH26-01')).toContainText('G1–S10');
 });
 
 // MM-T70 T4 (owner decision 2026-10-28: refuse): a unit approved for disposal can't change
@@ -73,7 +69,7 @@ test('MM-T70 T4: correcting the project of an approved unit is refused with a pl
   });
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${data.a1}`);
-  await page.getByRole('button', { name: 'Correct details' }).click();
+  await openCorrection(page);
   const form = page.getByRole('form', { name: 'Correct details' });
   await form.getByRole('button', { name: 'Change project' }).click();
   const search = form.getByRole('combobox', { name: /Find project/ });
@@ -126,8 +122,12 @@ test('T3/AC2: a LAB station sees no Correct action and its correction request ge
   await signInAsLabStation(page);
   await page.goto(`/sample-storage/${data.a1}`);
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
+  // STRATA-72: Correct sits in More, disabled for LAB with its reason under it.
+  await page.getByRole('button', { name: 'More actions' }).click();
+  const correct = page.getByRole('menuitem', { name: 'Correct' });
+  await expect(correct).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
 
   // The server refuses it too: the same request the form would send, from this LAB session.
@@ -139,9 +139,23 @@ test('T3/AC2: a LAB station sees no Correct action and its correction request ge
 
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
+  await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
   expect(await correctionState(data.a1)).toEqual(before);
 });
+
+/** Correct details opens from the unit page's More menu (STRATA-72). */
+async function openCorrection(page: Page) {
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Correct' }).click();
+}
+
+/** One row of the unit page's Test hole summaries table. */
+function holeRow(page: Page, hole: string) {
+  return page
+    .getByRole('table', { name: 'Test hole summaries' })
+    .getByRole('row')
+    .filter({ hasText: hole });
+}
 
 /** The unit's row version, note and number of correction events: none may change for LAB. */
 async function correctionState(readableId: string) {
