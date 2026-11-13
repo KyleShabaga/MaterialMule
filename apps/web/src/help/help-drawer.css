@@ -1,4 +1,5 @@
-@layer components {
+/* In the utilities layer: SidebarInset's own `flex` utility would otherwise win over the grid. */
+@layer utilities {
   /* Help drawer (STRATA-103): while the drawer is open the sidebar inset becomes two columns,
      the page (main) and the drawer at --help-drawer-size of the content width. The top bar spans
      both. The window keeps scrolling the page, and the drawer stays in view under the 56 px top
