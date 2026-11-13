@@ -122,10 +122,12 @@ test('MTR-93: table pages never scroll sideways from 320 to 1440 px', async ({ p
   await receiveThroughApi(page, { description: tag });
   const [receipt] = await receiptsDescribed(tag);
   // `null`: a Strata DataTable page (STRATA-102), which has no scroll region; only the page
-  // overflow is swept.
-  const routes: [Parameters<typeof signInAs>[1], string, string | null][] = [
-    ['at', '/receiving-log', 'Receipt table'],
-    ['at', `/receiving-log/${receipt!.receipt_id}`, 'Storage unit table'],
+  // overflow is swept. `{ table }`: a Strata DataTable page whose table is found by its caption
+  // (STRATA-78 rebuilt the receiving log and receipt page on DataTable, which clips per cell
+  // instead of scrolling); the page overflow is swept at every width as before.
+  const routes: [Parameters<typeof signInAs>[1], string, string | { table: string } | null][] = [
+    ['at', '/receiving-log', { table: 'Confirmed receipts' }],
+    ['at', `/receiving-log/${receipt!.receipt_id}`, { table: 'Storage units in this receipt' }],
     ['at', '/lab-testing?view=list', 'Workboard table'],
     ['lab', '/lab-testing?view=list', 'Workboard table'],
     ['admin', '/admin/lab-tests', null],
@@ -135,7 +137,9 @@ test('MTR-93: table pages never scroll sideways from 320 to 1440 px', async ({ p
     await signInAs(page, who);
     await page.setViewportSize({ width: SWEEP[0]!, height: 900 });
     await page.goto(route);
-    if (table) {
+    if (table && typeof table === 'object') {
+      await expect(page.getByRole('table', { name: table.table, exact: true })).toBeVisible();
+    } else if (table) {
       const region = page.getByRole('region', { name: table, exact: true });
       await expect(region).toBeVisible();
       await expect(region).toHaveAttribute('tabindex', '0');
