@@ -110,6 +110,8 @@ export function isConcreteLabStaff(me: Pick<MeResponse, 'accountType' | 'roles'>
 /** Concrete sub-pages in rail order, only those that exist for this session's features. */
 function concretePages(labStaff: boolean, features: Features): SubPage[] {
   const pages: (SubPage | false)[] = [
+    // STRATA-93: Concrete › Overview at the top of the group, for lab staff (Kyle, round 7).
+    features.concreteLab && labStaff && { to: '/concrete', label: 'Overview', match: 'exact' },
     features.labTesting && { to: '/lab-testing/concrete', label: 'Breaks', match: 'exact' },
     features.concreteLab &&
       labStaff && { to: '/concrete/receiving', label: 'Receiving', match: 'prefix' },
@@ -265,8 +267,8 @@ const present = (items: (NavItem | false)[]): NavItem[] =>
   items.filter((item): item is NavItem => item !== false);
 
 /**
- * The sidebar for a session. Keeps today's feature flags and lab-staff gates: Receiving and
- * Specimens only for lab staff; Overview with the Concrete dashboard (concreteLab).
+ * The sidebar for a session. Keeps today's feature flags and lab-staff gates: Overview (the
+ * Concrete dashboard, concreteLab), Receiving and Specimens only for lab staff (STRATA-93).
  */
 export function sidebarNavFor(
   me: Pick<MeResponse, 'accountType' | 'roles' | 'permissions'>,
@@ -300,7 +302,9 @@ export function sidebarNavFor(
     features.labTesting && row('workboard', '/lab-testing', 'Workboard', SquareKanban),
   ]);
   const concrete = present([
-    features.concreteLab && row('concrete-overview', '/concrete', 'Overview', LayoutDashboard),
+    features.concreteLab &&
+      labStaff &&
+      row('concrete-overview', '/concrete', 'Overview', LayoutDashboard),
     features.labTesting && row('breaks', '/lab-testing/concrete', 'Breaks', Hammer),
     features.concreteLab &&
       labStaff &&

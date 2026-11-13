@@ -94,8 +94,22 @@ describe('sidebarNavFor', () => {
   });
 
   it('keeps the lab-staff gate and the feature flags; empty sections are left out', () => {
-    expect(labels(me()).sections[2]).toEqual(['Concrete', 'Overview', 'Breaks', 'Holds', 'Review']);
-    expect(labels(me({ accountType: 'shared_lab' })).sections[2]).toContain('Receiving');
+    // STRATA-93: Overview is for lab staff with the Concrete dashboard, like Receiving.
+    expect(labels(me()).sections[2]).toEqual(['Concrete', 'Breaks', 'Holds', 'Review']);
+    expect(labels(me({ accountType: 'shared_lab' })).sections[2]).toEqual([
+      'Concrete',
+      'Overview',
+      'Breaks',
+      'Receiving',
+      'Specimens',
+      'Holds',
+      'Review',
+    ]);
+    expect(labels(me({ roles: ['lab_manager'] })).sections[2]?.[1]).toBe('Overview');
+    expect(labels(me({ roles: ['admin'] })).sections[2]).not.toContain('Overview');
+    expect(
+      labels(me({ roles: ['lab_technician'] }), { ...ALL_ON, concreteLab: false }).sections[2],
+    ).not.toContain('Overview');
     expect(labels(me(), ALL_OFF).sections).toEqual([['Storage units', 'Receive', 'Inventory']]);
   });
 
