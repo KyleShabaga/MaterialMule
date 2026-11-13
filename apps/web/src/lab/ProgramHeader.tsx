@@ -149,7 +149,11 @@ export function ProgramHeader({
         <div className="flex min-w-0 flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             Lab program ·{' '}
-            <Button variant="link" asChild className="h-auto p-0 font-mono text-sm">
+            <Button
+              variant="link"
+              asChild
+              className="h-auto p-0 font-mono text-sm focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+            >
               <Link to={`/projects/${program.project.id}`}>{program.project.projectNumber}</Link>
             </Button>{' '}
             {program.project.name}

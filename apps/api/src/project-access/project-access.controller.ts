@@ -4,6 +4,7 @@ import type {
   ProjectLeadNominations,
   ProjectCapabilities,
   ProjectConcreteLabManagers,
+  ProjectAccessHistory,
   ProjectPeople,
   ProjectGrantReviews,
   ProjectTeamJoinRequests,
@@ -17,6 +18,7 @@ import type {
 import { ActiveUser, CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
+import { listAccessHistory } from './access-history.js';
 import { GrantReviewsService } from './grant-reviews.service.js';
 import { TeamJoinService } from './team-join.service.js';
 import { LeadNominationsService } from './lead-nominations.service.js';
@@ -222,6 +224,19 @@ export class ProjectAccessController {
   @RequirePermission('project_access.read')
   people(@Param('projectId') projectId: string): Promise<ProjectPeople> {
     return this.access.people(projectId);
+  }
+
+  /**
+   * STRATA-85: Team & permissions › History, newest first, paged (`?page=`); `?userId=` narrows it
+   * to one person (the person drawer). Same readers as the team.
+   */
+  @Get('projects/:projectId/access-history')
+  @RequirePermission('project_access.read')
+  accessHistory(
+    @Param('projectId') projectId: string,
+    @Query() query: unknown,
+  ): Promise<ProjectAccessHistory> {
+    return listAccessHistory(this.database.pool, projectId, query);
   }
 
   @Get('projects/:projectId/team-members')

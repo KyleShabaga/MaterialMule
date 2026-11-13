@@ -1,54 +1,110 @@
+import type { ProjectListItem, ProjectListPage } from '@materialmule/shared';
+import { ArrowDownToLine, Folder, SearchX } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Button } from '@/components/ui/button';
 import {
-  PROJECT_INVOLVEMENT_LABEL,
-  projectListSortDirection,
-  type ProjectListItem,
-  type ProjectListPage,
-  type ProjectListQuery,
-} from '@materialmule/shared';
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader, Segmented, StatusBadge } from '../components/app-ui';
-import '../inventory/inventory.css';
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DataTable,
+  DENSITY_VIEW_OPTIONS,
+  useTableDensity,
+  type DataTableColumn,
+} from '../components/strata/data-table';
+import { PersonCell } from '../components/strata/person-avatar';
+import { StageTag } from '../components/strata/stage-tag';
+import { TableToolbar } from '../components/strata/table-toolbar';
+import { useTableQuery, type SortOption, type TableQuery } from '../components/strata/table-query';
+import { START_DELIVERY_PATH } from '../receiving-log/paths';
 import { useMe } from '../session/context';
 import { fetchProjects, type LoadResult } from './api';
-import './projects.css';
+import { nominationLine, useDebounced } from './project-format';
+import { LoadErrorAlert, TablePager } from './project-ui';
 import {
-  projectListSearchParams,
-  readOnlyMine,
-  readProjectListQuery,
-  rememberOnlyMine,
+  projectListRequest,
+  projectListSort,
+  projectsTabParams,
+  readPage,
+  readPageSize,
+  readProjectsTab,
+  type ProjectsTab,
 } from './url-state';
 
-/** Where the project detail page's "Back to Projects" link returns to. */
+/** Where the project page's "Projects" breadcrumb returns to (the list's own query). */
 export interface ProjectLinkState {
   from?: string;
 }
 
-const SORT_OPTIONS = [
-  { value: 'number:asc', label: 'Project number (A–Z)' },
-  { value: 'number:desc', label: 'Project number (Z–A)' },
-  { value: 'name:asc', label: 'Name (A–Z)' },
-  { value: 'name:desc', label: 'Name (Z–A)' },
-  { value: 'last_receipt:desc', label: 'Last receipt (newest first)' },
-  { value: 'last_receipt:asc', label: 'Last receipt (oldest first)' },
-] as const;
+const SORT_OPTIONS: readonly SortOption[] = [
+  { label: 'Number A–Z', sort: null },
+  { label: 'Number Z–A', sort: { key: 'number', dir: 'desc' } },
+  { label: 'Name A–Z', sort: { key: 'name', dir: 'asc' } },
+  { label: 'Last receipt, newest first', sort: { key: 'last_receipt', dir: 'desc' } },
+];
 
-function countLabel(total: number): string {
-  return `${total.toLocaleString('en-CA')} ${total === 1 ? 'project' : 'projects'}`;
+const SORT_LABELS = {
+  number: { asc: 'Number A–Z', desc: 'Number Z–A' },
+  name: { asc: 'Name A–Z', desc: 'Name Z–A' },
+  last_receipt: { asc: 'Last receipt, oldest first', desc: 'Last receipt, newest first' },
+};
+
+const TAB_LABEL: Record<ProjectsTab, string> = {
+  mine: 'My projects',
+  all: 'All projects',
+  waiting: 'Waiting for a lead',
+};
+
+const TABLE_LABEL: Record<ProjectsTab, string> = {
+  mine: 'My projects',
+  all: 'All projects',
+  waiting: 'Projects waiting for a lead',
+};
+
+function LeadCell({ project }: { project: ProjectListItem }) {
+  const lead = project.leadProjectEngineer;
+  if (lead) return <PersonCell name={lead.displayName} userId={lead.id} />;
+  // D02 (MM-AO04): a project can wait for a lead; receiving carries on meanwhile.
+  return (
+    <span className="flex min-w-0 flex-col items-start gap-0.5">
+      <StageTag stage="due" label="Waiting for a lead" />
+      <span className="max-w-full truncate text-xs text-muted-foreground">
+        {nominationLine(project)}
+      </span>
+    </span>
+  );
 }
 
-/** Projects table (MM-T35): searched, filtered, sorted and paged on the server. */
+/**
+ * Projects list (STRATA-83, canvas R4List*): segmented tabs My projects (default), All projects
+ * and Waiting for a lead, each with its server count; table tools; a server-searched, sorted and
+ * paged table. Projects are created while receiving, so there is no page action here.
+ */
 export function ProjectsPage() {
   const me = useMe();
-  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const location = useLocation();
-  const [rememberedMine, setRememberedMine] = useState(() => readOnlyMine(me.id));
-  const query = useMemo(
-    () => readProjectListQuery(params, rememberedMine),
-    [params, rememberedMine],
-  );
-  const requestKey = projectListSearchParams(query).toString();
+  const [params, setParams] = useSearchParams();
+  const [query, setQuery] = useTableQuery();
+  const canMine = me.accountType !== 'shared_lab';
+  const tab = readProjectsTab(params, canMine);
+  const page = readPage(params);
+  const pageSize = readPageSize(params);
+  const [density, setDensity] = useTableDensity('projects');
 
+  const search = useDebounced(query.search);
+  const requestKey = projectListRequest(
+    tab,
+    { search, sort: query.sort },
+    page,
+    pageSize,
+  ).toString();
   const [result, setResult] = useState<(LoadResult<ProjectListPage> & { key: string }) | null>(
     null,
   );
@@ -63,283 +119,294 @@ export function ProjectsPage() {
     };
   }, [requestKey, reloads]);
 
-  /** Applies changes; anything other than the page returns to page 1. */
-  function update(changes: Partial<ProjectListQuery>) {
-    setParams(projectListSearchParams({ ...query, page: 1, ...changes }));
-  }
-
   const loading = !result || result.key !== requestKey;
-  const page = result?.ok ? result.data : null;
-  const totalPages = page ? Math.max(1, Math.ceil(page.total / page.pageSize)) : 1;
+  // Keep the last page on screen while the next one loads, so the table doesn't flash.
+  const data = result?.ok ? result.data : null;
+  const counts = data?.tabCounts;
   const linkState: ProjectLinkState = { from: location.search };
-  const waitingId = useId();
-  const sortId = useId();
 
-  /** "Only mine" is remembered per person (MM-T35). */
-  function setMine(mine: boolean) {
-    rememberOnlyMine(me.id, mine);
-    setRememberedMine(mine);
-    update({ mine });
+  const toolbarQuery: TableQuery = { ...query, sort: projectListSort(query.sort), view: density };
+  const onQueryChange = (patch: Partial<TableQuery>) => {
+    const { view, ...rest } = patch;
+    if (view === 'comfortable' || view === 'compact') setDensity(view);
+    if (Object.keys(rest).length > 0) setQuery(rest);
+  };
+
+  const columns = useMemo<DataTableColumn<ProjectListItem>[]>(
+    () => [
+      {
+        id: 'number',
+        header: 'Number',
+        priority: 'identity',
+        mono: true,
+        width: '12ch',
+        sortKey: 'number',
+        cell: (project) => (
+          <Button
+            variant="link"
+            asChild
+            className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+          >
+            <Link
+              to={`/projects/${project.id}`}
+              state={linkState}
+              aria-label={`Open project ${project.projectNumber}`}
+            >
+              {project.projectNumber}
+            </Link>
+          </Button>
+        ),
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        priority: 'identity',
+        sortKey: 'name',
+        cell: (project) => (
+          <span className="truncate" title={`${project.name} · ${project.client}`}>
+            {project.name}
+          </span>
+        ),
+      },
+      {
+        id: 'lead',
+        header: 'Lead',
+        priority: 'state',
+        width: '16rem',
+        wrap: true,
+        cell: (project) => <LeadCell project={project} />,
+      },
+      {
+        id: 'testHoles',
+        header: 'Test holes',
+        priority: 'attribute',
+        numeric: true,
+        width: '6rem',
+        // DESIGN.md › Projects: at 1024 px (table narrower than 50rem) Test holes hides.
+        hideBelow: '50rem',
+        cell: (project) => project.testHoleCount.toLocaleString('en-CA'),
+      },
+      {
+        id: 'inStock',
+        header: 'Units in stock',
+        priority: 'attribute',
+        numeric: true,
+        width: '7.5rem',
+        cell: (project) => project.inStockUnitCount.toLocaleString('en-CA'),
+      },
+      {
+        id: 'lastReceipt',
+        header: 'Last receipt',
+        priority: 'attribute',
+        mono: true,
+        width: '10ch',
+        sortKey: 'last_receipt',
+        cell: (project) => project.lastReceiptDate ?? '—',
+      },
+    ],
+    // linkState follows the URL; the columns only need it for the links.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [location.search],
+  );
+
+  function chooseTab(next: string) {
+    setParams(projectsTabParams(params, next as ProjectsTab));
   }
 
-  const showMine = me.accountType !== 'shared_lab';
-  const filtered = Boolean(query.search || query.mine || query.waitingForLead);
+  function goToPage(next: number) {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      if (next > 1) updated.set('page', String(next));
+      else updated.delete('page');
+      return updated;
+    });
+  }
 
-  return (
-    <>
-      <PageHeader title="Projects" />
+  const tabs: ProjectsTab[] = canMine ? ['mine', 'all', 'waiting'] : ['all', 'waiting'];
+  const searching = query.search.trim() !== '';
 
-      <div className="project-filters">
-        {/* Field Ledger: Mine / All. Projects have no closed state, so there is no Closed filter. */}
-        {showMine ? (
-          <Segmented
-            label="Show"
-            value={query.mine ? 'mine' : 'all'}
-            options={[
-              { value: 'mine', label: 'Mine' },
-              { value: 'all', label: 'All projects' },
-            ]}
-            onChange={(value) => setMine(value === 'mine')}
+  let body: ReactNode;
+  if (result && !result.ok && !loading) {
+    body = (
+      <LoadErrorAlert
+        title="Projects couldn't load"
+        message={result.message}
+        onRetry={() => setReloads((n) => n + 1)}
+      />
+    );
+  } else if (data && data.total === 0 && !loading) {
+    body = (
+      <EmptyProjects
+        tab={tab}
+        searching={searching}
+        anyProjects={(counts?.all ?? 0) > 0}
+        canReceive={me.permissions.includes('receipt.confirm')}
+        onClear={() => setQuery({ search: '' })}
+        onAll={() => chooseTab('all')}
+      />
+    );
+  } else {
+    body = (
+      <>
+        <DataTable
+          columns={columns}
+          data={data?.items ?? []}
+          getRowId={(project) => project.id}
+          rowLabel={(project) => project.projectNumber}
+          density={density}
+          sort={projectListSort(query.sort)}
+          onSortChange={(sort) => setQuery({ sort })}
+          onOpenRow={(project) => navigate(`/projects/${project.id}`, { state: linkState })}
+          caption={TABLE_LABEL[tab]}
+          loading={!data && loading}
+        />
+        {data ? (
+          <TablePager
+            page={page}
+            pageSize={data.pageSize}
+            total={data.total}
+            noun={data.total === 1 ? 'project' : 'projects'}
+            onPage={goToPage}
           />
         ) : null}
-        <p className="inventory-count" role="status" aria-live="polite" aria-busy={loading}>
-          {page ? countLabel(page.total) : 'Loading…'}
-        </p>
-      </div>
+      </>
+    );
+  }
 
-      <div className="tool-card project-tools" role="group" aria-label="Filters">
-        <SearchForm
-          key={query.search ?? ''}
-          initial={query.search ?? ''}
-          onSearch={(search) => update({ search: search || undefined })}
-        />
-        <label className="checkbox only-mine" htmlFor={waitingId}>
-          <input
-            id={waitingId}
-            type="checkbox"
-            checked={query.waitingForLead}
-            onChange={(event) => update({ waitingForLead: event.target.checked })}
-          />
-          Waiting for a lead
-        </label>
-        <div className="form-field">
-          <label htmlFor={sortId}>Sort by</label>
-          <select
-            id={sortId}
-            value={`${query.sort}:${projectListSortDirection(query)}`}
-            onChange={(event) => {
-              const [sort, dir] = event.target.value.split(':') as [
-                ProjectListQuery['sort'],
-                ProjectListQuery['dir'],
-              ];
-              update({ sort, dir });
-            }}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {query.search || query.waitingForLead ? (
-        <ul className="chips" aria-label="Active filters">
-          {query.search ? (
-            <li>
-              Search: {query.search}
-              <button
-                type="button"
-                aria-label={`Remove filter Search: ${query.search}`}
-                onClick={() => update({ search: undefined })}
-              >
-                ×
-              </button>
-            </li>
-          ) : null}
-          {query.waitingForLead ? (
-            <li>
-              Waiting for a lead
-              <button
-                type="button"
-                aria-label="Remove filter Waiting for a lead"
-                onClick={() => update({ waitingForLead: false })}
-              >
-                ×
-              </button>
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
-
-      {result && !result.ok ? (
-        <ErrorState message={result.message} onRetry={() => setReloads((count) => count + 1)} />
-      ) : null}
-
-      {page ? (
-        page.total === 0 ? (
-          <EmptyState
-            title={filtered ? 'No projects match.' : 'No projects yet.'}
-            action={
-              filtered ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    rememberOnlyMine(me.id, false);
-                    setRememberedMine(false);
-                    update({ mine: false, search: undefined, waitingForLead: false });
-                  }}
-                >
-                  Clear filters
-                </button>
-              ) : undefined
-            }
-          >
-            {filtered
-              ? 'No projects match this search.'
-              : 'Projects are added while receiving samples.'}
-          </EmptyState>
-        ) : (
-          <>
-            <ul className="project-cards" aria-label="Projects">
-              {page.items.map((project) => (
-                <ProjectCard key={project.id} project={project} linkState={linkState} />
-              ))}
-            </ul>
-            {page.total > page.pageSize ? (
-              <nav className="pager" aria-label="Pages">
-                <button
-                  type="button"
-                  disabled={query.page <= 1}
-                  onClick={() => update({ page: query.page - 1 })}
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {query.page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={query.page >= totalPages}
-                  onClick={() => update({ page: query.page + 1 })}
-                >
-                  Next
-                </button>
-              </nav>
-            ) : null}
-          </>
-        )
-      ) : null}
-    </>
-  );
-}
-
-/** What the card says is next, from what the list already returns. */
-function nextLine(project: ProjectListItem): string {
-  if (!project.leadProjectEngineer)
-    return 'Waiting for an admin to appoint a Lead Project Engineer.';
-  if (project.lastReceiptDate) return `Last receipt ${project.lastReceiptDate}.`;
-  return 'Nothing received yet.';
-}
-
-/**
- * One project card (canvas Projects): number and state in the head, name and lead, three counts,
- * one line on what is next. The number is the link; the whole card is its click target.
- */
-function ProjectCard({
-  project,
-  linkState,
-}: {
-  project: ProjectListItem;
-  linkState: ProjectLinkState;
-}) {
-  const state = !project.leadProjectEngineer ? (
-    <StatusBadge tone="waiting">Waiting for a lead</StatusBadge>
-  ) : project.inStockUnitCount > 0 ? (
-    <StatusBadge tone="storage">In stock</StatusBadge>
-  ) : (
-    <StatusBadge tone="closed">Nothing in stock</StatusBadge>
-  );
   return (
-    <li className="project-card">
-      <div className="project-card-head">
-        <Link
-          className="project-link"
-          to={`/projects/${project.id}`}
-          state={linkState}
-          aria-label={`Open project ${project.projectNumber}`}
-        >
-          {project.projectNumber}
-        </Link>
-        {state}
-      </div>
-      <div className="project-card-body">
-        <div>
-          <p className="project-card-name">{project.name}</p>
-          <p className="project-card-meta">
-            {project.client}
-            {' · Lead '}
-            <PersonInitials project={project} />
-          </p>
-          {/* D12 (MM-AO03): why it is one of "my" projects. Relevance only. */}
-          {project.involvement.length > 0 ? (
-            <p className="project-card-meta project-involvement">
-              You: {project.involvement.map((i) => PROJECT_INVOLVEMENT_LABEL[i]).join(', ')}
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4">
+      <h1 className="sr-only">Projects</h1>
+      <Tabs value={tab} onValueChange={chooseTab}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList
+            aria-label="Projects"
+            className="max-w-full justify-start overflow-x-auto overflow-y-hidden"
+          >
+            {tabs.map((id) => (
+              <TabsTrigger key={id} value={id}>
+                {TAB_LABEL[id]}
+                {counts ? ' ' : null}
+                {counts ? (
+                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                    {(id === 'mine'
+                      ? counts.mine
+                      : id === 'all'
+                        ? counts.all
+                        : counts.waitingForLead
+                    ).toLocaleString('en-CA')}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TableToolbar
+            label="Projects tools"
+            query={toolbarQuery}
+            onQueryChange={onQueryChange}
+            sortOptions={SORT_OPTIONS}
+            sortLabels={SORT_LABELS}
+            views={DENSITY_VIEW_OPTIONS}
+            searchPlaceholder="Search projects…"
+          />
+        </div>
+        <TabsContent value={tab} className="flex flex-col gap-3 pt-2">
+          {tab === 'mine' ? (
+            <p className="text-sm text-muted-foreground">
+              Projects you lead or are on the team of.
+            </p>
+          ) : tab === 'waiting' ? (
+            <p className="text-sm text-muted-foreground">
+              Receiving works on these projects. Decisions only a lead can make wait until an admin
+              appoints one.
             </p>
           ) : null}
-        </div>
-        <dl className="project-card-counts">
-          <div>
-            <dt>In stock</dt>
-            <dd className="number">{project.inStockUnitCount}</dd>
+          <div aria-busy={loading} className="min-w-0">
+            {body}
           </div>
-          <div>
-            <dt>Test holes</dt>
-            <dd className="number">{project.testHoleCount}</dd>
-          </div>
-          <div>
-            <dt>Last receipt</dt>
-            <dd className="number project-card-date">{project.lastReceiptDate ?? '—'}</dd>
-          </div>
-        </dl>
-        <p className="project-card-next">{nextLine(project)}</p>
-      </div>
-    </li>
-  );
-}
-function PersonInitials({ project }: { project: ProjectListItem }) {
-  const lead = project.leadProjectEngineer;
-  // D02 (MM-AO04): a project can wait for a lead; receiving carries on meanwhile.
-  if (!lead) return <>none yet</>;
-  return (
-    <>
-      {lead.displayName}
-      {lead.initials ? ` (${lead.initials})` : ''}
-    </>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
-function SearchForm({ initial, onSearch }: { initial: string; onSearch: (value: string) => void }) {
-  const id = useId();
-  const [text, setText] = useState(initial);
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSearch(text.trim());
+function EmptyProjects({
+  tab,
+  searching,
+  anyProjects,
+  canReceive,
+  onClear,
+  onAll,
+}: {
+  tab: ProjectsTab;
+  searching: boolean;
+  anyProjects: boolean;
+  canReceive: boolean;
+  onClear: () => void;
+  onAll: () => void;
+}) {
+  if (searching) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <SearchX aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>No projects match this search.</EmptyTitle>
+          <EmptyDescription>Check the number or the name, or clear the search.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" onClick={onClear}>
+            Clear the search
+          </Button>
+        </EmptyContent>
+      </Empty>
+    );
+  }
+  if (!anyProjects) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Folder aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>No projects yet.</EmptyTitle>
+          <EmptyDescription>Projects are added while receiving samples.</EmptyDescription>
+        </EmptyHeader>
+        {canReceive ? (
+          <EmptyContent>
+            <Button asChild>
+              <Link to={START_DELIVERY_PATH}>
+                <ArrowDownToLine aria-hidden="true" />
+                Receive samples
+              </Link>
+            </Button>
+          </EmptyContent>
+        ) : null}
+      </Empty>
+    );
   }
   return (
-    <form role="search" aria-label="Search projects" className="projects-search" onSubmit={submit}>
-      <label htmlFor={id}>Search projects</label>
-      <div className="inline-input">
-        <input
-          id={id}
-          type="search"
-          value={text}
-          placeholder="Project number, name or client"
-          onChange={(event) => setText(event.target.value)}
-        />
-        <button type="submit">Search</button>
-      </div>
-    </form>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Folder aria-hidden="true" />
+        </EmptyMedia>
+        <EmptyTitle>
+          {tab === 'waiting' ? 'Every project has a lead.' : 'No projects of yours yet.'}
+        </EmptyTitle>
+        <EmptyDescription>
+          {tab === 'waiting'
+            ? 'Projects saved without a Lead Project Engineer show here until an admin appoints one.'
+            : 'Projects you lead or are on the team of show here.'}
+        </EmptyDescription>
+      </EmptyHeader>
+      {tab === 'mine' ? (
+        <EmptyContent>
+          <Button variant="outline" onClick={onAll}>
+            Show all projects
+          </Button>
+        </EmptyContent>
+      ) : null}
+    </Empty>
   );
 }

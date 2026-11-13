@@ -36,6 +36,31 @@ async function expectOneLine(items: Locator, what: string) {
   for (const { text, lines } of heights) expect(lines, `${what} "${text}"`).toBeLessThanOrEqual(1);
 }
 
+/**
+ * Strata stage tags are fixed-height pills with leading-none (DESIGN.md › Components), so the
+ * line-height check above can't measure them: the text inside each one must fit one line box.
+ */
+async function expectOnePillLine(items: Locator, what: string) {
+  const lines = await items.evaluateAll((elements) =>
+    elements
+      .filter((element) => (element as HTMLElement).offsetParent !== null)
+      .map((element) => {
+        // Only the words: a wrapped label gives its text node a second line box.
+        const tops = new Set<number>();
+        for (const node of element.childNodes) {
+          if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of range.getClientRects()) tops.add(Math.round(rect.top));
+        }
+        return { text: element.textContent ?? '', lines: tops.size };
+      }),
+  );
+  expect(lines.length, `${what}: something to check`).toBeGreaterThan(0);
+  for (const { text, lines: count } of lines)
+    expect(count, `${what} "${text}"`).toBeLessThanOrEqual(1);
+}
+
 test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', async ({
   page,
 }) => {
@@ -60,19 +85,28 @@ test('T1/T2: Sample Storage and Projects keep words whole from 641 to 1024 px', 
 
     await signInAs(page, 'pe');
     await page.goto(`/projects?search=${data.tag}`);
-    const projects = page.getByRole('list', { name: 'Projects' });
-    await expect(
-      projects.getByRole('link', { name: `Open project ${data.projectA}` }),
-    ).toBeVisible();
-    await expectOneLine(projects.locator('.project-link'), `project number at ${width}px`);
-    await expectOneLine(projects.locator('.number'), `count or date at ${width}px`);
+    // STRATA-83: the Strata DataTable hides lower-priority columns instead of wrapping words.
+    const projects = page.getByRole('table', { name: 'All projects' });
+    const openA = projects.getByRole('link', { name: `Open project ${data.projectA}` });
+    await expect(openA).toBeVisible();
+    await expectOneLine(
+      projects.getByRole('link', { name: /^Open project / }),
+      `project number at ${width}px`,
+    );
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
-    await projects.getByRole('link', { name: `Open project ${data.projectA}` }).click();
-    const projectUnits = page.getByRole('table', { name: 'Storage units in TH26-01' });
+    await openA.click();
+    await page.getByRole('tab', { name: /Storage units/ }).click();
+    const projectUnits = page.getByRole('table', { name: `Storage units on ${data.projectA}` });
     await expect(projectUnits.getByRole('link', { name: data.a1, exact: true })).toBeVisible();
-    await expectOneLine(projectUnits.locator('.unit-link'), `project unit ID at ${width}px`);
-    await expectOneLine(projectUnits.locator('.badge'), `project unit badge at ${width}px`);
+    await expectOneLine(
+      projectUnits.getByRole('link', { name: /^(BKT|ST|CRE|CT)-/ }),
+      `project unit ID at ${width}px`,
+    );
+    await expectOnePillLine(
+      projectUnits.locator('[data-slot="badge"]'),
+      `project unit stage at ${width}px`,
+    );
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   }
 });

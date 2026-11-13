@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// MISC-07: anyone signed in with a personal account joins a project team themselves, pending
+// MISC-07 / STRATA-85: anyone signed in with a personal account joins a project team themselves, pending
 // the Lead Project Engineer's acceptance. Fictional data only: a project unique per run and
 // viewport, led by Pat Example; Jamie Song is accepted, Jordan Smith declined and asks again.
 // The shared LAB station is refused by the API (team-join.integration.test.ts).
@@ -39,17 +39,18 @@ test('self-join: pending, accepted by the lead; a declined person may ask again'
 }, testInfo) => {
   const projectNumber = `MISC07-${testInfo.project.name.startsWith('phone') ? 'P' : 'D'}${Date.now()}`;
   const projectId = await projectLedByPat(page, projectNumber);
-  const people = page.getByRole('region', { name: 'People on this project' });
+  const people = page.getByRole('region', { name: 'People' });
+  const review = page.getByRole('region', { name: 'Needs review' });
   const joining = page.getByRole('region', { name: 'Joining the team' });
 
   // Jamie joins: on the team at once, pending acceptance.
   await signInAs(page, 'js-eng');
   await page.goto(`/projects/${projectId}/team`);
   await joining.getByRole('button', { name: 'Request to join this team' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'You joined the team.' })).toBeVisible();
+  await expect(page.getByText(/^You joined the team\./)).toBeVisible();
   await expect(joining).toContainText('Pending LPE acceptance');
   await expect(people.getByRole('row').filter({ hasText: 'Jamie Song' })).toContainText(
-    'Team member (Pending LPE acceptance)',
+    'Team member · Pending LPE acceptance',
   );
   await expect(joining.getByRole('button', { name: 'Request to join this team' })).toHaveCount(0);
 
@@ -60,10 +61,9 @@ test('self-join: pending, accepted by the lead; a declined person may ask again'
   await expect(request).toBeVisible();
   await request.getByRole('link', { name: 'Open' }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/team`));
-  await joining.getByRole('button', { name: 'Accept Jamie Song' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: 'Jamie Song is accepted on the team.' }),
-  ).toBeVisible();
+  // Accepting needs no reason (MISC-07).
+  await review.getByRole('button', { name: 'Accept Jamie Song' }).click();
+  await expect(page.getByText('Jamie Song is accepted on the team.')).toBeVisible();
   await expect(people.getByRole('row').filter({ hasText: 'Jamie Song' })).not.toContainText(
     'Pending LPE acceptance',
   );
@@ -75,19 +75,21 @@ test('self-join: pending, accepted by the lead; a declined person may ask again'
   await expect(joining).toContainText('Pending LPE acceptance');
   await signInAs(page, 'pe');
   await page.goto(`/projects/${projectId}/team`);
-  await joining.getByRole('button', { name: 'Decline Jordan Smith' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Decline Jordan Smith?' });
-  await dialog.getByRole('button', { name: 'Decline' }).click();
-  await expect(dialog).toContainText('Enter a reason.');
-  await dialog.getByRole('textbox', { name: 'Reason' }).fill('Not working on this project');
-  await dialog.getByRole('button', { name: 'Decline' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Declined Jordan Smith' })).toBeVisible();
+  await review.getByRole('button', { name: 'Decline Jordan Smith' }).click();
+  const decline = review.getByRole('form', { name: 'Decline Jordan Smith?' });
+  await decline.getByRole('button', { name: 'Decline Jordan Smith' }).click();
+  await expect(decline).toContainText('Enter a reason.');
+  await decline
+    .getByRole('textbox', { name: 'Reason (required)' })
+    .fill('Not working on this project');
+  await decline.getByRole('button', { name: 'Decline Jordan Smith' }).click();
+  await expect(page.getByText(/^Declined Jordan Smith/)).toBeVisible();
   await expect(people.getByRole('row').filter({ hasText: 'Jordan Smith' })).toHaveCount(0);
 
   // Jordan sees why, and asks again.
   await signInAs(page, 'js-tech');
   await page.goto(`/projects/${projectId}/team`);
-  await expect(joining).toContainText('Your request to join was declined by PE · Pat Example');
+  await expect(joining).toContainText('Your request to join was declined by Pat Example');
   await expect(joining).toContainText(': Not working on this project. You may ask again.');
   await joining.getByRole('button', { name: 'Request to join this team' }).click();
   await expect(joining).toContainText('Pending LPE acceptance');

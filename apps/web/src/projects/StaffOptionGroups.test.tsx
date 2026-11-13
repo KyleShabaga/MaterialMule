@@ -1,7 +1,7 @@
 import type { StaffOption } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { StaffOptionGroups } from './StaffOptionGroups';
+import { StaffOptionGroups, groupStaff } from './StaffOptionGroups';
 
 // MM-T61: Lead Project Engineer and review engineer lists are grouped, not filtered. Since
 // MISC-06 the first group is Engineers (the retired Project Engineer position folded into it).
@@ -69,5 +69,13 @@ describe('StaffOptionGroups (MM-T61)', () => {
         .getAllByRole('option')
         .map((option) => option.textContent),
     ).toEqual(['FL · Former Lead', 'PE · Pat Example']);
+  });
+});
+
+describe('groupStaff (STRATA-85)', () => {
+  it('orders the shadcn Select groups the same way, current person first', () => {
+    const { first, rest } = groupStaff([NEW, AT, DE, PE], AT);
+    expect(first.map((p) => p.id)).toEqual(['at', 'de', 'pe']);
+    expect(rest.map((p) => p.id)).toEqual(['rn']);
   });
 });

@@ -12,6 +12,8 @@ import {
   PROJECT_SEARCH_MAX_LIMIT,
   PROJECT_STAGE,
   projectNumberKey,
+  sampleNumberRange,
+  type ProjectDepthRange,
   type FieldError,
   type ProjectConflictResponse,
   type ProjectDetail,
@@ -34,7 +36,7 @@ import { flagInheritedGrants } from '../project-access/grant-reviews.service.js'
 import { rerouteOpenItems } from '../notifications/rerouting.js';
 import { auditReceiver, findActiveStaff } from '../staff-directory/staff-directory.js';
 import { validationError } from '../validation/parse-body.js';
-import { involvementSql, orderInvolvement } from '../project-access/involvement.js';
+import { involvementOf, involvementSql, orderInvolvement } from '../project-access/involvement.js';
 import { loadNominations } from '../project-access/lead-nominations.service.js';
 import {
   decideNomination,
@@ -43,7 +45,7 @@ import {
   openLeadAppointment,
   resolveLeadAppointment,
 } from './lead-appointment.js';
-import { buildProjectListQuery } from './project-list-query.js';
+import { buildProjectListQuery, buildProjectTabCountsQuery } from './project-list-query.js';
 
 export type CreateProjectInput = z.output<typeof createProjectRequestSchema>;
 export type UpdateProjectInput = z.output<typeof updateProjectRequestSchema>;
@@ -103,6 +105,8 @@ interface ProjectListRow extends ProjectWithPeopleRow {
   in_stock_unit_count: number;
   last_receipt_date: string | null;
   involvement: string[];
+  nominee_name: string | null;
+  nominated_by_name: string | null;
 }
 
 interface ProjectDetailRow extends ProjectWithPeopleRow {
@@ -322,11 +326,16 @@ export class ProjectsService {
    */
   async list(query: ProjectListQuery, userId: string): Promise<ProjectListPage> {
     const sql = buildProjectListQuery(query, userId);
+    const tabs = buildProjectTabCountsQuery(query, userId);
     const pool = this.database.pool;
-    const [count, page] = await Promise.all([
+    const [count, tabCounts, page] = await Promise.all([
       pool.query<{ total: number }>(
         `SELECT count(*)::int AS total FROM project p ${sql.where}`,
         sql.params,
+      ),
+      pool.query<{ all_count: number; waiting_for_lead: number; mine: number }>(
+        tabs.text,
+        tabs.params,
       ),
       pool.query<ProjectListRow>(
         `${SELECT_PROJECT_WITH_PEOPLE},
@@ -337,8 +346,14 @@ export class ProjectsService {
                 (SELECT max(r.received_date)::text FROM receipt r WHERE r.project_id = p.id)
                   AS last_receipt_date,
                 ARRAY(SELECT DISTINCT i.involvement FROM (${involvementSql(sql.userParam)}) i
-                      WHERE i.project_id = p.id) AS involvement
+                      WHERE i.project_id = p.id) AS involvement,
+                n.nominee_name_snapshot AS nominee_name,
+                n.nominated_by_name_snapshot AS nominated_by_name
          ${PROJECT_WITH_PEOPLE_FROM}
+         -- STRATA-83: the pending nomination (at most one per project) for the Lead column.
+         LEFT JOIN project_lead_nomination n
+           ON n.project_id = p.id AND n.status = 'pending'
+          AND p.lead_project_engineer_user_id IS NULL
          ${sql.where}
          ORDER BY ${sql.orderBy}
          LIMIT ${sql.limit} OFFSET ${sql.offset}`,
@@ -354,10 +369,19 @@ export class ProjectsService {
         lastReceiptDate: row.last_receipt_date,
         // STRATA-58: projects have no closed state yet, so every row is an active one.
         stage: PROJECT_STAGE,
+        leadNomination:
+          row.nominee_name !== null
+            ? { nomineeName: row.nominee_name, nominatedByName: row.nominated_by_name ?? '' }
+            : null,
       })),
       total: count.rows[0]!.total,
       page: query.page,
       pageSize: query.pageSize,
+      tabCounts: {
+        mine: tabCounts.rows[0]!.mine,
+        all: tabCounts.rows[0]!.all_count,
+        waitingForLead: tabCounts.rows[0]!.waiting_for_lead,
+      },
     };
   }
 
@@ -406,13 +430,24 @@ export class ProjectsService {
     const receipts = await client.query<{
       id: string;
       received_date: string;
+      receiver_user_id: string;
       receiver_name_snapshot: string;
       receiver_initials_snapshot: string;
       unit_count: number;
+      test_hole_names: string[] | null;
     }>(
-      `SELECT r.id, r.received_date::text AS received_date, r.receiver_name_snapshot,
-                r.receiver_initials_snapshot,
-                (SELECT count(*)::int FROM storage_unit su WHERE su.receipt_id = r.id) AS unit_count
+      // STRATA-84: the holes a receipt's units came from (summaries, tubes and bulk groups).
+      `SELECT r.id, r.received_date::text AS received_date, r.receiver_user_id,
+                r.receiver_name_snapshot, r.receiver_initials_snapshot,
+                (SELECT count(*)::int FROM storage_unit su WHERE su.receipt_id = r.id) AS unit_count,
+                (SELECT array_agg(x.name ORDER BY x.name_normalized, x.id)
+                   FROM (SELECT DISTINCT th.id, th.name, th.name_normalized
+                           FROM storage_unit su
+                           LEFT JOIN storage_unit_hole_summary hs ON hs.storage_unit_id = su.id
+                           LEFT JOIN bulk_group g ON g.id = su.bulk_group_id
+                           JOIN test_hole th
+                             ON th.id IN (hs.test_hole_id, su.source_test_hole_id, g.test_hole_id)
+                          WHERE su.receipt_id = r.id) x) AS test_hole_names
          FROM receipt r
          WHERE r.project_id = $1
          ORDER BY r.received_date DESC, r.confirmed_at DESC, r.id
@@ -431,6 +466,25 @@ export class ProjectsService {
       [id],
     );
     const counts = totals.rows[0]!;
+    const ranges = await holeRanges(client, id);
+    const extras = await client.query<{
+      open_programs: number;
+      closed_programs: number;
+      has_concrete_work: boolean;
+    }>(
+      `SELECT (SELECT count(*)::int FROM lab_program
+                WHERE project_id = $1 AND status = 'submitted') AS open_programs,
+              (SELECT count(*)::int FROM lab_program
+                WHERE project_id = $1 AND status = 'closed') AS closed_programs,
+              (EXISTS (SELECT 1 FROM concrete_field_report WHERE project_id = $1)
+               OR EXISTS (SELECT 1 FROM concrete_mix WHERE project_id = $1)
+               OR EXISTS (SELECT 1 FROM concrete_project_settings WHERE project_id = $1))
+                AS has_concrete_work`,
+      [id],
+    );
+    const extra = extras.rows[0]!;
+    const projectFacts = { leadProjectEngineerUserId: row.lead_project_engineer_user_id };
+    const involvement = await involvementOf(client, id, user.userId);
     return {
       ...toSummary(row),
       serverFolderPath: row.server_folder_path,
@@ -443,22 +497,35 @@ export class ProjectsService {
       canChangeLeadProjectEngineer: can(user, 'project.lead_project_engineer.change'),
       unitCount: counts.unit_count,
       inStockUnitCount: counts.in_stock_unit_count,
-      testHoles: holes.rows.map((hole) => ({
-        id: hole.id,
-        projectId: hole.project_id,
-        name: hole.name,
-        unitCount: hole.unit_count,
-      })),
+      testHoles: holes.rows.map((hole) => {
+        const range = ranges.get(hole.id);
+        return {
+          id: hole.id,
+          projectId: hole.project_id,
+          name: hole.name,
+          unitCount: hole.unit_count,
+          sampleRange: sampleNumberRange(range?.samples ?? []),
+          allSamples: range?.allSamples ?? false,
+          depthRanges: range?.depths ?? [],
+        };
+      }),
       receipts: receipts.rows.map((receipt) => ({
         id: receipt.id,
         receivedDate: receipt.received_date,
         receiver: {
           name: receipt.receiver_name_snapshot,
           initials: receipt.receiver_initials_snapshot,
+          userId: receipt.receiver_user_id,
         },
         unitCount: receipt.unit_count,
+        testHoleNames: receipt.test_hole_names ?? [],
       })),
       receiptCount: counts.receipt_count,
+      involvement,
+      labProgramCounts: { open: extra.open_programs, closed: extra.closed_programs },
+      hasConcreteWork: extra.has_concrete_work,
+      // Mixes are the project's lead's only (CLAUDE.md, concrete authority): they start the work.
+      canStartConcreteWork: can(user, 'concrete_mix.manage', projectFacts),
     };
   }
 
@@ -689,4 +756,79 @@ export class ProjectsService {
       existing: toSummary(existing),
     } satisfies ProjectConflictResponse);
   }
+}
+
+/** What a hole's SAMPLE# and depth columns summarise (STRATA-84). */
+interface HoleRange {
+  samples: string[];
+  allSamples: boolean;
+  depths: ProjectDepthRange[];
+}
+
+/**
+ * Every SAMPLE# and depth recorded for each of a project's holes, from all its units (any
+ * status): hole summaries (sample or depth ranges, "All samples"), Shelby tubes' own sample and
+ * depth, and bulk groups that still have a unit. Depths are kept per unit, metres first.
+ */
+async function holeRanges(
+  client: Pool | PoolClient,
+  projectId: string,
+): Promise<Map<string, HoleRange>> {
+  const { rows } = await client.query<{
+    hole_id: string;
+    kind: string;
+    sample_from: string | null;
+    sample_to: string | null;
+    depth_from: number | null;
+    depth_to: number | null;
+    depth_unit: 'ft' | 'm' | null;
+  }>(
+    `SELECT h.test_hole_id AS hole_id, h.summary_type AS kind, h.sample_from, h.sample_to,
+            h.depth_from::float8 AS depth_from, h.depth_to::float8 AS depth_to, h.depth_unit
+       FROM storage_unit_hole_summary h WHERE h.project_id = $1
+     UNION ALL
+     SELECT su.source_test_hole_id, 'sample', su.sample_reference, NULL,
+            su.sample_depth_from::float8,
+            coalesce(su.sample_depth_to, su.sample_depth_from)::float8, su.sample_depth_unit
+       FROM storage_unit su WHERE su.project_id = $1 AND su.source_test_hole_id IS NOT NULL
+     UNION ALL
+     SELECT g.test_hole_id, 'sample', g.sample_reference, NULL,
+            g.depth_from::float8, coalesce(g.depth_to, g.depth_from)::float8, g.depth_unit
+       FROM bulk_group g
+      WHERE g.project_id = $1 AND g.test_hole_id IS NOT NULL
+        AND EXISTS (SELECT 1 FROM storage_unit su WHERE su.bulk_group_id = g.id)`,
+    [projectId],
+  );
+  const byHole = new Map<string, HoleRange>();
+  const depthByHole = new Map<string, Map<'ft' | 'm', { from: number; to: number }>>();
+  for (const row of rows) {
+    let range = byHole.get(row.hole_id);
+    if (!range) {
+      range = { samples: [], allSamples: false, depths: [] };
+      byHole.set(row.hole_id, range);
+    }
+    if (row.kind === 'all') range.allSamples = true;
+    if (row.sample_from) range.samples.push(row.sample_from);
+    if (row.sample_to) range.samples.push(row.sample_to);
+    if (row.depth_from !== null && row.depth_unit) {
+      let units = depthByHole.get(row.hole_id);
+      if (!units) {
+        units = new Map();
+        depthByHole.set(row.hole_id, units);
+      }
+      const to = row.depth_to ?? row.depth_from;
+      const seen = units.get(row.depth_unit);
+      units.set(row.depth_unit, {
+        from: Math.min(seen?.from ?? row.depth_from, row.depth_from),
+        to: Math.max(seen?.to ?? to, to),
+      });
+    }
+  }
+  for (const [hole, units] of depthByHole) {
+    byHole.get(hole)!.depths = (['m', 'ft'] as const).flatMap((unit) => {
+      const range = units.get(unit);
+      return range ? [{ ...range, unit }] : [];
+    });
+  }
+  return byHole;
 }

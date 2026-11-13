@@ -154,7 +154,11 @@ export function ProgramUnitsToPull({
       {failed ? (
         <p className="text-sm text-muted-foreground">
           The units couldn’t be loaded.{' '}
-          <Button variant="link" className="h-auto p-0" onClick={() => setAttempt((n) => n + 1)}>
+          <Button
+            variant="link"
+            className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
             Try again
           </Button>
         </p>
@@ -185,7 +189,11 @@ export function ProgramUnitsToPull({
               {units.units.map((unit) => (
                 <TableRow key={unit.storageUnitId}>
                   <TableCell>
-                    <Button variant="link" asChild className="h-auto p-0 font-mono">
+                    <Button
+                      variant="link"
+                      asChild
+                      className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                    >
                       <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
                         {unit.readableId}
                       </Link>

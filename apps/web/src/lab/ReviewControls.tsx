@@ -177,7 +177,11 @@ export function HistoryDisclosure({ label, children }: { label: string; children
   return (
     <Collapsible className="group/history">
       <CollapsibleTrigger asChild>
-        <Button variant="link" size="sm" className="h-auto gap-1 p-0 text-muted-foreground">
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto gap-1 p-0 text-muted-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+        >
           <ChevronRight
             aria-hidden="true"
             className="transition-transform group-data-[state=open]/history:rotate-90"

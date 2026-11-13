@@ -19,7 +19,7 @@ const COLUMNS: readonly DataTableColumn<WorklistItem>[] = [
       <Button
         asChild
         variant="link"
-        className="h-auto p-0 font-mono text-[13px] font-semibold whitespace-nowrap text-foreground"
+        className="h-auto p-0 font-mono text-[13px] font-semibold whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
       >
         <Link to={programHref(item)} onClick={(event) => event.stopPropagation()}>
           {item.programNumber}

@@ -1,6 +1,6 @@
 import { projectListQuerySchema } from '@materialmule/shared';
 import { describe, expect, it } from 'vitest';
-import { buildProjectListQuery } from './project-list-query.js';
+import { buildProjectListQuery, buildProjectTabCountsQuery } from './project-list-query.js';
 
 const ME = '00000000-0000-4000-8000-0000000000aa';
 
@@ -64,5 +64,19 @@ describe('buildProjectListQuery', () => {
     expect(projectListQuerySchema.safeParse({ pageSize: '101' }).success).toBe(false);
     expect(projectListQuerySchema.safeParse({ sort: 'client' }).success).toBe(false);
     expect(projectListQuerySchema.safeParse({ mine: 'maybe' }).success).toBe(false);
+  });
+});
+
+describe('buildProjectTabCountsQuery (STRATA-83)', () => {
+  it('counts every tab under the same search, ignoring the current tab', () => {
+    const counts = buildProjectTabCountsQuery(
+      projectListQuerySchema.parse({ search: 'river', mine: 'true', waitingForLead: 'true' }),
+      ME,
+    );
+    expect(counts.params).toEqual(['%river%', ME]);
+    expect(counts.text).toContain('p.project_number_normalized LIKE $1');
+    expect(counts.text).toContain('p.lead_project_engineer_user_id = $2');
+    expect(counts.text).toContain('lead_project_engineer_user_id IS NULL');
+    expect(counts.text).not.toContain(ME);
   });
 });

@@ -195,6 +195,15 @@ export function EditProjectDialog({
         event.preventDefault();
         requestClose();
       }}
+      // Opened from the page's More menu (STRATA-84), Chrome may close the dialog on Escape
+      // without a cancel event; handle Escape here so unsaved changes always ask first. A nested
+      // dialog (Discard changes?) handles its own Escape.
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        if ((event.target as Element).closest('dialog') !== event.currentTarget) return;
+        event.preventDefault();
+        requestClose();
+      }}
     >
       <div className="dialog-head edit-project-head">
         <h2 id={titleId}>Edit project</h2>

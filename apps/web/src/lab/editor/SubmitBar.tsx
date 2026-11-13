@@ -53,7 +53,7 @@ export function SubmitBar({
                     type="button"
                     variant="link"
                     size="sm"
-                    className="h-auto px-1 py-0 text-[13px] pointer-coarse:min-h-11"
+                    className="h-auto px-1 py-0 text-[13px] pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
                     onClick={() => onProblem(problem)}
                   >
                     {problem.barMessage}

@@ -766,3 +766,65 @@ export const acceptTeamJoinSchema = confirmNominationRequestSchema;
 
 /** Body of `POST …/team-join-requests/:id/decline`: a reason is required. */
 export const declineTeamJoinSchema = z.strictObject({ reason: grantReasonSchema });
+
+// ---------------------------------------------------------------------------------------------
+// Team & permissions history, paged (STRATA-85)
+// ---------------------------------------------------------------------------------------------
+
+/** Events per page of `GET /api/projects/:projectId/access-history`. */
+export const PROJECT_ACCESS_HISTORY_PAGE_SIZE = 20;
+
+/** What happened, as recorded: each start and end of an assignment or grant, and lead changes. */
+export const ACCESS_HISTORY_KINDS = [
+  'team_member_added',
+  'team_member_removed',
+  'reviewer_assigned',
+  'reviewer_removed',
+  'issuer_granted',
+  'issuer_revoked',
+  'issuer_suspended',
+  'delegate_granted',
+  'delegate_revoked',
+  'lead_appointed',
+  'lead_removed',
+  'lead_nominated',
+  'nomination_rejected',
+  'nomination_withdrawn',
+  'grant_kept',
+  'grant_revoked',
+] as const;
+export type AccessHistoryKind = (typeof ACCESS_HISTORY_KINDS)[number];
+
+/** Query of `GET …/access-history`: a 1-based page, optionally one person's events only. */
+export const accessHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  userId: idSchema.optional(),
+});
+export type AccessHistoryQuery = z.output<typeof accessHistoryQuerySchema>;
+
+export const accessHistoryEventSchema = z.object({
+  /** Stable per event: the row, plus whether it is its start or its end. */
+  id: z.string(),
+  at: z.string(),
+  kind: z.enum(ACCESS_HISTORY_KINDS),
+  /** Whom it is about (the member, reviewer, holder, new lead or nominee); null: lead removed. */
+  subject: personSnapshotSchema.nullable(),
+  /** Who recorded it; null when the audit has no person. */
+  by: personSnapshotSchema.nullable(),
+  /** The review or report scope's label, when the row has one. */
+  scope: z.string().nullable(),
+  /** For grant reviews: which kind of inherited grant was kept or revoked. */
+  grantKind: z.enum(GRANT_REVIEW_KINDS).nullable(),
+  reason: z.string().nullable(),
+});
+export type AccessHistoryEvent = z.infer<typeof accessHistoryEventSchema>;
+
+/** `GET /api/projects/:projectId/access-history` (project_access.read), newest first. */
+export const projectAccessHistorySchema = z.object({
+  projectId: z.string(),
+  page: z.number(),
+  pageSize: z.number(),
+  total: z.number(),
+  events: z.array(accessHistoryEventSchema),
+});
+export type ProjectAccessHistory = z.infer<typeof projectAccessHistorySchema>;

@@ -82,41 +82,42 @@ test('the new lead keeps one inherited grant and revokes another; the request re
   // The badge also shows on the person's grants.
   await expect(
     page
-      .getByRole('region', { name: 'People on this project' })
+      .getByRole('region', { name: 'People', exact: true })
       .getByRole('row')
       .filter({ hasText: 'Jamie Song' }),
-  ).toContainText('Acceptance delegate (Needs review by new lead)');
+  ).toContainText(/Acceptance delegate.*Needs review by new lead/);
 
-  // Keep the delegate (a reason is needed).
-  await section.getByRole('button', { name: 'Keep Acceptance delegate · JS · Jamie Song' }).click();
-  const keep = page.getByRole('dialog', { name: /^Keep Acceptance delegate/ });
-  await keep.getByRole('button', { name: 'Keep' }).click();
+  // Keep the delegate (a reason is needed). STRATA-85: the decision is an inline reason form
+  // and the outcome a toast.
+  await section.getByRole('button', { name: 'Keep Acceptance delegate · Jamie Song' }).click();
+  const keep = section.getByRole('form', { name: /^Keep Acceptance delegate/ });
+  await keep.getByRole('button', { name: 'Keep grant' }).click();
   await expect(keep).toContainText('Enter a reason.');
-  await keep.getByRole('textbox', { name: 'Reason' }).fill('Jamie still covers acceptance');
-  await keep.getByRole('button', { name: 'Keep' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: 'Kept Acceptance delegate' }),
-  ).toBeVisible();
+  await keep.getByRole('textbox', { name: /Reason/ }).fill('Jamie still covers acceptance');
+  await keep.getByRole('button', { name: 'Keep grant' }).click();
+  await expect(page.getByText(/Kept Acceptance delegate/)).toBeVisible();
   await expect(flagged.getByRole('listitem')).toHaveCount(1);
 
-  // Revoke the issuer grant.
-  await section.getByRole('button', { name: /^Revoke Report issuer/ }).click();
-  const revoke = page.getByRole('dialog', { name: /^Revoke Report issuer/ });
-  await revoke.getByRole('textbox', { name: 'Reason' }).fill('Dana signs field reports now');
-  await revoke.getByRole('button', { name: 'Revoke' }).click();
+  // End the issuer grant (Revoke on the earlier page).
+  await section.getByRole('button', { name: /^End Report issuer/ }).click();
+  const revoke = section.getByRole('form', { name: /^End Report issuer/ });
+  await revoke.getByRole('textbox', { name: /Reason/ }).fill('Dana signs field reports now');
+  await revoke.getByRole('button', { name: 'End grant' }).click();
   await expect(section).toBeHidden();
 
   // History records the lead change and both reviews.
   const history = page.getByRole('region', { name: 'History' });
-  await expect(history).toContainText(
-    'Lead Project Engineer changed to DE · Dana Example by ADM · Admin (test) (Pat moved to another office)',
-  );
-  await expect(history).toContainText(
-    'Inherited acceptance delegate grant of Jamie Song kept by DE · Dana Example (Jamie still covers acceptance)',
-  );
-  await expect(history).toContainText(
-    'Inherited report issuer grant of Jamie Song revoked by DE · Dana Example (Dana signs field reports now)',
-  );
+  // STRATA-85: the paged History says who did what, with the reason quoted.
+  for (const text of [
+    'Admin (test) appointed Dana Example as Lead Project Engineer',
+    'Pat moved to another office',
+    'Dana Example kept Jamie Song’s inherited acceptance delegate grant',
+    'Jamie still covers acceptance',
+    'Dana Example ended Jamie Song’s inherited report issuer grant',
+    'Dana signs field reports now',
+  ]) {
+    await expect(history).toContainText(text);
+  }
 
   // The request is resolved.
   await page.goto('/action-requests');

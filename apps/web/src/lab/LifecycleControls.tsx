@@ -112,7 +112,11 @@ export function ProgramLifecycle({ program, work }: { program: LabProgram; work:
                 <ul className="mt-1 flex flex-col gap-0.5">
                   {life.closure.blockers.map((blocker) => (
                     <li key={blocker.testRequestId}>
-                      <Button variant="link" asChild className="h-auto p-0">
+                      <Button
+                        variant="link"
+                        asChild
+                        className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+                      >
                         <a href={`#request-${blocker.testRequestId}`}>
                           {testLabel(program, blocker.testRequestId)}
                         </a>
@@ -158,7 +162,11 @@ export function RequestLifecycle({
       item.status === 'open',
   );
   const link = (id: string, text: string) => (
-    <Button variant="link" asChild className="h-auto p-0">
+    <Button
+      variant="link"
+      asChild
+      className="h-auto p-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
+    >
       <a href={`#request-${id}`}>{text}</a>
     </Button>
   );
