@@ -203,6 +203,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-V2-C32: issuing a project summary report (the lead or an Authorized report issuer for
   // concrete_field reports); checked before the body and again under the project lock.
   'POST /api/concrete/projects/:projectId/summary-reports': 'report.issue',
+  // Strata lane A: every active session reads a station's rows (LAB included); saving is
+  // station.configure (PUT is swept by its permission).
+  'GET /api/station/config/:stationId': null,
 };
 
 /**

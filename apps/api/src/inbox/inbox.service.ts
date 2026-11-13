@@ -32,7 +32,20 @@ export class InboxService {
   constructor(private readonly database: DatabaseService) {}
 
   async page(user: AuthUser, query: InboxQuery): Promise<InboxPage> {
-    const feed = await loadFeed(this.database.pool, user.userId);
+    return this.pageFor(user.userId, query);
+  }
+
+  async summary(user: AuthUser): Promise<InboxSummary> {
+    return this.summaryFor(user.userId);
+  }
+
+  /**
+   * The Inbox page of the person `userId`, read-only. Takes a user ID, never a session, so a
+   * caller reading someone else's feed (the LAB station Inbox, STRATA-27, with that person's
+   * consent) never acts as them: nothing here checks a permission or changes read state.
+   */
+  async pageFor(userId: string, query: InboxQuery): Promise<InboxPage> {
+    const feed = await loadFeed(this.database.pool, userId);
     const q = searchText(query);
     const matching = feed.filter((entry) => matches(entry, query.filter, q));
     const inTabNow = matching.filter((entry) => inTab(entry.item, query.tab));
@@ -49,12 +62,13 @@ export class InboxService {
         updates: matching.filter((entry) => inTab(entry.item, 'updates')).length,
         done: matching.filter((entry) => inTab(entry.item, 'done')).length,
       },
-      summary: await this.summaryOf(user, feed),
+      summary: await this.summaryOf(userId, feed),
     };
   }
 
-  async summary(user: AuthUser): Promise<InboxSummary> {
-    return this.summaryOf(user, await loadFeed(this.database.pool, user.userId));
+  /** The Inbox counts and preview of the person `userId`, read-only (see `pageFor`). */
+  async summaryFor(userId: string): Promise<InboxSummary> {
+    return this.summaryOf(userId, await loadFeed(this.database.pool, userId));
   }
 
   /**
@@ -124,8 +138,8 @@ export class InboxService {
     return this.summary(user);
   }
 
-  private async summaryOf(user: AuthUser, feed: FeedEntry[]): Promise<InboxSummary> {
-    const badgeUpdates = await badgeUpdatesPreference(this.database.pool, user.userId);
+  private async summaryOf(userId: string, feed: FeedEntry[]): Promise<InboxSummary> {
+    const badgeUpdates = await badgeUpdatesPreference(this.database.pool, userId);
     const preview = feed
       .filter((entry) => entry.item.unread && inTab(entry.item, 'all'))
       .sort(comparator('newest'))

@@ -101,6 +101,19 @@ const VIEW_PREDICATE: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string
  */
 const HOLD_REVIEW_DUE = `${VIEW_PREDICATE.hold} AND sp.hold_expires_on <= q.today`;
 
+/**
+ * Strata lane A (STRATA-20/21): specimens with a break due on `today` (the worklist's Today view)
+ * that have no complete test entry yet. Same scheduled set as the worklist, so the station count
+ * and the worklist never disagree.
+ */
+export async function countBreaksDueToday(db: Db, today: string): Promise<number> {
+  const { rows } = await db.query<{ count: number }>(
+    `SELECT count(*)::int AS count ${SCHEDULED} AND ${VIEW_PREDICATE.today} AND NOT ${TESTED}`,
+    [today, today, null],
+  );
+  return rows[0]?.count ?? 0;
+}
+
 const VIEW_ORDER: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string> = {
   today: 'sp.target_date',
   overdue: 'sp.target_date',

@@ -1222,3 +1222,16 @@ is indexed by person. Relevance only: All projects is unchanged and nothing is h
   deleted. A draft saved before the registry existed has no owner: its deletion (Lab Manager only)
   is a `legacy` row with no account and no starter, so ownership is never invented.
 - **Who may delete:** see [permissions.md](permissions.md#receiving-drafts-and-receipts-strata-78-strata-108).
+
+## Station configuration (Strata lane A, `0045_station_config.sql`)
+
+- **What it holds.** One row per LAB station that someone customized: `station_id` (the random
+  ID the station computer made once, `^[A-Za-z0-9_-]{8,64}$` as the shared `stationIdSchema`),
+  `rows` (the "At this station" rows in order with `visible`, a JSON list the API wrote with
+  `normalizeStationRows` and normalizes again on read), `version`, `updated_by_user_id` and
+  `updated_at`. No row means the defaults (version 0 in the API).
+- **Rules** (proved in `schema-station-config.test.ts`): the station ID format; a stored row
+  starts at version 1 and each save adds exactly one; the station ID never changes; the person who
+  saved is an active personal or test account holding the Lab Manager role at that moment, never
+  the shared LAB account. Saves are audited as `station_config.saved`.
+- **Who may save:** see [permissions.md](permissions.md#lab-station-today-configuration-and-inbox-strata-lane-a).

@@ -100,6 +100,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | staff_capability.manage (AO03, D01)                                                                                                                      |     |                   |             |                |   ✓   |                       |                     |
 | project.lead_project_engineer.change (T35)                                                                                                               |     |                   |             |                |   ✓   |                       |                     |
 | system.status.read (T21)                                                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
+| station.today.read (STRATA-20/21/63)                                                                                                                     |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
+| station.inbox.read (STRATA-27; picked person's consent, read-only)                                                                                       |  ✓  |                   |             |                |       |                       |                     |
+| station.configure (STRATA-36; own account only)                                                                                                          |     |                   |      ✓      |                |       |                       |                     |
 
 "Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account. `report.issue` is also held
@@ -1614,3 +1617,40 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 - **Received by** is staff attribution chosen per receipt (STRATA-107): editable, separate from
   the account that entered it; the receipt shows "Entered by X, for Y" when they differ. It
   grants no permissions.
+
+## LAB station: Today, configuration and Inbox (Strata lane A)
+
+| Route                                                  | Policy                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| `GET /api/station/today`                               | `station.today.read` (LAB, Lab Manager, Lab Technician)   |
+| `GET /api/station/config/:stationId`                   | any active session, LAB included                          |
+| `PUT /api/station/config/:stationId {rows, version}`   | `station.configure` (Lab Manager, own account; never LAB) |
+| `GET /api/station/inbox?personId=&tab=&filter=&q=&...` | `station.inbox.read` (the shared LAB account only)        |
+| `GET /api/station/inbox/summary?personId=`             | `station.inbox.read` (the shared LAB account only)        |
+
+- **Station counts.** Lab-wide numbers, never a person's own data, so lab staff with their own
+  accounts may read them too (a Lab Manager previews a station while customizing it); an
+  ordinary internal user gets 403. Each count is read on its own: one that fails answers `null`
+  and the others still come back. `draftReceipts` = rows in the receipt draft registry (0044)
+  started on the shared LAB account that are not deleted, whoever calls. The registry has no
+  "confirmed" mark (a confirmed draft is removed only in the browser), so a confirmed draft stays
+  counted until it is deleted.
+  `breaksDueToday` = concrete specimens whose target date is today (America/Edmonton), not HOLD,
+  with no complete test entry, on the worklist's scheduled set (set and report not void, cast
+  time known, not authorized for disposal). `labelsToPrint` = storage units not disposed,
+  received in the last `LABELS_TO_CHECK_DAYS` (30) days in the business time zone, whose newest
+  print job is missing (never printed) or `failed`.
+- **Configuration.** One row per station ID (`^[A-Za-z0-9_-]{8,64}$`); an unsaved station reads
+  the defaults (`version` 0, `updatedBy` null). Saving needs `station.configure`, which only the
+  Lab Manager role grants, checked again on the account as it stands in the transaction; the
+  shared LAB account is refused whoever it picks (Kyle 2026-11-13, STRATA-36: a Lab Manager signs
+  in with their own account on the station computer to customize it). A stale `version` answers
+  409 `version_conflict` with the current configuration and saves nothing; a save adds one to
+  the version and is audited as `station_config.saved` (station ID, before and after rows).
+- **Station Inbox (STRATA-27).** Consent-based and read-only. `personId` must be an active staff
+  member (else 404 `person_not_found`, no detail). When that person's `shareInboxOnStations`
+  preference is off or never saved, the answer is `{state: 'private', person}` with no items or
+  counts. When on, it is that person's Inbox page or summary, built for them by user ID: LAB
+  never gains their roles or permissions anywhere, nothing is cached across people, no read state
+  changes, and there is no station route that reads, dismisses or decides anything. Personal
+  accounts get 403 (they read their own Inbox at `/api/inbox`). Item content is never logged.

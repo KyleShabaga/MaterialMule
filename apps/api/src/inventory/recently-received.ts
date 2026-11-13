@@ -47,6 +47,26 @@ const LATEST_PRINT = `LEFT JOIN LATERAL (
 
 const NEEDS_LABEL_CHECK = `lp.status IN ('sent', 'uncertain') AND lp.physically_confirmed_at IS NULL`;
 
+/**
+ * Strata lane A (STRATA-20/21): storage units not disposed, received on or after `labelsSince`
+ * (LABELS_TO_CHECK_DAYS), whose label was never printed (no print job) or whose newest print job
+ * failed. "Sent but not confirmed" stays with Labels to check (NEEDS_LABEL_CHECK), not here.
+ */
+export async function countLabelsToPrint(
+  db: Pick<Pool, 'query'>,
+  labelsSince: string,
+): Promise<number> {
+  const { rows } = await db.query<{ count: number }>(
+    `SELECT count(*)::int AS count
+     FROM storage_unit su
+     ${LATEST_PRINT}
+     WHERE su.status <> 'disposed' AND su.received_date >= $1::date
+       AND (lp.status IS NULL OR lp.status = 'failed')`,
+    [labelsSince],
+  );
+  return rows[0]?.count ?? 0;
+}
+
 const ORDER = `su.received_date DESC, su.readable_id COLLATE "C" DESC`;
 
 interface Row {
