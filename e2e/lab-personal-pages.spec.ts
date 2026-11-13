@@ -33,11 +33,11 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
   await pickStationPerson(page, 'Alex Tester');
   const refused = collect403s(page);
 
+  // The old Action requests page is the Inbox (STRATA-24); on a station it shows the station
+  // Inbox (STRATA-27), never the shared account's own feed, so it never fails to load one.
   await page.goto('/action-requests');
-  await expect(
-    page.getByText('Action requests are for personal accounts. Sign in with your own account.'),
-  ).toBeVisible();
-  await expect(page.getByText('Action requests couldn’t load.')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/inbox\?tab=requests$/);
+  await expect(page.getByText('Inbox couldn’t load')).toHaveCount(0);
 
   await page.goto('/settings/profile');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();

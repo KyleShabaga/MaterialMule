@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { inboxRow, inboxUrl, openInboxItem } from './support/inbox';
 
 // MTR-25: a new Lead Project Engineer is asked to keep or revoke the grants the project already
 // has. Fictional data only: a project unique per run and viewport, first led by Pat Example, with
@@ -66,12 +67,12 @@ test('the new lead keeps one inherited grant and revokes another; the request re
 
   // Dana's inbox has one "Review inherited grants" request; it opens Team & Permissions.
   await signInAs(page, 'de');
-  await page.goto('/action-requests');
-  const request = page.getByRole('listitem', {
-    name: `Review inherited grants on ${projectNumber}`,
-  });
+  const title = `Review inherited grants on ${projectNumber}`;
+  await page.goto(inboxUrl(projectNumber, { tab: 'requests' }));
+  const request = inboxRow(page, title);
   await expect(request).toBeVisible();
-  await request.getByRole('link', { name: 'Open' }).click();
+  const item = await openInboxItem(page, request, title);
+  await item.getByRole('link', { name: 'Review the grants' }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/team`));
 
   const section = page.getByRole('region', { name: 'Inherited grants to review' });
@@ -120,8 +121,7 @@ test('the new lead keeps one inherited grant and revokes another; the request re
   }
 
   // The request is resolved.
-  await page.goto('/action-requests');
-  await expect(
-    page.getByRole('listitem', { name: `Review inherited grants on ${projectNumber}` }),
-  ).toHaveCount(0);
+  await page.goto(inboxUrl(projectNumber, { tab: 'requests' }));
+  await expect(page.getByRole('heading', { level: 1, name: 'Inbox' })).toBeVisible();
+  await expect(inboxRow(page, title)).toHaveCount(0);
 });

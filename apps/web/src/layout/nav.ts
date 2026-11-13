@@ -233,11 +233,6 @@ export interface WorkSection {
 export interface SidebarNav {
   /** Today, Projects, Inbox: always first, never folded, moved or hidden. */
   top: NavItem[];
-  /**
-   * Action requests while Inbox opens the notifications list: one sub-row under Inbox until the
-   * unified Inbox (STRATA-25) holds both. Null unless the session can read both.
-   */
-  inboxRequests: SubPage | null;
   /** The work sections this session can use, in default order; empty ones are left out. */
   sections: WorkSection[];
 }
@@ -279,13 +274,10 @@ export function sidebarNavFor(
 ): SidebarNav {
   const can = (permission: string) => me.permissions.includes(permission);
   const top = [row('today', '/', 'Today', House), row('projects', '/projects', 'Projects', Folder)];
-  // Inbox opens the notifications list; with only action_item.read, the action requests.
-  if (can('notification.read')) top.push(row('inbox', '/notifications', 'Inbox', Inbox));
-  else if (can('action_item.read')) top.push(row('inbox', '/action-requests', 'Inbox', Inbox));
-  const inboxRequests: SubPage | null =
-    can('notification.read') && can('action_item.read')
-      ? { to: '/action-requests', label: 'Action requests', match: 'prefix' }
-      : null;
+  // The single Inbox (STRATA-24): requests and updates in one place.
+  if (can('notification.read') || can('action_item.read')) {
+    top.push(row('inbox', '/inbox', 'Inbox', Inbox));
+  }
 
   const labStaff = isConcreteLabStaff(me);
   const storage = present([
@@ -322,7 +314,7 @@ export function sidebarNavFor(
     { id: 'soils' as const, ...SECTION_INFO.soils, items: soils },
     { id: 'concrete' as const, ...SECTION_INFO.concrete, items: concrete },
   ].filter((section) => section.items.length > 0);
-  return { top, inboxRequests, sections };
+  return { top, sections };
 }
 
 /**
@@ -333,7 +325,13 @@ export function sidebarNavFor(
 export function activeNavKey(pathname: string): NavKey | 'settings' | 'help' | null {
   if (pathname === '/') return 'today';
   if (within(pathname, '/projects')) return 'projects';
-  if (within(pathname, '/notifications') || within(pathname, '/action-requests')) return 'inbox';
+  if (
+    within(pathname, '/inbox') ||
+    within(pathname, '/notifications') ||
+    within(pathname, '/action-requests')
+  ) {
+    return 'inbox';
+  }
   if (within(pathname, '/receiving-log') || within(pathname, '/labels/print/receipt')) {
     return 'receive';
   }

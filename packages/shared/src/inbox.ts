@@ -233,6 +233,8 @@ export const inboxRequestItemSchema = z.object({
   /** Live workflow state; reading never changes it. */
   status: z.enum(['open', 'resolved']),
   resolution: z.enum(ACTION_REQUEST_RESOLUTIONS).nullable(),
+  /** Who resolved it (the drawer's "Resolved by Pat Example · Program closed"); null while open. */
+  resolvedBy: personSnapshotSchema.nullable().optional(),
   /** Open and routed to the signed-in person now (D10 routing). */
   waitingOnMe: z.boolean(),
   /** The signed-in person raised it. */
@@ -250,6 +252,8 @@ export const inboxUpdateItemSchema = z.object({
   aboutMyRequest: z.boolean(),
   /** For action-request updates: the request's live state. */
   linkedRequestStatus: z.enum(['open', 'resolved']).nullable(),
+  /** For action-request updates: how the request was resolved; null while open or not linked. */
+  linkedResolution: z.enum(ACTION_REQUEST_RESOLUTIONS).nullable().optional(),
 });
 export type InboxUpdateItem = z.infer<typeof inboxUpdateItemSchema>;
 

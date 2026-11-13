@@ -32,16 +32,12 @@ async function expectDifferent(selected: Locator, other: Locator, what: string) 
 test('MTR-131: selected states stay distinguishable in forced colours', async ({ page }) => {
   await signInAs(page, 'admin');
 
-  // Field Ledger: Today has no filter chips; the Notifications filter is the segmented control.
-  await page.goto('/notifications');
-  const filters = page.getByRole('group', { name: 'Show' });
-  const pressed = filters.getByRole('button', { name: 'Active', exact: true });
-  await expect(pressed).toHaveAttribute('aria-pressed', 'true');
-  await expectDifferent(
-    pressed,
-    filters.getByRole('button', { name: 'Unread', exact: true }),
-    'segmented filter',
-  );
+  // Strata: the Inbox's segmented tabs (STRATA-24; the Notifications filter before it).
+  await page.goto('/inbox');
+  const tabs = page.getByRole('tablist', { name: 'Inbox' });
+  const pressed = tabs.getByRole('tab', { name: /^All/ });
+  await expect(pressed).toHaveAttribute('aria-selected', 'true');
+  await expectDifferent(pressed, tabs.getByRole('tab', { name: /^Requests/ }), 'segmented filter');
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expectDifferent(

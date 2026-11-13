@@ -1,5 +1,5 @@
 import type { MeResponse } from '@materialmule/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -96,27 +96,22 @@ afterEach(() => {
 });
 
 describe('MTR-2: LAB on personal-account pages', () => {
-  it('Action requests shows a plain refusal and loads nothing', async () => {
-    const urls = renderAsLab('/action-requests');
-    expect(
-      await screen.findByText(
-        'Action requests are for personal accounts. Sign in with your own account.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-    expect(personalCalls(urls)).toEqual([]);
-  });
-
-  it('Notifications shows a plain refusal and loads nothing (MM-T91)', async () => {
-    const urls = renderAsLab('/notifications');
-    expect(
-      await screen.findByText(
-        'Notifications are for personal accounts. Sign in with your own account.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-    expect(personalCalls(urls)).toEqual([]);
-  });
+  // STRATA-24: the old Action requests and Notifications pages are the Inbox now; on a station it
+  // shows the station Inbox (STRATA-27) and never reads the shared account's own Inbox.
+  it.each(['/action-requests', '/notifications', '/inbox'])(
+    '%s on a LAB station reads no personal Inbox, requests or notifications',
+    async (path) => {
+      const urls = renderAsLab(path);
+      expect(await screen.findByRole('main')).toBeInTheDocument();
+      await waitFor(() => expect(urls.length).toBeGreaterThan(0));
+      expect(screen.queryByRole('heading', { level: 1, name: 'Inbox' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+      expect(personalCalls(urls)).toEqual([]);
+      expect(urls.filter((url) => url === '/api/inbox' || url === '/api/inbox/summary')).toEqual(
+        [],
+      );
+    },
+  );
 
   it('My access describes the shared account without asking the server (STRATA-119)', async () => {
     const urls = renderAsLab('/settings/access');

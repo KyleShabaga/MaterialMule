@@ -82,7 +82,7 @@ describe('sidebarNavFor', () => {
   it('Today, Projects, Inbox; then Storage units, Soils and Concrete with Overview', () => {
     const who = me({ roles: ['lab_technician'], permissions: ['notification.read'] });
     expect(labels(who)).toEqual({
-      top: ['Today /', 'Projects /projects', 'Inbox /notifications'],
+      top: ['Today /', 'Projects /projects', 'Inbox /inbox'],
       sections: [
         ['Storage units', 'Receive', 'Inventory', 'Retention'],
         ['Soils', 'Lab programs', 'Workboard'],
@@ -99,12 +99,15 @@ describe('sidebarNavFor', () => {
     expect(labels(me(), ALL_OFF).sections).toEqual([['Storage units', 'Receive', 'Inventory']]);
   });
 
-  it('Inbox: notifications with Action requests under it; requests only; or no Inbox', () => {
-    const both = sidebarNavFor(me({ permissions: ['notification.read', 'action_item.read'] }));
-    expect(both.inboxRequests).toMatchObject({ to: '/action-requests', label: 'Action requests' });
-    const requests = sidebarNavFor(me({ permissions: ['action_item.read'] }));
-    expect(requests.top.at(-1)).toMatchObject({ label: 'Inbox', to: '/action-requests' });
-    expect(requests.inboxRequests).toBeNull();
+  it('Inbox: one row to /inbox with either permission, no sub-rows; or no Inbox', () => {
+    for (const permissions of [
+      ['notification.read', 'action_item.read'],
+      ['notification.read'],
+      ['action_item.read'],
+    ]) {
+      const inbox = sidebarNavFor(me({ permissions })).top.at(-1);
+      expect(inbox).toMatchObject({ label: 'Inbox', to: '/inbox', children: [] });
+    }
     // LAB has neither: no Inbox row.
     expect(sidebarNavFor(me({ accountType: 'shared_lab' })).top.map((i) => i.label)).toEqual([
       'Today',
@@ -116,6 +119,8 @@ describe('sidebarNavFor', () => {
     const cases: [string, ReturnType<typeof activeNavKey>][] = [
       ['/', 'today'],
       ['/projects/p1/team', 'projects'],
+      ['/inbox', 'inbox'],
+      ['/inbox/request%3Aa-1', 'inbox'],
       ['/notifications', 'inbox'],
       ['/action-requests', 'inbox'],
       ['/receiving-log/new', 'receive'],
