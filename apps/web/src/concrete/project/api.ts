@@ -5,7 +5,7 @@ import {
   concreteMixPropagationPreviewSchema,
   concreteMixPropagationResultSchema,
   concreteProjectSettingsSchema,
-  concreteProjectSpecimenListSchema,
+  concreteProjectSetListSchema,
   concreteSummaryReportListSchema,
   concreteSummaryReportSchema,
   type ConcreteSummaryFilters,
@@ -18,7 +18,7 @@ import {
   type ConcreteMixPropagationPreview,
   type ConcreteMixPropagationResult,
   type ConcreteProjectSettings,
-  type ConcreteProjectSpecimenList,
+  type ConcreteProjectSetList,
   type CopyConcreteMixRequest,
   type CreateConcreteMixRequest,
   type DiscardConcreteMixDraftRequest,
@@ -28,7 +28,7 @@ import {
 } from '@materialmule/shared';
 import { apiFetch } from '../../api/client';
 
-// MM-V2-C30: the project Concrete section (Reports, Specimens, Summary, Mixes and Settings tabs)
+// MM-V2-C30, STRATA-98: the project Concrete tab (Field reports, Sets, Mixes, Summary, Settings)
 // and the mix propagation review. Every call throws ConcreteApiError on a refusal so the screen
 // keeps the person's input and can say why.
 
@@ -89,11 +89,17 @@ export function search(params: Record<string, string | number | undefined>): str
   return text ? `?${text}` : '';
 }
 
-// ---- Reports and Specimens ----------------------------------------------------------------------
+// ---- Field reports and Sets ----------------------------------------------------------------------
 
 export function fetchProjectReports(
   projectId: string,
-  query: { search?: string; state?: string; issued?: string; page?: number },
+  query: {
+    search?: string;
+    state?: string;
+    issued?: string;
+    technicianUserId?: string;
+    page?: number;
+  },
 ): Promise<ConcreteFieldReportList> {
   return call(
     `/api/concrete/projects/${encodeURIComponent(projectId)}/field-reports${search({ ...query, pageSize: 25 })}`,
@@ -101,13 +107,14 @@ export function fetchProjectReports(
   );
 }
 
-export function fetchProjectSpecimens(
+/** STRATA-98: the Sets sub-tab, one row per specimen set, newest first. */
+export function fetchProjectSets(
   projectId: string,
-  query: { search?: string; status?: string; page?: number },
-): Promise<ConcreteProjectSpecimenList> {
+  query: { search?: string; page?: number },
+): Promise<ConcreteProjectSetList> {
   return call(
-    `/api/concrete/projects/${encodeURIComponent(projectId)}/specimens${search(query)}`,
-    (b) => concreteProjectSpecimenListSchema.parse(b),
+    `/api/concrete/projects/${encodeURIComponent(projectId)}/specimen-sets${search(query)}`,
+    (b) => concreteProjectSetListSchema.parse(b),
   );
 }
 
