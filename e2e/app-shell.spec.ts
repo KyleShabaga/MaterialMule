@@ -25,9 +25,11 @@ test('AC1/AC4: account row, sidebar and Receive samples', async ({ page }) => {
   await signInAs(page, 'lab');
   await page.goto('/');
 
-  // Phone width: Receive samples is visible before the sidebar Sheet is opened.
+  // Phone width: Receive is reachable before the sidebar Sheet is opened (Strata Today's
+  // shortcuts are role-based, so through the top bar's Quick actions, and Today's welcome shows).
   if (isPhoneLayout(page)) {
-    await expect(page.getByRole('link', { name: 'Receive samples' })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Quick actions' })).toBeInViewport();
+    await expect(page.getByRole('heading', { level: 1 })).toBeInViewport();
   }
   const account = await openAccount(page);
   await expect(account).toContainText('Lab (test)');
@@ -65,7 +67,9 @@ test('AC1/AC4: account row, sidebar and Receive samples', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
   await openMore(page);
   await mainNav(page).getByRole('link', { name: 'Today', exact: true }).click();
-  await page.getByRole('link', { name: 'Receive samples' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
+  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('menuitem', { name: 'Receive', exact: true }).click();
   // The open receipt draft's ID is added to the URL (MM-T11).
   await expect(page).toHaveURL(/\/receiving-log\/new(\?draft=[\w-]+)?$/);
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();

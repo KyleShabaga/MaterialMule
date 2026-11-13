@@ -25,9 +25,11 @@ export function uniqueTag(prefix: string): string {
 
 export const bucket = (page: Page, n: number) => page.getByRole('region', { name: `Bucket ${n}` });
 
+/** From Today through the top bar's Quick actions (Strata Today has role-based shortcuts). */
 export async function openWizard(page: Page) {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Receive samples' }).click();
+  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('menuitem', { name: 'Receive', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();
 }
 
