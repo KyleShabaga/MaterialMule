@@ -20,7 +20,7 @@ type Received =
   { state: 'loading' } | { state: 'error' } | { state: 'ready'; items: FeedbackItem[] };
 
 /**
- * Administrators (`staff.manage`, checked by the server too): the latest feedback, newest first,
+ * Administrators (`feedback.read`, checked by the server too): the latest feedback, newest first,
  * kept on the host as audit events. Unchanged from Field Ledger's Help page apart from its look;
  * it stays on /help until the administrators' Inbox shows feedback.
  */

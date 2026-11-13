@@ -88,6 +88,7 @@ describe('Feedback & bugs dialog', () => {
       kind: 'confusing',
       text: 'Where do core boxes go?',
       page: '/sample-storage/move',
+      submissionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
 
     answer(json(201, { id: 'f1' }));
@@ -114,7 +115,11 @@ describe('Feedback & bugs dialog', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Send to the administrator' }));
     await screen.findByRole('heading', { name: 'Sent.' });
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({ kind: 'idea', text: 'Sort by due date' });
+    expect(JSON.parse(String(init.body))).toEqual({
+      kind: 'idea',
+      text: 'Sort by due date',
+      submissionId: expect.any(String),
+    });
   });
 
   it('asks for a kind when none is chosen', async () => {
@@ -150,6 +155,11 @@ describe('Feedback & bugs dialog', () => {
       expect(within(dialog).getByLabelText('What happened')).toHaveValue('The printer is offline');
     }
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    // Every retry carries the same submission ID, so the server keeps one message.
+    const ids = (fetchMock.mock.calls as [string, RequestInit][]).map(
+      ([, init]) => (JSON.parse(String(init.body)) as { submissionId: string }).submissionId,
+    );
+    expect(new Set(ids).size).toBe(1);
     expect(screen.queryByText('Sent.')).toBeNull();
     expect(document.body.textContent).not.toContain('line 42');
   });

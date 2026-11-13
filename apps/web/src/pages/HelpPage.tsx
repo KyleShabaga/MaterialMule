@@ -14,7 +14,8 @@ import './help.css';
 export function HelpPage() {
   const me = useMe();
   const feedback = useOptionalFeedbackDialog();
-  const isAdmin = me.permissions.includes('staff.manage');
+  // STRATA-118: Lab Managers manage staff but never read administrator Feedback.
+  const isAdmin = me.permissions.includes('feedback.read');
 
   return (
     <div className="help-page">

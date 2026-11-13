@@ -149,6 +149,9 @@ function FeedbackForm({
   const [includePage, setIncludePage] = useState(true);
   const [errors, setErrors] = useState<{ kind?: string; text?: string }>({});
   const [state, setState] = useState<SendState>('idle');
+  // One ID per message (STRATA-104): a retry after a failed send reuses it, so the server keeps
+  // one message and notifies the administrators once.
+  const [submissionId] = useState(() => crypto.randomUUID());
   const sending = useRef(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const kindRef = useRef<HTMLDivElement>(null);
@@ -179,6 +182,7 @@ function FeedbackForm({
           kind: FEEDBACK_KIND_OF[choice as FeedbackChoice],
           text: message,
           ...(page && includePage ? { page } : {}),
+          submissionId,
         }),
       });
       // Success only once the server has acknowledged it with the new record's ID.

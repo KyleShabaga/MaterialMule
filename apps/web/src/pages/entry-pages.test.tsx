@@ -51,7 +51,7 @@ const ADMIN: MeResponse = {
   id: '00000000-0000-4000-8000-0000000000a2',
   displayName: 'Kit Admin',
   roles: ['admin'],
-  permissions: ['inventory.read', 'staff.manage'],
+  permissions: ['inventory.read', 'staff.manage', 'feedback.read'],
 };
 
 type Handler = (init?: RequestInit) => { status: number; body?: unknown };

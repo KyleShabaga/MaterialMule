@@ -322,7 +322,7 @@ describe('WhoIsWorkingPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'How LAB stations work' })).toHaveAttribute(
       'href',
-      '/help',
+      '/help#lab-stations',
     );
     const list = await screen.findByRole('list', { name: 'Receiving lab staff' });
     const rows = within(list)
