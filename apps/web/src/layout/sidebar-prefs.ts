@@ -245,6 +245,10 @@ const freshState = (source: SidebarPrefsSource): PrefsState => ({
 /**
  * The layout, pins and recents for `source`. A new source (another person signed in, a station
  * changing hands) reloads everything and drops the previous person's layout at once.
+ *
+ * `source` must keep its identity for as long as the person does (AppLayout memoizes it on the
+ * account, station and person). Passing a new object on every render reads as a new person each
+ * time and resets the state during render without end.
  */
 export function useSidebarPrefs(source: SidebarPrefsSource): SidebarPrefs {
   const [state, setState] = useState<PrefsState>(() => freshState(source));

@@ -260,9 +260,9 @@ describe('sidebar layout adapter', () => {
 
   it('stops listening for pin changes once the sidebar is gone', async () => {
     const pins = vi.fn(async () => [] as SidebarRecord[]);
-    const { result: prefs, unmount } = renderHook(() =>
-      useSidebarPrefs({ ...fakeSource(null), pins }),
-    );
+    // One source for the whole test: a new object each render would read as a new person.
+    const source: SidebarPrefsSource = { ...fakeSource(null), pins };
+    const { result: prefs, unmount } = renderHook(() => useSidebarPrefs(source));
     await waitFor(() => expect(prefs.current.pins).toEqual([]));
     unmount();
     window.dispatchEvent(new CustomEvent(PINS_CHANGED_EVENT));
