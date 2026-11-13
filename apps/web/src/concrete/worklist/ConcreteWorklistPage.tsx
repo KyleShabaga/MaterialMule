@@ -82,6 +82,12 @@ export function ConcreteWorklistPage() {
   const view: ConcreteWorklistView = (VIEWS as readonly string[]).includes(asked ?? '')
     ? (asked as ConcreteWorklistView)
     : 'today';
+  // The tab follows a keypress at once; the URL (and the list) catch up a moment later, so quick
+  // arrow keys never race the navigation (STRATA-95 keyboard rule).
+  const [pendingView, setPendingView] = useState<ConcreteWorklistView | null>(null);
+  // Once the URL has caught up, the URL is the truth again (adjusting state while rendering).
+  if (pendingView !== null && pendingView === view) setPendingView(null);
+  const shownView = pendingView ?? view;
   const holdDue = params.get('holdDue') === 'true';
   const projectId = params.get('project') ?? '';
   const [page, setPage] = useState(1);
@@ -192,7 +198,13 @@ export function ConcreteWorklistPage() {
         </Alert>
       ) : null}
 
-      <Tabs value={view} onValueChange={(next) => update({ view: next === 'today' ? null : next })}>
+      <Tabs
+        value={shownView}
+        onValueChange={(next) => {
+          setPendingView(next as ConcreteWorklistView);
+          update({ view: next === 'today' ? null : next });
+        }}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList
             aria-label="Concrete worklist views"
@@ -229,7 +241,7 @@ export function ConcreteWorklistPage() {
             </Select>
           </div>
         </div>
-        <TabsContent value={view} className="mt-2 flex min-w-0 flex-col gap-5">
+        <TabsContent value={shownView} className="mt-2 flex min-w-0 flex-col gap-5">
           {view === 'hold' && shown ? (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted-foreground">

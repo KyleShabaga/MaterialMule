@@ -110,7 +110,10 @@ test('T2: the lead authorizes disposal of two HOLDs in bulk; a Lab Technician re
   const confirm = dialog.getByRole('button', { name: 'Authorize disposal of 2 specimens' });
   await confirm.click();
   await expect(dialog.getByText('A reason is required')).toBeVisible();
-  await expect(table.getByText('26-01D')).toBeVisible();
+  // The modal dialog hides the page from the accessibility tree; the row is still listed behind it.
+  await expect(
+    page.getByRole('region', { name: 'HOLD specimens', includeHidden: true }).getByText('26-01D'),
+  ).toBeVisible();
   await dialog.getByLabel('Reason').fill('Spare cylinders not needed');
   await confirm.click();
   await expect(page.getByText('2 specimens authorized for disposal.')).toBeVisible();
