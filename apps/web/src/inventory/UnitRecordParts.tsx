@@ -128,12 +128,15 @@ export function UnitSection({
   meta,
   children,
   className,
+  flush = false,
 }: {
   id: string;
   title: string;
   meta?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** The body runs edge to edge (a table): the heading row keeps the card's side padding. */
+  flush?: boolean;
 }) {
   return (
     <Card
@@ -142,7 +145,7 @@ export function UnitSection({
       aria-labelledby={`${id}-heading`}
       className={className ?? 'gap-4 p-5 shadow-none'}
     >
-      <div className="flex items-baseline justify-between gap-4">
+      <div className={`flex items-baseline justify-between gap-4${flush ? ' px-5' : ''}`}>
         <CardTitle role="heading" aria-level={2} id={`${id}-heading`} className="text-base">
           {title}
         </CardTitle>

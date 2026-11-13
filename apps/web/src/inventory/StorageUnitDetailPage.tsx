@@ -74,7 +74,7 @@ function backTarget(state: unknown): { to: string; label: string } {
 /**
  * Storage unit page (STRATA-72, DESIGN.md › Storage unit record): the record pattern. The label
  * block, the record tag and lifecycle track, and one main action chosen by the stage lead; the
- * facts sit 2 : 1 beside a sticky History from a 56rem container (History drops under the facts
+ * facts sit 2 : 1 beside a sticky History from a 64rem container (History drops under the facts
  * below that). A disposed unit is read-only: it keeps its ID and history, has no main action, and
  * can't be relabelled. Corrections stay enforced on the server.
  */
@@ -114,8 +114,8 @@ function LoadingSkeleton({ readableId }: { readableId: string }) {
           </div>
         </div>
       </div>
-      <div className="grid items-start gap-6 @min-[56rem]:grid-cols-3">
-        <div className="flex flex-col gap-6 @min-[56rem]:col-span-2">
+      <div className="grid items-start gap-6 @min-[64rem]:grid-cols-3">
+        <div className="flex flex-col gap-6 @min-[64rem]:col-span-2">
           {[0, 1, 2].map((n) => (
             <Card key={n} className="gap-3 p-5 shadow-none">
               <Skeleton className="h-5 w-32" />
@@ -346,8 +346,8 @@ function StorageUnitDetail() {
       {bulkNotice ? <Notice title={bulkNotice} /> : null}
 
       {/* Body 2 : 1 from a 56rem container; History drops under the facts below that. */}
-      <div className="grid items-start gap-6 @min-[56rem]:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-6 @min-[56rem]:col-span-2">
+      <div className="grid items-start gap-6 @min-[64rem]:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-6 @min-[64rem]:col-span-2">
           <UnitWhere unit={unit} />
 
           {unit.locationConflict ? (
@@ -460,7 +460,7 @@ function StorageUnitDetail() {
           storageUnitId={unit.id}
           refresh={historyVersion}
           disposed={disposed}
-          className="@min-[56rem]:sticky @min-[56rem]:top-6"
+          className="@min-[64rem]:sticky @min-[64rem]:top-6"
         />
       </div>
     </PageFrame>
@@ -503,6 +503,7 @@ function ContentsSection({ unit }: { unit: StorageUnitDetail }) {
     <UnitSection
       id="summaries"
       title="Test hole summaries"
+      flush
       meta={`${count} ${count === 1 ? 'test hole' : 'test holes'}`}
       className="gap-3 overflow-hidden pt-5 pb-0 shadow-none"
     >

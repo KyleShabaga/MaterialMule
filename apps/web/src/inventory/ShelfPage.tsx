@@ -294,7 +294,8 @@ function ReadyShelf({
       header: 'ID',
       priority: 'identity',
       mono: true,
-      width: '15ch',
+      // PREFIX-YYYY-NNNNNN in semibold mono plus the stage stripe: IDs are never cut.
+      width: '17ch',
       cell: ({ item }) => (
         <Link
           className="font-semibold text-link hover:underline"

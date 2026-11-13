@@ -321,7 +321,8 @@ function UnitsSection({ receipt }: { receipt: ReceiptDetail }) {
       header: 'Storage unit',
       priority: 'identity',
       mono: true,
-      width: '15ch',
+      // PREFIX-YYYY-NNNNNN in semibold mono plus the stage stripe: IDs are never cut.
+      width: '17ch',
       cell: (unit) => (
         <Link
           className="font-mono text-link underline-offset-4 hover:underline"
