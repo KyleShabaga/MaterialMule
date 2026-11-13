@@ -221,7 +221,7 @@ function StaffDirectory({
       <SettingsHead
         id="staff-heading"
         title="Staff & access"
-        who="Who can sign in and what each person may do. Administrators only."
+        who="Who can sign in and what each person may do. Lab Managers and administrators."
         actions={
           <button type="button" className="primary" onClick={() => setAdding(true)}>
             Add staff

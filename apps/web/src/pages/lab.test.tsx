@@ -34,7 +34,7 @@ const ADMIN_ME: MeResponse = {
   initials: 'ADM',
   accountType: 'test',
   roles: ['admin'],
-  permissions: ['staff.manage', 'session.revoke'],
+  permissions: ['staff.manage', 'session.revoke', 'lab_account.manage'],
 };
 
 type Handler = (init: RequestInit | undefined) => { status: number; body?: unknown };
