@@ -323,27 +323,27 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
     /^AT · /,
   );
   await chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/);
-  // The change itself is in history; PE may already appear in the draft (the station's pick).
-  await savedWith(page, '"type":"receiver_changed"');
   await expect(page.getByText('Receiver changed to PE.')).toBeVisible();
-  await expect(draftStatus(page)).toContainText('Receiver: PE');
 
-  const history = await page.evaluate(
-    () =>
-      new Promise<unknown[]>((resolve, reject) => {
-        const open = indexedDB.open('materialmule-drafts');
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const all = open.result
-            .transaction('receiptDrafts')
-            .objectStore('receiptDrafts')
-            .getAll();
-          all.onsuccess = () =>
-            resolve((all.result as { history: unknown[] }[]).flatMap((d) => d.history));
-        };
-      }),
-  );
-  expect(history).toContainEqual(
+  // The stored draft records the change from AT to PE. Polled: the autosave lands about 1 s later.
+  // (On LAB, Received by starts blank, so choosing AT earlier is itself a receiver_changed entry.)
+  const storedHistory = () =>
+    page.evaluate(
+      () =>
+        new Promise<unknown[]>((resolve, reject) => {
+          const open = indexedDB.open('materialmule-drafts');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const all = open.result
+              .transaction('receiptDrafts')
+              .objectStore('receiptDrafts')
+              .getAll();
+            all.onsuccess = () =>
+              resolve((all.result as { history: unknown[] }[]).flatMap((d) => d.history));
+          };
+        }),
+    );
+  await expect.poll(storedHistory, { timeout: 10_000 }).toContainEqual(
     expect.objectContaining({
       type: 'receiver_changed',
       from: expect.objectContaining({ initials: 'AT' }),
@@ -352,6 +352,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
       at: expect.any(String),
     }),
   );
+  await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: PE$/);
 });
 
 test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns the same IDs', async ({
