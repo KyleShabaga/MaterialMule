@@ -1,21 +1,22 @@
-import {
-  MATCHING_BASIS_LABEL,
-  TEST_REQUEST_STATUS_LABEL,
-  formatAttribution,
-  programLabel,
-  type LabLine,
-  type LabProgram,
-  type TestRequest,
-} from '@materialmule/shared';
+import type { LabProgram } from '@materialmule/shared';
+import { FileQuestion, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
-import { BandedCard, ErrorState, StatusBadge, type BadgeTone } from '../components/app-ui';
-import { shortDateTime } from '../dashboard/format';
-import { fetchProgram } from './api';
-import { lineTitle, requestName } from './format';
-import { ProgramEditor } from './ProgramEditor';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePageTitle } from '../layout/page-title';
 import { useRecordRecent } from '../layout/record-recent';
+import { fetchProgram } from './api';
+import { ProgramEditor } from './ProgramEditor';
+import { WorkedProgram } from './WorkedProgram';
 
 type Load =
   | { state: 'loading' }
@@ -23,116 +24,15 @@ type Load =
   | { state: 'missing' }
   | { state: 'ready'; program: LabProgram };
 
-/** Field Ledger tag per test state: in progress is the flag fill, done states lab or storage. */
-const STATUS_TONE: Record<TestRequest['status'], BadgeTone> = {
-  requested: 'closed',
-  in_progress: 'flag',
-  completed: 'lab',
-  review: 'lab',
-  accepted: 'storage',
-  cancelled: 'closed',
-};
-
-/** A frozen line: tests with their snapshots and the coverage captured at submission. */
-export function FrozenLine({
-  line,
-  testActions,
-  statusOf,
-  children,
-}: {
-  line: LabLine;
-  /** The live status (MM-T24); the program's own copy otherwise. */
-  statusOf?: (request: TestRequest) => TestRequest['status'];
-  /** Per-test controls added by MM-T24 (status buttons, who/when). */
-  testActions?: (request: TestRequest) => ReactNode;
-  children?: ReactNode;
-}) {
-  const included = line.coverage.filter((unit) => unit.included);
-  const excluded = line.coverage.filter((unit) => !unit.included);
-  return (
-    <BandedCard title={`Line ${line.lineNumber} · ${lineTitle(line)}`} headingLevel={3}>
-      <ul className="request-list">
-        {line.requests.map((request) => (
-          <li key={request.id} id={`request-${request.id}`}>
-            <span title={request.description}>{requestName(request)}</span>{' '}
-            <StatusBadge tone={STATUS_TONE[statusOf ? statusOf(request) : request.status]}>
-              {TEST_REQUEST_STATUS_LABEL[statusOf ? statusOf(request) : request.status]}
-            </StatusBadge>
-            {testActions ? testActions(request) : null}
-          </li>
-        ))}
-      </ul>
-      <details className="coverage-details">
-        <summary>
-          {line.scope === 'specific'
-            ? included.length > 0
-              ? `Linked units: ${included.map((u) => u.readableId).join(', ')}`
-              : 'No physical unit linked'
-            : `Covers ${included.length} unit${included.length === 1 ? '' : 's'} received by submission${
-                excluded.length > 0 ? `, ${excluded.length} excluded after review` : ''
-              }`}
-        </summary>
-        <p className="field-hint">
-          Frozen {line.coverageCapturedAt ? shortDateTime(line.coverageCapturedAt) : ''}. Potential
-          material only, not a record of which unit was tested.
-        </p>
-        <ul className="coverage-list">
-          {line.coverage.map((unit) => (
-            <li key={unit.storageUnitId} className={unit.included ? undefined : 'excluded'}>
-              <Link className="mono" to={`/sample-storage/${unit.readableId}`}>
-                {unit.readableId}
-              </Link>{' '}
-              {unit.contents ?? ''} — {MATCHING_BASIS_LABEL[unit.matchingBasis]}
-            </li>
-          ))}
-        </ul>
-      </details>
-      {children}
-    </BandedCard>
-  );
-}
-
-export function ProgramSummary({ program }: { program: LabProgram }) {
-  return (
-    <dl className="program-summary">
-      <dt>Project</dt>
-      <dd>
-        <Link to={`/projects/${program.project.id}`}>
-          {program.project.projectNumber} · {program.project.name}
-        </Link>
-      </dd>
-      <dt>Requested by</dt>
-      <dd>
-        {formatAttribution(
-          program.submittedBy ?? program.createdBy,
-          program.submittedFor ?? program.requestedBy,
-        )}
-      </dd>
-      <dt>Submitted</dt>
-      <dd>{program.submittedAt ? shortDateTime(program.submittedAt) : 'Not yet'}</dd>
-      <dt>Priority</dt>
-      <dd>
-        {program.priority === 'urgent' ? (
-          <StatusBadge tone="danger">Urgent</StatusBadge>
-        ) : (
-          <StatusBadge tone="neutral">Normal</StatusBadge>
-        )}
-      </dd>
-      {program.notes ? (
-        <>
-          <dt>Notes</dt>
-          <dd className="pre-wrap">{program.notes}</dd>
-        </>
-      ) : null}
-    </dl>
-  );
-}
-
-/** /lab-testing/programs/:id — a draft opens in the editor, a submitted program read-only. */
+/**
+ * /lab-testing/programs/:id (STRATA-87): a draft opens in the editor (Continue editing), a
+ * submitted or closed program on its record page. Loading, failed and "no such program / someone
+ * else's draft" states are their own.
+ */
 export function ProgramDetailPage({
   renderSubmitted,
 }: {
-  /** MM-T24 swaps in the worked program view (status, priority, comments). */
+  /** The program page; WorkedProgram unless a route swaps in another view. */
   renderSubmitted?: (program: LabProgram, reload: () => void) => ReactNode;
 }) {
   const { programId = '' } = useParams();
@@ -144,33 +44,68 @@ export function ProgramDetailPage({
     );
   }, [programId]);
   useEffect(reload, [reload]);
-  usePageTitle(load.state === 'ready' ? load.program.programNumber : null);
+  usePageTitle(load.state === 'ready' ? (load.program.programNumber ?? 'Draft lab program') : null);
   useRecordRecent('lab_program', load.state === 'ready' ? load.program.id : null);
 
-  if (load.state === 'loading') return <p aria-busy="true">Loading program…</p>;
-  if (load.state === 'error')
-    return <ErrorState message="The program couldn’t be loaded." onRetry={reload} />;
+  if (load.state === 'loading') {
+    return (
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <p className="sr-only">Loading program…</p>
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-80" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+  if (load.state === 'error') {
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <TriangleAlert aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>The program couldn’t be loaded.</EmptyTitle>
+          <EmptyDescription>Check the connection and try again.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" onClick={reload}>
+            Try again
+          </Button>
+        </EmptyContent>
+      </Empty>
+    );
+  }
   if (load.state === 'missing') {
     return (
-      <p>
-        This program doesn’t exist, or it is someone else’s draft.{' '}
-        <Link to="/lab-testing/programs">Back to programs</Link>
-      </p>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FileQuestion aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>This program isn’t available to you.</EmptyTitle>
+          <EmptyDescription>
+            This program doesn’t exist, or it is someone else’s draft.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" asChild>
+            <Link to="/lab-testing/programs">Back to programs</Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
   const { program } = load;
   if (program.status === 'draft')
     return <ProgramEditor key={program.id} draft={program} onReload={reload} />;
-  if (renderSubmitted) return <>{renderSubmitted(program, reload)}</>;
   return (
-    <article aria-labelledby="program-heading">
-      <h1 id="program-heading" className="mono">
-        {programLabel(program)}
-      </h1>
-      <ProgramSummary program={program} />
-      {program.lines.map((line) => (
-        <FrozenLine key={line.id} line={line} />
-      ))}
-    </article>
+    <>
+      {renderSubmitted ? (
+        renderSubmitted(program, reload)
+      ) : (
+        <WorkedProgram program={program} reload={reload} />
+      )}
+    </>
   );
 }

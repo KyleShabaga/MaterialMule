@@ -167,7 +167,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     expect(premature.status).toBe(422);
     expect(premature.body.code).toBe('review_not_complete');
 
-    const done = await review(t.id, { action: 'complete', version: t.version }, 'tech');
+    const done = await review(t.id, { action: 'complete', version: t.version }, 'jo');
     expect(done.status, JSON.stringify(done.body)).toBe(200);
     const result = reviewResultSchema.parse(done.body);
     expect(result).toMatchObject({ status: 'review', reviewState: 'review_complete' });
@@ -186,7 +186,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     const request = view.requests.find((r) => r.testRequestId === t.id)!;
     expect(request.acceptedBy?.name).toBe('Pat Example');
     expect(view.reviewEvents.map((e) => [e.kind, e.person.name])).toEqual([
-      ['review_completed', 'Alex Tester'],
+      ['review_completed', 'Jamie Song'],
       ['accepted', 'Pat Example'],
     ]);
     expect(view.statusHistory.at(-1)).toMatchObject({ fromStatus: 'review', toStatus: 'accepted' });
@@ -211,16 +211,43 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
         comment: 'late',
         version: accepted.body.version as number,
       },
-      'tech',
+      'jo',
     );
     expect(again.status).toBe(422);
     expect(again.body.code).toBe('invalid_transition');
   });
 
+  it('STRATA-87: review is never by the requester; anyone else internal may review', async () => {
+    // Alex Tester (`tech`) submitted the program from his own sign-in: he is its requester.
+    const t = await inReview();
+    // The work view offers the requester no review actions; someone else gets them.
+    const actionsFor = async (as: As) =>
+      programWorkSchema
+        .parse((await h.get(`/api/lab-programs/${t.program.id}/work`, as)).body)
+        .requests.find((r) => r.testRequestId === t.id)!.reviewActions;
+    expect((await actionsFor('tech')).canReview).toBe(false);
+    expect((await actionsFor('lm')).canReview).toBe(true);
+    const before = await counts(t.id);
+    for (const body of [
+      { action: 'complete', version: t.version },
+      { action: 'return', comment: 'My own test looks wrong', version: t.version },
+    ]) {
+      const refused = await review(t.id, body, 'tech');
+      expect(refused.status, body.action).toBe(403);
+      expect(refused.body).toEqual({ code: 'forbidden' });
+    }
+    expect(await counts(t.id)).toEqual(before);
+    expect((await state(t.id)).review_state).toBe('awaiting_review');
+    // Someone else reviews; acceptance stays with the lead (D04).
+    const done = await review(t.id, { action: 'complete', version: t.version }, 'lm');
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect((await accept(t.id, done.body.version as number, 'pe')).status).toBe(200);
+  });
+
   it('AC1/AC2/R02: a return needs a comment, stays in Review and opens one Lab Manager item', async () => {
     const t = await inReview();
     for (const comment of [undefined, '', '   ']) {
-      const blank = await review(t.id, { action: 'return', comment, version: t.version }, 'tech');
+      const blank = await review(t.id, { action: 'return', comment, version: t.version }, 'jo');
       expect(blank.status).toBe(400);
       expect(blank.body.code).toBe('validation_failed');
     }
@@ -229,7 +256,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     const returned = await review(
       t.id,
       { action: 'return', comment: 'Wrong sieve stack recorded', version: t.version },
-      'tech',
+      'jo',
     );
     expect(returned.status, JSON.stringify(returned.body)).toBe(200);
     expect(await state(t.id)).toMatchObject({ status: 'review', review_state: 'returned' });
@@ -254,7 +281,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
   it('AC3/R03/R04: return → correction done → (accept refused) → second return keeps history → complete → accept', async () => {
     const t = await inReview();
     let version = (
-      await review(t.id, { action: 'return', comment: 'First problem', version: t.version }, 'tech')
+      await review(t.id, { action: 'return', comment: 'First problem', version: t.version }, 'jo')
     ).body.version as number;
 
     expect((await accept(t.id, version, 'pe')).body.code).toBe('review_not_complete');
@@ -306,35 +333,31 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     const t = await inReview();
     // A returned test can't be completed or returned again before the correction.
     let version = (
-      await review(t.id, { action: 'return', comment: 'Check', version: t.version }, 'tech')
+      await review(t.id, { action: 'return', comment: 'Check', version: t.version }, 'jo')
     ).body.version as number;
     const before = await counts(t.id);
     for (const body of [
       { action: 'complete', version },
       { action: 'return', comment: 'Again', version },
     ]) {
-      const refused = await review(t.id, body, 'tech');
+      const refused = await review(t.id, body, 'jo');
       expect(refused.status).toBe(422);
       expect(refused.body.code).toBe('invalid_transition');
     }
     expect(await counts(t.id)).toEqual(before);
     version = (await correctionDone(t.id, { note: 'Done', version }, 'lm')).body.version as number;
     expect((await correctionDone(t.id, { note: 'Done twice', version }, 'lm')).status).toBe(422);
-    version = (await review(t.id, { action: 'complete', version }, 'tech')).body.version as number;
+    version = (await review(t.id, { action: 'complete', version }, 'jo')).body.version as number;
 
     // Unresolved edge: Review complete → Returned stays refused until the owner decides.
-    const reverse = await review(t.id, { action: 'return', comment: 'Late find', version }, 'tech');
+    const reverse = await review(t.id, { action: 'return', comment: 'Late find', version }, 'jo');
     expect(reverse.status).toBe(422);
     expect(reverse.body.code).toBe('invalid_transition');
 
     // Tests not yet in Review (Requested, In progress, Completed) can't be reviewed or accepted.
     for (const moves of [[], ['in_progress'], ['in_progress', 'completed']]) {
       const early = await inReview('a', moves);
-      const refused = await review(
-        early.id,
-        { action: 'complete', version: early.version },
-        'tech',
-      );
+      const refused = await review(early.id, { action: 'complete', version: early.version }, 'jo');
       expect(refused.status).toBe(422);
       expect(refused.body.code).toBe('invalid_transition');
       expect((await accept(early.id, early.version, 'pe')).body.code).toBe('invalid_transition');
@@ -368,10 +391,10 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     expect((await grant('a', h.users.js)).body.code).toBe('already_delegated');
 
     const onA = await inReview('a');
-    const v1 = (await review(onA.id, { action: 'complete', version: onA.version }, 'tech')).body
+    const v1 = (await review(onA.id, { action: 'complete', version: onA.version }, 'jo')).body
       .version as number;
     const onB = await inReview('b');
-    const vB = (await review(onB.id, { action: 'complete', version: onB.version }, 'tech')).body
+    const vB = (await review(onB.id, { action: 'complete', version: onB.version }, 'jo')).body
       .version as number;
     expect((await work(onA.program.id, 'js')).requests[0]!.reviewActions.canAccept).toBe(true);
 
@@ -419,7 +442,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
       revokedBy: { name: 'Pat Example' },
     });
     const next = await inReview('a');
-    const v2 = (await review(next.id, { action: 'complete', version: next.version }, 'tech')).body
+    const v2 = (await review(next.id, { action: 'complete', version: next.version }, 'jo')).body
       .version as number;
     expect((await accept(next.id, v2, 'js')).status).toBe(403);
     expect(await state(onA.id)).toMatchObject({
@@ -513,7 +536,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
       acceptBlockedReason: 'personal_sign_in',
     });
     // A personal Technician signed in elsewhere reviews, but can't accept or correct.
-    const reviewed = await review(t.id, { action: 'complete', version: t.version }, 'tech');
+    const reviewed = await review(t.id, { action: 'complete', version: t.version }, 'jo');
     expect(reviewed.status).toBe(200);
     expect((await accept(t.id, reviewed.body.version as number, 'tech')).status).toBe(403);
   });
@@ -521,7 +544,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
   it('AC8/R08: two reviewers deciding from the same version: one wins, the stale one gets 409, nothing lost or doubled', async () => {
     const t = await inReview();
     const [first, second] = await Promise.all([
-      review(t.id, { action: 'return', comment: 'Reviewer one', version: t.version }, 'tech'),
+      review(t.id, { action: 'return', comment: 'Reviewer one', version: t.version }, 'jo'),
       review(t.id, { action: 'complete', version: t.version }, 'js'),
     ]);
     const statuses = [first.status, second.status].sort();
@@ -540,8 +563,8 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     const t = await inReview();
     const key = newKey();
     const body = { action: 'return', comment: 'Retry me', version: t.version, idempotencyKey: key };
-    const once = await h.send('post', `/api/test-requests/${t.id}/review`, body, 'tech');
-    const twice = await h.send('post', `/api/test-requests/${t.id}/review`, body, 'tech');
+    const once = await h.send('post', `/api/test-requests/${t.id}/review`, body, 'jo');
+    const twice = await h.send('post', `/api/test-requests/${t.id}/review`, body, 'jo');
     expect(once.status).toBe(200);
     expect(twice.status).toBe(200);
     expect(twice.body).toEqual(once.body);
@@ -550,7 +573,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
       'post',
       `/api/test-requests/${t.id}/review`,
       { ...body, comment: 'Different' },
-      'tech',
+      'jo',
     );
     expect(changed.status).toBe(409);
     expect(changed.body.code).toBe('idempotency_key_reused');
@@ -559,7 +582,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
 
     let version = once.body.version as number;
     version = (await correctionDone(t.id, { note: 'ok', version }, 'lm')).body.version as number;
-    version = (await review(t.id, { action: 'complete', version }, 'tech')).body.version as number;
+    version = (await review(t.id, { action: 'complete', version }, 'jo')).body.version as number;
     const acceptKey = newKey();
     const accepted = await accept(t.id, version, 'pe', acceptKey);
     const replay = await accept(t.id, version, 'pe', acceptKey);
@@ -573,9 +596,9 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     const grantId = granted.active.find((d) => d.delegate.userId === h.users.jo)!.id;
     const t1 = await inReview('a');
     const t2 = await inReview('a');
-    const v1 = (await review(t1.id, { action: 'complete', version: t1.version }, 'tech')).body
+    const v1 = (await review(t1.id, { action: 'complete', version: t1.version }, 'jo')).body
       .version as number;
-    const v2 = (await review(t2.id, { action: 'complete', version: t2.version }, 'tech')).body
+    const v2 = (await review(t2.id, { action: 'complete', version: t2.version }, 'jo')).body
       .version as number;
     const blocker = new Client({ connectionString: databaseUrlForSchema(h.db.schema) });
     await blocker.connect();
@@ -622,7 +645,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
   it('a closed program refuses review decisions', async () => {
     // Since MM-T26 a program closes only with every test resolved, so close it for real.
     const t = await inReview();
-    const done = await review(t.id, { action: 'complete', version: t.version }, 'tech');
+    const done = await review(t.id, { action: 'complete', version: t.version }, 'jo');
     const accepted = await accept(t.id, done.body.version as number, 'pe');
     expect(accepted.status, JSON.stringify(accepted.body)).toBe(200);
     const { rows } = await h.db.pool.query<{ version: number }>(
@@ -639,7 +662,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     const refused = await review(
       t.id,
       { action: 'complete', version: accepted.body.version },
-      'tech',
+      'jo',
     );
     expect(refused.status).toBe(422);
     expect(refused.body.code).toBe('program_not_open');
@@ -709,7 +732,7 @@ describe.runIf(testDatabaseUrl)('lab review and acceptance API (MM-T25)', () => 
     await expect(
       h.db.pool.query(`UPDATE test_request SET review_state = NULL WHERE id = $1`, [t.id]),
     ).rejects.toMatchObject({ code: PG.checkViolation });
-    await review(t.id, { action: 'return', comment: 'x', version: t.version }, 'tech');
+    await review(t.id, { action: 'return', comment: 'x', version: t.version }, 'jo');
     await expect(
       h.db.pool.query(`UPDATE test_request_review_event SET comment = 'edited'`),
     ).rejects.toMatchObject({ code: PG.restrictViolation });

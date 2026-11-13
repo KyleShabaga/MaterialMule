@@ -124,8 +124,8 @@ test('MTR-93: table pages never scroll sideways from 320 to 1440 px', async ({ p
   const routes: [Parameters<typeof signInAs>[1], string, string][] = [
     ['at', '/receiving-log', 'Receipt table'],
     ['at', `/receiving-log/${receipt!.receipt_id}`, 'Storage unit table'],
-    ['at', '/lab-testing', 'Workboard table'],
-    ['lab', '/lab-testing', 'Workboard table'],
+    ['at', '/lab-testing?view=list', 'Workboard table'],
+    ['lab', '/lab-testing?view=list', 'Workboard table'],
     ['admin', '/settings/tests', 'Lab tests'],
     ['admin', '/settings/staff', 'Staff table'],
   ];

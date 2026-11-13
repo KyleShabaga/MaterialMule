@@ -11,6 +11,7 @@ import {
   type LabProgramReview,
   type LabSource,
   type LabSourceUnit,
+  type ProgramUnits,
 } from '@materialmule/shared';
 import type { Response } from 'express';
 import { CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
@@ -41,6 +42,13 @@ export class LabProgramsController {
   @RequirePermission('lab_program.read')
   get(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<LabProgram> {
     return this.programs.get(id, user);
+  }
+
+  /** STRATA-87: covered units, where each is now and which the lab still has to pull. */
+  @Get('lab-programs/:id/units')
+  @RequirePermission('lab_program.read')
+  units(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<ProgramUnits> {
+    return this.programs.units(id, user);
   }
 
   /** What submitting now would record: coverage per line, warnings and blocking problems. */

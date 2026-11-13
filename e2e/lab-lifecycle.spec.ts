@@ -69,8 +69,14 @@ async function submittedProgram(request: APIRequestContext, testTypeId: string) 
   };
 }
 
+/** The program page header (status tag, progress, main action, More). */
 function lifecycle(page: Page) {
   return page.locator('.program-lifecycle');
+}
+
+/** What blocks closing, who closed it, and the LAB station note (STRATA-87). */
+function closure(page: Page) {
+  return page.getByRole('region', { name: 'Closure' });
 }
 
 function testRow(page: Page, code: string) {
@@ -89,39 +95,45 @@ test('T6: closure is blocked until every test is resolved; the Lead Project Engi
   await page.goto(`/lab-testing/programs/${programId}`);
   await expect(page.getByRole('heading', { name: programNumber })).toBeVisible();
   const header = lifecycle(page);
-  await expect(header).toContainText('Open');
+  await expect(header).toContainText(/In lab · (Pull units|Testing)/);
   const close = header.getByRole('button', { name: 'Close program' });
   await expect(close).toBeDisabled();
   await expect(close).toHaveAccessibleDescription('1 test still Requested');
-  await header.getByText(/Closure checklist/).click();
-  await expect(header).toContainText(`Line 1 · ${code}`);
+  await expect(closure(page)).toContainText('Closure checklist: 1 test still Requested');
+  await expect(closure(page)).toContainText(`Line 1 · ${code}`);
 
   // Cancel the test with a required reason: cancelled resolves it, without acceptance.
   const row = testRow(page, code);
   await row.getByRole('button', { name: 'Cancel test' }).click();
-  const confirm = row.getByRole('form').getByRole('button', { name: 'Cancel test' });
+  const dialog = page.getByRole('dialog', { name: 'Cancel test' });
+  const confirm = dialog.getByRole('button', { name: 'Cancel test' });
   await expect(confirm).toBeDisabled();
-  await row.getByLabel(/Reason for cancelling/).fill('Client withdrew this test');
+  await dialog.getByLabel(/Reason for cancelling/).fill('Client withdrew this test');
   await confirm.click();
   await expect(row).toContainText('Cancelled');
   await expect(row).toContainText('Client withdrew this test');
 
+  // Every test resolved: Due · Ready to close, and Close program is the lead's main action.
+  await expect(header).toContainText('Due · Ready to close');
+  await expect(closure(page)).toContainText('Every test is accepted or cancelled with a reason.');
   await expect(close).toBeEnabled();
   await close.click();
-  await expect(header).toContainText('Closed');
-  await expect(header).toContainText('Closed by PE · Pat Example');
+  await expect(header).toContainText('Closed · Lab program');
+  await expect(closure(page)).toContainText('Closed by PE · Pat Example');
   await expect(header.getByRole('button', { name: 'Close program' })).toHaveCount(0);
 
-  // A Lab Manager reopens it with a reason; the test keeps its status.
+  // A Lab Manager reopens it with a reason; the test keeps its status and the history stays.
   await signInAs(page, 'lab');
   await page.goto(`/lab-testing/programs/${programId}`);
   await header.getByRole('button', { name: 'Reopen program' }).click();
-  await header.getByLabel(/Reason for reopening/).fill('Client asked for one more test');
-  await header.getByRole('form').getByRole('button', { name: 'Reopen program' }).click();
-  await expect(header).toContainText('Open');
+  const reopen = page.getByRole('dialog', { name: 'Reopen program' });
+  await reopen.getByLabel(/Reason for reopening/).fill('Client asked for one more test');
+  await reopen.getByRole('button', { name: 'Reopen program' }).click();
+  await expect(header).toContainText('Due · Ready to close');
   await expect(testRow(page, code)).toContainText('Cancelled');
-  await header.getByText(/Program history/).click();
-  await expect(header).toContainText('Reopened by LAB · Lab (test)');
+  const history = page.getByRole('list', { name: 'Program history' });
+  await expect(history).toContainText('reopened the program (“Client asked for one more test”)');
+  await expect(history).toContainText('closed the program');
 });
 
 test('Empty-program rule: a submitted program with no tests can’t be closed, even by its Lead Project Engineer', async ({
@@ -151,7 +163,7 @@ test('Empty-program rule: a submitted program with no tests can’t be closed, e
   const close = header.getByRole('button', { name: 'Close program' });
   await expect(close).toBeDisabled();
   await expect(close).toHaveAccessibleDescription(/no test requests/);
-  await expect(header).toContainText('At least one test request is needed');
+  await expect(closure(page)).toContainText('At least one test request is needed');
   const response = await page.request.post(`/api/lab-programs/${programId}/close`, {
     headers: CSRF,
     data: { version: 1, idempotencyKey: crypto.randomUUID() },
@@ -174,10 +186,11 @@ test('AC6: a Technician asks for a cancellation instead of cancelling', async ({
   });
   expect(direct.status()).toBe(403);
   await row.getByRole('button', { name: 'Request cancellation' }).click();
-  await row.getByLabel(/Why this test should be cancelled/).fill('Sample was contaminated');
-  await row.getByRole('form').getByRole('button', { name: 'Request cancellation' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Request cancellation' });
+  await dialog.getByLabel(/Why this test should be cancelled/).fill('Sample was contaminated');
+  await dialog.getByRole('button', { name: 'Request cancellation' }).click();
   await expect(row).toContainText('Cancellation requested by AT · Alex Tester');
-  await expect(row).toContainText('Requested');
+  await expect(row).toContainText('Waiting');
 });
 
 test('T7: LAB stations see why lifecycle actions need a personal sign-in and are refused', async ({
@@ -195,7 +208,7 @@ test('T7: LAB stations see why lifecycle actions need a personal sign-in and are
   try {
     await signInAsLabStation(page);
     await page.goto(`/lab-testing/programs/${programId}`);
-    await expect(lifecycle(page)).toContainText(
+    await expect(closure(page)).toContainText(
       'Closing, reopening and cancelling need a personal sign-in',
     );
     await expect(page.getByRole('button', { name: 'Close program' })).toHaveCount(0);
@@ -273,14 +286,19 @@ test('MM-T72 T3: a repeat of a test whose depth was changed shows the changed de
     expect(response.ok(), `${path}: ${await response.text()}`).toBe(true);
     return (await response.json()) as { version: number };
   };
-  /** Requested → Accepted, as the project's Lead Project Engineer. */
+  /**
+   * Requested → Accepted: Dana Example reviews (the requester never reviews, STRATA-87), then the
+   * project's Lead Project Engineer accepts.
+   */
   const accept = async (start: number) => {
     let version = start;
     for (const to of ['in_progress', 'completed', 'review']) {
       version = (await send(`/api/test-requests/${id}/status`, { to, version })).version;
     }
+    await signInAs(page, 'de');
     version = (await send(`/api/test-requests/${id}/review`, { action: 'complete', version }))
       .version;
+    await signInAs(page, 'pe');
     return (await send(`/api/test-requests/${id}/accept`, { version })).version;
   };
   let version = await accept(program.lines[0].requests[0].version as number);

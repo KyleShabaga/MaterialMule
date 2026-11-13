@@ -412,7 +412,7 @@ describe.runIf(testDatabaseUrl)('notifications (MM-T91)', () => {
         comment: 'Recheck moisture',
         version: await version('test_request', testId),
       },
-      'tech',
+      'noInitials',
     );
     expect(back.status, JSON.stringify(back.body)).toBe(200);
     const { rows: items } = await h.db.pool.query<{ id: string }>(
@@ -448,7 +448,8 @@ describe.runIf(testDatabaseUrl)('notifications (MM-T91)', () => {
       'lm',
     );
     expect(done.status, JSON.stringify(done.body)).toBe(200);
-    expect(await about('tech', correction)).toMatchObject([
+    // The requester never reviews (STRATA-87): No Initials returned it, so they are told.
+    expect(await about('noInitials', correction)).toMatchObject([
       {
         kind: 'action_request.decided',
         // The correction-done path records no resolution value on the item (MM-T25).
@@ -461,7 +462,7 @@ describe.runIf(testDatabaseUrl)('notifications (MM-T91)', () => {
       },
     ]);
     expect(await rows(correction)).toEqual([
-      `action_request.decided ${h.users.tech}`,
+      `action_request.decided ${h.users.noInitials}`,
       ...opened(h.users.lm, lou),
     ]);
   });

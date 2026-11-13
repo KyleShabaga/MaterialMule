@@ -107,8 +107,10 @@ test('T5: a closure request appears in the Lead Project Engineer’s Action requ
   // Resolve through the real workflow: cancel the only test, then close the program.
   const testRow = page.locator('.request-list li').first();
   await testRow.getByRole('button', { name: 'Cancel test' }).click();
-  await testRow.getByLabel(/Reason for cancelling/).fill('Not needed (E2E)');
-  await testRow.getByRole('form').getByRole('button', { name: 'Cancel test' }).click();
+  // The program page asks for the reason in a dialog (STRATA-87).
+  const cancelDialog = page.getByRole('dialog', { name: 'Cancel test' });
+  await cancelDialog.getByLabel(/Reason for cancelling/).fill('Not needed (E2E)');
+  await cancelDialog.getByRole('button', { name: 'Cancel test' }).click();
   await expect(testRow).toContainText('Cancelled');
   await page.locator('.program-lifecycle').getByRole('button', { name: 'Close program' }).click();
   await expect(page.locator('.program-lifecycle')).toContainText('Closed');

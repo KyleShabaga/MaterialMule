@@ -46,6 +46,11 @@ function unprocessable(code: string, field: string, message: string): never {
 
 const forbidden = () => new ForbiddenException({ code: 'forbidden' });
 
+/** The program's requester: the personal account that submitted it (never LAB's named person). */
+export function isRequester(user: AuthUser, requesterUserId: string | null): boolean {
+  return requesterUserId !== null && requesterUserId === user.userId;
+}
+
 interface RequestRow {
   id: string;
   program_id: string;
@@ -202,9 +207,21 @@ export class LabReviewService {
         [testRequestId],
       );
       if (!located[0]) throw new NotFoundException({ code: 'test_request_not_found' });
-      await client.query('SELECT id FROM lab_program WHERE id = $1 FOR SHARE', [
-        located[0].program_id,
-      ]);
+      const { rows: locked } = await client.query<{ requester_user_id: string | null }>(
+        `SELECT CASE WHEN submitted_by_account_type <> 'shared_lab'
+                     THEN submitted_by_account_user_id END AS requester_user_id
+         FROM lab_program WHERE id = $1 FOR SHARE`,
+        [located[0].program_id],
+      );
+      // Kyle 2026-11-12 (STRATA-87): review is never by the requester. The personal account that
+      // submitted the program can't mark its tests review complete or return them; acceptance
+      // stays with the lead or a delegate (D04), whoever requested.
+      if (
+        (intent.kind === 'review_completed' || intent.kind === 'returned') &&
+        isRequester(user, locked[0]?.requester_user_id ?? null)
+      ) {
+        throw forbidden();
+      }
       const current = (await loadRequest(client, testRequestId))!;
 
       // Acceptance authority is rechecked under lock: the Lead Project Engineer as the project now stands, or the

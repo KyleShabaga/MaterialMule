@@ -2,6 +2,13 @@ import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
+import {
+  addTest,
+  chooseProject,
+  chooseSource,
+  editorLine,
+  submitToLab,
+} from './support/lab-editor';
 import { readPdfPages } from './support/pdf';
 
 // MM-T69: printable sample ID tags. Catalogue tag settings decide grouping; the tag sheet prints
@@ -20,21 +27,6 @@ async function addTestType(page: Page, code: string, name: string, tag: Record<s
     data: { groupId: SOILS, code, description: `${name} (fictional E2E)`, name, ...tag },
   });
   expect(response.status()).toBe(201);
-}
-
-async function chooseSource(page: Page, line: number, hole: string) {
-  const card = page.getByRole('region', { name: `Line ${line}` });
-  const option = card.getByLabel('Sampling source').locator('option', { hasText: `${hole} —` });
-  await expect(option).toHaveCount(1);
-  await card.getByLabel('Sampling source').selectOption((await option.getAttribute('value'))!);
-  return card;
-}
-
-async function pickTest(page: Page, line: number, code: string) {
-  const card = page.getByRole('region', { name: `Line ${line}` });
-  await card.getByLabel('Find a test').fill(code);
-  await card.getByRole('button', { name: new RegExp(code) }).click();
-  await expect(card.getByRole('list', { name: 'Requested tests' })).toContainText(code);
 }
 
 /** Status and version of every request of the program: printing must never change them. */
@@ -73,36 +65,35 @@ test('T1–T4: tags group by the catalogue, preview and position on the sheet, a
 
   await signInAs(page, 'at');
   await page.goto('/lab-testing/programs/new');
-  await page.getByLabel('Project', { exact: true }).fill('DEMO-2601');
-  await page.getByRole('button', { name: /DEMO-2601/ }).click();
-  const line1 = await chooseSource(page, 1, 'TH26-01');
-  await line1.getByRole('radio', { name: 'Specific sample' }).check();
+  await chooseProject(page);
+  const line1 = editorLine(page, 1);
+  await chooseSource(page, line1, 'TH26-01');
+  await line1.getByRole('radio', { name: 'Specific sample' }).click();
   await line1.getByLabel('Sample label').fill('G13');
   await line1.getByLabel('At', { exact: true }).fill('10');
-  await line1.getByLabel('Unit').selectOption('m');
-  for (const code of [mc, att, hyd, sv]) await pickTest(page, 1, code);
-  await page.getByRole('button', { name: 'Add line' }).click();
-  await chooseSource(page, 2, 'TH26-01');
-  await pickTest(page, 2, att);
-
-  await page.getByRole('button', { name: 'Review', exact: true }).click();
-  const changed = page.getByText('The material for a line changed since the review');
+  await line1.getByLabel('Unit').click();
+  await page.getByRole('option', { name: 'm', exact: true }).click();
+  for (const code of [mc, att, hyd, sv]) await addTest(page, line1, code);
+  await page.getByRole('button', { name: 'Add sample line' }).click();
+  const line2 = editorLine(page, 2);
+  await chooseSource(page, line2, 'TH26-01');
+  await addTest(page, line2, att);
+  await submitToLab(page);
   const submitted = page.getByRole('heading', { name: /^LP-\d{4}-\d{4}$/ });
-  for (let attempt = 0; attempt < 3 && !(await submitted.isVisible()); attempt += 1) {
-    await page.getByRole('button', { name: 'Submit program' }).click();
-    await expect(submitted.or(changed)).toBeVisible();
-  }
-  await expect(submitted).toBeVisible();
   const programNumber = (await submitted.textContent())!;
   const before = await requestState(programNumber);
 
   // Offered right after submission.
   await expect(page.getByText('Program submitted. Print sample ID tags')).toBeVisible();
   await page.getByRole('link', { name: 'Print sample ID tags' }).click();
-  await expect(page.getByRole('heading', { name: new RegExp(programNumber) })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Print sample ID tags', level: 1 })).toBeVisible();
+  // STRATA-89: the breadcrumb names the program; the page says which program the tags are for.
+  await expect(
+    page.getByRole('navigation', { name: 'breadcrumb' }).getByRole('link', { name: programNumber }),
+  ).toBeVisible();
 
   // Moisture content gets no tag; Atterberg and the grain-size pair get separate tags.
-  const list = page.getByRole('list').filter({ has: page.getByRole('checkbox') });
+  const list = page.getByRole('list', { name: 'Tags to print' });
   await expect(list.getByRole('listitem')).toHaveCount(2);
   await expect(list.getByRole('listitem').nth(0)).toContainText('Atterberg Limits');
   await expect(list.getByRole('listitem').nth(1)).toContainText('Hydrometer');
@@ -113,10 +104,21 @@ test('T1–T4: tags group by the catalogue, preview and position on the sheet, a
 
   // Split the shared tag; start on card 9 of a partly used sheet: two sheets.
   await page.getByRole('button', { name: 'Split into 2 tags' }).click();
-  await page.getByLabel('Start at card').selectOption('9');
+  await page.getByRole('combobox', { name: 'Start at card' }).click();
+  await page.getByRole('option', { name: 'Card 9' }).click();
   await expect(page.getByText('3 of 3 tags selected · 2 sheets')).toBeVisible();
-  const preview = page.getByLabel('Tag sheets to print');
-  await expect(preview.getByRole('region', { name: /^Sheet \d of 2$/ })).toHaveCount(2);
+  // The true-size preview shows one card, black on white, with its place on the sheet.
+  const aside = page.getByRole('complementary', { name: 'Preview' });
+  await expect(aside.locator('[data-slot="tag-card-frame"] .tag-card')).toHaveCount(1);
+  await expect(
+    aside.getByRole('img', { name: /^Sheet 1 of 2: 2 tags on cards 9 to 10/ }),
+  ).toBeVisible();
+  const frame = (await aside.locator('[data-slot="tag-card-frame"]').boundingBox())!;
+  expect(frame.width / CSS_PX_PER_IN).toBeCloseTo(4, 2);
+  expect(frame.height / CSS_PX_PER_IN).toBeCloseTo(2, 2);
+  // The sheets that print (off screen until printing, hidden from assistive tech).
+  const preview = page.locator('.tag-preview');
+  await expect(preview.locator('.tag-sheet')).toHaveCount(2);
   await expect(preview.locator('.tag-card')).toHaveCount(3);
   await expect(preview.locator('.tag-card-overflow')).toHaveCount(0);
   const first = preview.locator('.tag-card').first();
@@ -153,7 +155,10 @@ test('T1–T4: tags group by the catalogue, preview and position on the sheet, a
 
   // Nothing in the program changed, and the tags stay available for reprinting.
   expect(await requestState(programNumber)).toEqual(before);
-  await page.getByRole('link', { name: `← Back to ${programNumber}` }).click();
+  await page
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: programNumber })
+    .click();
   await expect(page.getByRole('link', { name: 'Print sample ID tags' })).toBeVisible();
   await expect(page.getByText('Program submitted. Print sample ID tags')).toHaveCount(0);
 });

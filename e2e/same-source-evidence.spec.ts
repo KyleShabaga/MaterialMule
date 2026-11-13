@@ -132,7 +132,7 @@ test('T3: Specific line tube outside coverage — LAB records it with a same-sou
   await row.getByRole('button', { name: 'Start' }).click();
   await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
-  await expect(row).toContainText('In progress');
+  await expect(row).toContainText('In testing');
 
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
@@ -160,7 +160,7 @@ test('T3: Specific line tube outside coverage — LAB records it with a same-sou
   await complete.focus();
   await page.keyboard.press('Enter');
 
-  await expect(row).toContainText('Completed');
+  await expect(row).toContainText('Done');
   await expect(row.getByRole('link', { name: tube.readableId })).toBeVisible();
   await expect(row).toContainText(
     /outside this line’s coverage: same source confirmed by .*Jordan Smith/,
@@ -192,5 +192,5 @@ test('T3: Specific line tube outside coverage — LAB records it with a same-sou
 
   // Removal never changes the test.
   await page.goto(`/lab-testing/programs/${program.id}`);
-  await expect(page.locator('.request-list li', { hasText: code })).toContainText('Completed');
+  await expect(page.locator('.request-list li', { hasText: code })).toContainText('Done');
 });

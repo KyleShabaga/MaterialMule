@@ -1,6 +1,8 @@
 import type { TestProgress } from '@materialmule/shared';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 import { CountedCells } from '../components/app-ui';
-import { progressCells, progressLabel } from './format';
+import { progressCells, progressLabel, progressShort } from './format';
 
 // Field Ledger progress (docs/redesign/design.md, "Counted cells"): one cell per test, ink =
 // done, flag = in progress, sheet = not started, always with the count in words. Progress only:
@@ -52,5 +54,52 @@ export function ProgressKey() {
         Not started
       </li>
     </ul>
+  );
+}
+
+/**
+ * Strata progress (STRATA-87): "n of m" with a thin bar, cancelled tests counted apart and never
+ * in m (the list, the drawer and the program page count the same way). Progress only.
+ */
+export function ProgressMeter({
+  progress,
+  size = 'row',
+  className,
+}: {
+  progress: TestProgress;
+  /** `row` in a table cell; `header` on the program page ("n of m tests done"). */
+  size?: 'row' | 'header';
+  className?: string;
+}) {
+  const { done, total } = progressShort(progress);
+  const text =
+    total === 0
+      ? progress.cancelled > 0
+        ? `${progress.cancelled} cancelled`
+        : 'No tests'
+      : size === 'header'
+        ? `${done} of ${total} tests done`
+        : `${done} of ${total}`;
+  return (
+    <span
+      data-slot="progress-meter"
+      className={cn('flex min-w-0 flex-col gap-1', size === 'header' ? 'w-48' : 'w-24', className)}
+    >
+      <span className="flex items-baseline gap-1.5 text-sm tabular-nums">
+        <span className={size === 'header' ? 'font-semibold' : undefined}>{text}</span>
+        {total > 0 && progress.cancelled > 0 ? (
+          <span className="truncate text-xs text-muted-foreground">
+            {progress.cancelled} cancelled
+          </span>
+        ) : null}
+      </span>
+      {total > 0 ? (
+        <Progress
+          value={(done / total) * 100}
+          aria-label={progressLabel(progress)}
+          className="h-1"
+        />
+      ) : null}
+    </span>
   );
 }

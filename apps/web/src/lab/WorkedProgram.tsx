@@ -1,52 +1,65 @@
 import {
   COMMENT_MAX_LENGTH,
+  REVIEW_EVENT_LABEL,
   STATUS_TRANSITIONS,
   formatAttribution,
   formatLineDepth,
   formatPerson,
-  programLabel,
+  labProgramPhase,
   testProgress,
   type LabComment,
   type LabLine,
   type LabProgram,
+  type ProgramUnits,
   type ProgramWork,
   type ReceiverOption,
   type SameSourceUnits,
-  type TestProgress,
   type TestRequest,
 } from '@materialmule/shared';
-import { useCallback, useEffect, useId, useState } from 'react';
-import { Link, useLocation } from 'react-router';
-import { ReceiverSelect } from '../components/ReceiverSelect';
+import { Check } from 'lucide-react';
 import {
-  CountedCells,
-  ErrorState,
-  SectionHead,
-  SidePanel,
-  StatusBadge,
-} from '../components/app-ui';
-import { progressCells, progressLabel } from './format';
+  useCallback,
+  useEffect,
+  useId,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
+import { Link, useLocation } from 'react-router';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { ReceiverSelect } from '../components/ReceiverSelect';
+import { PersonAvatar } from '../components/strata/person-avatar';
+import { StageTag } from '../components/strata/stage-tag';
 import { shortDateTime, shortTime } from '../dashboard/format';
 import { useMe } from '../session/context';
 import {
   addComment,
-  changePriority,
   changeStatus,
   editComment,
   fetchSameSourceUnits,
   fetchWork,
   type WriteResult,
 } from './api';
-import { FrozenLine, ProgramSummary } from './ProgramDetailPage';
 import { AmendProgram, ChangeAcceptedTest } from './AmendmentControls';
+import { TEST_STATE_WORDS, activityTime, lineTitle, requestName } from './format';
 import { ProgramLifecycle, RequestLifecycle } from './LifecycleControls';
+import { ProgramHeader } from './ProgramHeader';
 import { ReviewControls } from './ReviewControls';
+import { ProgramUnitsToPull } from './UnitsToPull';
 
-// A submitted program being worked (MM-T24): per-test status buttons along the one path, the
-// exact units used when completing, priority with history, and comment threads. A shared LAB
-// station names "Who is doing this?" in each action's own panel: the choice belongs to that
-// action on this station only, never to the account. Statuses are shared: after any action or
-// conflict the program reloads; what someone was typing stays in its box.
+// A submitted program (STRATA-87, the record pattern; MM-T24–T26 behaviour): the header with the
+// main action by phase, then the lines with each test's state as a record word and the actions
+// the server allows (tests start here, never on Workboard cards), Units to pull, comments, and
+// the history beside. A shared LAB station names "Who is doing this?" in each action's own panel:
+// the choice belongs to that action on this station only, never to the account. Statuses are
+// shared: after any action or conflict the program reloads; what someone was typing stays in its
+// box. Progress only: no results are ever recorded or shown.
 
 const newKey = () => crypto.randomUUID();
 
@@ -92,10 +105,50 @@ function WhoIsDoingThis({
 }
 
 /**
+ * shadcn ItemGroup as a real list: ItemGroup is a `div role="list"`, which can't hold the `li`
+ * items (test rows, comments, history) without invalid nesting; same classes and data-slot.
+ */
+function ItemList({ className, ...props }: ComponentProps<'ul'>) {
+  return (
+    <ul
+      role="list"
+      data-slot="item-group"
+      className={cn('group/item-group flex flex-col', className)}
+      {...props}
+    />
+  );
+}
+
+/** A shadcn checkbox with its label. */
+function CheckRow({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-start gap-2 py-1">
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(value) => onChange(value === true)}
+        className="mt-0.5"
+      />
+      <Label htmlFor={id} className="font-normal">
+        {children}
+      </Label>
+    </div>
+  );
+}
+
+/**
  * MM-T73: a Shelby tube or bulk-sample bucket the test used that isn't in the line's frozen
- * coverage (not chosen on a Specific line, not ticked on a Grabs/SPT line). Only units of the
- * line's own source in the program's project are offered, and recording one needs an explicit
- * confirmation, which is stored with the link (who and when) and counts as tested evidence.
+ * coverage. Only units of the line's own source in the program's project are offered, and
+ * recording one needs an explicit confirmation, stored with the link (who and when).
  */
 function SameSourcePicker({
   testRequestId,
@@ -132,63 +185,69 @@ function SameSourcePicker({
 
   if (!open) {
     return (
-      <button type="button" className="link-button" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="link"
+        className="h-auto self-start p-0"
+        onClick={() => setOpen(true)}
+      >
         Used a unit from this source that isn’t listed?
-      </button>
+      </Button>
     );
   }
   if (failed) {
-    return <p className="field-hint">Couldn’t load the other units from this source.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        Couldn’t load the other units from this source.
+      </p>
+    );
   }
-  if (!data) return <p className="field-hint">Loading other units from this source…</p>;
+  if (!data) {
+    return <p className="text-sm text-muted-foreground">Loading other units from this source…</p>;
+  }
   const source = data.sourceLabel ?? 'this line’s source';
   const chosenIds = data.units
     .filter((unit) => chosen.includes(unit.storageUnitId))
     .map((unit) => unit.readableId);
   return (
-    <fieldset className="unit-choices" aria-describedby={`${id}-hint`}>
-      <legend>Other units from {source}</legend>
-      <p id={`${id}-hint`} className="field-hint">
+    <fieldset className="flex flex-col gap-1" aria-describedby={`${id}-hint`}>
+      <legend className="text-sm font-medium">Other units from {source}</legend>
+      <p id={`${id}-hint`} className="text-sm text-muted-foreground">
         Outside this line’s coverage. Only Shelby tubes and bulk-sample buckets from the same source
         and project are offered.
       </p>
       {data.units.length === 0 ? (
-        <p className="field-hint">No other Shelby tubes or bulk-sample buckets from {source}.</p>
+        <p className="text-sm text-muted-foreground">
+          No other Shelby tubes or bulk-sample buckets from {source}.
+        </p>
       ) : (
         data.units.map((unit) => (
-          <label key={unit.storageUnitId} className="unit-choice">
-            <input
-              type="checkbox"
-              checked={chosen.includes(unit.storageUnitId)}
-              onChange={(event) =>
-                onChosen(
-                  event.target.checked
-                    ? [...chosen, unit.storageUnitId]
-                    : chosen.filter((other) => other !== unit.storageUnitId),
-                )
-              }
-            />
-            <span className="mono">{unit.readableId}</span> {unit.contents ?? ''}
-          </label>
+          <CheckRow
+            key={unit.storageUnitId}
+            checked={chosen.includes(unit.storageUnitId)}
+            onChange={(checked) =>
+              onChosen(
+                checked
+                  ? [...chosen, unit.storageUnitId]
+                  : chosen.filter((other) => other !== unit.storageUnitId),
+              )
+            }
+          >
+            <span className="font-mono">{unit.readableId}</span> {unit.contents ?? ''}
+          </CheckRow>
         ))
       )}
       {chosenIds.length > 0 ? (
-        <label className="unit-choice unit-choice-confirm">
-          <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={(event) => onConfirmed(event.target.checked)}
-          />
-          <span>
-            I confirm {chosenIds.join(', ')} {chosenIds.length === 1 ? 'is' : 'are'} from {source}{' '}
-            and {chosenIds.length === 1 ? 'was' : 'were'} used in this test
-          </span>
-        </label>
+        <CheckRow checked={confirmed} onChange={onConfirmed}>
+          I confirm {chosenIds.join(', ')} {chosenIds.length === 1 ? 'is' : 'are'} from {source} and{' '}
+          {chosenIds.length === 1 ? 'was' : 'were'} used in this test
+        </CheckRow>
       ) : null}
     </fieldset>
   );
 }
 
+/** Start, Mark completed, Send to review: the one path, as the server's transition table allows. */
 function StatusAction({
   request,
   line,
@@ -252,60 +311,63 @@ function StatusAction({
 
   if (!open && !shared && !completing) {
     return (
-      <button type="button" onClick={() => void confirm()} disabled={busy}>
+      <Button type="button" size="sm" onClick={() => void confirm()} disabled={busy}>
         {next.action}
-      </button>
+      </Button>
     );
   }
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" size="sm" onClick={() => setOpen(true)}>
         {next.action}
-      </button>
+      </Button>
     );
   }
   return (
-    <div className="action-panel" role="group" aria-labelledby={`${id}-title`}>
-      <p id={`${id}-title`} className="action-title">
+    <div
+      className="flex basis-full flex-col gap-3 rounded-md border bg-muted/40 p-3"
+      role="group"
+      aria-labelledby={`${id}-title`}
+    >
+      <p id={`${id}-title`} className="text-sm font-semibold">
         {next.action}: {request.code}
       </p>
       <WhoIsDoingThis value={person} onChange={setPerson} />
       {completing && candidates.length > 0 ? (
-        <fieldset className="unit-choices">
-          <legend>Units actually used{needsUnits ? ' (required)' : ' (optional)'}</legend>
-          <p className="field-hint">
+        <fieldset className="flex flex-col gap-1">
+          <legend className="text-sm font-medium">
+            Units actually used{needsUnits ? ' (required)' : ' (optional)'}
+          </legend>
+          <p className="text-sm text-muted-foreground">
             Tick only the physical units this test used. Covered material isn’t marked tested unless
             it is ticked here.
           </p>
           {candidates.map((unit) => (
-            <label key={unit.storageUnitId} className="unit-choice">
-              <input
-                type="checkbox"
-                checked={units.includes(unit.storageUnitId)}
-                onChange={(event) => {
-                  setNoTracked(false);
-                  setUnits((current) =>
-                    event.target.checked
-                      ? [...current, unit.storageUnitId]
-                      : current.filter((other) => other !== unit.storageUnitId),
-                  );
-                }}
-              />
-              <span className="mono">{unit.readableId}</span> {unit.contents ?? ''}
-            </label>
+            <CheckRow
+              key={unit.storageUnitId}
+              checked={units.includes(unit.storageUnitId)}
+              onChange={(checked) => {
+                setNoTracked(false);
+                setUnits((current) =>
+                  checked
+                    ? [...current, unit.storageUnitId]
+                    : current.filter((other) => other !== unit.storageUnitId),
+                );
+              }}
+            >
+              <span className="font-mono">{unit.readableId}</span> {unit.contents ?? ''}
+            </CheckRow>
           ))}
           {needsUnits ? (
-            <label className="unit-choice">
-              <input
-                type="checkbox"
-                checked={noTracked}
-                onChange={(event) => {
-                  setNoTracked(event.target.checked);
-                  if (event.target.checked) setUnits([]);
-                }}
-              />
+            <CheckRow
+              checked={noTracked}
+              onChange={(checked) => {
+                setNoTracked(checked);
+                if (checked) setUnits([]);
+              }}
+            >
               None of these units was used
-            </label>
+            </CheckRow>
           ) : null}
         </fieldset>
       ) : null}
@@ -313,8 +375,8 @@ function StatusAction({
         <SameSourcePicker
           testRequestId={request.id}
           chosen={extra}
-          onChosen={(next) => {
-            setExtra(next);
+          onChosen={(chosen) => {
+            setExtra(chosen);
             // A confirmation covers exactly the units it named.
             setExtraConfirmed(false);
           }}
@@ -322,29 +384,32 @@ function StatusAction({
           onConfirmed={setExtraConfirmed}
         />
       ) : null}
-      <div className="form-actions">
-        <button type="button" onClick={() => setOpen(false)}>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
           Cancel
-        </button>
-        <button
-          type="button"
-          className="primary"
-          disabled={!ready || busy}
-          onClick={() => void confirm()}
-        >
+        </Button>
+        <Button type="button" size="sm" disabled={!ready || busy} onClick={() => void confirm()}>
           {next.action}
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
+const STATUS_VERB: Partial<Record<TestRequest['status'], string>> = {
+  in_progress: 'Started',
+  completed: 'Done',
+  review: 'Sent to review',
+  requested: 'Back to waiting',
+};
+
+/** The last status change of a test: "Started by Pat Example, Nov 12, 9:12 a.m." */
 function lastChange(work: ProgramWork, requestId: string): string | null {
   const events = work.statusHistory.filter((event) => event.testRequestId === requestId);
   const last = events[events.length - 1];
-  return last
-    ? `${formatAttribution(last.account, last.person)}, ${shortDateTime(last.changedAt)}`
-    : null;
+  if (!last) return null;
+  const verb = STATUS_VERB[last.toStatus] ?? 'Changed';
+  return `${verb} by ${formatAttribution(last.account, last.person)}, ${shortDateTime(last.changedAt)}`;
 }
 
 function CommentBox({
@@ -366,7 +431,7 @@ function CommentBox({
   if (!me.permissions.includes('lab_comment.write')) return null;
   return (
     <form
-      className="comment-box"
+      className="flex flex-col gap-2"
       onSubmit={async (event) => {
         event.preventDefault();
         setBusy(true);
@@ -389,17 +454,24 @@ function CommentBox({
         }
       }}
     >
-      <label htmlFor={id}>{lineId ? 'Comment on this line' : 'Comment on the program'}</label>
-      <textarea
+      <Label htmlFor={id}>{lineId ? 'Comment on this line' : 'Comment on the program'}</Label>
+      <Textarea
         id={id}
         value={body}
+        rows={2}
         maxLength={COMMENT_MAX_LENGTH}
         onChange={(e) => setBody(e.target.value)}
       />
       <WhoIsDoingThis value={person} onChange={setPerson} />
-      <button type="submit" disabled={busy || !body.trim() || (shared && !person)}>
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        className="self-end"
+        disabled={busy || !body.trim() || (shared && !person)}
+      >
         Post comment
-      </button>
+      </Button>
     </form>
   );
 }
@@ -427,91 +499,108 @@ export function CommentItem({
     const timer = setTimeout(() => setNow(Date.now()), deadline - now);
     return () => clearTimeout(timer);
   }, [canEdit, deadline, now]);
+  const author = comment.author ?? comment.account;
   return (
-    <li className="comment">
-      <p className="comment-meta">
-        <strong>{formatAttribution(comment.account, comment.author)}</strong> ·{' '}
-        {shortDateTime(comment.createdAt)}
-        {comment.editedAt ? ` · edited ${shortDateTime(comment.editedAt)}` : ''}
-      </p>
-      {editing ? (
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault();
-            // The window can close while the editor is open; the API still decides, but don't
-            // send an edit we know it will refuse, whether by click or by Enter in a field.
-            if (!mine || new Date(comment.editableUntil).getTime() <= Date.now()) {
-              setNow(Date.now());
-              return;
-            }
-            const result = await editComment(comment.id, {
-              body,
-              version: comment.version,
-              idempotencyKey: key,
-              ...(shared && person ? { actingStaffUserId: person.id } : {}),
-            });
-            if (result.ok || result.kind !== 'network') setKey(newKey());
-            if (result.ok) setEditing(false);
-            onChanged(result.ok ? null : problemText(result));
-          }}
-        >
-          <label htmlFor={`edit-${comment.id}`} className="visually-hidden">
-            Edit comment
-          </label>
-          <textarea
-            id={`edit-${comment.id}`}
-            value={body}
-            maxLength={COMMENT_MAX_LENGTH}
-            onChange={(e) => setBody(e.target.value)}
-          />
-          <WhoIsDoingThis value={person} onChange={setPerson} />
-          {canEdit ? null : (
-            <p className="notice notice-warning" role="alert">
-              The 15-minute edit window has closed, so this change can’t be saved. Copy your text if
-              you need it, then cancel.
-            </p>
-          )}
-          <div className="form-actions">
-            <button type="button" onClick={() => setEditing(false)}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="primary"
-              disabled={!canEdit || !body.trim() || (shared && !person)}
+    <Item asChild size="sm" className="items-start px-0">
+      <li>
+        <PersonAvatar name={author.name} userId={author.userId} />
+        <ItemContent className="min-w-0">
+          <ItemTitle>
+            {formatAttribution(comment.account, comment.author)}
+            <span className="font-normal text-muted-foreground">
+              {activityTime(comment.createdAt)}
+              {comment.editedAt ? ` · edited ${shortDateTime(comment.editedAt)}` : ''}
+            </span>
+          </ItemTitle>
+          {editing ? (
+            <form
+              className="flex flex-col gap-2"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                // The window can close while the editor is open; the API still decides, but don't
+                // send an edit we know it will refuse, whether by click or by Enter in a field.
+                if (!mine || new Date(comment.editableUntil).getTime() <= Date.now()) {
+                  setNow(Date.now());
+                  return;
+                }
+                const result = await editComment(comment.id, {
+                  body,
+                  version: comment.version,
+                  idempotencyKey: key,
+                  ...(shared && person ? { actingStaffUserId: person.id } : {}),
+                });
+                if (result.ok || result.kind !== 'network') setKey(newKey());
+                if (result.ok) setEditing(false);
+                onChanged(result.ok ? null : problemText(result));
+              }}
             >
-              Save comment
-            </button>
-          </div>
-        </form>
-      ) : (
-        <p className="pre-wrap">{comment.body}</p>
-      )}
-      {canEdit && !editing ? (
-        <p className="comment-edit">
-          <button type="button" onClick={() => setEditing(true)}>
-            Edit
-          </button>{' '}
-          <span className="field-hint">Editable until {shortTime(comment.editableUntil)}</span>
-        </p>
-      ) : null}
-      {comment.revisions.length > 1 ? (
-        <details>
-          <summary>Earlier versions ({comment.revisions.length - 1})</summary>
-          <ol>
-            {comment.revisions.slice(0, -1).map((revision) => (
-              <li key={revision.revisionNumber}>
-                <span className="field-hint">
-                  {formatPerson(revision.person.initials, revision.person.name)},{' '}
-                  {shortDateTime(revision.createdAt)}:
-                </span>{' '}
-                {revision.body}
-              </li>
-            ))}
-          </ol>
-        </details>
-      ) : null}
-    </li>
+              <Label htmlFor={`edit-${comment.id}`} className="sr-only">
+                Edit comment
+              </Label>
+              <Textarea
+                id={`edit-${comment.id}`}
+                value={body}
+                maxLength={COMMENT_MAX_LENGTH}
+                onChange={(e) => setBody(e.target.value)}
+              />
+              <WhoIsDoingThis value={person} onChange={setPerson} />
+              {canEdit ? null : (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    The 15-minute edit window has closed, so this change can’t be saved. Copy your
+                    text if you need it, then cancel.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!canEdit || !body.trim() || (shared && !person)}
+                >
+                  Save comment
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
+          )}
+          {canEdit && !editing ? (
+            <p className="flex items-center gap-2 text-sm">
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0"
+                onClick={() => setEditing(true)}
+              >
+                Edit
+              </Button>
+              <span className="text-muted-foreground">
+                Editable until {shortTime(comment.editableUntil)}
+              </span>
+            </p>
+          ) : null}
+          {comment.revisions.length > 1 ? (
+            <details className="text-sm text-muted-foreground" data-slot="earlier-versions">
+              <summary className="cursor-pointer">
+                Earlier versions ({comment.revisions.length - 1})
+              </summary>
+              <ol className="mt-1 flex flex-col gap-1">
+                {comment.revisions.slice(0, -1).map((revision) => (
+                  <li key={revision.revisionNumber}>
+                    {formatPerson(revision.person.initials, revision.person.name)},{' '}
+                    {shortDateTime(revision.createdAt)}: {revision.body}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
+        </ItemContent>
+      </li>
+    </Item>
   );
 }
 
@@ -528,9 +617,9 @@ function Comments({
 }) {
   const mine = comments.filter((comment) => comment.lineId === lineId);
   return (
-    <div className="comments">
+    <div className="flex flex-col gap-2">
       {mine.length > 0 ? (
-        <ul className="comment-list" aria-label={lineId ? 'Line comments' : 'Program comments'}>
+        <ItemList aria-label={lineId ? 'Line comments' : 'Program comments'}>
           {mine.map((comment) => (
             <CommentItem
               key={`${comment.id}:${comment.version}`}
@@ -538,92 +627,344 @@ function Comments({
               onChanged={onChanged}
             />
           ))}
-        </ul>
+        </ItemList>
+      ) : lineId === null ? (
+        <p className="text-sm text-muted-foreground">No comments yet.</p>
       ) : null}
       <CommentBox programId={programId} lineId={lineId} onPosted={onChanged} />
     </div>
   );
 }
 
-function PriorityControl({
+/** A test's state: the record word on its stage colour; Done and Accepted carry a check. */
+export function TestStateTag({ status }: { status: TestRequest['status'] }) {
+  const word = TEST_STATE_WORDS[status];
+  return (
+    <StageTag
+      stage={word.stage}
+      label={word.label}
+      icon={word.check ? Check : undefined}
+      className="shrink-0"
+    />
+  );
+}
+
+/** One test on a line: name, state, who did what last, and the actions the server allows. */
+function TestRow({
+  request,
+  line,
   program,
   work,
-  onChanged,
+  onDone,
 }: {
+  request: TestRequest;
+  line: LabLine;
   program: LabProgram;
   work: ProgramWork;
-  onChanged: (message: string | null) => void;
+  onDone: (message: string | null) => void;
 }) {
-  const [key, setKey] = useState(newKey);
-  const [busy, setBusy] = useState(false);
-  const other = program.priority === 'urgent' ? 'normal' : 'urgent';
+  const progress = work.requests.find((r) => r.testRequestId === request.id);
+  const status = progress?.status ?? request.status;
+  const cancelled = status === 'cancelled';
+  const changed = lastChange(work, request.id);
+  const tested = work.testedUnits.filter((unit) => unit.testRequestId === request.id);
   return (
-    <div className="priority-control">
-      {work.canChangePriority && program.status === 'submitted' ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            const result = await changePriority(program.id, {
-              priority: other,
-              version: program.version,
-              idempotencyKey: key,
-            });
-            setBusy(false);
-            if (result.ok || result.kind !== 'network') setKey(newKey());
-            onChanged(result.ok ? null : problemText(result));
-          }}
-        >
-          {other === 'urgent' ? 'Mark urgent' : 'Mark normal'}
-        </button>
-      ) : null}
-      {work.priorityHistory.length > 0 ? (
-        <details className="priority-history">
-          <summary>Priority history</summary>
-          <ul>
-            {work.priorityHistory.map((event) => (
-              <li key={event.id}>
-                {event.fromPriority} → {event.toPriority} by{' '}
-                {formatPerson(event.person.initials, event.person.name)},{' '}
-                {shortDateTime(event.changedAt)}
-              </li>
+    <Item asChild size="sm" className="flex-wrap items-start px-0">
+      <li id={`request-${request.id}`} data-status={status}>
+        <ItemContent className="min-w-0">
+          <ItemTitle className={cn(cancelled && 'text-muted-foreground line-through')}>
+            <span title={request.description}>{requestName(request)}</span>
+            {request.amendmentId ? <StageTag variant="outline" label="Added by amendment" /> : null}
+          </ItemTitle>
+          {changed ? <ItemDescription>{changed}</ItemDescription> : null}
+          {request.identity ? (
+            <ItemDescription>
+              Sample now {request.identity.sampleLabel} at {formatLineDepth(request.identity)}
+            </ItemDescription>
+          ) : null}
+          {tested.length > 0 ? (
+            <p className="text-sm">
+              Used:{' '}
+              {tested.map((unit, index) => (
+                // The unit's page shows its evidence and, for a personal account, the separate
+                // removal after testing (MM-T36).
+                <span key={unit.storageUnitId}>
+                  {index > 0 ? ', ' : null}
+                  <Button variant="link" asChild className="h-auto p-0 font-mono">
+                    <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
+                      {unit.readableId}
+                    </Link>
+                  </Button>
+                </span>
+              ))}
+            </p>
+          ) : null}
+          {tested
+            .filter((unit) => unit.confirmation !== null)
+            .map((unit) => (
+              <ItemDescription key={`${unit.storageUnitId}-confirmed`}>
+                {unit.readableId} was outside this line’s coverage: same source confirmed by{' '}
+                {formatPerson(unit.confirmation!.person.initials, unit.confirmation!.person.name)},{' '}
+                {shortDateTime(unit.confirmation!.confirmedAt)}
+              </ItemDescription>
             ))}
-          </ul>
-        </details>
+          <ReviewControls testRequestId={request.id} work={work} onDone={onDone} />
+          <RequestLifecycle request={request} program={program} work={work} onDone={onDone} />
+          <ChangeAcceptedTest request={request} line={line} work={work} onDone={onDone} />
+        </ItemContent>
+        <ItemActions className="flex-wrap justify-end">
+          <StatusAction request={request} line={line} work={work} onDone={onDone} />
+          <TestStateTag status={status} />
+        </ItemActions>
+      </li>
+    </Item>
+  );
+}
+
+/** One line: its source and scope, the units it covers, its tests and its comments. */
+function ProgramLine({
+  line,
+  program,
+  work,
+  onDone,
+}: {
+  line: LabLine;
+  program: LabProgram;
+  work: ProgramWork;
+  onDone: (message: string | null) => void;
+}) {
+  const headingId = useId();
+  const included = line.coverage.filter((unit) => unit.included);
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-1 border-t pt-3 first:border-t-0 first:pt-0"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 id={headingId} className="text-sm font-semibold">
+          Line {line.lineNumber} · {lineTitle(line)}
+        </h3>
+        {line.amendmentId ? <StageTag variant="outline" label="Added by amendment" /> : null}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {included.length === 0 ? (
+          'No physical unit linked'
+        ) : (
+          <>
+            Covers{' '}
+            {included.map((unit, index) => (
+              <span key={unit.storageUnitId}>
+                {index > 0 ? ', ' : null}
+                <Button variant="link" asChild className="h-auto p-0 font-mono">
+                  <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
+                    {unit.readableId}
+                  </Link>
+                </Button>
+              </span>
+            ))}
+            {line.coverage.length > included.length
+              ? ` · ${line.coverage.length - included.length} excluded after review`
+              : ''}
+          </>
+        )}
+      </p>
+      <ItemList className="request-list">
+        {line.requests.map((request) => (
+          <TestRow
+            key={request.id}
+            request={request}
+            line={line}
+            program={program}
+            work={work}
+            onDone={onDone}
+          />
+        ))}
+      </ItemList>
+      <Comments
+        programId={program.id}
+        lineId={line.id}
+        comments={work.comments}
+        onChanged={onDone}
+      />
+    </section>
+  );
+}
+
+interface HistoryEntry {
+  id: string;
+  at: string;
+  person: { userId: string | null; initials: string | null; name: string };
+  text: string;
+}
+
+/** Everything that happened to the program, newest first, from what the work view carries. */
+function historyOf(program: LabProgram, work: ProgramWork): HistoryEntry[] {
+  const name = (id: string) => {
+    for (const line of program.lines) {
+      const request = line.requests.find((r) => r.id === id);
+      if (request) return `${request.name ?? request.code} on L${line.lineNumber}`;
+    }
+    return 'a test';
+  };
+  const entries: HistoryEntry[] = [];
+  if (program.submittedAt) {
+    const by = program.submittedFor ?? program.requestedBy;
+    entries.push({
+      id: 'submitted',
+      at: program.submittedAt,
+      person: by,
+      text: 'submitted it to the lab',
+    });
+  }
+  entries.push({
+    id: 'created',
+    at: program.createdAt,
+    person: program.requestedBy,
+    text: 'started this draft',
+  });
+  for (const event of work.statusHistory) {
+    const verb =
+      event.toStatus === 'in_progress'
+        ? 'started'
+        : event.toStatus === 'completed'
+          ? 'finished'
+          : event.toStatus === 'review'
+            ? 'sent to review'
+            : 'changed';
+    entries.push({
+      id: `s-${event.id}`,
+      at: event.changedAt,
+      person: event.person,
+      text: `${verb} ${name(event.testRequestId)}`,
+    });
+  }
+  for (const event of work.reviewEvents) {
+    entries.push({
+      id: `r-${event.id}`,
+      at: event.occurredAt,
+      person: event.person,
+      text: `${REVIEW_EVENT_LABEL[event.kind].toLowerCase()}: ${name(event.testRequestId)}${
+        event.comment ? ` (“${event.comment}”)` : ''
+      }`,
+    });
+  }
+  for (const event of work.priorityHistory) {
+    entries.push({
+      id: `p-${event.id}`,
+      at: event.changedAt,
+      person: event.person,
+      text: `marked it ${event.toPriority} priority (was ${event.fromPriority})`,
+    });
+  }
+  for (const event of work.lifecycle.events) {
+    entries.push({
+      id: `l-${event.id}`,
+      at: event.occurredAt,
+      person: event.person,
+      text: `${event.kind === 'closed' ? 'closed' : 'reopened'} the program${
+        event.reason ? ` (“${event.reason}”)` : ''
+      }`,
+    });
+  }
+  for (const request of work.requests) {
+    const life = request.lifecycle;
+    if (life.cancelledAt && life.cancelledBy) {
+      entries.push({
+        id: `c-${request.testRequestId}`,
+        at: life.cancelledAt,
+        person: life.cancelledBy,
+        text: `cancelled ${name(request.testRequestId)} (“${life.cancelReason ?? ''}”)`,
+      });
+    }
+  }
+  return entries.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : a.id.localeCompare(b.id)));
+}
+
+const HISTORY_PAGE = 8;
+
+/** History beside the record, newest first, a page at a time. */
+function ProgramHistory({ program, work }: { program: LabProgram; work: ProgramWork }) {
+  const entries = historyOf(program, work);
+  const [shown, setShown] = useState(HISTORY_PAGE);
+  return (
+    <section aria-labelledby="program-history" className="flex flex-col gap-2">
+      <div className="flex items-baseline gap-2">
+        <h2 id="program-history" className="text-base font-semibold">
+          History
+        </h2>
+        <span className="text-sm text-muted-foreground">
+          {entries.length} {entries.length === 1 ? 'event' : 'events'}
+        </span>
+      </div>
+      <ItemList aria-label="Program history">
+        {entries.slice(0, shown).map((entry) => (
+          <Item key={entry.id} asChild size="sm" className="items-start px-0">
+            <li>
+              <PersonAvatar name={entry.person.name} userId={entry.person.userId} size="compact" />
+              <ItemContent>
+                <ItemTitle className="font-normal">
+                  <span>
+                    <span className="font-medium">{entry.person.name}</span> {entry.text}
+                  </span>
+                </ItemTitle>
+                <ItemDescription>{activityTime(entry.at)}</ItemDescription>
+              </ItemContent>
+            </li>
+          </Item>
+        ))}
+      </ItemList>
+      {entries.length > shown ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="self-start"
+          onClick={() => setShown((n) => n + HISTORY_PAGE)}
+        >
+          Show {Math.min(HISTORY_PAGE, entries.length - shown)} more
+        </Button>
       ) : null}
-    </div>
+    </section>
   );
 }
 
 /**
  * Printing sample ID tags (MM-T69): offered right after submission and kept on the program for
- * reprinting. Optional; opening or printing tags changes nothing in the program.
+ * reprinting (Print tags). Optional; printing tags changes nothing in the program.
  */
 function SampleTagsPrompt({ program }: { program: LabProgram }) {
   const location = useLocation();
   const justSubmitted = (location.state as { submitted?: boolean } | null)?.submitted === true;
-  const link = (
-    <Link
-      className={justSubmitted ? 'button primary' : 'button'}
-      to={`/lab-testing/programs/${program.id}/tags`}
-    >
-      Print sample ID tags
-    </Link>
-  );
-  if (!justSubmitted) return <div className="row-actions">{link}</div>;
+  if (!justSubmitted) {
+    return (
+      <Button variant="link" asChild className="h-auto self-start p-0">
+        <Link to={`/lab-testing/programs/${program.id}/tags`}>Print sample ID tags</Link>
+      </Button>
+    );
+  }
   return (
-    <div className="notice notice-success" role="status">
-      <p>Program submitted. Print sample ID tags for the samples now? You can also do it later.</p>
-      {link}
-    </div>
+    <Alert role="status">
+      <AlertTitle>Program submitted. Print sample ID tags for the samples now?</AlertTitle>
+      <AlertDescription>
+        <p>You can also do it later from Print tags.</p>
+        <Button asChild size="sm" className="mt-2">
+          <Link to={`/lab-testing/programs/${program.id}/tags`}>Print sample ID tags</Link>
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }
 
 export function WorkedProgram({ program, reload }: { program: LabProgram; reload: () => void }) {
+  const me = useMe();
   const [work, setWork] = useState<ProgramWork | null>(null);
   const [failed, setFailed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [units, setUnits] = useState<ProgramUnits | null>(null);
+  const location = useLocation();
+  // The Workboard's Review link lands on #review and starts reviewing here.
+  const [reviewing, setReviewing] = useState(() => location.hash === '#review');
+  const [changes, setChanges] = useState(0);
   const refresh = useCallback(() => {
     fetchWork(program.id).then(
       (loaded) => {
@@ -637,6 +978,7 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
 
   const after = (text: string | null) => {
     setMessage(text);
+    setChanges((n) => n + 1);
     reload();
     refresh();
   };
@@ -649,23 +991,84 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
     counts[status] = (counts[status] ?? 0) + 1;
   }
   const progress = testProgress(counts);
+  const status = work?.lifecycle.status ?? (program.status === 'closed' ? 'closed' : 'submitted');
+  const phase = labProgramPhase({
+    status,
+    counts,
+    cancelledWithoutReason: work?.lifecycle.closure.blockers.some(
+      (blocker) => blocker.reason === 'cancelled_without_reason',
+    ),
+    unitsToPull: (units?.toPull ?? 0) > 0,
+  });
+
+  // Review on this page: tests in review that this account can decide or cancel.
+  const reviewable = work
+    ? work.requests.filter(
+        (r) =>
+          r.status === 'review' &&
+          (r.reviewActions.canReview ||
+            r.reviewActions.canAccept ||
+            r.reviewActions.canCorrectionDone ||
+            r.lifecycle.canCancel),
+      )
+    : [];
+  const total = progress.done + progress.inProgress + progress.notStarted + progress.cancelled;
+  const decided = (counts.accepted ?? 0) + (counts.cancelled ?? 0);
+  const startReview = () => {
+    const next = !reviewing;
+    setReviewing(next);
+    const first = reviewable[0];
+    if (next && first) {
+      document
+        .getElementById(`request-${first.testRequestId}`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  };
 
   return (
-    <article aria-labelledby="program-heading" className="lab-program">
-      <ProgramHead program={program} />
-      <ProgressStrip progress={progress} />
-      <SampleTagsPrompt program={program} />
-      {failed ? <ErrorState message="Progress couldn’t be loaded." onRetry={refresh} /> : null}
-      {message ? (
-        <p className="notice notice-warning" role="alert">
-          {message}
-        </p>
+    <article aria-labelledby="program-heading" className="lab-program flex flex-col gap-6">
+      <ProgramHeader
+        program={program}
+        work={work}
+        phase={phase}
+        progress={progress}
+        reviewing={reviewing}
+        onReview={reviewable.length > 0 || reviewing ? startReview : null}
+        onDone={after}
+      />
+      {failed ? (
+        <Alert variant="destructive">
+          <AlertTitle>Progress couldn’t be loaded.</AlertTitle>
+          <AlertDescription>
+            <Button variant="outline" size="sm" className="mt-2" onClick={refresh}>
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : null}
-      <div className="lab-split">
-        <div className="lab-split-main">
+      {message ? (
+        <Alert variant="destructive">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {reviewing && phase === 'review' ? (
+        <Alert role="status">
+          <AlertTitle>
+            Reviewing{me.roles.includes('lab_manager') ? ' as Lab Manager' : ''}. Accept each test
+            or cancel it with a reason.
+          </AlertTitle>
+          <AlertDescription>
+            {decided} of {total} decided. Every test is accepted or cancelled with a reason before
+            the program closes.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="grid min-w-0 gap-8 @container/record lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
           {work ? (
             <>
-              <ProgramLifecycle program={program} work={work} onDone={after} />
+              <ProgramLifecycle program={program} work={work} />
+              {status === 'submitted' ? <SampleTagsPrompt program={program} /> : null}
               <AmendProgram
                 program={program}
                 work={work}
@@ -675,213 +1078,71 @@ export function WorkedProgram({ program, reload }: { program: LabProgram; reload
                   refresh();
                 }}
               />
-              <PriorityControl program={program} work={work} onChanged={after} />
-              <SectionHead title="Samples and tests" meta="Progress only · no results" />
-              {program.lines.map((line) => (
-                <FrozenLine
-                  key={line.id}
-                  line={line}
-                  statusOf={(request) =>
-                    work.requests.find((r) => r.testRequestId === request.id)?.status ??
-                    request.status
-                  }
-                  testActions={(request) => {
-                    const changed = lastChange(work, request.id);
-                    const tested = work.testedUnits.filter(
-                      (unit) => unit.testRequestId === request.id,
-                    );
-                    return (
-                      <>
-                        {changed ? <span className="field-hint">{changed}</span> : null}
-                        {request.identity ? (
-                          <span className="field-hint">
-                            Sample now {request.identity.sampleLabel} at{' '}
-                            {formatLineDepth(request.identity)}
-                          </span>
-                        ) : null}
-                        {request.amendmentId ? (
-                          <span className="field-hint">Added by amendment</span>
-                        ) : null}
-                        {tested.length > 0 ? (
-                          <StatusBadge tone="info">
-                            Used:{' '}
-                            {tested.map((unit, index) => (
-                              // The unit's page shows its evidence and, for a personal account, the
-                              // separate removal after testing (MM-T36).
-                              <span key={unit.storageUnitId}>
-                                {index > 0 ? ', ' : null}
-                                <Link to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}>
-                                  {unit.readableId}
-                                </Link>
-                              </span>
-                            ))}
-                          </StatusBadge>
-                        ) : null}
-                        {tested
-                          .filter((unit) => unit.confirmation !== null)
-                          .map((unit) => (
-                            <span key={`${unit.storageUnitId}-confirmed`} className="field-hint">
-                              {unit.readableId} was outside this line’s coverage: same source
-                              confirmed by{' '}
-                              {formatPerson(
-                                unit.confirmation!.person.initials,
-                                unit.confirmation!.person.name,
-                              )}
-                              , {shortDateTime(unit.confirmation!.confirmedAt)}
-                            </span>
-                          ))}
-                        <StatusAction request={request} line={line} work={work} onDone={after} />
-                        <ReviewControls testRequestId={request.id} work={work} onDone={after} />
-                        <RequestLifecycle
-                          request={request}
-                          program={program}
-                          work={work}
-                          onDone={after}
-                        />
-                        <ChangeAcceptedTest
-                          request={request}
-                          line={line}
-                          work={work}
-                          onDone={after}
-                        />
-                      </>
-                    );
-                  }}
-                >
-                  <Comments
-                    programId={program.id}
-                    lineId={line.id}
-                    comments={work.comments}
-                    onChanged={after}
+              <section
+                id="review"
+                aria-labelledby="program-lines"
+                className="flex scroll-mt-20 flex-col gap-3"
+              >
+                <div className="flex items-baseline gap-2">
+                  <h2 id="program-lines" className="text-base font-semibold">
+                    Lines
+                  </h2>
+                  <span className="text-sm text-muted-foreground">
+                    {program.lines.length} {program.lines.length === 1 ? 'line' : 'lines'} · {total}{' '}
+                    {total === 1 ? 'test' : 'tests'} · progress only, no results
+                  </span>
+                </div>
+                {program.lines.map((line) => (
+                  <ProgramLine
+                    key={line.id}
+                    line={line}
+                    program={program}
+                    work={work}
+                    onDone={after}
                   />
-                </FrozenLine>
-              ))}
-              <section aria-labelledby="program-comments" className="program-comments">
-                <h3 id="program-comments">Program comments</h3>
-                <Comments
-                  programId={program.id}
-                  lineId={null}
-                  comments={work.comments}
-                  onChanged={after}
-                />
+                ))}
               </section>
             </>
           ) : failed ? null : (
-            <p aria-busy="true">Loading progress…</p>
+            <p aria-busy="true" className="text-sm text-muted-foreground">
+              Loading progress…
+            </p>
           )}
+          <ProgramUnitsToPull
+            programId={program.id}
+            open={status === 'submitted'}
+            version={program.version + changes}
+            onLoaded={setUnits}
+          />
+          {work ? (
+            <section
+              aria-labelledby="program-comments"
+              className="program-comments flex flex-col gap-2"
+            >
+              <h2 id="program-comments" className="text-base font-semibold">
+                Comments
+              </h2>
+              <Comments
+                programId={program.id}
+                lineId={null}
+                comments={work.comments}
+                onChanged={after}
+              />
+            </section>
+          ) : null}
         </div>
-        <div className="lab-split-side">
-          <SidePanel title="Program details">
-            <ProgramSummary program={program} />
-          </SidePanel>
-          <ProgramUnits program={program} work={work} />
-        </div>
+        <aside className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
+          {work ? <ProgramHistory program={program} work={work} /> : null}
+          {program.notes ? (
+            <section aria-labelledby="program-notes" className="flex flex-col gap-1">
+              <h2 id="program-notes" className="text-base font-semibold">
+                Notes
+              </h2>
+              <p className="text-sm whitespace-pre-wrap">{program.notes}</p>
+            </section>
+          ) : null}
+        </aside>
       </div>
     </article>
-  );
-}
-
-/** Mono eyebrow (program, project, who asked), the program number as the page title, its state. */
-export function ProgramHead({ program }: { program: LabProgram }) {
-  const requester = program.submittedFor ?? program.requestedBy;
-  return (
-    <header className="lab-program-head">
-      <p className="lab-eyebrow">
-        Lab program ·{' '}
-        <Link to={`/projects/${program.project.id}`}>{program.project.projectNumber}</Link> ·
-        Requested by {requester.name}
-        {program.submittedAt ? `, ${shortDateTime(program.submittedAt)}` : ''}
-      </p>
-      <div className="lab-program-title">
-        {/* Open / Closed is in the lifecycle panel and priority in the details, each once. */}
-        <h1 id="program-heading" className="mono">
-          {programLabel(program)}
-        </h1>
-      </div>
-      <p className="lab-program-project">{program.project.name}</p>
-    </header>
-  );
-}
-
-/** Tests done of total, one counted cell per test, and the progress-only note. */
-function ProgressStrip({ progress }: { progress: TestProgress }) {
-  const total = progress.done + progress.inProgress + progress.notStarted;
-  return (
-    <div className="lab-strip">
-      <div className="lab-strip-cell">
-        <span className="field-label">Tests done</span>
-        <span className="lab-strip-count">
-          {progress.done}
-          <span className="lab-strip-of"> of {total}</span>
-        </span>
-        {progress.cancelled > 0 ? (
-          <span className="lab-strip-note">{progress.cancelled} cancelled, not counted</span>
-        ) : null}
-      </div>
-      <div className="lab-strip-cell lab-strip-cells">
-        {total > 0 ? (
-          <CountedCells cells={progressCells(progress)} label={progressLabel(progress)} />
-        ) : (
-          <span className="lab-strip-note">No tests to count.</span>
-        )}
-        <span className="lab-strip-note">
-          Black is done, orange is in progress, white is not started.
-        </span>
-      </div>
-      <div className="lab-strip-cell">
-        <span className="field-label">Shows progress only</span>
-        <span>Results are not recorded here.</span>
-      </div>
-    </div>
-  );
-}
-
-/**
- * The storage units in this program's frozen coverage (potential material, not a record of what
- * was tested), each linking to its unit page, where it is moved or checked out.
- */
-function ProgramUnits({ program, work }: { program: LabProgram; work: ProgramWork | null }) {
-  const units = new Map<string, { readableId: string; contents: string | null; lines: number[] }>();
-  for (const line of program.lines) {
-    for (const unit of line.coverage.filter((u) => u.included)) {
-      const known = units.get(unit.storageUnitId);
-      if (known) known.lines.push(line.lineNumber);
-      else
-        units.set(unit.storageUnitId, {
-          readableId: unit.readableId,
-          contents: unit.contents,
-          lines: [line.lineNumber],
-        });
-    }
-  }
-  const tested = new Set((work?.testedUnits ?? []).map((unit) => unit.storageUnitId));
-  return (
-    <SidePanel title="Units for this program">
-      {units.size === 0 ? (
-        <p className="field-hint">No storage unit is linked to this program.</p>
-      ) : (
-        <ul className="lab-units">
-          {[...units].map(([id, unit]) => (
-            <li key={id} data-row>
-              <span className="lab-units-head">
-                <Link
-                  className="mono"
-                  to={`/sample-storage/${encodeURIComponent(unit.readableId)}`}
-                >
-                  {unit.readableId}
-                </Link>
-                {tested.has(id) ? <StatusBadge tone="lab">Used in a test</StatusBadge> : null}
-              </span>
-              <span className="lab-units-sub">
-                {unit.contents ? `${unit.contents} · ` : ''}Line {unit.lines.join(', ')}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="field-hint">
-        Covered material is what the lab may use, not a record of what was tested.
-      </p>
-    </SidePanel>
   );
 }

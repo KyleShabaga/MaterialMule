@@ -83,19 +83,20 @@ test('T5: a Technician starts and completes a test, comments and edits; actor an
   await signInAs(page, 'at');
   const program = await submitProgram(page.request, ids);
 
-  await page.goto('/lab-testing');
+  // The Workboard's list view finds the program (the board scrolls sideways on a phone).
+  await page.goto(`/lab-testing?view=list&search=${program.programNumber}`);
   await expect(page.getByRole('heading', { name: 'Workboard', level: 2 })).toBeVisible();
-  await page.getByRole('link', { name: program.programNumber }).click();
+  await page.getByRole('link', { name: program.programNumber, exact: true }).click();
   await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
 
   await testRow(page, a).getByRole('button', { name: 'Start' }).click();
-  await expect(testRow(page, a)).toContainText('In progress');
+  await expect(testRow(page, a)).toContainText('In testing');
   await expect(testRow(page, a)).toContainText('Alex Tester');
   await testRow(page, a).getByRole('button', { name: 'Mark completed' }).click();
   await testRow(page, a).getByRole('group').getByRole('button', { name: 'Mark completed' }).click();
-  await expect(testRow(page, a)).toContainText('Completed');
+  await expect(testRow(page, a)).toContainText('Done');
   // AC4: the other test keeps its own status; AC5: no jump buttons are offered.
-  await expect(testRow(page, b)).toContainText('Requested');
+  await expect(testRow(page, b)).toContainText('Waiting');
   await expect(testRow(page, b).getByRole('button', { name: 'Mark completed' })).toHaveCount(0);
 
   const line = page.getByRole('region', { name: /^Line 1/ });
@@ -144,7 +145,7 @@ test('T6: two LAB stations act for different people on different tests and comme
         plan[i]!.person,
       );
       await panel.getByRole('button', { name: 'Start' }).click();
-      await expect(row).toContainText('In progress');
+      await expect(row).toContainText('In testing');
       await expect(row).toContainText('LAB for');
       await expect(row).toContainText(plan[i]!.person);
     }
@@ -213,7 +214,7 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   await row.getByRole('button', { name: 'Start' }).click();
   await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
-  await expect(row).toContainText('In progress');
+  await expect(row).toContainText('In testing');
 
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
@@ -224,7 +225,7 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   );
   await panel.getByRole('checkbox', { name: new RegExp(tubes[0]!) }).check();
   await panel.getByRole('button', { name: 'Mark completed' }).click();
-  await expect(row).toContainText('Completed');
+  await expect(row).toContainText('Done');
   await expect(row).toContainText(`Used: ${tubes[0]}`);
   await expect(row).not.toContainText(tubes[1]!);
 
@@ -246,4 +247,39 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   ]);
   // No removal action is offered from the lab screens (MM-T36 owns it; LAB can never confirm).
   await expect(page.getByRole('button', { name: /remov|dispos/i })).toHaveCount(0);
+});
+
+test('STRATA-88: the Workboard shows a new program on the board and in the list, with no Start', async ({
+  page,
+}) => {
+  const code = unique('DEMO-WB');
+  const id = await addTestType(page, code);
+  await signInAs(page, 'at');
+  const program = await submitProgram(page.request, [id]);
+
+  await page.goto(`/lab-testing?search=${encodeURIComponent(program.programNumber)}`);
+  const board = page.getByRole('region', { name: 'Workboard by status' });
+  // Nothing started and no unit to pull on a fresh hole: In testing.
+  const card = board
+    .getByRole('list', { name: 'In testing' })
+    .getByRole('listitem', { name: program.programNumber });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('0 of 1 tests');
+  await expect(card.getByRole('link', { name: `Open ${program.programNumber}` })).toBeVisible();
+  // Tests start on the program page, never from a card.
+  await expect(board.getByRole('button', { name: /start/i })).toHaveCount(0);
+
+  // List view from the View menu: kept in the URL and remembered for this person.
+  await page.getByRole('button', { name: 'View, Board' }).click();
+  await page.getByRole('menuitemradio', { name: 'List' }).click();
+  const table = page.getByRole('table', { name: 'Workboard' });
+  await expect(table.getByRole('link', { name: program.programNumber, exact: true })).toBeVisible();
+  await expect(table).toContainText('In lab · Testing');
+  await expect(page).toHaveURL(/view=list/);
+  await page.goto('/lab-testing');
+  await expect(page.getByRole('table', { name: 'Workboard' })).toBeVisible();
+  await expect(page).toHaveURL(/view=list/);
+
+  await table.getByRole('link', { name: program.programNumber, exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
 });

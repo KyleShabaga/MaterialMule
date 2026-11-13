@@ -1,67 +1,102 @@
 import {
-  LINE_SCOPE_LABEL,
-  MATCHING_BASIS_LABEL,
-  formatPerson,
+  applyTemplate,
   formatReceiver,
-  testDisplayName,
   type LabProgram,
-  type LabProgramReview,
   type LabSource,
-  type ProjectSummary,
   type ReceiverOption,
   type TestCatalogue,
   type TestTemplate,
+  type TestTemplateItem,
 } from '@materialmule/shared';
-import { useEffect, useId, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
-import { searchProjects } from '../api/projects';
-import { ReceiverSelect } from '../components/ReceiverSelect';
 import {
-  BandedCard,
-  ConfirmDialog,
-  ErrorState,
-  SidePanel,
-  StatusBadge,
-} from '../components/app-ui';
+  CloudAlert,
+  CloudCheck,
+  EllipsisVertical,
+  LayoutGrid,
+  LayoutTemplate,
+  List,
+  LoaderCircle,
+  RotateCw,
+  ShieldX,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
+import { useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { PersonAvatar } from '@/components/strata/person-avatar';
+import { StageTag } from '@/components/strata/stage-tag';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { ReceiverSelect } from '../components/ReceiverSelect';
 import { useMe } from '../session/context';
 import {
   createProgram,
   discardProgram,
   fetchCatalogue,
-  fetchReview,
   fetchSources,
   fetchSourceUnits,
   fetchTemplates,
-  saveProgram,
   submitProgram,
   type WriteResult,
 } from './api';
-import { LineEditor } from './LineEditor';
-import { emptyLine, toInput, type LineDraft } from './line-draft';
+import { useDraftSaver, type SaveStatus } from './editor/draft-saver';
+import { GridView } from './editor/GridView';
+import { LinesView } from './editor/LinesView';
+import { ProjectChooser, type ChosenProject } from './editor/ProjectChooser';
+import {
+  countsText,
+  editReducer,
+  initialEditState,
+  programProblems,
+  type EditorProblem,
+} from './editor/program-state';
+import { SubmitBar } from './editor/SubmitBar';
+import { emptyLine, linesFromProgram, toInput, type LineDraft } from './line-draft';
+import { RetiredFromTemplate } from './TestPicker';
 
-// Program entry (MM-T23): project → testing lines (source, ALL / Grabs / SPT / Specific, tests)
-// → review → submit. A shared LAB station names who the program is requested by first; that
-// choice lives only in this screen on this station and is sent with every save and submission.
-// Conflicts never throw away what the person typed: they choose when to load the newer version.
+// Lab program editor (STRATA-86; MM-T23 program entry): project, requested by, priority, then
+// sample lines in a Lines view (default) or a Grid view of the same state, with one validator
+// and a sticky bar to submit. The draft is created once a project is chosen and then saves as
+// you go. Drafts have no LP number; it is issued on submit. A shared LAB station names who the
+// program is requested by (attribution only) and follows its recording-person chip until
+// someone picks another person. Progress only: nothing here records a result.
 
 const newKey = () => crypto.randomUUID();
-
-function fromProgram(program: LabProgram): LineDraft[] {
-  return program.lines.map((line) => ({
-    key: line.id,
-    id: line.id,
-    source: line.source ? { kind: line.source.kind, id: line.source.id } : null,
-    scope: line.scope,
-    sampleLabel: line.sampleLabel ?? '',
-    depthMode: line.depthMode ?? 'point',
-    depthFrom: line.depthFrom === null ? '' : String(line.depthFrom),
-    depthTo: line.depthTo === null ? '' : String(line.depthTo),
-    depthUnit: line.depthUnit ?? 'ft',
-    testTypeIds: line.tests.map((test) => test.testTypeId),
-    unitIds: line.unitIds,
-    acknowledgedDepths: line.acknowledgedDepths,
-  }));
-}
 
 /** Units chosen on Inventory ("Add to lab request"): one project, its units' record IDs. */
 interface ChosenUnits {
@@ -106,6 +141,13 @@ async function linesForChosenUnits(
   return { lines, placed: unitIds.length - wanted.size };
 }
 
+function chosenNotice(total: number, placed: number, lineCount: number): string {
+  const unit = (n: number) => `${n} unit${n === 1 ? '' : 's'}`;
+  return placed === total
+    ? `${unit(total)} from Inventory ${total === 1 ? 'is' : 'are'} ticked on ${lineCount} line${lineCount === 1 ? '' : 's'}. Name each sample and choose its tests.`
+    : `${unit(placed)} of the ${unit(total)} chosen on Inventory could be ticked; the others aren’t in storage for this project now.`;
+}
+
 function personOption(program: LabProgram): ReceiverOption {
   return {
     id: program.requestedBy.userId,
@@ -117,11 +159,8 @@ function personOption(program: LabProgram): ReceiverOption {
 function failureMessage(result: Exclude<WriteResult<unknown>, { ok: true }>): string {
   switch (result.kind) {
     case 'conflict':
-      if (result.code === 'version_conflict') {
-        return 'Another station or tab saved this draft after you opened it. Your changes are still here: load the newer version to continue (your unsaved changes are then replaced), or copy what you need first.';
-      }
       if (result.code === 'coverage_changed') {
-        return 'The material for a line changed since the review (for example a new receipt). Check the updated coverage below and submit again.';
+        return 'The material for a line changed (for example a new receipt). Check the units each line covers and submit again.';
       }
       if (result.code === 'not_draft') return 'This program has already been submitted.';
       if (result.code === 'program_numbers_exhausted') {
@@ -130,8 +169,8 @@ function failureMessage(result: Exclude<WriteResult<unknown>, { ok: true }>): st
       return 'This program changed. Reload it to continue.';
     case 'invalid':
       return result.errors.length > 0
-        ? result.errors.map((error) => `${error.field}: ${error.message}`).join(' ')
-        : 'Some details need attention.';
+        ? result.errors.map((error) => error.message).join(' ')
+        : 'Some lines need attention before submitting.';
     case 'forbidden':
       return 'You don’t have permission to do this.';
     case 'unauthenticated':
@@ -143,6 +182,43 @@ function failureMessage(result: Exclude<WriteResult<unknown>, { ok: true }>): st
   }
 }
 
+const CLOCK = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Edmonton',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+/** "10:02 AM" in the lab's time zone. */
+const timeOf = (date: Date) => CLOCK.format(date);
+
+function SaveState({ status, created }: { status: SaveStatus; created: boolean }) {
+  if (!created) return null;
+  const base = 'flex items-center gap-1.5 text-[13px] text-muted-foreground';
+  if (status.state === 'saving') {
+    return (
+      <span className={base} role="status">
+        <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+        Saving…
+      </span>
+    );
+  }
+  if (status.state === 'failed') {
+    return (
+      <span className={`${base} text-stage-danger-fg`} role="status">
+        <CloudAlert aria-hidden="true" className="size-4" />
+        Not saved
+      </span>
+    );
+  }
+  return (
+    <span className={base} role="status">
+      <CloudCheck aria-hidden="true" className="size-4" />
+      {status.state === 'saved' ? `Draft · saved ${timeOf(status.at)}` : 'Draft · saved'}
+    </span>
+  );
+}
+
+const FIELD_LABEL = 'text-[13px] font-medium text-muted-foreground';
+
 export function ProgramEditor({
   draft,
   onReload,
@@ -153,13 +229,14 @@ export function ProgramEditor({
   const me = useMe();
   const navigate = useNavigate();
   const location = useLocation();
+  const headingId = useId();
   const shared = me.accountType === 'shared_lab';
+  const allowed = me.permissions.includes('lab_program.manage');
+  const arrival = location.state as { notice?: string } | null;
   // Inventory's "Add to lab request" opens a new program on that project with the units waiting.
-  const [chosen, setChosen] = useState(() => (draft ? null : chosenUnits(location.state)));
-  const [programId, setProgramId] = useState(draft?.id ?? null);
-  const [version, setVersion] = useState(draft?.version ?? 0);
-  const [createKey] = useState(newKey);
-  const [project, setProject] = useState<{ id: string; label: string } | null>(
+  const [chosen] = useState(() => (draft ? null : chosenUnits(location.state)));
+  const programId = draft?.id ?? null;
+  const [project, setProject] = useState<ChosenProject | null>(
     draft
       ? { id: draft.project.id, label: `${draft.project.projectNumber} · ${draft.project.name}` }
       : chosen
@@ -169,146 +246,225 @@ export function ProgramEditor({
   const [requestedBy, setRequestedBy] = useState<ReceiverOption | null>(
     draft && shared ? personOption(draft) : null,
   );
-  const [notes, setNotes] = useState(draft?.notes ?? '');
-  const [lines, setLines] = useState<LineDraft[]>(draft ? fromProgram(draft) : [emptyLine()]);
+  const [edit, dispatch] = useReducer(editReducer, null, () =>
+    initialEditState(draft?.notes ?? '', draft ? linesFromProgram(draft) : [emptyLine()]),
+  );
+  const [view, setView] = useState<'lines' | 'grid'>('lines');
+  const [filter, setFilter] = useState('all');
   const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
   const [templates, setTemplates] = useState<TestTemplate[]>([]);
   const [sources, setSources] = useState<LabSource[]>([]);
-  const [review, setReview] = useState<LabProgramReview | null>(null);
-  // Edited since the review: the review stays visible, but Submit waits for a fresh one.
-  const [reviewStale, setReviewStale] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [retiredFromTemplate, setRetiredFromTemplate] = useState<TestTemplateItem[]>([]);
   const [message, setMessage] = useState<{ tone: 'warning' | 'success'; text: string } | null>(
-    null,
+    arrival?.notice ? { tone: 'success', text: arrival.notice } : null,
   );
-  const [conflict, setConflict] = useState<LabProgram | null>(null);
   const [busy, setBusy] = useState(false);
-  const [loadError, setLoadError] = useState(false);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [submitKey, setSubmitKey] = useState(newKey);
+  const [createKey] = useState(newKey);
+  const createStarted = useRef(false);
+  const pendingChosen = useRef<{ lines: LineDraft[]; notice: string } | null>(null);
+  const requestedByRef = useRef<ReceiverOption | null>(requestedBy);
+  useEffect(() => {
+    requestedByRef.current = requestedBy;
+  }, [requestedBy]);
+
+  const saver = useDraftSaver({
+    programId,
+    initialVersion: draft?.version ?? 0,
+    state: edit,
+    personId: shared ? (requestedBy?.id ?? null) : null,
+    sendPerson: shared,
+    dispatch,
+  });
+  const initialSaved = useMemo<SaveStatus>(
+    () => (draft ? { state: 'saved', at: new Date(draft.updatedAt) } : { state: 'idle' }),
+    [draft],
+  );
+  const saveStatus = saver.status.state === 'idle' ? initialSaved : saver.status;
 
   useEffect(() => {
+    let current = true;
     Promise.all([fetchCatalogue(), fetchTemplates()]).then(
       ([c, t]) => {
+        if (!current) return;
         setCatalogue(c);
         setTemplates(t);
+        setLoadFailed(false);
       },
-      () => setLoadError(true),
-    );
-  }, []);
-  useEffect(() => {
-    if (!project) return;
-    fetchSources(project.id).then(setSources, () => setLoadError(true));
-  }, [project]);
-  useEffect(() => {
-    if (!chosen || !project || project.id !== chosen.projectId || sources.length === 0) return;
-    let current = true;
-    void linesForChosenUnits(chosen.projectId, sources, chosen.storageUnitIds).then(
-      ({ lines: prepared, placed }) => {
-        if (!current) return;
-        setChosen(null);
-        if (prepared.length > 0) setLines(prepared);
-        const total = chosen.storageUnitIds.length;
-        const unit = (n: number) => `${n} unit${n === 1 ? '' : 's'}`;
-        setMessage({
-          tone: placed === total ? 'success' : 'warning',
-          text:
-            placed === total
-              ? `${unit(total)} from Inventory ${total === 1 ? 'is' : 'are'} ticked on ${prepared.length} line${prepared.length === 1 ? '' : 's'}. Name each sample and choose its tests.`
-              : `${unit(placed)} of the ${unit(total)} chosen on Inventory could be ticked; the others aren’t in storage for this project now.`,
-        });
-      },
-      () => {
-        if (!current) return;
-        setChosen(null);
-        setMessage({ tone: 'warning', text: 'The units chosen on Inventory couldn’t be loaded.' });
-      },
+      () => current && setLoadFailed(true),
     );
     return () => {
       current = false;
     };
-  }, [chosen, project, sources]);
-
-  const openReviewOnArrival = Boolean(
-    (location.state as { openReview?: boolean } | null)?.openReview,
-  );
+  }, [loadAttempt]);
   useEffect(() => {
-    if (draft && openReviewOnArrival) {
-      void fetchReview(draft.id).then(
-        (loaded) => {
-          setReview(loaded);
-          setReviewStale(false);
-        },
-        () => setMessage({ tone: 'warning', text: 'The review couldn’t be loaded. Try again.' }),
-      );
-    }
-  }, [draft, openReviewOnArrival]);
+    if (!project) return;
+    let current = true;
+    fetchSources(project.id).then(
+      (found) => current && setSources(found),
+      () => current && setLoadFailed(true),
+    );
+    return () => {
+      current = false;
+    };
+  }, [project, loadAttempt]);
 
   const personMissing = shared && requestedBy === null;
 
-  function updateLine(key: string, change: Partial<LineDraft>) {
-    setReviewStale(true);
-    setLines((current) =>
-      current.map((line) => (line.key === key ? { ...line, ...change } : line)),
-    );
-  }
-
-  async function save(openReview = false): Promise<LabProgram | null> {
-    if (!project) {
-      setMessage({ tone: 'warning', text: 'Choose a project first.' });
-      return null;
-    }
-    if (personMissing) {
-      setMessage({ tone: 'warning', text: 'Choose who this program is requested by.' });
-      return null;
-    }
-    setBusy(true);
-    setMessage(null);
-    const person = shared ? { requestedByUserId: requestedBy!.id } : {};
-    const body = { notes: notes.trim() || null, lines: lines.map(toInput), ...person };
-    const result = programId
-      ? await saveProgram(programId, { version, ...body })
-      : await createProgram({ projectId: project.id, idempotencyKey: createKey, ...body });
-    setBusy(false);
+  /** Creates the draft (once) and opens it at its own address, where it saves as you go. */
+  async function startDraft(
+    chosenProject: ChosenProject,
+    person: ReceiverOption | null,
+    lines: LineDraft[],
+    notice?: string,
+  ) {
+    if (createStarted.current || (shared && !person)) return;
+    createStarted.current = true;
+    setStarting(true);
+    const result = await createProgram({
+      projectId: chosenProject.id,
+      idempotencyKey: createKey,
+      notes: edit.notes.trim() || null,
+      lines: lines.map(toInput),
+      ...(shared && person ? { requestedByUserId: person.id } : {}),
+    });
     if (!result.ok) {
-      if (result.kind === 'conflict' && result.current) setConflict(result.current);
+      createStarted.current = false;
+      setStarting(false);
       setMessage({ tone: 'warning', text: failureMessage(result) });
-      return null;
+      return;
     }
-    const saved = result.value;
-    setProgramId(saved.id);
-    setVersion(saved.version);
-    // Keep the client keys stable but learn the server's line IDs.
-    setLines((current) =>
-      current.map((line, i) => ({ ...line, id: saved.lines[i]?.id ?? line.id })),
-    );
-    // The new draft opens at its own address (this editor is replaced by the draft's editor),
-    // which then shows the review the person asked for.
-    if (!programId)
-      navigate(`/lab-testing/programs/${saved.id}`, { replace: true, state: { openReview } });
-    return saved;
+    navigate(`/lab-testing/programs/${result.value.id}`, {
+      replace: true,
+      state: notice ? { notice } : null,
+    });
   }
 
-  async function saveAndReview() {
-    const created = programId === null;
-    const saved = await save(true);
-    if (!saved || created) return;
-    await loadReview(saved.id);
+  // Units from Inventory: lay out their lines, then create the draft with them.
+  useEffect(() => {
+    if (!chosen) return;
+    let current = true;
+    void fetchSources(chosen.projectId)
+      .then((found) => linesForChosenUnits(chosen.projectId, found, chosen.storageUnitIds))
+      .then(
+        ({ lines, placed }) => {
+          if (!current) return;
+          if (lines.length > 0) dispatch({ type: 'replace', notes: '', lines });
+          const notice = chosenNotice(chosen.storageUnitIds.length, placed, lines.length);
+          setMessage({
+            tone: placed === chosen.storageUnitIds.length ? 'success' : 'warning',
+            text: notice,
+          });
+          pendingChosen.current = { lines: lines.length > 0 ? lines : [emptyLine()], notice };
+          void startDraft(
+            { id: chosen.projectId, label: chosen.projectLabel },
+            requestedByRef.current,
+            pendingChosen.current.lines,
+            notice,
+          );
+        },
+        () => {
+          if (!current) return;
+          setMessage({
+            tone: 'warning',
+            text: 'The units chosen on Inventory couldn’t be loaded.',
+          });
+        },
+      );
+    return () => {
+      current = false;
+    };
+    // Runs once for the units the page opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen]);
+
+  function choosePerson(option: ReceiverOption | null) {
+    setRequestedBy(option);
+    if (!programId && project && option) {
+      void startDraft(
+        project,
+        option,
+        pendingChosen.current?.lines ?? edit.lines,
+        pendingChosen.current?.notice,
+      );
+    }
   }
 
-  async function loadReview(id: string) {
-    try {
-      setReview(await fetchReview(id));
-      setReviewStale(false);
-    } catch {
-      setMessage({ tone: 'warning', text: 'The review couldn’t be loaded. Try again.' });
+  function chooseProject(next: ChosenProject) {
+    setProject(next);
+    void startDraft(next, requestedBy, [emptyLine()]);
+  }
+
+  const reviewNow = saver.reviewCurrent ? saver.review : null;
+  const problems = programProblems(edit, {
+    hasProject: project !== null,
+    personMissing,
+    review: reviewNow,
+  });
+  const problemLines = new Set(problems.flatMap((p) => (p.lineKey ? [p.lineKey] : [])));
+  const testNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const line of draft?.lines ?? []) {
+      for (const test of line.tests)
+        names.set(test.testTypeId, `${test.code} · ${test.displayName}`);
+    }
+    return names;
+  }, [draft]);
+
+  function showLine(lineNumber: number) {
+    const line = edit.lines[lineNumber - 1];
+    if (!line) return;
+    setView('lines');
+    setFilter('all');
+    window.requestAnimationFrame(() => {
+      const element = document.getElementById(`line-${line.key}`);
+      if (!element) return;
+      element.scrollIntoView({ block: 'center' });
+      element.setAttribute('data-highlight', 'true');
+      element.setAttribute('tabindex', '-1');
+      element.focus({ preventScroll: true });
+      window.setTimeout(() => element.removeAttribute('data-highlight'), 1600);
+    });
+  }
+
+  function jumpTo(problem: EditorProblem) {
+    if (problem.lineNumber) showLine(problem.lineNumber);
+    else {
+      const target = document.getElementById(`${headingId}-${problem.field}`);
+      target?.scrollIntoView({ block: 'center' });
+      target?.querySelector<HTMLElement>('input, button')?.focus();
     }
   }
 
   async function submit() {
-    if (!programId || !review) return;
+    if (!programId || problems.length > 0) return;
     setBusy(true);
+    setMessage(null);
+    const saved = await saver.flush();
+    if (!saved) {
+      setBusy(false);
+      return;
+    }
+    const review = await saver.loadReview();
+    if (!review) {
+      setBusy(false);
+      setMessage({ tone: 'warning', text: 'The program couldn’t be checked. Try again.' });
+      return;
+    }
+    if (!review.ready) {
+      setBusy(false);
+      setMessage({
+        tone: 'warning',
+        text: 'Some lines need attention before submitting. They are marked below.',
+      });
+      return;
+    }
     const result = await submitProgram(programId, {
-      version,
+      version: review.version,
       idempotencyKey: submitKey,
       ...(shared ? { requestedByUserId: requestedBy?.id } : {}),
       coverage: review.lines.map((line) => ({
@@ -332,416 +488,376 @@ export function ProgramEditor({
     }
     setSubmitKey(newKey());
     if ((result.kind === 'conflict' || result.kind === 'invalid') && result.review) {
-      setReview(result.review);
-      setReviewStale(false);
+      saver.setReview(result.review);
     }
-    if (result.kind === 'conflict' && result.current) setConflict(result.current);
+    if (result.kind === 'conflict' && result.code === 'not_draft') {
+      onReload?.();
+      return;
+    }
+    if (result.kind === 'conflict' && result.code === 'version_conflict') {
+      saver.markConflict(result.current ?? null);
+      return;
+    }
     setMessage({ tone: 'warning', text: failureMessage(result) });
   }
 
-  async function discard() {
-    setConfirmDiscard(false);
+  async function deleteDraft() {
+    setConfirmDelete(false);
     if (!programId) {
       navigate('/lab-testing/programs');
       return;
     }
     const result = await discardProgram(programId, {
-      version,
+      version: saver.version,
       ...(shared && requestedBy ? { requestedByUserId: requestedBy.id } : {}),
     });
     if (result.ok) navigate('/lab-testing/programs');
     else setMessage({ tone: 'warning', text: failureMessage(result) });
   }
 
-  function loadLatest() {
-    if (!conflict) return;
-    setVersion(conflict.version);
-    setNotes(conflict.notes ?? '');
-    setLines(fromProgram(conflict));
-    if (shared) setRequestedBy(personOption(conflict));
-    setConflict(null);
-    setReview(null);
-    setMessage(null);
+  function chooseTemplate(template: TestTemplate) {
+    const { add, retired } = applyTemplate(template);
+    dispatch({ type: 'add-tests-everywhere', testTypeIds: add });
+    setRetiredFromTemplate(retired);
   }
 
-  if (loadError)
+  if (!allowed) {
     return (
-      <ErrorState
-        message="The test catalogue couldn’t be loaded."
-        onRetry={() => window.location.reload()}
-      />
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ShieldX aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>You can’t request lab tests</EmptyTitle>
+          <EmptyDescription>
+            Your access doesn’t include lab programs. Ask an administrator if you need it.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
+  }
+
+  const created = programId !== null;
+  const conflict = saver.conflict;
+  const blockedReason = conflict
+    ? 'Reload first.'
+    : !catalogue && loadFailed
+      ? 'Submitting waits until the catalogue loads.'
+      : null;
+  const title = created ? 'Draft lab program' : 'New lab program';
+  const activeTemplates = templates.filter((template) => template.active);
 
   return (
-    <form
-      className="program-editor"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void saveAndReview();
-      }}
-      noValidate
-    >
-      <div className="lab-editor-title">
-        <h1>{programId ? 'Draft lab program' : 'New lab program'}</h1>
-        {project ? <span className="section-meta">{project.label}</span> : null}
-        {programId ? <StatusBadge tone="waiting">Draft · saved</StatusBadge> : null}
-      </div>
-      <div className="lab-split">
-        <div className="lab-split-main lab-editor-main">
+    <div className="mx-auto grid w-full max-w-[1280px] gap-6" aria-labelledby={headingId}>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/lab-testing/programs">Lab programs</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{title}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <StageTag stage="draft" label="Draft · Lab program" />
+            <SaveState status={saveStatus} created={created} />
+          </div>
+          <h1 id={headingId} className="text-2xl font-semibold tracking-tight">
+            {title}
+          </h1>
+        </div>
+        {created ? (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="pointer-coarse:size-11"
+                aria-label="More actions"
+              >
+                <EllipsisVertical aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+                <Trash2 aria-hidden="true" />
+                Delete draft
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </header>
+
+      {conflict?.kind === 'changed' ? (
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>This program changed. Reload it to continue.</AlertTitle>
+          <AlertDescription className="grid gap-2">
+            <p>
+              Someone saved this draft on another computer or tab. Reload to see the latest version;
+              what you changed here since your last save is replaced.
+            </p>
+            <div>
+              <Button type="button" size="sm" variant="outline" onClick={() => void saver.reload()}>
+                <RotateCw aria-hidden="true" />
+                Reload
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : conflict?.kind === 'gone' ? (
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>This draft was submitted or deleted elsewhere.</AlertTitle>
+          <AlertDescription className="grid gap-2">
+            <p>Nothing more is saved here.</p>
+            <div>
+              <Button type="button" size="sm" variant="outline" onClick={() => onReload?.()}>
+                <RotateCw aria-hidden="true" />
+                Reload
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {loadFailed ? (
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>The test catalogue or sampling sources couldn’t be loaded.</AlertTitle>
+          <AlertDescription className="grid gap-2">
+            <p>
+              Your lines are saved as they are. Adding tests and templates comes back once the
+              catalogue loads.
+            </p>
+            <div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setLoadFailed(false);
+                  setLoadAttempt((n) => n + 1);
+                }}
+              >
+                <RotateCw aria-hidden="true" />
+                Try again
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {saver.status.state === 'failed' && !conflict ? (
+        <Alert variant="destructive">
+          <CloudAlert aria-hidden="true" />
+          <AlertTitle>{saver.status.message}</AlertTitle>
+          <AlertDescription>
+            <Button type="button" size="sm" variant="outline" onClick={saver.retry}>
+              <RotateCw aria-hidden="true" />
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert
+          role={message.tone === 'success' ? 'status' : 'alert'}
+          variant={message.tone === 'warning' ? 'destructive' : 'default'}
+        >
+          <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <section aria-label="Program details" className="flex flex-wrap items-start gap-x-10 gap-y-4">
+        <div id={`${headingId}-project`} className="grid gap-1.5">
+          {project ? (
+            <>
+              <span className={FIELD_LABEL}>Project</span>
+              <span className="flex h-9 items-center text-sm">
+                <span className="font-mono">{project.label.split(' · ')[0]}</span>
+                <span>&nbsp;{project.label.split(' · ').slice(1).join(' · ')}</span>
+              </span>
+            </>
+          ) : (
+            <ProjectChooser onChoose={chooseProject} />
+          )}
+        </div>
+        <div id={`${headingId}-requestedBy`} className="grid min-w-64 gap-1.5">
           {shared ? (
-            <div className="requested-by-station">
+            <>
               <ReceiverSelect
                 label="Requested by"
                 required
+                stationPerson="prefill"
                 value={requestedBy}
-                onChange={(option) => {
-                  setRequestedBy(option);
-                  setReview(null);
-                }}
-                error={personMissing && message ? 'Choose who this program is requested by.' : null}
-                hint="Shared LAB station: choose the person requesting these tests. This is attribution only; it gives LAB none of their permissions."
+                onChange={choosePerson}
+                hint="LAB station: the person asking for these tests. Attribution only; LAB gets none of their permissions."
               />
-              <p className="requested-by-current" aria-live="polite">
+              <p className="text-[13px] text-muted-foreground" aria-live="polite">
                 {requestedBy
                   ? `Recorded as LAB for ${formatReceiver(requestedBy)}`
                   : 'Nobody chosen yet'}
               </p>
-            </div>
-          ) : (
-            <p className="field-hint">
-              Requested by {formatPerson(me.initials ?? null, me.displayName)}.
-            </p>
-          )}
-
-          {draft ? (
-            <p>
-              Project <strong>{project?.label}</strong>
-            </p>
-          ) : (
-            <ProjectChooser
-              value={project}
-              onChange={(next) => {
-                setProject(next);
-                setLines([emptyLine()]);
-                setReview(null);
-              }}
-            />
-          )}
-
-          {message ? (
-            <div className={`notice notice-${message.tone}`} role="alert">
-              <p>{message.text}</p>
-              {conflict ? (
-                <button type="button" onClick={loadLatest}>
-                  Load the newer version
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {project && catalogue ? (
-            <>
-              {lines.map((line, index) => (
-                <LineEditor
-                  key={line.key}
-                  index={index}
-                  line={line}
-                  projectId={project.id}
-                  sources={sources}
-                  catalogue={catalogue}
-                  templates={templates}
-                  review={review?.lines.find((l) => l.lineId === line.id) ?? null}
-                  onChange={(change) => updateLine(line.key, change)}
-                  onRemove={
-                    lines.length > 1
-                      ? () => {
-                          setReview(null);
-                          setLines((current) => current.filter((other) => other.key !== line.key));
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-              <button
-                type="button"
-                onClick={() => setLines((current) => [...current, emptyLine()])}
-              >
-                Add line
-              </button>
-              <div className="form-field">
-                <label htmlFor="program-notes">Notes</label>
-                <textarea
-                  id="program-notes"
-                  value={notes}
-                  maxLength={2000}
-                  onChange={(event) => setNotes(event.target.value)}
-                />
-              </div>
             </>
-          ) : project ? (
-            <p aria-busy="true">Loading the test catalogue…</p>
-          ) : null}
-
-          {review ? <ReviewPanel review={review} lines={lines} /> : null}
-          {review && reviewStale ? (
-            <p className="field-hint" role="status">
-              You changed the program after this review. Review again before submitting.
-            </p>
-          ) : null}
-          <p className="field-hint">
-            This is the only place individual samples are named. Receiving records one summary per
-            test hole.
-          </p>
+          ) : (
+            <>
+              <span className={FIELD_LABEL}>Requested by</span>
+              <span className="flex h-9 items-center gap-2 text-sm">
+                <PersonAvatar userId={me.id} name={me.displayName} />
+                {me.displayName}
+              </span>
+            </>
+          )}
         </div>
-        <div className="lab-split-side">
-          <LabGetsPanel
-            lines={lines}
+        <div className="grid gap-1.5">
+          <span className={FIELD_LABEL}>Priority</span>
+          <span className="flex h-9 items-center text-sm">
+            {draft?.priority === 'urgent' ? 'Urgent' : 'Normal'}
+          </span>
+          <span className="max-w-56 text-[12px] text-muted-foreground">
+            The project lead or the Lab Manager can mark it urgent once it is submitted.
+          </span>
+        </div>
+      </section>
+
+      <section aria-labelledby={`${headingId}-lines`} className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <h2 id={`${headingId}-lines`} className="text-lg font-semibold">
+              Sample lines
+            </h2>
+            <span className="text-[13px] text-muted-foreground">{countsText(edit.lines)}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {created && catalogue && activeTemplates.length > 0 ? (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-11">
+                    <LayoutTemplate aria-hidden="true" />
+                    Choose a template
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Adds its tests to every line</DropdownMenuLabel>
+                  {activeTemplates.map((template) => (
+                    <DropdownMenuItem key={template.id} onSelect={() => chooseTemplate(template)}>
+                      {template.name} ({template.items.length} test
+                      {template.items.length === 1 ? '' : 's'})
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+            {created ? (
+              <Tabs value={view} onValueChange={(value) => setView(value as 'lines' | 'grid')}>
+                <TabsList aria-label="View">
+                  <TabsTrigger value="lines" className="pointer-coarse:h-11">
+                    <List aria-hidden="true" />
+                    Lines
+                  </TabsTrigger>
+                  <TabsTrigger value="grid" className="pointer-coarse:h-11">
+                    <LayoutGrid aria-hidden="true" />
+                    Grid
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : null}
+          </div>
+        </div>
+        <RetiredFromTemplate items={retiredFromTemplate} />
+
+        {!created ? (
+          <p className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
+            {starting
+              ? 'Starting the draft…'
+              : !project
+                ? 'Choose a project first. The draft starts then and saves as you go.'
+                : personMissing
+                  ? 'Choose who this program is requested by. The draft starts then.'
+                  : 'Starting the draft…'}
+          </p>
+        ) : view === 'lines' ? (
+          <LinesView
+            lines={edit.lines}
+            projectId={project!.id}
+            sources={sources}
             catalogue={catalogue}
-            review={review && !reviewStale ? review : null}
-          >
-            <div className="form-actions program-actions">
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || !review?.ready || reviewStale || personMissing}
-                onClick={() => void submit()}
-              >
-                Submit program
-              </button>
-              <button type="submit" disabled={busy || !project}>
-                Review
-              </button>
-              <button type="button" onClick={() => void save()} disabled={busy || !project}>
-                Save draft
-              </button>
-              <button
-                type="button"
-                className="danger"
-                onClick={() => setConfirmDiscard(true)}
-                disabled={busy}
-              >
-                Discard draft
-              </button>
-            </div>
-          </LabGetsPanel>
-        </div>
-      </div>
-      <ConfirmDialog
-        open={confirmDiscard}
-        title="Discard this draft?"
-        confirmLabel="Discard draft"
-        danger
-        onConfirm={() => void discard()}
-        onCancel={() => setConfirmDiscard(false)}
-      >
-        <p>The draft and its lines are deleted. Submitted programs are never affected.</p>
-      </ConfirmDialog>
-    </form>
-  );
-}
+            templates={templates}
+            review={saver.review}
+            problems={problems}
+            testNames={testNames}
+            filter={filter}
+            onFilter={setFilter}
+            onGoTo={showLine}
+            dispatch={dispatch}
+            readOnly={conflict !== null}
+          />
+        ) : (
+          <GridView
+            lines={edit.lines}
+            sources={sources}
+            catalogue={catalogue}
+            testNames={testNames}
+            problemLines={problemLines}
+            dispatch={dispatch}
+            readOnly={conflict !== null}
+          />
+        )}
+      </section>
 
-function ProjectChooser({
-  value,
-  onChange,
-}: {
-  value: { id: string; label: string } | null;
-  onChange: (project: { id: string; label: string } | null) => void;
-}) {
-  const id = useId();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ProjectSummary[]>([]);
-  useEffect(() => {
-    const text = query.trim();
-    if (text === '') return;
-    let current = true;
-    const timer = window.setTimeout(() => {
-      searchProjects(text).then(
-        (found) => current && setResults(found),
-        () => current && setResults([]),
-      );
-    }, 150);
-    return () => {
-      current = false;
-      window.clearTimeout(timer);
-    };
-  }, [query]);
-  if (value) {
-    return (
-      <p>
-        Project <strong>{value.label}</strong>{' '}
-        <button type="button" onClick={() => onChange(null)}>
-          Change project
-        </button>
-      </p>
-    );
-  }
-  return (
-    <div className="form-field">
-      <label htmlFor={id}>Project</label>
-      <input
-        id={id}
-        type="search"
-        value={query}
-        placeholder="Project number or name"
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      {query.trim() && results.length > 0 ? (
-        <ul className="test-results" aria-label="Matching projects">
-          {results.map((project) => (
-            <li key={project.id}>
-              <button
-                type="button"
-                onClick={() =>
-                  onChange({ id: project.id, label: `${project.projectNumber} · ${project.name}` })
-                }
-              >
-                <span className="mono">{project.projectNumber}</span> {project.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * "What the lab gets" (Field Ledger "Show the effect before confirming"): what submitting would
- * create, counted from the lines as they stand: each test and how many times it is requested,
- * and, once reviewed, the storage units the lab will pull. Nothing here is saved by itself.
- */
-function LabGetsPanel({
-  lines,
-  catalogue,
-  review,
-  children,
-}: {
-  lines: LineDraft[];
-  catalogue: TestCatalogue | null;
-  /** The current review; null before one or once the program changed since. */
-  review: LabProgramReview | null;
-  children: ReactNode;
-}) {
-  const counts = new Map<string, number>();
-  for (const line of lines) {
-    for (const id of line.testTypeIds) counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-  const tests = [...counts].map(([id, n]) => {
-    const test = catalogue?.tests.find((t) => t.id === id);
-    return { id, n, name: test ? `${test.code} · ${testDisplayName(test)}` : 'Test' };
-  });
-  const total = tests.reduce((sum, test) => sum + test.n, 0);
-  const units = new Map<string, string>();
-  for (const line of review?.lines ?? []) {
-    for (const unit of line.coverage.filter((u) => u.included)) {
-      units.set(unit.storageUnitId, unit.readableId);
-    }
-  }
-  return (
-    <SidePanel title="What the lab gets" className="lab-gets">
-      <p className="section-meta">
-        {lines.length} line{lines.length === 1 ? '' : 's'} · {total} test
-        {total === 1 ? '' : 's'}
-      </p>
-      {tests.length === 0 ? (
-        <p className="field-hint">No tests chosen yet.</p>
-      ) : (
-        <ul className="lab-gets-tests" aria-label="Tests the lab gets">
-          {tests.map((test) => (
-            <li key={test.id} data-row>
-              <span>{test.name}</span>
-              <span className="mono">{test.n}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {review ? (
-        units.size > 0 ? (
-          <p>
-            The lab sees {units.size} unit{units.size === 1 ? '' : 's'} to pull:{' '}
-            <span className="mono">{[...units.values()].join(', ')}</span>.
+      {created ? (
+        <div className="grid max-w-2xl gap-1.5">
+          <Label htmlFor={`${headingId}-notes`} className={FIELD_LABEL}>
+            Notes for the lab
+          </Label>
+          <Textarea
+            id={`${headingId}-notes`}
+            value={edit.notes}
+            maxLength={2000}
+            readOnly={conflict !== null}
+            onChange={(event) => dispatch({ type: 'notes', notes: event.target.value })}
+          />
+          <p className="text-[12px] text-muted-foreground">
+            Individual samples are named only here, in lab requests. Receiving records one summary
+            per test hole.
           </p>
-        ) : (
-          <p className="field-hint">No storage unit is covered yet.</p>
-        )
-      ) : (
-        <p className="field-hint">Review the program to see which storage units the lab pulls.</p>
-      )}
-      <p className="field-hint">
-        Each test starts as Requested. The lab marks progress only; results are not recorded here.
-      </p>
-      {children}
-    </SidePanel>
-  );
-}
+        </div>
+      ) : null}
 
-function ReviewPanel({ review, lines }: { review: LabProgramReview; lines: LineDraft[] }) {
-  return (
-    <BandedCard
-      title="Review before submitting"
-      aside={
-        review.ready ? (
-          <StatusBadge tone="success">Ready</StatusBadge>
-        ) : (
-          <StatusBadge tone="warning">Needs attention</StatusBadge>
-        )
-      }
-    >
-      <p className="field-hint">
-        Coverage is the material received so far for each line. It is frozen when you submit; later
-        receipts are not added. It is potential material, not a record of what was tested.
-      </p>
-      {review.lines.map((line) => {
-        const draft = lines.find((l) => l.id === line.lineId);
-        const included = line.coverage.filter((unit) => unit.included);
-        const excluded = line.coverage.filter((unit) => !unit.included);
-        return (
-          <section key={line.lineId} className="review-line" aria-label={`Line ${line.lineNumber}`}>
-            <h3>
-              Line {line.lineNumber}
-              {draft ? ` · ${LINE_SCOPE_LABEL[draft.scope]}` : ''}
-            </h3>
-            {included.length > 0 ? (
-              <p>
-                Covers {included.map((unit) => unit.readableId).join(', ')}
-                {draft?.scope === 'specific' ? '' : ' received so far'}.
-              </p>
-            ) : draft?.scope === 'specific' ? (
-              <p>No physical unit linked to this sample.</p>
-            ) : (
-              <p className="text-warning">Covers no units.</p>
-            )}
-            {line.unknownClassificationCount > 0 ? (
-              <p className="text-warning">
-                {line.unknownClassificationCount} unit
-                {line.unknownClassificationCount === 1 ? '' : 's'} with unknown G/S classification:{' '}
-                {excluded.length} excluded
-                {excluded.length > 0
-                  ? ` (${excluded.map((unit) => unit.readableId).join(', ')})`
-                  : ''}
-                .
-              </p>
-            ) : null}
-            {line.coverage.length > 0 ? (
-              <ul className="coverage-list">
-                {line.coverage.map((unit) => (
-                  <li key={unit.storageUnitId}>
-                    <span className="mono">{unit.readableId}</span> {unit.contents ?? ''} —{' '}
-                    {MATCHING_BASIS_LABEL[unit.matchingBasis]}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {line.problems.length > 0 ? (
-              <ul className="line-problems">
-                {line.problems.map((problem) => (
-                  <li key={problem.code + problem.field}>{problem.message}</li>
-                ))}
-              </ul>
-            ) : null}
-          </section>
-        );
-      })}
-    </BandedCard>
+      <SubmitBar
+        counts={countsText(edit.lines)}
+        problems={created ? problems : problems.filter((problem) => !problem.lineKey)}
+        onProblem={jumpTo}
+        blockedReason={
+          blockedReason ?? (created ? null : 'The draft starts once a project is chosen.')
+        }
+        busy={busy}
+        onSubmit={() => void submit()}
+      />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The draft and its lines are deleted. Submitted programs are never affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void deleteDraft()}>
+              Delete draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

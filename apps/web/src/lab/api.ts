@@ -8,6 +8,8 @@ import {
   labSourceListSchema,
   labSourceUnitListSchema,
   programWorkSchema,
+  programUnitsSchema,
+  type ProgramUnits,
   sampleTagSheetSchema,
   type SampleTagSheet,
   sameSourceUnitsSchema,
@@ -138,12 +140,26 @@ export const fetchCatalogue = (): Promise<TestCatalogue> =>
 export const fetchTemplates = (): Promise<TestTemplate[]> =>
   getJson('/api/test-templates', (b) => testTemplateListSchema.parse(b));
 
-/** One page of programs (LAB_PROGRAM_PAGE_SIZE each, from page 1), optionally by status. */
+/**
+ * One page of programs (LAB_PROGRAM_PAGE_SIZE each, from page 1), optionally by status, search
+ * (program number, project number or name) and an allowlisted sort (STRATA-47).
+ */
 export function fetchPrograms(
-  query: { status?: string; page?: number } = {},
+  query: {
+    status?: string;
+    page?: number;
+    search?: string;
+    sort?: string;
+    dir?: 'asc' | 'desc';
+    projectId?: string;
+  } = {},
 ): Promise<LabProgramList> {
   const params = new URLSearchParams();
   if (query.status) params.set('status', query.status);
+  if (query.projectId) params.set('projectId', query.projectId);
+  if (query.search?.trim()) params.set('search', query.search.trim());
+  if (query.sort) params.set('sort', query.sort);
+  if (query.sort && query.dir) params.set('dir', query.dir);
   if (query.page && query.page > 1) params.set('page', String(query.page));
   const search = params.toString();
   return getJson(`/api/lab-programs${search ? `?${search}` : ''}`, (b) =>
@@ -157,6 +173,10 @@ export async function fetchProgram(id: string): Promise<LabProgram | null> {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return labProgramSchema.parse(await response.json());
 }
+
+/** STRATA-87: covered units, where each is now and which the lab still has to pull. */
+export const fetchProgramUnits = (id: string): Promise<ProgramUnits> =>
+  getJson(`/api/lab-programs/${encodeURIComponent(id)}/units`, (b) => programUnitsSchema.parse(b));
 
 export type SampleTagsResult =
   | { ok: true; sheet: SampleTagSheet }

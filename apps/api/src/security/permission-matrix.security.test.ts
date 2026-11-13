@@ -98,7 +98,7 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/test-requests/:id/accept': 'test.accept',
   'POST /api/projects/:projectId/acceptance-delegates': 'acceptance_delegation.manage',
   'DELETE /api/projects/:projectId/acceptance-delegates/:id': 'acceptance_delegation.manage',
-  // MM-T26: closing by the project's Lead Project Engineer; reopening and cancelling by Lead Project Engineer or Lab Manager.
+  // MM-T26/STRATA-87: closing by the requester, the project's lead or a Lab Manager (handler-checked); reopening and cancelling by Lead Project Engineer or Lab Manager.
   'POST /api/lab-programs/:id/close': 'program.close',
   'POST /api/lab-programs/:id/reopen': 'program.reopen',
   'POST /api/test-requests/:id/cancel': 'test.cancel',

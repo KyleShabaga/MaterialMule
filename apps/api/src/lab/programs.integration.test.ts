@@ -715,10 +715,10 @@ describe.runIf(testDatabaseUrl)('lab program list paging (BUG-002)', () => {
     expect(first.total).toBe(2);
     expect(first.items).toHaveLength(2);
     const past = labProgramListSchema.parse((await h.get('/api/lab-programs?page=3', 'tech')).body);
-    expect(past).toEqual({ total: 2, items: [] });
+    expect(past).toMatchObject({ total: 2, items: [] });
     // Drafts stay private past the end too.
     const other = labProgramListSchema.parse((await h.get('/api/lab-programs?page=3', 'pe')).body);
-    expect(other).toEqual({ total: 0, items: [] });
+    expect(other).toMatchObject({ total: 0, items: [] });
   });
 });
 

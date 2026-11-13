@@ -1,37 +1,31 @@
 import {
-  CLOSE_BLOCKED_REASONS,
   LIFECYCLE_REASON_MAX_LENGTH,
-  PROGRAM_STATUS_LABEL,
   closureBlockerLabel,
   formatPerson,
   type LabProgram,
   type ProgramWork,
   type TestRequest,
 } from '@materialmule/shared';
-import { useId, useState } from 'react';
-import { StatusBadge } from '../components/app-ui';
+import { CircleCheck, ListChecks } from 'lucide-react';
+import { useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { shortDateTime } from '../dashboard/format';
-import {
-  cancelTest,
-  closeProgram,
-  reopenProgram,
-  repeatTest,
-  requestCancellation,
-  requestClosure,
-  type WriteResult,
-} from './api';
+import { cancelTest, closeProgram, repeatTest, requestCancellation, type WriteResult } from './api';
 import { requestName } from './format';
 import { problemText } from './problem-text';
 import { TextAction } from './ReviewControls';
 
-// Program lifecycle, cancellation and repeats on a worked program (MM-T26). The server decides
-// what this account may do (`lifecycle` on the program and on each test) and enforces it again on
-// every action; the buttons only mirror that. Asking for a cancellation or closure is kept apart
-// from the decision buttons, and nothing shows Closed until the close itself has committed.
+// Program lifecycle, cancellation and repeats on a worked program (MM-T26, Strata STRATA-87). The
+// server decides what this account may do (`lifecycle` on the program and on each test) and
+// enforces it again on every action; the buttons only mirror that. Asking for a cancellation or
+// closure is kept apart from the decision buttons, and nothing shows Closed until the close itself
+// has committed. Ready presentation never bypasses the closure preconditions.
 
 const newKey = () => crypto.randomUUID();
 
-function testLabel(program: LabProgram, testRequestId: string): string {
+// eslint-disable-next-line react-refresh/only-export-components -- shared with the program page
+export function testLabel(program: LabProgram, testRequestId: string): string {
   for (const line of program.lines) {
     const request = line.requests.find((r) => r.id === testRequestId);
     if (request) return `Line ${line.lineNumber} · ${requestName(request)}`;
@@ -39,150 +33,98 @@ function testLabel(program: LabProgram, testRequestId: string): string {
   return 'a test';
 }
 
-/** Program header: Open/Closed, closure checklist, close / request closure / reopen, history. */
-export function ProgramLifecycle({
-  program,
-  work,
-  onDone,
-}: {
-  program: LabProgram;
-  work: ProgramWork;
-  onDone: (message: string | null) => void;
-}) {
-  const reasonId = useId();
-  const [closeKey, setCloseKey] = useState(newKey);
+/**
+ * Close program: enabled only when the server says this account may close now. A Lab Manager
+ * who isn't the requester or lead gets it from More (`closeAs`), the others as the main action.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- the close action's hook belongs with it
+export function useCloseProgram(
+  program: LabProgram,
+  work: ProgramWork,
+  onDone: (message: string | null, closed?: boolean) => void,
+) {
+  const [key, setKey] = useState(newKey);
   const [busy, setBusy] = useState(false);
-  const life = work.lifecycle;
-  const finish = (result: WriteResult<unknown>) => {
-    onDone(result.ok ? null : problemText(result));
-    return result;
+  const close = async () => {
+    setBusy(true);
+    const result = await closeProgram(program.id, {
+      version: work.lifecycle.version,
+      idempotencyKey: key,
+    });
+    setBusy(false);
+    if (result.ok || result.kind !== 'network') setKey(newKey());
+    onDone(result.ok ? null : problemText(result), result.ok);
   };
+  return { close, busy };
+}
+
+/**
+ * What stands between this program and closing, and the lifecycle notes: who closed it, an open
+ * closure request, the LAB station's personal sign-in note. "Every test is accepted or cancelled
+ * with a reason." once nothing is left.
+ */
+export function ProgramLifecycle({ program, work }: { program: LabProgram; work: ProgramWork }) {
+  const life = work.lifecycle;
   const blocked = life.closeBlockedReason;
   const openRequest = work.actionItems.find(
     (item) => item.kind === 'closure_request' && item.status === 'open',
   );
-  const showChecklist = blocked === 'unresolved' || blocked === 'empty_program' || life.canClose;
-
+  const showChecklist =
+    life.status === 'submitted' &&
+    (blocked === 'unresolved' || blocked === 'empty_program' || life.canClose);
   return (
-    <section className="program-lifecycle" aria-labelledby={`${reasonId}-status`}>
-      <p id={`${reasonId}-status`} className="lifecycle-status">
-        <StatusBadge tone={life.status === 'closed' ? 'neutral' : 'success'}>
-          {PROGRAM_STATUS_LABEL[life.status]}
-        </StatusBadge>
-        {life.status === 'closed' && life.closedBy && life.closedAt ? (
-          <span className="field-hint">
-            Closed by {formatPerson(life.closedBy.initials, life.closedBy.name)},{' '}
-            {shortDateTime(life.closedAt)}. Closing changes no stored material, retention or
-            disposal.
-          </span>
-        ) : null}
-      </p>
+    <section aria-label="Closure" className="flex flex-col gap-3" data-slot="program-lifecycle">
+      {life.status === 'closed' && life.closedBy && life.closedAt ? (
+        <p className="text-sm text-muted-foreground">
+          Closed by {formatPerson(life.closedBy.initials, life.closedBy.name)},{' '}
+          {shortDateTime(life.closedAt)}. Closing changes no stored material, retention or disposal.
+        </p>
+      ) : null}
       {openRequest ? (
-        <p className="field-hint">
+        <p className="text-sm">
           Closure requested by{' '}
           {formatPerson(openRequest.createdBy.initials, openRequest.createdBy.name)}:{' '}
-          <span className="pre-wrap">{openRequest.comment}</span>
+          <span className="whitespace-pre-wrap">{openRequest.comment}</span>
         </p>
       ) : null}
       {blocked === 'personal_sign_in' ? (
-        <p className="field-hint">
+        <p className="text-sm text-muted-foreground">
           Closing, reopening and cancelling need a personal sign-in. Choosing a person on this LAB
           station doesn’t give their authority.
         </p>
-      ) : (
-        <div className="lifecycle-actions">
-          {life.status === 'submitted' ? (
-            <>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || !life.canClose}
-                aria-describedby={blocked ? `${reasonId}-reason` : undefined}
-                onClick={async () => {
-                  setBusy(true);
-                  const result = await closeProgram(program.id, {
-                    version: life.version,
-                    idempotencyKey: closeKey,
-                  });
-                  setBusy(false);
-                  if (result.ok || result.kind !== 'network') setCloseKey(newKey());
-                  finish(result);
-                }}
-              >
-                Close program
-              </button>
-              {blocked && blocked !== 'not_open' ? (
-                <span id={`${reasonId}-reason`} className="field-hint">
-                  {blocked === 'unresolved' || blocked === 'empty_program'
-                    ? life.closure.summary
-                    : CLOSE_BLOCKED_REASONS[blocked]}
-                </span>
-              ) : null}
-              {life.canRequestClose && !life.canClose && !openRequest ? (
-                <TextAction
-                  label="Request closure"
-                  fieldLabel="Why this program can close"
-                  maxLength={LIFECYCLE_REASON_MAX_LENGTH}
-                  onSubmit={async (reason, key) =>
-                    finish(await requestClosure(program.id, { reason, idempotencyKey: key }))
-                  }
-                />
-              ) : null}
-            </>
-          ) : null}
-          {life.canReopen ? (
-            <TextAction
-              label="Reopen program"
-              fieldLabel="Reason for reopening"
-              maxLength={LIFECYCLE_REASON_MAX_LENGTH}
-              onSubmit={async (reason, key) =>
-                finish(
-                  await reopenProgram(program.id, {
-                    reason,
-                    version: life.version,
-                    idempotencyKey: key,
-                  }),
-                )
-              }
-            />
-          ) : null}
-        </div>
-      )}
-      {life.status === 'submitted' && showChecklist ? (
-        <details className="closure-checklist" open={blocked === 'empty_program'}>
-          <summary>Closure checklist: {life.closure.summary}</summary>
-          {life.closure.emptyProgram ? (
-            <p>At least one test request is needed before this program can close.</p>
-          ) : life.closure.blockers.length === 0 ? (
-            <p>Every test is accepted or cancelled with a reason.</p>
-          ) : (
-            <ul>
-              {life.closure.blockers.map((blocker) => (
-                <li key={blocker.testRequestId}>
-                  <a href={`#request-${blocker.testRequestId}`}>
-                    {testLabel(program, blocker.testRequestId)}
-                  </a>
-                  : {closureBlockerLabel(blocker)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
       ) : null}
-      {life.events.length > 0 ? (
-        <details className="lifecycle-history">
-          <summary>Program history ({life.events.length})</summary>
-          <ol>
-            {life.events.map((event) => (
-              <li key={event.id}>
-                {event.kind === 'closed' ? 'Closed' : 'Reopened'} by{' '}
-                {formatPerson(event.person.initials, event.person.name)},{' '}
-                {shortDateTime(event.occurredAt)}
-                {event.reason ? <span className="pre-wrap">: {event.reason}</span> : null}
-              </li>
-            ))}
-          </ol>
-        </details>
+      {showChecklist ? (
+        <Alert>
+          {life.closure.blockers.length === 0 && !life.closure.emptyProgram ? (
+            <CircleCheck aria-hidden="true" />
+          ) : (
+            <ListChecks aria-hidden="true" />
+          )}
+          <AlertTitle>Closure checklist: {life.closure.summary}</AlertTitle>
+          <AlertDescription>
+            {life.closure.emptyProgram ? (
+              <p>At least one test request is needed before this program can close.</p>
+            ) : life.closure.blockers.length === 0 ? (
+              <p>Every test is accepted or cancelled with a reason.</p>
+            ) : (
+              <>
+                <p>Every test is accepted or cancelled with a reason before closing.</p>
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {life.closure.blockers.map((blocker) => (
+                    <li key={blocker.testRequestId}>
+                      <Button variant="link" asChild className="h-auto p-0">
+                        <a href={`#request-${blocker.testRequestId}`}>
+                          {testLabel(program, blocker.testRequestId)}
+                        </a>
+                      </Button>
+                      : {closureBlockerLabel(blocker)}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
       ) : null}
     </section>
   );
@@ -215,42 +157,53 @@ export function RequestLifecycle({
       item.testRequestId === request.id &&
       item.status === 'open',
   );
-  return (
-    <div className="request-lifecycle">
+  const link = (id: string, text: string) => (
+    <Button variant="link" asChild className="h-auto p-0">
+      <a href={`#request-${id}`}>{text}</a>
+    </Button>
+  );
+  const notes = (
+    <>
       {life.repeatOfId ? (
-        <span className="field-hint">
-          Repeat of{' '}
-          <a href={`#request-${life.repeatOfId}`}>{testLabel(program, life.repeatOfId)}</a>
+        <span className="text-sm text-muted-foreground">
+          Repeat of {link(life.repeatOfId, testLabel(program, life.repeatOfId))}
         </span>
       ) : null}
       {life.repeatIds.length > 0 ? (
-        <span className="field-hint">
+        <span className="text-sm text-muted-foreground">
           Repeated as{' '}
           {life.repeatIds.map((id, index) => (
             <span key={id}>
               {index > 0 ? ', ' : ''}
-              <a href={`#request-${id}`}>repeat {index + 1}</a>
+              {link(id, `repeat ${index + 1}`)}
             </span>
           ))}
         </span>
       ) : null}
       {life.cancelledBy && life.cancelledAt ? (
-        <span className="field-hint">
+        <span className="text-sm text-muted-foreground">
           Cancelled by {formatPerson(life.cancelledBy.initials, life.cancelledBy.name)},{' '}
-          {shortDateTime(life.cancelledAt)}: <span className="pre-wrap">{life.cancelReason}</span>
+          {shortDateTime(life.cancelledAt)}:{' '}
+          <span className="whitespace-pre-wrap">“{life.cancelReason}”</span>
         </span>
       ) : null}
       {openRequest ? (
-        <span className="field-hint">
+        <span className="text-sm">
           Cancellation requested by{' '}
           {formatPerson(openRequest.createdBy.initials, openRequest.createdBy.name)}:{' '}
-          <span className="pre-wrap">{openRequest.comment}</span>
+          <span className="whitespace-pre-wrap">{openRequest.comment}</span>
         </span>
       ) : null}
-      <div className="lifecycle-actions">
+    </>
+  );
+  const actions =
+    life.canRepeat || life.canCancel || (life.canRequestCancel && !openRequest) ? (
+      <div className="flex flex-wrap items-center gap-2">
         {life.canRepeat ? (
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             disabled={busy}
             onClick={async () => {
               setBusy(true);
@@ -264,12 +217,13 @@ export function RequestLifecycle({
             }}
           >
             Repeat test
-          </button>
+          </Button>
         ) : null}
         {life.canCancel ? (
           <TextAction
             label="Cancel test"
             fieldLabel="Reason for cancelling"
+            description="The requester sees the reason. A cancelled test counts as resolved for closing."
             maxLength={LIFECYCLE_REASON_MAX_LENGTH}
             onSubmit={async (reason, key) =>
               finish(
@@ -292,6 +246,11 @@ export function RequestLifecycle({
           />
         ) : null}
       </div>
+    ) : null;
+  return (
+    <div className="flex flex-col gap-1" data-slot="request-lifecycle">
+      {notes}
+      {actions}
     </div>
   );
 }

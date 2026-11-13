@@ -1,12 +1,24 @@
 import type { LabProgram, ProgramWork, TestCatalogue } from '@materialmule/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AmendProgram } from './AmendmentControls';
 
 // MM-T83: "Add a testing line" on a submitted program. The preview is the amend route's own
 // 409 `coverage_changed` answer; the line is added only when the person confirms it. Fictional
 // data only (DEMO-2601, TH26-01).
+
+// Popovers, selects and menus make these interaction tests slower than the default allows.
+vi.setConfig({ testTimeout: 15000 });
+
+// Radix Select and Popover use pointer capture; jsdom has none.
+beforeAll(() => {
+  const proto = window.HTMLElement.prototype as unknown as Record<string, unknown>;
+  proto.hasPointerCapture ??= () => false;
+  proto.releasePointerCapture ??= () => {};
+  proto.setPointerCapture ??= () => {};
+  proto.scrollIntoView ??= () => {};
+});
 
 const PROJECT = '00000000-0000-4000-8000-000000000201';
 const HOLE = '00000000-0000-4000-8000-000000000301';
@@ -21,7 +33,17 @@ const PROBE = '00000000-0000-4000-8000-000000000000';
 const program = {
   id: '00000000-0000-4000-8000-0000000000e1',
   project: { id: PROJECT, projectNumber: 'DEMO-2601', name: 'Riverbank investigation' },
-  lines: [{ id: 'line-1', lineNumber: 1, requests: [] }],
+  lines: [
+    {
+      id: 'line-1',
+      lineNumber: 1,
+      source: { kind: 'test_hole', id: '00000000-0000-4000-8000-000000000301', label: 'TH26-01' },
+      scope: 'all',
+      requests: [],
+      coverage: [],
+      amendmentId: null,
+    },
+  ],
 } as unknown as LabProgram;
 
 const work = (canAmend: boolean) =>
@@ -105,15 +127,24 @@ const amendBodies = (fetchMock: ReturnType<typeof stubFetch>) =>
     .filter(([url, init]) => String(url).endsWith('/amend') && init?.method === 'POST')
     .map(([, init]) => JSON.parse(String(init!.body)));
 
+async function chooseSource(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  const card = screen.getByRole('region', { name: 'New line 2' });
+  await user.click(within(card).getByLabelText('Sampling source'));
+  await user.click(await screen.findByRole('option', { name }));
+}
+
 async function fillGrabsLine(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Amend program' }));
   await user.click(screen.getByRole('button', { name: 'Add a testing line' }));
   const card = await screen.findByRole('region', { name: 'New line 2' });
-  await user.selectOptions(within(card).getByLabelText('Sampling source'), 'TH26-01 — 2 units');
-  await user.click(within(card).getByLabelText('All grabs (G)'));
+  expect(within(card).getByText('Added by amendment')).toBeVisible();
+  await chooseSource(user, /TH26-01 — 2 units/);
+  await user.click(within(card).getByRole('radio', { name: 'All grabs (G)' }));
   await user.click(await within(card).findByRole('checkbox', { name: /BKT-2026-000101/ }));
-  await user.type(within(card).getByLabelText('Find a test'), 'DEMO-MC');
-  await user.click(within(card).getByRole('button', { name: /DEMO-MC/ }));
+  await user.click(within(card).getByRole('button', { name: 'Add test to new line 2' }));
+  await user.type(await screen.findByLabelText('Find a test'), 'DEMO-MC');
+  await user.click(screen.getByRole('option', { name: /DEMO-MC/ }));
+  await user.keyboard('{Escape}');
 }
 
 afterEach(() => {
@@ -266,8 +297,7 @@ describe('Add a testing line: stale versions and previews (review fixes, PR #106
     await fillGrabsLine(user);
     await user.click(screen.getByRole('button', { name: 'Preview line' }));
     // While A's preview is on its way, the line moves to source B.
-    const card = screen.getByRole('region', { name: 'New line 2' });
-    await user.selectOptions(within(card).getByLabelText('Sampling source'), 'TH26-02 — 1 unit');
+    await chooseSource(user, /TH26-02 — 1 unit/);
     answerA(coverageOf(covered(TICKED, 'BKT-2026-000101', true)));
     await vi.waitFor(() =>
       expect(screen.getByRole('button', { name: 'Preview line' })).toBeEnabled(),
